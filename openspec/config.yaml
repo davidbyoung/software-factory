@@ -1,0 +1,23 @@
+schema: spec-driven
+
+# The project's rules live in CLAUDE.md and .claude/factory/rules.md. Point
+# at them rather than copying them here, or the two drift apart.
+context: |
+  Follow CLAUDE.md and .claude/factory/rules.md. Write American English with
+  the Oxford comma. This repository is the software factory itself: a spec
+  here describes what a factory user sees, such as a command's output, a
+  setting, or what the factory writes into their repository.
+  Changes come from GitHub issues refined by the factory-refine skill and built
+  by the factory-build skill; see "Spec track" in .claude/factory/rules.md.
+
+rules:
+  proposal:
+    - Link the GitHub issue the change comes from, and carry its Decisions.
+  specs:
+    - Each scenario is one numbered line of the issue's Spec section, in its
+      own words, under the capability the issue names. Add no scenario the
+      issue does not have, and reword none.
+  tasks:
+    - Include the tests, by file, beside the task each checks; a verify task
+      mapping every scenario to its test; and the gate (npm run format,
+      npm run check).

@@ -33,10 +33,11 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "prettier --check . && tsc --noEmit && vitest run",
+    "check": "prettier --check . && tsc --noEmit && npm run -s spec:validate && vitest run",
     "prepack": "tsc -p tsconfig.build.json",
     "pack-check": "node tests/pack-check.mts",
-    "site-check": "node --test tests/site-check.mts"
+    "site-check": "node --test tests/site-check.mts",
+    "spec:validate": "DO_NOT_TRACK=1 openspec validate --all --strict --no-interactive"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.8.0",
@@ -46,6 +47,7 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@fission-ai/openspec": "2.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.18.0",
     "@types/pngjs": "^6.0.5",
