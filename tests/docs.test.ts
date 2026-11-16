@@ -266,6 +266,19 @@ describe("the docs", () => {
     expect(found).toEqual([]);
   });
 
+  it("give every table a header row with words in it", () => {
+    const found = pages().flatMap((page) => {
+      const lines = read(page).split("\n");
+      return lines.flatMap((line, i) =>
+        /^\|[\s|:-]*-{3}[\s|:-]*\|$/.test(line) &&
+        /^\|[\s|]*\|$/.test(lines[i - 1] ?? "")
+          ? [`${page}:${i}: ${lines[i - 1]!.trim()}`]
+          : [],
+      );
+    });
+    expect(found).toEqual([]);
+  });
+
   it("never show a bare `npx factory`, which can run another package", () => {
     const found = pages().flatMap((page) =>
       read(page)
