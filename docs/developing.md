@@ -364,8 +364,10 @@ last row is the only real proof that a change to one still works.
    git tag v0.2.0 && git push origin v0.2.0
    ```
 
-3. The release workflow checks that the tag matches `package.json`,
-   runs the tests and `pack-check`, and publishes the version to npm.
+3. The release workflow runs the whole CI on the tagged commit, the same
+   jobs a pull request gets. Only once they pass does it check that the tag
+   matches `package.json` and that `main` has the commit, then publish the
+   version to npm.
 
 The first version, 0.1.0, was published by hand, since npm sets up a
 trusted publisher only for a package that exists:
