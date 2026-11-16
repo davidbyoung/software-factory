@@ -47,9 +47,9 @@ beforeAll(() => {
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
-/** Runs the hook on a Bash call made from `cwd`. The gate after the branch
- * check fails in these bare repositories, so a call that gets past the
- * branch check is still blocked, by the gate rather than by main. */
+/** Runs the hook on a Bash call made from `cwd`. These bare repositories
+ * have no factory settings, so a call that gets past the branch check is
+ * let through. */
 function hook(command: string, cwd: string) {
   return spawnSync("node", [LAUNCHER, "guard", "commit"], {
     input: JSON.stringify({ cwd, tool_input: { command } }),
@@ -58,10 +58,11 @@ function hook(command: string, cwd: string) {
 }
 
 describe("factory guard commit", () => {
+  // These checkouts have no factory settings, so a commit the branch check
+  // lets through is let through whole.
   it("reads the branch from the directory a command cds into", () => {
     const r = hook(`cd ${feature} && git commit -m x`, main);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toContain(GATE_BLOCK);
+    expect(r.status).toBe(0);
     expect(r.stderr).not.toContain(MAIN_BLOCK);
   });
 
@@ -73,9 +74,14 @@ describe("factory guard commit", () => {
 
   it("reads the branch from git -C's directory", () => {
     const r = hook(`git -C ${feature} commit -m x`, main);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toContain(GATE_BLOCK);
+    expect(r.status).toBe(0);
     expect(r.stderr).not.toContain(MAIN_BLOCK);
+  });
+
+  it("lets a commit through in a repository the factory does not govern, one with no settings", () => {
+    const r = hook("git commit -m x", feature);
+    expect(r.status).toBe(0);
+    expect(r.stderr).toBe("");
   });
 
   // The hook blanks quoted text with a $ in it, so it cannot tell where

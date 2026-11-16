@@ -8,7 +8,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaultDeps, loadSettings } from "./config.mts";
+import { defaultDeps, loadSettings, settingsPath } from "./config.mts";
 
 export type HookInput = { cwd?: string; tool_input?: { command?: string } };
 
@@ -200,6 +200,9 @@ export async function checkCommit(
     err(lastLines(`${r.stdout ?? ""}${r.stderr ?? ""}`).join("\n"));
     return `the factory in ${top} blocked it, as above.`;
   }
+  // A repository with no settings is not one the factory governs, such as
+  // another repository a session works in: it has no gate to run.
+  if (!existsSync(settingsPath(top))) return null;
   let commands: string[];
   try {
     commands = (await loadSettings(defaultDeps(top))).beforeCommit;
