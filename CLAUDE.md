@@ -35,8 +35,10 @@ npm run site-check              # the site comparison against the sample sites, 
 npm run spec:validate           # the spec check, after an OpenSpec change
 ```
 
-CI runs `npm run check`, `pack-check`, and `site-check` on every pull
-request. There is no end-to-end suite.
+CI runs the same checks on every pull request, in `ci.yml` (format, types,
+specs, unit tests, `pack-check`, and `site-check`) and the synced
+`factory-check.yml` (the factory's files and settings). There is no
+end-to-end suite.
 
 ## Rules by area
 
@@ -54,13 +56,25 @@ small change keeps `factory-test-reviewer` for that reason. There is no
 website and no design guide, so no style tweak needs a test, and there is
 no UI reviewer.
 
+- **A version bump** (`version` in `package.json` and the lock `factory sync`
+  rewrites) needs no new test: CI's `pack-check` and the factory check are
+  its checks.
+- **A dependency bump** is made by a session, by hand, since there is no
+  Dependabot here yet. `package-lock.json` does not count toward a change's
+  size, and the gate with `pack-check` is its check, with no new test.
+
 ## Branching, pushing, and review: this repository
 
 - **The board**, https://github.com/users/davidbyoung/projects/1, is
   shared with the repository the factory was drawn out of. Each
   repository's sync and `factory status` read only its own cards.
 - **Builds start from a session.** `builds.trigger` is `manual`, so moving a
-  card to Ready starts nothing: tell a session to work the ticket.
+  card to Ready starts nothing, and no poller runs for this repository.
+  Wherever the rules or a skill say a card moved to Ready starts a build,
+  or that the poller starts one, read it here as: the owner tells a session
+  to work the ticket, and the session builds it. A finished refinement's
+  report says so, not that Ready builds it. Blockers still matter:
+  `factory ticket claim` stops on an open one.
 - **A release is the owner's.** A pull request that should ship raises
   `version` in `package.json` and runs `node bin/factory.js sync`, which
   records the version in `.claude/factory.lock`; once it merges, the owner tags the merge
@@ -71,13 +85,18 @@ no UI reviewer.
 
 Nothing. There is no `auto-merge` in `.claude/factory.yaml`, so every pull
 request waits for the owner, since every change here reaches every
-repository that uses the factory.
+repository that uses the factory. No merge-policy workflow runs, so no
+pull request gets a `merge:` label or a `Who merges` status: where the
+rules or a skill name either, read it as "waits for the owner".
 
 ## Spec track: this repository
 
 `specs` is `openspec` here. A ticket gets the `spec` label when it changes
-what a factory user sees: a command's output, a setting, or what the
-factory writes into their repository. `openspec/specs/` starts empty;
+what a factory user sees: a command's output or exit, a setting, or which
+files the factory writes into their repository and where. The text of
+its skills, agents, rules, and review instructions is not spec-tracked,
+since prose has no test to map a scenario to: a change to it goes through
+the fresh-agent trace in "Changing the process" instead. `openspec/specs/` starts empty;
 behavior the factory already has gets a spec when a ticket next changes
 it. The docs stay the reader's guide, and a spec change updates them in
 the same pull request. The `spec:validate` script runs OpenSpec with
@@ -90,6 +109,12 @@ The source of every factory file is in this repository: `skills/`,
 the source, run `node bin/factory.js sync`, and commit both; CI's
 `Factory files in step` fails when a copy differs from its source. Never
 edit the copy under `.claude/` or `.github/`.
+
+The code that decides what runs and who merges, which the trace also
+covers, is everything under `src/` that a workflow, a hook, or a skill's
+gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
+`review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
+the `guard*.mts` files, and `lib/work-status.mts`.
 
 A change here reaches every repository that uses the factory, through its
 next release, so the fresh-agent trace in "Changing the process" in

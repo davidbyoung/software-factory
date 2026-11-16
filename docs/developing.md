@@ -368,7 +368,8 @@ last row is the only real proof that a change to one still works.
 
 ## Releasing
 
-1. Raise `version` in `package.json` in a pull request, and merge it.
+1. Raise `version` in `package.json` in a pull request, run `factory sync`
+   so `.claude/factory.lock` records it, and merge it.
 2. Tag the merge commit with the same version and push the tag:
 
    ```bash
