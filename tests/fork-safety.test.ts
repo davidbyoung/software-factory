@@ -6,10 +6,11 @@
 //   repository's secrets, that checks out the pull request's own commit.
 //   The factory's board sync and review verdict use these triggers safely:
 //   they check out main and never the pull request.
-// - A job on `pull_request` that reads a secret other than GITHUB_TOKEN, or
-//   asks for write access, without an `if:` that keeps forks out: one that
-//   requires the pull request's head to be this repository, or the actor to
-//   be Dependabot, which a fork's author can never be.
+// - A job on `pull_request` that reads a secret other than GITHUB_TOKEN, in
+//   any spelling, or asks for write access, without an `if:` that keeps
+//   forks out: one that requires the pull request's head to be this
+//   repository, or the actor to be Dependabot, which a fork's author can
+//   never be, and widens neither with `||`.
 //   GitHub gives a fork's run no secrets, but the job would then run with
 //   whatever it can reach on this repository's own branches.
 //
@@ -19,7 +20,7 @@ import { join } from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 
-type Step = { uses?: string; with?: Record<string, unknown> };
+type Step = { uses?: string; run?: string; with?: Record<string, unknown> };
 type Job = {
   if?: string;
   permissions?: Record<string, string> | string;
@@ -32,6 +33,12 @@ type Workflow = {
   jobs: Record<string, Job>;
 };
 
+/** What in a checkout's inputs names the pull request's own code, rather
+ * than the base branch. */
+const HEAD =
+  /pull_request\.head|workflow_run\.head|github\.head_ref|refs\/pull\//;
+/** A shell step that fetches or checks out the pull request. */
+const SHELL_CHECKOUT = /gh pr checkout|refs\/pull\/|github\.head_ref/;
 const DEPENDABOT = "github.actor == 'dependabot[bot]'";
 const SAME_REPO =
   "github.event.pull_request.head.repo.full_name == github.repository";
@@ -58,22 +65,22 @@ export function forkHazards(text: string): string[] {
     if (on.includes("pull_request_target") || on.includes("workflow_run")) {
       const checksOutHead = (job.steps ?? []).some(
         (s) =>
-          s.uses?.startsWith("actions/checkout") &&
-          /pull_request\.head|workflow_run\.head/.test(
-            JSON.stringify(s.with ?? {}),
-          ),
+          (s.uses?.startsWith("actions/checkout") &&
+            HEAD.test(JSON.stringify(s.with ?? {}))) ||
+          SHELL_CHECKOUT.test(s.run ?? ""),
       );
       if (checksOutHead)
         found.push(`${name}: checks out the pull request's code with secrets`);
     }
     if (on.includes("pull_request")) {
-      const secret = (raw.match(/secrets\.[A-Za-z_]+/g) ?? []).some(
-        (s) => s !== "secrets.GITHUB_TOKEN",
+      const secret = /\bsecrets\b/.test(
+        raw.replace(/secrets\.GITHUB_TOKEN\b/g, ""),
       );
       const write = writes(job.permissions ?? w.permissions);
       const condition = (job.if ?? "").replace(/\s+/g, " ");
       const guarded =
-        condition.includes(SAME_REPO) || condition.includes(DEPENDABOT);
+        (condition.includes(SAME_REPO) || condition.includes(DEPENDABOT)) &&
+        !condition.includes("||");
       if ((secret || write) && !guarded)
         found.push(
           `${name}: gives a fork's pull request a secret or write access`,
@@ -162,24 +169,157 @@ describe("forkHazards", () => {
     ).toEqual([]);
   });
 
-  it("lets through a guarded pull_request job, and one with only GITHUB_TOKEN and read access", () => {
+  it("lets through a guarded pull_request job", () => {
     expect(
       forkHazards(
         yaml([
           "on: pull_request",
-          "permissions: { contents: read }",
           "jobs:",
           "  review:",
           `    if: ${SAME_REPO}`,
           "    permissions: { pull-requests: write }",
           "    steps:",
           "      - run: echo ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("lets through a pull_request job with only GITHUB_TOKEN and read access", () => {
+    expect(
+      forkHazards(
+        yaml([
+          "on: pull_request",
+          "permissions: { contents: read }",
+          "jobs:",
           "  check:",
           "    steps:",
           "      - run: echo ${{ secrets.GITHUB_TOKEN }}",
         ]),
       ),
     ).toEqual([]);
+  });
+
+  it.each([
+    ["the head ref", "ref: ${{ github.head_ref }}"],
+    [
+      "the pull request's merge ref",
+      "ref: refs/pull/${{ github.event.pull_request.number }}/merge",
+    ],
+    [
+      "the head repository",
+      "repository: ${{ github.event.pull_request.head.repo.full_name }}",
+    ],
+  ])("finds a pull_request_target checkout of %s", (_, line) => {
+    expect(
+      forkHazards(
+        yaml([
+          "on: [pull_request_target]",
+          "jobs:",
+          "  build:",
+          "    steps:",
+          "      - uses: actions/checkout@v7",
+          "        with:",
+          `          ${line}`,
+        ]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("finds a workflow_run job that checks out the run's head", () => {
+    expect(
+      forkHazards(
+        yaml([
+          "on:",
+          "  workflow_run:",
+          "    workflows: [CI]",
+          "jobs:",
+          "  after:",
+          "    steps:",
+          "      - uses: actions/checkout@v7",
+          "        with:",
+          "          ref: ${{ github.event.workflow_run.head_sha }}",
+        ]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("finds a pull_request_target job that checks the pull request out from the shell", () => {
+    expect(
+      forkHazards(
+        yaml([
+          "on: [pull_request_target]",
+          "jobs:",
+          "  build:",
+          "    steps:",
+          "      - uses: actions/checkout@v7",
+          "      - run: gh pr checkout ${{ github.event.pull_request.number }}",
+        ]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    ["by index", "echo ${{ secrets['CLAUDE_CODE_OAUTH_TOKEN'] }}"],
+    ["all at once", "echo ${{ toJSON(secrets) }}"],
+    ["with a digit in its name", "echo ${{ secrets.TOKEN_2 }}"],
+  ])("finds a pull_request job that reads a secret %s", (_, run) => {
+    expect(
+      forkHazards(
+        yaml([
+          "on: pull_request",
+          "jobs:",
+          "  review:",
+          "    steps:",
+          `      - run: ${JSON.stringify(run)}`,
+        ]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("finds a pull_request job that passes every secret on to a called workflow", () => {
+    expect(
+      forkHazards(
+        yaml([
+          "on: pull_request",
+          "jobs:",
+          "  call:",
+          "    uses: ./.github/workflows/other.yml",
+          "    secrets: inherit",
+        ]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("finds a guard widened with ||, which keeps no fork out", () => {
+    expect(
+      forkHazards(
+        yaml([
+          "on: pull_request",
+          "jobs:",
+          "  enable:",
+          `    if: ${DEPENDABOT} || true`,
+          "    steps:",
+          "      - run: echo ${{ secrets.FACTORY_AUTOMERGE_TOKEN }}",
+        ]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("reads triggers written as a map", () => {
+    expect(
+      forkHazards(
+        yaml([
+          "on:",
+          "  pull_request:",
+          "    types: [opened]",
+          "jobs:",
+          "  review:",
+          "    steps:",
+          "      - run: echo ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
+        ]),
+      ),
+    ).toHaveLength(1);
   });
 });
 
@@ -191,7 +331,7 @@ describe("this repository's workflows", () => {
       .map((f) => `${dir}/${f}`),
   );
 
-  it("read the workflows it runs and the ones it ships", () => {
+  it("finds the workflows to scan in both folders", () => {
     expect(files).toContain(".github/workflows/release.yml");
     expect(files).toContain("workflows/factory-claude-review.yml");
   });

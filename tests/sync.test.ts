@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -473,6 +474,18 @@ describe("launcherPath", () => {
 
   it("points at the root's own launcher when the repository is the package itself", () => {
     expect(launcherPath(dir, dir, "@o/factory")).toBe("bin/factory.js");
+  });
+
+  it("follows a workspace link to the package's folder inside the repository", () => {
+    mkdirSync(join(dir, "packages/factory"), { recursive: true });
+    mkdirSync(join(dir, "node_modules/@o"), { recursive: true });
+    symlinkSync(
+      join(dir, "packages/factory"),
+      join(dir, "node_modules/@o/factory"),
+    );
+    expect(
+      launcherPath(join(dir, "node_modules/@o/factory"), dir, "@o/factory"),
+    ).toBe("packages/factory/bin/factory.js");
   });
 
   it("points into node_modules when the package is outside the repository", () => {
