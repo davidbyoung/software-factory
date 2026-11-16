@@ -109,6 +109,10 @@ tickets:
   when you tell a session.
 - **If `board` is wrong:** the board sync fails and names the board it could
   not read.
+- **One board can hold more than one repository's tickets.** Give each
+  repository the same `board`: each one's sync, `status`, and poller read
+  only the cards for its own issues, and GitHub's Repository field tells
+  them apart on the board.
 
 A board shows the six states of [Workflow](workflow.md) as columns, and
 keeps three fields the factory writes. A repository that writes nothing
