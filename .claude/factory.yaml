@@ -1,0 +1,11 @@
+# Settings for the software factory in its own repository. Every key is
+# explained in docs/configuration.md. #250 installs the rest of the factory
+# here; for now these give a commit made in a session its fast checks.
+version: 1
+repository: davidbyoung/software-factory
+
+# Commands run before every commit a session makes. If one fails, the
+# commit is blocked.
+before-commit:
+  - npm run -s format:check
+  - npx tsc --noEmit

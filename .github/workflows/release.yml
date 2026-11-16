@@ -1,0 +1,60 @@
+# Publishes a version to npm when its tag is pushed: `git tag v0.2.0 &&
+# git push origin v0.2.0`, once that version's pull request has merged.
+#
+# It publishes as this repository's trusted publisher, set on the package's
+# page on npmjs.com, so no token is stored. Where that is not set up, the
+# NPM_TOKEN secret is used instead: a granular token that may publish this
+# one package. No provenance is attached, since npm gives it only to a
+# public repository.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10.
+      - name: Update npm
+        run: npm install -g npm@11
+
+      - name: Check the tag matches the package's version
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "The tag $GITHUB_REF_NAME does not match package.json's version, $version. Nothing was published."
+            exit 1
+          fi
+          echo "Publishing $version."
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the unit tests
+        run: npm test
+
+      - name: Check the packed package
+        run: npm run pack-check
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

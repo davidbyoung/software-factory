@@ -1,0 +1,43 @@
+name: Factory dependency auto-merge
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable:
+    name: Enable auto-merge
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the update
+        id: meta
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # A major bump can move the framework versions the instruction files
+      # describe, and nobody would have read the migration notes they ask
+      # for, so it stays a pull request for a person. Auto-merge still waits
+      # for the main ruleset: CI and the end-to-end tests must pass, the
+      # review check reports skipped on Dependabot's pull requests, and
+      # every review thread must be resolved.
+      #
+      # FACTORY_AUTOMERGE_TOKEN is the owner's fine-grained token, a Dependabot
+      # secret because this run gets Dependabot's secrets, not the Actions
+      # ones. A merge enabled with GITHUB_TOKEN would not start cd.yml, so
+      # the production smoke tests would never run on a dependency bump.
+      #
+      # Never a major, whose migration the owner reads first, and never the
+      # factory itself, which changes the instructions every session follows.
+      - name: Enable auto-merge
+        if: >-
+          steps.meta.outputs.update-type != 'version-update:semver-major' &&
+          !contains(steps.meta.outputs.dependency-names, '@davidbyoung/software-factory')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.FACTORY_AUTOMERGE_TOKEN }}

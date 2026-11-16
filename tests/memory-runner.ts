@@ -1,0 +1,109 @@
+// A second runner, kept in memory, that the commands' tests run against.
+// It fills the same interface as GitHub Actions' (`src/runner/`), so a
+// command that works here works on any runner that keeps the interface.
+import type { FailedJob, Run, Runner, ThisRun } from "../src/runner/types.mts";
+
+type ReviewRun = { status: string; conclusion: string | null };
+
+export type MemoryRunnerOptions = {
+  /** The runs for each commit. */
+  runs?: Record<string, Run[]>;
+  /** The review's runs for each commit, newest first. */
+  reviewRuns?: Record<string, ReviewRun[]>;
+  /** The jobs that failed in each run, by the run's ID, with their logs. */
+  failedJobs?: Record<number, FailedJob[]>;
+  /** The run the session is in; outside one unless given. */
+  thisRun?: ThisRun | null;
+  /** How many times `findBuild` answers null before a started build shows:
+   * none unless given, and Infinity for a build that never shows. */
+  buildShowsAfter?: number;
+  /** The time a build is started at, in milliseconds. */
+  now?: () => number;
+  /** What each operation fails with, to test a command's failure path. */
+  fail?: Partial<Record<keyof Runner, Error>>;
+  /** Every operation called, in order, as its name and arguments. Shared
+   * with the in-memory code host when a test reads the order across both. */
+  log?: string[];
+  /** The secrets set on the repository, by name. */
+  secrets?: Record<string, string>;
+};
+
+export function memoryRunner(options: MemoryRunnerOptions = {}) {
+  const fail = options.fail ?? {};
+  const log = options.log ?? [];
+  const now = options.now ?? (() => 0);
+  const runs = new Map(Object.entries(options.runs ?? {}));
+  const reviewRuns = new Map(Object.entries(options.reviewRuns ?? {}));
+  const builds: { id: number; ticket: number; branch: string; at: number }[] =
+    [];
+  const reviewsAsked: string[] = [];
+  const secrets = new Map(Object.entries(options.secrets ?? {}));
+  let looked = 0;
+
+  /** Records the call, and fails it when the test asked for that. */
+  const called = (op: keyof Runner, ...args: unknown[]) => {
+    log.push([op, ...args].join(" "));
+    const error = fail[op];
+    if (error) throw error;
+  };
+  const runPage = (id: string) => `https://runner.example/runs/${id}`;
+
+  const runner: Runner = {
+    async startBuild(ticket, branch) {
+      called("startBuild", ticket, branch);
+      builds.push({ id: builds.length + 1, ticket, branch, at: now() });
+    },
+    async findBuild(ticket, since) {
+      called("findBuild", ticket);
+      if (looked++ < (options.buildShowsAfter ?? 0)) return null;
+      const found = builds.find((b) => b.ticket === ticket && b.at >= since);
+      return found ? runPage(String(found.id)) : null;
+    },
+    buildsPage: () => "https://runner.example/builds",
+    runPage,
+    thisRun: () => options.thisRun ?? null,
+    async runs(sha) {
+      called("runs", sha);
+      return (runs.get(sha) ?? []).map((r) => ({ ...r }));
+    },
+    async reviewRuns(sha) {
+      called("reviewRuns", sha);
+      return (reviewRuns.get(sha) ?? []).map((r) => ({ ...r }));
+    },
+    async reviewAgain(sha) {
+      called("reviewAgain", sha);
+      if (!reviewRuns.get(sha)?.length) return false;
+      reviewsAsked.push(sha);
+      return true;
+    },
+    async failedJobs(run) {
+      called("failedJobs", run);
+      return (options.failedJobs?.[run] ?? []).map((j) => ({ ...j }));
+    },
+    async secretNames() {
+      called("secretNames");
+      return [...secrets.keys()];
+    },
+    async setSecret(name, value) {
+      // The value is not logged: the log is what a test prints on failure.
+      called("setSecret", name);
+      secrets.set(name, value);
+    },
+  };
+
+  return {
+    runner,
+    /** Every operation called, in order. */
+    log,
+    /** The builds started, oldest first. */
+    builds,
+    /** The commits a fresh review was asked for, oldest first. */
+    reviewsAsked,
+    /** The secrets as they stand, by name. */
+    secrets,
+    /** Replaces a commit's runs, as time passing on the runner would. */
+    setRuns(sha: string, to: Run[]) {
+      runs.set(sha, to);
+    },
+  };
+}

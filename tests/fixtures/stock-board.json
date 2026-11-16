@@ -1,0 +1,32 @@
+[
+  {
+    "data": {
+      "owner": {
+        "projectV2": {
+          "id": "PVT_stock",
+          "title": "Roadmap",
+          "fields": {
+            "nodes": [
+              {
+                "id": "F_status",
+                "name": "Status",
+                "dataType": "SINGLE_SELECT",
+                "options": [
+                  { "id": "O_todo", "name": "Todo" },
+                  { "id": "O_progress", "name": "In Progress" },
+                  { "id": "O_done", "name": "Done" },
+                  { "id": "O_blocked", "name": "Blocked" }
+                ]
+              },
+              { "id": "F_title", "name": "Title", "dataType": "TITLE" }
+            ]
+          },
+          "items": {
+            "pageInfo": { "hasNextPage": false, "endCursor": null },
+            "nodes": []
+          }
+        }
+      }
+    }
+  }
+]

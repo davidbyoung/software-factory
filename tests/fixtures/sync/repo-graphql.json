@@ -1,0 +1,304 @@
+[
+  {
+    "data": {
+      "repository": {
+        "open": {
+          "pageInfo": {
+            "hasNextPage": false,
+            "endCursor": null
+          },
+          "nodes": [
+            {
+              "id": "I_10",
+              "number": 10,
+              "title": "Refining in a local session",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1000,
+                    "createdAt": "2026-11-09T08:00:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: refining local 359bd84e -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "I_11",
+              "number": 11,
+              "title": "A round waits on the owner",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1001,
+                    "createdAt": "2026-11-09T08:00:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: refining cloud cse_01Ab3x -->\n<!-- agent -->"
+                  },
+                  {
+                    "databaseId": 1002,
+                    "createdAt": "2026-11-09T08:05:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: waiting -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "I_12",
+              "number": 12,
+              "title": "Moved to Ready after refinement",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1003,
+                    "createdAt": "2026-11-09T08:00:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: refining local 359bd84e -->\n<!-- agent -->"
+                  },
+                  {
+                    "databaseId": 1004,
+                    "createdAt": "2026-11-09T08:10:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: refined -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "I_13",
+              "number": 13,
+              "title": "Ready from before a failed fire",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1005,
+                    "createdAt": "2026-11-09T08:30:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: started cloud st_0123456789ab -->\n<!-- agent -->"
+                  },
+                  {
+                    "databaseId": 1006,
+                    "createdAt": "2026-11-09T08:31:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: released -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "I_14",
+              "number": 14,
+              "title": "The poller started a build",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1007,
+                    "createdAt": "2026-11-09T08:40:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: started cloud st_aaaaaaaaaaaa -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "I_15",
+              "number": 15,
+              "title": "A cloud build claimed it",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1008,
+                    "createdAt": "2026-11-09T08:40:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: started cloud st_bbbbbbbbbbbb -->\n<!-- agent -->"
+                  },
+                  {
+                    "databaseId": 1009,
+                    "createdAt": "2026-11-09T08:41:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: claim cloud cse_01Ab3x -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "I_16",
+              "number": 16,
+              "title": "A local build opened its pull request",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1010,
+                    "createdAt": "2026-11-09T08:20:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: claim local 359bd84e -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "I_18",
+              "number": 18,
+              "title": "Not on the board yet",
+              "state": "OPEN",
+              "closedAt": null,
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": []
+              }
+            }
+          ]
+        },
+        "closed": {
+          "nodes": [
+            {
+              "id": "I_17",
+              "number": 17,
+              "title": "Merged this morning",
+              "state": "CLOSED",
+              "closedAt": "2026-11-09T09:30:00Z",
+              "labels": {
+                "nodes": []
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "databaseId": 1011,
+                    "createdAt": "2026-11-09T08:00:00Z",
+                    "author": {
+                      "login": "acme"
+                    },
+                    "body": "Text.\n\n<!-- work-status: claim cloud cse_01Zz9y -->\n<!-- agent -->"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "pullRequests": {
+          "nodes": [
+            {
+              "number": 40,
+              "createdAt": "2026-11-09T08:50:00Z",
+              "body": "Closes #16",
+              "isDraft": true,
+              "author": {
+                "login": "acme"
+              },
+              "closingIssuesReferences": {
+                "nodes": [
+                  {
+                    "number": 16,
+                    "repository": {
+                      "nameWithOwner": "acme/widgets"
+                    }
+                  }
+                ]
+              },
+              "reviewThreads": {
+                "nodes": []
+              },
+              "commits": {
+                "nodes": [
+                  {
+                    "commit": {
+                      "statusCheckRollup": {
+                        "state": "PENDING"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "number": 41,
+              "createdAt": "2026-11-09T08:55:00Z",
+              "body": "Bump vitest",
+              "isDraft": false,
+              "author": {
+                "login": "dependabot"
+              },
+              "closingIssuesReferences": {
+                "nodes": []
+              },
+              "reviewThreads": {
+                "nodes": []
+              },
+              "commits": {
+                "nodes": [
+                  {
+                    "commit": {
+                      "statusCheckRollup": {
+                        "state": "SUCCESS"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+]
