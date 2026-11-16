@@ -1,6 +1,8 @@
 // The release workflow publishes only a tag that matches package.json's
-// version, so a mistyped tag never publishes a version nobody meant.
-import { spawnSync } from "node:child_process";
+// version, on a commit that is on main, after the same CI a pull request
+// gets passes on it, so a mistyped or stray tag never publishes a version
+// nobody meant.
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,14 +11,18 @@ import { afterEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 type Step = { name?: string; id?: string; run?: string };
-const workflow = load(
-  readFileSync(
-    new URL("../.github/workflows/release.yml", import.meta.url),
-    "utf8",
-  ),
-) as { jobs: { publish: { steps: Step[] } } };
-const steps = workflow.jobs.publish.steps;
+type Job = { uses?: string; needs?: string | string[]; steps?: Step[] };
+const read = (name: string) =>
+  load(
+    readFileSync(
+      new URL(`../.github/workflows/${name}`, import.meta.url),
+      "utf8",
+    ),
+  ) as { on: Record<string, unknown>; jobs: Record<string, Job> };
+const workflow = read("release.yml");
+const steps = workflow.jobs.publish!.steps!;
 const check = steps.find((s) => s.id === "version")!;
+const onMain = steps.find((s) => s.id === "on-main")!;
 
 let dir = "";
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -47,5 +53,51 @@ describe("the release workflow", () => {
   it("checks the tag before it publishes", () => {
     const publish = steps.findIndex((s) => s.name === "Publish");
     expect(steps.indexOf(check)).toBeLessThan(publish);
+  });
+
+  it("runs the whole CI on the tagged commit, and publishes only once it passes", () => {
+    expect(workflow.jobs.ci?.uses).toBe("./.github/workflows/ci.yml");
+    expect([workflow.jobs.publish!.needs].flat()).toContain("ci");
+    expect(read("ci.yml").on).toHaveProperty("workflow_call");
+  });
+
+  describe("a tag's commit", () => {
+    let origin = "";
+    afterEach(() => rmSync(origin, { recursive: true, force: true }));
+
+    /** A clone whose origin's main has one commit, checked out at a
+     * second commit that main does not have, or at main itself. */
+    function clone(onMainBranch: boolean) {
+      origin = mkdtempSync(join(tmpdir(), "release-origin-"));
+      const git = (cwd: string, ...args: string[]) =>
+        execFileSync("git", args, { cwd, stdio: "pipe", encoding: "utf8" });
+      const id = ["-c", "user.name=t", "-c", "user.email=t@t"];
+      git(origin, "init", "-q", "-b", "main");
+      git(origin, ...id, "commit", "-q", "--allow-empty", "-m", "on main");
+      dir = mkdtempSync(join(tmpdir(), "release-"));
+      git(dir, "clone", "-q", origin, ".");
+      if (!onMainBranch)
+        git(dir, ...id, "commit", "-q", "--allow-empty", "-m", "elsewhere");
+      return git(dir, "rev-parse", "HEAD").trim();
+    }
+
+    const runOnMain = (sha: string) =>
+      spawnSync("bash", ["-eo", "pipefail", "-c", onMain.run!], {
+        cwd: dir,
+        env: { ...process.env, GITHUB_SHA: sha, GITHUB_REF_NAME: "v0.2.0" },
+        encoding: "utf8",
+      });
+
+    it("is refused when main does not have it", () => {
+      const r = runOnMain(clone(false));
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain(
+        "The tag v0.2.0 is on a commit main does not have. Nothing was published.",
+      );
+    });
+
+    it("goes on when main has it", () => {
+      expect(runOnMain(clone(true)).status).toBe(0);
+    });
   });
 });
