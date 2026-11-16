@@ -8,8 +8,18 @@ How to work on the factory itself. For using it, start with the
 This repository holds the package, its docs, and its tests, and publishes
 the package to npm as `@davidbyoung/software-factory`. It was developed
 inside the private repository it was drawn out of until 0.1.0, and moved
-here with a fresh history. Its tickets are kept, for now, on that
-repository's board.
+here with a fresh history. Its tickets are issues here, shown on a board
+it shares with that repository: each repository's sync reads only its own
+cards.
+
+**It uses the factory on itself.** `.claude/factory.yaml` here sets the
+board, OpenSpec, and the CI review, and `node bin/factory.js sync` copies
+this repository's own skills, agents, rules, and workflows into `.claude/`
+and `.github/`, with hooks that run `bin/factory.js` at the root. So a
+change to a skill shows in the same pull request twice: the source, and
+the copy this repository's own sessions follow. `CLAUDE.md` says what is
+this repository's own, and `npx --no-install factory` finds the package's
+own command here without installing it.
 
 A change reaches a repository that uses the factory as a release: a new
 version on npm, then Dependabot's pull request there, which `factory-deps`
@@ -350,6 +360,7 @@ its own tests against faked replies.
 | `factory sync --check` | The copies match the source                                                                                                                                    |
 | Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host |
 | `/factory-trace`       | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                             |
+| Fork safety            | No workflow it runs or ships could run a fork's code with a secret or write access (`tests/fork-safety.test.ts`). This repository is public                    |
 | One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                               |
 
 The skills are instructions, and instructions cannot be unit tested. The
@@ -357,7 +368,8 @@ last row is the only real proof that a change to one still works.
 
 ## Releasing
 
-1. Raise `version` in `package.json` in a pull request, and merge it.
+1. Raise `version` in `package.json` in a pull request, run `factory sync`
+   so `.claude/factory.lock` records it, and merge it.
 2. Tag the merge commit with the same version and push the tag:
 
    ```bash

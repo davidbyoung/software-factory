@@ -117,15 +117,17 @@ export function copies(pkg: string, s: Settings, has: Has): [string, string][] {
   return out;
 }
 
-/** The launcher's path from the repository's root: the package's own
- * folder where it is inside the repository, as a workspace or installed,
- * and where it would be installed otherwise. */
+/** The launcher's path from the repository's root: the root's own, where
+ * the repository is the package itself; the package's own folder where it
+ * is inside the repository, as a workspace or installed; and where it would
+ * be installed otherwise. */
 export function launcherPath(pkg: string, root: string, name: string) {
   const rel = relative(realpathSync(root), realpathSync(pkg))
     .split(sep)
     .join("/");
+  if (rel === "") return LAUNCHER;
   const base =
-    rel && !rel.startsWith("..") && !rel.startsWith("/")
+    !rel.startsWith("..") && !rel.startsWith("/")
       ? rel
       : `node_modules/${name}`;
   return `${base}/${LAUNCHER}`;

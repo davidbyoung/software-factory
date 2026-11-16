@@ -34,6 +34,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Validate specs
+        run: npm run spec:validate
+
       - name: Run the unit tests
         run: npm test
 

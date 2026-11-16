@@ -1,0 +1,23 @@
+# Written by `factory sync`: the factory's version and the files it
+# wrote. Do not edit.
+version: 0.1.2
+files:
+  - .claude/skills/factory-address-review/SKILL.md
+  - .claude/skills/factory-address-review/patch-coverage.py
+  - .claude/skills/factory-build/SKILL.md
+  - .claude/skills/factory-diagnose/SKILL.md
+  - .claude/skills/factory-mutate/SKILL.md
+  - .claude/skills/factory-refine/SKILL.md
+  - .claude/skills/factory-resolve-conflicts/SKILL.md
+  - .claude/agents/factory-test-reviewer.md
+  - .claude/agents/factory-ticket-readiness.md
+  - .claude/factory/rules.md
+  - .github/factory-review.md
+  - .github/workflows/factory-board-sync.yml
+  - .github/workflows/factory-build.yml
+  - .github/workflows/factory-check.yml
+  - .github/workflows/factory-claude-review.yml
+  - .github/workflows/factory-conflicts.yml
+  - .github/workflows/factory-review-verdict.yml
+  - .github/workflows/factory-review.yml
+  - .github/actions/factory-agent/action.yml

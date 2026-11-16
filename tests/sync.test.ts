@@ -4,13 +4,14 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseSettings, type Settings } from "../src/config.mts";
-import { main, PACKAGE, plan } from "../src/sync.mts";
+import { launcherPath, main, PACKAGE, plan } from "../src/sync.mts";
 
 // A made-up package and an empty repository beside it.
 let dir: string;
@@ -454,5 +455,47 @@ describe("factory sync --check", () => {
     expect((await sync(["--check"])).code).toBe(1);
     await sync();
     expect((await sync(["--check"])).code).toBe(0);
+  });
+});
+
+describe("launcherPath", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "factory-launcher-path-"));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("points at the package's own folder when it sits inside the repository", () => {
+    mkdirSync(join(dir, "packages/factory"), { recursive: true });
+    expect(launcherPath(join(dir, "packages/factory"), dir, "@o/factory")).toBe(
+      "packages/factory/bin/factory.js",
+    );
+  });
+
+  it("points at the root's own launcher when the repository is the package itself", () => {
+    expect(launcherPath(dir, dir, "@o/factory")).toBe("bin/factory.js");
+  });
+
+  it("follows a workspace link to the package's folder inside the repository", () => {
+    mkdirSync(join(dir, "packages/factory"), { recursive: true });
+    mkdirSync(join(dir, "node_modules/@o"), { recursive: true });
+    symlinkSync(
+      join(dir, "packages/factory"),
+      join(dir, "node_modules/@o/factory"),
+    );
+    expect(
+      launcherPath(join(dir, "node_modules/@o/factory"), dir, "@o/factory"),
+    ).toBe("packages/factory/bin/factory.js");
+  });
+
+  it("points into node_modules when the package is outside the repository", () => {
+    const pkg = mkdtempSync(join(tmpdir(), "factory-elsewhere-"));
+    try {
+      expect(launcherPath(pkg, dir, "@o/factory")).toBe(
+        "node_modules/@o/factory/bin/factory.js",
+      );
+    } finally {
+      rmSync(pkg, { recursive: true, force: true });
+    }
   });
 });
