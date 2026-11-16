@@ -1,0 +1,27 @@
+// Which code host a name picks, built for a command in a session or CI.
+// `github` is the only one, and the settings refuse any other value of
+// `code-host.type` before this runs (`config.mts`). A command that has not
+// read the settings asks for the default.
+import { gh, type Gh } from "../lib/gh.mts";
+import { ghTransport } from "../tickets/transport.mts";
+import { githubCodeHost } from "./github.mts";
+import type { CodeHost } from "./types.mts";
+
+export * from "./types.mts";
+
+export const DEFAULT_CODE_HOST = "github" as const;
+
+/** The message for a code host that is not built. */
+export const unsupportedCodeHost = (type: string) =>
+  `code-host.type "${type}" is not supported. "github" is the only code host built.`;
+
+/** The code host of that name for the repository, reached through the
+ * GitHub CLI. */
+export function openCodeHost(
+  repository: string,
+  type: string = DEFAULT_CODE_HOST,
+  run: Gh = gh,
+): CodeHost {
+  if (type !== "github") throw new Error(unsupportedCodeHost(type));
+  return githubCodeHost({ transport: ghTransport(run), repository, cli: run });
+}

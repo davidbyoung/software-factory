@@ -1,0 +1,214 @@
+[
+  {
+    "data": {
+      "owner": {
+        "projectV2": {
+          "id": "PVT_1",
+          "fields": {
+            "nodes": [
+              {
+                "id": "F_status",
+                "name": "Status",
+                "dataType": "SINGLE_SELECT",
+                "options": [
+                  {
+                    "id": "O_Backlog",
+                    "name": "Backlog"
+                  },
+                  {
+                    "id": "O_In_refinement",
+                    "name": "In refinement"
+                  },
+                  {
+                    "id": "O_Ready",
+                    "name": "Ready"
+                  },
+                  {
+                    "id": "O_In_progress",
+                    "name": "In progress"
+                  },
+                  {
+                    "id": "O_In_review",
+                    "name": "In review"
+                  },
+                  {
+                    "id": "O_Done",
+                    "name": "Done"
+                  }
+                ]
+              },
+              {
+                "id": "F_session",
+                "name": "Session",
+                "dataType": "TEXT"
+              },
+              {
+                "id": "F_runs",
+                "name": "Runs in",
+                "dataType": "SINGLE_SELECT",
+                "options": [
+                  {
+                    "id": "O_Local",
+                    "name": "Local"
+                  },
+                  {
+                    "id": "O_Actions",
+                    "name": "Actions"
+                  }
+                ]
+              },
+              {
+                "id": "F_cost",
+                "name": "Cost",
+                "dataType": "NUMBER"
+              },
+              {
+                "id": "F_title",
+                "name": "Title",
+                "dataType": "TITLE"
+              }
+            ]
+          },
+          "items": {
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "PVTI_10",
+                "content": {
+                  "number": 10,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "Backlog",
+                  "updatedAt": "2026-11-09T08:00:00Z"
+                },
+                "session": null,
+                "runsIn": null
+              },
+              {
+                "id": "PVTI_11",
+                "content": {
+                  "number": 11,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "In refinement",
+                  "updatedAt": "2026-11-09T08:00:00Z"
+                },
+                "session": {
+                  "text": "cse_01Ab3x"
+                },
+                "runsIn": null
+              },
+              {
+                "id": "PVTI_12",
+                "content": {
+                  "number": 12,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "Ready",
+                  "updatedAt": "2026-11-09T08:15:00Z"
+                },
+                "session": null,
+                "runsIn": null
+              },
+              {
+                "id": "PVTI_13",
+                "content": {
+                  "number": 13,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "Ready",
+                  "updatedAt": "2026-11-09T08:20:00Z"
+                },
+                "session": null,
+                "runsIn": null
+              },
+              {
+                "id": "PVTI_14",
+                "content": {
+                  "number": 14,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "Ready",
+                  "updatedAt": "2026-11-09T08:35:00Z"
+                },
+                "session": null,
+                "runsIn": null
+              },
+              {
+                "id": "PVTI_15",
+                "content": {
+                  "number": 15,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "In progress",
+                  "updatedAt": "2026-11-09T08:40:00Z"
+                },
+                "session": {
+                  "text": "cloud, starting"
+                },
+                "runsIn": null
+              },
+              {
+                "id": "PVTI_16",
+                "content": {
+                  "number": 16,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "In progress",
+                  "updatedAt": "2026-11-09T08:20:00Z"
+                },
+                "session": {
+                  "text": "359bd84e"
+                },
+                "runsIn": {
+                  "name": "Local"
+                }
+              },
+              {
+                "id": "PVTI_17",
+                "content": {
+                  "number": 17,
+                  "repository": {
+                    "nameWithOwner": "acme/widgets"
+                  }
+                },
+                "status": {
+                  "name": "In review",
+                  "updatedAt": "2026-11-09T08:50:00Z"
+                },
+                "session": {
+                  "text": "cse_01Zz9y"
+                },
+                "runsIn": null
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+]

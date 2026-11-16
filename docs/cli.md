@@ -1,0 +1,221 @@
+# The CLI
+
+`factory` is the command-line tool. Skills, hooks, and workflows call it for
+everything that must give the same answer every time. You will run a few
+of these yourself; most are run for you.
+
+Run any command as `factory`, from the global install the
+[quick start](quick-start.md#1-install) sets up. Run in a repository, it
+hands the run to the copy that repository installed, so each repository
+keeps its own version; in a repository with none, it says how to install
+one and exits 1. `factory` with no command, or one it does not have, prints
+the list of commands it has and exits non-zero.
+
+> **Without the global install, type `npx --no-install factory`.** Another
+> package on npm is called `factory`. Where this one is not installed, `npx`
+> without `--no-install` offers to download and run that one instead; with
+> it, `npx` fails. The factory's own skills, hooks, and workflows always
+> run it that way, since they cannot count on a global install.
+
+A table with a State column has commands still to come, marked
+**Planned**; every command in a table without one is built.
+[What is built](developing.md#what-is-built) lists the parts.
+
+The skills are not commands: you ask a session for one in plain words,
+such as "refine ticket 12". [Skills](skills.md) lists them.
+
+## Setting up
+
+| Command                | When you run it                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| `factory init`         | Once, to set a repository up. Again, to turn a part on or off                        |
+| `factory sync`         | After installing, updating, or editing `.claude/factory.yaml`                        |
+| `factory sync --check` | To see that the factory's files match your settings. It also runs in CI              |
+| `factory config check` | To validate your settings. It also runs in CI                                        |
+| `factory board check`  | After pointing `tickets.board` at your board, to see how it reads it                 |
+| `factory doctor`       | When something seems off. It checks the settings, files, version, secrets, and board |
+
+`init` asks its questions in the terminal, and reads each token in a
+masked prompt. `doctor` exits 1 when a check fails. GitHub never lets a
+secret be read back, so `doctor` checks only that each secret your parts
+read is set.
+
+## Every day
+
+| Command                  | When you run it                                         |
+| ------------------------ | ------------------------------------------------------- |
+| `factory status`         | To see each ticket's state and which session is on it   |
+| `factory status --watch` | The same, read again every 15 seconds                   |
+| `factory build N`        | To build ticket N in the cloud. Prints the run's link   |
+| `factory pr watch N`     | To wait until pull request N needs you, and be told why |
+
+## Now and then
+
+| Command                  | When you run it                                                   | State   |
+| ------------------------ | ----------------------------------------------------------------- | ------- |
+| `factory config get KEY` | To print one setting in effect, such as `tickets.board`           | Built   |
+| `factory config explain` | To see every setting in effect, defaults included                 | Planned |
+| `factory plugins`        | To see your plug-ins by role                                      | Built   |
+| `factory site compare`   | To picture a website's pages before and after a change. See below | Built   |
+| `factory site stop`      | To end the sites `compare --keep` left running                    | Built   |
+| `factory remove`         | To take the factory out of a repository                           | Planned |
+
+A new version is installed with npm and applied with `factory sync`, as
+[Updating](updating.md) says; until `remove` is built,
+[Removing](removing.md) lists what to delete by hand.
+
+## Run for you
+
+The rest are run by the skills, the hooks, and the workflows, not by you.
+They are listed so nothing the factory does is hidden.
+
+### Tickets
+
+Skills call these to read or change a ticket. Every one goes through one
+interface, which is what lets another ticket system be added later:
+[Developing](developing.md#adding-a-ticket-system) explains it. Each exits
+non-zero with the error when it cannot reach the ticket system: a failed
+read is never an empty answer. `view` and `list` take `--json`, which
+prints what the ticket system returned as one JSON value. `edit`,
+`comment`, and `open` refuse a body with a bare tag-like `<word>` the
+ticket system would swallow, name it, and post nothing.
+
+| Command                                                    | What it does                                                                                                               |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `factory ticket view N`                                    | Prints ticket N: its title, state, labels, body, and comments with their IDs and authors                                   |
+| `factory ticket view N --field NAME`                       | Prints one of `title`, `state`, `labels` (one per line), or `body`, and nothing else                                       |
+| `factory ticket list`                                      | Lists the open tickets: number, title, and labels, separated by tabs                                                       |
+| `factory ticket list --label LABEL`                        | Only those with the label. `--title "TITLE"` keeps those whose title is exactly that                                       |
+| `factory ticket edit N [--title TITLE] [--body-file FILE]` | Replaces N's title, its body, or both. `--attach FILE` adds an image to a body                                             |
+| `factory ticket comment N --body-file FILE`                | Comments on N and prints the comment's ID. `--attach FILE` adds an image                                                   |
+| `factory ticket open --title TITLE --body-file FILE`       | Opens a ticket and prints its number. `--label LABEL` adds a label                                                         |
+| `factory ticket label N --add LABEL`                       | Adds a label to N. `--remove LABEL` takes one off                                                                          |
+| `factory ticket label N --was-removed LABEL`               | Prints `yes` if the label was ever removed from N, otherwise `no`                                                          |
+| `factory ticket link N`                                    | Prints the text that makes a merged pull request close N, such as "Closes #12"                                             |
+| `factory ticket blockers N`                                | One line per ticket N waits on: its number and whether it is open                                                          |
+| `factory ticket block N --by M`                            | Records that N waits on M                                                                                                  |
+| `factory ticket unblock N --by M`                          | Removes that record                                                                                                        |
+| `factory ticket supports GROUP`                            | Prints `yes` or `no` for `board`, `blockers`, `label-history`, or `attachments`                                            |
+| `factory ticket claim N`                                   | Claims ticket N for this session. Prints `claimed`, `held by`, or `blocked by`                                             |
+| `factory ticket still-live N`                              | Says whether this session still holds N                                                                                    |
+| `factory ticket stop N "reason"`                           | Releases N and says why                                                                                                    |
+| `factory ticket end N`                                     | A run's last step: releases this session's claim if no open pull request links N. Prints `released`, `kept`, or `not live` |
+| `factory ticket refining N`                                | Marks N as being refined                                                                                                   |
+| `factory ticket waiting N`                                 | Marks N as waiting on your reply to a round of questions                                                                   |
+| `factory ticket refined N`                                 | Marks N as refined and waiting for your approval                                                                           |
+| `factory ticket ready N`                                   | Moves N to Ready. Only when you ask a session to                                                                           |
+| `factory ticket cost N`                                    | Notes what this session spent on N since it started                                                                        |
+| `factory follow-up FILE "what is wrong"`                   | Adds a line about that file to the follow-ups ticket, opening the ticket if none is open                                   |
+
+### Pull requests
+
+Pull requests stay on the code host whatever the ticket system. A pull
+request's conversation comments and labels go through these, never the
+ticket system.
+
+| Command                                          | What it does                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory pr state [N]`                           | What stands between N and a merge: checks, review, threads, conflict                                                                                                                                                                                                                  |
+| `factory pr threads N`                           | The unresolved review threads, each with its comments. `--all` lists the resolved ones too                                                                                                                                                                                            |
+| `factory pr reply N COMMENT --body-file FILE`    | Replies on a thread                                                                                                                                                                                                                                                                   |
+| `factory pr resolve N COMMENT`                   | Resolves a thread                                                                                                                                                                                                                                                                     |
+| `factory pr closes N`                            | The tickets N closes                                                                                                                                                                                                                                                                  |
+| `factory pr wait-checks N`                       | Waits for every CI run on the pushed commit. Prints `success`, `failure:` with the failed checks, or `no checks`                                                                                                                                                                      |
+| `factory pr ready N`                             | Marks a draft ready for review. When `commit.gpgsign` is `true`, refuses while the code host shows a commit as not verified                                                                                                                                                           |
+| `factory pr comments N`                          | N's conversation comments: ID, author, time, and first line. `--author LOGIN`, `--contains TEXT`, and `--json`, which prints each comment's `id`, `user.login`, `body`, and `created_at`                                                                                              |
+| `factory pr comment N --body-file FILE`          | Posts a conversation comment and prints its ID. Refuses a bare tag-like `<word>`, as `ticket comment` does                                                                                                                                                                            |
+| `factory pr comment-view ID`                     | Prints one conversation comment's body                                                                                                                                                                                                                                                |
+| `factory pr label N --add LABEL`                 | Adds a label to N. `--remove LABEL` takes one off                                                                                                                                                                                                                                     |
+| `factory pr watch N`                             | Waits until N needs attention, says why, and exits                                                                                                                                                                                                                                    |
+| `factory pr watch N --release`                   | Stops watching N                                                                                                                                                                                                                                                                      |
+| `factory pr review-pending N REVIEW`             | Exits 0 when the owner's review has something of theirs to answer, and 1, saying why, when it has not                                                                                                                                                                                 |
+| `factory pr conflicts`                           | The pull requests the conflict sweep takes, one number a line; exits 0 when there is one and 1 when none                                                                                                                                                                              |
+| `factory pr open --title TITLE --body-file FILE` | Opens a draft pull request from the current branch into the default branch and prints its number. `--base BRANCH` names another base, and `--ready` opens it ready for review. Fails in the code host's own words when the branch has nothing new or already has one open             |
+| `factory pr view N --field FIELD`                | Prints one field of N: `head` (its last commit, in full), `branch`, `base`, `title`, `body`, `state`, or `mergeable` (`dirty` for a conflict, `unknown` until the code host has worked it out)                                                                                        |
+| `factory pr review N REVIEW`                     | One review as JSON: its author, its body, and each comment it left on a line, with the comment a reply replies to                                                                                                                                                                     |
+| `factory pr unverified N`                        | Each of N's commits the code host does not show as signed, with the reason. Prints nothing when it shows them all                                                                                                                                                                     |
+| `factory pr failed N`                            | For N's last commit, the failures `wait-checks` counts: each failed job's name and the last 200 lines of its log, from the newest run of each workflow started by a push or a pull request, and what a check that did not pass wrote about itself. Prints nothing when nothing failed |
+| `factory pr review-again N`                      | Asks for a fresh review of N's last commit. Exits 1, saying so, when no review has run on it                                                                                                                                                                                          |
+| `factory deps`                                   | The open dependency pull requests, their checks, and what each needs                                                                                                                                                                                                                  |
+| `factory deps --any`                             | Exits 0 when a dependency pull request is open and 1 when none is                                                                                                                                                                                                                     |
+
+`factory pr wait-checks N` waits until the code host
+shows the commit you pushed as N's head, then until the newest run of each
+CI job started by that push or pull request has finished. It leaves out
+the factory's own jobs, so a failed board sync does not stop a pull
+request being marked ready. With no run two minutes after the commit became the head, it
+prints `no checks` and exits 0. A failure exits 3.
+
+### Workflows and hooks
+
+| Command                        | Run by                        | What it does                                                                            | State   |
+| ------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------- | ------- |
+| `factory migrate`              | `factory-deps`, on an update  | Converts your settings after a release changes their shape                              | Planned |
+| `factory board collect`        | The board-sync workflow       | Reads the tickets and posts the comments a closed pull request or the nightly run needs | Built   |
+| `factory board apply`          | The board-sync workflow       | Sets each ticket's column and fields from its comments                                  | Built   |
+| `factory board sync --dry-run` | You, to see what it would set | The same, writing nothing                                                               | Planned |
+| `factory merge-policy N`       | The merge-policy workflow     | Decides whether N may merge without you, and why                                        | Built   |
+| `factory review verdict`       | The review-verdict workflow   | Posts the "Review verdict" status for a commit                                          | Built   |
+| `factory review cost`          | The review workflow           | Adds what the CI review cost to its summary                                             | Built   |
+| `factory review tools`         | The review workflow           | Prints the tools the CI review may use, from `ci-review.commands`                       | Built   |
+| `factory poller`               | Your server                   | Starts a build for each Ready ticket. See [Builds](builds.md)                           | Built   |
+| `factory poller --once`        | A schedule                    | One pass of the poller                                                                  | Planned |
+| `factory guard`                | A hook, before each command   | Runs both guards below on one Bash call                                                 | Built   |
+| `factory guard commit`         | Within `factory guard`        | Blocks a commit on your main branch, a force push, or a failing `before-commit` command | Built   |
+| `factory guard ticket-text`    | Within `factory guard`        | Refuses ticket text with a bare `<tag>`, which the ticket system would swallow          | Built   |
+| `factory reviewers start`      | A hook, when an agent starts  | Records a reviewer's run on the ticket, for its cost                                    | Built   |
+| `factory reviewers stop`       | A hook, when an agent stops   | The same                                                                                | Built   |
+| `factory session-start`        | A hook, when a session starts | Shows unfinished branches and each ticket's state                                       | Built   |
+
+The board sync runs `collect` and `apply` as two steps, so the board's
+token reaches only the second. The board's number comes from
+`tickets.board` in your settings.
+
+## Exit codes
+
+- `0`: done, or the answer is the line printed.
+- `2`: no such command; the usage is printed. A guard also exits 2 when it
+  blocks a call.
+- `3`: `pr wait-checks` saw a check fail.
+- Any other non-zero: it could not do it, and the reason is on standard
+  error. A command that could not reach the code host or the ticket system
+  always exits non-zero.
+
+## `factory site`
+
+`factory site compare` starts the working tree with `site.start`, starts the
+default branch from a temporary git worktree on another port, shoots each page
+at each width in light and dark, and prints the pages that changed, with the
+pixels and rows. It writes the pictures before, after, and with what changed
+outlined, and `report.json`, under `node_modules/.cache/factory/site/`. It
+exits 0 whether or not anything changed, and non-zero only when it could not do
+its job.
+
+- **Three measurements** are made on each view that changed, a view being one
+  page at one width in one scheme, on the base and on the branch, and only what
+  got worse prints, one `measured:` line each after the table, beside the lines
+  your `site.checks` print, and the same in `report.json`:
+  - **Accessibility,** by axe-core at the level `site.accessibility` names
+    (`wcag22aa` by default), including text contrast and the standard's target
+    size. A failure is new when the base has none of the same rule on an
+    element with the same selector or the same markup.
+  - **A page that scrolls sideways** on the branch and not on the base.
+  - **A new style value:** a font size, color, spacing, or corner radius that
+    the base uses in no view of that scheme. It is a fact to weigh, not a
+    failure. `site.new-values: false` leaves it out.
+
+  ```text
+  measured: /about/ 390 light: accessibility color-contrast: p.intro: Element has insufficient color contrast of 2.5 (foreground color: #9aa5b4, ...). Expected contrast ratio of 4.5:1
+  measured: /about/ 390 light: sideways scroll: the page is 412 px wide in a 390 px window
+  measured: /about/ 390 light: new value: font-size 15px on h2 "Background"; the site uses 12, 14, 16, 18, 24, 30, and 36 px
+  ```
+
+  A page the base does not have is measured alone, and everything found on it
+  is new. A view whose pictures did not change is not measured.
+
+- `--base REF` compares against something other than the default branch.
+- `--keep` leaves both sites running and prints their addresses, for a state
+  that takes a click to reach. `factory site stop` ends them and removes the
+  worktree.
+- `--before URL --after URL` compares two sites that are already running and
+  starts nothing. One without the other is refused.

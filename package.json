@@ -1,0 +1,69 @@
+{
+  "name": "@davidbyoung/software-factory",
+  "version": "0.1.0",
+  "description": "Refines, builds, and reviews tickets with Claude Code sessions, from a board to a merged pull request.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidbyoung/software-factory.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "factory": "bin/factory.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "skills",
+    "agents",
+    "rules.md",
+    "review.md",
+    "workflows",
+    "actions",
+    "poller.Dockerfile",
+    ".claude-plugin",
+    "docs",
+    "settings.schema.json"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "prettier --check . && tsc --noEmit && vitest run",
+    "prepack": "tsc -p tsconfig.build.json",
+    "pack-check": "node tests/pack-check.mts",
+    "site-check": "node --test tests/site-check.mts"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.8.0",
+    "axe-core": "^4.14.0",
+    "js-yaml": "^5.5.0",
+    "pngjs": "^7.0.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.18.0",
+    "@types/pngjs": "^6.0.5",
+    "ajv": "^8.20.0",
+    "playwright": "^1.65.0",
+    "prettier": "^3.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  },
+  "peerDependencies": {
+    "playwright": "*"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

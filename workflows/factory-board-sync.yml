@@ -1,0 +1,91 @@
+# Keeps the board's Status, Session, and Runs in in step with the marker
+# comments sessions post, and Cost with the cost markers on each issue and
+# the pull requests that build it (`factory board collect` and `apply`). It
+# is the only writer of those four fields but one: a local session the owner
+# asks sets Status to Ready (`factory ticket ready`), as the owner's own
+# move. It recomputes
+# every issue on every run, so a run that GitHub replaces with a newer one
+# loses nothing.
+#
+# The workflow's token reads the repository and posts comments; GitHub's
+# own token cannot reach a user's Project, so FACTORY_BOARD_TOKEN, a classic
+# token with the repo and project scopes, goes only to the step that reads
+# and writes the board. The board's number is `tickets.board` in the
+# settings.
+#
+# Pull request events run main's copy of the sync, through
+# pull_request_target and the default checkout, so a pull request that
+# edits the sync cannot rewrite the board with FACTORY_BOARD_TOKEN before it is
+# reviewed. A sync change is tried on its branch only by running this
+# workflow by hand there: gh workflow run factory-board-sync.yml --ref BRANCH.
+# That run is a workflow_dispatch, so the closed pull request path, which
+# posts the released and partial-build comments, is checked only by its unit tests
+# until the change merges.
+name: Factory board sync
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  issue_comment:
+    types: [created, deleted]
+  pull_request_target:
+    types: [opened, closed, reopened, ready_for_review, converted_to_draft]
+  schedule:
+    # Nightly: clears claims and starts over 24 hours old, and catches what
+    # no event covers, such as an edited comment.
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: factory-board-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync the board
+    # A comment without a marker changes nothing. Dependabot's pull
+    # requests close no issue and are not on the board, and a fork's pull
+    # request does not get the board's token. The CI review adds its cost by
+    # editing its summary, which starts no run, so that cost reaches the
+    # card on the next run.
+    if: >-
+      (github.event_name != 'issue_comment' ||
+        contains(github.event.comment.body, '<!-- work-status:') ||
+        contains(github.event.comment.body, '<!-- cost:')) &&
+      (github.event_name != 'pull_request_target' ||
+        (github.event.pull_request.user.login != 'dependabot[bot]' &&
+          github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # Main's lockfile, with no install scripts: the factory's command and
+      # the settings' parser.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Read the repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          npx --no-install factory board collect
+          --out "$RUNNER_TEMP/repo.json"
+          --event "$GITHUB_EVENT_PATH"
+          --event-name "$GITHUB_EVENT_NAME"
+
+      - name: Write the board
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_BOARD_TOKEN }}
+        run: npx --no-install factory board apply --in "$RUNNER_TEMP/repo.json"
