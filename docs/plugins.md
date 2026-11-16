@@ -32,7 +32,7 @@ three. A repository can have several plug-ins in one role, or none.
 
 Reads a finished change and reports problems.
 
-|                     |                                                                                              |
+| Step                | What happens                                                                                 |
 | ------------------- | -------------------------------------------------------------------------------------------- |
 | **Called**          | By `factory-build`, after the change is built and before the pull request opens              |
 | **Considered when** | The change touches a file matching one of its `files` patterns                               |
@@ -52,7 +52,7 @@ A repository with `site` in its settings has one already: the factory's
 own `factory-design` skill, which `factory sync` writes, is its `mockups`
 plug-in unless you list one of your own with this role.
 
-|                 |                                                                                     |
+| Step            | What happens                                                                        |
 | --------------- | ----------------------------------------------------------------------------------- |
 | **Called**      | By `factory-refine`, when one of the decisions it would bring you is about the look |
 | **Handed**      | The ticket and the decision                                                         |
@@ -64,7 +64,7 @@ plug-in unless you list one of your own with this role.
 
 Builds a kind of ticket the general build would do badly.
 
-|               |                                                                            |
+| Step          | What happens                                                               |
 | ------------- | -------------------------------------------------------------------------- |
 | **Called**    | By `factory-build`, in place of its own build step                         |
 | **Used when** | The ticket carries one of its `labels`                                     |
