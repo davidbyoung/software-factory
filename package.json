@@ -1,6 +1,6 @@
 {
   "name": "@davidbyoung/software-factory",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Refines, builds, and reviews tickets with Claude Code sessions, from a board to a merged pull request.",
   "license": "MIT",
   "repository": {
