@@ -1,6 +1,6 @@
 # Written by `factory sync`: the factory's version and the files it
 # wrote. Do not edit.
-version: 0.1.1
+version: 0.1.2
 files:
   - .claude/skills/factory-address-review/SKILL.md
   - .claude/skills/factory-address-review/patch-coverage.py

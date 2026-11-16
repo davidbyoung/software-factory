@@ -33,7 +33,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "prettier --check . && tsc --noEmit && npm run -s spec:validate && vitest run",
+    "check": "prettier --check . && tsc --noEmit && npm run -s spec:validate && node bin/factory.js sync --check && node bin/factory.js config check && vitest run",
     "prepack": "tsc -p tsconfig.build.json",
     "pack-check": "node tests/pack-check.mts",
     "site-check": "node --test tests/site-check.mts",

@@ -20,7 +20,7 @@ Run the gate before reporting the task as done:
 
 ```bash
 npm run format   # auto-format with Prettier
-npm run check    # format check, type check, the spec check, and the unit tests
+npm run check    # format, types, specs, the factory's files and settings, the unit tests
 ```
 
 A hook runs the `before-commit` commands in `.claude/factory.yaml` before
@@ -62,7 +62,8 @@ no UI reviewer.
 - **Builds start from a session.** `builds.trigger` is `manual`, so moving a
   card to Ready starts nothing: tell a session to work the ticket.
 - **A release is the owner's.** A pull request that should ship raises
-  `version` in `package.json`; once it merges, the owner tags the merge
+  `version` in `package.json` and runs `node bin/factory.js sync`, which
+  records the version in `.claude/factory.lock`; once it merges, the owner tags the merge
   commit `vX.Y.Z` and pushes the tag, and `release.yml` publishes it after
   CI passes on that commit (`docs/developing.md`, "Releasing").
 
