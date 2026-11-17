@@ -213,7 +213,7 @@ optional, stands alone, and can come later.
 | An automated review                 | Every pull request is read by your coding agent before you read it   | Your agent's token, stored on the code host   |
 | A board                             | You see every ticket's state, which session has it, and what it cost | A board, and a token that can write to it     |
 | Builds in the cloud                 | A ticket builds with no session open on your machine                 | Your agent's token, and a token that can push |
-| Builds that start from the board    | Moving a ticket to Ready builds it                                   | A small program, the poller, that you host    |
+| Builds that start from the board    | Moving a ticket to Ready builds it                                   | A schedule in the cloud, or a poller you host |
 | Pull requests that merge themselves | Changes to files you list as safe do not wait for you                | The list of files, and a token that can merge |
 | Your own reviewers                  | A change to your content or your design is read by an expert agent   | A few lines of settings                       |
 

@@ -107,8 +107,6 @@ as a code host's billing or what its workflows can see, are in
   one account's login.
 - **An update delivers instructions that run with your tokens.** Read update
   pull requests as carefully as code.
-- **The poller keeps its hourly cap in memory.** A restart forgets how many
-  builds it started in the last hour.
 - **It sits on tools that change.** Several parts work around how today's
   coding agent and code host behave.
 - **Publishing cannot be undone.** A public release needs a history and

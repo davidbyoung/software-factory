@@ -204,10 +204,11 @@ stops any job at six hours.
 
 #### Starting builds from the board
 
-To have a ticket build when you move its card to Ready, set
-`builds.trigger: own-server` and run the poller, a small program that
-watches the board and starts each build. [Builds in the cloud](../builds.md)
-explains how to host it and what it costs.
+To have a ticket build when you move its card to Ready, a small program,
+the poller, watches the board and starts each build. Set
+`builds.trigger: github-action` to run it on a schedule in GitHub Actions,
+with nothing to host, or `own-server` to host it yourself.
+[Builds in the cloud](../builds.md) explains each and what it costs.
 
 ### Pull requests that merge themselves
 

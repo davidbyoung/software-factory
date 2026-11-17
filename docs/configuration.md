@@ -145,8 +145,9 @@ state.
   when you tell a session to build the ticket or run
   `factory build N`, so
   `factory config check` requires `builds.trigger: manual`.
-- **If a repository's `ready` column has another name,** the poller needs it
-  too: see `FACTORY_READY_COLUMN` in [Builds](builds.md).
+- **If a repository's `ready` column has another name,** a poller you host
+  needs it too: see `FACTORY_READY_COLUMN` in [Builds](builds.md). A
+  scheduled one reads it from here.
 - `factory config get tickets.columns.ready` prints the
   name in effect, or `none`.
 
@@ -235,10 +236,11 @@ builds:
   runner: github-actions
 ```
 
-| Key       | Meaning                                             | Allowed                                 | Default          |
-| --------- | --------------------------------------------------- | --------------------------------------- | ---------------- |
-| `trigger` | What starts a build for a ticket you moved to Ready | `own-server`, `github-action`, `manual` | `manual`         |
-| `runner`  | Where a build in the cloud runs                     | `github-actions`                        | `github-actions` |
+| Key            | Meaning                                                              | Allowed                                 | Default          |
+| -------------- | -------------------------------------------------------------------- | --------------------------------------- | ---------------- |
+| `trigger`      | What starts a build for a ticket you moved to Ready                  | `own-server`, `github-action`, `manual` | `manual`         |
+| `runner`       | Where a build in the cloud runs                                      | `github-actions`                        | `github-actions` |
+| `poll-minutes` | How often the scheduled poller reads the board, with `github-action` | 5, 10, 15, 30, or 60                    | 5                |
 
 `trigger` is what notices a card moved to Ready, and `runner` is where the
 build it starts then runs: a poller on your own server still starts its
@@ -249,14 +251,17 @@ the settings and reaches the runner, with:
 
 - **`manual`:** nothing watches the board. You tell a session "work 12".
 - **`own-server`:** a small poller you host reads the board once a minute.
-- **`github-action`:** a schedule on the cloud runner does the same, more
-  slowly.
-  _[Planned](developing.md#what-is-built)_: `factory config check`
-  refuses this value until it is built. Use `own-server` or `manual`.
+- **`github-action`:** a schedule on the cloud runner does the same every
+  `poll-minutes` minutes, with nothing to host. On a private repository,
+  each pass is billed as at least an Actions minute.
 
-[Builds](builds.md) explains each. **If `trigger` says `own-server` and no
-poller is running,** a ticket moved to Ready sits there, and
-`factory status` flags it "not started".
+`factory config check` fails on `poll-minutes` beside any other trigger,
+and on any value but the five above.
+
+[Builds](builds.md) explains each. **If no poller is running,** a ticket
+moved to Ready sits there, and `factory status` flags it "not started":
+after 5 minutes with `own-server`, and after `poll-minutes` and 15 more
+with `github-action`.
 
 ### `specs`
 

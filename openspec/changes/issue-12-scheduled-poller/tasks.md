@@ -31,7 +31,7 @@
 
 ## 7. Docs
 
-- [ ] 7.1 Lines 31 to 33. `tests/docs.test.ts:255` expects `factory poller --once` among `docs/cli.md`'s planned commands, and once it is Built none is left. That test reads a sample `cli.md` text with one Planned row instead, as the unit tests at lines 143 to 155 do, and "mark every use of a planned command" stays as it is
+- [x] 7.1 Lines 31 to 33. `tests/docs.test.ts:255` expects `factory poller --once` among `docs/cli.md`'s planned commands, and once it is Built none is left. That test reads a sample `cli.md` text with one Planned row instead, as the unit tests at lines 143 to 155 do, and "mark every use of a planned command" stays as it is
 
 ## 8. Verify
 

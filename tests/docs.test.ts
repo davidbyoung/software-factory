@@ -251,8 +251,19 @@ describe("unmarked", () => {
 describe("the docs", () => {
   const planned = plannedCommands(read(CLI));
 
-  it("take their planned commands from docs/cli.md", () => {
-    expect(planned).toEqual(expect.arrayContaining(["factory poller --once"]));
+  it("read docs/cli.md's tables, so a row marked Planned there would be found", () => {
+    const text = read(CLI);
+    const row = text
+      .split("\n")
+      .find((line) => line.startsWith("| `factory poller --once`"))!;
+    const marked = text.replace(
+      row,
+      row.replace(/Built(\s*)\|$/, "Planned$1|"),
+    );
+
+    expect(plannedCommands(marked)).toEqual(
+      expect.arrayContaining(["factory poller --once"]),
+    );
   });
 
   it("mark every use of a planned command", () => {

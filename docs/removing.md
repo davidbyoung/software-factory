@@ -22,8 +22,8 @@ hook, label, and setting.
   Cost, which `factory init` adds when the board lacks
   them, and the board's own Status, which the sync sets. `init` adds any of
   the six columns the board lacked.
-- **Outside both,** only if builds start from your board: the poller,
-  wherever you host it.
+- **Outside both,** only if you host the poller: the poller, wherever you
+  host it. `factory remove` names it in what is left by hand.
 
 ## What it never touches
 
