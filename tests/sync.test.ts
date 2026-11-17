@@ -78,6 +78,7 @@ beforeEach(() => {
   put(pkg, "workflows/factory-conflicts.yml", conflicts(1));
   put(pkg, "skills/factory-design/SKILL.md", "design\n");
   put(pkg, "agents/factory-ui-reviewer.md", "ui\n");
+  put(pkg, "agents/factory-e2e-reviewer.md", "e2e\n");
   put(pkg, "skills/factory-deps/SKILL.md", "deps\n");
   put(pkg, "workflows/factory-deps-auto-merge.yml", "deps merge\n");
   put(
@@ -112,6 +113,8 @@ const conflicts = (minutes: number, branch = "main") =>
 const SITE = { site: { start: "npm start", url: "http://localhost:$PORT" } };
 const DESIGN = ".claude/skills/factory-design/SKILL.md";
 const UI = ".claude/agents/factory-ui-reviewer.md";
+const E2E = ".claude/agents/factory-e2e-reviewer.md";
+const END_TO_END = { commands: { "end-to-end": "npx e2e $FILE" } };
 const DEPENDABOT = ".github/dependabot.yml";
 const DEPS = [
   ".claude/skills/factory-deps/SKILL.md",
@@ -208,6 +211,27 @@ describe("factory sync", () => {
     expect((await sync([], settings(SITE))).code).toBe(0);
     expect(read(UI)).toBe("ui\n");
     expect(read(".claude/factory.lock")).toContain(`  - ${UI}`);
+  });
+
+  it("writes the end-to-end reviewer, and locks it, only where commands.end-to-end is set", async () => {
+    expect((await sync([], settings())).code).toBe(0);
+    expect(read(E2E)).toBeNull();
+    expect(read(".claude/factory.lock")).not.toContain(E2E);
+
+    expect((await sync([], settings(END_TO_END))).code).toBe(0);
+    expect(read(E2E)).toBe("e2e\n");
+    expect(read(".claude/factory.lock")).toContain(`  - ${E2E}`);
+  });
+
+  it("removes the end-to-end reviewer when commands.end-to-end is taken out, and the check then passes", async () => {
+    await sync([], settings(END_TO_END));
+    expect(read(E2E)).toBe("e2e\n");
+
+    const r = await sync([], settings());
+
+    expect(read(E2E)).toBeNull();
+    expect(r.out).toContain(`deleted ${E2E}`);
+    expect((await sync(["--check"], settings())).code).toBe(0);
   });
 
   it("writes the deps skill and both deps workflows only where Dependabot is set up", async () => {

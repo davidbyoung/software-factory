@@ -60,6 +60,7 @@ type Has = (path: string) => boolean;
 const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
   "skills/factory-design": (s) => s.site !== null,
   "agents/factory-ui-reviewer.md": (s) => s.site !== null,
+  "agents/factory-e2e-reviewer.md": (s) => s.commands.endToEnd !== null,
   "skills/factory-deps": (_, has) => has(DEPENDABOT),
   "workflows/factory-deps.yml": (_, has) => has(DEPENDABOT),
   "workflows/factory-deps-auto-merge.yml": (_, has) => has(DEPENDABOT),
