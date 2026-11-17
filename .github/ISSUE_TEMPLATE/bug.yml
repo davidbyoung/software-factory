@@ -1,0 +1,55 @@
+name: Bug
+description: Something the factory does not do as it should.
+labels: [bug]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The command, skill, agent, or workflow it happens in.
+      placeholder: factory sync, factory-build, or factory-claude-review.yml
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The factory version, from `.claude/factory.lock` or `npm ls @davidbyoung/software-factory` in the repository it ran in.
+      placeholder: 0.1.2
+    validations:
+      required: true
+  - type: dropdown
+    id: runs-in
+    attributes:
+      label: Runs in
+      options:
+        - A local session
+        - A cloud session
+        - GitHub Actions
+        - The terminal, outside a session
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did
+      description: Steps to make it happen again, and the kind of repository it ran in.
+      placeholder: |
+        1. Run factory sync in a repository with no board
+        2. Run factory sync --check
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The output or error, pasted as it was.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead
+      description: This is how the fix will be judged done.
+    validations:
+      required: true
