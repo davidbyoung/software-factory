@@ -37,11 +37,11 @@
 
 ## 7. The trial
 
-- [ ] 7.1 With everything above green, pack the branch, create `davidbyoung/factory-trial` (private, with a README so it has a default branch), clone it to a scratch folder, and run the cold agent as the Design says.
-- [ ] 7.2 Fix each step it reports in the docs. List each report line and its fix in the pull request body. Rerun on a fresh clone if a fix changed a step.
-- [ ] 7.3 Mark "A second repository using it" Working in "What is built", and say in the body that the owner deletes `davidbyoung/factory-trial`.
+- [x] 7.1 With everything above green, pack the branch, create `davidbyoung/factory-trial` (private, with a README so it has a default branch), clone it to a scratch folder, and run the cold agent as the Design says.
+- [x] 7.2 Fix each step it reports in the docs. List each report line and its fix in the pull request body. Rerun on a fresh clone if a fix changed a step.
+- [x] 7.3 Mark "A second repository using it" Working in "What is built", and say in the body that the owner deletes `davidbyoung/factory-trial`.
 
 ## 8. Verify
 
-- [ ] 8.1 Map every Spec line to its test in the pull request body: 1 and 10 to the transcripts, 2 to 9 to 3.2 and 3.3, 11 and 12 to 4.2, 13 and 14 to 2.2, 15 to 24 to 5.2, and 25 to 28 to 4.3. Name any line without one, and write it.
-- [ ] 8.2 Run `npm run format`, `npm run check`, and `npm run pack-check`. Coverage must not drop.
+- [x] 8.1 Map every Spec line to its test in the pull request body: 1 and 10 to the transcripts, 2 to 9 to 3.2 and 3.3, 11 and 12 to 4.2, 13 and 14 to 2.2, 15 to 24 to 5.2, and 25 to 28 to 4.3. Name any line without one, and write it.
+- [x] 8.2 Run `npm run format`, `npm run check`, and `npm run pack-check`. Coverage must not drop.

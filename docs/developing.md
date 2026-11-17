@@ -50,7 +50,7 @@ marked working below exist only in these docs.
 | Ticket commands that go through one interface                                                                 | Working                             |
 | The code host and the runner, each behind one interface                                                       | Working                             |
 | A published package, updated through Dependabot                                                               | Planned, next                       |
-| A second repository using it                                                                                  | Planned, after publishing           |
+| A second repository set up and removed from the quick start alone                                             | Working                             |
 | Your own column names on a board                                                                              | Working                             |
 | A UI reviewer for any website                                                                                 | Working                             |
 | Built-in measurements for any website                                                                         | Working                             |
