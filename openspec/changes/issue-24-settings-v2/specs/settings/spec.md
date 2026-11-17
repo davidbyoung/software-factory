@@ -47,12 +47,12 @@ The factory SHALL behave as this line says: When `specs` is written as a block, 
 
 ### Requirement: The spec check's default
 
-The factory SHALL behave as this line says: When `specs.type` is `openspec` and `specs.check` is not set, `specs.check` is `openspec validate --all --strict --no-interactive`.
+The factory SHALL behave as this line says: When `specs.type` is `openspec` and `specs.check` is not set, `specs.check` is `npx --no-install openspec validate --all --strict --no-interactive`.
 
 #### Scenario: The spec check's default
 
 - **WHEN** `specs.type` is `openspec` and `specs.check` is not set
-- **THEN** `specs.check` is `openspec validate --all --strict --no-interactive`.
+- **THEN** `specs.check` is `npx --no-install openspec validate --all --strict --no-interactive`.
 
 ### Requirement: A spec check without specs
 

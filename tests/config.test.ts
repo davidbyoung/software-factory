@@ -431,7 +431,7 @@ describe("parseSettings", () => {
       "checks OpenSpec's specs with its own command when %j sets no check",
       (specs) => {
         expect(parse({ ...MINIMAL, specs }).specCheck).toBe(
-          "openspec validate --all --strict --no-interactive",
+          "npx --no-install openspec validate --all --strict --no-interactive",
         );
       },
     );
@@ -920,66 +920,66 @@ describe("factory config explain", () => {
       "version: 2
       repository: owner/name
       tickets:
-        type: github                                              # default
+        type: github                                                               # default
         board: 3
         columns:
           backlog: Todo
-          refining: In refinement                                 # default
-          ready: Ready                                            # default
-          building: In progress                                   # default
-          review: In review                                       # default
-          done: Done                                              # default
+          refining: In refinement                                                  # default
+          ready: Ready                                                             # default
+          building: In progress                                                    # default
+          review: In review                                                        # default
+          done: Done                                                               # default
         fields:
-          session: Session                                        # default
-          runs-in: Runs in                                        # default
-          cost: Cost                                              # default
-      code-host: github                                           # default
+          session: Session                                                         # default
+          runs-in: Runs in                                                         # default
+          cost: Cost                                                               # default
+      code-host: github                                                            # default
       builds:
-        trigger: manual                                           # default
-        runner: github-actions                                    # default
+        trigger: manual                                                            # default
+        runner: github-actions                                                     # default
         # poll-minutes: only with trigger github-action
       specs:
         type: openspec
-        check: openspec validate --all --strict --no-interactive  # default
+        check: npx --no-install openspec validate --all --strict --no-interactive  # default
       commands:
-        build-setup: []                                           # default
+        build-setup: []                                                            # default
         before-commit:
           - npm test
-        gate: []                                                  # default
+        gate: []                                                                   # default
         # test-one: none (default)
         # end-to-end: none (default)
         # coverage: none (default)
-        relock: npm install                                       # default
+        relock: npm install                                                        # default
       plugins:
         refine:
-          refiner:                                                # default
-            skill: factory-refine                                 # default
+          refiner:                                                                 # default
+            skill: factory-refine                                                  # default
           # mockups: none (default)
         build:
-          builders: []                                            # default
-          reviewers: []                                           # default
+          builders: []                                                             # default
+          reviewers: []                                                            # default
         test:
-          prover:                                                 # default
-            skill: factory-mutate                                 # default
-          reviewers:                                              # default
-            - agent: factory-test-reviewer                        # default
+          prover:                                                                  # default
+            skill: factory-mutate                                                  # default
+          reviewers:                                                               # default
+            - agent: factory-test-reviewer                                         # default
         conflicts:
-          resolvers: []                                           # default
+          resolvers: []                                                            # default
       auto-merge:
-        allow: []                                                 # default
-        deny: []                                                  # default
-        commands: []                                              # default
+        allow: []                                                                  # default
+        deny: []                                                                   # default
+        commands: []                                                               # default
       ci-review:
         commands:
           - npm test
       # site: off
       session-minutes:
-        build: 230                                                # default
-        conflicts: 110                                            # default
-        review: 50                                                # default
-        dependencies: 50                                          # default
+        build: 230                                                                 # default
+        conflicts: 110                                                             # default
+        review: 50                                                                 # default
+        dependencies: 50                                                           # default
       rules:
-        small-change-lines: 30                                    # default
+        small-change-lines: 30                                                     # default
         review-rounds: 3"
     `);
   });
@@ -1159,7 +1159,7 @@ describe("factory config explain", () => {
       expect(after(r.out, "specs:", 3)).toEqual([
         "specs:",
         "  type: openspec",
-        "  check: openspec validate --all --strict --no-interactive  # default",
+        "  check: npx --no-install openspec validate --all --strict --no-interactive  # default",
       ]);
     });
 
@@ -1429,7 +1429,10 @@ describe("main", () => {
 
     it.each([
       ["specs:\n  type: openspec\n  check: make specs", "make specs"],
-      ["specs: openspec", "openspec validate --all --strict --no-interactive"],
+      [
+        "specs: openspec",
+        "npx --no-install openspec validate --all --strict --no-interactive",
+      ],
       ["specs: none", "none"],
       ["", "none"],
     ])("prints the spec check for %j", async (written, check) => {

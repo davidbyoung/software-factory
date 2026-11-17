@@ -243,7 +243,7 @@ export const SITE_AGENT = "factory-ui-reviewer";
 export const E2E_AGENT = "factory-e2e-reviewer";
 /** The spec check where `specs.type` is openspec and none is written. */
 export const OPENSPEC_CHECK =
-  "openspec validate --all --strict --no-interactive";
+  "npx --no-install openspec validate --all --strict --no-interactive";
 /** `commands.relock` where none is written. */
 export const DEFAULT_RELOCK = "npm install";
 export const NO_PLAYWRIGHT = "site needs Playwright: npm install -D playwright";

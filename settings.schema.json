@@ -204,7 +204,7 @@
         "check": {
           "type": "string",
           "minLength": 1,
-          "description": "The command that checks the specs, run from the repository's root with DO_NOT_TRACK=1. Needs type: openspec. Default: openspec validate --all --strict --no-interactive."
+          "description": "The command that checks the specs, run from the repository's root with DO_NOT_TRACK=1. Needs type: openspec. Default: npx --no-install openspec validate --all --strict --no-interactive."
         }
       }
     },
