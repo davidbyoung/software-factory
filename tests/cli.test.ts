@@ -80,6 +80,10 @@ describe("factory's usage", () => {
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("Usage: factory COMMAND [ARGS]");
   });
+
+  it("lists pr uncovered with both of its optional arguments", () => {
+    expect(factory([]).stderr).toContain("factory pr uncovered [BASE] [LCOV]");
+  });
 });
 
 // Three folders, each with a package of the factory's name whose cli prints

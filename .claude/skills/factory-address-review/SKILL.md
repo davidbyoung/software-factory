@@ -326,11 +326,12 @@ Neither the checks nor the comment name lines. Get them from the same lcov
 report CI uploads: run the project's coverage command, then
 
 ```bash
-python3 .claude/skills/factory-address-review/patch-coverage.py [base] [lcov]
+npx --no-install factory pr uncovered [BASE] [LCOV]
 ```
 
 which prints each uncovered (`MISS`) or partly covered (`PART`) line in the
-branch's diff. The defaults are `origin/main` and `coverage/lcov.info`. Its
+branch's diff. The defaults are the default branch on `origin` and
+`coverage/lcov.info`. Its
 total should roughly match Codecov's; if it does not, the local run differs
 from CI, and that has to be settled before any verdict.
 

@@ -1,7 +1,7 @@
 // What a reader of the docs is told about what is not built, and how they
 // are told to run the command.
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SETTINGS_KEYS } from "../src/config.mts";
 
@@ -185,6 +185,61 @@ export function unlinkedSettings(text: string, entries: string[]): string[] {
   return found;
 }
 
+/** A heading's anchor, as the code host makes it. An underscore inside a
+ * word stays, as in FACTORY_BOARD_TOKEN, and one that marks emphasis goes. */
+export function headingSlug(text: string): string {
+  return text
+    .replace(/[`*]|(?<![\p{L}\p{N}_])_|_(?![\p{L}\p{N}_])/gu, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[^\p{L}\p{N}_\- ]/gu, "")
+    .replaceAll(" ", "-");
+}
+
+/** The anchors a page's headings give. A heading that repeats gets `-1`,
+ * then `-2`, and a line in a fenced block is no heading. */
+export function anchorsOf(text: string): Set<string> {
+  const anchors = new Set<string>();
+  const seen = new Map<string, number>();
+  let inCode = false;
+  for (const line of text.split("\n")) {
+    if (line.trim().startsWith("```")) {
+      inCode = !inCode;
+      continue;
+    }
+    const heading = inCode ? null : /^#+ (.*)/.exec(line);
+    if (!heading) continue;
+    const slug = headingSlug(heading[1]);
+    const count = seen.get(slug) ?? 0;
+    anchors.add(count === 0 ? slug : `${slug}-${count}`);
+    seen.set(slug, count + 1);
+  }
+  return anchors;
+}
+
+/** Each relative link in `text`, the text of `page`, that does not resolve:
+ * to a file that `exists`, or to a heading among `anchorsFor` a page. */
+export function brokenLinks(
+  page: string,
+  text: string,
+  exists: (path: string) => boolean,
+  anchorsFor: (path: string) => Set<string>,
+): string[] {
+  const found: string[] = [];
+  for (const [, target] of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+    if (/^(https?:|mailto:)/.test(target)) continue;
+    const hash = target.indexOf("#");
+    const path = hash < 0 ? target : target.slice(0, hash);
+    const anchor = hash < 0 ? "" : target.slice(hash + 1);
+    const file = path ? posix.normalize(posix.join(dirname(page), path)) : page;
+    if (!exists(file)) found.push(`${page}: ${target}: no such file`);
+    else if (anchor && file.endsWith(".md") && !anchorsFor(file).has(anchor))
+      found.push(`${page}: ${target}: no such heading`);
+  }
+  return found;
+}
+
 describe("plannedCommands", () => {
   it("takes the rows whose last cell is Planned, without their arguments", () => {
     const cli = [
@@ -358,6 +413,105 @@ describe("unlinkedSettings", () => {
   });
 });
 
+describe("headingSlug", () => {
+  it("drops backticks and asterisks", () => {
+    expect(headingSlug("Run `factory init` **once**")).toBe(
+      "run-factory-init-once",
+    );
+  });
+
+  it("keeps an underscore inside a word, and drops one that marks emphasis", () => {
+    expect(headingSlug("`FACTORY_BOARD_TOKEN` _Planned_")).toBe(
+      "factory_board_token-planned",
+    );
+  });
+
+  it("keeps a link's words without its target", () => {
+    expect(headingSlug("See [the board](workflow.md#the-board)")).toBe(
+      "see-the-board",
+    );
+  });
+
+  it("drops punctuation, and turns each space into a hyphen", () => {
+    expect(headingSlug("1. Install: what's next?")).toBe(
+      "1-install-whats-next",
+    );
+  });
+
+  it("keeps a letter that is not ASCII", () => {
+    expect(headingSlug("Café prices")).toBe("café-prices");
+  });
+});
+
+describe("anchorsOf", () => {
+  it("gives every heading's slug, at any level", () => {
+    expect(anchorsOf("# One\n\ntext\n\n### Two three\n")).toEqual(
+      new Set(["one", "two-three"]),
+    );
+  });
+
+  it("takes no anchor from a line in a fenced block", () => {
+    const text = ["# Real", "```yaml", "# a comment", "```", "## Also real"];
+
+    expect(anchorsOf(text.join("\n"))).toEqual(new Set(["real", "also-real"]));
+  });
+
+  it("numbers a heading that repeats", () => {
+    expect(anchorsOf("## Setup\n## Setup\n## Setup\n")).toEqual(
+      new Set(["setup", "setup-1", "setup-2"]),
+    );
+  });
+});
+
+describe("brokenLinks", () => {
+  const files: Record<string, string> = {
+    "README.md": "# Readme\n",
+    "docs/a.md": "# A\n## Part one\n",
+    "docs/github/b.md": "# B\n",
+    "settings.schema.json": "{}",
+  };
+  const broken = (page: string, text: string) =>
+    brokenLinks(
+      page,
+      text,
+      (path) => path in files,
+      (path) => anchorsOf(files[path]!),
+    );
+
+  it("finds a link to a file that is not there, from the page's own folder", () => {
+    expect(broken("docs/github/b.md", "[a](../a.md) and [c](c.md)")).toEqual([
+      "docs/github/b.md: c.md: no such file",
+    ]);
+  });
+
+  it("finds a link to a heading its page does not have", () => {
+    expect(
+      broken(
+        "README.md",
+        "[one](docs/a.md#part-one) [two](docs/a.md#part-two)",
+      ),
+    ).toEqual(["README.md: docs/a.md#part-two: no such heading"]);
+  });
+
+  it("reads a link that is an anchor alone against its own page", () => {
+    expect(broken("docs/a.md", "[up](#a) and [down](#nowhere)")).toEqual([
+      "docs/a.md: #nowhere: no such heading",
+    ]);
+  });
+
+  it("skips a link to another site, and a mail address", () => {
+    const text = "[x](https://example.com/a.md#b) [y](mailto:a@example.com)";
+
+    expect(broken("README.md", text)).toEqual([]);
+  });
+
+  it("checks no anchor on a file that is not a page", () => {
+    expect(broken("README.md", "[s](settings.schema.json#nowhere)")).toEqual(
+      [],
+    );
+  });
+});
+
 describe("the docs", () => {
   const planned = plannedCommands(read(CLI));
 
@@ -401,6 +555,33 @@ describe("the docs", () => {
         unlinkedSettings(read(page), entries).map((line) => `${page}: ${line}`),
       );
     expect(found).toEqual([]);
+  });
+
+  it("link only to files and headings that are there", () => {
+    const exists = (path: string) => existsSync(join(PACKAGE, path));
+    const found = pages().flatMap((page) =>
+      brokenLinks(page, read(page), exists, (path) => anchorsOf(read(path))),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("list pr uncovered under Pull requests, with what it prints and both defaults", () => {
+    const section = read(CLI)
+      .split(/^### /m)
+      .find((part) => part.startsWith("Pull requests"));
+    const row = section
+      ?.split("\n")
+      .find((line) =>
+        line.startsWith("| `factory pr uncovered [BASE] [LCOV]`"),
+      );
+
+    for (const said of [
+      "`MISS`",
+      "`PART`",
+      "default branch",
+      "`coverage/lcov.info`",
+    ])
+      expect(row).toContain(said);
   });
 
   it("give every table a header row with words in it", () => {

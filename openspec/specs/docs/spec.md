@@ -2,7 +2,7 @@
 
 ## Purpose
 
-What the docs say about the scheduled poller and the poller's published image.
+What the docs say about the scheduled poller, the poller's published image, and `factory pr uncovered`.
 
 ## Requirements
 
@@ -32,3 +32,12 @@ The factory SHALL behave as this line says: `docs/cli.md` marks `factory poller 
 
 - **WHEN** a reader opens `docs/cli.md` or "What is built"
 - **THEN** `docs/cli.md` marks `factory poller --once` Built, and "What is built" in `docs/developing.md` says Working for the row #12 names.
+
+### Requirement: The CLI page lists pr uncovered
+
+The factory SHALL behave as this line says: `docs/cli.md` lists `factory pr uncovered [BASE] [LCOV]` under "Pull requests", and says what it prints, what `MISS` and `PART` mean, and what `BASE` and `LCOV` are when left out.
+
+#### Scenario: The CLI page lists pr uncovered
+
+- **WHEN** a reader opens `docs/cli.md`
+- **THEN** `docs/cli.md` lists `factory pr uncovered [BASE] [LCOV]` under "Pull requests", and says what it prints, what `MISS` and `PART` mean, and what `BASE` and `LCOV` are when left out.

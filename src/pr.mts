@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { reachOf } from "./config.mts";
 import { AGENT_MARK } from "./lib/work-status.mts";
+import { changedLines, parseLcov, uncovered } from "./patch-coverage.mts";
 import { toChecks, type Check } from "./pr-watch.mts";
 import {
   openCodeHost,
@@ -284,7 +285,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | failed N | review-again N`;
+const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -607,6 +608,34 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         );
         return 0;
       }
+      case "uncovered": {
+        if (rest.length > 2) throw new Error(USAGE);
+        const [base, lcov = "coverage/lcov.info"] = rest;
+        let report: string;
+        try {
+          report = d.readFile(lcov);
+        } catch {
+          d.out(
+            `No coverage report at ${lcov}. Run the project's coverage command first.`,
+          );
+          return 1;
+        }
+        const from = base ?? `origin/${await p.defaultBranch()}`;
+        const diff = d.git(["diff", "-U0", `${from}...HEAD`]);
+        const source = (path: string) => {
+          try {
+            return d.readFile(path);
+          } catch {
+            return null;
+          }
+        };
+        uncovered(
+          parseLcov(report, process.cwd()),
+          changedLines(diff),
+          source,
+        ).forEach((line) => d.out(line));
+        return 0;
+      }
       case "unverified": {
         const [pr] = numbers;
         if (!pr) throw new Error(USAGE);
@@ -666,7 +695,14 @@ export async function run(argv: string[]): Promise<number> {
     sleep,
     out: (line) => console.log(line),
     readFile: (path) => readFileSync(path, "utf8"),
-    git: (args) => execFileSync("git", args, { encoding: "utf8" }),
+    // A branch's whole diff, which `uncovered` reads, can pass Node's 1 MB.
+    // Git's own error is in the thrown message, so it is not printed twice.
+    git: (args) =>
+      execFileSync("git", args, {
+        encoding: "utf8",
+        maxBuffer: 256 << 20,
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
     env: process.env,
   });
 }

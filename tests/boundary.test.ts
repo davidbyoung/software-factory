@@ -7,7 +7,7 @@
 // its address, and no file outside the last two but the poller names a
 // GitHub implementation of them. The two newer interfaces declare no name
 // in GitHub's API's style.
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { hostWordsIn } from "./host-names.mts";
@@ -333,6 +333,35 @@ describe("hostNamesIn", () => {
 });
 
 describe("the boundaries", () => {
+  it("no file the package ships, and none of its source or tests, is Python", () => {
+    const shipped = (
+      JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8")) as {
+        files: string[];
+      }
+    ).files;
+    const found = [...shipped, "src", "tests"]
+      .map((entry) => join(PACKAGE, entry))
+      .filter((path) => existsSync(path) && statSync(path).isDirectory())
+      .flatMap(filesUnder)
+      .filter((path) => path.endsWith(".py"));
+    expect(found).toEqual([]);
+  });
+
+  it("no skill, agent, rule, or review instruction asks for Python", () => {
+    const pages = [
+      ...["skills", "agents"].flatMap((d) => filesUnder(join(PACKAGE, d))),
+      join(PACKAGE, "rules.md"),
+      join(PACKAGE, "review.md"),
+    ].filter((path) => path.endsWith(".md"));
+    const found = pages.flatMap((path) =>
+      readFileSync(path, "utf8")
+        .split("\n")
+        .filter((line) => /\bpython3?\b/.test(line))
+        .map((line) => `${path}: ${line.trim()}`),
+    );
+    expect(found).toEqual([]);
+  });
+
   it("the design skill names nothing of the repository the factory is developed in", () => {
     const path = join(PACKAGE, "skills/factory-design/SKILL.md");
     expect(hostNamesIn(readFileSync(path, "utf8"))).toEqual([]);
