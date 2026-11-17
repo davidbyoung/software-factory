@@ -9,8 +9,15 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
+import type { Tickets } from "../src/tickets/types.mts";
 import { IMPORT_LINE, withHooks } from "../src/sync.mts";
-import type { Registry } from "../src/tools.mts";
+import { builtOf, TOOLS, type Registry } from "../src/tools.mts";
+import {
+  FAKE_AGENT_FILE,
+  FAKE_TOKEN,
+  withFakeAgent,
+  withFakeTickets,
+} from "./fake-tools";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -37,8 +44,12 @@ function checkout(files: Record<string, string> = {}): string {
   return root;
 }
 
-const settings = (raw: Record<string, unknown> = {}) =>
-  parseSettings({ version: 1, repository: "acme/site", ...raw }, () => true);
+const settings = (raw: Record<string, unknown> = {}, tools: Registry = TOOLS) =>
+  parseSettings(
+    { version: 1, repository: "acme/site", ...raw },
+    () => true,
+    builtOf(tools),
+  );
 
 function doctor(o: {
   raw?: Record<string, unknown>;
@@ -50,7 +61,7 @@ function doctor(o: {
   columns?: string[];
   files?: Record<string, string>;
   claude?: boolean;
-  tools?: (base: Registry) => Registry;
+  tools?: (base: Registry, tickets: Tickets) => Registry;
 }) {
   const out: string[] = [];
   const tickets = memoryTickets([], {
@@ -63,10 +74,18 @@ function doctor(o: {
       },
     ],
   }).tickets;
+  const tools = (o.tools ?? ((b) => b))(
+    memoryTools({
+      codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
+      runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
+      tickets,
+    }),
+    tickets,
+  );
   const d: DoctorDeps = {
     settings: async () => {
       if (o.invalid) throw new SettingsError(o.invalid);
-      return settings(o.raw);
+      return settings(o.raw, tools);
     },
     outOfStep: () => o.outOfStep ?? [],
     versions: () => ({
@@ -75,13 +94,7 @@ function doctor(o: {
     }),
     root: checkout(o.files),
     hasCommand: (name) => name !== "claude" || o.claude !== false,
-    tools: (o.tools ?? ((b) => b))(
-      memoryTools({
-        codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
-        runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
-        tickets,
-      }),
-    ),
+    tools,
     out: (line) => out.push(line),
   };
   return { run: () => main([], d), out };
@@ -221,5 +234,86 @@ describe("factory doctor", () => {
     expect(r.out.find((l) => l.startsWith("✗ Board"))).toMatch(
       /^✗ Board 3: the Status field lacks In refinement .*\. Run npx --no-install factory init$/,
     );
+  });
+
+  describe("a tool of another kind", () => {
+    const FAKE = {
+      tickets: { type: "fake", site: "https://tickets.example" },
+    };
+    const fake = (b: Registry, t: Tickets) => withFakeTickets(b, t);
+
+    it("fails on a secret the tool always needs, naming the tool", async () => {
+      const r = doctor({ raw: FAKE, tools: fake });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        `✗ ${FAKE_TOKEN} is not set, for Fake Tickets. Run npx --no-install factory init`,
+      );
+    });
+
+    it("prints the tool's own failing check in its words, and fails", async () => {
+      const r = doctor({
+        raw: { tickets: { type: "fake", site: "down" } },
+        secrets: { [FAKE_TOKEN]: "x" },
+        tools: fake,
+      });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Fake Tickets can be reached: check tickets.site",
+      );
+    });
+  });
+
+  describe("the coding agent's configuration", () => {
+    it("passes Claude Code's three pieces when each is there", async () => {
+      const r = doctor({});
+      expect(await r.run()).toBe(0);
+      expect(r.out.slice(-3)).toEqual([
+        "✓ Claude Code: CLAUDE.md imports the factory's rules",
+        "✓ Claude Code: .claude/settings.json has the factory's hooks",
+        "✓ Claude Code: the claude command is installed",
+      ]);
+    });
+
+    it("fails without the import, saying to sync", async () => {
+      const r = doctor({ files: { "CLAUDE.md": "# Ours\n" } });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Claude Code: CLAUDE.md imports the factory's rules. Run npx --no-install factory sync",
+      );
+    });
+
+    it("fails when one of the factory's hooks is gone, saying to sync", async () => {
+      const synced = JSON.parse(
+        withHooks(
+          null,
+          "node_modules/@davidbyoung/software-factory/bin/factory.js",
+        ),
+      );
+      delete synced.hooks.SubagentStop;
+      const r = doctor({
+        files: { ".claude/settings.json": JSON.stringify(synced) },
+      });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Claude Code: .claude/settings.json has the factory's hooks. Run npx --no-install factory sync",
+      );
+    });
+
+    it("fails when the claude command is not installed", async () => {
+      const r = doctor({ claude: false });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Claude Code: the claude command is installed: Install Claude Code, then sign in",
+      );
+    });
+
+    it("fails on another agent's missing configuration in its words", async () => {
+      const r = doctor({ tools: (b) => withFakeAgent(b) });
+      expect(await r.run()).toBe(1);
+      expect(r.out.at(-1)).toBe(
+        `✗ Fake Agent: ${FAKE_AGENT_FILE} is there. Run fake-agent init`,
+      );
+      expect(r.out.join("\n")).not.toContain("Claude Code");
+    });
   });
 });
