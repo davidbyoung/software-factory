@@ -252,12 +252,7 @@ describe("the docs", () => {
   const planned = plannedCommands(read(CLI));
 
   it("take their planned commands from docs/cli.md", () => {
-    expect(planned).toEqual(
-      expect.arrayContaining([
-        "factory config explain",
-        "factory poller --once",
-      ]),
-    );
+    expect(planned).toEqual(expect.arrayContaining(["factory poller --once"]));
   });
 
   it("mark every use of a planned command", () => {

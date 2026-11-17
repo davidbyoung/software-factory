@@ -569,19 +569,22 @@ export const NO_DEPENDENCIES =
 /** js-yaml is loaded when needed, so a checkout without dependencies gets
  * one line saying what to do rather than a stack trace. */
 async function read(d: Deps): Promise<Settings> {
+  return parseSettings(await readRaw(d), d.exists);
+}
+
+/** The file as it is written, before any default is filled in. */
+async function readRaw(d: Deps): Promise<unknown> {
   let load: YamlLoad;
   try {
     load = await d.loadYaml();
   } catch {
     throw new SettingsError(NO_DEPENDENCIES);
   }
-  let raw: unknown;
   try {
-    raw = load(d.readFile());
+    return load(d.readFile());
   } catch (e) {
     throw new SettingsError(`${SETTINGS_FILE}: ${(e as Error).message}`);
   }
-  return parseSettings(raw, d.exists);
 }
 
 /** The settings file: FACTORY_SETTINGS where it is set, for trying settings
@@ -683,12 +686,16 @@ export function pluginsOf(
 export async function main(argv: string[], d: Deps): Promise<number> {
   const [command, arg] = argv;
   if (!command) {
-    d.err("Usage: factory config get KEY | config check | plugins [ROLE]");
+    d.err(
+      "Usage: factory config get KEY | config check | config explain | plugins [ROLE]",
+    );
     return 2;
   }
   let s: Settings;
+  let raw: unknown;
   try {
-    s = await read(d);
+    raw = await readRaw(d);
+    s = parseSettings(raw, d.exists);
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;
     d.err(e.message);
@@ -705,6 +712,11 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         d.err(
           `warning: ${DESIGN_SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`,
         );
+    return 0;
+  }
+  if (command === "explain") {
+    const { explainLines } = await import("./explain.mts");
+    for (const line of await explainLines(s, raw)) d.out(line);
     return 0;
   }
   if (command === "plugins") {
