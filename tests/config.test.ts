@@ -381,7 +381,7 @@ describe("factory config explain", () => {
     "  review-rounds: 3",
   ];
 
-  it("prints the settings filled in, marking each default", async () => {
+  it("prints every setting in the file's order, defaults filled in and their marks lined up", async () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
     expect(r.out.join("\n")).toMatchInlineSnapshot(`
@@ -429,6 +429,36 @@ describe("factory config explain", () => {
     `);
   });
 
+  it("marks as yours a value the file sets, even to its default", async () => {
+    const r = await explain([
+      "version: 1",
+      "repository: owner/name",
+      "session-minutes:",
+      "  build: 230",
+      "rules:",
+      "  review-rounds: 2",
+    ]);
+    expect(r.out).toContain("  build: 230");
+    expect(r.out).toContain("  review-rounds: 2");
+    expect(r.out).toContainEqual(
+      expect.stringMatching(/^ {2}conflicts: 110 +# default$/),
+    );
+    expect(r.out).toContainEqual(
+      expect.stringMatching(/^ {2}small-change-lines: 30 +# default$/),
+    );
+  });
+
+  it("marks as yours a part written as one word", async () => {
+    const r = await explain([
+      "version: 1",
+      "repository: owner/name",
+      "tickets: github",
+      "code-host: github",
+    ]);
+    expect(r.out).toContain("  type: github");
+    expect(r.out).toContain("code-host: github");
+  });
+
   it("prints a part that is off, and a default that is no value, as a comment", async () => {
     const r = await explain(["version: 1", "repository: owner/name"]);
     expect(r.out).toContain("# ci-review: off");
@@ -450,25 +480,37 @@ describe("factory config explain", () => {
     expect(r.out).toContain("  # pages: found by the factory (default)");
   });
 
-  it("prints the board's columns and fields only with a board", async () => {
-    const without = await explain(["version: 1", "repository: owner/name"]);
-    expect(without.out.join("\n")).not.toMatch(/columns:|fields:/);
-    const withBoard = await explain(SMALL);
-    expect(withBoard.out).toContainEqual(
-      expect.stringMatching(/^ {2}columns:$/),
-    );
-    expect(withBoard.out).toContainEqual(
-      expect.stringMatching(/^ {2}fields:$/),
-    );
+  it("prints no columns or fields without a board", async () => {
+    const r = await explain(["version: 1", "repository: owner/name"]);
+    expect(r.out.join("\n")).not.toMatch(/columns:|fields:/);
   });
 
-  it("prints a file that reads as the same settings", async () => {
-    for (const file of [SMALL, ["version: 1", "repository: owner/name"]]) {
-      const r = await explain(file);
-      expect(parse(load(r.out.join("\n")))).toEqual(
-        parse(load(file.join("\n"))),
-      );
-    }
+  const RICH = [
+    "version: 1",
+    "repository: owner/name",
+    "plugins:",
+    "  - agent: rev",
+    "    role: reviewer",
+    "    files: [src/**, 'db/*.sql']",
+    "  - skill: build",
+    "    role: builder",
+    "    labels: [new-thing]",
+    "auto-merge:",
+    "  allow: [docs/**, '**/*.md']",
+    "site:",
+    "  start: npm start -- --port $PORT",
+    "  url: http://localhost:$PORT",
+    "  hide: ['.clock', '#ads']",
+    "  widths: [375, 1440]",
+  ];
+
+  it.each([
+    ["a small file", SMALL],
+    ["the shortest file", ["version: 1", "repository: owner/name"]],
+    ["plug-ins, lists, and a site", RICH],
+  ])("prints %s so it reads as the same settings", async (_, file) => {
+    const r = await explain(file);
+    expect(parse(load(r.out.join("\n")))).toEqual(parse(load(file.join("\n"))));
   });
 
   it("fails as config check does on settings it cannot read", async () => {

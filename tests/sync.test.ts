@@ -365,6 +365,9 @@ describe("the factory's core", () => {
     );
     expect(trace).toContain(".claude/change-types.md");
     expect(trace).toContain("npx --no-install factory pr comment");
+    expect(
+      plan(PACKAGE, root, settings()).write.get(".claude/factory/rules.md"),
+    ).toContain("`factory-trace` skill");
   });
 });
 
@@ -471,6 +474,15 @@ describe("factory sync: the numbers the rules use", () => {
     await sync([], settings({ rules: { "review-rounds": 12 } }));
     expect(read(RULES_COPY)).toContain("After 12 rounds, whatever");
     expect(read(REVIEW_COPY)).toContain("When the 13th review arrives");
+  });
+
+  it("stops, naming the review skill, when the rounds are set and its heading is gone", async () => {
+    put(pkg, "skills/factory-address-review/SKILL.md", "review\n");
+    await expect(
+      sync([], settings({ rules: { "review-rounds": 3 } })),
+    ).rejects.toThrow(
+      "skills/factory-address-review/SKILL.md: expected one match",
+    );
   });
 
   it("stops, naming the file, when a number is set and its phrase is gone", async () => {
