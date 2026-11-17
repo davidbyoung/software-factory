@@ -97,6 +97,55 @@ describe("factory-build.yml's last step", () => {
   });
 });
 
+describe("the action's setup commands", () => {
+  const setup = step("Run the build's setup commands");
+
+  /** The step's script, run with an `npx` that prints `commands` for
+   * `factory config get commands.build-setup` and fails on anything else. */
+  const runSetup = (commands: string[]) => {
+    const dir = mkdtempSync(join(tmpdir(), "build-setup-"));
+    mkdirSync(join(dir, "bin"));
+    writeFileSync(
+      join(dir, "bin", "npx"),
+      [
+        "#!/bin/bash",
+        'if [ "$*" = "--no-install factory config get commands.build-setup" ]; then',
+        `  printf '%s\\n' ${commands.map((c) => `'${c}'`).join(" ")}`,
+        "else",
+        '  echo "no such setting: $*" >&2; exit 1',
+        "fi",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    const r = spawnSync("bash", ["-eo", "pipefail", "-c", setup.run!], {
+      cwd: dir,
+      env: {
+        PATH: `${join(dir, "bin")}:${process.env.PATH}`,
+        RUNNER_TEMP: dir,
+      } as unknown as NodeJS.ProcessEnv,
+      encoding: "utf8",
+    });
+    return { status: r.status, stdout: r.stdout, stderr: r.stderr };
+  };
+
+  it("runs each commands.build-setup command of the settings, in order", () => {
+    const r = runSetup(["echo first", "echo second"]);
+    expect([r.status, r.stderr]).toEqual([0, ""]);
+    expect(r.stdout.split("\n").filter((l) => !l.startsWith("::"))).toEqual([
+      "first",
+      "second",
+      "",
+    ]);
+  });
+
+  it("stops the run at the first command that fails", () => {
+    const r = runSetup(["echo first", "exit 3", "echo third"]);
+    expect(r.status).toBe(3);
+    expect(r.stdout).toContain("first");
+    expect(r.stdout).not.toContain("third\n");
+  });
+});
+
 describe("the action's session step", () => {
   it("sets FACTORY_UNATTENDED=1, which the permission hook answers for", () => {
     expect(step("Run the session").env).toMatchObject({

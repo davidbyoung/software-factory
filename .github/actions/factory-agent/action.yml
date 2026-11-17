@@ -107,7 +107,7 @@ runs:
       if: steps.gate.outputs.ran != 'false'
       shell: bash
       run: |
-        npx --no-install factory config get build-setup > "$RUNNER_TEMP/build-setup"
+        npx --no-install factory config get commands.build-setup > "$RUNNER_TEMP/build-setup"
         while IFS= read -r command; do
           echo "::group::$command"
           bash -eo pipefail -c "$command" < /dev/null
