@@ -191,7 +191,8 @@ the factory never deploys it.
 
 ## A scheduled poller: `github-action` _[Planned](developing.md#what-is-built)_
 
-Until it is built, use the poller above, or `manual`.
+Until it is built, `factory config check` refuses it. Use the poller
+above, or `manual`.
 
 For a repository with nowhere to run a container. Setup would add a
 scheduled job on the cloud runner that runs the poller for one pass:

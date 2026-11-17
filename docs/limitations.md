@@ -68,8 +68,7 @@ as a code host's billing or what its workflows can see, are in
   person's, but the factory has only run against a person's.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
-- **Installing an unpublished or private package** in CI and from a
-  dependency bot.
+- **A factory update reaching a repository through its dependency bot.**
 - **Glob patterns standing in for today's regular expressions** in the
   merge policy. They could match differently. The switch compares the old and new
   decision on recent pull requests.

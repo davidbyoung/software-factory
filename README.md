@@ -76,9 +76,7 @@ added without changing the rest. Today each has one choice:
 [The quick start](docs/quick-start.md) takes you from nothing to a first
 built pull request. Refining and building a ticket on your machine needs
 only the package: no board, no secrets, and nothing to host. Everything
-else is optional and comes later. _[Planned](docs/developing.md#what-is-built)_,
-meaning not built yet: the package is not published yet,
-so it cannot be installed outside the repository it is developed in.
+else is optional and comes later.
 
 ## What it holds to
 

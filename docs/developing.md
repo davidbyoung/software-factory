@@ -30,40 +30,43 @@ completes with the files the version writes ([Updating](updating.md)).
 The factory is the npm package `@davidbyoung/software-factory`. Parts not
 marked working below exist only in these docs.
 
-| Part                                                                                                          | State                               |
-| ------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| Refining, building, and working a pull request's review                                                       | Working                             |
-| The board, its sync, and `status`                                                                             | Working                             |
-| Builds from the board, with a poller you host                                                                 | Working                             |
-| Builds that run in GitHub Actions, started by a command                                                       | Working                             |
-| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions              | Working                             |
-| Who merges, and the review's verdict                                                                          | Working                             |
-| The labels `merge: manual` and `verdict: override`                                                            | Working                             |
-| These docs                                                                                                    | Working                             |
-| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                    | Working                             |
-| The follow-ups ticket as one checklist                                                                        | Working                             |
-| The `factory` tool, `sync`, and the package folder                                                            | Working                             |
-| A global `factory` command that runs each repository's own copy                                               | Working                             |
-| The automated review as one of the factory's workflows, and `ci-review`                                       | Working                             |
-| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball | Working                             |
-| The `factory-` names and the `FACTORY_` secrets                                                               | Working                             |
-| Ticket commands that go through one interface                                                                 | Working                             |
-| The code host and the runner, each behind one interface                                                       | Working                             |
-| A published package, updated through Dependabot                                                               | Planned, next                       |
-| A second repository using it                                                                                  | Planned, after publishing           |
-| Your own column names on a board                                                                              | Working                             |
-| A UI reviewer for any website                                                                                 | Working                             |
-| Built-in measurements for any website                                                                         | Working                             |
-| A design skill for any website                                                                                | Working                             |
-| `init`, which can be re-run, and `doctor`                                                                     | Working                             |
-| `remove` and `config explain`                                                                                 | Planned, not yet scheduled          |
-| `approvers` and `rules` in the settings                                                                       | Planned, not yet scheduled          |
-| Starting builds from a scheduled workflow                                                                     | Planned, not yet scheduled          |
-| `factory poller --once`, the scheduled workflow's one pass, and a poller built from an installed package      | Planned, not yet scheduled          |
-| `factory migrate`, `factory board sync --dry-run`, and the `/factory-trace` skill                             | Planned, not yet scheduled          |
-| Another ticket system, such as Jira                                                                           | Not planned. The design leaves room |
-| Another code host or runner                                                                                   | Not planned. The design leaves room |
-| Sharing plug-ins between repositories                                                                         | Not planned                         |
+| Part                                                                                                             | State                                                                     |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Refining, building, and working a pull request's review                                                          | Working                                                                   |
+| The board, its sync, and `status`                                                                                | Working                                                                   |
+| Builds from the board, with a poller you host                                                                    | Working                                                                   |
+| Builds that run in GitHub Actions, started by a command                                                          | Working                                                                   |
+| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                 | Working                                                                   |
+| Who merges, and the review's verdict                                                                             | Working                                                                   |
+| The labels `merge: manual` and `verdict: override`                                                               | Working                                                                   |
+| These docs                                                                                                       | Working                                                                   |
+| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                       | Working                                                                   |
+| The follow-ups ticket as one checklist                                                                           | Working                                                                   |
+| The `factory` tool, `sync`, and the package folder                                                               | Working                                                                   |
+| A global `factory` command that runs each repository's own copy                                                  | Working                                                                   |
+| The automated review as one of the factory's workflows, and `ci-review`                                          | Working                                                                   |
+| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                                                                   |
+| The `factory-` names and the `FACTORY_` secrets                                                                  | Working                                                                   |
+| Ticket commands that go through one interface                                                                    | Working                                                                   |
+| The code host and the runner, each behind one interface                                                          | Working                                                                   |
+| A published package                                                                                              | Working                                                                   |
+| Updates through Dependabot, which `factory-deps` completes with `factory sync`                                   | Working                                                                   |
+| `factory board --dry-run`                                                                                        | Working                                                                   |
+| Your own column names on a board                                                                                 | Working                                                                   |
+| A UI reviewer for any website                                                                                    | Working                                                                   |
+| Built-in measurements for any website                                                                            | Working                                                                   |
+| A design skill for any website                                                                                   | Working                                                                   |
+| `init`, which can be re-run, and `doctor`                                                                        | Working                                                                   |
+| A second repository set up from the quick start alone                                                            | Planned, [#8](https://github.com/davidbyoung/software-factory/issues/8)   |
+| `factory remove`                                                                                                 | Planned, [#8](https://github.com/davidbyoung/software-factory/issues/8)   |
+| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Planned, [#12](https://github.com/davidbyoung/software-factory/issues/12) |
+| `rules` in the settings, `factory config explain`, and the `factory-trace` skill                                 | Planned, [#13](https://github.com/davidbyoung/software-factory/issues/13) |
+| `approvers` in the settings                                                                                      | Planned, [#14](https://github.com/davidbyoung/software-factory/issues/14) |
+| `factory migrate`                                                                                                | Not planned. The first release that changes the settings' shape adds it   |
+| Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                                       |
+| A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                                       |
+| Another code host or runner                                                                                      | Not planned. The design leaves room                                       |
+| Sharing plug-ins between repositories                                                                            | Not planned                                                               |
 
 When a part is built, its pull request updates this table, and corrects any
 page the build had to differ from. [The CLI](cli.md) marks each command
@@ -184,7 +187,7 @@ adapter.** An adapter is one module in `src/tickets/` that implements the
 other value fails `factory config check` and every ticket command with
 `tickets.type "X" is not supported. "github" is the only ticket system built.`
 A type that names a package, so a team can write an adapter for a system
-the factory does not ship, is planned, not built.
+the factory does not ship, is not planned. The design leaves room.
 
 | Operation               | In `Tickets`              | What it returns or does                                                                                                                                  |
 | ----------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -259,7 +262,7 @@ that implements the `CodeHost` type in `src/code-host/types.mts`. Any other
 value fails `factory config check`, and every command that reads the
 settings and reaches a pull request, with
 `code-host.type "X" is not supported. "github" is the only code host built.`
-A type that names a package is planned, not built.
+A type that names a package is not planned. The design leaves room.
 
 A command that a workflow also runs, such as `factory pr`, does not read
 the settings there, so an unreadable settings file cannot fail the
@@ -359,7 +362,7 @@ its own tests against faked replies.
 | The tool's unit tests  | Each command does what it says. A new test is seen failing before it is trusted                                                                                |
 | `factory sync --check` | The copies match the source                                                                                                                                    |
 | Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host |
-| `/factory-trace`       | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                             |
+| `/factory-trace`       | _[Planned](#what-is-built)_: A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                |
 | Fork safety            | No workflow it runs or ships could run a fork's code with a secret or write access (`tests/fork-safety.test.ts`). This repository is public                    |
 | One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                               |
 

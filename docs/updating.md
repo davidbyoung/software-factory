@@ -1,8 +1,4 @@
-# Updating _[Planned](developing.md#what-is-built)_
-
-Nothing on this page works until the package is published. Until then, a
-new version reaches your repository the way it was installed, and
-`factory sync` applies it.
+# Updating
 
 **When a new version is released, a pull request appears in your
 repository. You read it and merge it.** That is all you have to do.
