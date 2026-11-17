@@ -10,7 +10,7 @@
 
 ## 3. The settings
 
-- [ ] 3.1 `builds.poll-minutes` in `src/config.mts` and `settings.schema.json`, and the `github-action` refusal removed; tests in `tests/config.test.ts` (lines 10 to 13), and `tests/settings-schema.test.ts` still matching
+- [x] 3.1 `builds.poll-minutes` in `src/config.mts` and `settings.schema.json`, and the `github-action` refusal removed; tests in `tests/config.test.ts` (lines 10 to 13), and `tests/settings-schema.test.ts` still matching
 
 ## 4. The workflow
 

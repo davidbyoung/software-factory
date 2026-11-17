@@ -29,6 +29,9 @@ export class SettingsError extends Error {}
 export const ROLES = ["mockups", "builder", "reviewer"] as const;
 export type Role = (typeof ROLES)[number];
 export const TRIGGERS = ["own-server", "github-action", "manual"] as const;
+/** How often the scheduled poller may check the board, in minutes: each
+ * divides an hour, so a schedule every N minutes keeps an even beat. */
+export const POLL_MINUTES = [5, 10, 15, 30, 60] as const;
 export const SPECS = ["none", "openspec"] as const;
 
 const FIELD_DEFAULTS = {
@@ -66,6 +69,8 @@ export type Settings = {
     trigger: (typeof TRIGGERS)[number];
     /** Where an unattended build runs. */
     runner: string;
+    /** How often the scheduled poller checks the board. */
+    pollMinutes: (typeof POLL_MINUTES)[number];
   };
   specs: (typeof SPECS)[number];
   beforeCommit: string[];
@@ -155,7 +160,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "tickets.columns": Object.keys(STATE_KEYS),
   "tickets.fields": Object.keys(FIELD_DEFAULTS),
   "code-host": ["type"],
-  builds: ["trigger", "runner"],
+  builds: ["trigger", "runner", "poll-minutes"],
   specs: ["type"],
   "auto-merge": ["allow", "deny", "commands"],
   "ci-review": ["commands"],
@@ -424,10 +429,20 @@ export function parseSettings(
 
   const builds = object(top.builds, "builds");
   const trigger = oneOf(builds.trigger, "builds.trigger", TRIGGERS, "manual");
-  if (trigger === "github-action")
+  const minutes = builds["poll-minutes"];
+  if (minutes !== undefined && trigger !== "github-action")
     throw new SettingsError(
-      `${SETTINGS_FILE}: builds.trigger "github-action" is planned, not built. Use own-server or manual.`,
+      `${SETTINGS_FILE}: builds.poll-minutes needs builds.trigger: github-action`,
     );
+  const pollMinutes =
+    minutes === undefined
+      ? 5
+      : POLL_MINUTES.includes(minutes as (typeof POLL_MINUTES)[number])
+        ? (minutes as (typeof POLL_MINUTES)[number])
+        : fail(
+            "builds.poll-minutes",
+            `must be one of ${POLL_MINUTES.join(", ")}`,
+          );
   const runner = builds.runner ?? DEFAULT_RUNNER;
   if (typeof runner !== "string" || !built.runner.includes(runner))
     throw new SettingsError(
@@ -495,7 +510,7 @@ export function parseSettings(
       fields: fieldNames,
     },
     codeHost: { type: codeHost },
-    builds: { trigger, runner },
+    builds: { trigger, runner, pollMinutes },
     specs: oneOf(specs.type, "specs", SPECS, "none"),
     beforeCommit: strings(top["before-commit"], "before-commit"),
     buildSetup: strings(top["build-setup"], "build-setup"),

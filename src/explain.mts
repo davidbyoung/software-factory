@@ -74,6 +74,9 @@ export async function explainLines(
   block(["builds"]);
   put(["builds", "trigger"], s.builds.trigger);
   put(["builds", "runner"], s.builds.runner);
+  if (s.builds.trigger === "github-action")
+    put(["builds", "poll-minutes"], s.builds.pollMinutes);
+  else comment(1, "poll-minutes: only with trigger github-action");
   put(["specs"], s.specs);
   put(["before-commit"], s.beforeCommit);
   put(["build-setup"], s.buildSetup);
