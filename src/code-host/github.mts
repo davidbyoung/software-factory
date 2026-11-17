@@ -438,6 +438,10 @@ export function githubCodeHost(o: {
       const repo = await t.rest<{ default_branch: string }>("GET", API);
       return repo.default_branch;
     },
+    async isPrivate() {
+      const repo = await t.rest<{ private: boolean }>("GET", API);
+      return repo.private;
+    },
     async checkRuns(sha) {
       const answer = await t.rest<{ check_runs: RestCheckRun[] }>(
         "GET",

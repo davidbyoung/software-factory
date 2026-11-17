@@ -58,6 +58,9 @@ export type Runner = {
   /** The jobs that failed in one run, each with its log. Which runs count
    * is the caller's: `factory pr failed` takes those `wait-checks` waits on. */
   failedJobs(run: number): Promise<FailedJob[]>;
+  /** Whether a workflow of the factory's, by its file name, runs: missing
+   * when the default branch does not have it. */
+  workflowState(file: string): Promise<"active" | "disabled" | "missing">;
   /** The names of the secrets the runner's jobs can read. */
   secretNames(): Promise<string[]>;
   /** Stores a secret the runner's jobs can read. The value never appears

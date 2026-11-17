@@ -40,6 +40,8 @@ type Stored = Required<Omit<PullSeed, keyof Pull>> & Required<Pull>;
 
 export type MemoryCodeHostOptions = {
   defaultBranch?: string;
+  /** Whether the repository is private; public unless given. */
+  isPrivate?: boolean;
   /** The check runs and statuses on each commit. */
   commits?: Record<
     string,
@@ -225,6 +227,10 @@ export function memoryCodeHost(
     async defaultBranch() {
       called("defaultBranch");
       return options.defaultBranch ?? "main";
+    },
+    async isPrivate() {
+      called("isPrivate");
+      return options.isPrivate ?? false;
     },
     async checkRuns(sha) {
       called("checkRuns", sha);

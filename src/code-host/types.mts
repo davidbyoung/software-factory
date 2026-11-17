@@ -127,6 +127,8 @@ export type CodeHost = {
   /** The commit two commits both descend from. */
   mergeBase(base: string, head: string): Promise<string>;
   defaultBranch(): Promise<string>;
+  /** Whether only people given access can see the repository. */
+  isPrivate(): Promise<boolean>;
 
   /** The check runs on a commit, without its statuses. */
   checkRuns(sha: string): Promise<CheckRun[]>;
