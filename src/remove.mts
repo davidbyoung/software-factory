@@ -17,7 +17,7 @@ import {
   SETTINGS_FILE,
   type Settings,
 } from "./config.mts";
-import { hasCommand } from "./lib/has-command.mts";
+import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
 import { SIGNING_KEY } from "./parts.mts";
 import { OVERRIDE } from "./review-verdict.mts";
@@ -59,6 +59,7 @@ function factoryFiles(root: string): string[] {
     ...named(".claude/agents", /^factory-.*\.md$/),
     ...named(".github/workflows", /^factory-.*\.yml$/),
     ".github/factory-review.md",
+    ...named(".github/actions", /^factory-/),
   ].filter((p) => existsSync(join(root, p)));
 }
 
@@ -146,7 +147,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
     ...(secrets === null || secrets.includes(SIGNING_KEY)
       ? [`Delete the secret ${SIGNING_KEY}${secrets === null ? " if set" : ""}`]
       : []),
-    `Delete the labels ${listed(LABELS)} if you do not want their history: deleting one takes it off every ticket`,
+    `Delete whichever of the labels ${listed(LABELS)} exist, if you do not want their history: deleting one takes it off every ticket`,
     `Run npm uninstall ${d.packageName}`,
     "Commit this on a branch, open a pull request, and merge it",
   ];
@@ -157,6 +158,11 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
 }
 
 export async function run(argv: string[]): Promise<number> {
+  const terminal = noTerminal("remove");
+  if (terminal) {
+    console.log(terminal);
+    return 1;
+  }
   const manifest = JSON.parse(
     readFileSync(join(PACKAGE, "package.json"), "utf8"),
   ) as { name: string };

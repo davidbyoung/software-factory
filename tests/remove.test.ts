@@ -53,6 +53,7 @@ const SYNCED: Record<string, string> = {
   ".github/workflows/factory-claude-review.yml": "on: pull_request\n",
   ".github/workflows/ci.yml": "on: push\n",
   ".github/factory-review.md": "review\n",
+  ".github/actions/factory-agent/action.yml": "runs:\n",
   ".github/review-notes.md": "notes\n",
   "CLAUDE.md": `# Our project\n\nUse tabs.\n\n${IMPORT_LINE}\n`,
   ".claude/settings.json": (() => {
@@ -120,6 +121,7 @@ const DELETED = [
   ".github/workflows/factory-check.yml",
   ".github/workflows/factory-claude-review.yml",
   ".github/factory-review.md",
+  ".github/actions/factory-agent",
 ];
 
 describe("factory remove", () => {
@@ -136,6 +138,7 @@ describe("factory remove", () => {
       "  Delete   .github/workflows/factory-check.yml",
       "  Delete   .github/workflows/factory-claude-review.yml",
       "  Delete   .github/factory-review.md",
+      "  Delete   .github/actions/factory-agent",
       "  Change   .claude/settings.json",
       "  Change   CLAUDE.md",
       "Nothing changed.",
@@ -198,7 +201,7 @@ describe("factory remove", () => {
       "  3. Delete the Session, Runs in, and Cost fields from board 3, if you do not want them.",
       "  4. Delete the secret CLAUDE_CODE_OAUTH_TOKEN, unless another workflow uses it.",
       "  5. Delete the secret FACTORY_SIGNING_KEY.",
-      "  6. Delete the labels merge: automatic, merge: manual, verdict: override, follow-up, and spec if you do not want their history: deleting one takes it off every ticket.",
+      "  6. Delete whichever of the labels merge: automatic, merge: manual, verdict: override, follow-up, and spec exist, if you do not want their history: deleting one takes it off every ticket.",
       "  7. Run npm uninstall @davidbyoung/software-factory.",
       "  8. Commit this on a branch, open a pull request, and merge it.",
     ]);

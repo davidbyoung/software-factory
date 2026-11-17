@@ -36,7 +36,7 @@ import {
   type Settings,
 } from "./config.mts";
 import { checks as doctorChecks, doctorDeps, line } from "./doctor.mts";
-import { hasCommand } from "./lib/has-command.mts";
+import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { DEFAULT_RUNNER } from "./runner/index.mts";
 import { listed } from "./lib/listed.mts";
 import {
@@ -649,6 +649,11 @@ async function terminalAsk(): Promise<Ask> {
 }
 
 export async function run(argv: string[]): Promise<number> {
+  const terminal = noTerminal("init");
+  if (terminal) {
+    console.log(terminal);
+    return 1;
+  }
   let root: string;
   try {
     root = repoRoot();

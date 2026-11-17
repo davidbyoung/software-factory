@@ -228,3 +228,25 @@ describe("the files the package copies into a repository", () => {
     expect(bare).toEqual([]);
   });
 });
+
+describe("the commands that ask questions", () => {
+  it.each(["init", "remove"])(
+    "%s says it needs a terminal when there is none, and changes nothing",
+    (command) => {
+      const cwd = mkdtempSync(join(tmpdir(), "no-terminal-"));
+      try {
+        writeFileSync(join(cwd, "CLAUDE.md"), "@.claude/factory/rules.md\n");
+        const r = factory([command], { cwd, input: "" });
+        expect(r.status).toBe(1);
+        expect(r.stdout).toBe(
+          `factory ${command} asks its questions in a terminal: run it in one.\n`,
+        );
+        expect(readFileSync(join(cwd, "CLAUDE.md"), "utf8")).toBe(
+          "@.claude/factory/rules.md\n",
+        );
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+  );
+});
