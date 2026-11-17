@@ -109,7 +109,8 @@ conflict, and the session that owns the pull request resolves it.
 
 ## Sizing the work to the change
 
-A change under about 30 lines outside tests, adding no new component and no
+A change under about 30 lines outside tests (30 by default,
+`rules.small-change-lines`), adding no new component and no
 new state, is **small**. It skips the heavier steps: no separate spec, no
 readiness read, and one test that reproduces the defect or checks the
 change. The first message of the work says which path it is taking, so you

@@ -350,6 +350,7 @@ describe("the factory's core", () => {
     ".claude/skills/factory-resolve-conflicts/SKILL.md",
     ".claude/skills/factory-diagnose/SKILL.md",
     ".claude/skills/factory-mutate/SKILL.md",
+    ".claude/skills/factory-trace/SKILL.md",
     ".claude/agents/factory-ticket-readiness.md",
     ".claude/agents/factory-test-reviewer.md",
   ];
@@ -357,6 +358,16 @@ describe("the factory's core", () => {
   it("is written from the real package to a repository with no settings and no files", () => {
     const written = [...plan(PACKAGE, root, settings()).write.keys()];
     expect(CORE.filter((path) => !written.includes(path))).toEqual([]);
+  });
+  it("gives the trace skill the change types to read and the pull request to post on", () => {
+    const trace = plan(PACKAGE, root, settings()).write.get(
+      ".claude/skills/factory-trace/SKILL.md",
+    );
+    expect(trace).toContain(".claude/change-types.md");
+    expect(trace).toContain("npx --no-install factory pr comment");
+    expect(
+      plan(PACKAGE, root, settings()).write.get(".claude/factory/rules.md"),
+    ).toContain("`factory-trace` skill");
   });
 });
 
@@ -405,6 +416,105 @@ describe("factory sync: how long each session may run", () => {
     expect(r.code).toBe(1);
     expect(r.err).toContain("  .github/workflows/factory-review.yml");
     expect(r.err).not.toContain("  .github/workflows/factory-build.yml");
+  });
+});
+
+describe("factory sync: the numbers the rules use", () => {
+  const RULES = [
+    "A change is small when it changes under about 30 lines outside tests.",
+    "After two rounds, whatever is still in dispute goes to the user.",
+    "",
+  ].join("\n");
+  const REVIEW = [
+    "## 6. Two rounds, then escalate",
+    "",
+    "Handle **at most two",
+    "rounds**. When the third review arrives:",
+    "",
+  ].join("\n");
+  const RULES_COPY = ".claude/factory/rules.md";
+  const REVIEW_COPY = ".claude/skills/factory-address-review/SKILL.md";
+  beforeEach(() => {
+    put(pkg, "rules.md", RULES);
+    put(pkg, "skills/factory-address-review/SKILL.md", REVIEW);
+  });
+
+  it("writes the copies word for word with the defaults", async () => {
+    await sync([], settings());
+    expect(read(RULES_COPY)).toBe(RULES);
+    expect(read(REVIEW_COPY)).toBe(REVIEW);
+  });
+
+  it("writes the small-change number into the rules", async () => {
+    await sync([], settings({ rules: { "small-change-lines": 45 } }));
+    expect(read(RULES_COPY)).toContain("under about 45 lines outside tests");
+    expect(read(REVIEW_COPY)).toBe(REVIEW);
+  });
+
+  it("writes the review's rounds into the rules and the review skill, numbering the next review", async () => {
+    await sync([], settings({ rules: { "review-rounds": 3 } }));
+    expect(read(RULES_COPY)).toContain("After three rounds, whatever");
+    expect(read(REVIEW_COPY)).toBe(
+      [
+        "## 6. Three rounds, then escalate",
+        "",
+        "Handle **at most three",
+        "rounds**. When the fourth review arrives:",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("writes one round as one, and a count past ten in digits", async () => {
+    await sync([], settings({ rules: { "review-rounds": 1 } }));
+    expect(read(REVIEW_COPY)).toContain("## 6. One round, then escalate");
+    expect(read(REVIEW_COPY)).toContain(
+      "at most one\nround**. When the second review arrives",
+    );
+    await sync([], settings({ rules: { "review-rounds": 12 } }));
+    expect(read(RULES_COPY)).toContain("After 12 rounds, whatever");
+    expect(read(REVIEW_COPY)).toContain("When the 13th review arrives");
+  });
+
+  it("stops, naming the review skill, when the rounds are set and its heading is gone", async () => {
+    put(pkg, "skills/factory-address-review/SKILL.md", "review\n");
+    await expect(
+      sync([], settings({ rules: { "review-rounds": 3 } })),
+    ).rejects.toThrow(
+      "skills/factory-address-review/SKILL.md: expected one match",
+    );
+  });
+
+  it("stops, naming the file, when a number is set and its phrase is gone", async () => {
+    put(pkg, "rules.md", "rules\n");
+    await expect(
+      sync([], settings({ rules: { "small-change-lines": 45 } })),
+    ).rejects.toThrow("rules.md: expected one match");
+  });
+
+  it("fails the check, naming both copies, when the rounds changed and sync did not run", async () => {
+    await sync([], settings());
+    const r = await sync(
+      ["--check"],
+      settings({ rules: { "review-rounds": 3 } }),
+    );
+    expect(r.code).toBe(1);
+    expect(r.err).toContain(`  ${RULES_COPY}`);
+    expect(r.err).toContain(`  ${REVIEW_COPY}`);
+  });
+
+  it("finds every phrase in the real package's rules and review skill", () => {
+    const written = plan(
+      PACKAGE,
+      root,
+      settings({ rules: { "small-change-lines": 45, "review-rounds": 3 } }),
+    ).write;
+    expect(written.get(RULES_COPY)).toContain("under about 45 lines");
+    expect(written.get(RULES_COPY)).toContain("After three rounds");
+    expect(written.get(REVIEW_COPY)).toContain("Three rounds, then escalate");
+    expect(written.get(REVIEW_COPY)).toContain(
+      "When the fourth review arrives",
+    );
   });
 });
 

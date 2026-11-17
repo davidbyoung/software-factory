@@ -51,14 +51,14 @@ read is set.
 
 ## Now and then
 
-| Command                  | When you run it                                                   | State   |
-| ------------------------ | ----------------------------------------------------------------- | ------- |
-| `factory config get KEY` | To print one setting in effect, such as `tickets.board`           | Built   |
-| `factory config explain` | To see every setting in effect, defaults included                 | Planned |
-| `factory plugins`        | To see your plug-ins by role                                      | Built   |
-| `factory site compare`   | To picture a website's pages before and after a change. See below | Built   |
-| `factory site stop`      | To end the sites `compare --keep` left running                    | Built   |
-| `factory remove`         | To take the factory out of a repository                           | Built   |
+| Command                  | When you run it                                                   | State |
+| ------------------------ | ----------------------------------------------------------------- | ----- |
+| `factory config get KEY` | To print one setting in effect, such as `tickets.board`           | Built |
+| `factory config explain` | To see every setting in effect, defaults included                 | Built |
+| `factory plugins`        | To see your plug-ins by role                                      | Built |
+| `factory site compare`   | To picture a website's pages before and after a change. See below | Built |
+| `factory site stop`      | To end the sites `compare --keep` left running                    | Built |
+| `factory remove`         | To take the factory out of a repository                           | Built |
 
 A new version is installed with npm and applied with `factory sync`, as
 [Updating](updating.md) says. [Removing](removing.md) says what `remove`

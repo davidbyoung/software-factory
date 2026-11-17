@@ -9,6 +9,7 @@ files:
   - .claude/skills/factory-mutate/SKILL.md
   - .claude/skills/factory-refine/SKILL.md
   - .claude/skills/factory-resolve-conflicts/SKILL.md
+  - .claude/skills/factory-trace/SKILL.md
   - .claude/agents/factory-test-reviewer.md
   - .claude/agents/factory-ticket-readiness.md
   - .claude/factory/rules.md

@@ -32,17 +32,17 @@ and `factory sync` removes it again when that is undone.
 
 ## At a glance
 
-| Ask a session                      | Skill                       | It does                                                                                             |
-| ---------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
-| "refine ticket 12"                 | `factory-refine`            | Turns a ticket into a spec a builder can start from                                                 |
-| "build ticket 12"                  | `factory-build`             | Builds a ticket to a reviewed pull request                                                          |
-| "address the review on 280"        | `factory-address-review`    | Works a pull request's review until it can merge                                                    |
-| "resolve the conflicts on 280"     | `factory-resolve-conflicts` | Merges your main branch into a pull request and settles the conflicts                               |
-| "diagnose this failing test"       | `factory-diagnose`          | Finds a bug's cause before any code changes                                                         |
-| "mutate this test"                 | `factory-mutate`            | Proves a test can fail                                                                              |
-| "fix the dependency pull requests" | `factory-deps`              | Moves dependency pull requests toward merged                                                        |
-| "mock up a new about page"         | `factory-design`            | Designs a visible change to a website, with mockups                                                 |
-| "trace this rule change"           | `factory-trace`             | _[Planned](developing.md#what-is-built)_: Traces a change to the rules through every kind of change |
+| Ask a session                      | Skill                       | It does                                                               |
+| ---------------------------------- | --------------------------- | --------------------------------------------------------------------- |
+| "refine ticket 12"                 | `factory-refine`            | Turns a ticket into a spec a builder can start from                   |
+| "build ticket 12"                  | `factory-build`             | Builds a ticket to a reviewed pull request                            |
+| "address the review on 280"        | `factory-address-review`    | Works a pull request's review until it can merge                      |
+| "resolve the conflicts on 280"     | `factory-resolve-conflicts` | Merges your main branch into a pull request and settles the conflicts |
+| "diagnose this failing test"       | `factory-diagnose`          | Finds a bug's cause before any code changes                           |
+| "mutate this test"                 | `factory-mutate`            | Proves a test can fail                                                |
+| "fix the dependency pull requests" | `factory-deps`              | Moves dependency pull requests toward merged                          |
+| "mock up a new about page"         | `factory-design`            | Designs a visible change to a website, with mockups                   |
+| "trace this rule change"           | `factory-trace`             | Traces a change to the rules through every kind of change             |
 
 ## `factory-refine`
 
@@ -120,7 +120,7 @@ and says why. The ticket stays in "building", waiting on you.
 on. Add the label that overrides a review's verdict. Guess at a decision
 the ticket left open. Reopen a decision the ticket settled.
 
-**Defaults you can change,** _[Planned](developing.md#what-is-built)_. `rules.small-change-lines`, default 30: a
+**Defaults you can change.** `rules.small-change-lines`, default 30: a
 change under it takes the lighter path [Workflow](workflow.md) describes.
 
 ## `factory-address-review`
@@ -148,7 +148,7 @@ something to do, and starts no session when there is not.
 **What it writes.** Commits on the branch, a reply on each thread, and one
 report.
 
-**When it stops.** After two rounds (`rules.review-rounds`, _[Planned](developing.md#what-is-built)_), whatever
+**When it stops.** After two rounds (`rules.review-rounds`), whatever
 is still in dispute goes to you instead of through another round.
 
 **What it never does.** Resolve a thread it neither fixed nor disproved.
@@ -214,17 +214,25 @@ does not get it at all.
 or one made by editing a running page instead of building it. Leave a
 scratch worktree behind.
 
-## `factory-trace` _[Planned](developing.md#what-is-built)_
+## `factory-trace`
 
 **What it does.** A rule written for one kind of change can be wrong for
-every other kind. Before a change to the rules, a skill, or an agent is
-marked ready, this has a fresh agent trace each kind of change your
+every other kind. Before a change to the rules, a skill, an agent, or a
+workflow that alters what triggers a step, who runs, or when is marked
+ready, this has a fresh agent trace each kind of change your
 repository gets through the rules as they would stand, and report any kind
 that got heavier, lighter, or ambiguous, and any two rules that now
 disagree.
 
 **What it reads.** `.claude/change-types.md`, your list of the kinds of
 change your repository gets, each with a real example.
+
+**What it writes.** The fresh agent's report: on the pull request when the
+branch has one, and otherwise in the session.
+
+**When it stops.** Before starting an agent, when `.claude/change-types.md`
+is missing. The pull request stays a draft, and a comment on it shows the
+file's shape for you to write.
 
 ## `factory-resolve-conflicts`
 

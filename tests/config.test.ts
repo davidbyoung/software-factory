@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import {
   main,
+  NO_DEPENDENCIES,
   parseSettings,
+  SETTINGS_KEYS,
   patternWarnings,
   reachOf,
   type Deps,
@@ -51,6 +53,7 @@ describe("parseSettings", () => {
         review: 50,
         dependencies: 50,
       },
+      rules: { smallChangeLines: 30, reviewRounds: 2 },
     });
   });
 
@@ -79,6 +82,37 @@ describe("parseSettings", () => {
       [{ "ci-review": "npx vitest run" }, "ci-review:"],
     ])("fails on %j, naming the key", (raw, message) => {
       expect(() => parse({ ...MINIMAL, ...raw })).toThrow(message);
+    });
+  });
+
+  describe("the numbers the rules use", () => {
+    it("takes each number, and keeps the default for the other", () => {
+      expect(
+        parse({ ...MINIMAL, rules: { "small-change-lines": 50 } }).rules,
+      ).toEqual({ smallChangeLines: 50, reviewRounds: 2 });
+      expect(
+        parse({ ...MINIMAL, rules: { "review-rounds": 3 } }).rules,
+      ).toEqual({ smallChangeLines: 30, reviewRounds: 3 });
+    });
+
+    it("takes an empty block as the defaults", () => {
+      expect(parse({ ...MINIMAL, rules: {} }).rules).toEqual({
+        smallChangeLines: 30,
+        reviewRounds: 2,
+      });
+    });
+
+    it.each([0, -1, 2.5, "3"])("fails on %j, naming the key", (value) => {
+      expect(() =>
+        parse({ ...MINIMAL, rules: { "review-rounds": value } }),
+      ).toThrow(
+        ".claude/factory.yaml: rules.review-rounds: must be a whole number above zero",
+      );
+      expect(() =>
+        parse({ ...MINIMAL, rules: { "small-change-lines": value } }),
+      ).toThrow(
+        ".claude/factory.yaml: rules.small-change-lines: must be a whole number above zero",
+      );
     });
   });
 
@@ -325,6 +359,192 @@ function deps(over: Partial<Deps> = {}) {
   };
   return { d, out, err };
 }
+
+describe("factory config explain", () => {
+  const explain = async (file: string[]) => {
+    const r = deps({ readFile: () => file.join("\n") });
+    const code = await main(["explain"], r.d);
+    return { code, out: r.out, err: r.err };
+  };
+  const SMALL = [
+    "version: 1",
+    "repository: owner/name",
+    "tickets:",
+    "  board: 3",
+    "  columns:",
+    "    backlog: Todo",
+    "specs: openspec",
+    "before-commit:",
+    "  - npm test",
+    "ci-review:",
+    "  commands: [npm test]",
+    "rules:",
+    "  review-rounds: 3",
+  ];
+
+  it("prints every setting in the file's order, defaults filled in and their marks lined up", async () => {
+    const r = await explain(SMALL);
+    expect(r.code).toBe(0);
+    expect(r.out.join("\n")).toMatchInlineSnapshot(`
+      "version: 1
+      repository: owner/name
+      tickets:
+        type: github               # default
+        board: 3
+        columns:
+          backlog: Todo
+          refining: In refinement  # default
+          ready: Ready             # default
+          building: In progress    # default
+          review: In review        # default
+          done: Done               # default
+        fields:
+          session: Session         # default
+          runs-in: Runs in         # default
+          cost: Cost               # default
+      code-host: github            # default
+      builds:
+        trigger: manual            # default
+        runner: github-actions     # default
+      specs: openspec
+      before-commit:
+        - npm test
+      build-setup: []              # default
+      plugins: []                  # default
+      auto-merge:
+        allow: []                  # default
+        deny: []                   # default
+        commands: []               # default
+      ci-review:
+        commands:
+          - npm test
+      # site: off
+      session-minutes:
+        build: 230                 # default
+        conflicts: 110             # default
+        review: 50                 # default
+        dependencies: 50           # default
+      rules:
+        small-change-lines: 30     # default
+        review-rounds: 3"
+    `);
+  });
+
+  it("marks as yours a value the file sets, even to its default", async () => {
+    const r = await explain([
+      "version: 1",
+      "repository: owner/name",
+      "session-minutes:",
+      "  build: 230",
+      "rules:",
+      "  review-rounds: 2",
+    ]);
+    expect(r.out).toContain("  build: 230");
+    expect(r.out).toContain("  review-rounds: 2");
+    expect(r.out).toContainEqual(
+      expect.stringMatching(/^ {2}conflicts: 110 +# default$/),
+    );
+    expect(r.out).toContainEqual(
+      expect.stringMatching(/^ {2}small-change-lines: 30 +# default$/),
+    );
+  });
+
+  it("marks as yours a part written as one word", async () => {
+    const r = await explain([
+      "version: 1",
+      "repository: owner/name",
+      "tickets: github",
+      "code-host: github",
+    ]);
+    expect(r.out).toContain("  type: github");
+    expect(r.out).toContain("code-host: github");
+  });
+
+  it("prints a part that is off, and a default that is no value, as a comment", async () => {
+    const r = await explain(["version: 1", "repository: owner/name"]);
+    expect(r.out).toContain("# ci-review: off");
+    expect(r.out).toContain("# site: off");
+    expect(r.out).toContainEqual(
+      expect.stringMatching(/^ {2}# board: none \(default\)$/),
+    );
+  });
+
+  it("prints site's defaults that are no value as comments", async () => {
+    const r = await explain([
+      "version: 1",
+      "repository: owner/name",
+      "site:",
+      "  start: npm start",
+      "  url: http://localhost:$PORT",
+    ]);
+    expect(r.out).toContain("  # design-guide: none (default)");
+    expect(r.out).toContain("  # pages: found by the factory (default)");
+  });
+
+  it("prints no columns or fields without a board", async () => {
+    const r = await explain(["version: 1", "repository: owner/name"]);
+    expect(r.out.join("\n")).not.toMatch(/columns:|fields:/);
+  });
+
+  const RICH = [
+    "version: 1",
+    "repository: owner/name",
+    "plugins:",
+    "  - agent: rev",
+    "    role: reviewer",
+    "    files: [src/**, 'db/*.sql']",
+    "  - skill: build",
+    "    role: builder",
+    "    labels: [new-thing]",
+    "auto-merge:",
+    "  allow: [docs/**, '**/*.md']",
+    "site:",
+    "  start: npm start -- --port $PORT",
+    "  url: http://localhost:$PORT",
+    "  hide: ['.clock', '#ads']",
+    "  widths: [375, 1440]",
+  ];
+
+  it.each([
+    ["a small file", SMALL],
+    ["the shortest file", ["version: 1", "repository: owner/name"]],
+    ["plug-ins, lists, and a site", RICH],
+  ])("prints %s so it reads as the same settings", async (_, file) => {
+    const r = await explain(file);
+    expect(parse(load(r.out.join("\n")))).toEqual(parse(load(file.join("\n"))));
+  });
+
+  it("prints every key the settings take, so a new one cannot be left out", async () => {
+    const r = await explain(
+      RICH.concat(["tickets:", "  board: 3", "ci-review:"]),
+    );
+    const text = r.out.join("\n");
+    const printed = (block: string, key: string) =>
+      new RegExp(
+        block
+          ? `^${block === "tickets.columns" || block === "tickets.fields" ? "    " : "  "}(# )?${key}:`
+          : `^(# )?${key}:`,
+        "m",
+      ).test(text);
+    const missing = Object.entries(SETTINGS_KEYS)
+      .filter(([block]) => block !== "plugins[]" && block !== "specs")
+      .flatMap(([block, keys]) =>
+        keys.filter((k) => !printed(block, k)).map((k) => `${block}.${k}`),
+      );
+    expect(missing).toEqual([]);
+  });
+
+  it("fails as config check does on settings it cannot read", async () => {
+    const r = await explain(["version: 2"]);
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([".claude/factory.yaml: version: must be 1"]);
+    const missing = deps({
+      loadYaml: () => Promise.reject(new Error("Cannot find package")),
+    });
+    expect(await main(["explain"], missing.d)).toBe(1);
+    expect(missing.err).toEqual([NO_DEPENDENCIES]);
+  });
+});
 
 describe("main", () => {
   it("prints a setting, a list one item per line", async () => {

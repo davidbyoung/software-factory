@@ -26,6 +26,7 @@ import {
   defaultDeps,
   loadSettings,
   repoRoot,
+  RULE_NUMBERS,
   type SessionKind,
   type Settings,
 } from "./config.mts";
@@ -82,6 +83,89 @@ export function withMinutes(text: string, minutes: number, file: string) {
   };
   const session = one(/^(\s+minutes: )\d+$/gm, minutes, text);
   return one(/^(\s+timeout-minutes: )\d+$/gm, minutes + 10, session);
+}
+
+const WORDS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+];
+const ORDINALS = [
+  "zeroth",
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "fifth",
+  "sixth",
+  "seventh",
+  "eighth",
+  "ninth",
+  "tenth",
+  "eleventh",
+];
+const count = (n: number) => WORDS[n] ?? String(n);
+const ordinal = (n: number) =>
+  ORDINALS[n] ??
+  `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
+const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
+const rounds = (n: number) => `${count(n)} round${n === 1 ? "" : "s"}`;
+
+/** The phrases in a copied file that state one of the rules' numbers, by
+ * the file's path in the package: each the default's words, the setting's
+ * words, and whether the setting differs from its default. */
+const RULE_PHRASES: Record<
+  string,
+  (r: Settings["rules"]) => [RegExp, string, boolean][]
+> = {
+  "rules.md": (r) => [
+    [
+      /under about 30 lines/g,
+      `under about ${r.smallChangeLines} lines`,
+      r.smallChangeLines !== RULE_NUMBERS["small-change-lines"],
+    ],
+    [
+      /After two rounds,/g,
+      `After ${rounds(r.reviewRounds)},`,
+      r.reviewRounds !== RULE_NUMBERS["review-rounds"],
+    ],
+  ],
+  "skills/factory-address-review/SKILL.md": (r) => [
+    [
+      /^## 6\. Two rounds, then escalate$/gm,
+      `## 6. ${capital(rounds(r.reviewRounds))}, then escalate`,
+      r.reviewRounds !== RULE_NUMBERS["review-rounds"],
+    ],
+    [
+      /at most two(\s+)rounds\*\*\. When the third review arrives/g,
+      `at most ${count(r.reviewRounds)}$1round${r.reviewRounds === 1 ? "" : "s"}**. When the ${ordinal(r.reviewRounds + 1)} review arrives`,
+      r.reviewRounds !== RULE_NUMBERS["review-rounds"],
+    ],
+  ],
+};
+
+/** A copy with the rules' numbers the settings give in place of the
+ * defaults. A phrase is replaced only when its number is not the default,
+ * and must then match exactly once. */
+export function withRules(text: string, r: Settings["rules"], file: string) {
+  let out = text;
+  for (const [pattern, words, set] of RULE_PHRASES[file]?.(r) ?? []) {
+    if (!set) continue;
+    if ((out.match(pattern) ?? []).length !== 1)
+      throw new Error(
+        `${file}: expected one match for ${pattern.source}, to set a number from rules`,
+      );
+    out = out.replace(pattern, words);
+  }
+  return out;
 }
 
 function walk(dir: string, base = dir): string[] {
@@ -332,7 +416,7 @@ export function plan(pkg: string, root: string, s: Settings): Plan {
       to,
       kind && from.startsWith("workflows/")
         ? withMinutes(text, s.sessionMinutes[kind], from)
-        : text,
+        : withRules(text, s.rules, from),
     );
   }
   const launcher = launcherPath(pkg, root, manifest.name);
