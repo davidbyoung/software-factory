@@ -44,7 +44,7 @@ marked working below exist only in these docs.
 | The follow-ups ticket as one checklist                                                                           | Working                                                                   |
 | The `factory` tool, `sync`, and the package folder                                                               | Working                                                                   |
 | A global `factory` command that runs each repository's own copy                                                  | Working                                                                   |
-| The automated review as one of the factory's workflows, and `ci-review`                                          | Working                                                                   |
+| The automated review as one of the factory's workflows, and [`ci-review`](configuration.md#ci-review)            | Working                                                                   |
 | Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                                                                   |
 | The `factory-` names and the `FACTORY_` secrets                                                                  | Working                                                                   |
 | Ticket commands that go through one interface                                                                    | Working                                                                   |
@@ -60,7 +60,7 @@ marked working below exist only in these docs.
 | A second repository set up and removed from the quick start alone                                                | Working                                                                   |
 | `factory remove`                                                                                                 | Working                                                                   |
 | Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                                                   |
-| `rules` in the settings, `factory config explain`, and the `factory-trace` skill                                 | Working                                                                   |
+| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                                                                   |
 | `approvers` in the settings                                                                                      | Planned, [#14](https://github.com/davidbyoung/software-factory/issues/14) |
 | `factory migrate`                                                                                                | Not planned. The first release that changes the settings' shape adds it   |
 | Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                                       |
@@ -131,8 +131,9 @@ guard runs before every command a session runs: `npx` took 289 ms a call,
 `node` on the launcher 56 ms.
 
 To prove the package works outside its host, CI packs the folder, installs
-the tarball into an empty repository, and runs `sync`, `sync --check`,
-`config check`, and `plugins` there:
+the tarball into an empty repository, and runs `factory sync`,
+`factory sync --check`, `factory config check`, and `factory plugins`
+there:
 
 ```bash
 npm run pack-check
@@ -183,10 +184,11 @@ runs. Every command reaches a ticket, a pull request, or a build through
 one of them, and a test fails when a file elsewhere under `src/` calls
 GitHub or holds a `github.com` address.
 
-**3. The tool reads `tickets.type` and hands the work to that type's
-adapter.** An adapter is one module in `src/tickets/` that implements the
-`Tickets` type in `src/tickets/types.mts`. `github` is the only one; any
-other value fails `factory config check` and every ticket command with
+**3. The tool reads [`tickets.type`](configuration.md#tickets) and hands
+the work to that type's adapter.** An adapter is one module in
+`src/tickets/` that implements the `Tickets` type in
+`src/tickets/types.mts`. `github` is the only one; any other value fails
+`factory config check` and every ticket command with
 `tickets.type "X" is not supported. "github" is the only ticket system built.`
 
 | Operation               | In `Tickets`              | What it returns or does                                                                                                                                  |
@@ -255,11 +257,11 @@ a third.
 ## Adding a code host
 
 The code host is where pull requests are. Only GitHub is built. The
-settings name it with `code-host.type`, and `src/code-host/index.mts` hands
-a command the implementation of that name: one module in `src/code-host/`
-that implements the `CodeHost` type in `src/code-host/types.mts`. Any other
-value fails `factory config check`, and every command that reads the
-settings and reaches a pull request, with
+settings name it with [`code-host.type`](configuration.md#code-host), and
+`src/code-host/index.mts` hands a command the implementation of that name:
+one module in `src/code-host/` that implements the `CodeHost` type in
+`src/code-host/types.mts`. Any other value fails `factory config check`,
+and every command that reads the settings and reaches a pull request, with
 `code-host.type "X" is not supported. "github" is the only code host built.`
 
 A command that a workflow also runs, such as `factory pr`, does not read
@@ -319,7 +321,7 @@ of which call GitHub is sent belongs.
 ## Adding a runner
 
 The runner is where an unattended build runs. Only GitHub Actions is
-built. The settings name it with `builds.runner`, and
+built. The settings name it with [`builds.runner`](configuration.md#builds), and
 `src/runner/index.mts` hands a command the implementation of that name:
 one module in `src/runner/` that implements the `Runner` type in
 `src/runner/types.mts`. Any other value fails `factory config check`, and

@@ -17,7 +17,8 @@ and the [reference](github/reference.md#workflows) has what runs there.
 | Run `factory build 12`              | In the cloud                            | Builds in the cloud set up                                        |
 | Move the ticket to Ready on a board | In the cloud, at the poller's next pass | Builds in the cloud set up, and [the poller](#the-poller) running |
 
-Which of the last two you use is `builds.trigger` in your
+Which of the last two you use is
+[`builds.trigger`](configuration.md#builds) in your
 [settings](configuration.md#builds):
 
 | `trigger`       | Moving a ticket to Ready                                                                                          |
@@ -125,10 +126,11 @@ checkout, and needs only the token.
 | `FACTORY_BOARD_NUMBER` | Which board                                                         |
 | `FACTORY_BOARD_TOKEN`  | An access token that can read the board, comment, and start a build |
 
-One more is optional. `FACTORY_READY_COLUMN` is the name of the column that
-approves a build, and defaults to Ready. The poller has no settings file,
-so a repository whose `tickets.columns.ready` names another column sets it
-where the poller runs. `factory board check` reminds you
+One more is optional. `FACTORY_READY_COLUMN` is the name of the column
+that approves a build, and defaults to Ready. The poller has no settings
+file, so a repository whose
+[`tickets.columns.ready`](configuration.md#ticketscolumns) names another
+column sets it where the poller runs. `factory board check` reminds you
 when it applies.
 
 The repository and the board's number repeat what your settings file says,

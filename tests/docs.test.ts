@@ -3,9 +3,11 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { SETTINGS_KEYS } from "../src/config.mts";
 
 const PACKAGE = ".";
 const CLI = "docs/cli.md";
+const CONFIGURATION = "docs/configuration.md";
 
 /** Every page a reader reads, by its path from the package. */
 const pages = () => [
@@ -134,6 +136,55 @@ export function unmarked(
   return found;
 }
 
+/** The settings keys with an entry of their own in docs/configuration.md,
+ * as its headings write them, such as `tickets.columns`. */
+export function settingsEntries(configuration: string): string[] {
+  return [...configuration.matchAll(/^#{3,} `([a-z.-]+)`$/gm)].map((m) => m[1]);
+}
+
+// In every settings file, so no reader looks them up.
+const IN_EVERY_FILE = ["version", "repository"];
+
+/** Whether a dotted path names a settings key, so `rules.md` is not one. */
+function isSetting(path: string): boolean {
+  const parts = path.split(".");
+  return parts.every((part, i) =>
+    SETTINGS_KEYS[parts.slice(0, i).join(".")]?.includes(part),
+  );
+}
+
+/** Each settings key `text` names in backticks whose first mention is not a
+ * link to its entry in docs/configuration.md. A key is named alone, by a
+ * path under it, or with a value, as `builds.trigger: manual`, and its entry
+ * is the longest of `entries` its path starts with. Code blocks and headings
+ * are not read. */
+export function unlinkedSettings(text: string, entries: string[]): string[] {
+  const prose = text
+    .replace(/^\s*```[\s\S]*?^\s*```/gm, "")
+    .replace(/^#+ .*$/gm, "");
+  const links = [...prose.matchAll(/\[([^\]]*)\]\(([^)\s]+)\)/g)].map((m) => ({
+    start: m.index,
+    end: m.index + m[0].length,
+    target: m[2],
+  }));
+  const seen = new Set<string>();
+  const found: string[] = [];
+  for (const m of prose.matchAll(/`([a-z-]+(?:\.[a-z-]+)*)(?::[^`]*)?`/g)) {
+    if (!isSetting(m[1]) || IN_EVERY_FILE.includes(m[1])) continue;
+    const entry = entries
+      .filter((e) => m[1] === e || m[1].startsWith(`${e}.`))
+      .sort((a, b) => b.length - a.length)[0];
+    if (!entry || seen.has(entry)) continue;
+    seen.add(entry);
+    const target = `configuration.md#${entry.replaceAll(".", "")}`;
+    const linked = links.some(
+      (l) => l.start < m.index && m.index < l.end && l.target.endsWith(target),
+    );
+    if (!linked) found.push(`${m[0]} does not link to ${target}`);
+  }
+  return found;
+}
+
 describe("plannedCommands", () => {
   it("takes the rows whose last cell is Planned, without their arguments", () => {
     const cli = [
@@ -248,6 +299,65 @@ describe("unmarked", () => {
   });
 });
 
+describe("unlinkedSettings", () => {
+  const entries = ["tickets", "tickets.columns", "ci-review", "rules"];
+
+  it("finds a key named without a link to its entry", () => {
+    expect(unlinkedSettings("Write `ci-review` there.", entries)).toEqual([
+      "`ci-review` does not link to configuration.md#ci-review",
+    ]);
+  });
+
+  it("asks for the link at the first mention only", () => {
+    const linked = "[`ci-review`](../configuration.md#ci-review) turns it on.";
+    expect(
+      unlinkedSettings(`${linked}\n\nDelete \`ci-review\` later.`, entries),
+    ).toEqual([]);
+    expect(
+      unlinkedSettings(`Delete \`ci-review\` later.\n\n${linked}`, entries),
+    ).toHaveLength(1);
+  });
+
+  it("takes a link whose words wrap around the key", () => {
+    const text =
+      "See [the commands under\n`ci-review`](configuration.md#ci-review).";
+    expect(unlinkedSettings(text, entries)).toEqual([]);
+  });
+
+  it("finds a link to another key's entry", () => {
+    expect(
+      unlinkedSettings("[`ci-review`](configuration.md#tickets)", entries),
+    ).toHaveLength(1);
+  });
+
+  it("sends a path under a key to the longest entry it starts with", () => {
+    const text = [
+      "[`tickets.board: 7`](configuration.md#tickets) and",
+      "[`tickets.columns.ready`](configuration.md#ticketscolumns).",
+    ].join("\n");
+    expect(unlinkedSettings(text, entries)).toEqual([]);
+    expect(
+      unlinkedSettings(
+        "[`tickets.columns`](configuration.md#tickets)",
+        entries,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does not read a code block, a heading, or a name that is not a key", () => {
+    const text = [
+      "## Turning off `ci-review`",
+      "",
+      "```bash",
+      "echo 'Write `ci-review` below.'",
+      "```",
+      "",
+      "The label `spec`, and the file `rules.md`.",
+    ].join("\n");
+    expect(unlinkedSettings(text, entries)).toEqual([]);
+  });
+});
+
 describe("the docs", () => {
   const planned = plannedCommands(read(CLI));
 
@@ -272,6 +382,24 @@ describe("the docs", () => {
         (line) => `${page}: ${line}`,
       ),
     );
+    expect(found).toEqual([]);
+  });
+
+  it("give every settings key but the two in every file an entry", () => {
+    expect(settingsEntries(read(CONFIGURATION))).toEqual(
+      expect.arrayContaining(
+        SETTINGS_KEYS[""].filter((key) => !IN_EVERY_FILE.includes(key)),
+      ),
+    );
+  });
+
+  it("link a settings key to its entry where a page first names it", () => {
+    const entries = settingsEntries(read(CONFIGURATION));
+    const found = pages()
+      .filter((page) => page !== CONFIGURATION)
+      .flatMap((page) =>
+        unlinkedSettings(read(page), entries).map((line) => `${page}: ${line}`),
+      );
     expect(found).toEqual([]);
   });
 

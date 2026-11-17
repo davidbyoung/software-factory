@@ -36,8 +36,9 @@ project is written in. In a PHP, Python, or Go repository that means:
 - **Your own CI does not change.** The factory's cloud jobs install Node
   for themselves. If you turn on the automated review, how it installs your
   project, such as `composer install`, is yours to edit.
-- **Your commands stay yours.** `before-commit` in the settings takes any
-  command: `composer lint`, `make check`, `go vet ./...`.
+- **Your commands stay yours.**
+  [`before-commit`](configuration.md#before-commit) in the settings takes
+  any command: `composer lint`, `make check`, `go vet ./...`.
 
 The factory's hooks run its own tool, so they need nothing beyond Node.
 Someone who only writes code by hand, and never runs an agent session in
@@ -66,9 +67,10 @@ Added to board 3: Backlog, In refinement, Ready, In review, Session, Runs in, Co
   or move them all once and retire the column.
 - **The factory's fields are overwritten on every sync.** Do not type into
   Session, Runs in, or Cost. Your own fields are never touched.
-- **Using your own column names** works today: `tickets.columns` in your
-  settings says which of your columns shows each state, and `none` says your
-  board has none. [Configuration](configuration.md#ticketscolumns) has the
+- **Using your own column names** works today:
+  [`tickets.columns`](configuration.md#ticketscolumns) in your settings
+  says which of your columns shows each state, and `none` says your board
+  has none. [Configuration](configuration.md#ticketscolumns) has the
   mapping for a board with Todo, In Progress, and Done. To see what the
   factory will do with your board, run:
 

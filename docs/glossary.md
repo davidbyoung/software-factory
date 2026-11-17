@@ -9,17 +9,17 @@ is today.
 
 **Code host.** Where your repository lives, with its pull requests, their
 reviews, the checks on each commit, and the secrets your CI reads. Today:
-GitHub. `code-host.type` names it.
+GitHub. [`code-host.type`](configuration.md#code-host) names it.
 
 **Ticket system.** Where your tickets live. Today: GitHub Issues.
-`tickets.type` names it.
+[`tickets.type`](configuration.md#tickets) names it.
 
 **Board.** A view of every ticket's state, one column per state, which the
 factory keeps up to date. Optional. Today: a GitHub Project.
 
 **Cloud runner.** Where work runs with no one at a keyboard: cloud builds,
 the automated review, the board sync, and the factory's other CI jobs.
-Today: GitHub Actions. `builds.runner` names it.
+Today: GitHub Actions. [`builds.runner`](configuration.md#builds) names it.
 
 **Coding agent.** The AI tool that runs sessions: it reads your code,
 follows the factory's skills, and writes the change. Today: Claude Code.

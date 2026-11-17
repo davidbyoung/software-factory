@@ -48,9 +48,10 @@ of your components, copy that has to follow a style guide.
 
 Makes pictures to choose from when a decision changes how something looks.
 
-A repository with `site` in its settings has one already: the factory's
-own `factory-design` skill, which `factory sync` writes, is its `mockups`
-plug-in unless you list one of your own with this role.
+A repository with [`site`](configuration.md#site) in its settings has one
+already: the factory's own `factory-design` skill, which `factory sync`
+writes, is its `mockups` plug-in unless you list one of your own with this
+role.
 
 | Step            | What happens                                                                        |
 | --------------- | ----------------------------------------------------------------------------------- |
@@ -150,7 +151,8 @@ instructions for the agent and in the agent itself. The factory holds none of th
 
 1. Write the skill or agent, and try it by hand until it does its job.
 2. Give it a description that states when it applies.
-3. Add it under `plugins` with its `role`, and `files` or `labels`.
+3. Add it under [`plugins`](configuration.md#plugins) with its `role`, and
+   `files` or `labels`.
 4. Run `factory config check`. It fails if the file is missing or the
    role is not one of the three.
 5. Run `factory plugins` to see the list the factory will use.
@@ -164,9 +166,9 @@ No sync is needed. Plug-ins are read from your settings each time.
   ordinary skill.
 - **A skill another of your skills calls.** A reviewer that only your own
   `builder` launches is that builder's business.
-- **A rule.** "Migrations always wait for me" is `auto-merge`. "Every
-  migration needs a rollback" is a sentence in your project's instructions
-  for the agent.
+- **A rule.** "Migrations always wait for me" is
+  [`auto-merge`](configuration.md#auto-merge). "Every migration needs a
+  rollback" is a sentence in your project's instructions for the agent.
 
 ## The UI reviewer
 

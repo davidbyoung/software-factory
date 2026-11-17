@@ -60,9 +60,10 @@ it or delete it.
 
 ### Outside GitHub
 
-Only if you host the poller (`builds.trigger: own-server`): **the poller**,
-wherever you host it, with the four `FACTORY_` variables you gave it. Stop
-and delete it.
+Only if you host the poller
+([`builds.trigger: own-server`](../configuration.md#builds)): **the
+poller**, wherever you host it, with the four `FACTORY_` variables you
+gave it. Stop and delete it.
 
 ## Workflows
 
@@ -70,19 +71,19 @@ and delete it.
 Each one that runs a Claude Code session first checks whether there is
 anything to do, and stops there when there is not.
 
-| Workflow                      | Starts on                                                       | What it does                                                                                                                                |
-| ----------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory-check.yml`           | Every pull request                                              | Fails when the factory's files differ from what your settings and version would write                                                       |
-| `factory-build.yml`           | The poller, `factory build N`, or by hand                       | Runs a session that builds the ticket                                                                                                       |
-| `factory-review.yml`          | A review you submit on a pull request                           | Runs a session that answers it, when `factory pr review-pending N REVIEW` exits 0                                                           |
-| `factory-conflicts.yml`       | A push to the default branch, nightly at 09:00 UTC, or by hand  | Runs the conflict sweep, when `factory pr conflicts` exits 0                                                                                |
-| `factory-deps.yml`            | 01:00, 13:00, and 19:00 UTC, or by hand                         | Runs a session that moves Dependabot's pull requests along, when `factory deps --any` exits 0. Written once `.github/dependabot.yml` exists |
-| `factory-deps-auto-merge.yml` | Dependabot's pull requests                                      | Lets one merge itself when your `auto-merge` settings allow its files. Written once `.github/dependabot.yml` exists                         |
-| `factory-board-sync.yml`      | Ticket and pull request events, and nightly                     | Sets the board's columns and fields from the tickets' marker comments. Written once `tickets.board` is set                                  |
-| `factory-merge-policy.yml`    | Every pull request                                              | Labels it `merge: automatic` or `merge: manual`, and turns auto-merge on for the first. Written once `auto-merge.allow` is set              |
-| `factory-review-verdict.yml`  | Each automated review                                           | Posts the "Review verdict" status from the review's summary                                                                                 |
-| `factory-claude-review.yml`   | Every pull request once it is marked ready, and each push after | Runs the automated review. Written once `ci-review` is set                                                                                  |
-| `factory-poller.yml`          | Every `builds.poll-minutes` minutes, or by hand                 | Runs one pass of the poller, starting a build for each Ready ticket. Written once `builds.trigger` is `github-action`                       |
+| Workflow                      | Starts on                                                       | What it does                                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory-check.yml`           | Every pull request                                              | Fails when the factory's files differ from what your settings and version would write                                                                 |
+| `factory-build.yml`           | The poller, `factory build N`, or by hand                       | Runs a session that builds the ticket                                                                                                                 |
+| `factory-review.yml`          | A review you submit on a pull request                           | Runs a session that answers it, when `factory pr review-pending N REVIEW` exits 0                                                                     |
+| `factory-conflicts.yml`       | A push to the default branch, nightly at 09:00 UTC, or by hand  | Runs the conflict sweep, when `factory pr conflicts` exits 0                                                                                          |
+| `factory-deps.yml`            | 01:00, 13:00, and 19:00 UTC, or by hand                         | Runs a session that moves Dependabot's pull requests along, when `factory deps --any` exits 0. Written once `.github/dependabot.yml` exists           |
+| `factory-deps-auto-merge.yml` | Dependabot's pull requests                                      | Lets one merge itself when your [`auto-merge`](../configuration.md#auto-merge) settings allow its files. Written once `.github/dependabot.yml` exists |
+| `factory-board-sync.yml`      | Ticket and pull request events, and nightly                     | Sets the board's columns and fields from the tickets' marker comments. Written once [`tickets.board`](../configuration.md#tickets) is set             |
+| `factory-merge-policy.yml`    | Every pull request                                              | Labels it `merge: automatic` or `merge: manual`, and turns auto-merge on for the first. Written once `auto-merge.allow` is set                        |
+| `factory-review-verdict.yml`  | Each automated review                                           | Posts the "Review verdict" status from the review's summary                                                                                           |
+| `factory-claude-review.yml`   | Every pull request once it is marked ready, and each push after | Runs the automated review. Written once [`ci-review`](../configuration.md#ci-review) is set                                                           |
+| `factory-poller.yml`          | Every `builds.poll-minutes` minutes, or by hand                 | Runs one pass of the poller, starting a build for each Ready ticket. Written once `builds.trigger` is `github-action`                                 |
 
 **Starting a build by hand.** The Actions tab, "Factory build", "Run
 workflow", and the ticket's number. The board's "Runs in" field then shows
@@ -147,28 +148,28 @@ number, the last part of its address, is `tickets.board` in your settings.
 
 ## Labels and statuses
 
-| Name                | Kind                     | Set by                                                                         |
-| ------------------- | ------------------------ | ------------------------------------------------------------------------------ |
-| `merge: automatic`  | Label on a pull request  | The merge policy, when every file is allowed                                   |
-| `merge: manual`     | Label on a pull request  | The merge policy, otherwise                                                    |
-| `verdict: override` | Label on a pull request  | Only a person: passes the review verdict for one commit. Sessions never add it |
-| `follow-up`         | Label on a ticket        | The first follow-up line, on the one follow-ups ticket                         |
-| `spec`              | Label on a ticket        | Refinement, for a change your users will see, when `specs: openspec`           |
-| Who merges          | Status on a pull request | The merge policy: which way it goes, and why                                   |
-| Review verdict      | Status on a pull request | The review-verdict workflow: success only when the review said ready           |
+| Name                | Kind                     | Set by                                                                                            |
+| ------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `merge: automatic`  | Label on a pull request  | The merge policy, when every file is allowed                                                      |
+| `merge: manual`     | Label on a pull request  | The merge policy, otherwise                                                                       |
+| `verdict: override` | Label on a pull request  | Only a person: passes the review verdict for one commit. Sessions never add it                    |
+| `follow-up`         | Label on a ticket        | The first follow-up line, on the one follow-ups ticket                                            |
+| `spec`              | Label on a ticket        | Refinement, for a change your users will see, when [`specs: openspec`](../configuration.md#specs) |
+| Who merges          | Status on a pull request | The merge policy: which way it goes, and why                                                      |
+| Review verdict      | Status on a pull request | The review-verdict workflow: success only when the review said ready                              |
 
 ## Hooks
 
 `sync` adds five hooks to `.claude/settings.json`. They run inside Claude
 Code sessions in this repository, not in your own terminal.
 
-| Hook                                                      | What it does                                                                                                                             |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Before a shell command                                    | Blocks a commit on your main branch, a push to it, and a force push. Runs your `before-commit` commands before a commit                  |
-| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                       |
-| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                    |
-| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json` |
-| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                   |
+| Hook                                                      | What it does                                                                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Before a shell command                                    | Blocks a commit on your main branch, a push to it, and a force push. Runs your [`before-commit`](../configuration.md#before-commit) commands before a commit |
+| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                           |
+| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                        |
+| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                     |
+| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                       |
 
 Claude Code protects `.claude/`, and an unattended run denies a write
 there that nothing approves. The fourth hook approves, only in a run the
@@ -205,12 +206,14 @@ Typing `/factory` in a session lists them, which is also how to check that
 a session picked the factory up.
 
 **Where the files live.** `sync` writes the factory's skills to
-`.claude/skills/factory-*/` and its agents to `.claude/agents/factory-*.md`.
-Your own skills go in `.claude/skills/NAME/SKILL.md` and your own agents
-in `.claude/agents/NAME.md`, as for any Claude Code project. A plug-in
-names one under `plugins` in `.claude/factory.yaml`, with `skill:` for a
-folder in `.claude/skills/` and `agent:` for a file in `.claude/agents/`.
-An agent's description is the `description` in its file's front matter.
+`.claude/skills/factory-*/` and its agents to
+`.claude/agents/factory-*.md`. Your own skills go in
+`.claude/skills/NAME/SKILL.md` and your own agents in
+`.claude/agents/NAME.md`, as for any Claude Code project. A plug-in names
+one under [`plugins`](../configuration.md#plugins) in
+`.claude/factory.yaml`, with `skill:` for a folder in `.claude/skills/`
+and `agent:` for a file in `.claude/agents/`. An agent's description is
+the `description` in its file's front matter.
 
 A colon, as in `/factory:refine`, is something Claude Code adds to a
 skill that comes from a plugin. Plain skill files get plain names, so the
@@ -256,10 +259,11 @@ These come from GitHub, GitHub Actions, or Claude Code, not from the
 factory.
 
 - **GitHub's own runners stop any job at 6 hours.** A cloud session's job
-  is given its `session-minutes` plus 10, so the step that releases the
-  claim still runs; a value above 350 does nothing there. A self-hosted
-  runner allows longer. `sync` writes each `session-minutes` value into
-  the session workflows as the session step's timeout.
+  is given its [`session-minutes`](../configuration.md#session-minutes)
+  plus 10, so the step that releases the claim still runs; a value above
+  350 does nothing there. A self-hosted runner allows longer. `sync`
+  writes each `session-minutes` value into the session workflows as the
+  session step's timeout.
 - GitHub's shortest schedule is every five minutes, and scheduled runs can
   start late.
 - Public repositories are not billed for Actions minutes.

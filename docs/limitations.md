@@ -11,11 +11,15 @@ as a code host's billing or what its workflows can see, are in
 
 - **One tool of each kind.** The factory reaches the code host, the ticket
   system, the board, and the cloud runner each through one interface, and
-  the settings name which one you use (`code-host.type`, `tickets.type`,
-  and `builds.runner`). Each has one implementation today, GitHub's, and no
-  other is planned. A ticket system or code host named by a package, for
-  an adapter you write yourself, is not planned either; the design leaves
-  room. The skills are written for one coding agent, Claude Code. [The glossary](glossary.md) says which tool each word means today.
+  the settings name which one you use
+  ([`code-host.type`](configuration.md#code-host),
+  [`tickets.type`](configuration.md#tickets), and
+  [`builds.runner`](configuration.md#builds)). Each has one implementation
+  today, GitHub's, and no other is planned. A ticket system or code host
+  named by a package, for an adapter you write yourself, is not planned
+  either; the design leaves room. The skills are written for one coding
+  agent, Claude Code. [The glossary](glossary.md) says which tool each
+  word means today.
 - **It needs Node and a `package.json`,** even in a repository written in
   another language.
 - **A build never changes the coding agent's settings files,** which hold
