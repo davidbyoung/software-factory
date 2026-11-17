@@ -1,6 +1,6 @@
 ---
 name: factory-trace
-description: Trace a change to the process through every kind of change the repository gets, with one fresh agent, and report each kind that got heavier, lighter, or ambiguous and any two rules that now disagree. Use before a pull request that changes the rules, a skill, an agent, or a workflow is marked ready, and when asked to trace a rule change.
+description: Trace a change to the process through every kind of change the repository gets, with one fresh agent, and report each kind that got heavier, lighter, or ambiguous and any two rules that now disagree. Use before a pull request is marked ready when it changes the rules, a skill, an agent, or a workflow in a way that alters what triggers a step, who runs, or when, and when asked to trace a rule change. A change of wording alone needs no trace.
 ---
 
 # Tracing a change to the process
@@ -17,8 +17,9 @@ ready.
 The kinds are in `.claude/change-types.md`, one row each with a real
 example.
 
-**When the file is missing,** start no agent. Say that the trace needs it,
-and show its shape, for the owner or the session to write:
+**When the file is missing,** start no agent. The pull request is not
+marked ready untraced: leave it a draft, say on it that the trace needs
+the file, and show its shape there, for the owner to write:
 
 ```markdown
 # Change types
@@ -53,8 +54,9 @@ The branch is the current one, and its base is the default branch,
 > or wait it did not have), **lighter** (one it lost), or **ambiguous**
 > (two readings of the rules give different paths). For every kind that is
 > not unchanged, name the rule, by its file and section, that makes it so.
-> Then list any two rules that now disagree, quoting both. Read only;
-> change nothing.
+> Then list any two rules that now disagree, quoting both. Where the
+> repository's `CLAUDE.md` asks more of this trace, do that too. Read
+> only; change nothing.
 
 Give it nothing else from this session: what the author meant is what the
 trace tests.

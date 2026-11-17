@@ -418,7 +418,7 @@
         "small-change-lines": {
           "type": "integer",
           "minimum": 1,
-          "description": "A change under this many lines, outside tests, takes the lighter path. Default: 30."
+          "description": "A change under this many lines outside tests, specs, and content, adding no component and no state, takes the lighter path. Default: 30."
         },
         "review-rounds": {
           "type": "integer",

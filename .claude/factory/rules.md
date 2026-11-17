@@ -284,7 +284,8 @@ The factory's skills, agents, rules, review instructions, and workflows
 under `.claude/` and `.github/` are copies, written by `factory sync` from
 the factory's package. Change the source in the package, run
 `npx --no-install factory sync`, and commit both: the gate and CI fail
-when a copy differs from its source.
+when a copy differs from what `sync` writes from its source and the
+settings.
 
 A rule written for the change in front of its author can be wrong for
 every other kind. Once, the step that adds the `spec` label kept adding

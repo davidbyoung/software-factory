@@ -5,6 +5,7 @@ import {
   main,
   NO_DEPENDENCIES,
   parseSettings,
+  SETTINGS_KEYS,
   patternWarnings,
   reachOf,
   type Deps,
@@ -511,6 +512,26 @@ describe("factory config explain", () => {
   ])("prints %s so it reads as the same settings", async (_, file) => {
     const r = await explain(file);
     expect(parse(load(r.out.join("\n")))).toEqual(parse(load(file.join("\n"))));
+  });
+
+  it("prints every key the settings take, so a new one cannot be left out", async () => {
+    const r = await explain(
+      RICH.concat(["tickets:", "  board: 3", "ci-review:"]),
+    );
+    const text = r.out.join("\n");
+    const printed = (block: string, key: string) =>
+      new RegExp(
+        block
+          ? `^${block === "tickets.columns" || block === "tickets.fields" ? "    " : "  "}(# )?${key}:`
+          : `^(# )?${key}:`,
+        "m",
+      ).test(text);
+    const missing = Object.entries(SETTINGS_KEYS)
+      .filter(([block]) => block !== "plugins[]" && block !== "specs")
+      .flatMap(([block, keys]) =>
+        keys.filter((k) => !printed(block, k)).map((k) => `${block}.${k}`),
+      );
+    expect(missing).toEqual([]);
   });
 
   it("fails as config check does on settings it cannot read", async () => {

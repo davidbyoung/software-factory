@@ -578,10 +578,10 @@ rules:
   review-rounds: 2
 ```
 
-| Key                  | Meaning                                                               | Default |
-| -------------------- | --------------------------------------------------------------------- | ------- |
-| `small-change-lines` | A change under this many lines, outside tests, takes the lighter path | `30`    |
-| `review-rounds`      | Rounds a session works a review before it hands what is left to you   | `2`     |
+| Key                  | Meaning                                                                                                                    | Default |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `small-change-lines` | A change under this many lines outside tests, specs, and content, adding no component and no state, takes the lighter path | `30`    |
+| `review-rounds`      | Rounds a session works a review before it hands what is left to you                                                        | `2`     |
 
 - **If a value is not a whole number above zero:**
   `factory config check` fails and names the key.
