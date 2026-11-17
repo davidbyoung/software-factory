@@ -209,6 +209,11 @@ export const COMMANDS: Command[] = [
       (await import("./commands.mts")).run(["specs-check", ...argv]),
   },
   {
+    words: ["default-branch"],
+    args: "",
+    run: async (argv) => (await import("./lib/default-branch.mts")).run(argv),
+  },
+  {
     words: ["board", "collect"],
     args: "--out FILE [--event FILE --event-name NAME]",
     run: async (argv) =>
