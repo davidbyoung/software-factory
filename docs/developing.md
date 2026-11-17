@@ -50,19 +50,21 @@ marked working below exist only in these docs.
 | Ticket commands that go through one interface                                                                 | Working                             |
 | The code host and the runner, each behind one interface                                                       | Working                             |
 | A published package, updated through Dependabot                                                               | Planned, next                       |
-| A second repository using it                                                                                  | Planned, after publishing           |
+| A second repository set up and removed from the quick start alone                                             | Working                             |
 | Your own column names on a board                                                                              | Working                             |
 | A UI reviewer for any website                                                                                 | Working                             |
 | Built-in measurements for any website                                                                         | Working                             |
 | A design skill for any website                                                                                | Working                             |
 | `init`, which can be re-run, and `doctor`                                                                     | Working                             |
-| `remove` and `config explain`                                                                                 | Planned, not yet scheduled          |
+| `remove`                                                                                                      | Working                             |
+| `config explain`                                                                                              | Planned, not yet scheduled          |
 | `approvers` and `rules` in the settings                                                                       | Planned, not yet scheduled          |
 | Starting builds from a scheduled workflow                                                                     | Planned, not yet scheduled          |
 | `factory poller --once`, the scheduled workflow's one pass, and a poller built from an installed package      | Planned, not yet scheduled          |
 | `factory migrate`, `factory board sync --dry-run`, and the `/factory-trace` skill                             | Planned, not yet scheduled          |
 | Another ticket system, such as Jira                                                                           | Not planned. The design leaves room |
 | Another code host or runner                                                                                   | Not planned. The design leaves room |
+| Each tool's setup, checks, and removal declared by the tool                                                   | Working                             |
 | Sharing plug-ins between repositories                                                                         | Not planned                         |
 
 When a part is built, its pull request updates this table, and corrects any
@@ -162,7 +164,8 @@ one does. That is what keeps the folder movable.
 ## Adding a ticket system
 
 Only GitHub is built. The factory is built so that a second system is an
-addition, not a rewrite. Four rules keep it that way.
+addition, not a rewrite. Four rules keep it that way, and its setup is
+[declared like any tool's](#setting-a-tool-up).
 
 **1. Nothing talks to the ticket system except through the tool.** A skill
 never runs `gh issue` or calls GitHub's issues or projects API. It runs
@@ -351,6 +354,44 @@ variables, and reach pull requests through the code host.
 
 The in-memory runner is `tests/memory-runner.ts`, and GitHub Actions' has
 its own tests against faked replies.
+
+## Setting a tool up
+
+A tool is a code host, a ticket system, a runner, or a coding agent. Each
+says what it needs, so `factory init` sets it up, `factory doctor` checks
+it, and `factory remove` takes it out, with no edit to those commands.
+`src/tools.mts` registers each one by the name a setting gives it, with
+how to open it and its setup, the `ToolSetup` type in `src/setup.mts`. The
+names the settings accept are in `src/tool-names.mts`, and a test fails
+when the two differ. Every member of a setup is optional.
+
+| Member        | What it gives                                                                                                                           | Used by  |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `found`       | Its row under "Found", when it says more than the tool's name, such as that a command is not installed                                  | `init`   |
+| `steps`       | A value to write under the tool's block of the settings, or a secret: which parts read it, how to get it, and how to check a pasted one | `init`   |
+| `checks`      | Its own lines in `doctor`: that it is reachable, signed in, or configured, each failure with its fix in the tool's words                | `doctor` |
+| `leftovers`   | What removing the factory leaves outside the repository, such as its secrets                                                            | `remove` |
+| `unconfigure` | Its own files with the factory's part taken out, such as a coding agent's settings without the factory's hooks                          | `remove` |
+
+**A value** is asked for once, after the parts are chosen, and written
+under the tool's block: a ticket system's under `tickets`, which accepts a
+key only when the ticket system in use declares it. **A secret** names the
+parts that read it, or none when the tool always needs it. `init` asks for
+it when one of those is not set, prints the tool's introduction, opens
+its page or runs its command, reads it in a masked prompt, and stores it
+through the runner under each name the tool gives. Its words are the
+tool's: the prompt, the reason it refuses a value, and the line when
+nothing is pasted.
+
+With more than one tool of a kind, `init` asks which, except for the code
+host, which it reads from the git remote: each code host says which
+remotes are its own. The coding agent has no setting until there is a
+second.
+
+The tests show a tool that the factory does not ship going through all
+three commands: `tests/fake-tools.ts` has a ticket system with a site
+address and a token of its own, and a coding agent whose configuration is
+one file.
 
 ## Checking a change
 

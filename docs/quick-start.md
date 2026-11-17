@@ -19,9 +19,10 @@ do until then.
 Which tools are supported, and how to check each is ready, is in
 [What you need](github/setup.md#what-you-need) on the GitHub page.
 
-Your repository does not have to be JavaScript. If it is not, read
+Your repository does not have to be JavaScript. If it has no
+`package.json`, read
 [this section](existing-repo.md#a-repository-that-is-not-javascript)
-first: installing adds a small `package.json`.
+first: you make a small one before installing.
 
 ## 1. Install
 
@@ -59,11 +60,15 @@ and the instructions your coding agent follows when it works a ticket. It
 adds hooks: small checks your agent runs on its own, such as refusing a
 commit on your main branch. It adds one line to your agent's instructions
 file, such as `CLAUDE.md`, and the hooks to your agent's settings,
-creating either file if you have none. It changes nothing else of yours,
+creating either file if you have none, and turns off your agent's lines
+naming itself in commits and pull requests unless its settings already say
+otherwise. It writes the factory's CI workflows under `.github/` and adds
+`node_modules/` to your `.gitignore`. It changes nothing else of yours,
 and commits nothing. [What it changes](removing.md) lists every item and
 how to undo it.
 
-**It worked when** the checks it prints last all show ✓. Run them again at
+**It worked when** the checks it prints last all show ✓, or `-` for a
+part you left off. Run them again at
 any time with `factory doctor`.
 
 **To do it by hand instead,** write the shortest settings file, with your
@@ -78,7 +83,7 @@ repository: your-name/your-repo
 factory sync
 ```
 
-A build checks its change with the commands your agent's instructions
+Either way, a build checks its change with the commands your agent's instructions
 file names, such as your tests and your linter, so say there how to check
 a change. Without any, it checks with the tests it wrote.
 
@@ -92,7 +97,7 @@ before-commit:
 
 ## 3. Merge the setup
 
-Commit what `sync` wrote on a branch, push it, then open a pull request for
+Commit what `init` or `sync` wrote on a branch, push it, then open a pull request for
 it on your code host, as for any change, and merge it:
 
 ```bash

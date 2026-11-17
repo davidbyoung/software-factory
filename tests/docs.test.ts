@@ -253,7 +253,7 @@ describe("the docs", () => {
 
   it("take their planned commands from docs/cli.md", () => {
     expect(planned).toEqual(
-      expect.arrayContaining(["factory remove", "factory config explain"]),
+      expect.arrayContaining(["factory config explain", "factory migrate"]),
     );
   });
 

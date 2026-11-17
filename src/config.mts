@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { DEFAULT_CODE_HOST, unsupportedCodeHost } from "./code-host/index.mts";
 import { matchesAny } from "./lib/glob.mts";
 import { DEFAULT_RUNNER, unsupportedRunner } from "./runner/index.mts";
+import { BUILT, unsupported, type Built } from "./tool-names.mts";
 import {
   DEFAULT_COLUMNS,
   STATE_KEYS,
@@ -49,7 +50,9 @@ export type Settings = {
   version: 1;
   repository: string;
   tickets: {
-    type: "github";
+    type: string;
+    /** The keys the ticket system adds under `tickets`, by name. */
+    options: Record<string, string>;
     board: number | null;
     /** The board's column for each state, null for none. */
     columns: Record<StateKey, string | null>;
@@ -57,12 +60,12 @@ export type Settings = {
     fields: Record<FieldKey, string | null>;
   };
   /** Where pull requests are. */
-  codeHost: { type: "github" };
+  codeHost: { type: string };
   builds: {
     /** What notices a card moved to Ready and starts its build. */
     trigger: (typeof TRIGGERS)[number];
     /** Where an unattended build runs. */
-    runner: "github-actions";
+    runner: string;
   };
   specs: (typeof SPECS)[number];
   beforeCommit: string[];
@@ -249,12 +252,17 @@ const fail = (key: string, message: string): never => {
 const isObj = (v: unknown): v is Obj =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-/** A block of settings. Its keys are `SETTINGS_KEYS[path]`, and `path` is
- * the block's `key` unless a list's item names it otherwise. */
-function object(v: unknown, key: string, path = key): Obj {
+/** A block of settings. Its keys are `SETTINGS_KEYS[path]` and `extra`,
+ * and `path` is the block's `key` unless a list's item names it otherwise. */
+function object(
+  v: unknown,
+  key: string,
+  path = key,
+  extra: readonly string[] = [],
+): Obj {
   if (v === undefined) return {};
   if (!isObj(v)) return fail(key, "must be a block of settings");
-  const allowed = SETTINGS_KEYS[path]!;
+  const allowed = [...SETTINGS_KEYS[path]!, ...extra];
   for (const k of Object.keys(v)) {
     if (!allowed.includes(k)) fail(key ? `${key}.${k}` : k, "unknown key");
   }
@@ -316,9 +324,9 @@ function names(
 }
 
 /** A part you can swap, written as a block with a `type` or as one word. */
-function typed(v: unknown, key: string): Obj {
+function typed(v: unknown, key: string, extra?: readonly string[]): Obj {
   if (typeof v === "string") return { type: v };
-  return object(v, key);
+  return object(v, key, key, extra);
 }
 
 function plugin(v: unknown, i: number, exists: (p: string) => boolean) {
@@ -356,6 +364,7 @@ function plugin(v: unknown, i: number, exists: (p: string) => boolean) {
 export function parseSettings(
   raw: unknown,
   exists: (path: string) => boolean,
+  built: Built = BUILT,
 ): Settings {
   const top = object(raw ?? {}, "");
   if (top.version !== 1) fail("version", "must be 1");
@@ -365,12 +374,28 @@ export function parseSettings(
   )
     fail("repository", "must be owner/name");
 
-  const tickets = typed(top.tickets, "tickets");
-  if (tickets.type !== undefined && tickets.type !== "github")
+  const declared = (v: unknown): readonly string[] => {
+    const type = isObj(v) ? v.type : v;
+    return typeof type === "string" ? (built.tickets[type] ?? []) : [];
+  };
+  const ticketType =
+    (isObj(top.tickets) ? top.tickets.type : top.tickets) ?? "github";
+  if (typeof ticketType !== "string" || !(ticketType in built.tickets))
     // The same words every ticket command fails with (`tickets/index.mts`).
     throw new SettingsError(
-      `${SETTINGS_FILE}: tickets.type "${String(tickets.type)}" is not supported. "github" is the only ticket system built.`,
+      `${SETTINGS_FILE}: ${unsupported("tickets.type", String(ticketType), "ticket system", Object.keys(built.tickets))}`,
     );
+  const tickets = typed(top.tickets, "tickets", declared(top.tickets));
+  const options = Object.fromEntries(
+    declared(top.tickets)
+      .filter((k) => tickets[k] !== undefined)
+      .map((k) => [
+        k,
+        typeof tickets[k] === "string" && tickets[k]
+          ? (tickets[k] as string)
+          : fail(`tickets.${k}`, "must be text"),
+      ]),
+  );
   const board = tickets.board;
   if (
     board !== undefined &&
@@ -379,17 +404,19 @@ export function parseSettings(
   )
     fail("tickets.board", "must be a whole number above zero, or none");
 
-  const codeHost = typed(top["code-host"], "code-host").type;
-  if (codeHost !== undefined && codeHost !== DEFAULT_CODE_HOST)
+  const codeHost =
+    typed(top["code-host"], "code-host").type ?? DEFAULT_CODE_HOST;
+  if (typeof codeHost !== "string" || !built.codeHost.includes(codeHost))
     throw new SettingsError(
-      `${SETTINGS_FILE}: ${unsupportedCodeHost(String(codeHost))}`,
+      `${SETTINGS_FILE}: ${unsupportedCodeHost(String(codeHost), built.codeHost)}`,
     );
 
   const builds = object(top.builds, "builds");
   const trigger = oneOf(builds.trigger, "builds.trigger", TRIGGERS, "manual");
-  if (builds.runner !== undefined && builds.runner !== DEFAULT_RUNNER)
+  const runner = builds.runner ?? DEFAULT_RUNNER;
+  if (typeof runner !== "string" || !built.runner.includes(runner))
     throw new SettingsError(
-      `${SETTINGS_FILE}: ${unsupportedRunner(String(builds.runner))}`,
+      `${SETTINGS_FILE}: ${unsupportedRunner(String(runner), built.runner)}`,
     );
   const hasBoard = typeof board === "number";
   if (tickets.columns !== undefined && !hasBoard)
@@ -446,13 +473,14 @@ export function parseSettings(
     version: 1,
     repository: top.repository as string,
     tickets: {
-      type: "github",
+      type: ticketType,
+      options,
       board: typeof board === "number" ? board : null,
       columns,
       fields: fieldNames,
     },
-    codeHost: { type: DEFAULT_CODE_HOST },
-    builds: { trigger, runner: DEFAULT_RUNNER },
+    codeHost: { type: codeHost },
+    builds: { trigger, runner },
     specs: oneOf(specs.type, "specs", SPECS, "none"),
     beforeCommit: strings(top["before-commit"], "before-commit"),
     buildSetup: strings(top["build-setup"], "build-setup"),

@@ -20,33 +20,32 @@ Everything the factory adds, and what
 | `.claude/factory/`, the rules                                                        | Setup                              | Deletes it                                                      |
 | `.claude/skills/factory-*/`                                                          | Setup                              | Deletes them                                                    |
 | `.claude/agents/factory-*.md`                                                        | Setup                              | Deletes them                                                    |
-| Five hook entries in `.claude/settings.json`                                         | Setup                              | Removes those five, keeps the rest                              |
+| Five hook entries in `.claude/settings.json`                                         | Setup                              | Removes those five, keeps the rest, and deletes an emptied file |
 | `attribution` in `.claude/settings.json`, when the file had none                     | Setup                              | Leaves it: delete the key to get Claude Code's lines back       |
-| One line in `CLAUDE.md`                                                              | Setup                              | Removes that line                                               |
+| One line in `CLAUDE.md`                                                              | Setup                              | Removes that line, and deletes an emptied file                  |
 | `.github/workflows/factory-check.yml`                                                | Setup                              | Deletes them                                                    |
 | Other `.github/workflows/factory-*.yml`                                              | Setup, and each part you turned on | Deletes them                                                    |
-| `.github/factory-review.md`                                                          | The automated review               | Deletes it                                                      |
+| `.github/factory-review.md`                                                          | Setup                              | Deletes it                                                      |
+| `.github/actions/factory-*/`, the step the workflows share                           | Setup                              | Deletes them                                                    |
 | `.github/review-notes.md`                                                            | You, if you wrote one. It is yours | Leaves it                                                       |
 | The `@davidbyoung/software-factory` entry in `package.json`, and `package-lock.json` | `npm install`                      | Left for `npm uninstall`                                        |
-| `package.json` itself, if you had none                                               | Setup                              | Leaves it. Delete it and its lockfile if nothing else uses them |
+| `package.json` itself, if you had none                                               | You, before installing             | Leaves it. Delete it and its lockfile if nothing else uses them |
 | `node_modules/` in `.gitignore`                                                      | Setup, if it was missing           | Leaves it. Remove the line if you deleted `package.json`        |
 
-The "Removing it" column says what `factory remove`
-(_[Planned](../developing.md#what-is-built)_) does with each; until it is
-built, do the same by hand.
+The "Removing it" column says what `factory remove` does with each.
 
 ### On GitHub
 
-| What                                                                                  | Added when                                                      | To undo                                                                 |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Secrets and variables named `FACTORY_...`                                             | You create them                                                 | Delete them                                                             |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                             | You create it, for the automated review and builds in the cloud | Delete it, unless another workflow uses it                              |
-| Labels: `merge: automatic`, `merge: manual`, `verdict: override`, `follow-up`, `spec` | First use                                                       | Delete them. Deleting a label removes it from every ticket              |
-| A CI check that the factory's files are in step                                       | Setup                                                           | Goes with `factory-check.yml`                                           |
-| A "Review verdict" required check                                                     | You add it to your branch rules                                 | Remove it from the rules **first**, or pull requests wait on it forever |
-| Statuses on pull requests: "Who merges", "Review verdict"                             | Each pull request                                               | They stay in history                                                    |
-| One open ticket titled "Follow-ups"                                                   | The first follow-up                                             | Close it                                                                |
-| Comments on tickets the factory worked                                                | Each refinement and build                                       | They stay. They hold the ticket's history                               |
+| What                                                                                  | Added when                                                      | To undo                                                                                   |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Secrets and variables named `FACTORY_...`                                             | You create them                                                 | Delete them                                                                               |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                             | You create it, for the automated review and builds in the cloud | Delete it, unless another workflow uses it                                                |
+| Labels: `merge: automatic`, `merge: manual`, `verdict: override`, `follow-up`, `spec` | First use                                                       | Delete them. Deleting a label removes it from every ticket                                |
+| A CI check that the factory's files are in step                                       | Setup                                                           | Goes with `factory-check.yml`                                                             |
+| A "Review verdict" required check, as the ruleset "Software factory"                  | `init`, when the review is on; or you, in your branch rules     | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
+| Statuses on pull requests: "Who merges", "Review verdict"                             | Each pull request                                               | They stay in history                                                                      |
+| One open ticket titled "Follow-ups"                                                   | The first follow-up                                             | Close it                                                                                  |
+| Comments on tickets the factory worked                                                | Each refinement and build                                       | They stay. They hold the ticket's history                                                 |
 
 ### On your board
 
@@ -55,7 +54,6 @@ built, do the same by hand.
 | Up to six columns, if yours lacked them and `factory init` added them                                                                 | Delete the ones you do not want              |
 | Three fields, Session, Runs in, and Cost, if yours lacked them and `init` added them. The sync also sets the board's own Status field | Delete the three                             |
 | A Project `init` created, linked to the repository                                                                                    | Delete it, or keep it as an ordinary Project |
-| The "Software factory" ruleset, requiring "Review verdict"                                                                            | Delete the ruleset, under Settings, Rules    |
 
 A board the factory created for you is an ordinary GitHub Project. Keep
 it or delete it.

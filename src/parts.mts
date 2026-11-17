@@ -1,8 +1,9 @@
 // The factory's optional parts: which a repository has on, which secrets
-// each reads, and which turn another on. `factory init` and
-// `factory doctor` share these rules.
+// they read, and which turn another on. `factory init` and
+// `factory doctor` share these rules; the secrets each tool reads come from
+// its steps (`setup.mts`).
 import type { Settings } from "./config.mts";
-import type { TokenNeed } from "./code-host/types.mts";
+import type { Need } from "./setup.mts";
 
 export const PARTS = [
   "review",
@@ -53,17 +54,20 @@ export const BUILD_TOKEN = "FACTORY_BUILD_TOKEN";
 export const AUTOMERGE_TOKEN = "FACTORY_AUTOMERGE_TOKEN";
 export const SIGNING_KEY = "FACTORY_SIGNING_KEY";
 
-const AGENT = [AGENT_TOKEN, AGENT_KEY];
-const ACCESS = [BUILD_TOKEN, BOARD_TOKEN];
-
-/** The parts on: those with a setting, from the settings; and cloud
- * builds and signing, from the secrets set. */
-export function partsOn(s: Settings | null, secrets: string[]): Set<Part> {
+/** The parts on: those with a setting, from the settings; cloud builds,
+ * when every secret the tools read for them is set; and signing, from its
+ * key. */
+export function partsOn(
+  s: Settings | null,
+  secrets: string[],
+  cloudNeeds: Need[],
+): Set<Part> {
   const has = (names: string[]) => names.some((n) => secrets.includes(n));
   const on = new Set<Part>();
   if (s?.ciReview) on.add("review");
   if (s?.tickets.board != null) on.add("board");
-  if (has(AGENT) && has(ACCESS)) on.add("cloud");
+  if (cloudNeeds.length && cloudNeeds.every((n) => has(n.anyOf)))
+    on.add("cloud");
   if (s && s.builds.trigger !== "manual") on.add("from-board");
   if (s && s.autoMerge.allow.length > 0) on.add("auto-merge");
   if (has([SIGNING_KEY])) on.add("signing");
@@ -108,38 +112,22 @@ export function resolveParts(
   return { parts, notes };
 }
 
-/** The secrets the parts read: each entry is met by any one of its names. */
+/** A secret read, by the tool whose step reads it, or the factory's own. */
+export type Needed = Need & { tool: string };
+
+/** The secrets read for the parts on, from the tools' secret steps, with
+ * the signing key, which is the factory's own. Each is met by any one of
+ * its names. */
 export function neededSecrets(
-  parts: Set<Part>,
-): { part: Part; anyOf: string[] }[] {
-  const out: { part: Part; anyOf: string[] }[] = [];
-  for (const part of PARTS) {
-    if (!parts.has(part)) continue;
-    if (part === "review") out.push({ part, anyOf: AGENT });
-    if (part === "cloud")
-      out.push({ part, anyOf: AGENT }, { part, anyOf: ACCESS });
-    if (part === "board" || part === "from-board")
-      out.push({ part, anyOf: [BOARD_TOKEN] });
-    if (part === "auto-merge") out.push({ part, anyOf: [AUTOMERGE_TOKEN] });
-    if (part === "signing") out.push({ part, anyOf: [SIGNING_KEY] });
-  }
+  parts: ReadonlySet<Part>,
+  steps: { tool: string; step: { needs: Need[] } }[],
+): Needed[] {
+  const out: Needed[] = steps.flatMap(({ tool, step }) =>
+    step.needs
+      .filter((n) => n.part === null || parts.has(n.part))
+      .map((n) => ({ ...n, tool })),
+  );
+  if (parts.has("signing"))
+    out.push({ part: "signing", anyOf: [SIGNING_KEY], tool: "factory" });
   return out;
-}
-
-/** The names the one access token is stored under: the board's with a
- * board, which builds also read, the build token's without one, and the
- * auto-merge token's. */
-export function tokenNames(parts: Set<Part>): string[] {
-  const names: string[] = [];
-  if (parts.has("board")) names.push(BOARD_TOKEN);
-  else if (parts.has("cloud")) names.push(BUILD_TOKEN);
-  if (parts.has("auto-merge")) names.push(AUTOMERGE_TOKEN);
-  return names;
-}
-
-/** What the access token must be able to do for the parts. */
-export function tokenNeeds(parts: Set<Part>): TokenNeed[] {
-  return parts.has("board")
-    ? ["push", "workflows", "board"]
-    : ["push", "workflows"];
 }

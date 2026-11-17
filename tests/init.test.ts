@@ -18,6 +18,16 @@ import type { Part } from "../src/parts.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
+import { memoryTools } from "./memory-tools";
+import {
+  FAKE_PAGE,
+  FAKE_TOKEN,
+  withCodeHosts,
+  withFakeTickets,
+  withSecondRunner,
+} from "./fake-tools";
+import type { Registry } from "../src/tools.mts";
+import type { Tickets } from "../src/tickets/types.mts";
 
 const GOOD = "tok_good";
 const NARROW = "tok_narrow";
@@ -35,8 +45,10 @@ type Answers = {
 };
 
 /** Answers each question in turn from the script, and records each one. */
-function scripted(answers: Answers) {
+function scripted(answers: Answers, log: (line: string) => void = () => {}) {
   const asked: string[] = [];
+  /** The values each select offered, in order. */
+  const offered: string[][] = [];
   const queue = {
     checkbox: [...(answers.checkbox ?? [])],
     select: [...(answers.select ?? [])],
@@ -46,6 +58,7 @@ function scripted(answers: Answers) {
   };
   const next = <K extends keyof typeof queue>(kind: K, message: string) => {
     asked.push(`${kind}: ${message}`);
+    log(`? ${kind}: ${message}`);
     if (!queue[kind].length) throw new Error(`no scripted ${kind}: ${message}`);
     return queue[kind].shift()!;
   };
@@ -57,12 +70,15 @@ function scripted(answers: Answers) {
           throw new Error(`no choice ${c}`);
       return chosen;
     },
-    select: async (message) => next("select", message) as string,
+    select: async (message, choices) => {
+      offered.push(choices.map((c) => c.value));
+      return next("select", message) as string;
+    },
     confirm: async (message) => next("confirm", message) as boolean,
     secret: async (message) => next("secret", message) as string,
     input: async (message) => next("input", message) as string,
   };
-  return { ask, asked, queue };
+  return { ask, asked, offered, queue };
 }
 
 type Setup = {
@@ -78,6 +94,7 @@ type Setup = {
   claude?: boolean;
   files?: Record<string, string>;
   tokens?: Record<string, { account: string; scopes: string[] | null }>;
+  tools?: (base: Registry, tickets: Tickets) => Registry;
 };
 
 const roots: string[] = [];
@@ -100,10 +117,14 @@ function init(setup: Setup) {
     writeFileSync(join(root, path), text);
   }
   const out: string[] = [];
+  /** Every line printed and every question asked, in the order they came. */
+  const transcript: string[] = [];
   const ran: string[][] = [];
   const opened: string[] = [];
   let synced = 0;
-  const { ask, asked, queue } = scripted(setup.answers);
+  const { ask, asked, offered, queue } = scripted(setup.answers, (line) =>
+    transcript.push(line),
+  );
   const host = memoryCodeHost([], {
     owner: "dave",
     tokens: {
@@ -122,16 +143,22 @@ function init(setup: Setup) {
   const d: InitDeps = {
     root,
     ask,
-    out: (line) => out.push(line),
+    out: (line) => {
+      out.push(line);
+      transcript.push(line);
+    },
     remote: () =>
       setup.remote === undefined
         ? "git@github.com:acme/site.git"
         : setup.remote,
-    open: () => ({
-      codeHost: host.codeHost,
-      runner: runner.runner,
-      tickets: tickets.tickets,
-    }),
+    tools: (setup.tools ?? ((b) => b))(
+      memoryTools({
+        codeHost: host.codeHost,
+        runner: runner.runner,
+        tickets: tickets.tickets,
+      }),
+      tickets.tickets,
+    ),
     sync: async () => {
       synced++;
       return 0;
@@ -159,7 +186,9 @@ function init(setup: Setup) {
   return {
     run: () => main([], d),
     out,
+    transcript,
     asked,
+    offered,
     queue,
     ran,
     opened,
@@ -180,6 +209,15 @@ const EVERY: Part[] = [
   "auto-merge",
   "signing",
   "from-board",
+];
+
+const SIX_COLUMNS = [
+  "Backlog",
+  "In refinement",
+  "Ready",
+  "In progress",
+  "In review",
+  "Done",
 ];
 
 /** No pasted or made value reaches anything printed. */
@@ -688,6 +726,331 @@ describe("factory init, repository rules", () => {
       'Could not require "Review verdict": Upgrade to GitHub Pro or make this repository public',
     );
     expect(r.out.join("\n")).toContain("Every check passed");
+  });
+});
+
+describe("factory init, word for word", () => {
+  it("prints and asks the same on a first run with every part", async () => {
+    const r = init({
+      packageJson: false,
+      answers: {
+        checkbox: [EVERY],
+        select: ["new"],
+        input: ["docs/**, **/*.md"],
+        confirm: [true],
+        secret: [AGENT, GOOD],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.transcript).toMatchInlineSnapshot(`
+      [
+        "Setting up the software factory for acme/site",
+        "",
+        "Found",
+        "  Code host      GitHub (from your git remote)",
+        "  Tickets        GitHub Issues",
+        "  Coding agent   Claude Code",
+        "  Cloud builds   GitHub Actions",
+        "  package.json   none, so a private one will be created",
+        "  Settings       none yet",
+        "  Board          none yet",
+        "",
+        "? checkbox: Which parts do you want?",
+        "? select: Which board?",
+        "? input: Which files may merge without you? (comma-separated)",
+        "",
+        "This is everything setup will do:",
+        "  Write    .claude/factory.yaml",
+        "  Write    package.json",
+        "  Write    .gitignore",
+        "  Write    .claude/skills/factory-build/SKILL.md",
+        "  Create   board "site" under acme, linked to the repository, with the factory's columns and fields",
+        "  Secrets  CLAUDE_CODE_OAUTH_TOKEN, FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, FACTORY_SIGNING_KEY",
+        "  Settings allow auto-merge on the repository",
+        "  Rules    Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
+        "? confirm: Go ahead?",
+        "Created board 1, "site".",
+        "Added to board 1: Backlog, In refinement, Ready, In review, Session, Runs in, Cost.",
+        "",
+        "The coding agent's token: running claude setup-token...",
+        "? secret: Paste the token it printed (leave empty to do this later):",
+        "Stored as CLAUDE_CODE_OAUTH_TOKEN.",
+        "",
+        "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: acme/site",
+        "Check that push, workflows, and board are ticked, choose an expiry, and generate it.",
+        "? secret: Paste it (leave empty to do this later):",
+        "It belongs to dave. Stored as FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN.",
+        "",
+        "Made a signing key and stored it as FACTORY_SIGNING_KEY.",
+        "Added its public half to dave as a signing key.",
+        "",
+        "Nothing is committed. Left to do:",
+        "  1. Install the app the review posts through: https://code.example/apps/review",
+        "  2. Host the poller, which starts a build when a card moves to Ready, with:
+             FACTORY_REPOSITORY=acme/site
+             FACTORY_BOARD_OWNER=acme
+             FACTORY_BOARD_NUMBER=1
+             FACTORY_BOARD_TOKEN=the access token you just made",
+        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "",
+        "Checks",
+        "  ✓ Every check passed",
+      ]
+    `);
+  });
+
+  it("prints and asks the same on a re-run with every part on and every secret set", async () => {
+    const r = init({
+      settings: [
+        "version: 1",
+        "repository: acme/site",
+        "tickets:",
+        "  board: 3",
+        "builds:",
+        "  trigger: own-server",
+        "auto-merge:",
+        "  allow:",
+        "    - docs/**",
+        "ci-review:",
+        "  commands: []",
+        "",
+      ].join("\n"),
+      secrets: {
+        CLAUDE_CODE_OAUTH_TOKEN: "x",
+        FACTORY_BOARD_TOKEN: "x",
+        FACTORY_AUTOMERGE_TOKEN: "x",
+        FACTORY_SIGNING_KEY: "x",
+      },
+      boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
+      answers: { checkbox: [EVERY], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.transcript).toMatchInlineSnapshot(`
+      [
+        "Setting up the software factory for acme/site",
+        "",
+        "Found",
+        "  Code host      GitHub (from your git remote)",
+        "  Tickets        GitHub Issues",
+        "  Coding agent   Claude Code",
+        "  Cloud builds   GitHub Actions",
+        "  package.json   yes",
+        "  Settings       .claude/factory.yaml",
+        "  Board          3, from your settings",
+        "",
+        "? checkbox: Which parts do you want?",
+        "? confirm: 4 secrets these parts read are already set. Replace them?",
+        "",
+        "This is everything setup will do:",
+        "  Write    .gitignore",
+        "  Write    .claude/skills/factory-build/SKILL.md",
+        "  Board    give board 3 any of the factory's columns and fields it lacks",
+        "  Settings allow auto-merge on the repository",
+        "  Rules    Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
+        "? confirm: Go ahead?",
+        "Added to board 3: Session, Runs in, Cost.",
+        "",
+        "Nothing is committed. Left to do:",
+        "  1. Install the app the review posts through: https://code.example/apps/review",
+        "  2. Host the poller, which starts a build when a card moves to Ready, with:
+             FACTORY_REPOSITORY=acme/site
+             FACTORY_BOARD_OWNER=acme
+             FACTORY_BOARD_NUMBER=3
+             FACTORY_BOARD_TOKEN=the access token you just made",
+        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "",
+        "Checks",
+        "  ✓ Every check passed",
+      ]
+    `);
+  });
+});
+
+describe("factory init, a secret met another way", () => {
+  it("asks for no token for cloud builds when the board's token, which they also read, is set", async () => {
+    const r = init({
+      settings: "version: 1\nrepository: acme/site\n",
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+      answers: { checkbox: [["cloud"]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked).toEqual([
+      "checkbox: Which parts do you want?",
+      "confirm: 2 secrets these parts read are already set. Replace them?",
+      "confirm: Go ahead?",
+    ]);
+    expect(r.opened).toEqual([]);
+  });
+});
+
+describe("factory init, a tool's own setup", () => {
+  /** Fake Tickets as the only ticket system. */
+  const fakeOnly = (b: Registry, t: Tickets) => withFakeTickets(b, t, true);
+  const FAKE = "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n";
+
+  it("asks for the value the ticket system needs, and writes it under tickets", async () => {
+    const r = init({
+      tools: fakeOnly,
+      answers: {
+        checkbox: [[]],
+        input: ["https://tickets.example"],
+        confirm: [true],
+        secret: [""],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.slice(0, 2)).toEqual([
+      "checkbox: Which parts do you want?",
+      "input: Your ticket system's address",
+    ]);
+    expect(r.yaml().tickets).toEqual({
+      type: "fake",
+      site: "https://tickets.example",
+    });
+    expect(r.out).toContain("  Write    .claude/factory.yaml");
+  });
+
+  it("does not ask again for a value already in the settings", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      secrets: { [FAKE_TOKEN]: "x" },
+      answers: { checkbox: [[]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.some((q) => q.startsWith("input:"))).toBe(false);
+  });
+
+  it("gets the tool's secret its way, and stores it under the tool's name", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      answers: { checkbox: [[]], confirm: [true], secret: [GOOD] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(`  Secrets  ${FAKE_TOKEN}`);
+    expect(r.transcript).toEqual(
+      expect.arrayContaining([
+        `Fake Tickets' token: opening ${FAKE_PAGE}`,
+        "? secret: Paste the Fake Tickets token (leave empty to do this later):",
+        `Stored as ${FAKE_TOKEN}.`,
+      ]),
+    );
+    expect(r.opened).toEqual([FAKE_PAGE]);
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
+    printsNoSecret(r.out);
+  });
+
+  it("prints the tool's reason for refusing a secret, and asks again", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      answers: { checkbox: [[]], confirm: [true], secret: ["bad", GOOD] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain("That token is refused.");
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
+  });
+
+  it("stores nothing when nothing is pasted, and says to run init again", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      answers: { checkbox: [[]], confirm: [true], secret: [""] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "No Fake Tickets token stored. Run npx --no-install factory init again to add it.",
+    );
+    expect(r.runner.secrets.has(FAKE_TOKEN)).toBe(false);
+  });
+
+  const fakeSet = (replace: boolean) =>
+    init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      secrets: { [FAKE_TOKEN]: "x" },
+      answers: {
+        checkbox: [[]],
+        confirm: [replace, true],
+        secret: replace ? [GOOD] : [],
+      },
+    });
+
+  it("keeps a secret already set, asking nothing, when told not to replace it", async () => {
+    const r = fakeSet(false);
+    await r.run();
+    expect(r.asked).toContain(
+      "confirm: 1 secret these parts read is already set. Replace it?",
+    );
+    expect(r.asked.some((q) => q.startsWith("secret:"))).toBe(false);
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe("x");
+  });
+
+  it("asks for a secret already set when told to replace it", async () => {
+    const r = fakeSet(true);
+    await r.run();
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
+  });
+});
+
+describe("factory init, with more than one tool of a kind", () => {
+  const both = (b: Registry, t: Tickets) => withFakeTickets(b, t);
+
+  it("asks which ticket system right after Found, and writes the choice", async () => {
+    const r = init({
+      tools: both,
+      answers: {
+        select: ["fake"],
+        checkbox: [[]],
+        input: ["https://tickets.example"],
+        confirm: [true],
+        secret: [""],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain("  Tickets        chosen below");
+    expect(r.asked[0]).toBe("select: Which ticket system?");
+    expect(r.yaml().tickets).toMatchObject({ type: "fake" });
+  });
+
+  // The prompt has no default of its own: the first choice offered is it.
+  it("offers the one the settings name first", async () => {
+    const r = init({
+      tools: both,
+      settings:
+        "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
+      secrets: { [FAKE_TOKEN]: "x" },
+      answers: { select: ["fake"], checkbox: [[]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "  Tickets        Fake Tickets, from your settings",
+    );
+    expect(r.offered[0]).toEqual(["fake", "github"]);
+  });
+
+  it("asks where cloud builds run, and writes the choice", async () => {
+    const r = init({
+      tools: withSecondRunner,
+      answers: { select: ["fake-runner"], checkbox: [[]], confirm: [true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain("  Cloud builds   chosen below");
+    expect(r.asked[0]).toBe("select: Where do cloud builds run?");
+    expect(r.yaml().builds).toEqual({ runner: "fake-runner" });
+  });
+
+  it("names every code host it supports when the remote is on none", async () => {
+    const r = init({
+      tools: (b) => withCodeHosts(b, "Elsewhere", "Yonder"),
+      remote: "https://gitlab.com/acme/site.git",
+      answers: {},
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host the factory supports: GitHub, Elsewhere, and Yonder.",
+    ]);
   });
 });
 

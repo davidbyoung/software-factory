@@ -1,13 +1,55 @@
 // `factory doctor`: one line per check, and a failing exit when any fails.
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { main, type DoctorDeps } from "../src/doctor.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
+import { memoryTools } from "./memory-tools";
+import type { Tickets } from "../src/tickets/types.mts";
+import { IMPORT_LINE, withHooks } from "../src/sync.mts";
+import { builtOf, TOOLS, type Registry } from "../src/tools.mts";
+import {
+  FAKE_AGENT_FILE,
+  FAKE_TOKEN,
+  withFakeAgent,
+  withFakeTickets,
+} from "./fake-tools";
 
-const settings = (raw: Record<string, unknown> = {}) =>
-  parseSettings({ version: 1, repository: "acme/site", ...raw }, () => true);
+const roots: string[] = [];
+afterEach(() => {
+  for (const root of roots.splice(0))
+    rmSync(root, { recursive: true, force: true });
+});
+
+/** A checkout with Claude Code's configuration as `factory sync` writes it,
+ * with any file given in `files` in place of the synced one. */
+function checkout(files: Record<string, string> = {}): string {
+  const root = mkdtempSync(join(tmpdir(), "doctor-"));
+  roots.push(root);
+  mkdirSync(join(root, ".claude"));
+  const all = {
+    "CLAUDE.md": `# Ours\n\n${IMPORT_LINE}\n`,
+    ".claude/settings.json": withHooks(
+      null,
+      "node_modules/@davidbyoung/software-factory/bin/factory.js",
+    ),
+    ...files,
+  };
+  for (const [path, text] of Object.entries(all))
+    writeFileSync(join(root, path), text);
+  return root;
+}
+
+const settings = (raw: Record<string, unknown> = {}, tools: Registry = TOOLS) =>
+  parseSettings(
+    { version: 1, repository: "acme/site", ...raw },
+    () => true,
+    builtOf(tools),
+  );
 
 function doctor(o: {
   raw?: Record<string, unknown>;
@@ -17,6 +59,9 @@ function doctor(o: {
   locked?: string | null;
   secrets?: Record<string, string>;
   columns?: string[];
+  files?: Record<string, string>;
+  claude?: boolean;
+  tools?: (base: Registry, tickets: Tickets) => Registry;
 }) {
   const out: string[] = [];
   const tickets = memoryTickets([], {
@@ -29,21 +74,27 @@ function doctor(o: {
       },
     ],
   }).tickets;
+  const tools = (o.tools ?? ((b) => b))(
+    memoryTools({
+      codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
+      runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
+      tickets,
+    }),
+    tickets,
+  );
   const d: DoctorDeps = {
     settings: async () => {
       if (o.invalid) throw new SettingsError(o.invalid);
-      return settings(o.raw);
+      return settings(o.raw, tools);
     },
     outOfStep: () => o.outOfStep ?? [],
     versions: () => ({
       installed: o.installed ?? "0.2.0",
       locked: o.locked === undefined ? "0.2.0" : o.locked,
     }),
-    open: () => ({
-      codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
-      runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
-      tickets,
-    }),
+    root: checkout(o.files),
+    hasCommand: (name) => name !== "claude" || o.claude !== false,
+    tools,
     out: (line) => out.push(line),
   };
   return { run: () => main([], d), out };
@@ -73,7 +124,48 @@ describe("factory doctor", () => {
       "- Builds that start when you move a card to Ready: off",
       "- Pull requests that merge themselves: off",
       "- Signed commits from cloud builds: off",
+      "✓ Claude Code: CLAUDE.md imports the factory's rules",
+      "✓ Claude Code: .claude/settings.json has the factory's hooks",
+      "✓ Claude Code: the claude command is installed",
     ]);
+  });
+
+  it("prints the same lines, word for word, with every part on", async () => {
+    const { run, out } = doctor({
+      raw: {
+        "ci-review": null,
+        tickets: { board: 3 },
+        builds: { trigger: "own-server" },
+        "auto-merge": { allow: ["docs/**"] },
+      },
+      secrets: {
+        CLAUDE_CODE_OAUTH_TOKEN: "x",
+        FACTORY_BOARD_TOKEN: "x",
+        FACTORY_AUTOMERGE_TOKEN: "x",
+        FACTORY_SIGNING_KEY: "x",
+      },
+      columns: SIX,
+    });
+    expect(await run()).toBe(0);
+    expect(out).toMatchInlineSnapshot(`
+      [
+        "✓ The settings are valid",
+        "✓ The factory's files match the settings",
+        "✓ Version 0.2.0 is installed, as the repository records",
+        "✓ Signed in to the code host as dave",
+        "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request",
+        "✓ FACTORY_BOARD_TOKEN is set, for a board",
+        "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for builds in the cloud",
+        "✓ FACTORY_BOARD_TOKEN is set, for builds in the cloud",
+        "✓ FACTORY_BOARD_TOKEN is set, for builds that start when you move a card to Ready",
+        "✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
+        "✓ FACTORY_SIGNING_KEY is set, for signed commits from cloud builds",
+        "✓ Board 3 has every column the settings name",
+        "✓ Claude Code: CLAUDE.md imports the factory's rules",
+        "✓ Claude Code: .claude/settings.json has the factory's hooks",
+        "✓ Claude Code: the claude command is installed",
+      ]
+    `);
   });
 
   it("stops at settings it cannot read, and fails", async () => {
@@ -139,8 +231,89 @@ describe("factory doctor", () => {
       columns: ["Backlog", "Done"],
     });
     expect(await r.run()).toBe(1);
-    expect(r.out.at(-1)).toMatch(
+    expect(r.out.find((l) => l.startsWith("✗ Board"))).toMatch(
       /^✗ Board 3: the Status field lacks In refinement .*\. Run npx --no-install factory init$/,
     );
+  });
+
+  describe("a tool of another kind", () => {
+    const FAKE = {
+      tickets: { type: "fake", site: "https://tickets.example" },
+    };
+    const fake = (b: Registry, t: Tickets) => withFakeTickets(b, t);
+
+    it("fails on a secret the tool always needs, naming the tool", async () => {
+      const r = doctor({ raw: FAKE, tools: fake });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        `✗ ${FAKE_TOKEN} is not set, for Fake Tickets. Run npx --no-install factory init`,
+      );
+    });
+
+    it("prints the tool's own failing check in its words, and fails", async () => {
+      const r = doctor({
+        raw: { tickets: { type: "fake", site: "down" } },
+        secrets: { [FAKE_TOKEN]: "x" },
+        tools: fake,
+      });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Fake Tickets can be reached: check tickets.site",
+      );
+    });
+  });
+
+  describe("the coding agent's configuration", () => {
+    it("passes Claude Code's three pieces when each is there", async () => {
+      const r = doctor({});
+      expect(await r.run()).toBe(0);
+      expect(r.out.slice(-3)).toEqual([
+        "✓ Claude Code: CLAUDE.md imports the factory's rules",
+        "✓ Claude Code: .claude/settings.json has the factory's hooks",
+        "✓ Claude Code: the claude command is installed",
+      ]);
+    });
+
+    it("fails without the import, saying to sync", async () => {
+      const r = doctor({ files: { "CLAUDE.md": "# Ours\n" } });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Claude Code: CLAUDE.md imports the factory's rules. Run npx --no-install factory sync",
+      );
+    });
+
+    it("fails when one of the factory's hooks is gone, saying to sync", async () => {
+      const synced = JSON.parse(
+        withHooks(
+          null,
+          "node_modules/@davidbyoung/software-factory/bin/factory.js",
+        ),
+      );
+      delete synced.hooks.SubagentStop;
+      const r = doctor({
+        files: { ".claude/settings.json": JSON.stringify(synced) },
+      });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Claude Code: .claude/settings.json has the factory's hooks. Run npx --no-install factory sync",
+      );
+    });
+
+    it("fails when the claude command is not installed", async () => {
+      const r = doctor({ claude: false });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        "✗ Claude Code: the claude command is installed: Install Claude Code, then sign in",
+      );
+    });
+
+    it("fails on another agent's missing configuration in its words", async () => {
+      const r = doctor({ tools: (b) => withFakeAgent(b) });
+      expect(await r.run()).toBe(1);
+      expect(r.out.at(-1)).toBe(
+        `✗ Fake Agent: ${FAKE_AGENT_FILE} is there. Run fake-agent init`,
+      );
+      expect(r.out.join("\n")).not.toContain("Claude Code");
+    });
   });
 });

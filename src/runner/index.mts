@@ -6,14 +6,17 @@ import { gh, ghIn, type Gh, type GhIn } from "../lib/gh.mts";
 import { ghTransport } from "../tickets/transport.mts";
 import { githubActionsRunner } from "./github-actions.mts";
 import type { Runner } from "./types.mts";
+import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
 
 export const DEFAULT_RUNNER = "github-actions" as const;
 
 /** The message for a runner that is not built. */
-export const unsupportedRunner = (name: string) =>
-  `builds.runner "${name}" is not supported. "github-actions" is the only runner built.`;
+export const unsupportedRunner = (
+  name: string,
+  built: readonly string[] = BUILT.runner,
+) => unsupported("builds.runner", name, "runner", built);
 
 /** The runner of that name for the repository, reached through the GitHub
  * CLI. */

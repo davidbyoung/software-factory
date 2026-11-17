@@ -46,7 +46,7 @@ describe("the commands the router knows", () => {
 
 describe("factory's usage", () => {
   it("prints the usage and exits non-zero for a command the docs list and this version does not build", () => {
-    const r = factory(["remove"]);
+    const r = factory(["config", "explain"]);
 
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("Usage: factory COMMAND [ARGS]");
@@ -227,4 +227,26 @@ describe("the files the package copies into a repository", () => {
     expect(copied.length).toBeGreaterThan(5);
     expect(bare).toEqual([]);
   });
+});
+
+describe("the commands that ask questions", () => {
+  it.each(["init", "remove"])(
+    "%s says it needs a terminal when there is none, and changes nothing",
+    (command) => {
+      const cwd = mkdtempSync(join(tmpdir(), "no-terminal-"));
+      try {
+        writeFileSync(join(cwd, "CLAUDE.md"), "@.claude/factory/rules.md\n");
+        const r = factory([command], { cwd, input: "" });
+        expect(r.status).toBe(1);
+        expect(r.stdout).toBe(
+          `factory ${command} asks its questions in a terminal: run it in one.\n`,
+        );
+        expect(readFileSync(join(cwd, "CLAUDE.md"), "utf8")).toBe(
+          "@.claude/factory/rules.md\n",
+        );
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+  );
 });
