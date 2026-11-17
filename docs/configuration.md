@@ -568,10 +568,9 @@ and never takes one as an instruction.
 
 ### `rules`
 
-_[Planned](developing.md#what-is-built)_: `factory config check`
-refuses this key until it is built.
-
 Numbers the process rules use, for a repository that wants different ones.
+`factory sync` writes each into the copies of the rules and skills that
+state it, so run it after changing one.
 
 ```yaml
 rules:
@@ -593,12 +592,12 @@ factory's rules.
 
 ## Checking the file
 
-| Command                  | What it does                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| Your editor              | The first line of the file points at the factory's schema, which flags a misspelled key as you type it             |
-| `factory config check`   | Fails on an unknown key, a wrong type, a plug-in with no file, and warns on a pattern matching nothing. Runs in CI |
-| `factory config explain` | _[Planned](developing.md#what-is-built)_: Prints every setting in effect, with whether it is the default or yours  |
-| `factory doctor`         | Checks the file against the real board, and that each secret your parts read is set                                |
+| Command                  | What it does                                                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Your editor              | The first line of the file points at the factory's schema, which flags a misspelled key as you type it                 |
+| `factory config check`   | Fails on an unknown key, a wrong type, a plug-in with no file, and warns on a pattern matching nothing. Runs in CI     |
+| `factory config explain` | Prints every setting in effect, as the file would read with every default written out, each default marked `# default` |
+| `factory doctor`         | Checks the file against the real board, and that each secret your parts read is set                                    |
 
 The first line of the file, which the three files below start with:
 

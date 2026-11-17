@@ -60,7 +60,7 @@ marked working below exist only in these docs.
 | A second repository set up and removed from the quick start alone                                                | Working                                                                   |
 | `factory remove`                                                                                                 | Working                                                                   |
 | Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Planned, [#12](https://github.com/davidbyoung/software-factory/issues/12) |
-| `rules` in the settings, `factory config explain`, and the `factory-trace` skill                                 | Planned, [#13](https://github.com/davidbyoung/software-factory/issues/13) |
+| `rules` in the settings, `factory config explain`, and the `factory-trace` skill                                 | Working                                                                   |
 | `approvers` in the settings                                                                                      | Planned, [#14](https://github.com/davidbyoung/software-factory/issues/14) |
 | `factory migrate`                                                                                                | Not planned. The first release that changes the settings' shape adds it   |
 | Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                                       |
@@ -399,7 +399,7 @@ one file.
 | The tool's unit tests  | Each command does what it says. A new test is seen failing before it is trusted                                                                                |
 | `factory sync --check` | The copies match the source                                                                                                                                    |
 | Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host |
-| `/factory-trace`       | _[Planned](#what-is-built)_: A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                |
+| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                             |
 | Fork safety            | No workflow it runs or ships could run a fork's code with a secret or write access (`tests/fork-safety.test.ts`). This repository is public                    |
 | One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                               |
 
