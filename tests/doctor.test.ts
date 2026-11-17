@@ -124,6 +124,7 @@ describe("factory doctor", () => {
       "- Builds that start when you move a card to Ready: off",
       "- Pull requests that merge themselves: off",
       "- Signed commits from cloud builds: off",
+      "- commands.gate is not set: a build cannot finish until it is",
       "✓ Claude Code: CLAUDE.md imports the factory's rules",
       "✓ Claude Code: .claude/settings.json has the factory's hooks",
       "✓ Claude Code: the claude command is installed",
@@ -137,6 +138,7 @@ describe("factory doctor", () => {
         tickets: { board: 3 },
         builds: { trigger: "own-server" },
         "auto-merge": { allow: ["docs/**"] },
+        commands: { gate: ["npm run check"] },
       },
       secrets: {
         CLAUDE_CODE_OAUTH_TOKEN: "x",
@@ -166,6 +168,39 @@ describe("factory doctor", () => {
         "✓ Claude Code: the claude command is installed",
       ]
     `);
+  });
+
+  describe("the gate", () => {
+    const GATE =
+      "- commands.gate is not set: a build cannot finish until it is";
+    const SET = { commands: { gate: ["npm run check"] } };
+
+    it("shows a gate that is not set as off, without failing", async () => {
+      const { run, out } = doctor({});
+      expect(await run()).toBe(0);
+      expect(out.filter((l) => l.includes("commands.gate"))).toEqual([GATE]);
+    });
+
+    it("shows an empty list as not set", async () => {
+      const { run, out } = doctor({ raw: { commands: { gate: [] } } });
+      expect(await run()).toBe(0);
+      expect(out).toContain(GATE);
+    });
+
+    it("prints no line about a gate that is set", async () => {
+      const { run, out } = doctor({ raw: SET });
+      expect(await run()).toBe(0);
+      expect(out.join("\n")).not.toContain("commands.gate");
+    });
+
+    it("still fails when another check fails, set or not", async () => {
+      const missing = doctor({ outOfStep: ["a"] });
+      const set = doctor({ raw: SET, outOfStep: ["a"] });
+      expect([await missing.run(), await set.run()]).toEqual([1, 1]);
+      expect(missing.out.filter((l) => !l.includes("commands.gate"))).toEqual(
+        set.out,
+      );
+    });
   });
 
   it("stops at settings it cannot read, and fails", async () => {

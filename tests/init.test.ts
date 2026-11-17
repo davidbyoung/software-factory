@@ -362,6 +362,18 @@ describe("factory init, a first run with every part", () => {
     printsNoSecret(r.out);
   });
 
+  it("leaves the gate's commands to add, before the commit, since a new settings file has none", async () => {
+    const r = first();
+    await r.run();
+    const left = r.out.slice(
+      r.out.indexOf("Nothing is committed. Left to do:"),
+    );
+    expect(left.slice(3, 5)).toEqual([
+      "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+      "  4. Commit this on a branch, open a pull request, and merge it.",
+    ]);
+  });
+
   it("shows the plan, naming secrets but not their values, before changing anything", async () => {
     const r = first();
     await r.run();
@@ -450,6 +462,37 @@ describe("factory init, run again", () => {
       "confirm: Go ahead?",
     ]);
     expect(r.opened).toEqual([]);
+  });
+
+  const rerun = (settings: string) =>
+    init({
+      settings,
+      secrets: SET,
+      boards: [{ number: 3, title: "Roadmap", columns: [] }],
+      answers: { checkbox: [["board", "auto-merge"]], confirm: [false, true] },
+    });
+  const GATE_STEP =
+    "Add the commands that check a change, under commands.gate in .claude/factory.yaml";
+
+  it("leaves the gate's commands to add when the settings have none", async () => {
+    const r = rerun(SETTINGS);
+    await r.run();
+    expect(r.out.join("\n")).toContain(`  1. ${GATE_STEP}`);
+  });
+
+  it("leaves the gate's commands to add when the settings write an empty list", async () => {
+    const r = rerun(`${SETTINGS}  gate: []\n`);
+    await r.run();
+    expect(r.out.join("\n")).toContain(`  1. ${GATE_STEP}`);
+  });
+
+  it("leaves no step about the gate when the settings have one", async () => {
+    const r = rerun(`${SETTINGS}  gate:\n    - npm run check\n`);
+    await r.run();
+    expect(r.out.join("\n")).not.toContain("commands.gate");
+    expect(r.out).toContain(
+      "  1. Commit this on a branch, open a pull request, and merge it.",
+    );
   });
 
   it("turns a part off, keeping the rest of the settings and their comments", async () => {
@@ -961,7 +1004,8 @@ describe("factory init, word for word", () => {
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=1
              FACTORY_BOARD_TOKEN=the access token you just made",
-        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+        "  4. Commit this on a branch, open a pull request, and merge it.",
         "",
         "Checks",
         "  ✓ Every check passed",
@@ -1027,7 +1071,8 @@ describe("factory init, word for word", () => {
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=3
              FACTORY_BOARD_TOKEN=the access token you just made",
-        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+        "  4. Commit this on a branch, open a pull request, and merge it.",
         "",
         "Checks",
         "  ✓ Every check passed",

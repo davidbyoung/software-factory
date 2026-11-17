@@ -160,6 +160,13 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     for (const need of needed.filter((n) => n.part === part))
       out.push(secretLine(need.anyOf, forPart));
   }
+  // A gate is no part and fails no check: it is shown as off, since a
+  // build cannot finish without one.
+  if (s.commands.gate.length === 0)
+    out.push({
+      state: "off",
+      text: "commands.gate is not set: a build cannot finish until it is",
+    });
   if (secrets !== null)
     for (const need of needed.filter((n) => n.part === null))
       out.push(secretLine(need.anyOf, need.tool));

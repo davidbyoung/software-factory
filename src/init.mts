@@ -672,6 +672,12 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         "       FACTORY_BOARD_TOKEN=the access token you just made",
       ].join("\n"),
     );
+  // Init asks for no command, so a gate is the owner's to add: without one
+  // `factory gate` fails, and a build cannot finish.
+  if (!settings?.commands.gate.length)
+    left.push(
+      `Add the commands that check a change, under commands.gate in ${SETTINGS_FILE}`,
+    );
   left.push("Commit this on a branch, open a pull request, and merge it.");
   d.out("Nothing is committed. Left to do:");
   left.forEach((step, i) => d.out(`  ${i + 1}. ${step}`));
