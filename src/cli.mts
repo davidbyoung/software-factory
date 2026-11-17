@@ -191,6 +191,11 @@ export const COMMANDS: Command[] = [
     run: async (argv) => (await import("./board.mts")).run(["check", ...argv]),
   },
   {
+    words: ["board"],
+    args: "--dry-run",
+    run: async (argv) => (await import("./board.mts")).run(argv),
+  },
+  {
     words: ["poller"],
     args: "",
     run: async () => (await import("./poller.mts")).run(),
