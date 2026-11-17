@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   FIRE_LIMIT,
   capAllows,
   dispatchFailure,
   nextDelay,
+  once,
+  onceSettings,
   readConfig,
   selectToStart,
   startMarker,
@@ -20,6 +21,7 @@ import {
   type Board,
 } from "../src/lib/work-status.mts";
 import { HttpError } from "../src/tickets/transport.mts";
+import { parseSettings } from "../src/config.mts";
 import { toBoard } from "../src/tickets/github.mts";
 import saved from "./fixtures/sync/repo.json";
 // The same repository as GitHub's GraphQL answers it, for the fake fetch.
@@ -183,6 +185,8 @@ function fakeFetch(answers: {
   graphql?: Answer;
   /** The board's page, in place of the recorded one. */
   boardPage?: unknown;
+  /** The repository's page, in place of the recorded one. */
+  repoPage?: unknown;
 }) {
   const calls: {
     url: string;
@@ -226,7 +230,7 @@ function fakeFetch(answers: {
         status: 200,
         body: query.includes("projectV2")
           ? (answers.boardPage ?? boardPages[0])
-          : repoPages[0],
+          : (answers.repoPage ?? repoPages[0]),
       });
     }
     if (url.includes("blocked_by"))
@@ -252,7 +256,7 @@ function setup(
     log: (line) => logs.push(line),
     marker: () => "st_0123456789ab",
   };
-  const state: State = { fired: [], failuresInARow: 0, lastHeartbeat: NOW };
+  const state: State = { failuresInARow: 0, lastHeartbeat: NOW };
   const dispatches = () =>
     fetch.calls
       .filter((c) => c.url === DISPATCH)
@@ -262,6 +266,64 @@ function setup(
       .filter((c) => c.url.endsWith("/comments"))
       .map((c) => JSON.parse(c.body).body);
   return { d, state, logs, calls: fetch.calls, comments, dispatches };
+}
+
+/** The recorded pages with `ready` more Ready cards, each refined and moved
+ * to Ready as #12 was, and `started` start comments posted `minutesAgo`
+ * minutes before NOW, on tickets closed since or, with `open`, still open.
+ * `body` writes some other comment in place of each start. */
+function withStarts(o: {
+  ready?: number;
+  started: number;
+  minutesAgo: number;
+  open?: boolean;
+  body?: (number: number) => string;
+}) {
+  const repo = structuredClone(repoPages[0]);
+  const board = structuredClone(boardPages[0]);
+  const r = repo.data.repository;
+  const twelve = r.open.nodes.find((n) => n.number === 12)!;
+  const card = board.data.owner.projectV2.items.nodes.find(
+    (n) => n.content.number === 12,
+  )!;
+  for (let i = 0; i < (o.ready ?? 0); i++) {
+    const number = 100 + i;
+    r.open.nodes.push({
+      ...structuredClone(twelve),
+      id: `I_${number}`,
+      number,
+    });
+    board.data.owner.projectV2.items.nodes.push({
+      ...structuredClone(card),
+      id: `PVTI_${number}`,
+      content: { ...card.content, number },
+    });
+  }
+  const at = new Date(NOW - o.minutesAgo * 60_000).toISOString();
+  for (let i = 0; i < o.started; i++) {
+    const number = 200 + i;
+    const node = {
+      ...structuredClone(r.closed.nodes[0]),
+      id: `I_${number}`,
+      number,
+      state: o.open ? "OPEN" : "CLOSED",
+      closedAt: o.open ? null : at,
+      comments: {
+        nodes: [
+          {
+            databaseId: 5000 + i,
+            createdAt: at,
+            author: { login: "acme" },
+            body: o.body
+              ? o.body(number)
+              : commentBody({ kind: "started", marker: `st_${number}` }),
+          },
+        ],
+      },
+    };
+    (o.open ? r.open.nodes : r.closed.nodes).push(node as never);
+  }
+  return { graphql: undefined, repoPage: repo, boardPage: board };
 }
 
 describe("tick", () => {
@@ -290,7 +352,6 @@ describe("tick", () => {
       c.url === DISPATCH ? "dispatch" : c.url.split("/").at(-1),
     );
     expect(order.slice(-2)).toEqual(["comments", "dispatch"]);
-    expect(state.fired).toEqual([NOW]);
   });
 
   it("starts no card in a column other than the one FACTORY_READY_COLUMN names", async () => {
@@ -402,14 +463,60 @@ describe("tick", () => {
     expect(blocked.logs).toContain("#12 waits on #3");
   });
 
-  it("fires nothing once twenty builds started in the hour", async () => {
-    const { d, state, comments, logs } = setup({});
-    state.fired = Array.from({ length: FIRE_LIMIT }, () => NOW - 60_000);
+  it("starts nothing once twenty start comments were posted in the past hour, though it keeps no count of its own", async () => {
+    const { d, state, comments, logs } = setup(
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 59 }),
+    );
 
     await tick(d, state);
 
     expect(comments()).toEqual([]);
     expect(logs).toContain("#12 waits: 20 builds started in the last hour");
+  });
+
+  it("counts the start comments on tickets still open", async () => {
+    const { d, state, comments } = setup(
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 10, open: true }),
+    );
+
+    await tick(d, state);
+
+    expect(comments()).toEqual([]);
+  });
+
+  it("counts no comment but a start", async () => {
+    const { d, state, dispatches } = setup(
+      withStarts({
+        started: FIRE_LIMIT,
+        minutesAgo: 10,
+        body: (n) =>
+          `Text.\n\n<!-- work-status: claim local s${n} -->\n<!-- agent -->`,
+      }),
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).not.toEqual([]);
+  });
+
+  it("forgets a start comment over an hour old", async () => {
+    const { d, state, dispatches } = setup(
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 61 }),
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).not.toEqual([]);
+  });
+
+  it("counts the builds it starts in the same pass, so twenty-five Ready cards start twenty", async () => {
+    const { d, state, dispatches } = setup(
+      withStarts({ ready: 25, started: 0, minutesAgo: 0 }),
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).toHaveLength(FIRE_LIMIT);
   });
 
   it("counts a failed read and keeps going", async () => {
@@ -456,6 +563,108 @@ describe("tick", () => {
   });
 });
 
+describe("onceSettings", () => {
+  const read = (raw: Record<string, unknown>) =>
+    onceSettings(
+      parseSettings(
+        { version: 1, repository: "acme/widgets", ...raw },
+        () => true,
+      ),
+    );
+
+  it("takes the board and the Ready column from the settings", () => {
+    expect(read({ tickets: { board: 7 } })).toEqual({
+      board: 7,
+      ready: "Ready",
+    });
+  });
+
+  it("takes a Ready column the settings rename", () => {
+    expect(
+      read({ tickets: { board: 7, columns: { ready: "Ready for dev" } } }),
+    ).toEqual({ board: 7, ready: "Ready for dev" });
+  });
+
+  it("has no board when the settings name none", () => {
+    expect(read({}).board).toBeNull();
+  });
+
+  it("has no Ready column when the settings set it to none", () => {
+    expect(
+      read({
+        tickets: { board: 7, columns: { ready: "none" } },
+        builds: { trigger: "manual" },
+      }).ready,
+    ).toBeNull();
+  });
+});
+
+describe("once", () => {
+  const TOKEN = { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN };
+  const settings = { board: 1, ready: "Ready" };
+
+  it("starts each Ready ticket and returns 0", async () => {
+    const { d, dispatches } = setup({}, TOKEN);
+
+    expect(await once(settings, d)).toBe(0);
+    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+  });
+
+  it("reads the board its settings name, owned by the repository's owner", async () => {
+    const { d, calls } = setup({}, TOKEN);
+
+    await once({ board: 7, ready: "Ready" }, d);
+
+    const board = calls
+      .filter((c) => c.url.endsWith("/graphql"))
+      .map((c) => JSON.parse(c.body))
+      .find((b) => String(b.query).includes("projectV2"));
+    expect(board.variables).toMatchObject({ owner: "acme", number: 7 });
+  });
+
+  it("starts no card outside the Ready column its settings name", async () => {
+    const { d, dispatches } = setup({}, TOKEN);
+
+    await once({ board: 1, ready: "Ready for dev" }, d);
+
+    expect(dispatches()).toEqual([]);
+  });
+
+  it("returns 1, saying why, when it cannot read the board", async () => {
+    const { d, logs } = setup({ graphql: { status: 502 } }, TOKEN);
+
+    expect(await once(settings, d)).toBe(1);
+    expect(logs[0]).toMatch(/^read failed/);
+  });
+
+  it("returns 1, naming the token, when FACTORY_BOARD_TOKEN is not set", async () => {
+    const { d, logs } = setup({}, {});
+
+    expect(await once(settings, d)).toBe(1);
+    expect(logs).toContain("not polling: FACTORY_BOARD_TOKEN not set");
+  });
+
+  it.each([
+    [
+      { board: null, ready: "Ready" },
+      "No board to read: tickets.board is not set in .claude/factory.yaml.",
+    ],
+    [
+      { board: 1, ready: null },
+      "No card can start a build: the Ready column is none in .claude/factory.yaml.",
+    ],
+  ])(
+    "returns 1 and reads nothing when the settings give it nothing to poll",
+    async (given, said) => {
+      const { d, calls, logs } = setup({}, TOKEN);
+
+      expect(await once(given, d)).toBe(1);
+      expect(calls).toEqual([]);
+      expect(logs).toEqual([said]);
+    },
+  );
+});
+
 describe("the poller's start", () => {
   it("exits with a message naming FACTORY_REPOSITORY when it is not set", () => {
     const env = { ...process.env };
@@ -472,27 +681,28 @@ describe("the poller's start", () => {
 });
 
 describe("poller.Dockerfile", () => {
-  /** The poller and every file it imports, directly or through another, by
-   * relative path. */
-  function imported(file: string, seen = new Set<string>()): Set<string> {
-    seen.add(file);
-    const src = readFileSync(file, "utf8");
-    for (const [, spec] of src.matchAll(/from\s+"(\.{1,2}\/[^"]+)"/g)) {
-      const next = join(dirname(file), spec);
-      if (!seen.has(next)) imported(next, seen);
-    }
-    return seen;
-  }
+  const file = readFileSync("poller.Dockerfile", "utf8");
+  const name = JSON.parse(readFileSync("package.json", "utf8")).name as string;
 
-  it("copies the poller and every file it imports", () => {
-    const copied = readFileSync("poller.Dockerfile", "utf8")
-      .split("\n")
-      .filter((line) => /^COPY\s/.test(line))
-      .map((line) => line.split(/\s+/)[1]);
+  it("installs the factory's published version the build names, without its dev tools", () => {
+    expect(file).toMatch(/^ARG VERSION$/m);
+    expect(file).toContain(`npm install --omit=dev`);
+    expect(file).toContain(`"${name}@\${VERSION}"`);
+  });
 
-    const missing = [...imported("src/poller.mts")].filter(
-      (f) => !copied.includes(f),
+  it("names this repository as its source, so Dependabot can read its versions", () => {
+    expect(file).toMatch(
+      /^LABEL org\.opencontainers\.image\.source="https:\/\/github\.com\/davidbyoung\/software-factory"$/m,
     );
-    expect(missing).toEqual([]);
+  });
+
+  it("runs the installed poller as an unprivileged user", () => {
+    expect(file).toMatch(/^USER node$/m);
+    expect(file).toMatch(
+      new RegExp(
+        `^CMD \\["node", "node_modules/${name.replace("/", "\\/")}/bin/factory\\.js", "poller"\\]$`,
+        "m",
+      ),
+    );
   });
 });

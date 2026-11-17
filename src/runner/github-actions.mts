@@ -2,11 +2,8 @@
 // started by a dispatch, and the review is a run of the review workflow.
 // With `src/tickets/` and `src/code-host/`, this is the only code that
 // calls GitHub.
-//
-// Node built-ins and the modules beside it only: the poller's image copies
-// this file.
 import type { GhIn } from "../lib/gh.mts";
-import type { Transport } from "../tickets/transport.mts";
+import { statusOf, type Transport } from "../tickets/transport.mts";
 import type { FailedJob, Run, Runner } from "./types.mts";
 
 /** The workflow a build is a run of. */
@@ -144,6 +141,18 @@ export function githubActionsRunner(o: {
         });
       }
       return failed;
+    },
+    async workflowState(file) {
+      try {
+        const workflow = await t.rest<{ state: string }>(
+          "GET",
+          `${API}/actions/workflows/${file}`,
+        );
+        return workflow.state === "active" ? "active" : "disabled";
+      } catch (error) {
+        if (statusOf(error) === 404) return "missing";
+        throw error;
+      }
     },
     async secretNames() {
       // The list is an object, not an array, so it is paged by hand.

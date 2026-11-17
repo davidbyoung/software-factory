@@ -60,7 +60,7 @@ it or delete it.
 
 ### Outside GitHub
 
-Only if you turned on builds that start from the board: **the poller**,
+Only if you host the poller (`builds.trigger: own-server`): **the poller**,
 wherever you host it, with the four `FACTORY_` variables you gave it. Stop
 and delete it.
 
@@ -82,6 +82,7 @@ anything to do, and stops there when there is not.
 | `factory-merge-policy.yml`    | Every pull request                                              | Labels it `merge: automatic` or `merge: manual`, and turns auto-merge on for the first. Written once `auto-merge.allow` is set              |
 | `factory-review-verdict.yml`  | Each automated review                                           | Posts the "Review verdict" status from the review's summary                                                                                 |
 | `factory-claude-review.yml`   | Every pull request once it is marked ready, and each push after | Runs the automated review. Written once `ci-review` is set                                                                                  |
+| `factory-poller.yml`          | Every `builds.poll-minutes` minutes, or by hand                 | Runs one pass of the poller, starting a build for each Ready ticket. Written once `builds.trigger` is `github-action`                       |
 
 **Starting a build by hand.** The Actions tab, "Factory build", "Run
 workflow", and the ticket's number. The board's "Runs in" field then shows
@@ -89,7 +90,8 @@ workflow", and the ticket's number. The board's "Runs in" field then shows
 tool call the session was denied, with the reason.
 
 The poller starts `factory-build.yml` on the repository's default branch,
-which it reads once when it starts. The run does no start check of its
+which a poller you host reads once when it starts, and a scheduled pass on
+each run. The run does no start check of its
 own: only someone with write access can start a workflow.
 
 A review on a pull request that conflicts with the default branch starts

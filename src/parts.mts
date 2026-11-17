@@ -31,7 +31,7 @@ export const PART_TEXT: Record<Part, { name: string; gives: string }> = {
   },
   "from-board": {
     name: "Builds that start when you move a card to Ready",
-    gives: "needs a small server you host",
+    gives: "a schedule on GitHub Actions, or a small server you host",
   },
   "auto-merge": {
     name: "Pull requests that merge themselves",

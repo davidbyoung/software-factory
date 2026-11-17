@@ -148,23 +148,23 @@ prints `no checks` and exits 0. A failure exits 3.
 
 ### Workflows and hooks
 
-| Command                     | Run by                        | What it does                                                                            | State   |
-| --------------------------- | ----------------------------- | --------------------------------------------------------------------------------------- | ------- |
-| `factory board collect`     | The board-sync workflow       | Reads the tickets and posts the comments a closed pull request or the nightly run needs | Built   |
-| `factory board apply`       | The board-sync workflow       | Sets each ticket's column and fields from its comments                                  | Built   |
-| `factory board --dry-run`   | You, to see what it would set | Reads the tickets and the board, prints what the sync would set, and writes nothing     | Built   |
-| `factory merge-policy N`    | The merge-policy workflow     | Decides whether N may merge without you, and why                                        | Built   |
-| `factory review verdict`    | The review-verdict workflow   | Posts the "Review verdict" status for a commit                                          | Built   |
-| `factory review cost`       | The review workflow           | Adds what the CI review cost to its summary                                             | Built   |
-| `factory review tools`      | The review workflow           | Prints the tools the CI review may use, from `ci-review.commands`                       | Built   |
-| `factory poller`            | Your server                   | Starts a build for each Ready ticket. See [Builds](builds.md)                           | Built   |
-| `factory poller --once`     | A schedule                    | One pass of the poller                                                                  | Planned |
-| `factory guard`             | A hook, before each command   | Runs both guards below on one Bash call                                                 | Built   |
-| `factory guard commit`      | Within `factory guard`        | Blocks a commit on your main branch, a force push, or a failing `before-commit` command | Built   |
-| `factory guard ticket-text` | Within `factory guard`        | Refuses ticket text with a bare `<tag>`, which the ticket system would swallow          | Built   |
-| `factory reviewers start`   | A hook, when an agent starts  | Records a reviewer's run on the ticket, for its cost                                    | Built   |
-| `factory reviewers stop`    | A hook, when an agent stops   | The same                                                                                | Built   |
-| `factory session-start`     | A hook, when a session starts | Shows unfinished branches and each ticket's state                                       | Built   |
+| Command                     | Run by                          | What it does                                                                            | State |
+| --------------------------- | ------------------------------- | --------------------------------------------------------------------------------------- | ----- |
+| `factory board collect`     | The board-sync workflow         | Reads the tickets and posts the comments a closed pull request or the nightly run needs | Built |
+| `factory board apply`       | The board-sync workflow         | Sets each ticket's column and fields from its comments                                  | Built |
+| `factory board --dry-run`   | You, to see what it would set   | Reads the tickets and the board, prints what the sync would set, and writes nothing     | Built |
+| `factory merge-policy N`    | The merge-policy workflow       | Decides whether N may merge without you, and why                                        | Built |
+| `factory review verdict`    | The review-verdict workflow     | Posts the "Review verdict" status for a commit                                          | Built |
+| `factory review cost`       | The review workflow             | Adds what the CI review cost to its summary                                             | Built |
+| `factory review tools`      | The review workflow             | Prints the tools the CI review may use, from `ci-review.commands`                       | Built |
+| `factory poller`            | Your server                     | Starts a build for each Ready ticket. See [Builds](builds.md)                           | Built |
+| `factory poller --once`     | The scheduled poller's workflow | One pass of the poller, with the board and Ready column from your settings              | Built |
+| `factory guard`             | A hook, before each command     | Runs both guards below on one Bash call                                                 | Built |
+| `factory guard commit`      | Within `factory guard`          | Blocks a commit on your main branch, a force push, or a failing `before-commit` command | Built |
+| `factory guard ticket-text` | Within `factory guard`          | Refuses ticket text with a bare `<tag>`, which the ticket system would swallow          | Built |
+| `factory reviewers start`   | A hook, when an agent starts    | Records a reviewer's run on the ticket, for its cost                                    | Built |
+| `factory reviewers stop`    | A hook, when an agent stops     | The same                                                                                | Built |
+| `factory session-start`     | A hook, when a session starts   | Shows unfinished branches and each ticket's state                                       | Built |
 
 The board sync runs `collect` and `apply` as two steps, so the board's
 token reaches only the second. The board's number comes from

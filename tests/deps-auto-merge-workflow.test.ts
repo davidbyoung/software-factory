@@ -20,11 +20,37 @@ const enable = workflow.jobs.enable.steps.find(
   (s) => s.name === "Enable auto-merge",
 )!;
 
+/** Whether the condition's `contains` holds back an update of these
+ * dependencies, matching as GitHub's `contains` does: a substring, in any
+ * case. */
+const holdsBack = (names: string) => {
+  const held =
+    /!contains\(steps\.meta\.outputs\.dependency-names, '([^']+)'\)/.exec(
+      enable.if!,
+    )![1]!;
+  return names.toLowerCase().includes(held.toLowerCase());
+};
+
 describe("the dependency auto-merge workflow", () => {
-  it("turns auto-merge on only for a bump that is neither a major nor the factory itself", () => {
-    expect(enable.if!.trim()).toBe(
-      "steps.meta.outputs.update-type != 'version-update:semver-major' && " +
-        `!contains(steps.meta.outputs.dependency-names, '${NAME}')`,
+  it("turns auto-merge on only for a bump that is not a major", () => {
+    expect(enable.if!).toContain(
+      "steps.meta.outputs.update-type != 'version-update:semver-major'",
     );
+  });
+
+  it.each([
+    NAME,
+    `${NAME}, typescript`,
+    "ghcr.io/davidbyoung/software-factory-poller",
+    "davidbyoung/software-factory-poller",
+  ])(
+    "holds back an update of the factory or its poller's image: %s",
+    (names) => {
+      expect(holdsBack(names)).toBe(true);
+    },
+  );
+
+  it("lets any other dependency through", () => {
+    expect(holdsBack("typescript, @types/node, node")).toBe(false);
   });
 });

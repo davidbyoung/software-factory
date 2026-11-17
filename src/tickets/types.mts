@@ -3,8 +3,6 @@
 // adapter added beside `github.mts`, not a rewrite of the commands. What a
 // ticket's state means (the marker comments, costs, and the views) stays
 // above it, in `lib/work-status.mts` and the commands.
-//
-// Node built-ins only: the poller's image copies this file.
 
 export type TicketComment = {
   id: number;

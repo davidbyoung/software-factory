@@ -30,6 +30,7 @@ import {
   columnsOf,
   fieldNamesOf,
   parseSettings,
+  POLL_MINUTES,
   repoRoot,
   SETTINGS_FILE,
   SettingsError,
@@ -70,6 +71,8 @@ export type Ask = {
   select(
     message: string,
     choices: { name: string; value: string }[],
+    /** The value chosen when the person picks nothing else. */
+    fallback?: string,
   ): Promise<string>;
   confirm(message: string, fallback: boolean): Promise<boolean>;
   /** Read without echoing what is typed. */
@@ -99,6 +102,10 @@ export type InitDeps = {
 };
 
 const SIGNING_TITLE = "software factory builds";
+/** Where each release's poller image is published. */
+const POLLER_IMAGE = "ghcr.io/davidbyoung/software-factory-poller";
+/** A month of runs at each interval the scheduled poller allows. */
+const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 const AGAIN = "Run npx --no-install factory init again to add it.";
 
 /** The columns and fields the board sync uses: the settings' names where
@@ -352,6 +359,38 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       .map((x) => x.trim())
       .filter(Boolean);
 
+  // Where the poller runs, asked only when the part is new: a re-run keeps
+  // what the settings say, as it does every value already set.
+  let trigger = settings?.builds.trigger ?? "manual";
+  let pollMinutes: number | null = null;
+  if (parts.has("from-board") && !before.has("from-board")) {
+    trigger = (await d.ask.select("Where does the poller run?", [
+      {
+        name: "A schedule on GitHub Actions, every 5 minutes, nothing to host",
+        value: "github-action",
+      },
+      { name: "A server you host, within a minute", value: "own-server" },
+    ])) as typeof trigger;
+    if (
+      trigger === "github-action" &&
+      (await codeHost.isPrivate().catch(() => true))
+    ) {
+      d.out(
+        "Each run bills at least one Actions minute on a private repository.",
+      );
+      pollMinutes = Number(
+        await d.ask.select(
+          "How often?",
+          POLL_MINUTES.map((m) => ({
+            name: `Every ${m} minutes, ${RUNS_A_MONTH(m).toLocaleString("en-US")} runs a month`,
+            value: String(m),
+          })),
+          "30",
+        ),
+      );
+    }
+  }
+
   // The settings as they will stand, keeping every other key and comment.
   if (!doc.has("version")) doc.set("version", 1);
   if (!doc.has("repository")) doc.set("repository", repository);
@@ -365,8 +404,12 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   if (!parts.has("board"))
     for (const key of ["board", "columns", "fields"])
       remove(doc, ["tickets", key]);
-  if (parts.has("from-board")) doc.setIn(["builds", "trigger"], "own-server");
+  if (parts.has("from-board")) doc.setIn(["builds", "trigger"], trigger);
   else if (before.has("from-board")) remove(doc, ["builds", "trigger"]);
+  if (pollMinutes !== null && pollMinutes !== 5)
+    doc.setIn(["builds", "poll-minutes"], pollMinutes);
+  if (!parts.has("from-board") || trigger !== "github-action")
+    remove(doc, ["builds", "poll-minutes"]);
   if (parts.has("auto-merge")) doc.setIn(["auto-merge", "allow"], allow);
   else remove(doc, ["auto-merge", "allow"]);
   // The review is on while its setting is written; the sync writes its
@@ -615,10 +658,14 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const app = codeHost.reviewAppPage();
   if (parts.has("review") && app)
     left.push(`Install the app the review posts through: ${app}`);
-  if (parts.has("from-board") && typeof board === "number")
+  if (
+    parts.has("from-board") &&
+    trigger === "own-server" &&
+    typeof board === "number"
+  )
     left.push(
       [
-        "Host the poller, which starts a build when a card moves to Ready, with:",
+        `Run the poller's image, ${POLLER_IMAGE}:${d.packageVersion}, where you host it, with:`,
         `       FACTORY_REPOSITORY=${repository}`,
         `       FACTORY_BOARD_OWNER=${owner}`,
         `       FACTORY_BOARD_NUMBER=${board}`,
@@ -641,7 +688,8 @@ async function terminalAsk(): Promise<Ask> {
   const p = await import("@inquirer/prompts");
   return {
     checkbox: (message, choices) => p.checkbox({ message, choices }),
-    select: (message, choices) => p.select({ message, choices }),
+    select: (message, choices, fallback) =>
+      p.select({ message, choices, default: fallback }),
     confirm: (message, fallback) => p.confirm({ message, default: fallback }),
     secret: (message) => p.password({ message, mask: "•" }),
     input: (message, fallback) => p.input({ message, default: fallback }),

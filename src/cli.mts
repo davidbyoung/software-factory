@@ -207,8 +207,8 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["poller"],
-    args: "",
-    run: async () => (await import("./poller.mts")).run(),
+    args: "[--once]",
+    run: async (argv) => (await import("./poller.mts")).run(argv),
   },
   {
     words: ["merge-policy"],

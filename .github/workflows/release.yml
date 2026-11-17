@@ -3,6 +3,8 @@
 # The whole CI runs on the tagged commit first, and the version publishes
 # only when it passes, the tag matches package.json, and main has the
 # commit.
+# Then it publishes the poller's image of that version to GitHub's
+# container registry.
 #
 # It publishes as this repository's trusted publisher, set on the package's
 # page on npmjs.com, so no token is stored. Where that is not set up, the
@@ -72,3 +74,41 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  image:
+    name: Publish the poller's image
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # The registry can take a moment to serve a version it has just
+      # accepted, and the image installs it from there.
+      - name: Wait for the version on npm
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for _ in $(seq 1 30); do
+            npm view "@davidbyoung/software-factory@$version" version >/dev/null 2>&1 && exit 0
+            sleep 10
+          done
+          echo "npm did not serve $version within five minutes. No image was published."
+          exit 1
+
+      - name: Log in to GitHub's container registry
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Build and push
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          docker build -f poller.Dockerfile --build-arg VERSION="$version" \
+            -t "ghcr.io/davidbyoung/software-factory-poller:$version" \
+            -t "ghcr.io/davidbyoung/software-factory-poller:latest" .
+          docker push "ghcr.io/davidbyoung/software-factory-poller:$version"
+          docker push "ghcr.io/davidbyoung/software-factory-poller:latest"

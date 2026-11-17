@@ -15,16 +15,16 @@ and the [reference](github/reference.md#workflows) has what runs there.
 | ----------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
 | Ask a session: "build ticket 12"    | In that session, wherever you opened it | Nothing                                                           |
 | Run `factory build 12`              | In the cloud                            | Builds in the cloud set up                                        |
-| Move the ticket to Ready on a board | In the cloud, within a minute           | Builds in the cloud set up, and [the poller](#the-poller) running |
+| Move the ticket to Ready on a board | In the cloud, at the poller's next pass | Builds in the cloud set up, and [the poller](#the-poller) running |
 
 Which of the last two you use is `builds.trigger` in your
 [settings](configuration.md#builds):
 
-| `trigger`       | Moving a ticket to Ready                                                                                 |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| `manual`        | Records your approval and starts nothing. The default                                                    |
-| `own-server`    | Starts a build within a minute, through the poller you host                                              |
-| `github-action` | _[Planned](developing.md#what-is-built)_: starts one within minutes, from a schedule on the cloud runner |
+| `trigger`       | Moving a ticket to Ready                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `manual`        | Records your approval and starts nothing. The default                                                             |
+| `own-server`    | Starts a build within a minute, through the poller you host                                                       |
+| `github-action` | Starts one at the next pass of a schedule on the cloud runner, every `poll-minutes` minutes, with nothing to host |
 
 `manual` is a fine place to stay. Asking a session and running
 `factory build` work whatever the trigger.
@@ -92,9 +92,10 @@ yours in them and stop.
 
 ## The poller
 
-The poller is a small program of the factory's that never exits. Once a
-minute it reads your board, and for each ticket in Ready with no open
-blocker it:
+The poller is a small program of the factory's. It runs on a server you
+host, reading your board once a minute and never exiting, or as one pass
+at a time on a schedule in the cloud. Each time it reads the board, for
+each ticket in Ready with no open blocker it:
 
 1. posts a comment on the ticket saying a build is starting, carrying a
    marker;
@@ -111,9 +112,10 @@ does no further check.
 
 ### What it reads from its environment
 
-The poller runs with no copy of your repository, so it takes everything
-from environment variables. All four are required; it exits at startup
-naming any that is missing.
+On a server you host, the poller runs with no copy of your repository, so
+it takes everything from environment variables. All four are required; it
+exits at startup naming any that is missing. On a schedule it has a
+checkout, and needs only the token.
 
 | Variable               | What it is                                                          |
 | ---------------------- | ------------------------------------------------------------------- |
@@ -135,8 +137,9 @@ a board owned by another account is not supported yet.
 
 ### Its limits
 
-- **It starts at most 20 builds an hour.** A ticket past that waits, and
-  the poller's log says so. Each build may run as long as
+- **It starts at most 20 builds an hour,** counted from the start comments
+  it posted, so a restart or a scheduled pass still knows them. A ticket
+  past that waits, and the poller's log says so. Each build may run as long as
   [`session-minutes`](configuration.md#session-minutes) allows, so several
   can run at once: each pays for its own minutes, and the cloud runner
   limits how many run at the same time.
@@ -151,25 +154,39 @@ a board owned by another account is not supported yet.
 The poller needs one always-on container with outbound network access and
 half a gigabyte of memory. It serves no traffic.
 
-The factory ships a Dockerfile for it, `poller.Dockerfile`. It installs
-nothing but Node and the poller, and runs as an unprivileged user. To try it
-on your machine, from the root of the factory's own repository:
+Each release of the factory publishes the poller as a container image,
+`ghcr.io/davidbyoung/software-factory-poller`, tagged with its version and
+`latest`. It holds nothing but Node and that version of the factory, runs
+as an unprivileged user, and needs no sign-in to pull. Run the version your
+repository installs, with the variables above; `factory init` prints the
+exact line. To try it on your machine:
 
 ```bash
-docker build -f poller.Dockerfile -t factory-poller .
 docker run \
   -e FACTORY_REPOSITORY=your-name/your-repo \
   -e FACTORY_BOARD_OWNER=your-name \
   -e FACTORY_BOARD_NUMBER=1 \
   -e FACTORY_BOARD_TOKEN \
-  factory-poller
+  ghcr.io/davidbyoung/software-factory-poller:0.2.0
 ```
 
-_[Planned](developing.md#what-is-built)_: building it from an installed
-package, whose files are under `node_modules/`. Until then, the Dockerfile
-builds only from the factory's own repository, and a repository that uses
-the factory writes its own: a Node image that runs `npm ci` and then
-`npx --no-install factory poller`.
+**A host that builds from your repository,** rather than running an image,
+needs a Dockerfile there. Add one of a single line, such as
+`poller/Dockerfile`:
+
+```dockerfile
+FROM ghcr.io/davidbyoung/software-factory-poller:0.2.0
+```
+
+and this entry in `.github/dependabot.yml`, so each new version of the
+factory updates it, alongside the factory's own update:
+
+```yaml
+- package-ecosystem: docker
+  directory: /poller
+  schedule:
+    interval: weekly
+```
 
 As an example, one setup runs it as a worker on DigitalOcean's App
 Platform, in the same app as the site it builds, for about $5 a month. Its
@@ -184,34 +201,65 @@ the factory never deploys it.
 
 | What you see                                                                | What happened                           | What to do                                                                                   |
 | --------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `factory status` flags a Ready ticket "not started"                         | The poller is down or stuck             | Read its log                                                                                 |
+| `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck             | Read its log                                                                                 |
 | A comment saying a build could not start, with a refusal from the code host | The token cannot start a build          | Give it what [the setup](github/setup.md#secrets) names, then move the ticket to Ready again |
 | The board stops updating                                                    | The board's token is missing or expired | Replace it. The poller uses the same token                                                   |
-| A ticket in Ready is skipped                                                | It is blocked by an open ticket         | It starts within a minute of the blocker closing                                             |
+| A ticket in Ready is skipped                                                | It is blocked by an open ticket         | It starts at the poller's first pass after the blocker closes                                |
 
-## A scheduled poller: `github-action` _[Planned](developing.md#what-is-built)_
+## A scheduled poller: `github-action`
 
-Until it is built, `factory config check` refuses it. Use the poller
-above, or `manual`.
-
-For a repository with nowhere to run a container. Setup would add a
-scheduled job on the cloud runner that runs the poller for one pass:
+For a repository with nowhere to run a container. `factory sync` writes a
+workflow, `factory-poller.yml`, that runs one pass of the poller on a
+schedule, and by hand:
 
 ```bash
 factory poller --once
 ```
 
-It is a weaker poller, and you should know how before choosing it:
+It reads your board and the Ready column from your settings, and the
+board's token from the secret the board sync already uses. Each build it
+starts is a run of its own, so several build at once, as with the poller
+you host. Two passes never overlap: a late one waits for the one before.
 
-- **It is slower.** The shortest schedule is every few minutes, and
-  scheduled runs can start late.
-- **It can cost money on a private repository.** A run every five minutes
-  is roughly 8,600 runs a month, each billed as at least a minute. That is
-  an estimate, not a measurement.
-- **A scheduled job can be switched off** by the code host in a repository
-  that goes quiet.
-- **The hourly cap needs a new home.** The poller keeps its count of recent
-  builds in memory, which a run that exits loses.
+It is slower and can cost more than the poller you host, so know how
+before choosing it:
+
+- **It starts a build at its next pass.** The schedule runs every
+  `builds.poll-minutes` minutes, 5 at the fastest, and the cloud runner
+  starts scheduled runs late when it is busy: at 5, a build starts 5 to 15
+  minutes after the card moves, and longer at a longer interval.
+- **It costs Actions minutes on a private repository.** Each pass is billed
+  as at least a minute, whether or not a card was Ready. A public
+  repository pays nothing.
+
+  | `poll-minutes` | Passes a month |
+  | -------------- | -------------- |
+  | 5, the default | 8,640          |
+  | 10             | 4,320          |
+  | 15             | 2,880          |
+  | 30             | 1,440          |
+  | 60             | 720            |
+
+  `factory init` asks the interval on a private repository, suggesting 30.
+
+- **The code host can switch a schedule off** in a public repository that
+  goes quiet. `factory doctor` fails when it has, and says how to switch it
+  back on.
+
+`factory status` flags a Ready card "not started, is the factory-poller
+workflow running?" once it has waited the interval and 15 minutes more.
+
+**Moving from a poller you host to the schedule,** stop the one you host:
+both would start builds, and each start comment counts toward the 20 an
+hour.
+
+### When the schedule fails
+
+| What you see                                                                                 | What happened                                                 | What to do                                             |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------ |
+| `factory status` flags a Ready ticket "not started, is the factory-poller workflow running?" | The workflow failed, or the code host switched it off         | Run `factory doctor`, and read the workflow's last run |
+| `factory doctor` says `factory-poller.yml is disabled`                                       | The code host switched the schedule off in a quiet repository | Do what `doctor` says to switch it back on             |
+| A failed run of the workflow saying `not polling: FACTORY_BOARD_TOKEN not set`               | The board's token is not a secret here                        | Run `factory init` to add it                           |
 
 [The reference](github/reference.md#limits) has GitHub's own numbers.
 

@@ -59,7 +59,7 @@ marked working below exist only in these docs.
 | `init`, which can be re-run, and `doctor`                                                                        | Working                                                                   |
 | A second repository set up and removed from the quick start alone                                                | Working                                                                   |
 | `factory remove`                                                                                                 | Working                                                                   |
-| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Planned, [#12](https://github.com/davidbyoung/software-factory/issues/12) |
+| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                                                   |
 | `rules` in the settings, `factory config explain`, and the `factory-trace` skill                                 | Working                                                                   |
 | `approvers` in the settings                                                                                      | Planned, [#14](https://github.com/davidbyoung/software-factory/issues/14) |
 | `factory migrate`                                                                                                | Not planned. The first release that changes the settings' shape adds it   |
@@ -232,9 +232,8 @@ order is prose in the ticket and nothing enforces it.
 and one for an answer in plain text, such as a job's log
 (`src/tickets/transport.mts`). `ghTransport` runs the GitHub CLI, for
 sessions and CI. `fetchTransport` calls the API with a token, for the
-poller, which runs with no `gh` and no install; `poller.Dockerfile` copies
-the adapter, the transport, and what else the poller imports, and a test
-fails when it misses one.
+poller, which runs with no `gh`: its image installs only the published
+package.
 
 What stays above the interface: working out a ticket's state from its
 marker comments, costs, and the formatting of every view, in
@@ -265,8 +264,9 @@ settings and reaches a pull request, with
 
 A command that a workflow also runs, such as `factory pr`, does not read
 the settings there, so an unreadable settings file cannot fail the
-workflow's step; it asks for the default. The poller has no settings at
-all and names its implementations itself.
+workflow's step; it asks for the default. The poller you host has no
+settings at all and names its implementations itself; a scheduled pass
+reads the settings only for its board and Ready column.
 
 | Operation                                | In `CodeHost`                                       | What it returns or does                                                                                                                                                                                                                  |
 | ---------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -419,7 +419,12 @@ last row is the only real proof that a change to one still works.
 3. The release workflow runs the whole CI on the tagged commit, the same
    jobs a pull request gets. Only once they pass does it check that the tag
    matches `package.json` and that `main` has the commit, then publish the
-   version to npm.
+   version to npm, and then the poller's image of that version to GitHub's
+   container registry.
+4. After the first release that publishes the image, pull it with no
+   sign-in: `docker logout ghcr.io` and
+   `docker pull ghcr.io/davidbyoung/software-factory-poller:VERSION`. If it
+   is refused, set the package to Public on its GitHub page, once.
 
 The first version, 0.1.0, was published by hand, since npm sets up a
 trusted publisher only for a package that exists:

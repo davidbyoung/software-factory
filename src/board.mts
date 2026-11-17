@@ -263,7 +263,7 @@ export function boardReport(
     ...found.notes.map((n) => `Note: ${n}`),
     ...(ready !== null &&
     ready !== DEFAULT_COLUMNS.Ready &&
-    settings.builds.trigger !== "manual"
+    settings.builds.trigger === "own-server"
       ? [`Note: The poller needs FACTORY_READY_COLUMN set to "${ready}".`]
       : []),
     ...found.problems.map((p) => `Problem: ${p}.`),

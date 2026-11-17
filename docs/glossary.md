@@ -83,7 +83,8 @@ does, in the repository. Optional.
 set moment.
 
 **Poller.** A small program that watches your board and starts a cloud
-build for each ticket moved to Ready.
+build for each ticket moved to Ready, on a server you host or on a
+schedule in the cloud.
 
 **Refine.** To turn a ticket into acceptance criteria, settling the
 decisions with you along the way.

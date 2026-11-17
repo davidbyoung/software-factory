@@ -1,6 +1,7 @@
-# Builds one ticket in GitHub Actions, with the factory-build skill, when a
-# person starts it: `npx --no-install factory build N`, or "Run workflow" on
-# the Actions tab with the ticket's number. Nothing else starts it.
+# Builds one ticket in GitHub Actions, with the factory-build skill, when the
+# poller starts it for a card moved to Ready, or a person does:
+# `npx --no-install factory build N`, or "Run workflow" on the Actions tab
+# with the ticket's number.
 #
 # The build acts as whoever owns its token, on GitHub and in git: the secret
 # FACTORY_BUILD_TOKEN, or FACTORY_BOARD_TOKEN when that is not set. The
@@ -52,7 +53,7 @@ jobs:
           prompt: |
             Build ticket #${{ inputs.ticket }} of this repository with the factory-build skill. You are running unattended in GitHub Actions, in a fresh checkout of the default branch with its dependencies installed and the commands under `build-setup` in `.claude/factory.yaml` already run. Nobody can answer a question here: where the skill would ask its user, stop and report instead.
 
-            A person started this build with `factory build ${{ inputs.ticket }}` or the Actions tab's "Run workflow", which is the skill's third way to start, under "How a build starts" in `.claude/skills/factory-build/SKILL.md`: there is no start marker and no start check. This is a session nobody can wake later: once the pull request is marked ready, wait for its review with `npx --no-install factory pr state PR --wait`, where PR is its number, and work it with the factory-address-review skill. Do not start `factory pr watch`.
+            The poller started this build for a card moved to Ready, or a person did with `factory build ${{ inputs.ticket }}` or the Actions tab's "Run workflow": the skill's start in GitHub Actions, under "How a build starts" in `.claude/skills/factory-build/SKILL.md`, which has no start check. This is a session nobody can wake later: once the pull request is marked ready, wait for its review with `npx --no-install factory pr state PR --wait`, where PR is its number, and work it with the factory-address-review skill. Do not start `factory pr watch`.
 
             How: use the Skill tool to invoke `factory-build` with "#${{ inputs.ticket }}". If the Skill tool is unavailable, read `.claude/skills/factory-build/SKILL.md` and follow it exactly. When its claim prints `held by`, stop and post nothing. When it prints `blocked by`, stop and post the skill's report for it, since nothing else on the ticket says why this run stopped. Follow every stop the skill names. Read `CLAUDE.md`, and `AGENTS.md` where there is one, before building.
 

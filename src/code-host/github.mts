@@ -4,9 +4,6 @@
 //
 // GitHub serves a pull request's conversation comments and labels from its
 // issues API, so those calls are here too, not in the ticket adapter.
-//
-// Node built-ins and the modules beside it only: the poller's image copies
-// this file.
 import type { Gh } from "../lib/gh.mts";
 import type { IssueComment, PullRequest } from "../lib/work-status.mts";
 import { NotFoundError } from "../tickets/types.mts";
@@ -437,6 +434,10 @@ export function githubCodeHost(o: {
     async defaultBranch() {
       const repo = await t.rest<{ default_branch: string }>("GET", API);
       return repo.default_branch;
+    },
+    async isPrivate() {
+      const repo = await t.rest<{ private: boolean }>("GET", API);
+      return repo.private;
     },
     async checkRuns(sha) {
       const answer = await t.rest<{ check_runs: RestCheckRun[] }>(

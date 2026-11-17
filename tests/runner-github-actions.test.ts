@@ -277,3 +277,34 @@ describe("the jobs that failed in a run", () => {
     },
   );
 });
+
+describe("a workflow's state", () => {
+  const WORKFLOW =
+    /^api repos\/acme\/widgets\/actions\/workflows\/factory-poller\.yml$/;
+
+  it.each([
+    ["active", "active"],
+    ["disabled_inactivity", "disabled"],
+    ["disabled_manually", "disabled"],
+  ])("reads %s as %s", async (state, said) => {
+    const { r, calls } = runner([[WORKFLOW, { state }]]);
+
+    expect(await r.workflowState("factory-poller.yml")).toBe(said);
+    expect(calls).toEqual([
+      "api repos/acme/widgets/actions/workflows/factory-poller.yml",
+    ]);
+  });
+
+  it("is missing when the default branch has no such workflow", async () => {
+    const { r } = runner([[WORKFLOW, new HttpError(404, "x", "Not Found")]]);
+
+    expect(await r.workflowState("factory-poller.yml")).toBe("missing");
+  });
+
+  it("fails with GitHub's own error for anything else", async () => {
+    const refused = new HttpError(403, "x", "Resource not accessible");
+    const { r } = runner([[WORKFLOW, refused]]);
+
+    await expect(r.workflowState("factory-poller.yml")).rejects.toBe(refused);
+  });
+});

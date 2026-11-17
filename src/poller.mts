@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Start a build in GitHub Actions for each card the owner moves to Ready. A board owned
 // by a user account sends no event, so this reads it once a minute. It runs
-// as a worker on a server the repository's owner hosts.
+// as a worker on a server the repository's owner hosts, or, with `--once`,
+// as one pass of a scheduled workflow, which reads the board and the Ready
+// column from the settings in its checkout and needs only the token.
 //
-// Environment: FACTORY_REPOSITORY (owner/name), FACTORY_BOARD_OWNER,
+// Hosted, its environment: FACTORY_REPOSITORY (owner/name), FACTORY_BOARD_OWNER,
 // FACTORY_BOARD_NUMBER, and FACTORY_BOARD_TOKEN (a classic token with the
 // repo and project scopes, or a fine-grained one that can also write
 // Actions: it starts the workflow). It has no checkout, so it reads
@@ -16,8 +18,8 @@
 // It names its implementations itself, having no settings to name them:
 // the GitHub ticket adapter, GitHub as the code host, and GitHub Actions as
 // the runner, each over the `fetch` transport, since it runs with no `gh`.
-// Node built-ins and the modules below only; its image copies nothing else.
 import { randomBytes } from "node:crypto";
+import { columnsOf, loadSettings, type Settings } from "./config.mts";
 import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import {
@@ -26,6 +28,7 @@ import {
   type Columns,
   commentBody,
   derive,
+  markedComments,
   toSnapshot,
   type Board,
   type RepoSnapshot,
@@ -99,6 +102,17 @@ export function dispatchFailure(error: unknown): {
   };
 }
 
+/** When each build started in the past hour went out, read from the start
+ * comments on the tickets, so the count holds across a scheduled run and a
+ * restart, neither of which keeps it in memory. */
+export function recentStarts(issues: RepoSnapshot["issues"], now: number) {
+  return issues
+    .flatMap((issue) => markedComments(issue.comments))
+    .filter((m) => m.marker.kind === "started")
+    .map((m) => Date.parse(m.createdAt))
+    .filter((at) => now - at < HOUR);
+}
+
 /** Whether another fire fits in the rolling hour, given when the recent ones
  * went out. */
 export function capAllows(fired: number[], now: number): boolean {
@@ -134,7 +148,6 @@ export function readConfig(
 }
 
 export type State = {
-  fired: number[];
   failuresInARow: number;
   lastHeartbeat: number;
 };
@@ -230,6 +243,8 @@ export async function tick(d: Deps, state: State): Promise<void> {
 
   const columns = columnsFrom(d.env);
   const ready = selectToStart(read.snapshot, read.board, columns);
+  // This pass's own start comments are not in what it read, so it adds them.
+  const fired = recentStarts(read.snapshot.issues, d.now());
   if (d.now() - state.lastHeartbeat >= HOUR) {
     d.log(
       `heartbeat: ${ready.length} Ready card${ready.length === 1 ? "" : "s"}`,
@@ -253,7 +268,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
       );
       continue;
     }
-    if (!capAllows(state.fired, d.now())) {
+    if (!capAllows(fired, d.now())) {
       d.log(`#${issue} waits: ${FIRE_LIMIT} builds started in the last hour`);
       continue;
     }
@@ -270,8 +285,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
       );
       continue;
     }
-    state.fired.push(d.now());
-    state.fired = state.fired.filter((at) => d.now() - at < HOUR);
+    fired.push(d.now());
     const outcome = await dispatch(runner, d.defaultBranch, issue);
     if (outcome.ok) {
       d.log(`#${issue} started ${marker}: dispatched ${BUILD_WORKFLOW}`);
@@ -297,6 +311,54 @@ export async function tick(d: Deps, state: State): Promise<void> {
   }
 }
 
+/** What one scheduled pass reads from the settings: the board's number,
+ * and the column that approves a build, each null when the settings have
+ * none. */
+export type OnceSettings = { board: number | null; ready: string | null };
+
+export function onceSettings(s: Settings): OnceSettings {
+  return { board: s.tickets.board, ready: columnsOf(s).Ready };
+}
+
+/** One pass, for a scheduled run: the board and the Ready column come from
+ * the settings, the board's owner is the repository's, and only the token
+ * comes from the environment. 1 when it read nothing or could not read. */
+export async function once(s: OnceSettings, d: Deps): Promise<number> {
+  if (s.board === null) {
+    d.log(
+      "No board to read: tickets.board is not set in .claude/factory.yaml.",
+    );
+    return 1;
+  }
+  if (s.ready === null) {
+    d.log(
+      "No card can start a build: the Ready column is none in .claude/factory.yaml.",
+    );
+    return 1;
+  }
+  const env = {
+    ...d.env,
+    FACTORY_BOARD_OWNER: d.repository.split("/")[0],
+    FACTORY_BOARD_NUMBER: String(s.board),
+    FACTORY_READY_COLUMN: s.ready,
+  };
+  const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
+  await tick({ ...d, env }, state);
+  return state.failuresInARow > 0 ? 1 : 0;
+}
+
+/** The parts of the dependencies that are the same however it runs. */
+function liveDeps(repository: string): Deps {
+  return {
+    repository,
+    fetch,
+    env: process.env,
+    now: () => Date.now(),
+    log: (line) => console.log(`${new Date().toISOString()} ${line}`),
+    marker: startMarker,
+  };
+}
+
 async function main(): Promise<number> {
   const repository = process.env.FACTORY_REPOSITORY;
   if (!repository) {
@@ -305,15 +367,8 @@ async function main(): Promise<number> {
     );
     return 1;
   }
-  const state: State = { fired: [], failuresInARow: 0, lastHeartbeat: 0 };
-  const d: Deps = {
-    repository,
-    fetch,
-    env: process.env,
-    now: () => Date.now(),
-    log: (line) => console.log(`${new Date().toISOString()} ${line}`),
-    marker: startMarker,
-  };
+  const state: State = { failuresInARow: 0, lastHeartbeat: 0 };
+  const d = liveDeps(repository);
   process.on("unhandledRejection", (error) =>
     d.log(`unhandled: ${String(error)}`),
   );
@@ -328,8 +383,13 @@ async function main(): Promise<number> {
   }
 }
 
-/** `factory poller`. */
-export async function run(): Promise<number> {
+/** `factory poller`, and `factory poller --once`. The settings are loaded
+ * only for `--once`, since the hosted poller has no checkout. */
+export async function run(argv: string[] = []): Promise<number> {
+  if (argv.includes("--once")) {
+    const s = await loadSettings();
+    process.exit(await once(onceSettings(s), liveDeps(s.repository)));
+  }
   process.exit(await main());
 }
 

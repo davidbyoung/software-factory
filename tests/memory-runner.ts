@@ -26,6 +26,8 @@ export type MemoryRunnerOptions = {
   log?: string[];
   /** The secrets set on the repository, by name. */
   secrets?: Record<string, string>;
+  /** Each workflow's state, by its file name; missing unless given. */
+  workflows?: Record<string, "active" | "disabled">;
 };
 
 export function memoryRunner(options: MemoryRunnerOptions = {}) {
@@ -79,6 +81,10 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     async failedJobs(run) {
       called("failedJobs", run);
       return (options.failedJobs?.[run] ?? []).map((j) => ({ ...j }));
+    },
+    async workflowState(file) {
+      called("workflowState", file);
+      return options.workflows?.[file] ?? "missing";
     },
     async secretNames() {
       called("secretNames");

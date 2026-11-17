@@ -36,6 +36,7 @@ import {
   type Columns,
   type CommentKind,
   type Issue,
+  watchOf,
 } from "../src/lib/work-status.mts";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import stockPages from "./fixtures/stock-board.json";
@@ -665,7 +666,7 @@ describe("factory status", () => {
         withCards(stockBoard(), [[1, "Todo", at(5)]]),
         new Map(),
         new Date(at(30)),
-        true,
+        watchOf("own-server", 5),
         columns ?? DEFAULT_COLUMNS,
       ),
       new Date(at(30)),
@@ -772,6 +773,28 @@ describe("factory board check", () => {
     expect(
       boardReport(7, stockBoard(), STOCK_CONFIG, STOCK).join("\n"),
     ).not.toContain("poller");
+  });
+
+  it("prints no reminder for a scheduled poller, which reads the column from the settings", () => {
+    const s = parse({
+      ...STOCK_YAML,
+      builds: { trigger: "github-action" },
+      tickets: { board: 7, columns: { ready: "Ready for dev" } },
+    });
+    const board = stockBoard();
+    board.fields = board.fields.map((f) =>
+      f.name === "Status"
+        ? { ...f, options: [...f.options!, { id: "r", name: "Ready for dev" }] }
+        : f,
+    );
+    expect(
+      boardReport(
+        7,
+        board,
+        { columns: columnsOf(s), fields: fieldNamesOf(s) },
+        s,
+      ).join("\n"),
+    ).not.toContain("FACTORY_READY_COLUMN");
   });
 
   it("exits 1 naming each column the Status field lacks, with its key", async () => {

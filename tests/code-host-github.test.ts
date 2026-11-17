@@ -515,6 +515,20 @@ describe("threads, resolve, ready, and closes", () => {
 });
 
 describe("the default branch, open threads, and unverified commits", () => {
+  it.each([
+    [true, true],
+    [false, false],
+  ])("reads whether the repository is private (%s)", async (given, said) => {
+    const { p, calls } = pulls([
+      [
+        /^api repos\/acme\/widgets$/,
+        { default_branch: "main", private: given },
+      ],
+    ]);
+    expect(await p.isPrivate()).toBe(said);
+    expect(calls).toEqual(["api repos/acme/widgets"]);
+  });
+
   it("reads the repository's default branch", async () => {
     const { p, calls } = pulls([
       [/^api repos\/acme\/widgets$/, { default_branch: "trunk" }],

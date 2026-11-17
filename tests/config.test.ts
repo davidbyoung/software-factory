@@ -39,7 +39,7 @@ describe("parseSettings", () => {
         fields: { session: "Session", "runs-in": "Runs in", cost: "Cost" },
       },
       codeHost: { type: "github" },
-      builds: { trigger: "manual", runner: "github-actions" },
+      builds: { trigger: "manual", runner: "github-actions", pollMinutes: 5 },
       specs: "none",
       beforeCommit: [],
       buildSetup: [],
@@ -271,7 +271,7 @@ describe("parseSettings", () => {
         ...MINIMAL,
         builds: { trigger: "manual", runner: "github-actions" },
       }).builds,
-    ).toEqual({ trigger: "manual", runner: "github-actions" });
+    ).toEqual({ trigger: "manual", runner: "github-actions", pollMinutes: 5 });
   });
 
   it("fails on a runner other than GitHub Actions, naming the one supported", () => {
@@ -282,13 +282,51 @@ describe("parseSettings", () => {
     );
   });
 
-  it("fails on the github-action trigger, which is planned and not built", () => {
-    expect(() =>
-      parse({ ...MINIMAL, builds: { trigger: "github-action" } }),
-    ).toThrow(
-      '.claude/factory.yaml: builds.trigger "github-action" is planned, not built. Use own-server or manual.',
-    );
+  it("accepts the github-action trigger", () => {
+    expect(
+      parse({ ...MINIMAL, builds: { trigger: "github-action" } }).builds
+        .trigger,
+    ).toBe("github-action");
   });
+
+  it("checks the board every 5 minutes when builds.poll-minutes is not set", () => {
+    expect(
+      parse({ ...MINIMAL, builds: { trigger: "github-action" } }).builds
+        .pollMinutes,
+    ).toBe(5);
+  });
+
+  it.each([5, 10, 15, 30, 60])("takes builds.poll-minutes %i", (minutes) => {
+    expect(
+      parse({
+        ...MINIMAL,
+        builds: { trigger: "github-action", "poll-minutes": minutes },
+      }).builds.pollMinutes,
+    ).toBe(minutes);
+  });
+
+  it.each([0, 1, 7, 45, 120, "15"])(
+    "fails on builds.poll-minutes %s, naming the values allowed",
+    (minutes) => {
+      expect(() =>
+        parse({
+          ...MINIMAL,
+          builds: { trigger: "github-action", "poll-minutes": minutes },
+        }),
+      ).toThrow("builds.poll-minutes: must be one of 5, 10, 15, 30, 60");
+    },
+  );
+
+  it.each(["own-server", "manual", undefined])(
+    "fails on builds.poll-minutes with the %s trigger",
+    (trigger) => {
+      expect(() =>
+        parse({ ...MINIMAL, builds: { trigger, "poll-minutes": 15 } }),
+      ).toThrow(
+        ".claude/factory.yaml: builds.poll-minutes needs builds.trigger: github-action",
+      );
+    },
+  );
 
   it.each([2, "1", undefined])("fails on version %s", (version) => {
     expect(() => parse({ ...MINIMAL, version })).toThrow("version:");
@@ -406,6 +444,7 @@ describe("factory config explain", () => {
       builds:
         trigger: manual            # default
         runner: github-actions     # default
+        # poll-minutes: only with trigger github-action
       specs: openspec
       before-commit:
         - npm test
