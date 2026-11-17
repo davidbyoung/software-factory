@@ -350,6 +350,7 @@ describe("the factory's core", () => {
     ".claude/skills/factory-resolve-conflicts/SKILL.md",
     ".claude/skills/factory-diagnose/SKILL.md",
     ".claude/skills/factory-mutate/SKILL.md",
+    ".claude/skills/factory-trace/SKILL.md",
     ".claude/agents/factory-ticket-readiness.md",
     ".claude/agents/factory-test-reviewer.md",
   ];
@@ -357,6 +358,13 @@ describe("the factory's core", () => {
   it("is written from the real package to a repository with no settings and no files", () => {
     const written = [...plan(PACKAGE, root, settings()).write.keys()];
     expect(CORE.filter((path) => !written.includes(path))).toEqual([]);
+  });
+  it("gives the trace skill the change types to read and the pull request to post on", () => {
+    const trace = plan(PACKAGE, root, settings()).write.get(
+      ".claude/skills/factory-trace/SKILL.md",
+    );
+    expect(trace).toContain(".claude/change-types.md");
+    expect(trace).toContain("npx --no-install factory pr comment");
   });
 });
 

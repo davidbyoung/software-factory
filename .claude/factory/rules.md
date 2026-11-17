@@ -297,11 +297,11 @@ code that decides what runs and who merges (the factory's own commands,
 and the scripts "Changing the process: this
 repository" in `CLAUDE.md` names)
 that alters what triggers a step, who runs or when,
-gets a read from a fresh agent before its pull request is marked
-ready. Give it the branch and `.claude/change-types.md`. It traces each
-kind through the rules as they will stand, and reports a kind that got
-heavier, lighter, or ambiguous, and any two rules that now disagree. Fix
-what holds up. A change to wording alone needs no trace.
+is traced with the `factory-trace` skill before its pull request is
+marked ready: a fresh agent walks each kind in `.claude/change-types.md`
+through the rules as they will stand, and reports a kind that got heavier,
+lighter, or ambiguous, and any two rules that now disagree. Fix what holds
+up. A change to wording alone needs no trace.
 
 ## Stepping back from a rabbit hole
 
