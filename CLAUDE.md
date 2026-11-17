@@ -59,13 +59,12 @@ website and no design guide, so no style tweak needs a test, and there is
 no UI reviewer: `docs-reader`, the one reviewer plug-in, reads the docs.
 
 - **The docs** (`README.md` and `docs/`) count toward a change's size:
-  they are not content. A change that is not small, and that adds a page
-  or changes more than about 10 lines of one, gets the `docs-reader` read
-  of that page, and is told which pages. A table row Prettier only
-  padded is not a changed line, and `docs/developing.md`, a contributor's
-  page, gets no read. `factory-build` runs it as it does any reviewer
-  plug-in. A session the owner steers runs it before opening the pull
-  request, fixes what holds up, and says in the body what it found.
+  they are not content. Their reviewer is `docs-reader`, whose
+  description says when it applies. A session the owner steers considers
+  it as a build does: for a change that is not small, it runs the reader
+  before opening the pull request and fixes what holds up, and the body
+  says what the read found, or why it was skipped. A small change to the
+  docs alone needs no new test: the docs tests in the gate are its check.
 - **A dependency bump** is made by a session, by hand, since there is no
   Dependabot here yet. `package-lock.json` does not count toward a change's
   size, and the gate with `pack-check` is its check, with no new test.
@@ -115,10 +114,9 @@ The source of every factory file is in this repository: `skills/`,
 `agents/`, `rules.md`, `review.md`, `workflows/`, and `actions/`. Change
 the source, run `node bin/factory.js sync`, and commit both; CI's
 `Factory files in step` fails when a copy differs from its source. Never
-edit the copy under `.claude/` or `.github/`. The copies are the files
-`.claude/factory.lock` lists. A file there that it does not list, such as
-`.claude/agents/docs-reader.md`, this repository's own reviewer, has no
-source elsewhere and is edited where it is.
+edit the copy under `.claude/` or `.github/`.
+`.claude/agents/docs-reader.md`, this repository's own reviewer, is not a
+copy: it has no source elsewhere and is edited where it is.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
