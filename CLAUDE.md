@@ -61,10 +61,12 @@ no UI reviewer: `docs-reader`, the one reviewer plug-in, reads the docs.
 - **The docs** (`README.md` and `docs/`) count toward a change's size:
   they are not content. Their reviewer is `docs-reader`, whose
   description says when it applies. A session the owner steers considers
-  it as a build does: for a change that is not small, it runs the reader
-  before opening the pull request and fixes what holds up, and the body
-  says what the read found, or why it was skipped. A small change to the
-  docs alone needs no new test: the docs tests in the gate are its check.
+  it as a build does, when a change that is not small touches them: if
+  that description fits, it runs the reader before opening the pull
+  request and fixes its findings, and the body says what the read found,
+  or why it was skipped. A small change that touches only the docs, a
+  line of a follow-ups build included, needs no new test: the docs tests
+  in the gate are its check.
 - **A dependency bump** is made by a session, by hand, since there is no
   Dependabot here yet. `package-lock.json` does not count toward a change's
   size, and the gate with `pack-check` is its check, with no new test.
