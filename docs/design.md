@@ -87,7 +87,7 @@ They are separate on purpose.
 
 | Number              | Where it is                                  | Changes when                         |
 | ------------------- | -------------------------------------------- | ------------------------------------ |
-| The factory's       | `package.json` and `.claude/factory.lock`    | Every release                        |
+| The factory's       | The installed package and `factory.lock`     | Every release                        |
 | The settings file's | `version:` at the top of `factory.yaml`      | A key is renamed or moved            |
 | The markers'        | In the comments the factory posts on tickets | The format of those comments changes |
 

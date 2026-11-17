@@ -408,23 +408,32 @@ last row is the only real proof that a change to one still works.
 
 ## Releasing
 
-1. Raise `version` in `package.json` in a pull request, run `factory sync`
-   so `.claude/factory.lock` records it, and merge it.
-2. Tag the merge commit with the same version and push the tag:
-
-   ```bash
-   git tag v0.2.0 && git push origin v0.2.0
-   ```
-
-3. The release workflow runs the whole CI on the tagged commit, the same
-   jobs a pull request gets. Only once they pass does it check that the tag
-   matches `package.json` and that `main` has the commit, then publish the
-   version to npm, and then the poller's image of that version to GitHub's
-   container registry.
+1. On the Actions tab, run **Release** on `main` and choose the part of
+   the version to raise: patch for fixes alone, minor for something new,
+   and major for a change that breaks a repository using the factory. From
+   0.1.2, they give 0.1.3, 0.2.0, and 1.0.0.
+2. The run raises the highest `vX.Y.Z` tag by that part, and runs the
+   whole CI on `main`'s commit, the same jobs a pull request gets. Only
+   once they pass does it publish the version to npm, then the poller's
+   image of that version to GitHub's container registry. Last, it tags the
+   commit and creates a GitHub Release whose notes list the pull requests
+   merged since the previous version. Those notes are the changelog, and
+   Dependabot copies them into the update pull requests it opens, so a
+   pull request's title is the line a user reads. When a release needs
+   something done by hand in a repository that uses the factory, edit its
+   GitHub Release as soon as the run ends, and put the steps first.
+3. A run that stops partway has made no tag. Re-running its failed jobs,
+   from the run's page, finishes it on the same commit and version, and
+   does not publish to npm twice. A new run for a version npm already has
+   stops and says so.
 4. After the first release that publishes the image, pull it with no
    sign-in: `docker logout ghcr.io` and
    `docker pull ghcr.io/davidbyoung/software-factory-poller:VERSION`. If it
    is refused, set the package to Public on its GitHub page, once.
+
+Nothing is committed for a release. `package.json` on `main` keeps the
+version `0.0.0-development`, and the run writes the real one into its own
+copy before publishing, so the tags and npm hold the released versions.
 
 The first version, 0.1.0, was published by hand, since npm sets up a
 trusted publisher only for a package that exists:
