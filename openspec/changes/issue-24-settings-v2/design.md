@@ -66,7 +66,7 @@ n/a: no user interface.
 
 ## Risks and rollback
 
-- Every repository's settings break on the release that carries this, by design. The release notes and `docs/updating.md` lead with it, and davidbyoung/cfi#316 is the one known repository to move.
+- Every repository's settings break on the release that carries this, by design. The release notes and `docs/updating.md` lead with it, and issue 316 of the repository the factory was drawn out of tracks the one known repository to move.
 - A wrong default branch would let the commit guard pass a commit on it. The guard blocks when it cannot tell, by line 61.
 - The skills' rewording changes what every session does. The `factory-trace` read covers it before the pull request is marked ready, and the pull request waits for the owner.
 - Rollback is the previous release: `factory.yaml` and the synced copies go back with the pull request that updated them.

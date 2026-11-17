@@ -62,7 +62,7 @@ Where a decision differs from the text above, the decision stands.
 - **`commands.relock` defaults to `npm install`,** since the factory itself is an npm package and every repository has its lock file. Any other lock file is a resolver plug-in's.
 - **A new end-to-end spec is run ten times with `factory end-to-end FILE --times 10`,** in place of Playwright's `--repeat-each=10`.
 - **`factory init` asks no new question.** It adds one "Left to do" line when no gate is set, and `factory doctor` shows a missing gate as off, without failing.
-- **No build order.** Nothing open blocks this. #14 and #23 touch some of the same files, which the conflict sweep handles. davidbyoung/cfi#316 waits on this ticket's release; it is in another repository, so the relationship is stated there and not recorded.
+- **No build order.** Nothing open blocks this. #14 and #23 touch some of the same files, which the conflict sweep handles. Issue 316 of the repository the factory was drawn out of waits on this ticket's release; it is in another repository, so the relationship is stated there and not recorded.
 
 ## Not doing
 
