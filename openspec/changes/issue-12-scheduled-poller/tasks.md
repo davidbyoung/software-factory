@@ -2,7 +2,7 @@
 
 ## 1. The cap from start comments
 
-- [ ] 1.1 A pure function counting start comments in the past hour from the snapshot, used by `capAllows` with the tick's own starts; tests in `tests/poller.test.ts` for 19 and 20 starts, one over an hour old, a restart with an empty state, and 25 Ready tickets in one tick with none started before, of which 20 start (lines 8 and 9)
+- [x] 1.1 A pure function counting start comments in the past hour from the snapshot, used by `capAllows` with the tick's own starts; tests in `tests/poller.test.ts` for 19 and 20 starts, one over an hour old, a restart with an empty state, and 25 Ready tickets in one tick with none started before, of which 20 start (lines 8 and 9)
 
 ## 2. `factory poller --once`
 

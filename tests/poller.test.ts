@@ -183,6 +183,8 @@ function fakeFetch(answers: {
   graphql?: Answer;
   /** The board's page, in place of the recorded one. */
   boardPage?: unknown;
+  /** The repository's page, in place of the recorded one. */
+  repoPage?: unknown;
 }) {
   const calls: {
     url: string;
@@ -226,7 +228,7 @@ function fakeFetch(answers: {
         status: 200,
         body: query.includes("projectV2")
           ? (answers.boardPage ?? boardPages[0])
-          : repoPages[0],
+          : (answers.repoPage ?? repoPages[0]),
       });
     }
     if (url.includes("blocked_by"))
@@ -252,7 +254,7 @@ function setup(
     log: (line) => logs.push(line),
     marker: () => "st_0123456789ab",
   };
-  const state: State = { fired: [], failuresInARow: 0, lastHeartbeat: NOW };
+  const state: State = { failuresInARow: 0, lastHeartbeat: NOW };
   const dispatches = () =>
     fetch.calls
       .filter((c) => c.url === DISPATCH)
@@ -262,6 +264,57 @@ function setup(
       .filter((c) => c.url.endsWith("/comments"))
       .map((c) => JSON.parse(c.body).body);
   return { d, state, logs, calls: fetch.calls, comments, dispatches };
+}
+
+/** The recorded pages with `ready` more Ready cards, each refined and moved
+ * to Ready as #12 was, and `started` start comments posted `minutesAgo`
+ * minutes before NOW on tickets closed since. */
+function withStarts(o: {
+  ready?: number;
+  started: number;
+  minutesAgo: number;
+}) {
+  const repo = structuredClone(repoPages[0]);
+  const board = structuredClone(boardPages[0]);
+  const r = repo.data.repository;
+  const twelve = r.open.nodes.find((n) => n.number === 12)!;
+  const card = board.data.owner.projectV2.items.nodes.find(
+    (n) => n.content.number === 12,
+  )!;
+  for (let i = 0; i < (o.ready ?? 0); i++) {
+    const number = 100 + i;
+    r.open.nodes.push({
+      ...structuredClone(twelve),
+      id: `I_${number}`,
+      number,
+    });
+    board.data.owner.projectV2.items.nodes.push({
+      ...structuredClone(card),
+      id: `PVTI_${number}`,
+      content: { ...card.content, number },
+    });
+  }
+  const at = new Date(NOW - o.minutesAgo * 60_000).toISOString();
+  for (let i = 0; i < o.started; i++) {
+    const number = 200 + i;
+    r.closed.nodes.push({
+      ...structuredClone(r.closed.nodes[0]),
+      id: `I_${number}`,
+      number,
+      closedAt: at,
+      comments: {
+        nodes: [
+          {
+            databaseId: 5000 + i,
+            createdAt: at,
+            author: { login: "acme" },
+            body: commentBody({ kind: "started", marker: `st_${number}` }),
+          },
+        ],
+      },
+    });
+  }
+  return { graphql: undefined, repoPage: repo, boardPage: board };
 }
 
 describe("tick", () => {
@@ -290,7 +343,6 @@ describe("tick", () => {
       c.url === DISPATCH ? "dispatch" : c.url.split("/").at(-1),
     );
     expect(order.slice(-2)).toEqual(["comments", "dispatch"]);
-    expect(state.fired).toEqual([NOW]);
   });
 
   it("starts no card in a column other than the one FACTORY_READY_COLUMN names", async () => {
@@ -402,14 +454,46 @@ describe("tick", () => {
     expect(blocked.logs).toContain("#12 waits on #3");
   });
 
-  it("fires nothing once twenty builds started in the hour", async () => {
-    const { d, state, comments, logs } = setup({});
-    state.fired = Array.from({ length: FIRE_LIMIT }, () => NOW - 60_000);
+  it("starts nothing once twenty start comments were posted in the past hour", async () => {
+    const { d, state, comments, logs } = setup(
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 10 }),
+    );
 
     await tick(d, state);
 
     expect(comments()).toEqual([]);
     expect(logs).toContain("#12 waits: 20 builds started in the last hour");
+  });
+
+  it("counts start comments from before a restart, which it holds nothing of", async () => {
+    const { d, comments } = setup(
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 59 }),
+    );
+    const restarted: State = { failuresInARow: 0, lastHeartbeat: NOW };
+
+    await tick(d, restarted);
+
+    expect(comments()).toEqual([]);
+  });
+
+  it("forgets a start comment over an hour old", async () => {
+    const { d, state, dispatches } = setup(
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 61 }),
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).not.toEqual([]);
+  });
+
+  it("counts the builds it starts in the same pass, so twenty-five Ready cards start twenty", async () => {
+    const { d, state, dispatches } = setup(
+      withStarts({ ready: 25, started: 0, minutesAgo: 0 }),
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).toHaveLength(FIRE_LIMIT);
   });
 
   it("counts a failed read and keeps going", async () => {

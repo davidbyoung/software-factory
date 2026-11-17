@@ -26,6 +26,7 @@ import {
   type Columns,
   commentBody,
   derive,
+  markedComments,
   toSnapshot,
   type Board,
   type RepoSnapshot,
@@ -99,6 +100,17 @@ export function dispatchFailure(error: unknown): {
   };
 }
 
+/** When each build started in the past hour went out, read from the start
+ * comments on the tickets, so the count holds across a scheduled run and a
+ * restart, neither of which keeps it in memory. */
+export function recentStarts(issues: RepoSnapshot["issues"], now: number) {
+  return issues
+    .flatMap((issue) => markedComments(issue.comments))
+    .filter((m) => m.marker.kind === "started")
+    .map((m) => Date.parse(m.createdAt))
+    .filter((at) => now - at < HOUR);
+}
+
 /** Whether another fire fits in the rolling hour, given when the recent ones
  * went out. */
 export function capAllows(fired: number[], now: number): boolean {
@@ -134,7 +146,6 @@ export function readConfig(
 }
 
 export type State = {
-  fired: number[];
   failuresInARow: number;
   lastHeartbeat: number;
 };
@@ -230,6 +241,8 @@ export async function tick(d: Deps, state: State): Promise<void> {
 
   const columns = columnsFrom(d.env);
   const ready = selectToStart(read.snapshot, read.board, columns);
+  // This pass's own start comments are not in what it read, so it adds them.
+  const fired = recentStarts(read.snapshot.issues, d.now());
   if (d.now() - state.lastHeartbeat >= HOUR) {
     d.log(
       `heartbeat: ${ready.length} Ready card${ready.length === 1 ? "" : "s"}`,
@@ -253,7 +266,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
       );
       continue;
     }
-    if (!capAllows(state.fired, d.now())) {
+    if (!capAllows(fired, d.now())) {
       d.log(`#${issue} waits: ${FIRE_LIMIT} builds started in the last hour`);
       continue;
     }
@@ -270,8 +283,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
       );
       continue;
     }
-    state.fired.push(d.now());
-    state.fired = state.fired.filter((at) => d.now() - at < HOUR);
+    fired.push(d.now());
     const outcome = await dispatch(runner, d.defaultBranch, issue);
     if (outcome.ok) {
       d.log(`#${issue} started ${marker}: dispatched ${BUILD_WORKFLOW}`);
@@ -305,7 +317,7 @@ async function main(): Promise<number> {
     );
     return 1;
   }
-  const state: State = { fired: [], failuresInARow: 0, lastHeartbeat: 0 };
+  const state: State = { failuresInARow: 0, lastHeartbeat: 0 };
   const d: Deps = {
     repository,
     fetch,
