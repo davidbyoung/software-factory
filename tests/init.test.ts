@@ -18,6 +18,7 @@ import type { Part } from "../src/parts.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
+import { memoryTools } from "./memory-tools";
 
 const GOOD = "tok_good";
 const NARROW = "tok_narrow";
@@ -135,7 +136,7 @@ function init(setup: Setup) {
       setup.remote === undefined
         ? "git@github.com:acme/site.git"
         : setup.remote,
-    open: () => ({
+    tools: memoryTools({
       codeHost: host.codeHost,
       runner: runner.runner,
       tickets: tickets.tickets,
@@ -843,6 +844,23 @@ describe("factory init, word for word", () => {
         "  ✓ Every check passed",
       ]
     `);
+  });
+});
+
+describe("factory init, a secret met another way", () => {
+  it("asks for no token for cloud builds when the board's token, which they also read, is set", async () => {
+    const r = init({
+      settings: "version: 1\nrepository: acme/site\n",
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+      answers: { checkbox: [["cloud"]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked).toEqual([
+      "checkbox: Which parts do you want?",
+      "confirm: 2 secrets these parts read are already set. Replace them?",
+      "confirm: Go ahead?",
+    ]);
+    expect(r.opened).toEqual([]);
   });
 });
 

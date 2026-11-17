@@ -6,18 +6,22 @@ import {
   neededSecrets,
   partsOn,
   resolveParts,
-  tokenNames,
-  tokenNeeds,
   type Part,
 } from "../src/parts.mts";
+import { secretSteps, TOOLS } from "../src/tools.mts";
+import { memoryContext } from "./memory-tools";
 
 const settings = (raw: Record<string, unknown> = {}) =>
   parseSettings({ version: 1, repository: "acme/site", ...raw }, () => true);
 const set = (...parts: Part[]) => new Set<Part>(parts);
+/** What today's tools read for cloud builds. */
+const cloud = secretSteps(TOOLS, memoryContext(["cloud"])).flatMap((x) =>
+  x.step.needs.filter((n) => n.part === "cloud"),
+);
 
 describe("partsOn", () => {
   it("finds none in a repository with only the basics", () => {
-    expect(partsOn(settings(), [])).toEqual(set());
+    expect(partsOn(settings(), [], cloud)).toEqual(set());
   });
 
   it("reads a board, builds from the board, and auto-merge from the settings", () => {
@@ -26,21 +30,29 @@ describe("partsOn", () => {
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**"] },
     });
-    expect(partsOn(s, [])).toEqual(set("board", "from-board", "auto-merge"));
+    expect(partsOn(s, [], cloud)).toEqual(
+      set("board", "from-board", "auto-merge"),
+    );
   });
 
   it("reads the review from its setting, and the rest from the secrets set", () => {
     expect(
-      partsOn(settings({ "ci-review": null }), [
-        "CLAUDE_CODE_OAUTH_TOKEN",
-        "FACTORY_BUILD_TOKEN",
-        "FACTORY_SIGNING_KEY",
-      ]),
+      partsOn(
+        settings({ "ci-review": null }),
+        [
+          "CLAUDE_CODE_OAUTH_TOKEN",
+          "FACTORY_BUILD_TOKEN",
+          "FACTORY_SIGNING_KEY",
+        ],
+        cloud,
+      ),
     ).toEqual(set("review", "cloud", "signing"));
   });
 
   it("takes cloud builds to be off with the agent's token and no access token", () => {
-    expect(partsOn(settings(), ["CLAUDE_CODE_OAUTH_TOKEN"])).toEqual(set());
+    expect(partsOn(settings(), ["CLAUDE_CODE_OAUTH_TOKEN"], cloud)).toEqual(
+      set(),
+    );
   });
 });
 
@@ -65,32 +77,73 @@ describe("resolveParts", () => {
 });
 
 describe("what the parts need", () => {
+  const needed = (...parts: Part[]) =>
+    neededSecrets(set(...parts), secretSteps(TOOLS, memoryContext(parts)));
+
   it("names the secrets each part reads, any one of a pair doing", () => {
-    expect(neededSecrets(set("review", "cloud", "auto-merge"))).toEqual([
+    expect(needed("review", "cloud", "auto-merge")).toEqual([
       {
         part: "review",
         anyOf: ["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
+        tool: "Claude Code",
       },
       {
         part: "cloud",
         anyOf: ["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
+        tool: "Claude Code",
       },
-      { part: "cloud", anyOf: ["FACTORY_BUILD_TOKEN", "FACTORY_BOARD_TOKEN"] },
-      { part: "auto-merge", anyOf: ["FACTORY_AUTOMERGE_TOKEN"] },
+      {
+        part: "cloud",
+        anyOf: ["FACTORY_BUILD_TOKEN", "FACTORY_BOARD_TOKEN"],
+        tool: "GitHub",
+      },
+      {
+        part: "auto-merge",
+        anyOf: ["FACTORY_AUTOMERGE_TOKEN"],
+        tool: "GitHub",
+      },
     ]);
   });
 
-  it("stores the one access token under each name the parts read", () => {
-    expect(tokenNames(set("board", "cloud", "auto-merge"))).toEqual([
+  it("adds the signing key, which is the factory's own", () => {
+    expect(needed("signing")).toEqual([
+      { part: "signing", anyOf: ["FACTORY_SIGNING_KEY"], tool: "factory" },
+    ]);
+  });
+});
+
+describe("GitHub's one access token", () => {
+  /** Today's tools with a ticket system of another kind beside GitHub's. */
+  const tools = {
+    ...TOOLS,
+    tickets: {
+      ...TOOLS.tickets,
+      elsewhere: { ...TOOLS.tickets.github!, label: "Elsewhere", setup: {} },
+    },
+  };
+  const token = (parts: Part[], tickets?: string) =>
+    secretSteps(tools, memoryContext(parts, { tickets })).find(
+      (x) => x.tool === "GitHub",
+    )?.step;
+
+  it("stores the token under each name the parts read", () => {
+    expect(token(["board", "cloud", "auto-merge"])?.storeAs).toEqual([
       "FACTORY_BOARD_TOKEN",
       "FACTORY_AUTOMERGE_TOKEN",
     ]);
-    expect(tokenNames(set("cloud"))).toEqual(["FACTORY_BUILD_TOKEN"]);
-    expect(tokenNames(set("review"))).toEqual([]);
+    expect(token(["cloud"])?.storeAs).toEqual(["FACTORY_BUILD_TOKEN"]);
+    expect(token(["review"])).toBeUndefined();
   });
 
-  it("asks the token to write the board only with a board", () => {
-    expect(tokenNeeds(set("cloud"))).toEqual(["push", "workflows"]);
-    expect(tokenNeeds(set("board"))).toEqual(["push", "workflows", "board"]);
+  it("asks the token to write the board only with a board on GitHub", () => {
+    const page = (parts: Part[], tickets?: string) => {
+      const get = token(parts, tickets)?.get;
+      return get && "page" in get ? get.page : null;
+    };
+    expect(page(["cloud"])).toContain("scopes=push,workflows&");
+    expect(page(["board"])).toContain("scopes=push,workflows,board&");
+    expect(page(["board", "cloud"], "elsewhere")).toContain(
+      "scopes=push,workflows&",
+    );
   });
 });

@@ -9,6 +9,8 @@ import {
   type Deps,
 } from "../src/config.mts";
 import { matchesGlob } from "../src/lib/glob.mts";
+import { BUILT } from "../src/tool-names.mts";
+import { builtOf, TOOLS } from "../src/tools.mts";
 
 const MINIMAL = { version: 1, repository: "owner/name" };
 
@@ -22,6 +24,7 @@ describe("parseSettings", () => {
       repository: "owner/name",
       tickets: {
         type: "github",
+        options: {},
         board: null,
         columns: {
           backlog: "Backlog",
@@ -158,6 +161,41 @@ describe("parseSettings", () => {
     expect(() => parse({ ...MINIMAL, tickets: { type: "jira" } })).toThrow(
       '.claude/factory.yaml: tickets.type "jira" is not supported. "github" is the only ticket system built.',
     );
+  });
+
+  it("knows the tools by the names the registry builds", () => {
+    expect(builtOf(TOOLS)).toEqual(BUILT);
+  });
+
+  describe("with a second ticket system built, which adds a site", () => {
+    const built = {
+      ...BUILT,
+      tickets: { ...BUILT.tickets, fake: ["site"] },
+    };
+    const parseWith = (raw: unknown) => parseSettings(raw, () => true, built);
+
+    it("takes its name and its own key", () => {
+      const s = parseWith({
+        ...MINIMAL,
+        tickets: { type: "fake", site: "https://tickets.example" },
+      });
+      expect(s.tickets.type).toBe("fake");
+      expect(s.tickets.options).toEqual({ site: "https://tickets.example" });
+    });
+
+    it("refuses its key under another ticket system", () => {
+      expect(() =>
+        parseWith({ ...MINIMAL, tickets: { site: "https://tickets.example" } }),
+      ).toThrow(".claude/factory.yaml: tickets.site: unknown key");
+    });
+
+    it("names every one built when refusing a name", () => {
+      expect(() =>
+        parseWith({ ...MINIMAL, tickets: { type: "jira" } }),
+      ).toThrow(
+        '.claude/factory.yaml: tickets.type "jira" is not supported. The ticket systems built are "github" and "fake".',
+      );
+    });
   });
 
   it("takes the code host written as a block or as one word", () => {

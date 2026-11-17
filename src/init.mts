@@ -18,8 +18,14 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { isMap, parseDocument, type Document } from "yaml";
-import { openCodeHost, type CodeHost } from "./code-host/index.mts";
-import { NeedsScopeError, type TokenNeed } from "./code-host/types.mts";
+import {
+  builtOf,
+  secretSteps,
+  stepsOf,
+  TOOLS,
+  type Registry,
+} from "./tools.mts";
+import { NeedsScopeError } from "./code-host/types.mts";
 import {
   columnsOf,
   fieldNamesOf,
@@ -29,33 +35,23 @@ import {
   SettingsError,
   type Settings,
 } from "./config.mts";
+import { checks as doctorChecks, doctorDeps, line } from "./doctor.mts";
+import { hasCommand } from "./lib/has-command.mts";
+import { listed } from "./lib/listed.mts";
 import {
-  checks as doctorChecks,
-  doctorDeps,
-  line,
-  type Check,
-} from "./doctor.mts";
-import {
-  AGENT_KEY,
-  AGENT_TOKEN,
   neededSecrets,
   PART_TEXT,
   PARTS,
   partsOn,
   resolveParts,
   SIGNING_KEY,
-  tokenNames,
-  tokenNeeds,
   type Part,
 } from "./parts.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
-import { openRunner, type Runner } from "./runner/index.mts";
+import { RULE, type Check, type Chosen, type SetupContext } from "./setup.mts";
 import { differences, PACKAGE, plan as syncPlan } from "./sync.mts";
-import { githubTickets } from "./tickets/github.mts";
-import { ghTransport } from "./tickets/transport.mts";
-import { gh } from "./lib/gh.mts";
 import { DEFAULT_COLUMNS } from "./lib/work-status.mts";
-import type { NewField, Tickets } from "./tickets/types.mts";
+import type { NewField } from "./tickets/types.mts";
 
 /** The questions init asks. Each is answered at the terminal, and in tests
  * from a script. */
@@ -86,11 +82,7 @@ export type InitDeps = {
   out: (line: string) => void;
   /** The `origin` remote's address, or null without one. */
   remote: () => string | null;
-  open: (repository: string) => {
-    codeHost: CodeHost;
-    runner: Runner;
-    tickets: Tickets;
-  };
+  tools: Registry;
   sync: () => Promise<number>;
   /** The files a sync with these settings would write or delete. */
   syncChanges: (settingsText: string) => string[];
@@ -105,23 +97,6 @@ export type InitDeps = {
   packageVersion: string;
 };
 
-/** Today's one choice of each tool, by the name a setting gives it. */
-const TOOLS = {
-  codeHost: { github: "GitHub" },
-  tickets: { github: "GitHub Issues" },
-  runner: { "github-actions": "GitHub Actions" },
-  agent: "Claude Code",
-};
-
-/** The coding agent's command, and the one that makes its token. */
-const AGENT = {
-  command: "claude",
-  token: ["claude", "setup-token"],
-};
-
-/** The rule that requires the review's verdict, by name, so removing it is
- * deleting that one rule. */
-const RULE = "Software factory";
 const SIGNING_TITLE = "software factory builds";
 const AGAIN = "Run npx --no-install factory init again to add it.";
 
@@ -153,30 +128,16 @@ function boardShape(s: Settings | null): {
  * on a code host the factory does not support. */
 export function parseRemote(
   url: string,
-): { codeHost: "github"; repository: string } | null {
-  const match =
-    /^(?:git@github\.com:|(?:https|ssh):\/\/(?:git@)?github\.com\/)([^/]+)\/([^/]+?)(?:\.git)?\/?$/.exec(
-      url.trim(),
-    );
-  return match
-    ? { codeHost: "github", repository: `${match[1]}/${match[2]}` }
-    : null;
+  tools: Registry = TOOLS,
+): { codeHost: string; repository: string } | null {
+  for (const [name, host] of Object.entries(tools.codeHost)) {
+    const repository = host.repositoryOf(url);
+    if (repository) return { codeHost: name, repository };
+  }
+  return null;
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-/** Items as a sentence lists them: "a", "a and b", "a, b, and c". */
-const listed = (items: string[]) =>
-  items.length < 3
-    ? items.join(" and ")
-    : `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
-
-/** What a token must be able to do, in words. */
-const NEED_TEXT: Record<TokenNeed, string> = {
-  push: "push a branch",
-  workflows: "change a workflow's file",
-  board: "write the board",
-};
 
 /** Deletes a key, then any map the deletion left empty above it. */
 function remove(doc: Document, path: string[]) {
@@ -199,11 +160,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   };
 
   const remote = d.remote();
-  const found = remote ? parseRemote(remote) : null;
+  const found = remote ? parseRemote(remote, d.tools) : null;
   if (!found) {
     d.out(
       remote
-        ? `The origin remote, ${remote}, is not on a code host the factory supports: ${Object.values(TOOLS.codeHost).join(", ")}.`
+        ? `The origin remote, ${remote}, is not on a code host the factory supports: ${listed(Object.values(d.tools.codeHost).map((t) => t.label))}.`
         : "This is not a git repository with an origin remote. Run it in your repository's checkout.",
     );
     return 1;
@@ -216,7 +177,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   let settings: Settings | null = null;
   if (settingsText !== null) {
     try {
-      settings = parseSettings(doc.toJS(), (p) => existsSync(at(p)));
+      settings = parseSettings(
+        doc.toJS(),
+        (p) => existsSync(at(p)),
+        builtOf(d.tools),
+      );
     } catch (e) {
       d.out(`${SETTINGS_FILE}: ${message(e)}`);
       d.out("Fix it, then run init again.");
@@ -224,22 +189,46 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
   }
   const hasPackage = existsSync(at("package.json"));
-  const agentInstalled = d.hasCommand(AGENT.command);
+
+  // A kind with one tool is that tool; with several, the settings' choice,
+  // or one asked for below.
+  const only = (r: Record<string, unknown>) => {
+    const names = Object.keys(r);
+    return names.length === 1 ? names[0]! : null;
+  };
+  const named = {
+    tickets: settings?.tickets.type ?? null,
+    runner: settings?.builds.runner ?? null,
+  };
+  const choice = {
+    tickets: only(d.tools.tickets) ?? named.tickets,
+    runner: only(d.tools.runner) ?? named.runner,
+  };
+  const agentName = Object.keys(d.tools.agent)[0]!;
+  const agent = d.tools.agent[agentName]!;
+  const shown = (kind: "tickets" | "runner") => {
+    const tools = d.tools[kind];
+    if (only(tools)) return tools[only(tools)!]!.label;
+    return choice[kind]
+      ? `${tools[choice[kind]!]!.label}, from your settings`
+      : "chosen below";
+  };
 
   d.out(`Setting up the software factory for ${repository}`);
   d.out("");
   d.out("Found");
   const row = (label: string, text: string) =>
     d.out(`  ${label.padEnd(14)} ${text}`);
-  row("Code host", `${TOOLS.codeHost.github} (from your git remote)`);
-  row("Tickets", TOOLS.tickets.github);
+  row(
+    "Code host",
+    `${d.tools.codeHost[found.codeHost]!.label} (from your git remote)`,
+  );
+  row("Tickets", shown("tickets"));
   row(
     "Coding agent",
-    agentInstalled
-      ? TOOLS.agent
-      : `${TOOLS.agent}, which is not installed: sessions and its token need it`,
+    agent.setup.found?.({ hasCommand: d.hasCommand }) ?? agent.label,
   );
-  row("Cloud builds", TOOLS.runner["github-actions"]);
+  row("Cloud builds", shown("runner"));
   row(
     "package.json",
     hasPackage ? "yes" : "none, so a private one will be created",
@@ -253,7 +242,40 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   );
   d.out("");
 
-  const { codeHost, runner, tickets } = d.open(repository);
+  const pick = async (kind: "tickets" | "runner", question: string) => {
+    const tools = d.tools[kind];
+    if (only(tools)) return only(tools)!;
+    const first = named[kind];
+    const names = Object.keys(tools).sort((a, b) =>
+      a === first ? -1 : b === first ? 1 : 0,
+    );
+    return d.ask.select(
+      question,
+      names.map((n) => ({ name: tools[n]!.label, value: n })),
+    );
+  };
+  const chosen: Chosen = {
+    codeHost: found.codeHost,
+    tickets: await pick("tickets", "Which ticket system?"),
+    runner: await pick("runner", "Where do cloud builds run?"),
+    agent: agentName,
+  };
+
+  const codeHost = d.tools.codeHost[chosen.codeHost]!.open(repository);
+  const runner = d.tools.runner[chosen.runner]!.open(repository);
+  const tickets = await d.tools.tickets[chosen.tickets]!.open(
+    { repository, board: null },
+    settings,
+  );
+  const context = (parts: Iterable<Part>): SetupContext => ({
+    repository,
+    root: d.root,
+    parts: new Set(parts),
+    chosen,
+    settings,
+    hasCommand: d.hasCommand,
+    opened: { codeHost, runner, tickets },
+  });
   let secrets: string[];
   try {
     secrets = await runner.secretNames();
@@ -261,10 +283,14 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     d.out(`Could not reach the code host: ${message(e)}`);
     return 1;
   }
+  const isSet = (n: string) => secrets.includes(n);
 
-  const before = partsOn(settings, secrets);
+  const cloudNeeds = secretSteps(d.tools, context(["cloud"])).flatMap((s) =>
+    s.step.needs.filter((n) => n.part === "cloud"),
+  );
+  const before = partsOn(settings, secrets, cloudNeeds);
   const first = settingsText === null;
-  const chosen = await d.ask.checkbox(
+  const chosenParts = await d.ask.checkbox(
     "Which parts do you want?",
     PARTS.map((part) => ({
       name: PART_TEXT[part].name,
@@ -275,9 +301,10 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         : before.has(part),
     })),
   );
-  const resolved = resolveParts(before, new Set(chosen as Part[]));
+  const resolved = resolveParts(before, new Set(chosenParts as Part[]));
   const parts = resolved.parts;
   for (const note of resolved.notes) d.out(note);
+  const removed = PARTS.filter((p) => before.has(p) && !parts.has(p));
 
   // The board: the one in the settings, or one chosen now.
   const boardOps = tickets.board;
@@ -327,6 +354,16 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   // The settings as they will stand, keeping every other key and comment.
   if (!doc.has("version")) doc.set("version", 1);
   if (!doc.has("repository")) doc.set("repository", repository);
+  if (
+    !only(d.tools.tickets) &&
+    doc.getIn(["tickets", "type"]) !== chosen.tickets
+  )
+    doc.setIn(["tickets", "type"], chosen.tickets);
+  if (
+    !only(d.tools.runner) &&
+    doc.getIn(["builds", "runner"]) !== chosen.runner
+  )
+    doc.setIn(["builds", "runner"], chosen.runner);
   if (parts.has("board") && typeof board === "number")
     doc.setIn(["tickets", "board"], board);
   if (!parts.has("board"))
@@ -342,14 +379,29 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     doc.setIn(["ci-review", "commands"], []);
   if (!parts.has("review")) doc.delete("ci-review");
 
+  // The ticket system's own values: asked for once, and taken out with
+  // the part that needed them.
+  const values = (ps: Iterable<Part>) =>
+    (d.tools.tickets[chosen.tickets]!.setup.steps?.(context(ps)) ?? []).filter(
+      (s) => s.kind === "value",
+    );
+  for (const step of values(parts)) {
+    if (step.part !== null && !parts.has(step.part)) continue;
+    if (doc.hasIn(["tickets", step.key])) continue;
+    doc.setIn(
+      ["tickets", step.key],
+      await d.ask.input(step.ask, step.fallback ?? ""),
+    );
+  }
+  for (const step of values(removed))
+    if (step.part !== null && removed.includes(step.part))
+      remove(doc, ["tickets", step.key]);
+
   // The secrets: those the parts read that are not set, or all of them when
   // you choose to replace them.
-  const needed = neededSecrets(parts);
-  const alreadySet = [
-    ...new Set(
-      needed.flatMap((n) => n.anyOf.filter((x) => secrets.includes(x))),
-    ),
-  ];
+  const steps = secretSteps(d.tools, context(parts));
+  const needed = neededSecrets(parts, steps);
+  const alreadySet = [...new Set(needed.flatMap((n) => n.anyOf.filter(isSet)))];
   let replace = false;
   if (alreadySet.length)
     replace = await d.ask.confirm(
@@ -358,21 +410,25 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         : `${alreadySet.length} secrets these parts read are already set. Replace them?`,
       false,
     );
-  const missing = (names: string[]) =>
-    replace || !names.some((n) => secrets.includes(n));
-  const wantsAgent =
-    (parts.has("review") || parts.has("cloud")) &&
-    missing([AGENT_TOKEN, AGENT_KEY]);
-  const tokenTo = tokenNames(parts).filter((n) => missing([n]));
-  const wantsKey = parts.has("signing") && missing([SIGNING_KEY]);
+  const unmet = (step: { needs: { part: Part | null; anyOf: string[] }[] }) =>
+    step.needs.some(
+      (n) => (n.part === null || parts.has(n.part)) && !n.anyOf.some(isSet),
+    );
+  const asked = steps
+    .filter(({ step }) => replace || unmet(step))
+    .map(({ step }) => ({
+      step,
+      names: step.storeAs.filter((n) => replace || !isSet(n)),
+    }))
+    .filter((a) => a.names.length > 0);
+  const wantsKey = parts.has("signing") && (replace || !isSet(SIGNING_KEY));
 
-  const removed = PARTS.filter((p) => before.has(p) && !parts.has(p));
-  const stillRead = new Set(neededSecrets(parts).flatMap((n) => n.anyOf));
+  const stillRead = new Set(needed.flatMap((n) => n.anyOf));
   const deletable = [
     ...new Set(
-      neededSecrets(new Set(removed))
+      neededSecrets(new Set(removed), secretSteps(d.tools, context(removed)))
         .flatMap((n) => n.anyOf)
-        .filter((n) => secrets.includes(n) && !stillRead.has(n)),
+        .filter((n) => isSet(n) && !stillRead.has(n)),
     ),
   ];
 
@@ -393,8 +449,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     return 1;
   }
   const toStore = [
-    ...(wantsAgent ? [agentInstalled ? AGENT_TOKEN : AGENT_KEY] : []),
-    ...tokenTo,
+    ...asked.flatMap((a) => a.names),
     ...(wantsKey ? [SIGNING_KEY] : []),
   ];
   d.out("");
@@ -477,73 +532,31 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const synced = await d.sync();
   if (synced !== 0) d.out("The sync failed, as above.");
 
-  // The coding agent's token.
-  if (wantsAgent) {
-    let value = "";
-    if (agentInstalled) {
-      d.out("");
-      d.out(`The coding agent's token: running ${AGENT.token.join(" ")}...`);
-      await d.interactive(AGENT.token);
-      value = await d.ask.secret(
-        "Paste the token it printed (leave empty to do this later):",
-      );
-    } else {
-      value = await d.ask.secret(
-        "Paste an API key from the Claude Console (leave empty to do this later):",
-      );
-    }
-    const secret = agentInstalled ? AGENT_TOKEN : AGENT_KEY;
-    if (value) {
-      await runner.setSecret(secret, value);
-      d.out(`Stored as ${secret}.`);
-    } else d.out(`No ${secret} stored. ${AGAIN}`);
-  }
-
-  // The one access token.
+  // Each tool's secrets, in the tools' order.
   let tokenAccount: string | null = null;
-  if (tokenTo.length) {
-    const scopes = codeHost.scopesFor(tokenNeeds(parts));
-    const page = codeHost.newTokenPage(
-      scopes,
-      `software factory: ${repository}`,
-    );
-    d.out("");
-    d.out(`An access token: opening ${page}`);
-    d.out(
-      `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it.`,
-    );
-    d.openPage(page);
+  for (const { step, names } of asked) {
+    for (const l of step.intro) d.out(l);
+    if (step.get && "page" in step.get) d.openPage(step.get.page);
+    if (step.get && "command" in step.get)
+      await d.interactive(step.get.command);
     for (;;) {
-      const value = await d.ask.secret(
-        "Paste it (leave empty to do this later):",
-      );
+      const value = await d.ask.secret(step.prompt);
       if (!value) {
-        d.out(`No token stored. ${AGAIN}`);
+        d.out(`${step.skipped} ${AGAIN}`);
         break;
       }
-      let owned: { account: string; scopes: string[] | null };
-      try {
-        owned = await codeHost.tokenOwner(value);
-      } catch (e) {
-        d.out(`${message(e)}. Paste another.`);
-        continue;
-      }
-      const lacking = owned.scopes
-        ? scopes.filter((x) => !owned.scopes!.includes(x))
-        : [];
-      if (lacking.length) {
-        d.out(
-          `That token lacks ${listed(lacking)}. Make one with every scope checked, and paste it.`,
-        );
-        continue;
-      }
-      if (owned.scopes === null)
-        d.out(
-          `The code host does not say what this token may do: make sure it can ${listed(tokenNeeds(parts).map((n) => NEED_TEXT[n]))}.`,
-        );
-      for (const n of tokenTo) await runner.setSecret(n, value);
-      tokenAccount = owned.account;
-      d.out(`It belongs to ${owned.account}. Stored as ${tokenTo.join(", ")}.`);
+      let checked: { lines: string[]; account?: string } = { lines: [] };
+      if (step.verify)
+        try {
+          checked = await step.verify(value);
+        } catch (e) {
+          d.out(message(e));
+          continue;
+        }
+      for (const l of checked.lines) d.out(l);
+      for (const n of names) await runner.setSecret(n, value);
+      if (checked.account !== undefined) tokenAccount = checked.account;
+      d.out(step.stored(names, checked.account));
       break;
     }
   }
@@ -667,15 +680,7 @@ export async function run(argv: string[]): Promise<number> {
         return null;
       }
     },
-    open: (repository) => ({
-      codeHost: openCodeHost(repository),
-      runner: openRunner(repository),
-      tickets: githubTickets({
-        transport: ghTransport(gh),
-        repository,
-        board: null,
-      }),
-    }),
+    tools: TOOLS,
     sync: async () => (await import("./sync.mts")).run([]),
     syncChanges: (text) => {
       const raw = parseDocument(text).toJS();
@@ -684,8 +689,7 @@ export async function run(argv: string[]): Promise<number> {
     },
     interactive: async (argv2) =>
       spawnSync(argv2[0], argv2.slice(1), { stdio: "inherit" }).status ?? 1,
-    hasCommand: (name) =>
-      !spawnSync(name, ["--version"], { stdio: "ignore" }).error,
+    hasCommand,
     openPage: (url) => {
       const opener =
         process.platform === "darwin"

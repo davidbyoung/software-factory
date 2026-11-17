@@ -1,10 +1,41 @@
 // `factory doctor`: one line per check, and a failing exit when any fails.
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { main, type DoctorDeps } from "../src/doctor.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
+import { memoryTools } from "./memory-tools";
+import { IMPORT_LINE, withHooks } from "../src/sync.mts";
+import type { Registry } from "../src/tools.mts";
+
+const roots: string[] = [];
+afterEach(() => {
+  for (const root of roots.splice(0))
+    rmSync(root, { recursive: true, force: true });
+});
+
+/** A checkout with Claude Code's configuration as `factory sync` writes it,
+ * with any file given in `files` in place of the synced one. */
+function checkout(files: Record<string, string> = {}): string {
+  const root = mkdtempSync(join(tmpdir(), "doctor-"));
+  roots.push(root);
+  mkdirSync(join(root, ".claude"));
+  const all = {
+    "CLAUDE.md": `# Ours\n\n${IMPORT_LINE}\n`,
+    ".claude/settings.json": withHooks(
+      null,
+      "node_modules/@davidbyoung/software-factory/bin/factory.js",
+    ),
+    ...files,
+  };
+  for (const [path, text] of Object.entries(all))
+    writeFileSync(join(root, path), text);
+  return root;
+}
 
 const settings = (raw: Record<string, unknown> = {}) =>
   parseSettings({ version: 1, repository: "acme/site", ...raw }, () => true);
@@ -17,6 +48,9 @@ function doctor(o: {
   locked?: string | null;
   secrets?: Record<string, string>;
   columns?: string[];
+  files?: Record<string, string>;
+  claude?: boolean;
+  tools?: (base: Registry) => Registry;
 }) {
   const out: string[] = [];
   const tickets = memoryTickets([], {
@@ -39,11 +73,15 @@ function doctor(o: {
       installed: o.installed ?? "0.2.0",
       locked: o.locked === undefined ? "0.2.0" : o.locked,
     }),
-    open: () => ({
-      codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
-      runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
-      tickets,
-    }),
+    root: checkout(o.files),
+    hasCommand: (name) => name !== "claude" || o.claude !== false,
+    tools: (o.tools ?? ((b) => b))(
+      memoryTools({
+        codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
+        runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
+        tickets,
+      }),
+    ),
     out: (line) => out.push(line),
   };
   return { run: () => main([], d), out };
@@ -73,6 +111,9 @@ describe("factory doctor", () => {
       "- Builds that start when you move a card to Ready: off",
       "- Pull requests that merge themselves: off",
       "- Signed commits from cloud builds: off",
+      "✓ Claude Code: CLAUDE.md imports the factory's rules",
+      "✓ Claude Code: .claude/settings.json has the factory's hooks",
+      "✓ Claude Code: the claude command is installed",
     ]);
   });
 
@@ -107,6 +148,9 @@ describe("factory doctor", () => {
         "✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
         "✓ FACTORY_SIGNING_KEY is set, for signed commits from cloud builds",
         "✓ Board 3 has every column the settings name",
+        "✓ Claude Code: CLAUDE.md imports the factory's rules",
+        "✓ Claude Code: .claude/settings.json has the factory's hooks",
+        "✓ Claude Code: the claude command is installed",
       ]
     `);
   });
@@ -174,7 +218,7 @@ describe("factory doctor", () => {
       columns: ["Backlog", "Done"],
     });
     expect(await r.run()).toBe(1);
-    expect(r.out.at(-1)).toMatch(
+    expect(r.out.find((l) => l.startsWith("✗ Board"))).toMatch(
       /^✗ Board 3: the Status field lacks In refinement .*\. Run npx --no-install factory init$/,
     );
   });
