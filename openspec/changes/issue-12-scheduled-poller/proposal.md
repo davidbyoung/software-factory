@@ -36,10 +36,9 @@ Decisions carried from the issue:
 - **`builds.poll-minutes` goes when the schedule goes:** `init` removes it when the part is turned off or the server is chosen, so `config check` never fails on a value `init` left behind.
 - **The image is checked after the first release.** Releases are the owner's (`CLAUDE.md`), and the release workflow runs only on a pushed tag, so the pull request proves the image with a local build from the latest published version, and the owner pulls the first published one.
 - **`doctor` checks the workflow is enabled,** since GitHub switches off a public repository's schedules after 60 days with no activity, and the board would then stop starting builds without a sound.
-- **cfi keeps its own `poller.Dockerfile`,** which already works; moving it to the one-liner is cfi's own change.
 - **Build order:** nothing blocks this, and nothing waits on it. #14 touches the settings and the poller's start check, which is a merge conflict, not a blocker. #13 has merged.
 
-**Not doing:** a poller faster than GitHub's schedule allows; Docker Hub; writing a Dockerfile into a user's repository; changing cfi's own poller.
+**Not doing:** a poller faster than GitHub's schedule allows; Docker Hub; writing a Dockerfile into a user's repository.
 
 **Checked by review, not by a test:** `init`'s new lines, by the builder's side-by-side comparison in the pull request of its output for each choice on a public and a private repository; and the image, by a local build and run from the latest published version. Lines 29 and 30, the anonymous pull and the label Dependabot reads, need a published image, so the owner confirms them after the first release.
 
