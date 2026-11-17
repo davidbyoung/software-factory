@@ -110,11 +110,11 @@ conflict, and the session that owns the pull request resolves it.
 ## Sizing the work to the change
 
 A change under about 30 lines outside tests (30 by default,
-`rules.small-change-lines`), adding no new component and no
-new state, is **small**. It skips the heavier steps: no separate spec, no
-readiness read, and one test that reproduces the defect or checks the
-change. The first message of the work says which path it is taking, so you
-can overrule it before it starts.
+[`rules.small-change-lines`](configuration.md#rules)), adding no new
+component and no new state, is **small**. It skips the heavier steps: no
+separate spec, no readiness read, and one test that reproduces the defect
+or checks the change. The first message of the work says which path it is
+taking, so you can overrule it before it starts.
 
 The number is `rules.small-change-lines` in your
 [settings](configuration.md), _[Planned](developing.md#what-is-built)_; until it is built, it is 30.
@@ -186,11 +186,11 @@ verdict.
 
 ## A change your users will see
 
-With `specs: openspec`, a change that adds or alters behavior someone can
-see, and is not small, carries the `spec` label. Its ticket holds a "Spec"
-section of plain "When this, then that" lines. The build turns those lines
-into an OpenSpec change, builds to them, and folds them into
-`openspec/specs/` in the same pull request, so that folder always describes
-what the project does now.
+With [`specs: openspec`](configuration.md#specs), a change that adds or
+alters behavior someone can see, and is not small, carries the `spec`
+label. Its ticket holds a "Spec" section of plain "When this, then that"
+lines. The build turns those lines into an OpenSpec change, builds to
+them, and folds them into `openspec/specs/` in the same pull request, so
+that folder always describes what the project does now.
 
 With `specs: none`, the ticket's acceptance criteria are the whole spec.

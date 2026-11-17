@@ -13,7 +13,7 @@ repository. You read it and merge it.** That is all you have to do.
    runs `factory sync` on its branch and adds what it wrote as a second
    commit. Until it has, CI's `factory sync --check` fails.
 3. You read it and merge it. It never merges itself, whatever your
-   `auto-merge` settings allow.
+   [`auto-merge`](configuration.md#auto-merge) settings allow.
 4. Everyone working on the repository, you included, pulls and runs
    `npm ci`, as after any dependency change.
 

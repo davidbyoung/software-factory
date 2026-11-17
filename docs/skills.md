@@ -16,19 +16,19 @@ The factory's core is what its own steps call, and every repository gets
 it. Everything else is written only when a setting or a file turns it on,
 and `factory sync` removes it again when that is undone.
 
-| Skill or agent              | Written                              |
-| --------------------------- | ------------------------------------ |
-| `factory-refine`            | Always                               |
-| `factory-build`             | Always                               |
-| `factory-address-review`    | Always                               |
-| `factory-resolve-conflicts` | Always                               |
-| `factory-diagnose`          | Always                               |
-| `factory-mutate`            | Always                               |
-| `factory-ticket-readiness`  | Always                               |
-| `factory-test-reviewer`     | Always                               |
-| `factory-design`            | With `site` in your settings         |
-| `factory-ui-reviewer`       | With `site` in your settings         |
-| `factory-deps`              | With a `.github/dependabot.yml` file |
+| Skill or agent              | Written                                               |
+| --------------------------- | ----------------------------------------------------- |
+| `factory-refine`            | Always                                                |
+| `factory-build`             | Always                                                |
+| `factory-address-review`    | Always                                                |
+| `factory-resolve-conflicts` | Always                                                |
+| `factory-diagnose`          | Always                                                |
+| `factory-mutate`            | Always                                                |
+| `factory-ticket-readiness`  | Always                                                |
+| `factory-test-reviewer`     | Always                                                |
+| `factory-design`            | With [`site`](configuration.md#site) in your settings |
+| `factory-ui-reviewer`       | With `site` in your settings                          |
+| `factory-deps`              | With a `.github/dependabot.yml` file                  |
 
 ## At a glance
 
@@ -57,7 +57,7 @@ acceptance criteria cannot be built; `factory-build` sends it here.
 **What it reads.** The ticket and its comments, the open tickets that touch
 the same code, the code itself, your project's instructions for the agent
 (`CLAUDE.md` files, on Claude Code), and the existing
-spec when `specs` is on.
+spec when [`specs`](configuration.md#specs) is on.
 
 **What it writes.**
 
@@ -120,8 +120,9 @@ and says why. The ticket stays in "building", waiting on you.
 on. Add the label that overrides a review's verdict. Guess at a decision
 the ticket left open. Reopen a decision the ticket settled.
 
-**Defaults you can change.** `rules.small-change-lines`, default 30: a
-change under it takes the lighter path [Workflow](workflow.md) describes.
+**Defaults you can change.**
+[`rules.small-change-lines`](configuration.md#rules), default 30: a change
+under it takes the lighter path [Workflow](workflow.md) describes.
 
 ## `factory-address-review`
 
@@ -260,12 +261,13 @@ Read-only.
 ### `factory-ui-reviewer`
 
 Reads a change to how a website looks or responds. It runs
-`factory site compare`, reads the before and after pictures of the pages that
-changed, drives the states the change is about, and judges them against built-in
-rules, your `design-guide` when you wrote one, and what your `checks` printed.
-It is listed under `plugins` like a reviewer of your own, with the `files` that
-should trigger it, and is written only to a repository with `site` in its
-settings. Read-only, and slow.
+`factory site compare`, reads the before and after pictures of the pages
+that changed, drives the states the change is about, and judges them
+against built-in rules, your `design-guide` when you wrote one, and what
+your `checks` printed. It is listed under
+[`plugins`](configuration.md#plugins) like a reviewer of your own, with
+the `files` that should trigger it, and is written only to a repository
+with `site` in its settings. Read-only, and slow.
 
 ### `factory-test-reviewer`
 

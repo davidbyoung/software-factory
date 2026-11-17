@@ -34,3 +34,12 @@ ci-review:
     - npm test
     - npm run typecheck
     - node
+
+# This repository's own reviewer: it reads a changed page of the docs as
+# someone who has never seen the factory.
+plugins:
+  - agent: docs-reader
+    role: reviewer
+    files:
+      - README.md
+      - docs/**

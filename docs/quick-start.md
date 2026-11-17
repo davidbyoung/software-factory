@@ -1,9 +1,9 @@
 # Quick start
 
-From nothing to a pull request built from one of your tickets. You run a
-few commands, write one ticket, and answer a question or two; your coding
-agent does the rest. This page needs no board, no secrets, and nothing to
-host.
+For someone with a repository and a coding agent who has never used the
+factory. At the end you have a pull request built from one of your
+tickets. You run a few commands, write one ticket, and answer a question
+or two. It needs no board, no secrets, and nothing to host.
 
 A word you do not know is in the [glossary](glossary.md).
 
@@ -12,15 +12,11 @@ A word you do not know is in the [glossary](glossary.md).
 - A repository on a supported code host, cloned on your machine, with the
   code host's command-line tool signed in.
 - A supported coding agent, signed in.
-- Node 22.18 or later. Check with `node --version`.
+- Node 22.18 or later.
 
-Which tools are supported, and how to check each is ready, is in
-[What you need](github/setup.md#what-you-need) on the GitHub page.
-
-Your repository does not have to be JavaScript. If it has no
-`package.json`, read
-[this section](existing-repo.md#a-repository-that-is-not-javascript)
-first: you make a small one before installing.
+[What you need](github/setup.md#what-you-need) names the supported tools
+and how to check each. A repository with no `package.json` works too:
+[read this first](existing-repo.md#a-repository-that-is-not-javascript).
 
 ## 1. Install
 
@@ -37,8 +33,7 @@ npm install --save-dev @davidbyoung/software-factory
 ```
 
 **It worked when** `factory`, run in your repository, prints the list of
-its commands. It exits non-zero, since no command was given; that is
-expected.
+its commands.
 
 ## 2. Set it up
 
@@ -46,54 +41,23 @@ expected.
 factory init
 ```
 
-It says what it found, asks which optional parts you want, and shows
-everything it will do before it does any of it. For this first ticket,
-uncheck every part: the basics need none.
+It shows what it found and asks which optional parts you want. For this
+first ticket, uncheck every part. It then lists everything it will do, and
+once you tell it to go ahead, writes your settings file,
+`.claude/factory.yaml`, and the instructions and checks your coding agent
+follows. It commits nothing. [What it changes](removing.md) lists every
+file.
 
-Told to go ahead, it writes your settings file, `.claude/factory.yaml`,
-and the instructions your coding agent follows when it works a ticket. It
-adds hooks: small checks your agent runs on its own, such as refusing a
-commit on your main branch. It adds one line to your agent's instructions
-file, such as `CLAUDE.md`, and the hooks to your agent's settings,
-creating either file if you have none, and turns off your agent's lines
-naming itself in commits and pull requests unless its settings already say
-otherwise. It writes the factory's CI workflows under `.github/` and adds
-`node_modules/` to your `.gitignore`. It changes nothing else of yours,
-and commits nothing. [What it changes](removing.md) lists every item and
-how to undo it.
+A build checks its change with the commands your agent's instructions
+file, such as `CLAUDE.md`, names. If it names none, add your test and lint
+commands there now.
 
-**It worked when** the checks it prints last all show ✓, or `-` for a
-part you left off. Run them again at
-any time with `factory doctor`.
-
-**To do it by hand instead,** write the shortest settings file, with your
-repository's owner and name, then write the factory's files:
-
-```yaml
-version: 1
-repository: your-name/your-repo
-```
-
-```bash
-factory sync
-```
-
-Either way, a build checks its change with the commands your agent's instructions
-file names, such as your tests and your linter, so say there how to check
-a change. Without any, it checks with the tests it wrote.
-
-To have a command run before every commit a session makes, such as your
-linter, list it under `before-commit` in the settings file:
-
-```yaml
-before-commit:
-  - npm run lint
-```
+**It worked when** the checks `init` prints last all show ✓, or `-` for a
+part you left off. `factory doctor` runs them again at any time.
 
 ## 3. Merge the setup
 
-Commit what `init` or `sync` wrote on a branch, push it, then open a pull request for
-it on your code host, as for any change, and merge it:
+Commit what `init` wrote on a branch and push it:
 
 ```bash
 git switch -c set-up-factory
@@ -102,24 +66,25 @@ git commit -m "Set up the software factory"
 git push -u origin set-up-factory
 ```
 
-Then bring your main branch up to date:
+Open a pull request for the branch on your code host and merge it, as for
+any change. Then bring your main branch up to date:
 
 ```bash
 git switch main
 git pull
 ```
 
-Your coding agent loads the factory from the files in your repository, so
-start a new session after this step.
+Start a new session of your coding agent, which loads the factory from the
+files now in your repository.
 
 **It worked when** the new session, asked which skills it has, lists
-`factory-refine` and `factory-build`. A skill is a set of instructions for
-one kind of job, such as refining a ticket.
+`factory-refine` and `factory-build`.
 
 ## 4. Open a ticket
 
-A ticket in your ticket system. Say three things: what you want, why, and
-how you will know it is done. A few sentences is enough.
+Open a ticket in your ticket system: on GitHub, an issue in your
+repository. Say three things: what you want, why, and how you will know it
+is done. A few sentences is enough.
 
 ```text
 Title: Show the opening hours in the footer
@@ -128,17 +93,17 @@ The hours are only on the contact page, and people ask for them.
 Done when: every page's footer shows the same hours the contact page does.
 ```
 
-Note its number. This page uses 12.
+**It worked when** the ticket has a number. This page uses 12.
 
 ## 5. Refine it
 
-In a session of your coding agent, in your repository, say:
+In the session, say:
 
 ```text
 refine ticket 12
 ```
 
-The session reads the ticket and the code it touches. Then it asks you the
+The session reads the ticket and the code it touches, then asks you the
 decisions that are yours, each as a choice with its recommendation first:
 
 ```text
@@ -148,8 +113,7 @@ Where should the hours come from?
 ```
 
 **It worked when** the ticket ends with acceptance criteria, a checklist
-that says exactly what "done" means, and the session says it is ready to
-build.
+of exactly what "done" means, and the session says it is ready to build.
 
 ## 6. Build it
 
@@ -159,22 +123,14 @@ In the same session, or a new one:
 build ticket 12
 ```
 
-Telling a session to build a ticket is how you approve it.
-
-You can watch it work. The session:
-
-1. comments on the ticket that it has claimed it, so no other session
-   builds the same one;
-2. makes a branch;
-3. writes a test, then the change;
-4. checks each commit with your `before-commit` commands, if you set any;
-5. opens a pull request that closes the ticket, as a draft, which tells
-   people and the automated review it is not finished;
-6. marks it ready for review once your CI passes on it, or after two
-   minutes when no CI runs on it, and answers any review it gets.
+Telling a session to build a ticket is how you approve it. The session
+makes a branch, writes a test and then the change, and opens a pull
+request that closes the ticket. Expect minutes, not seconds.
+[Workflow](workflow.md#from-a-ticket-to-a-merge) has each step.
 
 **It worked when** its last message names the pull request, says what it
-built, and says how it checked it. Expect minutes, not seconds.
+built, and says how it checked it. This page uses 15 for the pull
+request's number.
 
 ## 7. Read it and merge
 
@@ -189,34 +145,35 @@ answer your comments:
 address the review on pull request 15
 ```
 
+**It worked when** the pull request is merged and ticket 12 is closed.
 That is the whole loop: **ticket, refine, build, read, merge.**
 
 ## If something goes wrong
 
-| What happened                                    | What to do                                                                                  |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| A `before-commit` command fails during the build | Nothing. The session sees the output, fixes the cause, and tries again                      |
-| The session stops and says it needs you          | It says why, in the session and on the ticket. Answer, then ask it to build ticket 12 again |
-| The session was closed or crashed partway        | Ask a new session to build ticket 12. It picks up the branch it made                        |
-| You want to change what was decided              | Ask a session to refine ticket 12 again, or edit the ticket                                 |
-| CI fails on the pull request                     | Ask a session to address the review on pull request 15. It reads the failure and fixes it   |
-| The session does not know the factory's skills   | The setup is not merged, or the session started before it was. See step 3                   |
-| Anything else                                    | Run `factory doctor`. It says what is wrong, and what to do about it                        |
+| What happened                                  | What to do                                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| A test or a check fails during the build       | Nothing. The session sees the output, fixes the cause, and tries again                      |
+| The session stops and says it needs you        | It says why, in the session and on the ticket. Answer, then ask it to build ticket 12 again |
+| The session was closed or crashed partway      | Ask a new session to build ticket 12. It picks up the branch it made                        |
+| You want to change what was decided            | Ask a session to refine ticket 12 again, or edit the ticket                                 |
+| CI fails on the pull request                   | Ask a session to address the review on pull request 15. It reads the failure and fixes it   |
+| The session does not know the factory's skills | The setup is not merged, or the session started before it was. See step 3                   |
+| Anything else                                  | Run `factory doctor`. It says what is wrong, and what to do about it                        |
 
 ## What to add next
 
-Everything above runs on your machine while you watch. Each part below is
+Everything above runs on your machine while you watch. Each of these is
 optional, stands alone, and can come later.
 
-| Add                                 | So that                                                              | It asks of you                                |
-| ----------------------------------- | -------------------------------------------------------------------- | --------------------------------------------- |
-| An automated review                 | Every pull request is read by your coding agent before you read it   | Your agent's token, stored on the code host   |
-| A board                             | You see every ticket's state, which session has it, and what it cost | A board, and a token that can write to it     |
-| Builds in the cloud                 | A ticket builds with no session open on your machine                 | Your agent's token, and a token that can push |
-| Builds that start from the board    | Moving a ticket to Ready builds it                                   | A schedule in the cloud, or a poller you host |
-| Pull requests that merge themselves | Changes to files you list as safe do not wait for you                | The list of files, and a token that can merge |
-| Your own reviewers                  | A change to your content or your design is read by an expert agent   | A few lines of settings                       |
-
-Run `factory init` again and turn on the parts you want;
-it sets up each one, tokens included. [Setting up on GitHub](github/setup.md)
-has the same steps by hand, on one page.
+- **An automated review, a board, builds in the cloud, builds that start
+  from the board, and pull requests that merge themselves.** Run
+  `factory init` again and check the parts you want. It asks for a token
+  or two and sets everything else up.
+  [Setting up on GitHub](github/setup.md#run-factory-init) says what each
+  part gives you and what it asks.
+- **A command before every commit a session makes,** such as your linter:
+  two lines under [`before-commit`](configuration.md#before-commit).
+- **Your own reviewers,** so a change to your content or your design is
+  read by an expert agent: a few lines under
+  [`plugins`](configuration.md#plugins), which [Plug-ins](plugins.md)
+  walks through.

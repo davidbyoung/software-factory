@@ -48,7 +48,7 @@ default.
 - **A board,** to see every ticket's state. Set `tickets.board` to your
   board's number, and when your columns have other names, map them under
   `tickets.columns`. [`tickets`](#tickets) has both. On GitHub,
-  [Setting up on GitHub](github/setup.md#a-board) has the steps around
+  [Setting up on GitHub](github/setup.md) has the steps around
   them.
 - **What merges without you.** List the files that may under
   `auto-merge.allow`, such as your docs. [`auto-merge`](#auto-merge).
@@ -522,8 +522,7 @@ The automated review of every pull request: Claude reads each one once it
 is marked ready, comments on what it finds, and posts a verdict. It is on
 while `ci-review` is written, even with nothing under it, and `factory
 sync` then writes its workflow, `.github/workflows/factory-claude-review.yml`.
-[The automated review](github/setup.md#the-automated-review) has the steps
-it needs on GitHub.
+[Setting up on GitHub](github/setup.md) has what it needs on GitHub.
 
 ```yaml
 # The automated review of every pull request, on while this is written.
