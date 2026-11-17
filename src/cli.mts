@@ -70,7 +70,7 @@ const pr = (sub: string, args: string): Command => ({
 });
 
 const TICKET_ARGS: Record<string, string> = {
-  refined: "N [--before-file FILE]",
+  refined: "N [--check] [--before-file FILE]",
   stop: 'N "reason"',
   view: "N [--field title|state|labels|body] [--json]",
   list: '[--label LABEL] [--title "TITLE"] [--json]',
