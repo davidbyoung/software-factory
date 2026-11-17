@@ -1,8 +1,9 @@
 ---
 name: docs-reader
 description: >-
-  Use when a change adds a page to `README.md` or `docs/`, or changes more
-  than about 10 lines of one. Reads each such page cold, as someone who
+  Use when a change that is not small adds a page to `README.md` or
+  `docs/`, or changes more than about 10 lines of one, not counting table
+  rows that only gained padding. Reads each such page cold, as someone who
   has never seen the factory and wants to do what the page is for, and
   reports where it loses them: a step they could not carry out as written,
   a word or a setting used before it is explained, a step a command
@@ -31,11 +32,13 @@ know, and neither do you.
 
 ## Scope
 
-The pages you were pointed at, or failing that the pages the branch
-changed since it left main, committed or not:
+The pages you were pointed at. Failing that, the pages the branch added
+since it left main, committed or not, and those it changed by more than
+about 10 lines, leaving out `docs/developing.md`, which a contributor
+reads:
 
 ```bash
-git diff --name-only --merge-base origin/main -- README.md docs
+git diff --stat --merge-base origin/main -- README.md docs
 git status --short README.md docs
 ```
 
