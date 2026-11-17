@@ -319,6 +319,28 @@ describe("factory remove", () => {
     expect(r.has(".claude/settings.json")).toBe(false);
   });
 
+  it("deletes the folder a deleted settings file leaves empty", async () => {
+    const onlyFactory = JSON.parse(withHooks(null, LAUNCHER));
+    delete onlyFactory.attribution;
+    const r = remove({
+      files: {
+        ".claude/factory.yaml": SETTINGS,
+        ".claude/settings.json": JSON.stringify(onlyFactory),
+      },
+    });
+    await r.run();
+    expect(r.has(".claude")).toBe(false);
+  });
+
+  it("deletes a CLAUDE.md the import was all it held", async () => {
+    const r = remove({
+      files: { ...SYNCED, "CLAUDE.md": `${IMPORT_LINE}\n` },
+    });
+    await r.run();
+    expect(r.out).toContain("  Delete   CLAUDE.md");
+    expect(r.has("CLAUDE.md")).toBe(false);
+  });
+
   it("drops an emptied hooks key, keeping the rest of the file", async () => {
     const r = remove({
       files: { ...SYNCED, ".claude/settings.json": withHooks(null, LAUNCHER) },

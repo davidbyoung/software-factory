@@ -133,16 +133,20 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
 
   for (const p of deletes)
     rmSync(join(d.root, p), { recursive: true, force: true });
+
+  for (const c of changes)
+    if (c.text === null) rmSync(join(d.root, c.path), { force: true });
+    else writeFileSync(join(d.root, c.path), c.text);
   // A folder the deletions emptied goes too, up to the root.
-  for (const p of deletes)
+  for (const p of [
+    ...deletes,
+    ...changes.filter((c) => c.text === null).map((c) => c.path),
+  ])
     for (let dir = dirname(p); dir !== "."; dir = dirname(dir)) {
       const at = join(d.root, dir);
       if (!existsSync(at) || readdirSync(at).length) break;
       rmdirSync(at);
     }
-  for (const c of changes)
-    if (c.text === null) rmSync(join(d.root, c.path), { force: true });
-    else writeFileSync(join(d.root, c.path), c.text);
 
   let secrets: string[] | null = null;
   if (settings)
