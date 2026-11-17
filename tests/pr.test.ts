@@ -1118,16 +1118,21 @@ describe("what the skills run in place of the code host's and the runner's own t
       expect(asked).toEqual(["diff -U0 origin/trunk...HEAD"]);
     });
 
-    it("reads the report from LCOV when it is given, and coverage/lcov.info when not", async () => {
-      const given = uncovered({ ...FILES, "out/lcov.info": REPORT });
-      const not = uncovered(FILES);
+    it("reads the report from LCOV when it is given", async () => {
+      const { d, out, read } = uncovered({ ...FILES, "out/lcov.info": REPORT });
 
-      await main(["uncovered", "origin/main", "out/lcov.info"], given.d);
-      await main(["uncovered"], not.d);
+      await main(["uncovered", "origin/main", "out/lcov.info"], d);
 
-      expect(given.read[0]).toBe("out/lcov.info");
-      expect(given.out).toEqual(FOUND);
-      expect(not.read[0]).toBe("coverage/lcov.info");
+      expect(read[0]).toBe("out/lcov.info");
+      expect(out).toEqual(FOUND);
+    });
+
+    it("reads the report from coverage/lcov.info when LCOV is not given", async () => {
+      const { d, read } = uncovered(FILES);
+
+      await main(["uncovered"], d);
+
+      expect(read[0]).toBe("coverage/lcov.info");
     });
 
     it("matches a file the report names by its full path", async () => {

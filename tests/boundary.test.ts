@@ -356,7 +356,7 @@ describe("the boundaries", () => {
     const found = pages.flatMap((path) =>
       readFileSync(path, "utf8")
         .split("\n")
-        .filter((line) => /python3|^\s*```python/.test(line))
+        .filter((line) => /\bpython3?\b/.test(line))
         .map((line) => `${path}: ${line.trim()}`),
     );
     expect(found).toEqual([]);
