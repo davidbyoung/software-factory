@@ -189,6 +189,25 @@ describe("parseSettings", () => {
       ).toThrow(".claude/factory.yaml: tickets.site: unknown key");
     });
 
+    it("takes a second code host's name and a second runner's", () => {
+      const more = {
+        ...BUILT,
+        codeHost: [...BUILT.codeHost, "elsewhere"],
+        runner: [...BUILT.runner, "fake-runner"],
+      };
+      const s = parseSettings(
+        {
+          ...MINIMAL,
+          "code-host": "elsewhere",
+          builds: { runner: "fake-runner" },
+        },
+        () => true,
+        more,
+      );
+      expect(s.codeHost.type).toBe("elsewhere");
+      expect(s.builds.runner).toBe("fake-runner");
+    });
+
     it("names every one built when refusing a name", () => {
       expect(() =>
         parseWith({ ...MINIMAL, tickets: { type: "jira" } }),

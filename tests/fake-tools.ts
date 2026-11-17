@@ -84,16 +84,31 @@ export function withFakeAgent(base: Registry): Registry {
   return { ...base, agent: { "fake-agent": { label: "Fake Agent", setup } } };
 }
 
-/** The registry with a second code host, which recognizes no remote. */
-export function withSecondCodeHost(base: Registry): Registry {
+/** The registry with more code hosts, which recognize no remote. */
+export function withCodeHosts(base: Registry, ...labels: string[]): Registry {
   return {
     ...base,
     codeHost: {
       ...base.codeHost,
-      elsewhere: {
-        ...base.codeHost.github!,
-        label: "Elsewhere",
-        repositoryOf: () => null,
+      ...Object.fromEntries(
+        labels.map((label) => [
+          label.toLowerCase(),
+          { ...base.codeHost.github!, label, repositoryOf: () => null },
+        ]),
+      ),
+    },
+  };
+}
+
+/** The registry with a second runner. */
+export function withSecondRunner(base: Registry): Registry {
+  return {
+    ...base,
+    runner: {
+      ...base.runner,
+      "fake-runner": {
+        ...base.runner["github-actions"]!,
+        label: "Fake Runner",
       },
     },
   };

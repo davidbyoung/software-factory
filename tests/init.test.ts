@@ -22,8 +22,9 @@ import { memoryTools } from "./memory-tools";
 import {
   FAKE_PAGE,
   FAKE_TOKEN,
+  withCodeHosts,
   withFakeTickets,
-  withSecondCodeHost,
+  withSecondRunner,
 } from "./fake-tools";
 import type { Registry } from "../src/tools.mts";
 import type { Tickets } from "../src/tickets/types.mts";
@@ -964,27 +965,32 @@ describe("factory init, a tool's own setup", () => {
     expect(r.runner.secrets.has(FAKE_TOKEN)).toBe(false);
   });
 
-  it("asks for a secret already set only when told to replace it", async () => {
-    const run = (replace: boolean) =>
-      init({
-        tools: fakeOnly,
-        settings: `${FAKE}  site: https://tickets.example\n`,
-        secrets: { [FAKE_TOKEN]: "x" },
-        answers: {
-          checkbox: [[]],
-          confirm: [replace, true],
-          secret: replace ? [GOOD] : [],
-        },
-      });
-    const kept = run(false);
-    await kept.run();
-    expect(kept.asked).toContain(
+  const fakeSet = (replace: boolean) =>
+    init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      secrets: { [FAKE_TOKEN]: "x" },
+      answers: {
+        checkbox: [[]],
+        confirm: [replace, true],
+        secret: replace ? [GOOD] : [],
+      },
+    });
+
+  it("keeps a secret already set, asking nothing, when told not to replace it", async () => {
+    const r = fakeSet(false);
+    await r.run();
+    expect(r.asked).toContain(
       "confirm: 1 secret these parts read is already set. Replace it?",
     );
-    expect(kept.asked.some((q) => q.startsWith("secret:"))).toBe(false);
-    const replaced = run(true);
-    await replaced.run();
-    expect(replaced.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
+    expect(r.asked.some((q) => q.startsWith("secret:"))).toBe(false);
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe("x");
+  });
+
+  it("asks for a secret already set when told to replace it", async () => {
+    const r = fakeSet(true);
+    await r.run();
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
   });
 });
 
@@ -1008,6 +1014,7 @@ describe("factory init, with more than one tool of a kind", () => {
     expect(r.yaml().tickets).toMatchObject({ type: "fake" });
   });
 
+  // The prompt has no default of its own: the first choice offered is it.
   it("offers the one the settings name first", async () => {
     const r = init({
       tools: both,
@@ -1023,15 +1030,26 @@ describe("factory init, with more than one tool of a kind", () => {
     expect(r.offered[0]).toEqual(["fake", "github"]);
   });
 
+  it("asks where cloud builds run, and writes the choice", async () => {
+    const r = init({
+      tools: withSecondRunner,
+      answers: { select: ["fake-runner"], checkbox: [[]], confirm: [true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain("  Cloud builds   chosen below");
+    expect(r.asked[0]).toBe("select: Where do cloud builds run?");
+    expect(r.yaml().builds).toEqual({ runner: "fake-runner" });
+  });
+
   it("names every code host it supports when the remote is on none", async () => {
     const r = init({
-      tools: withSecondCodeHost,
+      tools: (b) => withCodeHosts(b, "Elsewhere", "Yonder"),
       remote: "https://gitlab.com/acme/site.git",
       answers: {},
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host the factory supports: GitHub and Elsewhere.",
+      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host the factory supports: GitHub, Elsewhere, and Yonder.",
     ]);
   });
 });

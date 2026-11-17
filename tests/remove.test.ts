@@ -143,6 +143,9 @@ describe("factory remove", () => {
     expect(r.asked).toEqual(["Go ahead?"]);
     for (const path of DELETED) expect(r.has(path)).toBe(true);
     expect(r.read("CLAUDE.md")).toBe(SYNCED["CLAUDE.md"]);
+    expect(r.read(".claude/settings.json")).toBe(
+      SYNCED[".claude/settings.json"],
+    );
   });
 
   it("deletes the factory's files", async () => {
@@ -177,7 +180,7 @@ describe("factory remove", () => {
       expect(r.read(path)).toBe(SYNCED[path]);
   });
 
-  it("prints what is left by hand, from each tool, and commits nothing", async () => {
+  it("prints what is left by hand, from each tool", async () => {
     const r = remove({
       secrets: {
         CLAUDE_CODE_OAUTH_TOKEN: "x",
@@ -199,6 +202,17 @@ describe("factory remove", () => {
       "  7. Run npm uninstall @davidbyoung/software-factory.",
       "  8. Commit this on a branch, open a pull request, and merge it.",
     ]);
+  });
+
+  it("names no board's fields when the settings name no board", async () => {
+    const r = remove({
+      files: {
+        ...SYNCED,
+        ".claude/factory.yaml": "version: 1\nrepository: acme/site\n",
+      },
+    });
+    await r.run();
+    expect(r.out.join("\n")).not.toContain("field");
   });
 
   it("prints another ticket system's own leftovers", async () => {
@@ -262,7 +276,7 @@ describe("factory remove", () => {
     );
   });
 
-  it("drops an emptied hooks key, and deletes a settings file left empty", async () => {
+  it("deletes a settings file the factory's hooks were all it held", async () => {
     const onlyFactory = JSON.parse(withHooks(null, LAUNCHER));
     delete onlyFactory.attribution;
     const r = remove({
@@ -272,14 +286,16 @@ describe("factory remove", () => {
       },
     });
     await r.run();
-    expect(r.has(".claude/settings.json")).toBe(false);
     expect(r.out).toContain("  Delete   .claude/settings.json");
+    expect(r.has(".claude/settings.json")).toBe(false);
+  });
 
-    const kept = remove({
+  it("drops an emptied hooks key, keeping the rest of the file", async () => {
+    const r = remove({
       files: { ...SYNCED, ".claude/settings.json": withHooks(null, LAUNCHER) },
     });
-    await kept.run();
-    expect(JSON.parse(kept.read(".claude/settings.json"))).toEqual({
+    await r.run();
+    expect(JSON.parse(r.read(".claude/settings.json"))).toEqual({
       attribution: { commit: "", pr: "", sessionUrl: false },
     });
   });
