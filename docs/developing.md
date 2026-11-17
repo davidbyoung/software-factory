@@ -468,3 +468,22 @@ drawn out of.
   to differ.
 - **Examples carry the reason for a rule, without the host's private
   history.**
+
+### A page a reader follows
+
+`README.md` and every page under `docs/` is read by someone who has never
+seen the factory and wants one thing done. `docs-reader`, this
+repository's own reviewer, reads a changed page as that person.
+
+- **A page says who it is for and what they will have at the end,** in its
+  first lines.
+- **Lead with the command that does it.** The same steps by hand go on a
+  page of their own, linked once.
+- **Say only what the reader must do or decide.** What a command does for
+  them is one sentence, and a link to the page that lists it.
+- **A setting links to its entry in `docs/configuration.md` where a page
+  first names it.** A test fails on one that does not.
+- **A setting the reader writes is shown as YAML they can paste,** with
+  what each line is for.
+- **A step ends with how the reader knows it worked.**
+- **Each fact has one home.** Every other page links to it.

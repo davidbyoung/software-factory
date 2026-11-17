@@ -44,6 +44,8 @@ end-to-end suite.
 
 - `docs/developing.md`: how the package is laid out, how to run it from
   source, how to change a skill or add a ticket system, and how to release.
+- `README.md` and `docs/`: "Writing for the factory" in
+  `docs/developing.md`, read before changing a page.
 - Tests follow "Small changes" and "Branching, pushing, and review" in
   `.claude/factory/rules.md`. A test is seen failing first, by its red run
   or one mutation, and a test that reads a workflow reads its YAML, as
@@ -56,6 +58,11 @@ small change keeps `factory-test-reviewer` for that reason. There is no
 website and no design guide, so no style tweak needs a test, and there is
 no UI reviewer.
 
+- **The docs** (`README.md` and `docs/`) are content reviewed by what
+  changed. A change that adds a page, or adds or rewrites a section of
+  one, keeps the `docs-reader` read of the pages it changed, in a build
+  and in a session the owner steers alike. A typo, a link, or a line of
+  copy does not.
 - **A dependency bump** is made by a session, by hand, since there is no
   Dependabot here yet. `package-lock.json` does not count toward a change's
   size, and the gate with `pack-check` is its check, with no new test.
