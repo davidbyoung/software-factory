@@ -19,6 +19,7 @@
 // the GitHub ticket adapter, GitHub as the code host, and GitHub Actions as
 // the runner, each over the `fetch` transport, since it runs with no `gh`.
 import { randomBytes } from "node:crypto";
+import { columnsOf, loadSettings, type Settings } from "./config.mts";
 import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import {
@@ -315,6 +316,10 @@ export async function tick(d: Deps, state: State): Promise<void> {
  * none. */
 export type OnceSettings = { board: number | null; ready: string | null };
 
+export function onceSettings(s: Settings): OnceSettings {
+  return { board: s.tickets.board, ready: columnsOf(s).Ready };
+}
+
 /** One pass, for a scheduled run: the board and the Ready column come from
  * the settings, the board's owner is the repository's, and only the token
  * comes from the environment. 1 when it read nothing or could not read. */
@@ -379,17 +384,11 @@ async function main(): Promise<number> {
 }
 
 /** `factory poller`, and `factory poller --once`. The settings are loaded
- * only for `--once`, so the hosted poller, which has no checkout, needs none. */
+ * only for `--once`, since the hosted poller has no checkout. */
 export async function run(argv: string[] = []): Promise<number> {
   if (argv.includes("--once")) {
-    const { columnsOf, loadSettings } = await import("./config.mts");
     const s = await loadSettings();
-    process.exit(
-      await once(
-        { board: s.tickets.board, ready: columnsOf(s).Ready },
-        liveDeps(s.repository),
-      ),
-    );
+    process.exit(await once(onceSettings(s), liveDeps(s.repository)));
   }
   process.exit(await main());
 }

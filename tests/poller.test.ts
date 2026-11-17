@@ -7,6 +7,7 @@ import {
   dispatchFailure,
   nextDelay,
   once,
+  onceSettings,
   readConfig,
   selectToStart,
   startMarker,
@@ -20,6 +21,7 @@ import {
   type Board,
 } from "../src/lib/work-status.mts";
 import { HttpError } from "../src/tickets/transport.mts";
+import { parseSettings } from "../src/config.mts";
 import { toBoard } from "../src/tickets/github.mts";
 import saved from "./fixtures/sync/repo.json";
 // The same repository as GitHub's GraphQL answers it, for the fake fetch.
@@ -268,11 +270,14 @@ function setup(
 
 /** The recorded pages with `ready` more Ready cards, each refined and moved
  * to Ready as #12 was, and `started` start comments posted `minutesAgo`
- * minutes before NOW on tickets closed since. */
+ * minutes before NOW, on tickets closed since or, with `open`, still open.
+ * `body` writes some other comment in place of each start. */
 function withStarts(o: {
   ready?: number;
   started: number;
   minutesAgo: number;
+  open?: boolean;
+  body?: (number: number) => string;
 }) {
   const repo = structuredClone(repoPages[0]);
   const board = structuredClone(boardPages[0]);
@@ -297,22 +302,26 @@ function withStarts(o: {
   const at = new Date(NOW - o.minutesAgo * 60_000).toISOString();
   for (let i = 0; i < o.started; i++) {
     const number = 200 + i;
-    r.closed.nodes.push({
+    const node = {
       ...structuredClone(r.closed.nodes[0]),
       id: `I_${number}`,
       number,
-      closedAt: at,
+      state: o.open ? "OPEN" : "CLOSED",
+      closedAt: o.open ? null : at,
       comments: {
         nodes: [
           {
             databaseId: 5000 + i,
             createdAt: at,
             author: { login: "acme" },
-            body: commentBody({ kind: "started", marker: `st_${number}` }),
+            body: o.body
+              ? o.body(number)
+              : commentBody({ kind: "started", marker: `st_${number}` }),
           },
         ],
       },
-    });
+    };
+    (o.open ? r.open.nodes : r.closed.nodes).push(node as never);
   }
   return { graphql: undefined, repoPage: repo, boardPage: board };
 }
@@ -454,9 +463,9 @@ describe("tick", () => {
     expect(blocked.logs).toContain("#12 waits on #3");
   });
 
-  it("starts nothing once twenty start comments were posted in the past hour", async () => {
+  it("starts nothing once twenty start comments were posted in the past hour, though it keeps no count of its own", async () => {
     const { d, state, comments, logs } = setup(
-      withStarts({ started: FIRE_LIMIT, minutesAgo: 10 }),
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 59 }),
     );
 
     await tick(d, state);
@@ -465,15 +474,29 @@ describe("tick", () => {
     expect(logs).toContain("#12 waits: 20 builds started in the last hour");
   });
 
-  it("counts start comments from before a restart, which it holds nothing of", async () => {
-    const { d, comments } = setup(
-      withStarts({ started: FIRE_LIMIT, minutesAgo: 59 }),
+  it("counts the start comments on tickets still open", async () => {
+    const { d, state, comments } = setup(
+      withStarts({ started: FIRE_LIMIT, minutesAgo: 10, open: true }),
     );
-    const restarted: State = { failuresInARow: 0, lastHeartbeat: NOW };
 
-    await tick(d, restarted);
+    await tick(d, state);
 
     expect(comments()).toEqual([]);
+  });
+
+  it("counts no comment but a start", async () => {
+    const { d, state, dispatches } = setup(
+      withStarts({
+        started: FIRE_LIMIT,
+        minutesAgo: 10,
+        body: (n) =>
+          `Text.\n\n<!-- work-status: claim local s${n} -->\n<!-- agent -->`,
+      }),
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).not.toEqual([]);
   });
 
   it("forgets a start comment over an hour old", async () => {
@@ -540,11 +563,47 @@ describe("tick", () => {
   });
 });
 
+describe("onceSettings", () => {
+  const read = (raw: Record<string, unknown>) =>
+    onceSettings(
+      parseSettings(
+        { version: 1, repository: "acme/widgets", ...raw },
+        () => true,
+      ),
+    );
+
+  it("takes the board and the Ready column from the settings", () => {
+    expect(read({ tickets: { board: 7 } })).toEqual({
+      board: 7,
+      ready: "Ready",
+    });
+  });
+
+  it("takes a Ready column the settings rename", () => {
+    expect(
+      read({ tickets: { board: 7, columns: { ready: "Ready for dev" } } }),
+    ).toEqual({ board: 7, ready: "Ready for dev" });
+  });
+
+  it("has no board when the settings name none", () => {
+    expect(read({}).board).toBeNull();
+  });
+
+  it("has no Ready column when the settings set it to none", () => {
+    expect(
+      read({
+        tickets: { board: 7, columns: { ready: "none" } },
+        builds: { trigger: "manual" },
+      }).ready,
+    ).toBeNull();
+  });
+});
+
 describe("once", () => {
   const TOKEN = { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN };
   const settings = { board: 1, ready: "Ready" };
 
-  it("reads the board once, starts each Ready ticket, and returns 0", async () => {
+  it("starts each Ready ticket and returns 0", async () => {
     const { d, dispatches } = setup({}, TOKEN);
 
     expect(await once(settings, d)).toBe(0);
