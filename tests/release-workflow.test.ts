@@ -101,3 +101,32 @@ describe("the release workflow", () => {
     });
   });
 });
+
+describe("the poller's image", () => {
+  const image = read("release.yml").jobs.image as Job & {
+    permissions?: Record<string, string>;
+  };
+  const script = (image?.steps ?? []).map((s) => s.run ?? "").join("\n");
+
+  it("is published only after the npm package, from the version just published", () => {
+    expect(image.needs).toBe("publish");
+    expect(script).toContain(
+      'npm view "@davidbyoung/software-factory@$version"',
+    );
+    expect(script).toContain('--build-arg VERSION="$version"');
+  });
+
+  it("may write packages, and logs in to GitHub's container registry with the run's own token", () => {
+    expect(image.permissions).toEqual({ contents: "read", packages: "write" });
+    expect(script).toContain("docker login ghcr.io");
+  });
+
+  it("pushes the version's tag and latest", () => {
+    expect(script).toContain(
+      'docker push "ghcr.io/davidbyoung/software-factory-poller:$version"',
+    );
+    expect(script).toContain(
+      'docker push "ghcr.io/davidbyoung/software-factory-poller:latest"',
+    );
+  });
+});

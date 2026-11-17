@@ -26,8 +26,8 @@
 ## 6. The image
 
 - [x] 6.1 `poller.Dockerfile` installing the version from a build argument, with its label; a test reading it for the install, the label, and the command
-- [ ] 6.2 The release job; a test in `tests/release-workflow.test.ts` that it needs `publish`, has `packages: write`, and pushes both tags (line 27)
-- [ ] 6.3 Build the image locally from the latest published version and run it with a stubbed board unreachable, showing it starts the poller (line 28); put the output in the pull request
+- [x] 6.2 The release job; a test in `tests/release-workflow.test.ts` that it needs `publish`, has `packages: write`, and pushes both tags (line 27)
+- [x] 6.3 Build the image locally from the latest published version and run it with a stubbed board unreachable, showing it starts the poller (line 28); put the output in the pull request
 
 ## 7. Docs
 
