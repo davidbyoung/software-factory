@@ -67,9 +67,9 @@ added without changing the rest. Today each has one choice:
 | You need                                              | Supported today                    | Setting it up                                |
 | ----------------------------------------------------- | ---------------------------------- | -------------------------------------------- |
 | A code host, for the repository and its pull requests | GitHub                             | [Setting up on GitHub](docs/github/setup.md) |
-| A ticket system, and optionally a board               | GitHub Issues, and GitHub Projects | The same page                                |
-| Somewhere to build in the cloud, optionally           | GitHub Actions                     | The same page                                |
-| A coding agent                                        | Claude Code                        | The same page                                |
+| A ticket system, and optionally a board               | GitHub Issues, and GitHub Projects | [Setting up on GitHub](docs/github/setup.md) |
+| Somewhere to build in the cloud, optionally           | GitHub Actions                     | [Setting up on GitHub](docs/github/setup.md) |
+| A coding agent                                        | Claude Code                        | [Setting up on GitHub](docs/github/setup.md) |
 
 ## Get started
 

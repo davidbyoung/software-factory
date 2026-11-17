@@ -56,15 +56,17 @@ end-to-end suite.
 No change here sends anything to an outside service from a visitor, so no
 small change keeps `factory-test-reviewer` for that reason. There is no
 website and no design guide, so no style tweak needs a test, and there is
-no UI reviewer.
+no UI reviewer: `docs-reader`, the one reviewer plug-in, reads the docs.
 
 - **The docs** (`README.md` and `docs/`) count toward a change's size:
-  they are not content. A change that is not small, and that adds a page
-  or changes more than about 10 lines of one, gets the `docs-reader` read
-  of that page: from `factory-build`, as for any reviewer plug-in, and
-  from a session the owner steers, before it opens the pull request,
-  whose body says what the read found. `docs/developing.md` is a
-  contributor's page and gets no read.
+  they are not content. Their reviewer is `docs-reader`, whose
+  description says when it applies. A session the owner steers considers
+  it as a build does, when a change that is not small touches them: if
+  that description fits, it runs the reader before opening the pull
+  request and fixes its findings, and the body says what the read found,
+  or why it was skipped. A small change that touches only the docs, a
+  line of a follow-ups build included, needs no new test: the docs tests
+  in the gate are its check.
 - **A dependency bump** is made by a session, by hand, since there is no
   Dependabot here yet. `package-lock.json` does not count toward a change's
   size, and the gate with `pack-check` is its check, with no new test.
@@ -114,9 +116,9 @@ The source of every factory file is in this repository: `skills/`,
 `agents/`, `rules.md`, `review.md`, `workflows/`, and `actions/`. Change
 the source, run `node bin/factory.js sync`, and commit both; CI's
 `Factory files in step` fails when a copy differs from its source. Never
-edit the copy under `.claude/` or `.github/`. One file there is not a
-copy: `.claude/agents/docs-reader.md`, this repository's own reviewer,
-has no source elsewhere and is edited where it is.
+edit the copy under `.claude/` or `.github/`.
+`.claude/agents/docs-reader.md`, this repository's own reviewer, is not a
+copy: it has no source elsewhere and is edited where it is.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
