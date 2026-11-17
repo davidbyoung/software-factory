@@ -51,10 +51,14 @@ The ruleset does not require a branch to be up to date with main, so a
 pull request that is only `behind` merges as it is; leave it. Updating it
 would only start CI again.
 
-A `dirty` state is a conflict, almost always in `package-lock.json`, and
+A `dirty` state is a conflict, almost always in the lock file, and
 blocks the merge. Check the branch out (step 3), merge `origin/main`, take
-main's lock file, run `npm install` so the bump is reapplied on top of it,
-and commit the merge.
+main's lock file, run `commands.relock`, the command
+`npx --no-install factory config get commands.relock` prints, so the bump
+is reapplied on top of it, and commit the merge. Any other conflicted file
+that matches the `files` of a resolver
+(`npx --no-install factory plugins resolver`) is that resolver's, as
+"Merge" in the `factory-resolve-conflicts` skill says.
 
 Then go on: a branch with a conflict can be failing as well.
 
@@ -64,10 +68,11 @@ Check out the branch and reproduce the failure before changing anything:
 
 ```bash
 git fetch origin HEAD_REF && git switch HEAD_REF
-npm ci
 ```
 
-Then run the gate's check and the end-to-end suite, with its browser
+Install what the branch's lock file lists, with `commands.relock`, the
+command `npx --no-install factory config get commands.relock` prints. Then
+run the gate's check and the end-to-end suite, with its browser
 installed first, by the commands "After every code change" in `CLAUDE.md`
 gives.
 

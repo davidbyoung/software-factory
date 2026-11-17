@@ -353,8 +353,9 @@ is whether a regression would go unnoticed, not the number.
 
 A test written for a coverage line follows the same rules as any other. It
 asserts behavior, not that the line ran, and it fails when the code it covers
-is broken, which the `factory-mutate` skill proves for a test written after
-the code. A test that only executes a line pads the number and locks nothing
+is broken, which the prover, the skill
+`npx --no-install factory plugins prover` prints, proves for a test written
+after the code. A test that only executes a line pads the number and locks nothing
 in.
 
 There are no threads to resolve. Put the verdicts in the end-of-review PR

@@ -151,8 +151,9 @@ counts only for an issue that has:
 - the `follow-up` label, since the follow-ups issue's unchecked lines are
   its criteria.
 
-Without either, run `factory-refine` and stop: no claim, and nothing to
-release. Do not guess at what content should say or how a page
+Without either, run the refiner, the skill
+`npx --no-install factory plugins refiner` prints, and stop: no claim, and
+nothing to release. Do not guess at what content should say or how a page
 should behave.
 
 Otherwise, claim it now ("The claim"), then read on.
@@ -170,11 +171,24 @@ Otherwise, claim it now ("The claim"), then read on.
 - **Approved while a comment round waits on the owner:** the newest
   refinement marker on the issue is `<!-- work-status: waiting -->`.
   Approval means the round's defaults stand, along with the owner's
-  replies. After the claim, run `factory-refine` steps 4 and 5 first, posting
-  no refinement marker: fold the replies in and read the result for
-  readiness. If a reply raises a new decision, or the read finds a
+  replies. After the claim, first invoke the refiner, the skill
+  `npx --no-install factory plugins refiner` prints, with the Skill tool,
+  giving it the issue's number and the words "approved while
+  waiting: fold the owner's replies into the body, post no marker". For
+  `factory-refine` that is its steps 4 and 5: it folds the replies in and
+  reads the result for readiness. Then check that the body is one a build
+  can read:
+
+  ```bash
+  npx --no-install factory ticket refined N --check
+  ```
+
+  It prints `sound` and posts nothing. When it prints what the body is
+  missing instead, release the claim and stop, with its output in the
+  report. If a reply raises a new decision, or the read finds a
   question only the owner can answer, comment it on the issue, release
   the claim, and stop.
+
 - **Already done, or no longer true:** say so with the evidence, release
   the claim, and leave the issue open for the owner to close.
 
@@ -247,9 +261,13 @@ Read the `CLAUDE.md` for the area first ("Rules by area" in `CLAUDE.md`).
 **A builder plug-in:** list them with
 `npx --no-install factory plugins builder`, which prints each one's
 labels. When the issue carries one of a builder's labels, invoke that skill
-with the Skill tool to build it, in place of the steps below. What its
-report says goes in the pull request body at step 6, where the owner reads
-it before merging.
+with the Skill tool to build it, in place of the steps below up to the
+reviewers. The reviewers still run on what it built, the test reviewers
+and the repository's own, and so does everything after them. A reviewer
+the builder's report shows it already ran is not run again: its line in
+the pull request is the skip line "already run by the builder". What the
+builder's report says goes in the pull request body at step 6, where the
+owner reads it before merging.
 
 **Content the repository reviews by what changed:** when `CLAUDE.md` gives
 a kind of content its own path by what changed in it, an edit to that
@@ -265,8 +283,11 @@ content follows that path.
   for tests say ("Rules by area" in `CLAUDE.md`).
 - A small change takes the path in "Small changes" in
   `.claude/factory/rules.md` instead of the next two items.
-- Prove each new test can fail, by its red run or the `factory-mutate`
-  skill, and have `factory-test-reviewer` read them.
+- Prove each new test can fail, by its red run or the prover, the skill
+  `npx --no-install factory plugins prover` prints, and have each test
+  reviewer, the agents `npx --no-install factory plugins test-reviewer`
+  prints, read them: one listed with `files` only when the change touches
+  a file that matches them.
 - **The repository's own reviewers** are listed by
   `npx --no-install factory plugins reviewer`, each with its
   `files`. A reviewer is considered when a file the branch changed matches
@@ -288,7 +309,7 @@ content follows that path.
 Verify before archiving: for every scenario in the change's specs, name
 the test that exercises it, in which file, and run it. A scenario with no
 test gets one now; a scenario whose test cannot fail (its red run before
-the change shows, or `factory-mutate`) is not verified. Record the mapping in the pull request.
+the change shows, or the prover) is not verified. Record the mapping in the pull request.
 
 Then fold the change into the specs, as the last commit before the pull
 request:

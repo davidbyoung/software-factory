@@ -54,15 +54,19 @@ npx --no-install factory ticket ready N      # only when the owner asks, in a lo
 ```
 
 `refined` with `--before-file` puts a closing comment's own text before
-its sentence, so a closing comment and the marker are one comment. Moving
+its sentence, so a closing comment and the marker are one comment.
+`refined` posts nothing and exits 1 when the body is not one a build can
+read, with one `missing:` line for each part: write those parts, then run
+it again. `refined N --check` makes the same check and posts nothing. Moving
 the card to Ready, or telling a local session to work the issue, is the
 owner's approval; this skill never does either on its own. When the owner
 asks this session to move the card to Ready, `ready` does it, as the
 owner's own move. Run `ready` only after the `refined`
 marker is posted: `refined` resets Ready, so a `refined` posted after the
 move puts the card back In refinement before the poller starts it. When
-`factory-build` runs
-steps 4 and 5 for an approved round, it posts none of these.
+`factory-build` invokes this skill for an approved round, with the words
+"approved while waiting: fold the owner's replies into the body, post no
+marker", it runs steps 4 and 5 only and posts none of these.
 
 ## 0. Read
 

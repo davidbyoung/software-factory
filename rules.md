@@ -36,11 +36,12 @@ here rather than restate it.
   the build archives a proposal and spec delta in the same pull request,
   which then waits for the owner. A fix that restores what a spec says
   changes no line of it.
-- **No `factory-ticket-readiness` read and no `factory-test-reviewer` read**, with two
-  exceptions that keep `factory-test-reviewer`: a change to tests alone, the one
-  kind it exists for, and code that builds what is sent to an outside
-  service, which "Small changes: this repository" in `CLAUDE.md` names,
-  since a broken payload loses data without a sound.
+- **No `factory-ticket-readiness` read and no read by the test reviewers**
+  (`npx --no-install factory plugins test-reviewer` lists them), with two
+  exceptions that keep the test reviewers, the whole list: a change to
+  tests alone, the one kind they exist for, and code that builds what is
+  sent to an outside service, which "Small changes: this repository" in
+  `CLAUDE.md` names, since a broken payload loses data without a sound.
 - **Tests.** A bug fix gets one test that reproduces the defect. A style
   tweak gets one only when it sets what a check in the repository's design
   guide measures, which "Small changes: this repository" in `CLAUDE.md`
