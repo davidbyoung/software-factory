@@ -332,10 +332,172 @@ describe("hostNamesIn", () => {
   });
 });
 
+/** The words of one stack and one layout. A file every repository gets
+ * holds none of them: it reads a command from the settings and a rule from
+ * the repository's own guides. */
+const STACK_WORDS = [
+  "AGENTS.md",
+  "next dev",
+  "Next.js",
+  "vitest",
+  "Vitest",
+  "Tailwind",
+  "React",
+  ".tsx",
+  ".ts sibling",
+  "python",
+  "Codecov",
+  "visitor",
+  "origin/main",
+  "After every code change",
+  "Playwright",
+  "package-lock.json",
+  "npm ci",
+  "npm install",
+];
+
+/** The files written only for a website or an end-to-end suite, which may
+ * name Playwright and say "visitor", since a website has visitors. */
+const WEBSITE_FILES = [
+  "agents/factory-ui-reviewer.md",
+  "agents/factory-e2e-reviewer.md",
+  "skills/factory-design/",
+];
+
+/** The words a file may hold all the same. The factory's own update is an
+ * npm package's, so the skill that makes it names npm's files and commands. */
+function allowedStackWords(file: string): string[] {
+  if (WEBSITE_FILES.some((f) => file.startsWith(f)))
+    return ["Playwright", "visitor"];
+  if (file.startsWith("skills/factory-deps/"))
+    return ["package-lock.json", "npm ci", "npm install"];
+  return [];
+}
+
+/** A word as a pattern that matches it whole, so `React` does not match
+ * "reaction": a phrase's spaces match a line break too, and "visitor"
+ * matches its plural. */
+function wholeWord(word: string): RegExp {
+  const body = word
+    .split(" ")
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&"))
+    .join("\\s+");
+  return new RegExp(
+    (/^\w/.test(word) ? "(?<![A-Za-z0-9])" : "") +
+      body +
+      (word === "visitor" ? "s?" : "") +
+      (/\w$/.test(word) ? "(?![A-Za-z0-9])" : ""),
+    "g",
+  );
+}
+
+/** Each stack word a file holds, with its line, as `WORD (line N)`.
+ * Backticks are read through, so a `.ts` sibling is found, and a sentence
+ * that starts "If the repository reports to Codecov" may name Codecov. */
+export function stackWordsIn(text: string, file = ""): string[] {
+  const blank = (m: string) => m.replace(/[^\n]/g, "");
+  const read = text.replace(/`/g, "");
+  const allowed = allowedStackWords(file);
+  const found: { word: string; line: number }[] = [];
+  for (const word of STACK_WORDS) {
+    if (allowed.includes(word)) continue;
+    const searched =
+      word === "Codecov"
+        ? read.replace(
+            /If the repository reports to Codecov[\s\S]*?\.(?=\s|$)/g,
+            blank,
+          )
+        : read;
+    for (const m of searched.matchAll(wholeWord(word)))
+      found.push({
+        word,
+        line: searched.slice(0, m.index).split("\n").length,
+      });
+  }
+  return found
+    .sort((a, b) => a.line - b.line)
+    .map(({ word, line }) => `${word} (line ${line})`);
+}
+
+describe("stackWordsIn", () => {
+  it.each(STACK_WORDS)("finds %j", (word) => {
+    expect(stackWordsIn(`Read it.\nIt says ${word} here.`)).toEqual([
+      `${word} (line 2)`,
+    ]);
+  });
+
+  it("matches a word whole, through backticks, and a phrase across a line break", () => {
+    expect(stackWordsIn("A reaction to a Reactive rule.")).toEqual([]);
+    expect(stackWordsIn("It runs on micropython.")).toEqual([]);
+    expect(stackWordsIn("Its `.ts` sibling holds it.")).toEqual([
+      ".ts sibling (line 1)",
+    ]);
+    expect(
+      stackWordsIn('the command "After every code\nchange" gives'),
+    ).toEqual(["After every code change (line 1)"]);
+    expect(stackWordsIn("In `Search.tsx`, and what visitors see.")).toEqual([
+      ".tsx (line 1)",
+      "visitor (line 1)",
+    ]);
+    expect(stackWordsIn("git diff origin/main...HEAD")).toEqual([
+      "origin/main (line 1)",
+    ]);
+  });
+
+  it("lets Codecov through only in the sentence that starts with the repository reporting to it", () => {
+    expect(
+      stackWordsIn(
+        "If the repository reports to Codecov, read\nits checks too. Then read the Codecov comment.",
+      ),
+    ).toEqual(["Codecov (line 2)"]);
+  });
+
+  it("lets a website's files name Playwright and visitors, and the dependency skill npm's own", () => {
+    const website = "Drive it with Playwright, as a visitor would.";
+    for (const file of [
+      "agents/factory-ui-reviewer.md",
+      "agents/factory-e2e-reviewer.md",
+      "skills/factory-design/SKILL.md",
+    ])
+      expect(stackWordsIn(website, file)).toEqual([]);
+    expect(stackWordsIn(website, "agents/factory-test-reviewer.md")).toEqual([
+      "visitor (line 1)",
+      "Playwright (line 1)",
+    ]);
+    expect(
+      stackWordsIn("git merge origin/main", "skills/factory-design/SKILL.md"),
+    ).toEqual(["origin/main (line 1)"]);
+
+    const npm = "Take package-lock.json, then `npm ci` or `npm install`.";
+    expect(stackWordsIn(npm, "skills/factory-deps/SKILL.md")).toEqual([]);
+    expect(stackWordsIn(npm, "skills/factory-build/SKILL.md")).toHaveLength(3);
+    expect(
+      stackWordsIn("Read AGENTS.md first.", "skills/factory-deps/SKILL.md"),
+    ).toEqual(["AGENTS.md (line 1)"]);
+  });
+});
+
 describe("the boundaries", () => {
   it("the design skill names nothing of the repository the factory is developed in", () => {
     const path = join(PACKAGE, "skills/factory-design/SKILL.md");
     expect(hostNamesIn(readFileSync(path, "utf8"))).toEqual([]);
+  });
+
+  it("no skill, agent, rule, or review instruction names one stack or one layout", () => {
+    const files = [
+      ...["skills", "agents"]
+        .flatMap((d) => filesUnder(join(PACKAGE, d)))
+        .filter((path) => path.endsWith(".md")),
+      join(PACKAGE, "rules.md"),
+      join(PACKAGE, "review.md"),
+    ];
+    const found = files.flatMap((path) => {
+      const file = relative(PACKAGE, path);
+      return stackWordsIn(readFileSync(path, "utf8"), file).map(
+        (word) => `${file}: ${word}`,
+      );
+    });
+    expect(found).toEqual([]);
   });
 
   it("no skill, agent, rule, review, or workflow in the package calls GitHub's issues or projects", () => {
