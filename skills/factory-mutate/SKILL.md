@@ -25,33 +25,46 @@ not compiling proves nothing; choose another.
 
 ## 2. Run them
 
-Each one copies the file aside, applies the edit, runs only the relevant test
+Each one keeps the file's text, applies the edit, runs only the relevant test
 file, and restores the original whatever happens. Put the script in the
-scratchpad, not the repo:
+scratchpad, not the repo, as `mutate.mjs`, and run it with `node` from the
+repository's root:
 
-```python
-import shutil, subprocess
+```js
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 
-MUTATIONS = [
-    # (source file, exact text, replacement, test file)
-    ("lib/x.ts", "if (a && b)", "if (a)", "tests/x.test.ts"),
-]
-for path, old, new, test in MUTATIONS:
-    original = open(path).read()
-    assert original.count(old) == 1, (path, old)
-    try:
-        open(path, "w").write(original.replace(old, new))
-        failed = subprocess.run(["npx", "vitest", "run", test],
-                                capture_output=True).returncode != 0
-    finally:
-        open(path, "w").write(original)
-    print("RED  " if failed else "GREEN", path, old)
+const MUTATIONS = [
+  // [source file, exact text, replacement, test file]
+  ["lib/x.ts", "if (a && b)", "if (a)", "tests/x.test.ts"],
+];
+for (const [path, old, replacement, test] of MUTATIONS) {
+  const original = readFileSync(path, "utf8");
+  if (original.split(old).length !== 2)
+    throw new Error(`${path}: expected one match of ${old}`);
+  let failed;
+  try {
+    writeFileSync(
+      path,
+      original.replace(old, () => replacement),
+    );
+    const run = spawnSync(
+      "npx",
+      ["--no-install", "factory", "test-one", test],
+      { stdio: "ignore" },
+    );
+    failed = run.status !== 0;
+  } finally {
+    writeFileSync(path, original);
+  }
+  console.log(failed ? "RED  " : "GREEN", path, old);
+}
 ```
 
-Use the project's own test command. For a coverage-instrumented runner,
-disable coverage for speed. For Playwright, rebuild before each run if the
-tests run against a build. Not `next dev`: it rewrites `AGENTS.md`, and a
-test can time out there with nothing broken, which reads as red.
+`factory test-one` runs the settings' own command for one test file,
+`commands.test-one`. For a coverage-instrumented runner, disable coverage
+for speed. For an end-to-end spec, run `factory end-to-end` in its place,
+and rebuild before each run if the tests run against a build.
 
 ## 3. Confirm the tree is clean
 

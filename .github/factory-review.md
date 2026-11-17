@@ -9,8 +9,8 @@ defend.
 
 ## Before you review
 
-1. Read `CLAUDE.md`, `AGENTS.md`, and every area guide "Rules by area" in
-   `CLAUDE.md` lists, in full. They are the project's rules, and most
+1. Read `CLAUDE.md`, the files it imports, and every area guide "Rules by
+   area" in `CLAUDE.md` lists, in full. They are the project's rules, and most
    findings worth raising break one of them. Then read
    `.github/review-notes.md` when it exists: what this repository's review
    checks beyond this file.
@@ -24,16 +24,25 @@ defend.
    gh api repos/REPO/pulls/PR_NUMBER/comments --paginate
    ```
 
+   The commands below write the default branch's name as DEFAULT. This
+   prints it:
+
+   ```bash
+   gh api repos/REPO --jq .default_branch
+   ```
+
    Your earlier summaries contain `<!-- claude-review sha=SHA -->`. If one
    exists and that SHA is an ancestor of the head
    (`git merge-base --is-ancestor SHA HEAD`), compare
-   `git merge-base SHA origin/main` with `git merge-base HEAD origin/main`.
-   If they differ, main was merged in since that review, so review
-   `git diff origin/main...HEAD`, the pull request's own changes as they
-   now stand. If they match, review only `git diff SHA...HEAD`. Otherwise
-   review the whole pull request, `git diff origin/main...HEAD`. Use
-   `origin/main` rather than the base SHA you were given, which comes from
-   the event and can be older than a merge from main.
+   `git merge-base SHA origin/DEFAULT` with
+   `git merge-base HEAD origin/DEFAULT`.
+   If they differ, the default branch was merged in since that review, so
+   review `git diff origin/DEFAULT...HEAD`, the pull request's own changes
+   as they now stand. If they match, review only `git diff SHA...HEAD`.
+   Otherwise review the whole pull request,
+   `git diff origin/DEFAULT...HEAD`. Use `origin/DEFAULT` rather than the
+   base SHA you were given, which comes from the event and can be older
+   than a merge from the default branch.
 
    If that SHA is the head itself, this is a re-run after the author
    replied without pushing. There is no new code: read the replies since
@@ -69,9 +78,9 @@ defend.
 - **Correctness.** A defect a user would hit, a regression, a race, data
   that is silently dropped.
 - **What it was asked to do.** A Spec line or criterion from step 4 that
-  the whole pull request, `git diff origin/main...HEAD`, does not meet, or
+  the whole pull request, `git diff origin/DEFAULT...HEAD`, does not meet, or
   meets only in part, is a finding, since the merge closes the issue as
-  done: High when a visitor would see the gap, Medium otherwise. Behavior
+  done: High when a user would see the gap, Medium otherwise. Behavior
   no line asked for is Medium, unless the body or the owner's comments on
   the pull request explain it. Quote the line either way.
 - **Tests that cannot fail.** A test whose name and body disagree, a

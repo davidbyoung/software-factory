@@ -1,12 +1,12 @@
 ---
 name: factory-resolve-conflicts
-description: Resolve the merge conflicts between main and the open pull requests: the conflict sweep that runs after each push to the default branch and nightly, and the conflict fix factory-address-review calls for one pull request. Use when asked to resolve the conflicts on a pull request, and as the run a workflow starts for the sweep.
+description: Resolve the merge conflicts between the default branch and the open pull requests: the conflict sweep that runs after each push to the default branch and nightly, and the conflict fix factory-address-review calls for one pull request. Use when asked to resolve the conflicts on a pull request, and as the run a workflow starts for the sweep.
 ---
 
 # Resolving conflicts
 
 One workflow starts the conflict sweep, and a local `factory-address-review`
-session calls "A conflict with main" when its pull request conflicts.
+session calls "A conflict with the default branch" when its pull request conflicts.
 Working the review itself, the threads, the checks, the coverage report,
 the replies, the rounds, and the report, is in the `factory-address-review`
 skill, as is the run a review of the owner's starts; this one says what a
@@ -24,7 +24,7 @@ prints. The commands below write it as DEFAULT.
 
 Asked to resolve the conflicts on one pull request N, a session skips the
 sweep: it checks the stop marker and that the sweep's queue admits the pull
-request, as "A conflict with main" says, runs that section for N, and then
+request, as "A conflict with the default branch" says, runs that section for N, and then
 works the review of its push as `factory-address-review` section 0 says.
 
 ## The conflict sweep
@@ -33,11 +33,11 @@ Run as "the conflict sweep", by the workflow that starts after each push
 to the default branch and nightly. It ran `factory pr conflicts` first,
 which is steps 1 to 3 below, and starts a session only when it exits 0.
 Read what it read again, since time has passed. It finds every pull request that conflicts with
-main and sends each through "A conflict with main" and then its review.
+the default branch and sends each through "A conflict with the default branch" and then its review.
 
 1. **List the queue**, oldest first. Drafts, Dependabot's (the
    `factory-deps` skill keeps those), forks, and pull requests
-   not based on main are left alone:
+   not based on the default branch are left alone:
 
    ```bash
    npx --no-install factory pr conflicts
@@ -57,14 +57,14 @@ main and sends each through "A conflict with main" and then its review.
    ```
 
    `dirty` is a conflict. `clean`, `behind`, `blocked`, `unstable`, and
-   `has_hooks` are not, and a pull request that is only behind main is
-   not touched. The code host works the state out lazily, so it is often
+   `has_hooks` are not, and a pull request that is only behind the default
+   branch is not touched. The code host works the state out lazily, so it is often
    `unknown` just after a merge: read it up to 5 times, 10 seconds apart.
    Still `unknown` is a skip, which the next merge or the nightly sweep
    retries.
 
 3. **Skip a pull request with a stop comment for its current head**
-   ("A conflict with main", "Stopping"). Look for the marker with the head's SHA; a
+   ("A conflict with the default branch", "Stopping"). Look for the marker with the head's SHA; a
    marker for an older head does not count, since a new push may have
    settled it:
 
@@ -95,7 +95,7 @@ main and sends each through "A conflict with main" and then its review.
    with it.
 
 5. **Each conflicted pull request in turn**, oldest first: run "A
-   conflict with main". If it ended `fixed`, work the review of that push
+   conflict with the default branch". If it ended `fixed`, work the review of that push
    as `factory-address-review` section 0 describes, under that skill as a whole, its
    preamble through section 8, and step 6 of the owner's-review run in
    `factory-address-review`, before the next pull request, so a
@@ -104,16 +104,16 @@ main and sends each through "A conflict with main" and then its review.
 6. **Report** each pull request as `skip` (with why), `fixed`, or
    `stopped`, as `factory-address-review` section 8 lays out.
 
-## A conflict with main
+## A conflict with the default branch
 
 The fix and the stop, used by the sweep and by any other `factory-address-review` run
 that finds the pull request `dirty` (its section 0). Only a pull request the
-sweep's queue admits is fixed here: based on main, not a draft, not
+sweep's queue admits is fixed here: based on the default branch, not a draft, not
 Dependabot's, and not from a fork. `dirty` means a conflict with the pull
-request's own base, so merging main into one stacked on another branch
-would not fix it.
+request's own base, so merging the default branch into one stacked on
+another branch would not fix it.
 
-This run merges main into the branch. It never rebases, never force
+This run merges the default branch into the branch. It never rebases, never force
 pushes, never merges the pull request, approves it, turns on auto-merge,
 marks a draft ready, or adds the `verdict: override` label. Its push
 removes an existing override, as any push does.
@@ -128,12 +128,12 @@ Work from `origin` refs, since a run may start on another commit:
 
 ```bash
 git fetch origin && git switch BRANCH && git pull --no-rebase origin BRANCH
-git merge origin/main
+git merge origin/DEFAULT
 git diff --name-only --diff-filter=U
 git log --merge --format='%h %s' -- FILE
 ```
 
-Each `(#N)` in that log names a pull request on main's side. Before
+Each `(#N)` in that log names a pull request on the default branch's side. Before
 editing, read it and the issue it closes, and read the pull request being
 fixed and the issue it closes, so the resolution keeps what each set out
 to do. Read the rules for the area a conflicted file is in ("Rules by
@@ -166,11 +166,13 @@ would fail the gate and read as a false stop.
 
 ### Gate
 
-Run the gate ("After every code change" in `CLAUDE.md`). Then, when
-`git diff --name-only origin/main...HEAD` lists anything the end-to-end
-suite covers, which that section names, install its browser and run the
-suite, so a missing browser does not read as a failed gate. Run the spec
-check when a file under `openspec/` conflicted.
+Run the gate, `npx --no-install factory gate`. Then, when
+`git diff --name-only origin/DEFAULT...HEAD` lists anything the
+repository's end-to-end suite covers, which its `CLAUDE.md` names, install
+what the suite needs, such as a browser, and run the suite as `CLAUDE.md`
+says, so a missing browser does not read as a failed gate. Run the spec
+check, `npx --no-install factory specs check`, when a file under
+`openspec/` conflicted.
 
 Fix what the merge broke and run the gate once more. A second failure is
 a stop.
@@ -178,7 +180,8 @@ a stop.
 ### Commit and push
 
 Commit as one merge commit whose message says what was carried, such as
-"Merge main: carry #129's round shapes onto the nav's inner squares". No
+"Merge main: carry #129's round shapes onto the nav's inner squares" where
+the default branch is called `main`. No
 attribution trailer; signing as `factory-address-review` section 5 says. Push to the
 pull request's own branch only, never with force.
 
@@ -200,8 +203,8 @@ passed, and that a new review runs on this commit. End it with:
 <!-- agent -->
 ```
 
-> Merged main to clear a conflict with #129. `Search.tsx`,
-> `MobileMenu.tsx`, and `HeaderMenu.tsx` conflicted: #129 put
+> Merged the default branch to clear a conflict with #129. The search
+> box, the phone menu, and the header menu conflicted: #129 put
 > round shapes on the buttons, and this pull request draws them on inner
 > squares inside larger targets. I kept both by moving the shapes to the
 > inner squares. The gate and end-to-end tests pass. A new review runs on
@@ -248,7 +251,7 @@ once the merge is committed locally. Then:
    comment on it instead. Never close one; the owner does.
 
    ```bash
-   TITLE="#N: merge conflict with main needs a decision"
+   TITLE="#N: merge conflict with the default branch needs a decision"
    EXISTING=$(npx --no-install factory ticket list --title "$TITLE" | cut -f1 | head -1)
    if [ -n "$EXISTING" ]; then
      npx --no-install factory ticket comment "$EXISTING" --body-file issue.md

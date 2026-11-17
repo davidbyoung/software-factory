@@ -87,11 +87,11 @@ depends on the one before.
 
 1. **A scratch worktree of the default branch**, and the change made in
    it. Note what `git worktree list` shows first. From the checkout this
-   session works in, with the repository's default branch in place of
-   `main`:
+   session works in, with the default branch's name, which
+   `npx --no-install factory default-branch` prints, in place of DEFAULT:
 
    ```bash
-   git worktree add --detach ../mockup-SLUG origin/main
+   git worktree add --detach ../mockup-SLUG origin/DEFAULT
    ```
 
    An option is its own worktree, made the same way. The change need not

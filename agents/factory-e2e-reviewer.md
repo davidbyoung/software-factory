@@ -52,7 +52,7 @@ fixed waits, `force`, `networkidle`, and non-web-first assertions.
 - Locators are found the way a user finds things: role and label first,
   test ids only where a name changes on purpose, CSS only inside a page
   object.
-- No styling class, such as a Tailwind class, in an assertion.
+- No styling class, such as a utility class, in an assertion.
 - Names in page objects say what a thing is to the user (`filterPill`,
   `matchCount`), not how it is found.
 - No duplication a page object should own, and no page object method that

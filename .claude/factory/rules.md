@@ -13,7 +13,7 @@ and a pull request's conversation comments and labels through
 
 A change is small when it changes under about 30 lines outside tests,
 specs, and content, and adds no component and no state, whether or not a
-visitor sees it: a style tweak, a bug fix, a link, or a line of copy. Its
+user sees it: a style tweak, a bug fix, a link, or a line of copy. Its
 size decides, not its kind; content the repository reviews by what changed
 instead is named in "Small changes: this repository" in `CLAUDE.md`. A
 follow-ups build is sized by its lines: when every line is small, its one
@@ -29,7 +29,7 @@ here rather than restate it.
 - **Say the size first.** The first message of the work names the path,
   such as "small: one test, red first, one UI reviewer read", so the
   owner can overrule it before the work starts rather than halfway through.
-- **No `spec` label**, even when a visitor sees it: the issue's acceptance
+- **No `spec` label**, even when a user sees it: the issue's acceptance
   criteria are the spec. No OpenSpec change either, unless the change makes
   a line of `openspec/specs/` false, as renaming a label a spec quotes
   would. That issue also carries a Spec section of the changed line, and
@@ -54,7 +54,7 @@ here rather than restate it.
   change, not one per way the code could break. A script proves each
   behavior this way: script defects here have been silent data loss.
 - **Choices.** One that is not layout, such as which page, what label, or
-  what it links to, is asked in plain English, saying what a visitor would
+  what it links to, is asked in plain English, saying what a user would
   see. A layout or style choice gets no mockup round: build the
   recommendation, put the UI reviewer's screenshots of it in the pull
   request body, and leave the pull request a draft for the owner to mark
@@ -69,12 +69,14 @@ here rather than restate it.
 
 ## Branching, pushing, and review
 
-`main` is protected: no direct pushes, no bypass, CI must pass, and every
+The default branch, whose name `npx --no-install factory default-branch`
+prints, is protected: no direct pushes, no bypass, CI must pass, and every
 review thread must be resolved before a merge. Work accordingly rather than
 discovering it at push time.
 
-- **Never commit on `main`.** If `main` is checked out, create a branch from
-  the latest origin/main first and say which branch you made. Reuse the
+- **Never commit on the default branch.** If it is checked out, create a
+  branch from the latest copy of it on `origin` first and say which branch
+  you made. Reuse the
   current feature branch when one is already checked out; a feature usually
   spans several commits.
 - **Push the branch after each coherent change.** Small commits are the point;
@@ -113,8 +115,8 @@ discovering it at push time.
   wait for the review of that push, then work it with the `factory-address-review` skill
   without being asked. If no PR exists yet, say so in one line: review begins
   when the user opens one.
-- **A conflict with main is fixed through the `factory-resolve-conflicts` skill.** Its
-  sweep runs after each merge into main and nightly, on every ready pull
+- **A conflict with the default branch is fixed through the `factory-resolve-conflicts` skill.** Its
+  sweep runs after each merge into the default branch and nightly, on every ready pull
   request that conflicts, and a session working a pull request with
   `factory-address-review` runs its conflict fix before anything else. When the two
   sides contradict, it pushes nothing, comments why, and opens an issue.
@@ -158,7 +160,7 @@ owner. Its `Who merges` status in the checks list says which, and why.
 Agents never merge, enable auto-merge, or add the `verdict: override`
 label, the owner's pass of the verdict for one commit; `factory pr label`
 and `factory ticket label` refuse it, and the guard hook stops the ordinary
-ways of adding it around them. Both workflows run from main's copy,
+ways of adding it around them. Both workflows run from the default branch's copy,
 so a pull request cannot change how it is judged, and changes to them are
 always the owner's.
 
@@ -173,7 +175,7 @@ into `openspec/specs/` in the same pull request. `openspec/specs/` is the
 current description of what the repository does; a change to it starts by
 reading its spec.
 
-A change that adds or alters behavior a visitor can see carries the
+A change that adds or alters behavior a user can see carries the
 `spec` label, which `factory-refine` adds, unless it is small ("Small
 changes" above). Everything else, such as copy, bug fixes that
 restore intended behavior, style tweaks, tooling, CI, and docs, builds
@@ -226,7 +228,7 @@ labeled `follow-up`, holding a checklist. A line leads with the file or
 page it is about:
 
 ```
-- [ ] <file or page>: <what is wrong, as a visitor or a maintainer sees it>. Found by <who> while building #N. <The rule it breaks, by its section in the guide that states it (an area's guide under "Rules by area" in CLAUDE.md, CLAUDE.md, or this file), or "Needs a decision: <the question>".>
+- [ ] <file or page>: <what is wrong, as a user or a maintainer sees it>. Found by <who> while building #N. <The rule it breaks, by its section in the guide that states it (an area's guide under "Rules by area" in CLAUDE.md, CLAUDE.md, or this file), or "Needs a decision: <the question>".>
 ```
 
 It is added with the file and the rest of the line as two arguments, and
@@ -254,7 +256,7 @@ hook refuses the same in text sent to GitHub directly, as the
   builder that meets such a line without the phrase adds it and leaves
   the line unchecked.
 - A follow-up gets its own issue only when it would need the `spec` label,
-  because it adds or alters behavior a visitor can see, or would make a
+  because it adds or alters behavior a user can see, or would make a
   line of `openspec/specs/` false. A request from the owner is always its
   own issue.
 - The `factory-resolve-conflicts` conflict stop keeps opening its own issue: which side
@@ -273,7 +275,7 @@ touches a file that does, and gets the fresh-agent trace ("Changing the
 process") when any line edits a rule.
 
 **Not everything noticed is a follow-up.** What breaks no rule in the
-guides, and what a visitor or a maintainer would not notice without
+guides, and what a user or a maintainer would not notice without
 measuring, gets no line and no fix. Once, every line left on a follow-ups
 issue came from reviewing the previous batch's fixes, including a 1 px
 jump, and each line's fix was reviewed in turn, so the list kept refilling

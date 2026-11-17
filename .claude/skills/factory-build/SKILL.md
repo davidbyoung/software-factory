@@ -14,6 +14,12 @@ and every pull request's conversation through `factory pr`, so the skill
 works whatever the ticket system. A command that cannot read exits
 nonzero with the error: that is a failed read, never an empty answer.
 
+Every command a build runs is the settings' own: the gate, one test, an
+end-to-end spec, and the spec check each have a `factory` command below
+that runs what `.claude/factory.yaml` lists under `commands` and `specs`.
+The default branch's name is what `npx --no-install factory default-branch`
+prints, and the commands below write it as DEFAULT.
+
 ## How a build starts
 
 - **Local:** the owner tells a session to work an issue by number. The
@@ -203,20 +209,20 @@ step 2 with the proposal and spec delta only, and step 4.
 
 First, `git status --short`. If it shows anything, stop and ask the user
 whether to commit it, on the current branch or on a new branch of its own if
-the current one is `main`, or to stash it with `git stash -u`. A plain
+the current one is the default branch, or to stash it with `git stash -u`. A plain
 `git stash` leaves untracked files behind. A switch carries
 uncommitted changes onto the new branch, where the issue's commit would sweep
 them into its PR, and refuses outright when a changed file differs between
 the branches.
 
-Then, from the latest origin/main, named for the issue:
+Then, from the latest default branch on `origin`, named for the issue:
 
 ```bash
 git fetch origin
-git switch -c issue-N-short-slug origin/main
+git switch -c issue-N-short-slug origin/DEFAULT
 ```
 
-If the branch you left has commits not on origin/main, name it in the
+If the branch you left has commits not on `origin/DEFAULT`, name it in the
 report, so that work is not lost.
 
 ## 2. Create the change from the issue (`spec`, or a Spec section)
@@ -251,7 +257,7 @@ validates and archives a change without `design.md` or `tasks.md`.
 Then check that every Spec line is exactly one scenario and every
 scenario is a Spec line. If one does not map, stop and comment on the
 issue with the line and why, rather than rewording it to fit. Run the
-spec check ("After every code change" in `CLAUDE.md`), and commit the
+spec check, `npx --no-install factory specs check`, and commit the
 change on its own.
 
 ## 3. Build it
@@ -280,7 +286,8 @@ content follows that path.
   and say why in the pull request.
 - Write the test first, where there is a defect to reproduce or a behavior
   to add, and watch it fail before making the change, as the area's rules
-  for tests say ("Rules by area" in `CLAUDE.md`).
+  for tests say ("Rules by area" in `CLAUDE.md`). One test runs alone with
+  `npx --no-install factory test-one FILE NAME`.
 - A small change takes the path in "Small changes" in
   `.claude/factory/rules.md` instead of the next two items.
 - Prove each new test can fail, by its red run or the prover, the skill
@@ -318,15 +325,24 @@ request:
 DO_NOT_TRACK=1 npx --no-install openspec archive issue-N-short-slug --yes
 ```
 
-Then run the spec check ("After every code change" in `CLAUDE.md`).
+Then run the spec check, `npx --no-install factory specs check`.
 
 ## 5. Gate, commit, push
 
-Run the gate ("After every code change" in `CLAUDE.md`).
+Run the gate:
 
-Run the end-to-end specs the change added or changed, with
-`--repeat-each=10` for a new one, with the command "After every code
-change" in `CLAUDE.md` gives; CI runs the full suite on the draft (step 6).
+```bash
+npx --no-install factory gate
+```
+
+It runs each command under `commands.gate` in the settings, in order, and
+stops at the first that fails. When it says `commands.gate is not set`,
+stop: a build cannot finish until the settings name a gate.
+
+Run the end-to-end specs the change added or changed, where the repository
+has an end-to-end suite, each with
+`npx --no-install factory end-to-end FILE`, and a new one ten times, with
+`--times 10` after FILE; CI runs the full suite on the draft (step 6).
 Commit and push as "Branching, pushing, and review" in
 `.claude/factory/rules.md` describes: one commit per coherent change,
 describing the defect or the feature, not the issue number alone.

@@ -36,8 +36,9 @@ path is read from the rules, so the file never restates them.
 
 ## 2. Start one fresh agent
 
-The branch is the current one, and its base is the default branch,
-`origin/main` unless the pull request says otherwise. Start one
+The branch is the current one, and its base is the default branch on
+`origin`, whose name `npx --no-install factory default-branch` prints,
+unless the pull request says otherwise. Start one
 `general-purpose` agent, and give it only this:
 
 > The branch BRANCH changes this repository's process: its rules, skills,

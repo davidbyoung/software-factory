@@ -1,6 +1,6 @@
 ---
 name: factory-address-review
-description: Address a pull request's review until it can merge: the Claude review's threads and summary, the owner's comments, failed checks, patch coverage, and a conflict with main, each verified with a repro or a quoted source and answered on its thread. Use when asked to address, handle, or work the review on a pull request, after every push to a branch with an open pull request, and as the run a workflow starts for the owner's review.
+description: Address a pull request's review until it can merge: the Claude review's threads and summary, the owner's comments, failed checks, patch coverage, and a conflict with the default branch, each verified with a repro or a quoted source and answered on its thread. Use when asked to address, handle, or work the review on a pull request, after every push to a branch with an open pull request, and as the run a workflow starts for the owner's review.
 ---
 
 # Handling a pull request review
@@ -45,6 +45,9 @@ Everything here that reads or changes a pull request goes through
 `npx --no-install factory pr`. It exits nonzero with the error when a read
 fails: a failed read, never an empty answer.
 
+The default branch's name is what `npx --no-install factory default-branch`
+prints. A command below writes it as DEFAULT.
+
 ## 0. Is there anything to review yet
 
 **Started by the owner's review** ("the owner's review REVIEW_ID on #N",
@@ -55,7 +58,7 @@ The reviewer runs on pull requests, not branches. One command reads
 everything sections 0 to 1b need: the open pull request for the branch,
 its mergeable state, the `Claude review` run and summary for the head
 commit, the owner's review bodies still to answer, the unresolved review
-threads, every check, and the Codecov comment.
+threads, every check, and the coverage service's comment.
 
 ```bash
 npx --no-install factory pr state        # the branch's pull request
@@ -66,9 +69,9 @@ npx --no-install factory pr state N --wait
 coming. Say that in one line and stop; do not open one, because a PR is
 the user's call.
 
-**Then check for a conflict with main,** before anything else, from the
-report's first lines. If `mergeable` is `dirty` and the pull request is based on main, not a draft, not
-Dependabot's, and not from a fork, run "A conflict with main" in the
+**Then check for a conflict with the default branch,** before anything else, from the
+report's first lines. If `mergeable` is `dirty` and the pull request is based on the default branch, not a draft, not
+Dependabot's, and not from a fork, run "A conflict with the default branch" in the
 `factory-resolve-conflicts` skill first, including in a session woken by the desktop
 app, then carry on here: a fix is a push, so wait for its review as
 below. After a stop, no review is coming, so work the review threads that
@@ -159,9 +162,9 @@ passed.
 4. Check out the pull request's branch, Dependabot's included. Read whether
    it can merge as `factory-address-review` section 0 does, and if that is `dirty`
    and the pull request is one the conflict sweep's queue admits, run "A
-   conflict with main" in the `factory-resolve-conflicts` skill first, then work each comment as "Each owner comment"
+   conflict with the default branch" in the `factory-resolve-conflicts` skill first, then work each comment as "Each owner comment"
    below says. Run the gate ("Gate" under "A
-   conflict with main" in that skill), commit, and push to that branch
+   conflict with the default branch" in that skill), commit, and push to that branch
    only, never with force. **A push refused because the branch moved**
    means another run, working another review, pushed first: pull with
    `git pull --no-rebase`, run the gate again, and push. Then reply and
@@ -307,32 +310,45 @@ second try is a flake that will fail someone else.
 
 ## 1b. Coverage report
 
+Coverage is read from the settings, under `commands.coverage`: the command
+that measures it, and where its lcov report lands.
+
+```bash
+npx --no-install factory config get commands.coverage.run
+npx --no-install factory config get commands.coverage.report
+```
+
+**Skip this section when they print `none`:** the repository measures no
+coverage, and there is none to judge.
+
 If the repository reports to Codecov, read its checks in the same pass,
 including when the review did not run: a failed review still leaves
-coverage to judge. Its bot comments on the PR only when coverage moved
-(`codecov.yml`), so a missing comment is normal, not a failed upload.
+coverage to judge. Its bot comments on the PR only when coverage moved,
+so a missing comment is normal, not a failed upload.
 
-The report names the Codecov comment's ID, if there is one, and lists
-`codecov/patch` and `codecov/project` among the checks. Read the comment
+The report names the bot's comment's ID, if there is one, and lists the
+service's patch and project checks among the checks. Read the comment
 with `npx --no-install factory pr comment-view ID`.
 
 The comment's red cross on patch coverage is not the status check. Say which
-one failed, if either did. Neither check is required by the `main` ruleset,
-so a red one blocks nothing on its own; project coverage is gated by the
-floors in `vitest.config.ts` inside the CI check, and patch coverage by the
-verdicts below.
+one failed, if either did. Unless the default branch's ruleset requires
+them, a red one blocks nothing on its own; project coverage is gated by
+whatever floors the coverage command enforces inside the CI check, and
+patch coverage by the verdicts below.
 
 Neither the checks nor the comment name lines. Get them from the same lcov
-report CI uploads: run the project's coverage command, then
+report CI uploads: run the coverage command, the first of the two above,
+then
 
 ```bash
-python3 .claude/skills/factory-address-review/patch-coverage.py [base] [lcov]
+python3 .claude/skills/factory-address-review/patch-coverage.py origin/DEFAULT REPORT
 ```
 
 which prints each uncovered (`MISS`) or partly covered (`PART`) line in the
-branch's diff. The defaults are `origin/main` and `coverage/lcov.info`. Its
-total should roughly match Codecov's; if it does not, the local run differs
-from CI, and that has to be settled before any verdict.
+branch's diff. REPORT is the report's path, the second of the two above.
+Its total should roughly match the coverage service's, where there is one;
+if it does not, the local run differs from CI, and that has to be settled
+before any verdict.
 
 Each line gets a verdict, as a review finding does:
 
@@ -342,9 +358,9 @@ Each line gets a verdict, as a review finding does:
 - **Fine as-is**, with the reason, which must be one of these:
   - Covered by an end-to-end test, which unit coverage does not count. Name
     the test.
-  - Only runs at build time or on the server, such as a React server
-    snapshot or a static route handler, and the build exercises it.
-  - Declarative, like a route's `export const dynamic`, where the build fails
+  - Only runs at build time or on the server, such as a static route
+    handler, and the build exercises it.
+  - Declarative, like a setting a route exports, where the build fails
     without it.
   - Defensive and unreachable by construction. Say what guarantees it.
 
@@ -395,9 +411,10 @@ a rejection, not a puzzle to work around.
 - Re-run the real workload, not just the fixture: for the extractor that means
   the real corpus, and the output should be unchanged unless the fix was
   meant to change it.
-- Then run the project's own pre-commit gate, whatever its CLAUDE.md or
-  contributing docs define: formatter, type or static check, linter, tests
-  with coverage, build. Do not invent a gate, and do not skip one.
+- Then run the gate, `npx --no-install factory gate`: the commands the
+  settings list under `commands.gate`, such as a formatter, a type or
+  static check, a linter, and the tests. Do not invent a gate, and do not
+  skip one.
 
 ## 4. Record the decision on the thread
 
@@ -481,7 +498,7 @@ reviewer. Push to the PR branch.
 
 A sweep and a live session can push to the same branch, so a push can be
 refused because the branch moved. A conflict fix follows "Commit and
-push" under "A conflict with main" in the `factory-resolve-conflicts` skill. Every
+push" under "A conflict with the default branch" in the `factory-resolve-conflicts` skill. Every
 other push: pull with
 `git pull --no-rebase`, run the gate again, and push.
 
@@ -541,7 +558,7 @@ report.
 
 A table of thread, verdict and evidence: fixed, rejected or escalated. Then
 the summary-only findings, and the coverage lines, in the same form. Then
-any conflict with main: which pull request it was with, which files, and
+any conflict with the default branch: which pull request it was with, which files, and
 whether it was fixed (with the merge commit) or stopped (with why, and the
 issue opened). A sweep lists every pull request it read as `skip`, with
 why, `fixed`, or `stopped`. Then what was committed and pushed, which round this was, and what is still open
