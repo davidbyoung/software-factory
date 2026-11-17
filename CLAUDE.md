@@ -56,9 +56,6 @@ small change keeps `factory-test-reviewer` for that reason. There is no
 website and no design guide, so no style tweak needs a test, and there is
 no UI reviewer.
 
-- **A version bump** (`version` in `package.json` and the lock `factory sync`
-  rewrites) needs no new test: CI's `pack-check` and the factory check are
-  its checks.
 - **A dependency bump** is made by a session, by hand, since there is no
   Dependabot here yet. `package-lock.json` does not count toward a change's
   size, and the gate with `pack-check` is its check, with no new test.
@@ -75,11 +72,11 @@ no UI reviewer.
   to work the ticket, and the session builds it. A finished refinement's
   report says so, not that Ready builds it. Blockers still matter:
   `factory ticket claim` stops on an open one.
-- **A release is the owner's.** A pull request that should ship raises
-  `version` in `package.json` and runs `node bin/factory.js sync`, which
-  records the version in `.claude/factory.lock`; once it merges, the owner tags the merge
-  commit `vX.Y.Z` and pushes the tag, and `release.yml` publishes it after
-  CI passes on that commit (`docs/developing.md`, "Releasing").
+- **A release is the owner's.** The owner runs **Release** on the Actions
+  tab with patch, minor, or major, and `release.yml` raises the highest
+  version tag, publishes once CI passes on `main`'s commit, and tags it
+  last (`docs/developing.md`, "Releasing"). No pull request raises
+  `version`: `package.json` keeps `0.0.0-development`.
 
 ## What merges without the owner: this repository
 

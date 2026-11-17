@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  # The release runs it on the tagged commit before it publishes.
+  # The release runs it on main's commit before it publishes.
   workflow_call:
 
 permissions:

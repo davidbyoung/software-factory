@@ -14,9 +14,8 @@ as they stand, so this file never restates them.
 | A skill, an agent, or the rules: what every repository's sessions do   | `factory-deps` completing a factory update with its sync   |
 | A shipped workflow or action: what runs in every repository's CI       | the CI review shipped as `factory-claude-review.yml`       |
 | A small bug fix with no change to what a user sees                     | the commit guard passing a repository with no settings     |
-| This repository's own CI or release workflow                           | the release waiting on CI for its tagged commit            |
+| This repository's own CI or release workflow                           | the release waiting on CI for its commit                   |
 | Docs only                                                              | the quick start installing the global command              |
 | Tests only                                                             | the boundary test reading every file of the package        |
-| A release: the version raised for the owner to tag                     | 0.1.1                                                      |
 | A dependency bump                                                      | a new `js-yaml`                                            |
 | A follow-ups build                                                     | the two lines moved from the first repository's follow-ups |

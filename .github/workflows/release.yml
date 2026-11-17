@@ -1,51 +1,112 @@
-# Publishes a version to npm when its tag is pushed: `git tag v0.2.0 &&
-# git push origin v0.2.0`, once that version's pull request has merged.
-# The whole CI runs on the tagged commit first, and the version publishes
-# only when it passes, the tag matches package.json, and main has the
-# commit.
-# Then it publishes the poller's image of that version to GitHub's
-# container registry.
+# The Release button: run by hand on main, from the Actions tab, with the
+# part of the version to raise. It raises the highest vX.Y.Z tag by that
+# part, runs the whole CI on main's commit, publishes that version to npm,
+# then the poller's image of it to GitHub's container registry, and last
+# tags the commit and creates its GitHub Release. Nothing is committed:
+# package.json on main keeps a placeholder version, and the run writes the
+# real one into its own copy before publishing.
+#
+# A run that stops partway has made no tag. Re-running its failed jobs
+# finishes it on the same commit and version, since a re-run keeps the jobs
+# that passed and their outputs.
 #
 # It publishes as this repository's trusted publisher, set on the package's
-# page on npmjs.com, so no token is stored. Where that is not set up, the
-# NPM_TOKEN secret is used instead: a granular token that may publish this
-# one package. No provenance is attached, since npm gives it only to a
-# public repository.
+# page on npmjs.com for this file's name, so no token is stored. Where that
+# is not set up, the NPM_TOKEN secret is used instead: a granular token that
+# may publish this one package. No provenance is attached, since npm gives
+# it only to a public repository.
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      level:
+        description: The part of the version to raise
+        required: true
+        type: choice
+        options: [patch, minor, major]
+
+concurrency:
+  group: release
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  ci:
-    name: CI on the tagged commit
-    uses: ./.github/workflows/ci.yml
-
-  publish:
-    name: Publish to npm
-    needs: ci
+  version:
+    name: Choose the version
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+      previous: ${{ steps.next.outputs.previous }}
     steps:
-      # The whole history, so main's ancestry reaches the tagged commit.
+      - name: Check the run is on main
+        id: branch
+        run: |
+          if [ "$GITHUB_REF_NAME" != main ]; then
+            echo "Release runs only on main, not $GITHUB_REF_NAME. Nothing was published."
+            exit 1
+          fi
+
+      # The whole history, so every tag is there.
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Check main has the tagged commit
-        id: on-main
+      - name: Raise the highest version tag
+        id: next
+        env:
+          LEVEL: ${{ inputs.level }}
         run: |
-          git fetch --quiet origin main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "The tag $GITHUB_REF_NAME is on a commit main does not have. Nothing was published."
+          previous="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -n 1 || true)"
+          if [ -z "$previous" ]; then
+            echo "No vX.Y.Z tag to raise. Nothing was published."
             exit 1
           fi
+          IFS=. read -r major minor patch <<< "$previous"
+          case "$LEVEL" in
+            patch) patch=$((patch + 1)) ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            *) echo "Unknown level $LEVEL. Nothing was published."; exit 1 ;;
+          esac
+          version="$major.$minor.$patch"
+          echo "Releasing $version, after $previous."
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+
+      # npm already has it only when an earlier run published it and then
+      # stopped, and that run is the one to finish, on its own commit.
+      - name: Check npm does not have the version
+        id: unpublished
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          if curl -fs -o /dev/null "https://registry.npmjs.org/@davidbyoung%2fsoftware-factory/$VERSION"; then
+            echo "npm already has $VERSION. Re-run the failed jobs of the run that published it. Nothing was published."
+            exit 1
+          fi
+
+  ci:
+    name: CI on main's commit
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish to npm
+    needs: [version, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -57,32 +118,33 @@ jobs:
       - name: Update npm
         run: npm install -g npm@11
 
-      - name: Check the tag matches the package's version
-        id: version
-        run: |
-          version="$(node -p "require('./package.json').version")"
-          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
-            echo "The tag $GITHUB_REF_NAME does not match package.json's version, $version. Nothing was published."
-            exit 1
-          fi
-          echo "Publishing $version."
-
       - name: Install dependencies
         run: npm ci
 
+      - name: Set the version in this copy
+        run: npm version "$VERSION" --no-git-tag-version
+
       - name: Publish
-        run: npm publish --access public
+        id: publish
+        run: |
+          if curl -fs -o /dev/null "https://registry.npmjs.org/@davidbyoung%2fsoftware-factory/$VERSION"; then
+            echo "npm already has $VERSION, so it was not published again."
+            exit 0
+          fi
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   image:
     name: Publish the poller's image
-    needs: publish
+    needs: [version, publish]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -91,12 +153,11 @@ jobs:
       # accepted, and the image installs it from there.
       - name: Wait for the version on npm
         run: |
-          version="${GITHUB_REF_NAME#v}"
           for _ in $(seq 1 30); do
-            npm view "@davidbyoung/software-factory@$version" version >/dev/null 2>&1 && exit 0
+            npm view "@davidbyoung/software-factory@$VERSION" version >/dev/null 2>&1 && exit 0
             sleep 10
           done
-          echo "npm did not serve $version within five minutes. No image was published."
+          echo "npm did not serve $VERSION within five minutes. No image was published."
           exit 1
 
       - name: Log in to GitHub's container registry
@@ -106,9 +167,26 @@ jobs:
 
       - name: Build and push
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          docker build -f poller.Dockerfile --build-arg VERSION="$version" \
-            -t "ghcr.io/davidbyoung/software-factory-poller:$version" \
+          docker build -f poller.Dockerfile --build-arg VERSION="$VERSION" \
+            -t "ghcr.io/davidbyoung/software-factory-poller:$VERSION" \
             -t "ghcr.io/davidbyoung/software-factory-poller:latest" .
-          docker push "ghcr.io/davidbyoung/software-factory-poller:$version"
+          docker push "ghcr.io/davidbyoung/software-factory-poller:$VERSION"
           docker push "ghcr.io/davidbyoung/software-factory-poller:latest"
+
+  release:
+    name: Tag and create the GitHub Release
+    needs: [version, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      PREVIOUS: ${{ needs.version.outputs.previous }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # The earlier versions have tags but no GitHub Release, so the notes
+      # are given their start rather than left to GitHub.
+      - name: Tag and release
+        run: gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --notes-start-tag "v$PREVIOUS"
