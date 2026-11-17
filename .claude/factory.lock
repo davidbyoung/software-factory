@@ -3,7 +3,6 @@
 version: 0.0.0-development
 files:
   - .claude/skills/factory-address-review/SKILL.md
-  - .claude/skills/factory-address-review/patch-coverage.py
   - .claude/skills/factory-build/SKILL.md
   - .claude/skills/factory-diagnose/SKILL.md
   - .claude/skills/factory-mutate/SKILL.md

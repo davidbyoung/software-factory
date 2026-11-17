@@ -27,25 +27,33 @@ not compiling proves nothing; choose another.
 
 Each one copies the file aside, applies the edit, runs only the relevant test
 file, and restores the original whatever happens. Put the script in the
-scratchpad, not the repo:
+scratchpad, not the repo, as `mutate.mjs`, and run it with `node`:
 
-```python
-import shutil, subprocess
+```js
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 
-MUTATIONS = [
-    # (source file, exact text, replacement, test file)
-    ("lib/x.ts", "if (a && b)", "if (a)", "tests/x.test.ts"),
-]
-for path, old, new, test in MUTATIONS:
-    original = open(path).read()
-    assert original.count(old) == 1, (path, old)
-    try:
-        open(path, "w").write(original.replace(old, new))
-        failed = subprocess.run(["npx", "vitest", "run", test],
-                                capture_output=True).returncode != 0
-    finally:
-        open(path, "w").write(original)
-    print("RED  " if failed else "GREEN", path, old)
+const MUTATIONS = [
+  // [source file, exact text, replacement, test file]
+  ["lib/x.ts", "if (a && b)", "if (a)", "tests/x.test.ts"],
+];
+for (const [path, old, replacement, test] of MUTATIONS) {
+  const original = readFileSync(path, "utf8");
+  if (original.split(old).length !== 2)
+    throw new Error(`${path}: not exactly once: ${old}`);
+  let failed;
+  try {
+    // A function, so a "$" in the replacement is not read as a pattern.
+    writeFileSync(
+      path,
+      original.replace(old, () => replacement),
+    );
+    failed = spawnSync("npx", ["vitest", "run", test]).status !== 0;
+  } finally {
+    writeFileSync(path, original);
+  }
+  console.log(failed ? "RED  " : "GREEN", path, old);
+}
 ```
 
 Use the project's own test command. For a coverage-instrumented runner,
