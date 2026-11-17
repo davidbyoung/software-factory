@@ -14,7 +14,7 @@
 
 ## 4. The workflow
 
-- [ ] 4.1 `workflows/factory-poller.yml`, its `NEEDS` entry and cron rewrite in `src/sync.mts`; tests in `tests/sync.test.ts` that it is written for `github-action` with each interval's cron, deleted otherwise, and has the concurrency group (lines 5 to 7), reading the YAML as `tests/release-workflow.test.ts` does
+- [x] 4.1 `workflows/factory-poller.yml`, its `NEEDS` entry and cron rewrite in `src/sync.mts`; tests in `tests/sync.test.ts` that it is written for `github-action` with each interval's cron, deleted otherwise, and has the concurrency group (lines 5 to 7), reading the YAML as `tests/release-workflow.test.ts` does
 
 ## 5. `init`, `doctor`, `remove`, and `status`
 

@@ -65,6 +65,11 @@ beforeEach(() => {
   put(pkg, "agents/factory-ui-reviewer.md", "ui\n");
   put(pkg, "skills/factory-deps/SKILL.md", "deps\n");
   put(pkg, "workflows/factory-deps-auto-merge.yml", "deps merge\n");
+  put(
+    pkg,
+    "workflows/factory-poller.yml",
+    'on:\n  schedule:\n    - cron: "*/5 * * * *"\n',
+  );
 });
 
 /** A session workflow with its two time lines, as the package's are. */
@@ -324,6 +329,47 @@ describe("factory sync", () => {
     expect(read(".github/workflows/factory-merge-policy.yml")).toBeNull();
     expect(read(".github/workflows/factory-check.yml")).toBe("check\n");
   });
+
+  it("writes the scheduled poller only with the github-action trigger, and deletes it once the trigger changes", async () => {
+    const scheduled = {
+      tickets: { board: 3 },
+      builds: { trigger: "github-action" },
+    };
+    await sync([], settings());
+    expect(read(".github/workflows/factory-poller.yml")).toBeNull();
+
+    await sync([], settings(scheduled));
+    expect(read(".github/workflows/factory-poller.yml")).toContain("cron:");
+
+    await sync(
+      [],
+      settings({ tickets: { board: 3 }, builds: { trigger: "own-server" } }),
+    );
+    expect(read(".github/workflows/factory-poller.yml")).toBeNull();
+  });
+
+  it.each([
+    [undefined, "*/5 * * * *"],
+    [10, "*/10 * * * *"],
+    [15, "*/15 * * * *"],
+    [30, "*/30 * * * *"],
+    [60, "0 * * * *"],
+  ])(
+    "schedules the poller for builds.poll-minutes %s",
+    async (minutes, cron) => {
+      await sync(
+        [],
+        settings({
+          tickets: { board: 3 },
+          builds: { trigger: "github-action", "poll-minutes": minutes },
+        }),
+      );
+
+      expect(read(".github/workflows/factory-poller.yml")).toBe(
+        `on:\n  schedule:\n    - cron: "${cron}"\n`,
+      );
+    },
+  );
 
   it("writes the CI review only while ci-review is written, and deletes it once it is gone", async () => {
     await sync([], settings());

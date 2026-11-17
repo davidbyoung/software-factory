@@ -59,7 +59,22 @@ const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
   "workflows/factory-board-sync.yml": (s) => s.tickets.board !== null,
   "workflows/factory-merge-policy.yml": (s) => s.autoMerge.allow.length > 0,
   "workflows/factory-claude-review.yml": (s) => s.ciReview !== null,
+  "workflows/factory-poller.yml": (s) => s.builds.trigger === "github-action",
 };
+
+const POLLER_WORKFLOW = "workflows/factory-poller.yml";
+
+/** The scheduled poller's workflow, its one `cron` line set to run every
+ * `minutes`: on the hour for 60, every N minutes past it otherwise. */
+export function withSchedule(text: string, minutes: number, file: string) {
+  const pattern = /^(\s+- cron: )"[^"]*"$/gm;
+  if ((text.match(pattern) ?? []).length !== 1)
+    throw new Error(
+      `${file}: expected one cron line, to set the poller's schedule`,
+    );
+  const cron = minutes === 60 ? "0 * * * *" : `*/${minutes} * * * *`;
+  return text.replace(pattern, (_, lead) => `${lead}"${cron}"`);
+}
 
 /** The workflows that run a Claude session, by the kind of session each
  * runs. */
@@ -416,7 +431,9 @@ export function plan(pkg: string, root: string, s: Settings): Plan {
       to,
       kind && from.startsWith("workflows/")
         ? withMinutes(text, s.sessionMinutes[kind], from)
-        : withRules(text, s.rules, from),
+        : from === POLLER_WORKFLOW
+          ? withSchedule(text, s.builds.pollMinutes, from)
+          : withRules(text, s.rules, from),
     );
   }
   const launcher = launcherPath(pkg, root, manifest.name);
