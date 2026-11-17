@@ -15,16 +15,16 @@ and the [reference](github/reference.md#workflows) has what runs there.
 | ----------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
 | Ask a session: "build ticket 12"    | In that session, wherever you opened it | Nothing                                                           |
 | Run `factory build 12`              | In the cloud                            | Builds in the cloud set up                                        |
-| Move the ticket to Ready on a board | In the cloud, within a minute or a few  | Builds in the cloud set up, and [the poller](#the-poller) running |
+| Move the ticket to Ready on a board | In the cloud, at the poller's next pass | Builds in the cloud set up, and [the poller](#the-poller) running |
 
 Which of the last two you use is `builds.trigger` in your
 [settings](configuration.md#builds):
 
-| `trigger`       | Moving a ticket to Ready                                                                     |
-| --------------- | -------------------------------------------------------------------------------------------- |
-| `manual`        | Records your approval and starts nothing. The default                                        |
-| `own-server`    | Starts a build within a minute, through the poller you host                                  |
-| `github-action` | Starts one within 5 to 15 minutes, from a schedule on the cloud runner, with nothing to host |
+| `trigger`       | Moving a ticket to Ready                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `manual`        | Records your approval and starts nothing. The default                                                             |
+| `own-server`    | Starts a build within a minute, through the poller you host                                                       |
+| `github-action` | Starts one at the next pass of a schedule on the cloud runner, every `poll-minutes` minutes, with nothing to host |
 
 `manual` is a fine place to stay. Asking a session and running
 `factory build` work whatever the trigger.
@@ -204,7 +204,7 @@ the factory never deploys it.
 | `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck             | Read its log                                                                                 |
 | A comment saying a build could not start, with a refusal from the code host | The token cannot start a build          | Give it what [the setup](github/setup.md#secrets) names, then move the ticket to Ready again |
 | The board stops updating                                                    | The board's token is missing or expired | Replace it. The poller uses the same token                                                   |
-| A ticket in Ready is skipped                                                | It is blocked by an open ticket         | It starts within a minute of the blocker closing                                             |
+| A ticket in Ready is skipped                                                | It is blocked by an open ticket         | It starts at the poller's first pass after the blocker closes                                |
 
 ## A scheduled poller: `github-action`
 
@@ -224,9 +224,10 @@ you host. Two passes never overlap: a late one waits for the one before.
 It is slower and can cost more than the poller you host, so know how
 before choosing it:
 
-- **It starts a build 5 to 15 minutes after the card moves.** The schedule
-  runs every `builds.poll-minutes` minutes, 5 at the fastest, and the
-  cloud runner starts scheduled runs late when it is busy.
+- **It starts a build at its next pass.** The schedule runs every
+  `builds.poll-minutes` minutes, 5 at the fastest, and the cloud runner
+  starts scheduled runs late when it is busy: at 5, a build starts 5 to 15
+  minutes after the card moves, and longer at a longer interval.
 - **It costs Actions minutes on a private repository.** Each pass is billed
   as at least a minute, whether or not a card was Ready. A public
   repository pays nothing.
@@ -247,6 +248,18 @@ before choosing it:
 
 `factory status` flags a Ready card "not started, is the factory-poller
 workflow running?" once it has waited the interval and 15 minutes more.
+
+**Moving from a poller you host to the schedule,** stop the one you host:
+both would start builds, and each start comment counts toward the 20 an
+hour.
+
+### When the schedule fails
+
+| What you see                                                                                 | What happened                                                 | What to do                                             |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------ |
+| `factory status` flags a Ready ticket "not started, is the factory-poller workflow running?" | The workflow failed, or the code host switched it off         | Run `factory doctor`, and read the workflow's last run |
+| `factory doctor` says `factory-poller.yml is disabled`                                       | The code host switched the schedule off in a quiet repository | Do what `doctor` says to switch it back on             |
+| A failed run of the workflow saying `not polling: FACTORY_BOARD_TOKEN not set`               | The board's token is not a secret here                        | Run `factory init` to add it                           |
 
 [The reference](github/reference.md#limits) has GitHub's own numbers.
 

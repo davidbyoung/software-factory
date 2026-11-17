@@ -102,7 +102,7 @@ That is why a ticket's history survives even if the board is rebuilt.
 When building one ticket first would break another, or mean redoing work,
 the second is recorded as blocked by the first, using the ticket system's
 own relationship between tickets. A build never starts on a ticket with an open blocker, and
-starts within a minute of the blocker closing if the ticket is in Ready.
+starts at the poller's first pass after the blocker closes if the ticket is in Ready.
 
 Two tickets touching the same file is not a blocker. That is a merge
 conflict, and the session that owns the pull request resolves it.

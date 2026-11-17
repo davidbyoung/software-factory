@@ -90,7 +90,8 @@ workflow", and the ticket's number. The board's "Runs in" field then shows
 tool call the session was denied, with the reason.
 
 The poller starts `factory-build.yml` on the repository's default branch,
-which it reads once when it starts. The run does no start check of its
+which a poller you host reads once when it starts, and a scheduled pass on
+each run. The run does no start check of its
 own: only someone with write access can start a workflow.
 
 A review on a pull request that conflicts with the default branch starts

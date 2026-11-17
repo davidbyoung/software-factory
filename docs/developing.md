@@ -264,8 +264,9 @@ settings and reaches a pull request, with
 
 A command that a workflow also runs, such as `factory pr`, does not read
 the settings there, so an unreadable settings file cannot fail the
-workflow's step; it asks for the default. The poller has no settings at
-all and names its implementations itself.
+workflow's step; it asks for the default. The poller you host has no
+settings at all and names its implementations itself; a scheduled pass
+reads the settings only for its board and Ready column.
 
 | Operation                                | In `CodeHost`                                       | What it returns or does                                                                                                                                                                                                                  |
 | ---------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -418,7 +419,12 @@ last row is the only real proof that a change to one still works.
 3. The release workflow runs the whole CI on the tagged commit, the same
    jobs a pull request gets. Only once they pass does it check that the tag
    matches `package.json` and that `main` has the commit, then publish the
-   version to npm.
+   version to npm, and then the poller's image of that version to GitHub's
+   container registry.
+4. After the first release that publishes the image, pull it with no
+   sign-in: `docker logout ghcr.io` and
+   `docker pull ghcr.io/davidbyoung/software-factory-poller:VERSION`. If it
+   is refused, set the package to Public on its GitHub page, once.
 
 The first version, 0.1.0, was published by hand, since npm sets up a
 trusted publisher only for a package that exists:
