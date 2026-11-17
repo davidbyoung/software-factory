@@ -7,10 +7,11 @@ import {
   existsSync,
   readdirSync,
   readFileSync,
+  rmdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   parseSettings,
   repoRoot,
@@ -132,6 +133,13 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
 
   for (const p of deletes)
     rmSync(join(d.root, p), { recursive: true, force: true });
+  // A folder the deletions emptied goes too, up to the root.
+  for (const p of deletes)
+    for (let dir = dirname(p); dir !== "."; dir = dirname(dir)) {
+      const at = join(d.root, dir);
+      if (!existsSync(at) || readdirSync(at).length) break;
+      rmdirSync(at);
+    }
   for (const c of changes)
     if (c.text === null) rmSync(join(d.root, c.path), { force: true });
     else writeFileSync(join(d.root, c.path), c.text);

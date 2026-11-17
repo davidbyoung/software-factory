@@ -168,6 +168,19 @@ describe("factory remove", () => {
     expect(r.read("CLAUDE.md")).toBe("# Our project\n\nUse tabs.\n");
   });
 
+  it("deletes a folder its deletions emptied, and keeps one that holds yours", async () => {
+    const r = remove({});
+    await r.run();
+    for (const path of [".github/actions", ".claude/factory"])
+      expect(r.has(path)).toBe(false);
+    for (const path of [
+      ".claude/skills",
+      ".claude/agents",
+      ".github/workflows",
+    ])
+      expect(r.has(path)).toBe(true);
+  });
+
   it("leaves what is yours", async () => {
     const r = remove({});
     await r.run();
