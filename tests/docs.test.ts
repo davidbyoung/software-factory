@@ -565,6 +565,25 @@ describe("the docs", () => {
     expect(found).toEqual([]);
   });
 
+  it("list pr uncovered under Pull requests, with what it prints and both defaults", () => {
+    const section = read(CLI)
+      .split(/^### /m)
+      .find((part) => part.startsWith("Pull requests"));
+    const row = section
+      ?.split("\n")
+      .find((line) =>
+        line.startsWith("| `factory pr uncovered [BASE] [LCOV]`"),
+      );
+
+    for (const said of [
+      "`MISS`",
+      "`PART`",
+      "default branch",
+      "`coverage/lcov.info`",
+    ])
+      expect(row).toContain(said);
+  });
+
   it("give every table a header row with words in it", () => {
     const found = pages().flatMap((page) => {
       const lines = read(page).split("\n");
