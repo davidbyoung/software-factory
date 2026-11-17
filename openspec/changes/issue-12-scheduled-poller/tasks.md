@@ -35,6 +35,6 @@
 
 ## 8. Verify
 
-- [ ] 8.1 Map every Spec line to its test, and name any line checked only in the pull request (lines 27 to 30 partly, and `init`'s look)
-- [ ] 8.2 The side-by-side comparison of `init`'s output for each choice, in the pull request
-- [ ] 8.3 The gate (`npm run check`), and `npm run pack-check`
+- [x] 8.1 Map every Spec line to its test, and name any line checked only in the pull request (lines 27 to 30 partly, and `init`'s look)
+- [x] 8.2 The side-by-side comparison of `init`'s output for each choice, in the pull request
+- [x] 8.3 The gate (`npm run check`), and `npm run pack-check`
