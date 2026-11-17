@@ -46,7 +46,7 @@ describe("the commands the router knows", () => {
 
 describe("factory's usage", () => {
   it("prints the usage and exits non-zero for a command the docs list and this version does not build", () => {
-    const r = factory(["remove"]);
+    const r = factory(["config", "explain"]);
 
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("Usage: factory COMMAND [ARGS]");

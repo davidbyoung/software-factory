@@ -56,7 +56,8 @@ marked working below exist only in these docs.
 | Built-in measurements for any website                                                                         | Working                             |
 | A design skill for any website                                                                                | Working                             |
 | `init`, which can be re-run, and `doctor`                                                                     | Working                             |
-| `remove` and `config explain`                                                                                 | Planned, not yet scheduled          |
+| `remove`                                                                                                      | Working                             |
+| `config explain`                                                                                              | Planned, not yet scheduled          |
 | `approvers` and `rules` in the settings                                                                       | Planned, not yet scheduled          |
 | Starting builds from a scheduled workflow                                                                     | Planned, not yet scheduled          |
 | `factory poller --once`, the scheduled workflow's one pass, and a poller built from an installed package      | Planned, not yet scheduled          |

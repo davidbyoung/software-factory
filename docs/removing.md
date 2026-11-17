@@ -30,14 +30,11 @@ hook, label, and setting.
 Your code, your tickets, and your pull requests. Your own skills, agents,
 plug-ins, and CI workflows, which the factory never writes to.
 
-Two files belong to you, and removing the factory leaves them: the CI
-workflow that runs the automated review, which you edit to install your
-project, and the review notes you write for it.
+One file belongs to you, and removing the factory leaves it: the review
+notes you write for the automated review. The review's workflow is the
+factory's: every sync rewrites it, and removing the factory deletes it.
 
-## Removing it _[Planned](developing.md#what-is-built)_
-
-Until `factory remove` is built, delete by hand what
-[the reference](github/reference.md#what-setup-adds) lists.
+## Removing it
 
 ```bash
 factory remove
@@ -47,10 +44,16 @@ factory remove
 npm uninstall @davidbyoung/software-factory
 ```
 
-The first command removes everything it added to your repository and
-prints what is left for you to remove by hand: secrets, labels, and
-anything outside the repository. It commits nothing. Review the changes,
-commit them on a branch, and merge.
+The first command shows every file it will delete or change and asks
+before changing anything. It then deletes the factory's files, takes its
+hooks and its import line out of the files it shares with your coding
+agent, and prints what is left outside the repository for you to remove by
+hand: secrets, the rule that requires the review's verdict, labels, and the
+board's fields. Each tool you use adds its own lines to that list. It
+commits nothing. Review the changes, commit them on a branch, and merge.
+
+If your settings file is gone or cannot be read, it says so, removes what
+it finds, and names what the tools it ships with leave behind.
 
 ## Before you remove it
 

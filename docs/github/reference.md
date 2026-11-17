@@ -20,9 +20,9 @@ Everything the factory adds, and what
 | `.claude/factory/`, the rules                                                        | Setup                              | Deletes it                                                      |
 | `.claude/skills/factory-*/`                                                          | Setup                              | Deletes them                                                    |
 | `.claude/agents/factory-*.md`                                                        | Setup                              | Deletes them                                                    |
-| Five hook entries in `.claude/settings.json`                                         | Setup                              | Removes those five, keeps the rest                              |
+| Five hook entries in `.claude/settings.json`                                         | Setup                              | Removes those five, keeps the rest, and deletes an emptied file |
 | `attribution` in `.claude/settings.json`, when the file had none                     | Setup                              | Leaves it: delete the key to get Claude Code's lines back       |
-| One line in `CLAUDE.md`                                                              | Setup                              | Removes that line                                               |
+| One line in `CLAUDE.md`                                                              | Setup                              | Removes that line, and deletes an emptied file                  |
 | `.github/workflows/factory-check.yml`                                                | Setup                              | Deletes them                                                    |
 | Other `.github/workflows/factory-*.yml`                                              | Setup, and each part you turned on | Deletes them                                                    |
 | `.github/factory-review.md`                                                          | The automated review               | Deletes it                                                      |
@@ -31,9 +31,7 @@ Everything the factory adds, and what
 | `package.json` itself, if you had none                                               | Setup                              | Leaves it. Delete it and its lockfile if nothing else uses them |
 | `node_modules/` in `.gitignore`                                                      | Setup, if it was missing           | Leaves it. Remove the line if you deleted `package.json`        |
 
-The "Removing it" column says what `factory remove`
-(_[Planned](../developing.md#what-is-built)_) does with each; until it is
-built, do the same by hand.
+The "Removing it" column says what `factory remove` does with each.
 
 ### On GitHub
 
