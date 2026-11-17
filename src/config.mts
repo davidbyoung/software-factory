@@ -20,6 +20,8 @@ import {
   DEFAULT_COLUMNS,
   STATE_KEYS,
   sameName,
+  watchOf,
+  type Watch,
   type Columns,
   type StateKey,
 } from "./lib/work-status.mts";
@@ -774,8 +776,8 @@ export async function run(argv: string[]): Promise<number> {
 export type Target = {
   repository: string;
   board: number | null;
-  /** Whether something starts builds from the board. */
-  watched: boolean;
+  /** What starts builds from the board, and how long it may take. */
+  watch: Watch | null;
   /** The column each state shows in on the board. */
   columns: Columns;
 };
@@ -791,7 +793,7 @@ export function targetOf(
     board: env.FACTORY_BOARD_NUMBER
       ? Number(env.FACTORY_BOARD_NUMBER)
       : s.tickets.board,
-    watched: s.builds.trigger !== "manual",
+    watch: watchOf(s.builds.trigger, s.builds.pollMinutes),
     columns: columnsOf(s),
   };
 }

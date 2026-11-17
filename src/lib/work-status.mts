@@ -563,17 +563,38 @@ export function isStale(derived: Derived, now: Date): boolean {
   );
 }
 
-/** Ready for over 5 minutes with no start: the poller should have fired. */
+/** How long a card may sit in Ready before the poller should have started
+ * it, and what the flag asks then; null when nothing starts builds from
+ * the board. A schedule runs every few minutes and often late, so it gets
+ * its interval and 15 minutes more. */
+export type Watch = { minutes: number; flag: string };
+
+export function watchOf(
+  trigger: "own-server" | "github-action" | "manual",
+  pollMinutes: number,
+): Watch | null {
+  if (trigger === "manual") return null;
+  if (trigger === "github-action")
+    return {
+      minutes: pollMinutes + 15,
+      flag: "not started, is the factory-poller workflow running?",
+    };
+  return { minutes: 5, flag: "not started, is the poller running?" };
+}
+
+/** Ready for longer than the poller takes, with no start: it should have
+ * fired. */
 export function isNotStarted(
   derived: Derived,
   openBlockers: number[],
   now: Date,
+  minutes = 5,
 ): boolean {
   return (
     derived.status === "Ready" &&
     openBlockers.length === 0 &&
     derived.since !== null &&
-    now.getTime() - Date.parse(derived.since) > 5 * 60 * 1000
+    now.getTime() - Date.parse(derived.since) > minutes * 60 * 1000
   );
 }
 

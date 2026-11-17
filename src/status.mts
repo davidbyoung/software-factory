@@ -28,6 +28,8 @@ import {
   cardOf,
   derive,
   isNotStarted,
+  watchOf,
+  type Watch,
   isStale,
   isStuck,
   actionsRunLink,
@@ -115,9 +117,9 @@ export function toRows(
   board: Board,
   blockers: Map<number, number[]>,
   now: Date,
-  /** Whether something starts builds from the board, so that a card left
-   * in Ready is worth flagging. False when builds.trigger is manual. */
-  watched = true,
+  /** What starts builds from the board, so that a card left in Ready is
+   * worth flagging; null when builds.trigger is manual. */
+  watch: Watch | null = watchOf("own-server", 5),
   columns: Columns = DEFAULT_COLUMNS,
 ): { rows: Row[]; closed: Row[] } {
   const rows: Row[] = [];
@@ -136,8 +138,16 @@ export function toRows(
     pulls.forEach((p) => claimed.add(p.number));
     const flags: string[] = [];
     if (isStale(derived, now)) flags.push("stale");
-    if (watched && isNotStarted(derived, blockers.get(issue.number) ?? [], now))
-      flags.push("not started, is the poller running?");
+    if (
+      watch &&
+      isNotStarted(
+        derived,
+        blockers.get(issue.number) ?? [],
+        now,
+        watch.minutes,
+      )
+    )
+      flags.push(watch.flag);
     const row: Row = {
       number: issue.number,
       kind: "issue",
@@ -621,7 +631,7 @@ async function snapshotLines(
     );
   }
   return formatRows(
-    toRows(snapshot, board, blockers, now, target.watched, target.columns),
+    toRows(snapshot, board, blockers, now, target.watch, target.columns),
     now,
     !hook,
     { ...style, links, columns: target.columns },

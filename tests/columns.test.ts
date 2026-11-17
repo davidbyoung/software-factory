@@ -36,6 +36,7 @@ import {
   type Columns,
   type CommentKind,
   type Issue,
+  watchOf,
 } from "../src/lib/work-status.mts";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import stockPages from "./fixtures/stock-board.json";
@@ -665,7 +666,7 @@ describe("factory status", () => {
         withCards(stockBoard(), [[1, "Todo", at(5)]]),
         new Map(),
         new Date(at(30)),
-        true,
+        watchOf("own-server", 5),
         columns ?? DEFAULT_COLUMNS,
       ),
       new Date(at(30)),

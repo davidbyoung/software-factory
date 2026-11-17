@@ -23,6 +23,7 @@ import {
   SettingsError,
   parseSettings,
 } from "../src/config.mts";
+import { watchOf } from "../src/lib/work-status.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryTickets } from "./memory-tickets";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
@@ -192,10 +193,52 @@ describe("toRows", () => {
       board([[1, "Ready", "2026-11-09T11:00:00Z"]]),
       new Map(),
       NOW,
-      false,
+      watchOf("manual", 5),
     );
 
     expect(rows[0].flags).toEqual([]);
+  });
+
+  it.each([
+    [5, "11:39:00", "11:41:00"],
+    [30, "11:14:00", "11:16:00"],
+  ])(
+    "with the schedule every %i minutes, flags a Ready card only after that plus 15, naming the workflow",
+    (minutes, over, under) => {
+      const { rows } = toRows(
+        { issues: [issue(1), issue(2)], pulls: [] },
+        board([
+          [1, "Ready", `2026-11-09T${over}Z`],
+          [2, "Ready", `2026-11-09T${under}Z`],
+        ]),
+        new Map(),
+        NOW,
+        watchOf("github-action", minutes),
+      );
+
+      expect(rows.map((r) => r.flags)).toEqual([
+        ["not started, is the factory-poller workflow running?"],
+        [],
+      ]);
+    },
+  );
+
+  it("with a hosted poller, flags a Ready card after 5 minutes, asking after the poller", () => {
+    const { rows } = toRows(
+      { issues: [issue(1), issue(2)], pulls: [] },
+      board([
+        [1, "Ready", "2026-11-09T11:54:00Z"],
+        [2, "Ready", "2026-11-09T11:56:00Z"],
+      ]),
+      new Map(),
+      NOW,
+      watchOf("own-server", 5),
+    );
+
+    expect(rows.map((r) => r.flags)).toEqual([
+      ["not started, is the poller running?"],
+      [],
+    ]);
   });
 });
 
