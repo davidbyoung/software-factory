@@ -309,6 +309,50 @@ export async function tick(d: Deps, state: State): Promise<void> {
   }
 }
 
+/** What one scheduled pass reads from the settings: the board's number,
+ * and the column that approves a build, each null when the settings have
+ * none. */
+export type OnceSettings = { board: number | null; ready: string | null };
+
+/** One pass, for a scheduled run: the board and the Ready column come from
+ * the settings, the board's owner is the repository's, and only the token
+ * comes from the environment. 1 when it read nothing or could not read. */
+export async function once(s: OnceSettings, d: Deps): Promise<number> {
+  if (s.board === null) {
+    d.log(
+      "No board to read: tickets.board is not set in .claude/factory.yaml.",
+    );
+    return 1;
+  }
+  if (s.ready === null) {
+    d.log(
+      "No card can start a build: the Ready column is none in .claude/factory.yaml.",
+    );
+    return 1;
+  }
+  const env = {
+    ...d.env,
+    FACTORY_BOARD_OWNER: d.repository.split("/")[0],
+    FACTORY_BOARD_NUMBER: String(s.board),
+    FACTORY_READY_COLUMN: s.ready,
+  };
+  const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
+  await tick({ ...d, env }, state);
+  return state.failuresInARow > 0 ? 1 : 0;
+}
+
+/** The parts of the dependencies that are the same however it runs. */
+function liveDeps(repository: string): Deps {
+  return {
+    repository,
+    fetch,
+    env: process.env,
+    now: () => Date.now(),
+    log: (line) => console.log(`${new Date().toISOString()} ${line}`),
+    marker: startMarker,
+  };
+}
+
 async function main(): Promise<number> {
   const repository = process.env.FACTORY_REPOSITORY;
   if (!repository) {
@@ -318,14 +362,7 @@ async function main(): Promise<number> {
     return 1;
   }
   const state: State = { failuresInARow: 0, lastHeartbeat: 0 };
-  const d: Deps = {
-    repository,
-    fetch,
-    env: process.env,
-    now: () => Date.now(),
-    log: (line) => console.log(`${new Date().toISOString()} ${line}`),
-    marker: startMarker,
-  };
+  const d = liveDeps(repository);
   process.on("unhandledRejection", (error) =>
     d.log(`unhandled: ${String(error)}`),
   );
@@ -340,8 +377,19 @@ async function main(): Promise<number> {
   }
 }
 
-/** `factory poller`. */
-export async function run(): Promise<number> {
+/** `factory poller`, and `factory poller --once`. The settings are loaded
+ * only for `--once`, so the hosted poller, which has no checkout, needs none. */
+export async function run(argv: string[] = []): Promise<number> {
+  if (argv.includes("--once")) {
+    const { columnsOf, loadSettings } = await import("./config.mts");
+    const s = await loadSettings();
+    process.exit(
+      await once(
+        { board: s.tickets.board, ready: columnsOf(s).Ready },
+        liveDeps(s.repository),
+      ),
+    );
+  }
   process.exit(await main());
 }
 

@@ -7,6 +7,7 @@ import {
   capAllows,
   dispatchFailure,
   nextDelay,
+  once,
   readConfig,
   selectToStart,
   startMarker,
@@ -538,6 +539,72 @@ describe("tick", () => {
 
     expect(logs.join("\n")).not.toMatch(/secret/);
   });
+});
+
+describe("once", () => {
+  const TOKEN = { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN };
+  const settings = { board: 1, ready: "Ready" };
+
+  it("reads the board once, starts each Ready ticket, and returns 0", async () => {
+    const { d, dispatches } = setup({}, TOKEN);
+
+    expect(await once(settings, d)).toBe(0);
+    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+  });
+
+  it("reads the board its settings name, owned by the repository's owner", async () => {
+    const { d, calls } = setup({}, TOKEN);
+
+    await once({ board: 7, ready: "Ready" }, d);
+
+    const board = calls
+      .filter((c) => c.url.endsWith("/graphql"))
+      .map((c) => JSON.parse(c.body))
+      .find((b) => String(b.query).includes("projectV2"));
+    expect(board.variables).toMatchObject({ owner: "acme", number: 7 });
+  });
+
+  it("starts no card outside the Ready column its settings name", async () => {
+    const { d, dispatches } = setup({}, TOKEN);
+
+    await once({ board: 1, ready: "Ready for dev" }, d);
+
+    expect(dispatches()).toEqual([]);
+  });
+
+  it("returns 1, saying why, when it cannot read the board", async () => {
+    const { d, logs } = setup({ graphql: { status: 502 } }, TOKEN);
+
+    expect(await once(settings, d)).toBe(1);
+    expect(logs[0]).toMatch(/^read failed/);
+  });
+
+  it("returns 1, naming the token, when FACTORY_BOARD_TOKEN is not set", async () => {
+    const { d, logs } = setup({}, {});
+
+    expect(await once(settings, d)).toBe(1);
+    expect(logs).toContain("not polling: FACTORY_BOARD_TOKEN not set");
+  });
+
+  it.each([
+    [
+      { board: null, ready: "Ready" },
+      "No board to read: tickets.board is not set in .claude/factory.yaml.",
+    ],
+    [
+      { board: 1, ready: null },
+      "No card can start a build: the Ready column is none in .claude/factory.yaml.",
+    ],
+  ])(
+    "returns 1 and reads nothing when the settings give it nothing to poll",
+    async (given, said) => {
+      const { d, calls, logs } = setup({}, TOKEN);
+
+      expect(await once(given, d)).toBe(1);
+      expect(calls).toEqual([]);
+      expect(logs).toEqual([said]);
+    },
+  );
 });
 
 describe("the poller's start", () => {

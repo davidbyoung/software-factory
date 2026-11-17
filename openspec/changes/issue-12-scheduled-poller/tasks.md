@@ -6,7 +6,7 @@
 
 ## 2. `factory poller --once`
 
-- [ ] 2.1 `--once` in `src/poller.mts` and its route in `src/cli.mts`; tests with the fetch stubbed for a start, a failed read exiting 1, and the settings read (lines 1 to 4)
+- [x] 2.1 `--once` in `src/poller.mts` and its route in `src/cli.mts`; tests with the fetch stubbed for a start, a failed read exiting 1, and the settings read (lines 1 to 4)
 
 ## 3. The settings
 
