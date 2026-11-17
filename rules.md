@@ -120,12 +120,13 @@ discovering it at push time.
 - **An issue is built in GitHub Actions by moving its card to Ready** on
   the board, the GitHub Project whose number
   `npx --no-install factory config get tickets.board` prints: the
-  `ready-poller` worker dispatches the "Factory build" workflow within
-  about a minute, the same run that `npx --no-install factory build N`
-  starts by hand. A local build starts by telling a session to work the
+  poller dispatches the "Factory build" workflow, within about a minute
+  when you host it (`builds.trigger: own-server`) or at its next scheduled
+  pass (`github-action`), the same run that
+  `npx --no-install factory build N` starts by hand. A local build starts by telling a session to work the
   issue.
-  The poller skips a card whose blocker is open and starts it within a
-  minute of the blocker closing. A card moves only forward on its own,
+  The poller skips a card whose blocker is open and starts it at its first
+  pass after the blocker closes. A card moves only forward on its own,
   except the follow-ups issue when a pull request merged part of it,
   which goes to Backlog: a
   build that ends without a merge stays In progress, and a finished
@@ -188,7 +189,7 @@ OpenSpec collects anonymous usage statistics unless told not to. Run it with
 ## Issues that wait on another
 
 A build order stated only in prose is one nothing reads: the poller starts
-a build within a minute of a card moving to Ready, and it and `factory-build`
+a build within minutes of a card moving to Ready, and it and `factory-build`
 stop only on a recorded relationship. So whoever opens or refines an issue records each
 blocker as a blocked-by relationship, and says why in the issue's
 body (under Decisions, for a refined issue).

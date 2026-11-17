@@ -20,7 +20,7 @@ nonzero with the error: that is a failed read, never an empty answer.
   card stays where it is until the claim moves it.
 
 - **GitHub Actions:** the owner moves the issue's card to Ready on the
-  board, and the `ready-poller` worker posts a start comment and dispatches
+  board, and the poller posts a start comment and dispatches
   "Factory build" with the issue's number; or a person runs
   `npx --no-install factory build N`, or "Run workflow" on the Actions
   tab. The two are the same run. The run's prompt says so. There is no
