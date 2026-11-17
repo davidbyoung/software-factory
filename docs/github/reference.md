@@ -25,10 +25,11 @@ Everything the factory adds, and what
 | One line in `CLAUDE.md`                                                              | Setup                              | Removes that line, and deletes an emptied file                  |
 | `.github/workflows/factory-check.yml`                                                | Setup                              | Deletes them                                                    |
 | Other `.github/workflows/factory-*.yml`                                              | Setup, and each part you turned on | Deletes them                                                    |
-| `.github/factory-review.md`                                                          | The automated review               | Deletes it                                                      |
+| `.github/factory-review.md`                                                          | Setup                              | Deletes it                                                      |
+| `.github/actions/factory-*/`, the step the workflows share                           | Setup                              | Deletes them                                                    |
 | `.github/review-notes.md`                                                            | You, if you wrote one. It is yours | Leaves it                                                       |
 | The `@davidbyoung/software-factory` entry in `package.json`, and `package-lock.json` | `npm install`                      | Left for `npm uninstall`                                        |
-| `package.json` itself, if you had none                                               | Setup                              | Leaves it. Delete it and its lockfile if nothing else uses them |
+| `package.json` itself, if you had none                                               | You, before installing             | Leaves it. Delete it and its lockfile if nothing else uses them |
 | `node_modules/` in `.gitignore`                                                      | Setup, if it was missing           | Leaves it. Remove the line if you deleted `package.json`        |
 
 The "Removing it" column says what `factory remove` does with each.

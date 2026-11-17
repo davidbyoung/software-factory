@@ -55,6 +55,13 @@ commits nothing. Review the changes, commit them on a branch, and merge.
 If your settings file is gone or cannot be read, it says so, removes what
 it finds, and names what the tools it ships with leave behind.
 
+It leaves `package.json`, `package-lock.json`, `node_modules/` in your
+`.gitignore`, and the setting that turns off your agent's lines naming
+itself in commits and pull requests. The second command takes the
+factory's entry out of `package.json`; delete the rest if nothing else
+uses them, as [the reference](github/reference.md#what-setup-adds) says
+for each.
+
 ## Before you remove it
 
 - **If builds are running,** let them finish or stop them first. Open
@@ -76,4 +83,5 @@ Each optional part can be turned off by itself. Remove its key from
 factory sync
 ```
 
-That deletes the CI workflows the part used. Delete its secret afterward.
+That deletes the CI workflows only that part uses. Delete its secret
+afterward.
