@@ -40,7 +40,7 @@ import {
 } from "./site/measure.mts";
 import {
   addWorktree,
-  defaultBranch,
+  defaultBase,
   freePort,
   keep,
   removeWorktree,
@@ -376,7 +376,7 @@ async function compare(argv: string[]): Promise<number> {
       before = given.before;
       after = given.after;
     } else {
-      const base = flag(argv, "--base") ?? defaultBranch(root);
+      const base = flag(argv, "--base") ?? (await defaultBase(root));
       const [pa, pb] = [await freePort(), await freePort()];
       worktree = addWorktree(root, base);
       const common = { start: site.start, minutes: site.startMinutes };

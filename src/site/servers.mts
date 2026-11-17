@@ -15,6 +15,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  branchDeps,
+  CANNOT_TELL,
+  defaultBranch,
+  type Deps as BranchDeps,
+} from "../lib/default-branch.mts";
 
 export class SiteError extends Error {}
 
@@ -117,18 +123,21 @@ export function stopProcess(pid: number): void {
   }
 }
 
-/** Whether the repository is a git checkout with this ref. */
-export const defaultBranch = (root: string): string => {
-  try {
-    return execFileSync(
-      "git",
-      ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-    ).trim();
-  } catch {
-    return "origin/main";
-  }
-};
+/** The ref a comparison's base is started from when none is given: the
+ * default branch, as `origin` has it, or the checkout's own branch of that
+ * name where there is no such ref, as in a checkout with no remote. It
+ * fails, naming the fix, when the default branch cannot be told. */
+export async function defaultBase(
+  root: string,
+  d: BranchDeps = branchDeps(root),
+): Promise<string> {
+  const name = await defaultBranch(d);
+  if (name === null) throw new SiteError(CANNOT_TELL);
+  const remote = `refs/remotes/origin/${name}`;
+  return d.git(["rev-parse", "--verify", "--quiet", remote]).ok
+    ? `origin/${name}`
+    : name;
+}
 
 /** A detached worktree of `ref` in a temporary folder, with its dependencies
  * installed when it has a lockfile. Returns its path. */

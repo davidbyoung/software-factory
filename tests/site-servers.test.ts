@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { givenUrls, runChecks, viewsAtOnce } from "../src/site.mts";
+import { branchDeps } from "../src/lib/default-branch.mts";
 import {
   addWorktree,
+  defaultBase,
   freePort,
   keep,
   SiteError,
@@ -188,6 +190,54 @@ describe("a worktree of the base", () => {
     expect(existsSync(dir)).toBe(false);
     expect(git(root, "worktree", "list")).toBe(before);
     expect(stopKept(root)).toBe(false);
+  });
+});
+
+describe("the base a comparison starts when none is given", () => {
+  /** A repository on a feature branch whose `origin/HEAD` says `branch` is
+   * the default one. */
+  function cloneOf(branch: string): string {
+    const dir = repo();
+    git(dir, "checkout", "-q", "-b", "feature");
+    git(dir, "update-ref", `refs/remotes/origin/${branch}`, "HEAD");
+    git(
+      dir,
+      "symbolic-ref",
+      "refs/remotes/origin/HEAD",
+      `refs/remotes/origin/${branch}`,
+    );
+    return dir;
+  }
+
+  it("is the default branch as origin has it, whatever it is called", async () => {
+    const dir = cloneOf("develop");
+
+    expect(await defaultBase(dir, branchDeps(dir, {}))).toBe("origin/develop");
+  });
+
+  it("is git's own default branch, as the checkout has it, with no origin remote", async () => {
+    const dir = repo();
+    git(dir, "config", "init.defaultBranch", "trunk");
+
+    expect(await defaultBase(dir, branchDeps(dir, {}))).toBe("trunk");
+  });
+
+  it("fails, naming the fix, when there is an origin remote and nobody can tell", async () => {
+    const dir = repo();
+    git(dir, "remote", "add", "origin", "https://x.invalid/r");
+    const nobody = {
+      ...branchDeps(dir, {}),
+      host: async (): Promise<string> => {
+        throw new Error("offline");
+      },
+    };
+
+    const failed = defaultBase(dir, nobody);
+
+    await expect(failed).rejects.toBeInstanceOf(SiteError);
+    await expect(failed).rejects.toThrow(
+      "Could not tell the default branch. Run: git remote set-head origin --auto",
+    );
   });
 });
 

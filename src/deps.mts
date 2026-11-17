@@ -6,7 +6,8 @@
 //   npx --no-install factory deps --any   # exits 0 when one is open, 1 when none, 2 when it could not tell
 //
 // A failed read exits 1 with the error, or 2 with `--any`.
-import { reachOf } from "./config.mts";
+import { reachOf, repoRoot } from "./config.mts";
+import { branchDeps, needDefaultBranch } from "./lib/default-branch.mts";
 import { openCodeHost, type CodeHost } from "./code-host/index.mts";
 
 const SHEPHERD_MARK = "<!-- factory-deps -->";
@@ -38,15 +39,16 @@ export function isMajor(title: string): boolean {
   return match !== null && match[1] !== match[2];
 }
 
-/** What the skill does with a bump, in the order its steps take them. */
-export function nextStep(bump: Bump): string {
+/** What the skill does with a bump, in the order its steps take them.
+ * `branch` is the default branch, which a conflicting bump merges. */
+export function nextStep(bump: Bump, branch: string): string {
   if (bump.mergeableState === "unknown") return "leave: state not computed yet";
   if (bump.checks.some((c) => c.status !== "completed"))
     return "leave: checks still running";
   if (bump.shepherdComments >= 2 && failing(bump).length > 0)
     return "stop: two earlier fixes did not turn CI green";
   const steps: string[] = [];
-  if (bump.mergeableState === "dirty") steps.push("merge main (step 2)");
+  if (bump.mergeableState === "dirty") steps.push(`merge ${branch} (step 2)`);
   if (failing(bump).length > 0)
     steps.push(`fix ${failing(bump).join(", ")} (step 3)`);
   if (bump.major) steps.push("migrate (step 4)");
@@ -88,13 +90,13 @@ export function checksLine(bump: Bump): string {
   return `checks: ${parts.join("; ")}`;
 }
 
-export function formatBump(bump: Bump): string[] {
+export function formatBump(bump: Bump, branch: string): string[] {
   return [
     `#${bump.number} ${bump.title}`,
     `  ${bump.major ? "major" : "minor or patch"}; head ${bump.head} at ${bump.sha.slice(0, 7)}; mergeable ${bump.mergeableState}; auto-merge ${bump.autoMerge ? "on" : "off"}`,
     `  ${checksLine(bump)}`,
     `  earlier shepherd comments: ${bump.shepherdComments}`,
-    `  next: ${nextStep(bump)}`,
+    `  next: ${nextStep(bump, branch)}`,
   ];
 }
 
@@ -118,10 +120,13 @@ async function readBump(p: CodeHost, number: number): Promise<Bump> {
   };
 }
 
+/** `defaultBranch` gives the default branch's name, and rejects when it
+ * cannot be told. It is asked only when a pull request is listed. */
 export async function main(
   p: CodeHost,
   out: (line: string) => void,
-  argv: string[] = [],
+  argv: string[],
+  defaultBranch: () => Promise<string>,
 ): Promise<number> {
   try {
     const pulls = (await p.listOpen())
@@ -139,8 +144,9 @@ export async function main(
       out("no open Dependabot pull requests");
       return 0;
     }
+    const branch = await defaultBranch();
     for (const pull of pulls) {
-      formatBump(await readBump(p, pull.number)).forEach((l) => out(l));
+      formatBump(await readBump(p, pull.number), branch).forEach((l) => out(l));
     }
     return 0;
   } catch (error) {
@@ -152,9 +158,17 @@ export async function main(
 /** `factory deps`. */
 export async function run(argv: string[] = []): Promise<number> {
   const { repository, codeHost } = await reachOf(process.env);
+  const p = openCodeHost(repository, codeHost);
+  // The code host is already open, so it is the one asked where the
+  // checkout does not say.
   return main(
-    openCodeHost(repository, codeHost),
+    p,
     (line) => console.log(line),
     argv,
+    () =>
+      needDefaultBranch({
+        ...branchDeps(repoRoot()),
+        host: () => p.defaultBranch(),
+      }),
   );
 }
