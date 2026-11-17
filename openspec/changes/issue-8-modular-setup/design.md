@@ -103,3 +103,26 @@ The risk is that `init` or `doctor` changes for today's users without anyone not
 ## Dependencies
 
 No blocker. No owner-only step before the build. After it, the owner deletes `davidbyoung/factory-trial`, which the pull request body reminds them to do.
+
+## Where the build departs from this design
+
+- **No `src/agent/types.mts`.** A coding agent has nothing to do beyond its
+  setup, so `src/agent/` holds `claude-code.mts` and `index.mts` only.
+- **The names the settings accept are in `src/tool-names.mts`,** not read
+  from the registry: `config.mts` importing `tools.mts` would import every
+  tool's implementation, some of which import `config.mts`. A test keeps
+  the two equal.
+- **`found` takes only `hasCommand`,** since init prints Found before it
+  opens any tool.
+- **A setup has `unconfigure` too:** the tool's own files with the
+  factory's part taken out, which `remove` writes. Claude Code's are its
+  settings without the factory's hooks and `CLAUDE.md` without the import.
+- **`remove` prints leftovers code host first,** then ticket system,
+  runner, and agent, so the ruleset that must go first is the first line.
+- **`init` writes `tickets.type` or `builds.runner`** whenever the tool in
+  use is not the one the setting defaults to, not only after asking: a
+  repository whose only ticket system is not GitHub's needs it written.
+- **The test-only tools are in one file,** `tests/fake-tools.ts`: Fake
+  Tickets, Fake Agent, more code hosts, and a second runner.
+- **The rule's name, "Software factory", moved to `src/setup.mts`,** since
+  both `init` and GitHub's leftovers name it.
