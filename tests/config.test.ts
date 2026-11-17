@@ -51,6 +51,7 @@ describe("parseSettings", () => {
         review: 50,
         dependencies: 50,
       },
+      rules: { smallChangeLines: 30, reviewRounds: 2 },
     });
   });
 
@@ -79,6 +80,37 @@ describe("parseSettings", () => {
       [{ "ci-review": "npx vitest run" }, "ci-review:"],
     ])("fails on %j, naming the key", (raw, message) => {
       expect(() => parse({ ...MINIMAL, ...raw })).toThrow(message);
+    });
+  });
+
+  describe("the numbers the rules use", () => {
+    it("takes each number, and keeps the default for the other", () => {
+      expect(
+        parse({ ...MINIMAL, rules: { "small-change-lines": 50 } }).rules,
+      ).toEqual({ smallChangeLines: 50, reviewRounds: 2 });
+      expect(
+        parse({ ...MINIMAL, rules: { "review-rounds": 3 } }).rules,
+      ).toEqual({ smallChangeLines: 30, reviewRounds: 3 });
+    });
+
+    it("takes an empty block as the defaults", () => {
+      expect(parse({ ...MINIMAL, rules: {} }).rules).toEqual({
+        smallChangeLines: 30,
+        reviewRounds: 2,
+      });
+    });
+
+    it.each([0, -1, 2.5, "3"])("fails on %j, naming the key", (value) => {
+      expect(() =>
+        parse({ ...MINIMAL, rules: { "review-rounds": value } }),
+      ).toThrow(
+        ".claude/factory.yaml: rules.review-rounds: must be a whole number above zero",
+      );
+      expect(() =>
+        parse({ ...MINIMAL, rules: { "small-change-lines": value } }),
+      ).toThrow(
+        ".claude/factory.yaml: rules.small-change-lines: must be a whole number above zero",
+      );
     });
   });
 

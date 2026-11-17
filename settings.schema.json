@@ -85,6 +85,9 @@
     },
     "session-minutes": {
       "$ref": "#/definitions/session-minutes"
+    },
+    "rules": {
+      "$ref": "#/definitions/rules"
     }
   },
   "definitions": {
@@ -404,6 +407,23 @@
           "type": "integer",
           "minimum": 1,
           "description": "Work on the dependency pull requests. Default: 50."
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "description": "Numbers the process rules use, for a repository that wants different ones.",
+      "additionalProperties": false,
+      "properties": {
+        "small-change-lines": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "A change under this many lines, outside tests, takes the lighter path. Default: 30."
+        },
+        "review-rounds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Rounds a session works a review before it hands what is left to you. Default: 2."
         }
       }
     }

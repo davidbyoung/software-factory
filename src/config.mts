@@ -81,7 +81,16 @@ export type Settings = {
   site: Site | null;
   /** How long each kind of unattended session may run, in minutes. */
   sessionMinutes: Record<SessionKind, number>;
+  /** The numbers the process rules use, which `factory sync` writes into
+   * the copies of the rules and skills that state them. */
+  rules: { smallChangeLines: number; reviewRounds: number };
 };
+
+/** Each number the rules use, with its default. */
+export const RULE_NUMBERS = {
+  "small-change-lines": 30,
+  "review-rounds": 2,
+} as const;
 
 /** Each kind of unattended session, with how long it may run by default. */
 export const SESSION_MINUTES = {
@@ -140,6 +149,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     "ci-review",
     "site",
     "session-minutes",
+    "rules",
   ],
   tickets: ["type", "board", "columns", "fields"],
   "tickets.columns": Object.keys(STATE_KEYS),
@@ -164,6 +174,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   ],
   "plugins[]": ["skill", "agent", "role", "files", "labels"],
   "session-minutes": Object.keys(SESSION_MINUTES),
+  rules: Object.keys(RULE_NUMBERS),
 };
 
 function wholeNumber(v: unknown, key: string, fallback: number): number {
@@ -497,6 +508,7 @@ export function parseSettings(
     ciReview: ciReview && { commands: reviewCommands(ciReview.commands) },
     site,
     sessionMinutes: sessionMinutesOf(top["session-minutes"]),
+    rules: rulesOf(top.rules),
   };
 }
 
@@ -508,6 +520,16 @@ function sessionMinutesOf(v: unknown): Record<SessionKind, number> {
       wholeNumber(o[kind], `session-minutes.${kind}`, fallback),
     ]),
   ) as Record<SessionKind, number>;
+}
+
+function rulesOf(v: unknown): Settings["rules"] {
+  const o = object(v ?? {}, "rules");
+  const n = (k: keyof typeof RULE_NUMBERS) =>
+    wholeNumber(o[k], `rules.${k}`, RULE_NUMBERS[k]);
+  return {
+    smallChangeLines: n("small-change-lines"),
+    reviewRounds: n("review-rounds"),
+  };
 }
 
 /** One line for each pattern that matches none of `files`: a stale pattern
