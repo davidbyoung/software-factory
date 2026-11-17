@@ -83,7 +83,7 @@ repository: your-name/your-repo
 factory sync
 ```
 
-A build checks its change with the commands your agent's instructions
+Either way, a build checks its change with the commands your agent's instructions
 file names, such as your tests and your linter, so say there how to check
 a change. Without any, it checks with the tests it wrote.
 

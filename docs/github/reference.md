@@ -36,16 +36,16 @@ The "Removing it" column says what `factory remove` does with each.
 
 ### On GitHub
 
-| What                                                                                  | Added when                                                      | To undo                                                                 |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Secrets and variables named `FACTORY_...`                                             | You create them                                                 | Delete them                                                             |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                             | You create it, for the automated review and builds in the cloud | Delete it, unless another workflow uses it                              |
-| Labels: `merge: automatic`, `merge: manual`, `verdict: override`, `follow-up`, `spec` | First use                                                       | Delete them. Deleting a label removes it from every ticket              |
-| A CI check that the factory's files are in step                                       | Setup                                                           | Goes with `factory-check.yml`                                           |
-| A "Review verdict" required check                                                     | You add it to your branch rules                                 | Remove it from the rules **first**, or pull requests wait on it forever |
-| Statuses on pull requests: "Who merges", "Review verdict"                             | Each pull request                                               | They stay in history                                                    |
-| One open ticket titled "Follow-ups"                                                   | The first follow-up                                             | Close it                                                                |
-| Comments on tickets the factory worked                                                | Each refinement and build                                       | They stay. They hold the ticket's history                               |
+| What                                                                                  | Added when                                                      | To undo                                                                                   |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Secrets and variables named `FACTORY_...`                                             | You create them                                                 | Delete them                                                                               |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                             | You create it, for the automated review and builds in the cloud | Delete it, unless another workflow uses it                                                |
+| Labels: `merge: automatic`, `merge: manual`, `verdict: override`, `follow-up`, `spec` | First use                                                       | Delete them. Deleting a label removes it from every ticket                                |
+| A CI check that the factory's files are in step                                       | Setup                                                           | Goes with `factory-check.yml`                                                             |
+| A "Review verdict" required check, as the ruleset "Software factory"                  | `init`, when the review is on; or you, in your branch rules     | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
+| Statuses on pull requests: "Who merges", "Review verdict"                             | Each pull request                                               | They stay in history                                                                      |
+| One open ticket titled "Follow-ups"                                                   | The first follow-up                                             | Close it                                                                                  |
+| Comments on tickets the factory worked                                                | Each refinement and build                                       | They stay. They hold the ticket's history                                                 |
 
 ### On your board
 
@@ -54,7 +54,6 @@ The "Removing it" column says what `factory remove` does with each.
 | Up to six columns, if yours lacked them and `factory init` added them                                                                 | Delete the ones you do not want              |
 | Three fields, Session, Runs in, and Cost, if yours lacked them and `init` added them. The sync also sets the board's own Status field | Delete the three                             |
 | A Project `init` created, linked to the repository                                                                                    | Delete it, or keep it as an ordinary Project |
-| The "Software factory" ruleset, requiring "Review verdict"                                                                            | Delete the ruleset, under Settings, Rules    |
 
 A board the factory created for you is an ordinary GitHub Project. Keep
 it or delete it.

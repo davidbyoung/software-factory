@@ -12,8 +12,8 @@ hook, label, and setting.
   lock file beside it; its own skills, agents, rules, and CI workflows, all
   named `factory-...`; one line in your agent's instructions file that
   imports its rules; and a few hooks in your agent's settings that guard
-  every session. If you had no `package.json`, setup adds a small one to
-  install the factory with.
+  every session. If you had no `package.json`, you made a small one to install the factory
+  with.
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
@@ -44,6 +44,13 @@ factory remove
 npm uninstall @davidbyoung/software-factory
 ```
 
+If you installed the `factory` command on your machine and no longer want
+it anywhere:
+
+```bash
+npm uninstall -g @davidbyoung/software-factory
+```
+
 The first command shows every file it will delete or change and asks
 before changing anything. It then deletes the factory's files, takes its
 hooks and its import line out of the files it shares with your coding
@@ -60,7 +67,9 @@ It leaves `package.json`, `package-lock.json`, `node_modules/` in your
 itself in commits and pull requests. The second command takes the
 factory's entry out of `package.json`; delete the rest if nothing else
 uses them, as [the reference](github/reference.md#what-setup-adds) says
-for each.
+for each. If you delete `package.json` and remove the `.gitignore` line,
+delete the `node_modules/` folder too, and any file setup made that is now
+empty, such as `.gitignore` or `.claude/settings.json`.
 
 ## Before you remove it
 
