@@ -6,7 +6,7 @@ import type { Gh } from "../src/lib/gh.mts";
 export const fakeSettings = async () =>
   parseSettings(
     {
-      version: 1,
+      version: 2,
       repository: "acme/widgets",
       tickets: { board: 1 },
       builds: { trigger: "own-server" },

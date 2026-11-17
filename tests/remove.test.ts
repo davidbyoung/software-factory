@@ -24,7 +24,7 @@ import { memoryTools } from "./memory-tools";
 
 const LAUNCHER = "node_modules/@davidbyoung/software-factory/bin/factory.js";
 const SETTINGS = [
-  "version: 1",
+  "version: 2",
   "repository: acme/site",
   "tickets:",
   "  board: 3",
@@ -224,7 +224,7 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml": "version: 1\nrepository: acme/site\n",
+        ".claude/factory.yaml": "version: 2\nrepository: acme/site\n",
       },
     });
     await r.run();
@@ -235,7 +235,7 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml": "version: 1\nrepository: acme/site\n",
+        ".claude/factory.yaml": "version: 2\nrepository: acme/site\n",
       },
     });
     await r.run();
@@ -249,7 +249,7 @@ describe("factory remove", () => {
       files: {
         ...SYNCED,
         ".claude/factory.yaml":
-          "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
+          "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
       },
       tools: (b, t) => withFakeTickets(b, t),
     });
@@ -291,11 +291,11 @@ describe("factory remove", () => {
 
   it("names every secret today's tools store when the settings cannot be read", async () => {
     const r = remove({
-      files: { ...SYNCED, ".claude/factory.yaml": "version: 2\n" },
+      files: { ...SYNCED, ".claude/factory.yaml": "version: 3\n" },
     });
     expect(await r.run()).toBe(0);
     expect(r.out[0]).toBe(
-      "Could not read .claude/factory.yaml: .claude/factory.yaml: version: must be 1. Naming what Claude Code, GitHub, GitHub Issues, and GitHub Actions leave behind.",
+      "Could not read .claude/factory.yaml: .claude/factory.yaml: version: must be 2. Naming what Claude Code, GitHub, GitHub Issues, and GitHub Actions leave behind.",
     );
     expect(r.out).toContain(
       "  2. Delete the secrets FACTORY_BOARD_TOKEN, FACTORY_BUILD_TOKEN, and FACTORY_AUTOMERGE_TOKEN if set.",

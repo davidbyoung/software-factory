@@ -1,8 +1,8 @@
 // PreToolUse hook for Bash, run as `factory guard commit` or within
 // `factory guard`. Blocks commits and pushes on main, force pushes, adding
 // the owner's override label, and any commit the fast half of the gate would
-// fail: the before-commit commands in `.claude/factory.yaml`. A block is
-// exit 2, which stops the call and shows the message to Claude.
+// fail: the `commands.before-commit` commands in `.claude/factory.yaml`. A
+// block is exit 2, which stops the call and shows the message to Claude.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
@@ -177,8 +177,9 @@ export async function checkCommit(
   if (pushes.some((p) => /\s(\S*:)?(refs\/heads\/)?main(\s|$)/.test(p)))
     return "pushing to main. main only changes through a merged pull request.";
 
-  // The fast half of the gate: the before-commit commands in the commit's
-  // own checkout's settings, in order, stopping at the first that fails.
+  // The fast half of the gate: the `commands.before-commit` commands in the
+  // commit's own checkout's settings, in order, stopping at the first that
+  // fails.
   // Settings that cannot be read block the commit, as a failing command
   // would.
   const commit = calls.find((c) => c.kind === "commit");
@@ -205,7 +206,7 @@ export async function checkCommit(
   if (!existsSync(settingsPath(top))) return null;
   let commands: string[];
   try {
-    commands = (await loadSettings(defaultDeps(top))).beforeCommit;
+    commands = (await loadSettings(defaultDeps(top))).commands.beforeCommit;
   } catch (e) {
     err(lastLines(e instanceof Error ? e.message : String(e)).join("\n"));
     return "the gate failed: the factory's settings could not be read. Fix the error above, then commit.";

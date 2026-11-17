@@ -891,7 +891,7 @@ describe("main with a mapped board", () => {
     const out: string[] = [];
     const settings = parseSettings(
       {
-        version: 1,
+        version: 2,
         repository: "acme/widgets",
         tickets: {
           board: 1,

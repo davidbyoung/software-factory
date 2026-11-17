@@ -188,7 +188,7 @@ describe("factory guard commit", () => {
 
   // The commands come from the settings in the commit's own checkout. Here
   // each test writes them, or settings that cannot be read.
-  describe("before-commit", () => {
+  describe("commands.before-commit", () => {
     let repo: string;
     const LOG = "ran.txt";
 
@@ -203,7 +203,7 @@ describe("factory guard commit", () => {
         ? readFileSync(join(repo, LOG), "utf8").trim().split("\n")
         : [];
     const prints = (...commands: string[]) =>
-      `version: 1\nrepository: o/r\nbefore-commit: ${JSON.stringify(commands)}\n`;
+      `version: 2\nrepository: o/r\ncommands:\n  before-commit: ${JSON.stringify(commands)}\n`;
 
     afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
@@ -226,7 +226,9 @@ describe("factory guard commit", () => {
       expect(r.status).toBe(2);
       expect(r.stderr).toContain(GATE_BLOCK);
       expect(r.stderr).toContain("OUT-9\n");
-      expect(r.stderr).toContain("the gate failed on: echo OUT-9");
+      expect(r.stderr).toContain(
+        "the gate failed on: echo OUT-9 >&2; exit 1. Fix the errors above, then commit.",
+      );
       expect(ran()).toEqual(["one"]);
     });
 
@@ -238,11 +240,23 @@ describe("factory guard commit", () => {
     });
 
     it("blocks the commit when the settings cannot be read", () => {
-      withLoader("version: 2\nrepository: o/r\n");
+      withLoader("version: 3\nrepository: o/r\n");
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain("the factory's settings could not be read");
-      expect(r.stderr).toContain("version: must be 1");
+      expect(r.stderr).toContain("version: must be 2");
+    });
+
+    it("blocks the commit on settings that still have before-commit at the top level, saying where it moved", () => {
+      withLoader(
+        `version: 2\nrepository: o/r\nbefore-commit: ["echo old >> ${LOG}"]\n`,
+      );
+      const r = hook("git commit -m x", repo);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain(
+        "before-commit: moved to commands.before-commit",
+      );
+      expect(ran()).toEqual([]);
     });
 
     describe("in a checkout with its own copy of the factory", () => {
@@ -257,7 +271,7 @@ describe("factory guard commit", () => {
        * branch that adds one has, and a copy of the factory, where this one
        * sits in its checkout, that records the call and exits with `status`. */
       function withOwnCopy(status: number) {
-        withLoader("version: 1\nrepository: o/r\nadded-on-this-branch: 1\n");
+        withLoader("version: 2\nrepository: o/r\nadded-on-this-branch: 1\n");
         const bin = join(repo, relative(CHECKOUT, PACKAGE), "bin");
         mkdirSync(bin, { recursive: true });
         writeFileSync(

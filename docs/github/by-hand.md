@@ -110,7 +110,7 @@ names, and `sync` writes all three:
        - npx tsc --noEmit
    ```
 
-   Each of `commands` is one the reviewer may run to confirm a finding,
+   Each command under it is one the reviewer may run to confirm a finding,
    such as your tests. To let it run nothing of yours, write the key
    alone, and it reads the pull request and comments:
 

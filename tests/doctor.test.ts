@@ -46,7 +46,7 @@ function checkout(files: Record<string, string> = {}): string {
 
 const settings = (raw: Record<string, unknown> = {}, tools: Registry = TOOLS) =>
   parseSettings(
-    { version: 1, repository: "acme/site", ...raw },
+    { version: 2, repository: "acme/site", ...raw },
     () => true,
     builtOf(tools),
   );

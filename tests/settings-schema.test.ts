@@ -3,7 +3,6 @@ import { Ajv } from "ajv";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import {
-  ROLES,
   SETTINGS_KEYS,
   SPECS,
   TRIGGERS,
@@ -42,7 +41,6 @@ describe("settings.schema.json against the code's keys", () => {
   it("allows the words the code allows", () => {
     expect(enumOf("builds", "trigger")).toEqual([...TRIGGERS]);
     expect(enumOf("specs", "type")).toEqual([...SPECS]);
-    expect(enumOf("plugins[]", "role")).toEqual([...ROLES]);
   });
 });
 
@@ -82,7 +80,7 @@ describe("the schema and parseSettings agree on whole files", () => {
 
   it("both accept the one-word forms", () => {
     const raw = {
-      version: 1,
+      version: 2,
       repository: "a/b",
       tickets: "github",
       specs: "openspec",
@@ -90,9 +88,91 @@ describe("the schema and parseSettings agree on whole files", () => {
     expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);
   });
 
-  const base = { version: 1, repository: "owner/name" };
+  const base = { version: 2, repository: "owner/name" };
   const site = { start: "npm start", url: "http://localhost:$PORT" };
+
+  it("both accept every command, the spec check, and a plug-in in every slot", () => {
+    const raw = {
+      ...base,
+      specs: { type: "openspec", check: "make specs" },
+      commands: {
+        "build-setup": ["make tools"],
+        "before-commit": ["make lint"],
+        gate: ["make check"],
+        "test-one": "make test FILE=$FILE",
+        "end-to-end": "make e2e FILE=$FILE",
+        coverage: { run: "make coverage", report: "out/lcov.info" },
+        relock: "make lock",
+      },
+      plugins: {
+        refine: { refiner: { skill: "a" }, mockups: { skill: "b" } },
+        build: {
+          builders: [{ skill: "c", labels: ["new"] }],
+          reviewers: [{ agent: "d", files: ["db/**"] }],
+        },
+        test: {
+          prover: { skill: "e" },
+          reviewers: [{ agent: "f" }, { agent: "g", files: ["e2e/**"] }],
+        },
+        conflicts: { resolvers: [{ skill: "h", files: ["gen/**"] }] },
+      },
+    };
+    expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);
+  });
+
+  it("both accept plugins and a phase with nothing in them", () => {
+    for (const plugins of [{}, { build: {} }, { test: { reviewers: [] } }])
+      expect([
+        byCode({ ...base, plugins }),
+        bySchema({ ...base, plugins }),
+      ]).toEqual([true, true]);
+  });
+
   const wrong: Record<string, unknown> = {
+    "a version 1 file": { ...base, version: 1 },
+    "a command at the top level, where version 1 had it": {
+      ...base,
+      "before-commit": ["npm test"],
+    },
+    "plugins written as a list": {
+      ...base,
+      plugins: [{ agent: "a", role: "reviewer" }],
+    },
+    "a skill where an agent goes": {
+      ...base,
+      plugins: { build: { reviewers: [{ skill: "a", files: ["x"] }] } },
+    },
+    "an agent where a skill goes": {
+      ...base,
+      plugins: { refine: { refiner: { agent: "a" } } },
+    },
+    "a builder with no labels": {
+      ...base,
+      plugins: { build: { builders: [{ skill: "a" }] } },
+    },
+    "a build reviewer with an empty list of files": {
+      ...base,
+      plugins: { build: { reviewers: [{ agent: "a", files: [] }] } },
+    },
+    "labels on a resolver": {
+      ...base,
+      plugins: {
+        conflicts: { resolvers: [{ skill: "a", files: ["x"], labels: ["y"] }] },
+      },
+    },
+    "coverage without its report": {
+      ...base,
+      commands: { coverage: { run: "npm run coverage" } },
+    },
+    "a command that is empty text": { ...base, commands: { "test-one": "" } },
+    "a command list that is one line of text": {
+      ...base,
+      commands: { gate: "npm run check" },
+    },
+    "a spec check that is not text": {
+      ...base,
+      specs: { type: "openspec", check: ["make specs"] },
+    },
     "a misspelled top-level key": { ...base, repositry: "x/y" },
     "a misspelled key inside a block": {
       ...base,

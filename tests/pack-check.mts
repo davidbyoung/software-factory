@@ -31,7 +31,7 @@ const { name } = JSON.parse(
 );
 
 /** The shortest settings file the configuration page gives. */
-const SETTINGS = "version: 1\nrepository: your-name/your-repo\n";
+const SETTINGS = "version: 2\nrepository: your-name/your-repo\n";
 
 function run(cmd: string, args: string[], cwd: string): string {
   console.log(`$ ${[cmd, ...args].join(" ")}`);

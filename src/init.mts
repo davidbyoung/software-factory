@@ -392,7 +392,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   }
 
   // The settings as they will stand, keeping every other key and comment.
-  if (!doc.has("version")) doc.set("version", 1);
+  if (!doc.has("version")) doc.set("version", 2);
   if (!doc.has("repository")) doc.set("repository", repository);
   // A tool other than the one a setting defaults to is written down.
   if ((doc.getIn(["tickets", "type"]) ?? "github") !== chosen.tickets)

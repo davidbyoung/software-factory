@@ -33,7 +33,7 @@ page explains every key, then shows three complete files.
 ## The shortest file
 
 ```yaml
-version: 1
+version: 2
 repository: your-name/your-repo
 ```
 
@@ -280,16 +280,35 @@ specs: openspec
 - **If you set `openspec` without OpenSpec installed:** a build of a visible
   change stops at its first spec step and says so.
 
+### `commands`
+
+Every command a build runs, each from the repository's root. `before-commit`
+and `build-setup`, the next two entries, are written under it, beside
+`gate`, `test-one`, `end-to-end`, `coverage`, and `relock`.
+
+```yaml
+commands:
+  before-commit:
+    - npm run -s format:check
+  gate:
+    - npm run check
+```
+
+- `factory config get commands.gate` prints one command per line, and so
+  does each of the others.
+
 ### `before-commit`
 
 Commands run, in order, before every commit a session makes. If one fails,
-the commit is blocked and the session is shown the output.
+the commit is blocked and the session is shown the output. It is written
+under [`commands`](#commands).
 
 ```yaml
-before-commit:
-  - npm run -s format:check
-  - npx tsc --noEmit
-  - npm run -s lint
+commands:
+  before-commit:
+    - npm run -s format:check
+    - npx tsc --noEmit
+    - npm run -s lint
 ```
 
 - **Default:** none. Setup proposes some from your `package.json`,
@@ -303,13 +322,14 @@ before-commit:
 
 Commands run, in order, from the repository's root before a build in the
 cloud starts work. Your npm dependencies are already installed by then,
-with `npm ci`.
+with `npm ci`. It is written under [`commands`](#commands).
 
 ```yaml
-# Commands run from the repository's root before an unattended build starts
-# work. Your npm dependencies are already installed by then.
-build-setup:
-  - npx playwright install --with-deps chromium
+commands:
+  # Commands run from the repository's root before an unattended build
+  # starts work. Your npm dependencies are already installed by then.
+  build-setup:
+    - npx playwright install --with-deps chromium
 ```
 
 - **Default:** none.
@@ -317,7 +337,7 @@ build-setup:
   such as a browser for end-to-end tests or a system package.
 - **If one fails:** the run stops before the session starts, with that
   command's output in its log.
-- `factory config get build-setup` prints one command per
+- `factory config get commands.build-setup` prints one command per
   line.
 
 ### `session-minutes`
@@ -638,7 +658,7 @@ unread; anything touching checkout or consent waits for a person.
 # built-in reviewers run.
 #
 # "version" is the shape of this file, not the factory's version.
-version: 1
+version: 2
 repository: harbor-goods/storefront
 
 # Where tickets live. "board" is the number in your GitHub Project's address.
@@ -656,40 +676,41 @@ builds:
 # or none.
 specs: openspec
 
-# Commands run on the session's machine, from the repository's root, before
-# every commit it makes. If one fails, the commit is blocked.
-before-commit:
-  - npm run -s format:check
-  - npx tsc --noEmit
-  - npm run -s lint
+# Every command a build runs, each from the repository's root.
+commands:
+  # Run on the session's machine before every commit it makes. If one
+  # fails, the commit is blocked.
+  before-commit:
+    - npm run -s format:check
+    - npx tsc --noEmit
+    - npm run -s lint
 
-# Your own skills and agents. A skill is a set of instructions a session
-# follows; an agent is a separate reviewer a session launches. Refining,
-# building, and reviewing tests are built in; these add to them. "role" is
-# one of:
-#   mockups   makes pictures to choose from when a decision changes the look
-#   builder   builds a ticket that carries one of "labels" (label names),
-#             in place of the built-in build
-#   reviewer  is asked to read a finished change when it touches a path
-#             matching "files", and reports problems; it edits nothing
+# Your own skills and agents, grouped by the phase they work in. A skill is
+# a set of instructions a session follows; an agent is a separate reviewer a
+# session launches. Refining, building, and reviewing tests are built in.
+# Under "build":
+#   builders   each builds a ticket that carries one of its "labels" (label
+#              names), in place of the built-in build
+#   reviewers  each is asked to read a finished change when it touches a
+#              path matching its "files", and reports problems; it edits
+#              nothing
 plugins:
-  - skill: add-endpoint
-    role: builder
-    labels:
-      - new-endpoint
-  - agent: migration-reviewer
-    role: reviewer
-    files:
-      - db/migrations/**
-  - agent: factory-ui-reviewer
-    role: reviewer
-    files:
-      - src/components/**
-      - src/styles/**
-  - agent: accessibility-reviewer
-    role: reviewer
-    files:
-      - src/components/**
+  build:
+    builders:
+      - skill: add-endpoint
+        labels:
+          - new-endpoint
+    reviewers:
+      - agent: migration-reviewer
+        files:
+          - db/migrations/**
+      - agent: factory-ui-reviewer
+        files:
+          - src/components/**
+          - src/styles/**
+      - agent: accessibility-reviewer
+        files:
+          - src/components/**
 
 # How the factory looks at this website, for factory-ui-reviewer.
 site:
@@ -730,18 +751,20 @@ merging unread. Everything not written here is a default.
 # built-in reviewers run.
 #
 # "version" is the shape of this file, not the factory's version.
-version: 1
+version: 2
 repository: riverbend-studio/site
 
 # Where tickets live. "board" is the number in your GitHub Project's address.
 tickets:
   board: 4
 
-# Commands run on the session's machine, from the repository's root, before
-# every commit it makes. If one fails, the commit is blocked.
-before-commit:
-  - npm run lint
-  - npm run typecheck
+# Every command a build runs, each from the repository's root.
+commands:
+  # Run on the session's machine before every commit it makes. If one
+  # fails, the commit is blocked.
+  before-commit:
+    - npm run lint
+    - npm run typecheck
 ```
 
 Builds start when someone tells a session to work a ticket, since
@@ -762,7 +785,7 @@ unread and has one reviewer of its own for its public API.
 # built-in reviewers run.
 #
 # "version" is the shape of this file, not the factory's version.
-version: 1
+version: 2
 repository: northwind-php/ledger
 
 # Where tickets live. "board" is the number in your GitHub Project's address.
@@ -770,26 +793,29 @@ tickets:
   type: github
   board: 2
 
-# Commands run on the session's machine, from the repository's root, before
-# every commit it makes. If one fails, the commit is blocked.
-before-commit:
-  - composer lint
-  - composer analyse
+# Every command a build runs, each from the repository's root.
+commands:
+  # Run on the session's machine before every commit it makes. If one
+  # fails, the commit is blocked.
+  before-commit:
+    - composer lint
+    - composer analyse
 
-# Your own skills and agents. A skill is a set of instructions a session
-# follows; an agent is a separate reviewer a session launches. Refining,
-# building, and reviewing tests are built in; these add to them. "role" is
-# one of:
-#   mockups   makes pictures to choose from when a decision changes the look
-#   builder   builds a ticket that carries one of "labels" (label names),
-#             in place of the built-in build
-#   reviewer  is asked to read a finished change when it touches a path
-#             matching "files", and reports problems; it edits nothing
+# Your own skills and agents, grouped by the phase they work in. A skill is
+# a set of instructions a session follows; an agent is a separate reviewer a
+# session launches. Refining, building, and reviewing tests are built in.
+# Under "build":
+#   builders   each builds a ticket that carries one of its "labels" (label
+#              names), in place of the built-in build
+#   reviewers  each is asked to read a finished change when it touches a
+#              path matching its "files", and reports problems; it edits
+#              nothing
 plugins:
-  - agent: api-compatibility-reviewer
-    role: reviewer
-    files:
-      - src/**
+  build:
+    reviewers:
+      - agent: api-compatibility-reviewer
+        files:
+          - src/**
 
 # Which pull requests may merge without you. Patterns are globs matched
 # against paths from the repository's root, and deny wins over allow. A pull

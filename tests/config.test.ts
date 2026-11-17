@@ -6,7 +6,9 @@ import {
   NO_DEPENDENCIES,
   parseSettings,
   SETTINGS_KEYS,
+  SLOTS,
   patternWarnings,
+  pluginsOf,
   reachOf,
   type Deps,
 } from "../src/config.mts";
@@ -14,7 +16,7 @@ import { matchesGlob } from "../src/lib/glob.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { builtOf, TOOLS } from "../src/tools.mts";
 
-const MINIMAL = { version: 1, repository: "owner/name" };
+const MINIMAL = { version: 2, repository: "owner/name" };
 
 const parse = (raw: unknown, exists: (p: string) => boolean = () => true) =>
   parseSettings(raw, exists);
@@ -22,7 +24,7 @@ const parse = (raw: unknown, exists: (p: string) => boolean = () => true) =>
 describe("parseSettings", () => {
   it("fills every default for the shortest file", () => {
     expect(parse(MINIMAL)).toEqual({
-      version: 1,
+      version: 2,
       repository: "owner/name",
       tickets: {
         type: "github",
@@ -41,9 +43,18 @@ describe("parseSettings", () => {
       codeHost: { type: "github" },
       builds: { trigger: "manual", runner: "github-actions", pollMinutes: 5 },
       specs: "none",
-      beforeCommit: [],
-      buildSetup: [],
+      specCheck: null,
+      commands: {
+        buildSetup: [],
+        beforeCommit: [],
+        gate: [],
+        testOne: null,
+        endToEnd: null,
+        coverage: null,
+        relock: "npm install",
+      },
       plugins: [],
+      testReviewersWritten: false,
       autoMerge: { allow: [], deny: [], commands: [] },
       ciReview: null,
       site: null,
@@ -167,9 +178,28 @@ describe("parseSettings", () => {
       { ...MINIMAL, "code-host": { type: "github", url: "u" } },
       "code-host.url: unknown key",
     ],
+    [{ ...MINIMAL, commands: { lint: "x" } }, "commands.lint: unknown key"],
     [
-      { ...MINIMAL, plugins: [{ agent: "a", role: "reviewer", when: 1 }] },
-      "plugins[0].when: unknown key",
+      { ...MINIMAL, commands: { coverage: { run: "a", report: "b", at: 1 } } },
+      "commands.coverage.at: unknown key",
+    ],
+    [
+      { ...MINIMAL, specs: { type: "openspec", strict: true } },
+      "specs.strict: unknown key",
+    ],
+    [{ ...MINIMAL, plugins: { deploy: {} } }, "plugins.deploy: unknown key"],
+    [
+      { ...MINIMAL, plugins: { build: { testers: [] } } },
+      "plugins.build.testers: unknown key",
+    ],
+    [
+      {
+        ...MINIMAL,
+        plugins: {
+          build: { reviewers: [{ agent: "a", files: ["x"], when: 1 }] },
+        },
+      },
+      "plugins.build.reviewers[0].when: unknown key",
     ],
   ])("fails on an unknown key", (raw, message) => {
     expect(() => parse(raw)).toThrow(message);
@@ -179,14 +209,20 @@ describe("parseSettings", () => {
     [{ ...MINIMAL, repository: 7 }, "repository:"],
     [{ ...MINIMAL, repository: "no-slash" }, "repository:"],
     [{ ...MINIMAL, tickets: { board: "one" } }, "tickets.board:"],
-    [{ ...MINIMAL, "before-commit": "npm test" }, "before-commit:"],
-    [{ ...MINIMAL, "before-commit": [1] }, "before-commit[0]:"],
     [{ ...MINIMAL, "auto-merge": { allow: "src/**" } }, "auto-merge.allow:"],
-    [{ ...MINIMAL, plugins: { skill: "a" } }, "plugins:"],
+    [{ ...MINIMAL, plugins: "mine" }, "plugins: must be a block of settings"],
+    [{ ...MINIMAL, plugins: { build: [] } }, "plugins.build:"],
+    [
+      { ...MINIMAL, plugins: { build: { reviewers: {} } } },
+      "plugins.build.reviewers: must be a list",
+    ],
+    [
+      { ...MINIMAL, plugins: { test: { prover: [{ skill: "a" }] } } },
+      "plugins.test.prover: must be a block of settings",
+    ],
+    [{ ...MINIMAL, commands: ["npm test"] }, "commands:"],
     [{ ...MINIMAL, builds: { trigger: "cron" } }, "builds.trigger:"],
     [{ ...MINIMAL, specs: "markdown" }, "specs:"],
-    [{ ...MINIMAL, "build-setup": "npm test" }, "build-setup:"],
-    [{ ...MINIMAL, "build-setup": [1] }, "build-setup[0]:"],
   ])("fails on a wrong type, naming the key", (raw, message) => {
     expect(() => parse(raw)).toThrow(message);
   });
@@ -328,25 +364,467 @@ describe("parseSettings", () => {
     },
   );
 
-  it.each([2, "1", undefined])("fails on version %s", (version) => {
-    expect(() => parse({ ...MINIMAL, version })).toThrow("version:");
-  });
-
-  it("fails on a plug-in whose file does not exist", () => {
-    const exists = (p: string) => p === ".claude/agents/here.md";
-    const plugins = [
-      { agent: "here", role: "reviewer" },
-      { skill: "gone", role: "builder" },
-    ];
-    expect(() => parse({ ...MINIMAL, plugins }, exists)).toThrow(
-      "plugins[1].skill: .claude/skills/gone/SKILL.md does not exist",
+  it.each([3, "2", undefined])("fails on version %s", (version) => {
+    expect(() => parse({ ...MINIMAL, version })).toThrow(
+      ".claude/factory.yaml: version: must be 2",
     );
   });
 
-  it("fails on a role other than the three", () => {
+  it("fails on version 1, saying where to read how to move the file", () => {
+    expect(() => parse({ ...MINIMAL, version: 1 })).toThrow(
+      '.claude/factory.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+    );
+  });
+
+  it("checks the version before any other key", () => {
     expect(() =>
-      parse({ ...MINIMAL, plugins: [{ skill: "a", role: "tester" }] }),
-    ).toThrow("plugins[0].role:");
+      parse({
+        version: 1,
+        repository: "owner/name",
+        "before-commit": ["npm test"],
+        plugins: [{ agent: "a", role: "reviewer" }],
+        colour: "red",
+      }),
+    ).toThrow("version: must be 2: this file is version 1");
+  });
+
+  describe("a file in the older shape", () => {
+    it.each(["before-commit", "build-setup"])(
+      "says where a top-level %s moved to",
+      (key) => {
+        expect(() => parse({ ...MINIMAL, [key]: ["npm test"] })).toThrow(
+          `.claude/factory.yaml: ${key}: moved to commands.${key}`,
+        );
+      },
+    );
+
+    it("says how plugins are grouped when they are written as a list", () => {
+      expect(() =>
+        parse({ ...MINIMAL, plugins: [{ agent: "a", role: "reviewer" }] }),
+      ).toThrow(
+        ".claude/factory.yaml: plugins: must be grouped by phase: refine, build, test, conflicts",
+      );
+    });
+  });
+
+  describe("specs", () => {
+    it("takes a block with a type and a check", () => {
+      const s = parse({
+        ...MINIMAL,
+        specs: { type: "openspec", check: "make specs" },
+      });
+      expect([s.specs, s.specCheck]).toEqual(["openspec", "make specs"]);
+    });
+
+    it("takes a block whose type is none", () => {
+      const s = parse({ ...MINIMAL, specs: { type: "none" } });
+      expect([s.specs, s.specCheck]).toEqual(["none", null]);
+    });
+
+    it("fails on a type in a block that is neither openspec nor none", () => {
+      expect(() => parse({ ...MINIMAL, specs: { type: "markdown" } })).toThrow(
+        "specs: must be one of none, openspec",
+      );
+    });
+
+    it.each(["openspec", { type: "openspec" }])(
+      "checks OpenSpec's specs with its own command when %j sets no check",
+      (specs) => {
+        expect(parse({ ...MINIMAL, specs }).specCheck).toBe(
+          "openspec validate --all --strict --no-interactive",
+        );
+      },
+    );
+
+    it.each([{ type: "none", check: "make specs" }, { check: "make specs" }])(
+      "fails on %j, a check with no specs to check",
+      (specs) => {
+        expect(() => parse({ ...MINIMAL, specs })).toThrow(
+          ".claude/factory.yaml: specs.check needs specs.type: openspec",
+        );
+      },
+    );
+
+    it.each(["", 7, ["make specs"]])(
+      "fails on the check %j, which is not text",
+      (check) => {
+        expect(() =>
+          parse({ ...MINIMAL, specs: { type: "openspec", check } }),
+        ).toThrow(".claude/factory.yaml: specs.check: must be text");
+      },
+    );
+  });
+
+  describe("commands", () => {
+    const commands = (written: unknown) =>
+      parse({ ...MINIMAL, commands: written }).commands;
+
+    it("takes every command", () => {
+      expect(
+        commands({
+          "build-setup": ["make tools"],
+          "before-commit": ["make lint", "make types"],
+          gate: ["make check"],
+          "test-one": "make test FILE=$FILE",
+          "end-to-end": "make e2e FILE=$FILE",
+          coverage: { run: "make coverage", report: "out/lcov.info" },
+          relock: "make lock",
+        }),
+      ).toEqual({
+        buildSetup: ["make tools"],
+        beforeCommit: ["make lint", "make types"],
+        gate: ["make check"],
+        testOne: "make test FILE=$FILE",
+        endToEnd: "make e2e FILE=$FILE",
+        coverage: { run: "make coverage", report: "out/lcov.info" },
+        relock: "make lock",
+      });
+    });
+
+    it("relocks with npm install, and leaves the rest empty or unset, when the block is empty", () => {
+      expect(commands({})).toEqual(parse(MINIMAL).commands);
+      expect(parse(MINIMAL).commands.relock).toBe("npm install");
+    });
+
+    it.each(["build-setup", "before-commit", "gate"])(
+      "fails on %s that is not a list of text, naming the key",
+      (key) => {
+        expect(() => commands({ [key]: "npm test" })).toThrow(
+          `.claude/factory.yaml: commands.${key}: must be a list`,
+        );
+        expect(() => commands({ [key]: ["npm test", 1] })).toThrow(
+          `.claude/factory.yaml: commands.${key}[1]: must be text`,
+        );
+      },
+    );
+
+    it.each(["test-one", "end-to-end", "relock"])(
+      "fails on %s that is not text, or is empty",
+      (key) => {
+        for (const value of ["", 7, ["npm test"], null])
+          expect(() => commands({ [key]: value })).toThrow(
+            `.claude/factory.yaml: commands.${key}: must be text`,
+          );
+      },
+    );
+
+    it.each([
+      ["run", { report: "coverage/lcov.info" }],
+      ["report", { run: "npm run coverage" }],
+      ["run", null],
+      ["report", { run: "npm run coverage", report: "" }],
+    ])("fails on coverage without %s: %j", (key, coverage) => {
+      expect(() => commands({ coverage })).toThrow(
+        `.claude/factory.yaml: commands.coverage.${key}: is required when commands.coverage is written`,
+      );
+    });
+  });
+
+  describe("plugins, grouped by phase", () => {
+    const plugins = (written: unknown, exists?: (p: string) => boolean) =>
+      parse({ ...MINIMAL, plugins: written }, exists).plugins;
+    const none = { files: [], labels: [] };
+
+    it.each([
+      ["refiner", { refine: { refiner: { skill: "mine" } } }],
+      ["mockups", { refine: { mockups: { skill: "mine" } } }],
+      ["prover", { test: { prover: { skill: "mine" } } }],
+    ] as const)("takes one skill as the %s", (slot, written) => {
+      expect(plugins(written)).toEqual([
+        { kind: "skill", name: "mine", slot, ...none },
+      ]);
+    });
+
+    it("takes builders, each a skill with its labels", () => {
+      expect(
+        plugins({
+          build: {
+            builders: [
+              { skill: "a", labels: ["x"] },
+              { skill: "b", labels: ["y", "z"] },
+            ],
+          },
+        }),
+      ).toEqual([
+        { kind: "skill", name: "a", slot: "builder", files: [], labels: ["x"] },
+        {
+          kind: "skill",
+          name: "b",
+          slot: "builder",
+          files: [],
+          labels: ["y", "z"],
+        },
+      ]);
+    });
+
+    it("takes build reviewers, each an agent with its files", () => {
+      expect(
+        plugins({ build: { reviewers: [{ agent: "a", files: ["db/**"] }] } }),
+      ).toEqual([
+        {
+          kind: "agent",
+          name: "a",
+          slot: "reviewer",
+          files: ["db/**"],
+          labels: [],
+        },
+      ]);
+    });
+
+    it("takes test reviewers, each an agent with or without files", () => {
+      expect(
+        plugins({
+          test: {
+            reviewers: [{ agent: "a" }, { agent: "b", files: ["e/**"] }],
+          },
+        }),
+      ).toEqual([
+        { kind: "agent", name: "a", slot: "test-reviewer", ...none },
+        {
+          kind: "agent",
+          name: "b",
+          slot: "test-reviewer",
+          files: ["e/**"],
+          labels: [],
+        },
+      ]);
+    });
+
+    it("takes resolvers, each a skill with its files", () => {
+      expect(
+        plugins({
+          conflicts: { resolvers: [{ skill: "a", files: ["gen/**"] }] },
+        }),
+      ).toEqual([
+        {
+          kind: "skill",
+          name: "a",
+          slot: "resolver",
+          files: ["gen/**"],
+          labels: [],
+        },
+      ]);
+    });
+
+    it.each([{}, null, { build: {} }, { refine: null, test: {} }])(
+      "takes %j as no plug-in of your own",
+      (written) => {
+        expect(plugins(written)).toEqual([]);
+      },
+    );
+
+    it.each([
+      [{ refine: { refiner: { agent: "a" } } }, "plugins.refine.refiner"],
+      [{ refine: { mockups: { agent: "a" } } }, "plugins.refine.mockups"],
+      [{ test: { prover: { agent: "a" } } }, "plugins.test.prover"],
+      [
+        { build: { builders: [{ agent: "a", labels: ["x"] }] } },
+        "plugins.build.builders[0]",
+      ],
+      [
+        {
+          conflicts: {
+            resolvers: [
+              { skill: "a", files: ["x"] },
+              { agent: "b", files: ["y"] },
+            ],
+          },
+        },
+        "plugins.conflicts.resolvers[1]",
+      ],
+    ])("fails on an agent where a skill goes: %j", (written, key) => {
+      expect(() => plugins(written)).toThrow(
+        `.claude/factory.yaml: ${key}: names a skill`,
+      );
+    });
+
+    it.each([
+      [
+        { build: { reviewers: [{ skill: "a", files: ["x"] }] } },
+        "plugins.build.reviewers[0]",
+      ],
+      [{ test: { reviewers: [{ skill: "a" }] } }, "plugins.test.reviewers[0]"],
+    ])("fails on a skill where an agent goes: %j", (written, key) => {
+      expect(() => plugins(written)).toThrow(
+        `.claude/factory.yaml: ${key}: names an agent`,
+      );
+    });
+
+    it.each([
+      [
+        { build: { builders: [{ skill: "a" }] } },
+        "plugins.build.builders[0].labels",
+      ],
+      [
+        { build: { builders: [{ skill: "a", labels: [] }] } },
+        "plugins.build.builders[0].labels",
+      ],
+      [
+        { build: { reviewers: [{ agent: "a" }] } },
+        "plugins.build.reviewers[0].files",
+      ],
+      [
+        { conflicts: { resolvers: [{ skill: "a" }] } },
+        "plugins.conflicts.resolvers[0].files",
+      ],
+    ])("fails on %j, which leaves out what its slot needs", (written, key) => {
+      expect(() => plugins(written)).toThrow(
+        `.claude/factory.yaml: ${key}: is required`,
+      );
+    });
+
+    it.each([
+      [
+        { refine: { refiner: { skill: "a", files: ["x"] } } },
+        "plugins.refine.refiner.files",
+      ],
+      [
+        { refine: { refiner: { skill: "a", labels: ["x"] } } },
+        "plugins.refine.refiner.labels",
+      ],
+      [
+        { refine: { mockups: { skill: "a", files: ["x"] } } },
+        "plugins.refine.mockups.files",
+      ],
+      [
+        { test: { prover: { skill: "a", labels: ["x"] } } },
+        "plugins.test.prover.labels",
+      ],
+      [
+        { build: { builders: [{ skill: "a", labels: ["x"], files: ["y"] }] } },
+        "plugins.build.builders[0].files",
+      ],
+      [
+        { build: { reviewers: [{ agent: "a", files: ["x"], labels: ["y"] }] } },
+        "plugins.build.reviewers[0].labels",
+      ],
+      [
+        { test: { reviewers: [{ agent: "a", labels: ["y"] }] } },
+        "plugins.test.reviewers[0].labels",
+      ],
+      [
+        {
+          conflicts: {
+            resolvers: [{ skill: "a", files: ["x"], labels: ["y"] }],
+          },
+        },
+        "plugins.conflicts.resolvers[0].labels",
+      ],
+    ])("fails on %j, naming the key its slot does not take", (written, key) => {
+      expect(() => plugins(written)).toThrow(`.claude/factory.yaml: ${key}:`);
+    });
+
+    it("fails on a plug-in whose file does not exist, naming its slot and the file", () => {
+      const exists = (p: string) => p === ".claude/agents/here.md";
+      const written = {
+        build: {
+          builders: [{ skill: "gone", labels: ["x"] }],
+          reviewers: [{ agent: "here", files: ["src/**"] }],
+        },
+      };
+      expect(() => plugins(written, exists)).toThrow(
+        ".claude/factory.yaml: plugins.build.builders[0].skill: .claude/skills/gone/SKILL.md does not exist",
+      );
+      expect(() =>
+        plugins({ test: { reviewers: [{ agent: "gone" }] } }, exists),
+      ).toThrow(
+        ".claude/factory.yaml: plugins.test.reviewers[0].agent: .claude/agents/gone.md does not exist",
+      );
+    });
+
+    it("fails on a name that is not one", () => {
+      expect(() =>
+        plugins({ refine: { refiner: { skill: "../mine" } } }),
+      ).toThrow("plugins.refine.refiner.skill: must be a name");
+    });
+
+    it("says whether the test reviewers are written, even as an empty list", () => {
+      const written = (p: unknown) =>
+        parse({ ...MINIMAL, plugins: p }).testReviewersWritten;
+      expect(written({ test: { reviewers: [] } })).toBe(true);
+      expect(written({ test: { prover: { skill: "a" } } })).toBe(false);
+    });
+
+    describe("the end-to-end reviewer", () => {
+      const e2e = { test: { reviewers: [{ agent: "factory-e2e-reviewer" }] } };
+
+      it("needs commands.end-to-end", () => {
+        expect(() => parse({ ...MINIMAL, plugins: e2e })).toThrow(
+          ".claude/factory.yaml: commands.end-to-end: is required to list factory-e2e-reviewer",
+        );
+      });
+
+      it("is taken with it", () => {
+        expect(
+          parse({
+            ...MINIMAL,
+            commands: { "end-to-end": "make e2e" },
+            plugins: e2e,
+          }).plugins.map((p) => p.name),
+        ).toEqual(["factory-e2e-reviewer"]);
+      });
+
+      it("is asked for its command before its file, which no sync writes without the command", () => {
+        expect(() => parse({ ...MINIMAL, plugins: e2e }, () => false)).toThrow(
+          "commands.end-to-end: is required to list factory-e2e-reviewer",
+        );
+      });
+    });
+  });
+});
+
+describe("pluginsOf", () => {
+  const SKILL = ".claude/skills/factory-design/SKILL.md";
+  const site = { start: "npm start", url: "http://localhost:$PORT" };
+  const lines = (raw: object, exists: (p: string) => boolean = () => true) =>
+    pluginsOf(parse({ ...MINIMAL, ...raw }), exists).map(
+      (p) => `${p.kind} ${p.name} ${p.slot}`,
+    );
+
+  it("gives the factory's refiner, prover, and test reviewer to a file that names none", () => {
+    expect(lines({})).toEqual([
+      "skill factory-refine refiner",
+      "skill factory-mutate prover",
+      "agent factory-test-reviewer test-reviewer",
+    ]);
+  });
+
+  it("lists every plug-in in the slots' order, yours in place of the factory's", () => {
+    const plugins = {
+      conflicts: { resolvers: [{ skill: "regen", files: ["gen/**"] }] },
+      test: {
+        reviewers: [{ agent: "ours" }],
+        prover: { skill: "our-prover" },
+      },
+      build: {
+        reviewers: [{ agent: "rev", files: ["src/**"] }],
+        builders: [{ skill: "build", labels: ["x"] }],
+      },
+      refine: {
+        mockups: { skill: "our-mockups" },
+        refiner: { skill: "our-refiner" },
+      },
+    };
+    expect(lines({ plugins, site })).toEqual([
+      "skill our-refiner refiner",
+      "skill our-mockups mockups",
+      "skill build builder",
+      "agent rev reviewer",
+      "skill our-prover prover",
+      "agent ours test-reviewer",
+      "skill regen resolver",
+    ]);
+    expect(lines({ plugins, site }).map((l) => l.split(" ")[2])).toEqual([
+      ...SLOTS,
+    ]);
+  });
+
+  it("adds the design skill as a site's mockups, once it is synced", () => {
+    expect(lines({ site })).toContain("skill factory-design mockups");
+    expect(lines({ site }, (p) => p !== SKILL)).not.toContain(
+      "skill factory-design mockups",
+    );
+    expect(lines({})).not.toContain("skill factory-design mockups");
   });
 });
 
@@ -354,11 +832,22 @@ describe("patternWarnings", () => {
   it("warns on a pattern that matches no file, and on nothing else", () => {
     const s = parse({
       ...MINIMAL,
-      plugins: [{ agent: "a", role: "reviewer", files: ["db/**"] }],
+      plugins: {
+        build: {
+          reviewers: [
+            { agent: "a", files: ["src/**"] },
+            { agent: "b", files: ["db/**"] },
+          ],
+        },
+        test: { reviewers: [{ agent: "c", files: ["e2e/**", "src/**"] }] },
+        conflicts: { resolvers: [{ skill: "d", files: ["gen/**"] }] },
+      },
       "auto-merge": { allow: ["src/**", "docs/**"], deny: ["src/a.ts"] },
     });
     expect(patternWarnings(s, ["src/a.ts", "README.md"])).toEqual([
-      "plugins[0].files: db/** matches no file",
+      "plugins.build.reviewers[1].files: db/** matches no file",
+      "plugins.test.reviewers[0].files: e2e/** matches no file",
+      "plugins.conflicts.resolvers[0].files: gen/** matches no file",
       "auto-merge.allow: docs/** matches no file",
     ]);
   });
@@ -370,22 +859,25 @@ function deps(over: Partial<Deps> = {}) {
   const d: Deps = {
     readFile: () =>
       [
-        "version: 1",
+        "version: 2",
         "repository: owner/name",
         "tickets:",
         "  board: 3",
         "plugins:",
-        "  - skill: mock",
-        "    role: mockups",
-        "  - agent: rev",
-        "    role: reviewer",
-        "    files: [src/**, public/**]",
-        "  - skill: build",
-        "    role: builder",
-        "    labels: [new-thing]",
-        "before-commit:",
-        "  - npm test",
-        "  - npm run lint",
+        "  refine:",
+        "    mockups:",
+        "      skill: mock",
+        "  build:",
+        "    builders:",
+        "      - skill: build",
+        "        labels: [new-thing]",
+        "    reviewers:",
+        "      - agent: rev",
+        "        files: [src/**, public/**]",
+        "commands:",
+        "  before-commit:",
+        "    - npm test",
+        "    - npm run lint",
       ].join("\n"),
     exists: () => true,
     hasPackage: () => true,
@@ -405,15 +897,16 @@ describe("factory config explain", () => {
     return { code, out: r.out, err: r.err };
   };
   const SMALL = [
-    "version: 1",
+    "version: 2",
     "repository: owner/name",
     "tickets:",
     "  board: 3",
     "  columns:",
     "    backlog: Todo",
     "specs: openspec",
-    "before-commit:",
-    "  - npm test",
+    "commands:",
+    "  before-commit:",
+    "    - npm test",
     "ci-review:",
     "  commands: [npm test]",
     "rules:",
@@ -424,54 +917,76 @@ describe("factory config explain", () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
     expect(r.out.join("\n")).toMatchInlineSnapshot(`
-      "version: 1
+      "version: 2
       repository: owner/name
       tickets:
-        type: github               # default
+        type: github                                              # default
         board: 3
         columns:
           backlog: Todo
-          refining: In refinement  # default
-          ready: Ready             # default
-          building: In progress    # default
-          review: In review        # default
-          done: Done               # default
+          refining: In refinement                                 # default
+          ready: Ready                                            # default
+          building: In progress                                   # default
+          review: In review                                       # default
+          done: Done                                              # default
         fields:
-          session: Session         # default
-          runs-in: Runs in         # default
-          cost: Cost               # default
-      code-host: github            # default
+          session: Session                                        # default
+          runs-in: Runs in                                        # default
+          cost: Cost                                              # default
+      code-host: github                                           # default
       builds:
-        trigger: manual            # default
-        runner: github-actions     # default
+        trigger: manual                                           # default
+        runner: github-actions                                    # default
         # poll-minutes: only with trigger github-action
-      specs: openspec
-      before-commit:
-        - npm test
-      build-setup: []              # default
-      plugins: []                  # default
+      specs:
+        type: openspec
+        check: openspec validate --all --strict --no-interactive  # default
+      commands:
+        build-setup: []                                           # default
+        before-commit:
+          - npm test
+        gate: []                                                  # default
+        # test-one: none (default)
+        # end-to-end: none (default)
+        # coverage: none (default)
+        relock: npm install                                       # default
+      plugins:
+        refine:
+          refiner:                                                # default
+            skill: factory-refine                                 # default
+          # mockups: none (default)
+        build:
+          builders: []                                            # default
+          reviewers: []                                           # default
+        test:
+          prover:                                                 # default
+            skill: factory-mutate                                 # default
+          reviewers:                                              # default
+            - agent: factory-test-reviewer                        # default
+        conflicts:
+          resolvers: []                                           # default
       auto-merge:
-        allow: []                  # default
-        deny: []                   # default
-        commands: []               # default
+        allow: []                                                 # default
+        deny: []                                                  # default
+        commands: []                                              # default
       ci-review:
         commands:
           - npm test
       # site: off
       session-minutes:
-        build: 230                 # default
-        conflicts: 110             # default
-        review: 50                 # default
-        dependencies: 50           # default
+        build: 230                                                # default
+        conflicts: 110                                            # default
+        review: 50                                                # default
+        dependencies: 50                                          # default
       rules:
-        small-change-lines: 30     # default
+        small-change-lines: 30                                    # default
         review-rounds: 3"
     `);
   });
 
   it("marks as yours a value the file sets, even to its default", async () => {
     const r = await explain([
-      "version: 1",
+      "version: 2",
       "repository: owner/name",
       "session-minutes:",
       "  build: 230",
@@ -490,7 +1005,7 @@ describe("factory config explain", () => {
 
   it("marks as yours a part written as one word", async () => {
     const r = await explain([
-      "version: 1",
+      "version: 2",
       "repository: owner/name",
       "tickets: github",
       "code-host: github",
@@ -500,7 +1015,7 @@ describe("factory config explain", () => {
   });
 
   it("prints a part that is off, and a default that is no value, as a comment", async () => {
-    const r = await explain(["version: 1", "repository: owner/name"]);
+    const r = await explain(["version: 2", "repository: owner/name"]);
     expect(r.out).toContain("# ci-review: off");
     expect(r.out).toContain("# site: off");
     expect(r.out).toContainEqual(
@@ -510,7 +1025,7 @@ describe("factory config explain", () => {
 
   it("prints site's defaults that are no value as comments", async () => {
     const r = await explain([
-      "version: 1",
+      "version: 2",
       "repository: owner/name",
       "site:",
       "  start: npm start",
@@ -521,20 +1036,45 @@ describe("factory config explain", () => {
   });
 
   it("prints no columns or fields without a board", async () => {
-    const r = await explain(["version: 1", "repository: owner/name"]);
+    const r = await explain(["version: 2", "repository: owner/name"]);
     expect(r.out.join("\n")).not.toMatch(/columns:|fields:/);
   });
 
   const RICH = [
-    "version: 1",
+    "version: 2",
     "repository: owner/name",
+    "specs:",
+    "  type: openspec",
+    "  check: make specs",
+    "commands:",
+    "  gate: [make check]",
+    '  test-one: make test FILE=$FILE NAME="$NAME"',
+    "  end-to-end: 'make e2e FILE=$FILE # one spec'",
+    "  coverage:",
+    "    run: make coverage",
+    "    report: out/lcov.info",
     "plugins:",
-    "  - agent: rev",
-    "    role: reviewer",
-    "    files: [src/**, 'db/*.sql']",
-    "  - skill: build",
-    "    role: builder",
-    "    labels: [new-thing]",
+    "  refine:",
+    "    refiner:",
+    "      skill: our-refiner",
+    "  build:",
+    "    builders:",
+    "      - skill: build",
+    "        labels: [new-thing]",
+    "    reviewers:",
+    "      - agent: rev",
+    "        files: [src/**, 'db/*.sql']",
+    "  test:",
+    "    prover:",
+    "      skill: our-prover",
+    "    reviewers:",
+    "      - agent: ours",
+    "      - agent: factory-e2e-reviewer",
+    "        files: [e2e/**]",
+    "  conflicts:",
+    "    resolvers:",
+    "      - skill: regen",
+    "        files: [gen/**]",
     "auto-merge:",
     "  allow: [docs/**, '**/*.md']",
     "site:",
@@ -546,11 +1086,195 @@ describe("factory config explain", () => {
 
   it.each([
     ["a small file", SMALL],
-    ["the shortest file", ["version: 1", "repository: owner/name"]],
+    ["the shortest file", ["version: 2", "repository: owner/name"]],
     ["plug-ins, lists, and a site", RICH],
   ])("prints %s so it reads as the same settings", async (_, file) => {
     const r = await explain(file);
-    expect(parse(load(r.out.join("\n")))).toEqual(parse(load(file.join("\n"))));
+    // The settings in effect: the output writes out the factory's own
+    // plug-ins, which the file leaves to their defaults.
+    const inEffect = (text: string) => {
+      const s = parse(load(text));
+      return {
+        ...s,
+        plugins: pluginsOf(s, () => true),
+        testReviewersWritten: true,
+      };
+    };
+    expect(inEffect(r.out.join("\n"))).toEqual(inEffect(file.join("\n")));
+  });
+
+  describe("the commands", () => {
+    it("prints the block, with a comment for each command that is not set", async () => {
+      const r = await explain(["version: 2", "repository: owner/name"]);
+      const at = r.out.indexOf("commands:");
+      expect(
+        r.out
+          .slice(at, at + 8)
+          .map((l) => l.replace(/ +# default$/, " # default")),
+      ).toEqual([
+        "commands:",
+        "  build-setup: [] # default",
+        "  before-commit: [] # default",
+        "  gate: [] # default",
+        "  # test-one: none (default)",
+        "  # end-to-end: none (default)",
+        "  # coverage: none (default)",
+        "  relock: npm install # default",
+      ]);
+    });
+
+    it("prints each command the file sets, unmarked, and coverage as a block", async () => {
+      const r = await explain(RICH);
+      const at = r.out.indexOf("commands:");
+      expect(
+        r.out
+          .slice(at, at + 11)
+          .map((l) => l.replace(/ +# default$/, " # default")),
+      ).toEqual([
+        "commands:",
+        "  build-setup: [] # default",
+        "  before-commit: [] # default",
+        "  gate:",
+        "    - make check",
+        '  test-one: make test FILE=$FILE NAME="$NAME"',
+        '  end-to-end: "make e2e FILE=$FILE # one spec"',
+        "  coverage:",
+        "    run: make coverage",
+        "    report: out/lcov.info",
+        "  relock: npm install # default",
+      ]);
+    });
+  });
+
+  describe("the specs", () => {
+    const after = (out: string[], line: string, count: number) =>
+      out.slice(out.indexOf(line), out.indexOf(line) + count);
+
+    it("prints a block with the type and the default check for OpenSpec written as one word", async () => {
+      const r = await explain([
+        "version: 2",
+        "repository: owner/name",
+        "specs: openspec",
+      ]);
+      expect(after(r.out, "specs:", 3)).toEqual([
+        "specs:",
+        "  type: openspec",
+        "  check: openspec validate --all --strict --no-interactive  # default",
+      ]);
+    });
+
+    it("prints the check the file sets, unmarked", async () => {
+      const r = await explain(RICH);
+      expect(after(r.out, "specs:", 3)).toEqual([
+        "specs:",
+        "  type: openspec",
+        "  check: make specs",
+      ]);
+    });
+
+    it("prints one word when there are no specs", async () => {
+      const r = await explain(["version: 2", "repository: owner/name"]);
+      expect(r.out).toContainEqual(
+        expect.stringMatching(/^specs: none +# default$/),
+      );
+      expect(r.out.join("\n")).not.toMatch(/^ {2}check:/m);
+    });
+  });
+
+  describe("the plug-ins", () => {
+    const plugins = (out: string[]) =>
+      out
+        .slice(out.indexOf("plugins:"), out.indexOf("auto-merge:"))
+        .map((l) => l.replace(/ +# default$/, " # default"));
+
+    it("prints them by phase, the factory's own marked as defaults and the empty lists written out", async () => {
+      const r = await explain(["version: 2", "repository: owner/name"]);
+      expect(plugins(r.out)).toEqual([
+        "plugins:",
+        "  refine:",
+        "    refiner: # default",
+        "      skill: factory-refine # default",
+        "    # mockups: none (default)",
+        "  build:",
+        "    builders: [] # default",
+        "    reviewers: [] # default",
+        "  test:",
+        "    prover: # default",
+        "      skill: factory-mutate # default",
+        "    reviewers: # default",
+        "      - agent: factory-test-reviewer # default",
+        "  conflicts:",
+        "    resolvers: [] # default",
+      ]);
+    });
+
+    it("prints yours unmarked, each with its files or labels", async () => {
+      const r = await explain(RICH);
+      expect(plugins(r.out)).toEqual([
+        "plugins:",
+        "  refine:",
+        "    refiner:",
+        "      skill: our-refiner",
+        "    mockups: # default",
+        "      skill: factory-design # default",
+        "  build:",
+        "    builders:",
+        "      - skill: build",
+        "        labels:",
+        "          - new-thing",
+        "    reviewers:",
+        "      - agent: rev",
+        "        files:",
+        "          - src/**",
+        "          - db/*.sql",
+        "  test:",
+        "    prover:",
+        "      skill: our-prover",
+        "    reviewers:",
+        "      - agent: ours",
+        "      - agent: factory-e2e-reviewer",
+        "        files:",
+        "          - e2e/**",
+        "  conflicts:",
+        "    resolvers:",
+        "      - skill: regen",
+        "        files:",
+        "          - gen/**",
+      ]);
+    });
+
+    it("prints a site's design skill as its mockups only once it is synced", async () => {
+      const file = [
+        "version: 2",
+        "repository: owner/name",
+        "site:",
+        "  start: npm start",
+        "  url: http://localhost:$PORT",
+      ];
+      const r = deps({
+        readFile: () => file.join("\n"),
+        exists: (path) => path !== ".claude/skills/factory-design/SKILL.md",
+      });
+      await main(["explain"], r.d);
+      expect(r.out).toContain("    # mockups: none (default)");
+      expect((await explain(file)).out).toContainEqual(
+        expect.stringMatching(/^ {6}skill: factory-design +# default$/),
+      );
+    });
+
+    it("prints a list of test reviewers the file writes empty as yours", async () => {
+      const r = await explain([
+        "version: 2",
+        "repository: owner/name",
+        "plugins:",
+        "  test:",
+        "    reviewers: []",
+      ]);
+      expect(plugins(r.out)).toContain("    reviewers: []");
+      expect(plugins(r.out)).not.toContain(
+        "      - agent: factory-test-reviewer # default",
+      );
+    });
   });
 
   it("prints every key the settings take, so a new one cannot be left out", async () => {
@@ -558,25 +1282,25 @@ describe("factory config explain", () => {
       RICH.concat(["tickets:", "  board: 3", "ci-review:"]),
     );
     const text = r.out.join("\n");
-    const printed = (block: string, key: string) =>
-      new RegExp(
-        block
-          ? `^${block === "tickets.columns" || block === "tickets.fields" ? "    " : "  "}(# )?${key}:`
-          : `^(# )?${key}:`,
-        "m",
-      ).test(text);
-    const missing = Object.entries(SETTINGS_KEYS)
-      .filter(([block]) => block !== "plugins[]" && block !== "specs")
-      .flatMap(([block, keys]) =>
-        keys.filter((k) => !printed(block, k)).map((k) => `${block}.${k}`),
-      );
+    // A key is printed under its block, two spaces deeper for each step of
+    // the block's path, and a list's item starts with a dash.
+    const printed = (block: string, key: string) => {
+      const depth = block === "" ? 0 : block.split(".").length;
+      const indent = block.endsWith("[]")
+        ? `${" ".repeat(depth * 2)}(- |  )`
+        : " ".repeat(depth * 2);
+      return new RegExp(`^${indent}(# )?${key}:`, "m").test(text);
+    };
+    const missing = Object.entries(SETTINGS_KEYS).flatMap(([block, keys]) =>
+      keys.filter((k) => !printed(block, k)).map((k) => `${block}.${k}`),
+    );
     expect(missing).toEqual([]);
   });
 
   it("fails as config check does on settings it cannot read", async () => {
-    const r = await explain(["version: 2"]);
+    const r = await explain(["version: 3"]);
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([".claude/factory.yaml: version: must be 1"]);
+    expect(r.err).toEqual([".claude/factory.yaml: version: must be 2"]);
     const missing = deps({
       loadYaml: () => Promise.reject(new Error("Cannot find package")),
     });
@@ -590,7 +1314,7 @@ describe("main", () => {
     const { d, out } = deps();
     expect(await main(["repository"], d)).toBe(0);
     expect(await main(["tickets.board"], d)).toBe(0);
-    expect(await main(["before-commit"], d)).toBe(0);
+    expect(await main(["commands.before-commit"], d)).toBe(0);
     expect(out).toEqual(["owner/name", "3", "npm test", "npm run lint"]);
   });
 
@@ -612,43 +1336,217 @@ describe("main", () => {
     ],
   ])("fails the check on %s", async (written, message) => {
     const { d, err } = deps({
-      readFile: () => `version: 1\nrepository: a/b\n${written}\n`,
+      readFile: () => `version: 2\nrepository: a/b\n${written}\n`,
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([message]);
   });
 
-  it("prints the build's setup commands one per line, and nothing when there are none", async () => {
-    const { d, out } = deps();
-    expect(await main(["build-setup"], d)).toBe(0);
-    expect(out).toEqual([]);
-    const set = deps({
-      readFile: () =>
-        "version: 1\nrepository: a/b\nbuild-setup:\n  - make tools\n  - make data\n",
+  describe("config get, for the commands and the spec check", () => {
+    const BARE = "version: 2\nrepository: a/b\n";
+    const get = async (file: string, key: string) => {
+      const r = deps({ readFile: () => file });
+      const code = await main([key], r.d);
+      return { code, out: r.out, err: r.err };
+    };
+    const FULL = [
+      "version: 2",
+      "repository: a/b",
+      "specs:",
+      "  type: openspec",
+      "  check: make specs",
+      "commands:",
+      "  build-setup: [make tools, make data]",
+      "  before-commit: [make lint]",
+      "  gate: [make check, make e2e]",
+      "  test-one: make test FILE=$FILE",
+      "  end-to-end: make e2e FILE=$FILE",
+      "  relock: make lock",
+      "  coverage:",
+      "    run: make coverage",
+      "    report: out/lcov.info",
+    ].join("\n");
+
+    it.each([
+      ["commands.build-setup", ["make tools", "make data"]],
+      ["commands.before-commit", ["make lint"]],
+      ["commands.gate", ["make check", "make e2e"]],
+      ["commands.test-one", ["make test FILE=$FILE"]],
+      ["commands.end-to-end", ["make e2e FILE=$FILE"]],
+      ["commands.relock", ["make lock"]],
+      ["commands.coverage.run", ["make coverage"]],
+      ["commands.coverage.report", ["out/lcov.info"]],
+    ])("prints %s as written, a list one item per line", async (key, lines) => {
+      expect(await get(FULL, key)).toEqual({ code: 0, out: lines, err: [] });
     });
-    expect(await main(["build-setup"], set.d)).toBe(0);
-    expect(set.out).toEqual(["make tools", "make data"]);
+
+    it.each([
+      "commands.build-setup",
+      "commands.before-commit",
+      "commands.gate",
+    ])("prints nothing for %s when it is an empty list", async (key) => {
+      expect(await get(BARE, key)).toEqual({ code: 0, out: [], err: [] });
+    });
+
+    it.each([
+      "commands.test-one",
+      "commands.end-to-end",
+      "commands.coverage.run",
+      "commands.coverage.report",
+    ])("prints none for %s when it is not set", async (key) => {
+      expect(await get(BARE, key)).toEqual({ code: 0, out: ["none"], err: [] });
+    });
+
+    it("prints npm install for commands.relock when it is not set", async () => {
+      expect((await get(BARE, "commands.relock")).out).toEqual(["npm install"]);
+    });
+
+    it.each([
+      [BARE, "commands.coverage"],
+      [FULL, "commands.coverage"],
+      [FULL, "commands"],
+      [FULL, "before-commit"],
+      [FULL, "build-setup"],
+      [BARE, "commands.coverage.lines"],
+    ])("fails on a block, or a key that is not one: %#", async (file, key) => {
+      expect(await get(file, key)).toEqual({
+        code: 1,
+        out: [],
+        err: [`.claude/factory.yaml: ${key}: not a setting that prints`],
+      });
+    });
+
+    it.each([
+      ["specs: openspec", "openspec"],
+      ["specs:\n  type: openspec", "openspec"],
+      ["specs:\n  type: openspec\n  check: make specs", "openspec"],
+      ["specs: none", "none"],
+      ["specs:\n  type: none", "none"],
+      ["", "none"],
+    ])("prints specs as one word for %j", async (written, word) => {
+      expect((await get(`${BARE}${written}\n`, "specs")).out).toEqual([word]);
+    });
+
+    it.each([
+      ["specs:\n  type: openspec\n  check: make specs", "make specs"],
+      ["specs: openspec", "openspec validate --all --strict --no-interactive"],
+      ["specs: none", "none"],
+      ["", "none"],
+    ])("prints the spec check for %j", async (written, check) => {
+      expect(await get(`${BARE}${written}\n`, "specs.check")).toEqual({
+        code: 0,
+        out: [check],
+        err: [],
+      });
+    });
   });
 
-  it("fails the check, naming the key, when build-setup is not a list of text", async () => {
+  it("fails the check, naming the key, when a command list is not a list of text", async () => {
     const { d, err } = deps({
-      readFile: () => "version: 1\nrepository: a/b\nbuild-setup: make tools\n",
+      readFile: () =>
+        "version: 2\nrepository: a/b\ncommands:\n  build-setup: make tools\n",
     });
     expect(await main(["check"], d)).toBe(1);
-    expect(err.join("\n")).toContain("build-setup:");
+    expect(err).toEqual([
+      ".claude/factory.yaml: commands.build-setup: must be a list",
+    ]);
   });
 
-  it("prints each plug-in, or those with one role", async () => {
-    const { d, out } = deps();
-    await main(["plugins", "reviewer"], d);
-    expect(out).toEqual(["agent rev reviewer src/** public/**"]);
-    out.length = 0;
-    await main(["plugins"], d);
-    expect(out).toEqual([
-      "skill mock mockups",
-      "agent rev reviewer src/** public/**",
-      "skill build builder new-thing",
-    ]);
+  describe("factory plugins", () => {
+    const BARE = "version: 2\nrepository: owner/name\n";
+    const run = async (argv: string[], file?: string) => {
+      const r = deps(file === undefined ? {} : { readFile: () => file });
+      const code = await main(["plugins", ...argv], r.d);
+      return { code, out: r.out, err: r.err };
+    };
+
+    it("prints each plug-in the factory will use: its kind, name, and slot, then its files or labels", async () => {
+      expect((await run([])).out).toEqual([
+        "skill factory-refine refiner",
+        "skill mock mockups",
+        "skill build builder new-thing",
+        "agent rev reviewer src/** public/**",
+        "skill factory-mutate prover",
+        "agent factory-test-reviewer test-reviewer",
+      ]);
+    });
+
+    it.each([
+      ["reviewer", ["agent rev reviewer src/** public/**"]],
+      ["builder", ["skill build builder new-thing"]],
+      ["mockups", ["skill mock mockups"]],
+      ["resolver", []],
+    ])("prints only the lines of the slot %s", async (slot, lines) => {
+      expect(await run([slot])).toEqual({ code: 0, out: lines, err: [] });
+    });
+
+    it.each(["tester", "reviewers", "refine"])(
+      "fails on %s, a word that is no slot, naming the seven",
+      async (word) => {
+        expect(await run([word])).toEqual({
+          code: 1,
+          out: [],
+          err: [
+            `${word}: must be one of refiner, mockups, builder, reviewer, prover, test-reviewer, resolver`,
+          ],
+        });
+      },
+    );
+
+    it("prints the factory's refiner when the settings name none", async () => {
+      expect((await run(["refiner"], BARE)).out).toEqual([
+        "skill factory-refine refiner",
+      ]);
+    });
+
+    it("prints your refiner in its place", async () => {
+      const file = `${BARE}plugins:\n  refine:\n    refiner:\n      skill: ours\n`;
+      expect((await run(["refiner"], file)).out).toEqual([
+        "skill ours refiner",
+      ]);
+    });
+
+    it("prints the factory's prover when the settings name none", async () => {
+      expect((await run(["prover"], BARE)).out).toEqual([
+        "skill factory-mutate prover",
+      ]);
+    });
+
+    it("prints your prover in its place", async () => {
+      const file = `${BARE}plugins:\n  test:\n    prover:\n      skill: ours\n`;
+      expect((await run(["prover"], file)).out).toEqual(["skill ours prover"]);
+    });
+
+    it("prints the factory's test reviewer when the list is not written", async () => {
+      expect((await run(["test-reviewer"], BARE)).out).toEqual([
+        "agent factory-test-reviewer test-reviewer",
+      ]);
+    });
+
+    it("prints exactly the test reviewers a written list names, with their files", async () => {
+      const file = `${BARE}plugins:\n  test:\n    reviewers:\n      - agent: ours\n      - agent: theirs\n        files: [e2e/**]\n`;
+      expect((await run(["test-reviewer"], file)).out).toEqual([
+        "agent ours test-reviewer",
+        "agent theirs test-reviewer e2e/**",
+      ]);
+    });
+
+    it("prints the factory's test reviewer when a written list names it", async () => {
+      const file = `${BARE}plugins:\n  test:\n    reviewers:\n      - agent: factory-test-reviewer\n      - agent: ours\n`;
+      expect((await run(["test-reviewer"], file)).out).toEqual([
+        "agent factory-test-reviewer test-reviewer",
+        "agent ours test-reviewer",
+      ]);
+    });
+
+    it("prints no test reviewer for a list written empty", async () => {
+      const file = `${BARE}plugins:\n  test:\n    reviewers: []\n`;
+      expect(await run(["test-reviewer"], file)).toEqual({
+        code: 0,
+        out: [],
+        err: [],
+      });
+    });
   });
 
   describe("the design skill as a website's mockups plug-in", () => {
@@ -656,29 +1554,39 @@ describe("main", () => {
     const WARNING = `warning: ${SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`;
     const settings = (plugins: string[]) =>
       [
-        "version: 1",
+        "version: 2",
         "repository: owner/name",
         "site:",
         "  start: npm start",
         "  url: http://localhost:$PORT",
         ...plugins,
       ].join("\n");
-    const OWN = ["plugins:", "  - skill: mine", "    role: mockups"];
+    const OWN = ["plugins:", "  refine:", "    mockups:", "      skill: mine"];
     const synced = () => true;
     const unsynced = (path: string) => path !== SKILL;
 
-    it.each([[["plugins", "mockups"]], [["plugins"]]])(
-      "is listed by %j for a site that lists none, once it is synced",
-      async (argv) => {
-        const { d, out } = deps({
-          readFile: () => settings([]),
-          exists: synced,
-        });
+    it("is listed by its slot for a site that lists none, once it is synced", async () => {
+      const { d, out } = deps({
+        readFile: () => settings([]),
+        exists: synced,
+      });
 
-        await main(argv, d);
-        expect(out).toEqual(["skill factory-design mockups"]);
-      },
-    );
+      await main(["plugins", "mockups"], d);
+      expect(out).toEqual(["skill factory-design mockups"]);
+    });
+
+    it("is listed among every plug-in, after the refiner", async () => {
+      const { d, out } = deps({
+        readFile: () => settings([]),
+        exists: synced,
+      });
+
+      await main(["plugins"], d);
+      expect(out.slice(0, 2)).toEqual([
+        "skill factory-refine refiner",
+        "skill factory-design mockups",
+      ]);
+    });
 
     it("gives way to a mockups plug-in the settings list", async () => {
       const { d, out } = deps({
@@ -692,7 +1600,7 @@ describe("main", () => {
 
     it("is no plug-in where there is no site", async () => {
       const { d, out } = deps({
-        readFile: () => "version: 1\nrepository: owner/name\n",
+        readFile: () => "version: 2\nrepository: owner/name\n",
         exists: synced,
       });
 
@@ -741,14 +1649,28 @@ describe("main", () => {
     const { d, err } = deps({ listFiles: () => ["src/a.ts"] });
     expect(await main(["check"], d)).toBe(0);
     expect(err).toEqual([
-      "warning: plugins[1].files: public/** matches no file",
+      "warning: plugins.build.reviewers[0].files: public/** matches no file",
     ]);
   });
 
   it("fails, naming the key, on an unsound file", async () => {
-    const { d, err } = deps({ readFile: () => "version: 2\nrepository: a/b" });
+    const { d, err } = deps({ readFile: () => "version: 3\nrepository: a/b" });
     expect(await main(["check"], d)).toBe(1);
     expect(err.join("\n")).toContain("version:");
+  });
+
+  it("accepts version 2", async () => {
+    const { d, err } = deps({ readFile: () => "version: 2\nrepository: a/b" });
+    expect(await main(["check"], d)).toBe(0);
+    expect(err).toEqual([]);
+  });
+
+  it("fails the check on a version 1 file, with the page that says how to move it", async () => {
+    const { d, err } = deps({ readFile: () => "version: 1\nrepository: a/b" });
+    expect(await main(["check"], d)).toBe(1);
+    expect(err).toEqual([
+      '.claude/factory.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+    ]);
   });
 
   it("says to run npm ci when js-yaml cannot be loaded", async () => {
@@ -796,7 +1718,7 @@ describe("site settings", () => {
 
   const site = { start: "npm start", url: "http://localhost:$PORT" };
   const withSite = (extra: object = {}) =>
-    `version: 1\nrepository: a/b\nsite: ${JSON.stringify({ ...site, ...extra })}\n`;
+    `version: 2\nrepository: a/b\nsite: ${JSON.stringify({ ...site, ...extra })}\n`;
 
   it("fills the defaults", () => {
     expect(parse({ ...MINIMAL, site }).site).toEqual({
@@ -828,7 +1750,13 @@ describe("site settings", () => {
     ],
     [{ site: { ...site, "new-values": "yes" } }, "site.new-values"],
     [
-      { plugins: [{ agent: "factory-ui-reviewer", role: "reviewer" }] },
+      {
+        plugins: {
+          build: {
+            reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+          },
+        },
+      },
       "site: is required to list factory-ui-reviewer",
     ],
   ])("rejects an unsound site", (raw, message) => {

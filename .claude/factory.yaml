@@ -1,6 +1,6 @@
 # Settings for the software factory in its own repository. Every key is
 # explained in docs/configuration.md.
-version: 1
+version: 2
 repository: davidbyoung/software-factory
 
 # Where tickets live. This repository shares the board of the one the
@@ -20,11 +20,18 @@ builds:
 # with OpenSpec.
 specs: openspec
 
-# Commands run before every commit a session makes. If one fails, the
-# commit is blocked.
-before-commit:
-  - npm run -s format:check
-  - npx tsc --noEmit
+# Every command a build runs here, each from the repository's root.
+commands:
+  # Before every commit a session makes. If one fails, the commit is
+  # blocked.
+  before-commit:
+    - npm run -s format:check
+    - npx tsc --noEmit
+  # Before a session reports a task done.
+  gate:
+    - npm run check
+  # One unit test alone. An empty NAME runs the whole file.
+  test-one: npx vitest run $FILE -t "$NAME"
 
 # The automated review of every pull request, on while this is written.
 # "commands" are what it may run to confirm a finding, beside reading the
@@ -38,8 +45,9 @@ ci-review:
 # This repository's own reviewer: it reads a changed page of the docs as
 # someone who has never seen the factory.
 plugins:
-  - agent: docs-reader
-    role: reviewer
-    files:
-      - README.md
-      - docs/**
+  build:
+    reviewers:
+      - agent: docs-reader
+        files:
+          - README.md
+          - docs/**

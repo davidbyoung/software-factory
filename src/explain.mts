@@ -1,7 +1,13 @@
 // `factory config explain`: the settings as `.claude/factory.yaml` would
 // read with every default written out, each line the file does not set
 // marked `# default`, so any line can be copied into the file.
-import type { Settings } from "./config.mts";
+import {
+  PHASES,
+  pluginsOf,
+  SLOT_SHAPE,
+  SLOTS,
+  type Settings,
+} from "./config.mts";
 
 type Raw = Record<string, unknown>;
 
@@ -23,9 +29,12 @@ function sets(raw: unknown, path: string[]): boolean {
   return true;
 }
 
+/** `exists` says whether a path from the root exists, for the plug-ins the
+ * factory uses where the settings name none. */
 export async function explainLines(
   s: Settings,
   raw: unknown,
+  exists: (path: string) => boolean,
 ): Promise<string[]> {
   const { stringify } = await import("yaml");
   const value = (v: unknown) => stringify(v, { lineWidth: 0 }).trim();
@@ -77,25 +86,61 @@ export async function explainLines(
   if (s.builds.trigger === "github-action")
     put(["builds", "poll-minutes"], s.builds.pollMinutes);
   else comment(1, "poll-minutes: only with trigger github-action");
-  put(["specs"], s.specs);
-  put(["before-commit"], s.beforeCommit);
-  put(["build-setup"], s.buildSetup);
+  if (s.specs === "openspec") {
+    block(["specs"]);
+    put(["specs", "type"], s.specs);
+    put(["specs", "check"], s.specCheck);
+  } else put(["specs"], s.specs);
 
-  if (!s.plugins.length) put(["plugins"], []);
+  block(["commands"]);
+  put(["commands", "build-setup"], s.commands.buildSetup);
+  put(["commands", "before-commit"], s.commands.beforeCommit);
+  put(["commands", "gate"], s.commands.gate);
+  for (const [key, command] of [
+    ["test-one", s.commands.testOne],
+    ["end-to-end", s.commands.endToEnd],
+  ] as const)
+    if (command === null) comment(1, `${key}: none (default)`);
+    else put(["commands", key], command);
+  if (s.commands.coverage === null) comment(1, "coverage: none (default)");
   else {
-    block(["plugins"]);
-    for (const p of s.plugins) {
-      lines.push({ text: `  - ${p.kind}: ${value(p.name)}`, byDefault: false });
-      lines.push({ text: `    role: ${p.role}`, byDefault: false });
-      for (const [k, list] of [
-        ["files", p.files],
-        ["labels", p.labels],
-      ] as const)
-        if (list.length) {
-          lines.push({ text: `    ${k}:`, byDefault: false });
-          for (const item of list)
-            lines.push({ text: `      - ${value(item)}`, byDefault: false });
-        }
+    block(["commands", "coverage"]);
+    put(["commands", "coverage", "run"], s.commands.coverage.run);
+    put(["commands", "coverage", "report"], s.commands.coverage.report);
+  }
+  put(["commands", "relock"], s.commands.relock);
+
+  // Each slot holds what `factory plugins` prints for it: the settings'
+  // own plug-ins, or the factory's where they name none.
+  const used = pluginsOf(s, exists);
+  block(["plugins"]);
+  for (const phase of PHASES) {
+    block(["plugins", phase]);
+    for (const slot of SLOTS.filter((x) => SLOT_SHAPE[x].phase === phase)) {
+      const { key, list } = SLOT_SHAPE[slot];
+      const path = ["plugins", phase, key];
+      const found = used.filter((p) => p.slot === slot);
+      if (!found.length) {
+        if (list) put(path, []);
+        else comment(2, `${key}: none (default)`);
+        continue;
+      }
+      const byDefault = !sets(raw, path);
+      const add = (depth: number, text: string) =>
+        lines.push({ text: `${pad(depth)}${text}`, byDefault });
+      add(2, `${key}:`);
+      for (const p of found) {
+        add(3, `${list ? "- " : ""}${p.kind}: ${value(p.name)}`);
+        const under = list ? 4 : 3;
+        for (const [k, items] of [
+          ["files", p.files],
+          ["labels", p.labels],
+        ] as const)
+          if (items.length) {
+            add(under, `${k}:`);
+            for (const item of items) add(under + 1, `- ${value(item)}`);
+          }
+      }
     }
   }
 

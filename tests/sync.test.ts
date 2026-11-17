@@ -26,7 +26,7 @@ const read = (path: string) =>
   existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null;
 
 const settings = (raw: Record<string, unknown> = {}): Settings =>
-  parseSettings({ version: 1, repository: "o/r", ...raw }, () => true);
+  parseSettings({ version: 2, repository: "o/r", ...raw }, () => true);
 const FULL = { tickets: { board: 3 }, "auto-merge": { allow: ["docs/**"] } };
 
 async function sync(argv: string[] = [], s = settings(FULL)) {

@@ -273,7 +273,7 @@ describe("factory init, a first run with every part", () => {
     const r = first();
     expect(await r.run()).toBe(0);
     expect(r.yaml()).toEqual({
-      version: 1,
+      version: 2,
       repository: "acme/site",
       tickets: { board: 1 },
       builds: { trigger: "own-server" },
@@ -406,15 +406,16 @@ describe("factory init, told not to go ahead", () => {
 describe("factory init, run again", () => {
   const SETTINGS = [
     "# Our settings.",
-    "version: 1",
+    "version: 2",
     "repository: acme/site",
     "tickets:",
     "  board: 3 # the roadmap",
     "auto-merge:",
     "  allow:",
     "    - docs/**",
-    "before-commit:",
-    "  - npm run lint",
+    "commands:",
+    "  before-commit:",
+    "    - npm run lint",
     "",
   ].join("\n");
   const SET = {
@@ -489,7 +490,7 @@ describe("factory init, run again", () => {
   it("gives a board the columns the settings name, not the defaults they rename", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n",
+        "version: 2\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n",
       boards: [
         {
           number: 3,
@@ -521,28 +522,28 @@ describe("factory init, run again", () => {
   it("turns off a board whose columns the settings rename, leaving valid settings", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n",
+        "version: 2\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n",
       secrets: { FACTORY_BOARD_TOKEN: "x" },
       answers: { checkbox: [[]], confirm: [true] },
     });
     expect(await r.run()).toBe(0);
-    expect(r.yaml()).toEqual({ version: 1, repository: "acme/site" });
+    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
 
   it("takes the review's setting out when the review is turned off, so the sync removes its workflow", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
+        "version: 2\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
       answers: { checkbox: [[]], confirm: [true] },
     });
     await r.run();
-    expect(r.yaml()).toEqual({ version: 1, repository: "acme/site" });
+    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
 
   it("keeps the review's commands when the review stays on", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
+        "version: 2\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
       answers: { checkbox: [["review"]], confirm: [true], secret: [""] },
     });
     await r.run();
@@ -709,7 +710,7 @@ describe("factory init, the board", () => {
     expect(r.out.join("\n")).toContain(
       "No board to use instead: create one on the code host, then run npx --no-install factory init again.",
     );
-    expect(r.yaml()).toEqual({ version: 1, repository: "acme/site" });
+    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
 
   it("turns on a board and cloud builds with builds that start from the board", async () => {
@@ -838,7 +839,7 @@ describe("factory init, where the poller runs", () => {
       const r = init({
         private: true,
         settings: [
-          "version: 1",
+          "version: 2",
           "repository: acme/site",
           "tickets:",
           "  board: 3",
@@ -864,7 +865,7 @@ describe("factory init, where the poller runs", () => {
   it("takes out the interval with the part", async () => {
     const r = init({
       settings: [
-        "version: 1",
+        "version: 2",
         "repository: acme/site",
         "tickets:",
         "  board: 3",
@@ -971,7 +972,7 @@ describe("factory init, word for word", () => {
   it("prints and asks the same on a re-run with every part on and every secret set", async () => {
     const r = init({
       settings: [
-        "version: 1",
+        "version: 2",
         "repository: acme/site",
         "tickets:",
         "  board: 3",
@@ -1038,7 +1039,7 @@ describe("factory init, word for word", () => {
 describe("factory init, a secret met another way", () => {
   it("asks for no token for cloud builds when the board's token, which they also read, is set", async () => {
     const r = init({
-      settings: "version: 1\nrepository: acme/site\n",
+      settings: "version: 2\nrepository: acme/site\n",
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
       answers: { checkbox: [["cloud"]], confirm: [false, true] },
     });
@@ -1055,7 +1056,7 @@ describe("factory init, a secret met another way", () => {
 describe("factory init, a tool's own setup", () => {
   /** Fake Tickets as the only ticket system. */
   const fakeOnly = (b: Registry, t: Tickets) => withFakeTickets(b, t, true);
-  const FAKE = "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n";
+  const FAKE = "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n";
 
   it("asks for the value the ticket system needs, and writes it under tickets", async () => {
     const r = init({
@@ -1188,7 +1189,7 @@ describe("factory init, with more than one tool of a kind", () => {
     const r = init({
       tools: both,
       settings:
-        "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
+        "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
       secrets: { [FAKE_TOKEN]: "x" },
       answers: { select: ["fake"], checkbox: [[]], confirm: [false, true] },
     });

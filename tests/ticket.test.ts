@@ -1230,7 +1230,7 @@ describe("a ticket system other than GitHub", () => {
     d.settings = async () =>
       parseSettings(
         {
-          version: 1,
+          version: 2,
           repository: "acme/widgets",
           tickets: { type: "jira" },
         },

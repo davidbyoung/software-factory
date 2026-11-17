@@ -567,7 +567,7 @@ describe("onceSettings", () => {
   const read = (raw: Record<string, unknown>) =>
     onceSettings(
       parseSettings(
-        { version: 1, repository: "acme/widgets", ...raw },
+        { version: 2, repository: "acme/widgets", ...raw },
         () => true,
       ),
     );
