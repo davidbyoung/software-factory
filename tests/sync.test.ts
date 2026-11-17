@@ -10,8 +10,15 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { load } from "js-yaml";
 import { parseSettings, type Settings } from "../src/config.mts";
-import { launcherPath, main, PACKAGE, plan } from "../src/sync.mts";
+import {
+  launcherPath,
+  main,
+  PACKAGE,
+  plan,
+  withDefaultBranch,
+} from "../src/sync.mts";
 
 // A made-up package and an empty repository beside it.
 let dir: string;
@@ -29,13 +36,20 @@ const settings = (raw: Record<string, unknown> = {}): Settings =>
   parseSettings({ version: 2, repository: "o/r", ...raw }, () => true);
 const FULL = { tickets: { board: 3 }, "auto-merge": { allow: ["docs/**"] } };
 
-async function sync(argv: string[] = [], s = settings(FULL)) {
+/** A sync of the made-up package into the repository, whose default branch
+ * is `branch`, or cannot be told when that is null. */
+async function sync(
+  argv: string[] = [],
+  s = settings(FULL),
+  branch: string | null = "main",
+) {
   const out: string[] = [];
   const err: string[] = [];
   const code = await main(argv, {
     root,
     pkg,
     settings: async () => s,
+    defaultBranch: async () => branch,
     out: (l) => out.push(l),
     err: (l) => err.push(l),
   });
@@ -55,12 +69,13 @@ beforeEach(() => {
   put(pkg, "review.md", "review\n");
   put(pkg, "workflows/factory-board-sync.yml", "board\n");
   put(pkg, "workflows/factory-merge-policy.yml", "merge\n");
-  put(pkg, "workflows/factory-check.yml", "check\n");
+  put(pkg, "workflows/factory-check.yml", CHECK);
   put(pkg, "workflows/factory-claude-review.yml", "ci review\n");
   put(pkg, "workflows/factory-build.yml", workflow(1));
   put(pkg, "actions/factory-agent/action.yml", "agent\n");
-  for (const name of ["review", "conflicts", "deps"])
+  for (const name of ["review", "deps"])
     put(pkg, `workflows/factory-${name}.yml`, workflow(1));
+  put(pkg, "workflows/factory-conflicts.yml", conflicts(1));
   put(pkg, "skills/factory-design/SKILL.md", "design\n");
   put(pkg, "agents/factory-ui-reviewer.md", "ui\n");
   put(pkg, "skills/factory-deps/SKILL.md", "deps\n");
@@ -85,6 +100,15 @@ const workflow = (minutes: number) =>
     "",
   ].join("\n");
 
+/** A push trigger as the package's two workflows that have one write it:
+ * the source names main, and the sync writes the default branch's name. */
+const pushTo = (branch: string) =>
+  ["on:", "  push:", `    branches: [${branch}]`, ""].join("\n");
+const CHECK = pushTo("main");
+/** The conflicts workflow: a session workflow with a push trigger. */
+const conflicts = (minutes: number, branch = "main") =>
+  pushTo(branch) + workflow(minutes);
+
 const SITE = { site: { start: "npm start", url: "http://localhost:$PORT" } };
 const DESIGN = ".claude/skills/factory-design/SKILL.md";
 const UI = ".claude/agents/factory-ui-reviewer.md";
@@ -105,7 +129,7 @@ describe("factory sync", () => {
     expect(read(".claude/agents/factory-reader.md")).toBe("reader\n");
     expect(read(".claude/factory/rules.md")).toBe("rules\n");
     expect(read(".github/factory-review.md")).toBe("review\n");
-    expect(read(".github/workflows/factory-check.yml")).toBe("check\n");
+    expect(read(".github/workflows/factory-check.yml")).toBe(CHECK);
     expect(read("CLAUDE.md")).toBe("@.claude/factory/rules.md\n");
 
     const hooks = JSON.parse(read(".claude/settings.json")!).hooks;
@@ -327,7 +351,7 @@ describe("factory sync", () => {
 
     expect(read(".github/workflows/factory-board-sync.yml")).toBeNull();
     expect(read(".github/workflows/factory-merge-policy.yml")).toBeNull();
-    expect(read(".github/workflows/factory-check.yml")).toBe("check\n");
+    expect(read(".github/workflows/factory-check.yml")).toBe(CHECK);
   });
 
   it("writes the scheduled poller only with the github-action trigger, and deletes it once the trigger changes", async () => {
@@ -402,17 +426,19 @@ describe("the factory's core", () => {
   ];
 
   it("is written from the real package to a repository with no settings and no files", () => {
-    const written = [...plan(PACKAGE, root, settings()).write.keys()];
+    const written = [...plan(PACKAGE, root, settings(), "main").write.keys()];
     expect(CORE.filter((path) => !written.includes(path))).toEqual([]);
   });
   it("gives the trace skill the change types to read and the pull request to post on", () => {
-    const trace = plan(PACKAGE, root, settings()).write.get(
+    const trace = plan(PACKAGE, root, settings(), "main").write.get(
       ".claude/skills/factory-trace/SKILL.md",
     );
     expect(trace).toContain(".claude/change-types.md");
     expect(trace).toContain("npx --no-install factory pr comment");
     expect(
-      plan(PACKAGE, root, settings()).write.get(".claude/factory/rules.md"),
+      plan(PACKAGE, root, settings(), "main").write.get(
+        ".claude/factory/rules.md",
+      ),
     ).toContain("`factory-trace` skill");
   });
 });
@@ -429,9 +455,11 @@ describe("factory sync: how long each session may run", () => {
   ];
   it.each(KINDS)(
     "writes %s with the %s default, and 10 more for its job",
-    async (file, _, minutes) => {
+    async (file, kind, minutes) => {
       await sync([], settings());
-      expect(read(`.github/workflows/${file}`)).toBe(workflow(minutes));
+      expect(read(`.github/workflows/${file}`)).toBe(
+        kind === "conflicts" ? conflicts(minutes) : workflow(minutes),
+      );
     },
   );
 
@@ -439,7 +467,9 @@ describe("factory sync: how long each session may run", () => {
     "writes %s with the minutes the settings give %s",
     async (file, kind) => {
       await sync([], settings({ "session-minutes": { [kind]: 400 } }));
-      expect(read(`.github/workflows/${file}`)).toBe(workflow(400));
+      expect(read(`.github/workflows/${file}`)).toBe(
+        kind === "conflicts" ? conflicts(400) : workflow(400),
+      );
     },
   );
 
@@ -554,6 +584,7 @@ describe("factory sync: the numbers the rules use", () => {
       PACKAGE,
       root,
       settings({ rules: { "small-change-lines": 45, "review-rounds": 3 } }),
+      "main",
     ).write;
     expect(written.get(RULES_COPY)).toContain("under about 45 lines");
     expect(written.get(RULES_COPY)).toContain("After three rounds");
@@ -561,6 +592,97 @@ describe("factory sync: the numbers the rules use", () => {
     expect(written.get(REVIEW_COPY)).toContain(
       "When the fourth review arrives",
     );
+  });
+});
+
+describe("factory sync: the default branch in the push triggers", () => {
+  const CHECK_COPY = ".github/workflows/factory-check.yml";
+  const CONFLICTS_COPY = ".github/workflows/factory-conflicts.yml";
+  const pushBranches = (text: string | null | undefined) =>
+    (load(text ?? "") as { on: { push: { branches: string[] } } }).on.push
+      .branches;
+
+  it("writes the default branch's name, and nothing else, into both push triggers", async () => {
+    expect((await sync([], settings(), "develop")).code).toBe(0);
+
+    expect(read(CHECK_COPY)).toBe(pushTo("develop"));
+    expect(read(CONFLICTS_COPY)).toBe(conflicts(110, "develop"));
+  });
+
+  it("finds the one push trigger in each of the real package's two workflows", () => {
+    const written = plan(PACKAGE, root, settings(), "develop").write;
+
+    expect(pushBranches(written.get(CHECK_COPY))).toEqual(["develop"]);
+    expect(pushBranches(written.get(CONFLICTS_COPY))).toEqual(["develop"]);
+  });
+
+  it("fails the check, naming both copies, when the default branch differs from what they hold", async () => {
+    await sync([], settings(), "main");
+
+    const r = await sync(["--check"], settings(), "develop");
+
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      "the factory's files are out of sync:",
+      `  ${CHECK_COPY}`,
+      `  ${CONFLICTS_COPY}`,
+      "Run `npx --no-install factory sync` and commit the result.",
+    ]);
+  });
+
+  it("writes nothing, names the fix, and exits 1 when it cannot tell the default branch", async () => {
+    const r = await sync([], settings(), null);
+
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      "Could not tell the default branch. Run: git remote set-head origin --auto",
+    ]);
+    expect(r.out).toEqual([]);
+    expect(read(CHECK_COPY)).toBeNull();
+    expect(read("CLAUDE.md")).toBeNull();
+  });
+
+  it("fails the check the same way when it cannot tell the default branch", async () => {
+    await sync();
+
+    const r = await sync(["--check"], settings(), null);
+
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      "Could not tell the default branch. Run: git remote set-head origin --auto",
+    ]);
+  });
+
+  it("stops, naming the workflow, when it has no push trigger to set", async () => {
+    put(pkg, "workflows/factory-check.yml", "on:\n  pull_request:\n");
+
+    await expect(sync([], settings())).rejects.toThrow(
+      "workflows/factory-check.yml: expected one branches line, to set the push trigger's branch",
+    );
+  });
+
+  it("stops when a workflow has more than one branches line", () => {
+    expect(() =>
+      withDefaultBranch(pushTo("main") + pushTo("main"), "develop", "w.yml"),
+    ).toThrow("w.yml: expected one branches line");
+  });
+
+  it("quotes a name that YAML would not read as plain text", () => {
+    expect(
+      pushBranches(withDefaultBranch(pushTo("main"), "feat#1", "w.yml")),
+    ).toEqual(["feat#1"]);
+  });
+
+  it("writes a name with a slash in it as it is", () => {
+    expect(withDefaultBranch(pushTo("main"), "release/2.x", "w.yml")).toBe(
+      pushTo("release/2.x"),
+    );
+  });
+
+  it("leaves the other workflows as the package has them", async () => {
+    await sync([], settings(), "develop");
+
+    expect(read(".github/workflows/factory-build.yml")).toBe(workflow(230));
   });
 });
 

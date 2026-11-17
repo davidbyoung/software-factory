@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { afterEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { main, parseRemote, type Ask, type InitDeps } from "../src/init.mts";
@@ -106,6 +107,8 @@ type Setup = {
   tools?: (base: Registry, tickets: Tickets) => Registry;
   /** Whether the repository is private; public unless given. */
   private?: boolean;
+  /** The code host's default branch; null when nobody can tell it. */
+  defaultBranch?: string | null;
 };
 
 const roots: string[] = [];
@@ -147,7 +150,10 @@ function init(setup: Setup) {
     signingNeedsScope: setup.signingNeedsScope,
     rulesRefused: setup.rulesRefused,
     isPrivate: setup.private,
+    defaultBranch: setup.defaultBranch ?? undefined,
   });
+  /** What the code host answered each time the sync's plan asked it. */
+  const branchAsked: string[] = [];
   const runner = memoryRunner({ secrets: setup.secrets ?? {} });
   const tickets = memoryTickets([], {
     boards: setup.boards ?? [],
@@ -176,7 +182,11 @@ function init(setup: Setup) {
       synced++;
       return 0;
     },
-    syncChanges: () => [".claude/skills/factory-build/SKILL.md"],
+    syncChanges: async (_text, askHost) => {
+      if (setup.defaultBranch === null) throw new NoDefaultBranch();
+      branchAsked.push(await askHost());
+      return [".claude/skills/factory-build/SKILL.md"];
+    },
     interactive: async (argv) => {
       ran.push(argv);
       if (argv[0] === "grant") host.grantScope();
@@ -208,6 +218,7 @@ function init(setup: Setup) {
     ran,
     opened,
     synced: () => synced,
+    branchAsked,
     read,
     yaml: () =>
       load(read(".claude/factory.yaml") ?? "") as Record<string, unknown>,
@@ -412,6 +423,34 @@ describe("factory init, told not to go ahead", () => {
     expect(r.host.settings.rules).toEqual([]);
     expect(r.out.at(-1)).toBe("Nothing changed.");
     printsNoSecret(r.out);
+  });
+});
+
+describe("factory init, the default branch the sync writes", () => {
+  const answers = {
+    checkbox: [EVERY],
+    select: ["new", "own-server"],
+    input: ["docs/**"],
+    confirm: [false],
+  };
+
+  it("lets the plan ask the code host it is setting up, since no settings name one yet", async () => {
+    const r = init({ answers, defaultBranch: "develop" });
+
+    await r.run();
+
+    expect(r.branchAsked).toEqual(["develop"]);
+  });
+
+  it("stops before asking to go ahead, naming the fix, when nobody can tell it", async () => {
+    const r = init({ answers, defaultBranch: null });
+
+    expect(await r.run()).toBe(1);
+    expect(r.out.at(-1)).toBe(
+      "Could not tell the default branch. Run: git remote set-head origin --auto",
+    );
+    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.synced()).toBe(0);
   });
 });
 

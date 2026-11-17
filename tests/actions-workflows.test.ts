@@ -370,12 +370,23 @@ describe("factory-review.yml", () => {
   });
 });
 
+describe("factory-check.yml", () => {
+  it("starts on a push to the one branch its trigger names, and on every pull request", () => {
+    expect(read("factory-check.yml").on).toEqual({
+      push: { branches: ["main"] },
+      pull_request: null,
+    });
+  });
+});
+
 describe("factory-conflicts.yml", () => {
   const w = read("factory-conflicts.yml");
 
-  it("starts on a push to main or master, nightly at 09:00 UTC, and by hand", () => {
+  // The source names main; `factory sync` writes the repository's default
+  // branch in its place (`tests/sync.test.ts`).
+  it("starts on a push to the one branch its trigger names, nightly at 09:00 UTC, and by hand", () => {
     expect(w.on).toEqual({
-      push: { branches: ["main", "master"] },
+      push: { branches: ["main"] },
       schedule: [{ cron: "0 9 * * *" }],
       workflow_dispatch: null,
     });

@@ -11,6 +11,7 @@ import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
 import type { Tickets } from "../src/tickets/types.mts";
 import { IMPORT_LINE, withHooks } from "../src/sync.mts";
+import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { builtOf, TOOLS, type Registry } from "../src/tools.mts";
 import {
   FAKE_AGENT_FILE,
@@ -55,6 +56,8 @@ function doctor(o: {
   raw?: Record<string, unknown>;
   invalid?: string;
   outOfStep?: string[];
+  /** The default branch, which the sync writes, cannot be told. */
+  noDefaultBranch?: boolean;
   installed?: string;
   locked?: string | null;
   secrets?: Record<string, string>;
@@ -87,7 +90,10 @@ function doctor(o: {
       if (o.invalid) throw new SettingsError(o.invalid);
       return settings(o.raw, tools);
     },
-    outOfStep: () => o.outOfStep ?? [],
+    outOfStep: async () => {
+      if (o.noDefaultBranch) throw new NoDefaultBranch();
+      return o.outOfStep ?? [];
+    },
     versions: () => ({
       installed: o.installed ?? "0.2.0",
       locked: o.locked === undefined ? "0.2.0" : o.locked,
@@ -216,6 +222,14 @@ describe("factory doctor", () => {
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
       "✗ The factory's files match the settings: 2 differ. Run npx --no-install factory sync",
+    );
+  });
+
+  it("fails, naming the fix, when it cannot tell the default branch the sync writes", async () => {
+    const { run, out } = doctor({ noDefaultBranch: true });
+    expect(await run()).toBe(1);
+    expect(out[1]).toBe(
+      "✗ The factory's files match the settings: Could not tell the default branch. Run: git remote set-head origin --auto",
     );
   });
 

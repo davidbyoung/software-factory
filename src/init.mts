@@ -37,6 +37,11 @@ import {
   type Settings,
 } from "./config.mts";
 import { checks as doctorChecks, doctorDeps, line } from "./doctor.mts";
+import {
+  branchDeps,
+  needDefaultBranch,
+  NoDefaultBranch,
+} from "./lib/default-branch.mts";
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { DEFAULT_RUNNER } from "./runner/index.mts";
 import { listed } from "./lib/listed.mts";
@@ -88,8 +93,13 @@ export type InitDeps = {
   remote: () => string | null;
   tools: Registry;
   sync: () => Promise<number>;
-  /** The files a sync with these settings would write or delete. */
-  syncChanges: (settingsText: string) => string[];
+  /** The files a sync with these settings would write or delete. `host`
+   * asks the code host for the default branch, where the checkout does not
+   * say. It rejects with NoDefaultBranch when nobody can tell. */
+  syncChanges: (
+    settingsText: string,
+    host: () => Promise<string>,
+  ) => Promise<string[]> | string[];
   /** Runs a command attached to the terminal, as `claude setup-token`. */
   interactive: (argv: string[]) => Promise<number>;
   hasCommand: (name: string) => boolean;
@@ -482,9 +492,13 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   ];
   let syncs: string[];
   try {
-    syncs = d.syncChanges(newText);
+    syncs = await d.syncChanges(newText, () => codeHost.defaultBranch());
   } catch (e) {
-    d.out(`The settings would not be valid: ${message(e)}`);
+    d.out(
+      e instanceof NoDefaultBranch
+        ? e.message
+        : `The settings would not be valid: ${message(e)}`,
+    );
     return 1;
   }
   const toStore = [
@@ -737,10 +751,13 @@ export async function run(argv: string[]): Promise<number> {
     },
     tools: TOOLS,
     sync: async () => (await import("./sync.mts")).run([]),
-    syncChanges: (text) => {
+    // The settings are not written yet, so the code host asked is the one
+    // setup has just opened, not the one a settings file names.
+    syncChanges: async (text, host) => {
       const raw = parseDocument(text).toJS();
       const s = parseSettings(raw, (p) => existsSync(join(root, p)));
-      return differences(root, syncPlan(PACKAGE, root, s));
+      const branch = await needDefaultBranch({ ...branchDeps(root), host });
+      return differences(root, syncPlan(PACKAGE, root, s, branch));
     },
     interactive: async (argv2) =>
       spawnSync(argv2[0], argv2.slice(1), { stdio: "inherit" }).status ?? 1,
