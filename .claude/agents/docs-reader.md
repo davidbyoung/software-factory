@@ -1,14 +1,16 @@
 ---
 name: docs-reader
 description: >-
-  Use when a change adds a page to `README.md` or `docs/`, or adds or
-  rewrites a section of one. Reads each changed page cold, as someone who
+  Use when a change adds a page to `README.md` or `docs/`, or changes more
+  than about 10 lines of one. Reads each such page cold, as someone who
   has never seen the factory and wants to do what the page is for, and
   reports where it loses them: a step they could not carry out as written,
   a word or a setting used before it is explained, a step a command
   already does for them, and a page longer than its job. Read-only and
-  quick. Not for a typo, a link, or a line of copy, and not for whether a
-  page matches the code, which the tests and the review check.
+  quick. Not for a smaller edit, such as a typo, a link, a table row, or a
+  few lines of copy; not for `docs/developing.md`, which a contributor
+  reads; and not for whether a page matches the code, which the tests and
+  the review check.
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
@@ -30,15 +32,17 @@ know, and neither do you.
 ## Scope
 
 The pages you were pointed at, or failing that the pages the branch
-changed, committed or not:
+changed since it left main, committed or not:
 
 ```bash
-git diff --name-only origin/main -- README.md docs
+git diff --name-only --merge-base origin/main -- README.md docs
 git status --short README.md docs
 ```
 
-Read each page whole, since its reader does, and report on the sections
-the change touched: `git diff origin/main -- PAGE` shows which.
+Read each page whole, since its reader does, and report only on the
+sections the change touched, which
+`git diff --merge-base origin/main -- PAGE` shows. A section it left alone
+gets no finding.
 
 ## First read: as the reader
 
@@ -76,10 +80,5 @@ page. Mark each high (a reader could not finish, would do the wrong thing,
 or would do work they need not), medium (they finish, but slower or
 unsure), or low (wording). Leave out taste: a finding names what a reader
 could not do or did not need. If a page is clean, say so in one line.
-
-A high finding in a section the change did not touch is written as one
-follow-up line instead, in the format under "Follow-ups" in
-`.claude/factory/rules.md`, led by the page, with `#N` for the build
-number, so the author can append it as it stands.
 
 End with exactly one line: `Verdict: pass` when there is no high or medium finding, or `Verdict: fail, N findings to fix` with N the number of high and medium findings ("1 finding" when there is one). A low finding does not count. Nothing after that line.

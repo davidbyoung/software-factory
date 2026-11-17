@@ -471,9 +471,9 @@ drawn out of.
 
 ### A page a reader follows
 
-`README.md` and every page under `docs/` is read by someone who has never
-seen the factory and wants one thing done. `docs-reader`, this
-repository's own reviewer, reads a changed page as that person.
+`README.md` and every page under `docs/` but this one is read by someone
+who has never seen the factory and wants one thing done. `docs-reader`,
+this repository's own reviewer, reads a changed page as that person.
 
 - **A page says who it is for and what they will have at the end,** in its
   first lines.

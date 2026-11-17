@@ -58,11 +58,13 @@ small change keeps `factory-test-reviewer` for that reason. There is no
 website and no design guide, so no style tweak needs a test, and there is
 no UI reviewer.
 
-- **The docs** (`README.md` and `docs/`) are content reviewed by what
-  changed. A change that adds a page, or adds or rewrites a section of
-  one, keeps the `docs-reader` read of the pages it changed, in a build
-  and in a session the owner steers alike. A typo, a link, or a line of
-  copy does not.
+- **The docs** (`README.md` and `docs/`) count toward a change's size:
+  they are not content. A change that is not small, and that adds a page
+  or changes more than about 10 lines of one, gets the `docs-reader` read
+  of that page: from `factory-build`, as for any reviewer plug-in, and
+  from a session the owner steers, before it opens the pull request,
+  whose body says what the read found. `docs/developing.md` is a
+  contributor's page and gets no read.
 - **A dependency bump** is made by a session, by hand, since there is no
   Dependabot here yet. `package-lock.json` does not count toward a change's
   size, and the gate with `pack-check` is its check, with no new test.
@@ -112,7 +114,9 @@ The source of every factory file is in this repository: `skills/`,
 `agents/`, `rules.md`, `review.md`, `workflows/`, and `actions/`. Change
 the source, run `node bin/factory.js sync`, and commit both; CI's
 `Factory files in step` fails when a copy differs from its source. Never
-edit the copy under `.claude/` or `.github/`.
+edit the copy under `.claude/` or `.github/`. One file there is not a
+copy: `.claude/agents/docs-reader.md`, this repository's own reviewer,
+has no source elsewhere and is edited where it is.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
