@@ -1,14 +1,28 @@
 // PreToolUse hook for Bash, run as `factory guard commit` or within
-// `factory guard`. Blocks commits and pushes on main, force pushes, adding
-// the owner's override label, and any commit the fast half of the gate would
-// fail: the `commands.before-commit` commands in `.claude/factory.yaml`. A
-// block is exit 2, which stops the call and shows the message to Claude.
+// `factory guard`. Blocks commits and pushes on the default branch, force
+// pushes, adding the owner's override label, and any commit the fast half of
+// the gate would fail: the `commands.before-commit` commands in
+// `.claude/factory.yaml`. A block is exit 2, which stops the call and shows
+// the message to Claude.
+//
+// The default branch is whatever the repository calls it
+// (`lib/default-branch.mts`). In a checkout with the factory's settings,
+// every source may answer, and a commit or push is blocked when none does.
+// Any other checkout is not the factory's to govern: there the guard reads
+// `origin/HEAD` alone, asks nobody, and lets the call through when it is
+// not set.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaultDeps, loadSettings, settingsPath } from "./config.mts";
+import {
+  branchDeps,
+  CANNOT_TELL,
+  defaultBranch,
+  type Sources,
+} from "./lib/default-branch.mts";
 
 export type HookInput = { cwd?: string; tool_input?: { command?: string } };
 
@@ -149,11 +163,40 @@ export function ownLauncher(top: string): string | null {
   }
 }
 
+/** The default branch of the checkout at `top`, from the sources allowed,
+ * or null when none of them answers. */
+export type BranchOf = (
+  top: string,
+  sources: Sources,
+) => Promise<string | null>;
+
+const branchOf: BranchOf = (top, sources) =>
+  defaultBranch(branchDeps(top), sources);
+
+/** The checkout `dir` is in, or `dir` itself when it is in none. */
+function checkoutOf(dir: string): string {
+  try {
+    return toplevel(dir);
+  } catch {
+    return dir;
+  }
+}
+
+const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Whether a push names `branch` as where it pushes to. */
+const pushesTo = (segment: string, branch: string) =>
+  new RegExp(
+    String.raw`\s(\S*:)?(refs\/heads\/)?${literal(branch)}(\s|$)`,
+  ).test(segment);
+
 /** The block message for this Bash call, or null to let it through. Writes
- * the failing gate command's output to `err` first. */
+ * the failing gate command's output to `err` first. `defaultOf` stands in
+ * for the default branch's sources in tests. */
 export async function checkCommit(
   input: HookInput,
   err: (text: string) => void,
+  defaultOf: BranchOf = branchOf,
 ): Promise<string | null> {
   const raw = input.tool_input?.command ?? "";
   const cwd = input.cwd ?? ".";
@@ -163,19 +206,34 @@ export async function checkCommit(
   const calls = gitCalls(blankQuoted(raw), cwd);
   if (calls.length === 0) return null;
 
-  for (const { dir } of calls) {
+  // Each call's own checkout says what its default branch is, asked once
+  // per checkout.
+  const defaults = new Map<string, string | null>();
+  const pushedTo: { segment: string; branch: string }[] = [];
+  for (const { kind, segment, dir } of calls) {
+    const top = checkoutOf(dir);
+    if (!defaults.has(top)) {
+      const governed = existsSync(settingsPath(top));
+      const name = await defaultOf(top, governed ? "all" : "origin-head");
+      if (name === null && governed) return CANNOT_TELL;
+      defaults.set(top, name);
+    }
+    const name = defaults.get(top);
+    if (!name) continue;
     const branch = spawnSync("git", ["-C", dir, "branch", "--show-current"], {
       encoding: "utf8",
     }).stdout;
-    if (branch?.trim() === "main")
-      return "main is checked out. Create a branch from origin/main first.";
+    if (branch?.trim() === name)
+      return `${name} is checked out. Create a branch from origin/${name} first.`;
+    if (kind === "push") pushedTo.push({ segment, branch: name });
   }
 
   const pushes = calls.filter((c) => c.kind === "push").map((c) => c.segment);
   if (pushes.some((p) => /\s(--force|-f)(\s|$)|\s\+\S/.test(p)))
     return "force push. Use --force-with-lease if a rewrite is really intended.";
-  if (pushes.some((p) => /\s(\S*:)?(refs\/heads\/)?main(\s|$)/.test(p)))
-    return "pushing to main. main only changes through a merged pull request.";
+  const toDefault = pushedTo.find((p) => pushesTo(p.segment, p.branch));
+  if (toDefault)
+    return `pushing to ${toDefault.branch}. ${toDefault.branch} only changes through a merged pull request.`;
 
   // The fast half of the gate: the `commands.before-commit` commands in the
   // commit's own checkout's settings, in order, stopping at the first that
@@ -184,12 +242,8 @@ export async function checkCommit(
   // would.
   const commit = calls.find((c) => c.kind === "commit");
   if (!commit) return null;
-  let top = commit.dir;
-  try {
-    top = toplevel(commit.dir);
-  } catch {
-    // Not a checkout: read the settings where the commit runs.
-  }
+  // Where the commit is in no checkout, the settings are read where it runs.
+  const top = checkoutOf(commit.dir);
   const own = ownLauncher(top);
   if (own) {
     const r = spawnSync("node", [own, "guard", "commit"], {
