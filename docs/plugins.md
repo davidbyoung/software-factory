@@ -183,10 +183,3 @@ plugins:
 ```
 
 It needs the `site` settings, which say how to start the website.
-
-## Sharing plug-ins between repositories
-
-Not planned. A plug-in lives in the repository that uses it. A way to
-package a set of them, such as a design skill and a visual reviewer for
-any website, and install it in several repositories is designed for but
-not scheduled.

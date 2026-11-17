@@ -206,8 +206,6 @@ It reads no board.
 else. Only `github` is built. Any other value fails
 `factory config check` and every ticket command with:
 `tickets.type "X" is not supported. "github" is the only ticket system built.`
-A type that names a package, for an adapter you write yourself, is
-planned, not built.
 
 ### `code-host`
 
@@ -253,7 +251,8 @@ the settings and reaches the runner, with:
 - **`own-server`:** a small poller you host reads the board once a minute.
 - **`github-action`:** a schedule on the cloud runner does the same, more
   slowly.
-  _[Planned](developing.md#what-is-built)_: until it is built, use `own-server` or `manual`.
+  _[Planned](developing.md#what-is-built)_: `factory config check`
+  refuses this value until it is built. Use `own-server` or `manual`.
 
 [Builds](builds.md) explains each. **If `trigger` says `own-server` and no
 poller is running,** a ticket moved to Ready sits there, and
@@ -802,8 +801,8 @@ auto-merge:
 ```
 
 If this team moved its tickets to Jira, only the `tickets` block would
-change. **No Jira support is built or planned**; the block below shows the
-shape the design leaves room for.
+change. **Only GitHub is built**; the block below shows the shape the
+design leaves room for.
 
 ```yaml
 tickets:

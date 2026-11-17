@@ -5,9 +5,7 @@ few commands, write one ticket, and answer a question or two; your coding
 agent does the rest. This page needs no board, no secrets, and nothing to
 host.
 
-A word you do not know is in the [glossary](glossary.md). A step marked
-_[Planned](developing.md#what-is-built)_ is not built yet, and says what to
-do until then.
+A word you do not know is in the [glossary](glossary.md).
 
 ## You need
 
@@ -25,9 +23,6 @@ Your repository does not have to be JavaScript. If it has no
 first: you make a small one before installing.
 
 ## 1. Install
-
-_[Planned](developing.md#what-is-built)._ Until the package is published,
-it cannot be installed outside the repository it is developed in.
 
 Once on your machine, so you can type `factory`:
 

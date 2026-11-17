@@ -142,5 +142,6 @@ and how to undo each. The short version:
   sessions, not to your own terminal.
 - Its CI workflows: one that checks the factory's files are in step, the
   ones that run a session in the cloud, and one more for each optional part
-  you turn on. One that offers you new versions is _[Planned](developing.md#what-is-built)_.
+  you turn on. With a Dependabot configuration, two more complete
+  Dependabot's pull requests, the factory's own updates among them.
 - Comments on tickets it works, and one "Follow-ups" ticket.

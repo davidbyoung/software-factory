@@ -248,6 +248,14 @@ describe("parseSettings", () => {
     );
   });
 
+  it("fails on the github-action trigger, which is planned and not built", () => {
+    expect(() =>
+      parse({ ...MINIMAL, builds: { trigger: "github-action" } }),
+    ).toThrow(
+      '.claude/factory.yaml: builds.trigger "github-action" is planned, not built. Use own-server or manual.',
+    );
+  });
+
   it.each([2, "1", undefined])("fails on version %s", (version) => {
     expect(() => parse({ ...MINIMAL, version })).toThrow("version:");
   });

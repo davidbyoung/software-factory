@@ -413,6 +413,10 @@ export function parseSettings(
 
   const builds = object(top.builds, "builds");
   const trigger = oneOf(builds.trigger, "builds.trigger", TRIGGERS, "manual");
+  if (trigger === "github-action")
+    throw new SettingsError(
+      `${SETTINGS_FILE}: builds.trigger "github-action" is planned, not built. Use own-server or manual.`,
+    );
   const runner = builds.runner ?? DEFAULT_RUNNER;
   if (typeof runner !== "string" || !built.runner.includes(runner))
     throw new SettingsError(

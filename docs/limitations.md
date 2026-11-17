@@ -13,8 +13,9 @@ as a code host's billing or what its workflows can see, are in
   system, the board, and the cloud runner each through one interface, and
   the settings name which one you use (`code-host.type`, `tickets.type`,
   and `builds.runner`). Each has one implementation today, GitHub's, and no
-  other is planned. The skills are written for one coding agent, Claude
-  Code. [The glossary](glossary.md) says which tool each word means today.
+  other is planned. A ticket system or code host named by a package, for
+  an adapter you write yourself, is not planned either; the design leaves
+  room. The skills are written for one coding agent, Claude Code. [The glossary](glossary.md) says which tool each word means today.
 - **It needs Node and a `package.json`,** even in a repository written in
   another language.
 - **A build never changes the coding agent's settings files,** which hold
@@ -68,8 +69,7 @@ as a code host's billing or what its workflows can see, are in
   person's, but the factory has only run against a person's.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
-- **Installing an unpublished or private package** in CI and from a
-  dependency bot.
+- **A factory update reaching a repository through its dependency bot.**
 - **Glob patterns standing in for today's regular expressions** in the
   merge policy. They could match differently. The switch compares the old and new
   decision on recent pull requests.

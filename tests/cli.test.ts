@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { COMMANDS } from "../src/cli.mts";
+import { COMMANDS, resolveCommand } from "../src/cli.mts";
 
 const PACKAGE = fileURLToPath(new URL("..", import.meta.url));
 const LAUNCHER = join(PACKAGE, "bin/factory.js");
@@ -41,6 +41,26 @@ describe("the commands the router knows", () => {
 
     expect(handled.length).toBeGreaterThan(5);
     expect(handled.filter((sub) => !listed.includes(sub))).toEqual([]);
+  });
+
+  it("routes every command docs/cli.md does not mark Planned", () => {
+    const built = readFileSync(join(PACKAGE, "docs/cli.md"), "utf8")
+      .split("\n")
+      .filter((line) => /^\| `(?:npx --no-install )?factory/.test(line))
+      .filter((line) => !/\|\s*Planned\s*\|\s*$/.test(line))
+      .map((line) => /`(?:npx --no-install )?factory ([^`]*)`/.exec(line)![1])
+      .map((command) => {
+        const words = command.split(" ");
+        const args = words.findIndex((w) => !/^[a-z][a-z-]*$/.test(w));
+        return args < 0 ? words : words.slice(0, args);
+      });
+    const unrouted = built.filter((words) => {
+      const found = resolveCommand(words);
+      return !found || found.rest.length > 0;
+    });
+
+    expect(built.length).toBeGreaterThan(20);
+    expect(unrouted.map((words) => words.join(" "))).toEqual([]);
   });
 });
 
