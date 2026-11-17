@@ -35,10 +35,10 @@ know, and neither do you.
 The pages you were pointed at. Failing that, the pages the branch added
 since it left main, committed or not, and those it changed by more than
 about 10 lines, leaving out `docs/developing.md`, which a contributor
-reads:
+reads. `-w` keeps a table row that only gained padding out of the count:
 
 ```bash
-git diff --stat --merge-base origin/main -- README.md docs
+git diff --stat -w --merge-base origin/main -- README.md docs
 git status --short README.md docs
 ```
 
