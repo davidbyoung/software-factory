@@ -49,6 +49,11 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
   const asked: string[] = [];
   /** The values each select offered, in order. */
   const offered: string[][] = [];
+  /** Each select's choices as they read, and the one chosen if none is
+   * picked, in order. */
+  const selects: { names: string[]; fallback?: string }[] = [];
+  /** What each checkbox's choices say under them, by value. */
+  const descriptions: Record<string, string | undefined>[] = [];
   const queue = {
     checkbox: [...(answers.checkbox ?? [])],
     select: [...(answers.select ?? [])],
@@ -64,21 +69,25 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
   };
   const ask: Ask = {
     checkbox: async (message, choices) => {
+      descriptions.push(
+        Object.fromEntries(choices.map((c) => [c.value, c.description])),
+      );
       const chosen = next("checkbox", message) as string[];
       for (const c of chosen)
         if (!choices.some((x) => x.value === c))
           throw new Error(`no choice ${c}`);
       return chosen;
     },
-    select: async (message, choices) => {
+    select: async (message, choices, fallback) => {
       offered.push(choices.map((c) => c.value));
+      selects.push({ names: choices.map((c) => c.name), fallback });
       return next("select", message) as string;
     },
     confirm: async (message) => next("confirm", message) as boolean,
     secret: async (message) => next("secret", message) as string,
     input: async (message) => next("input", message) as string,
   };
-  return { ask, asked, offered, queue };
+  return { ask, asked, offered, selects, descriptions, queue };
 }
 
 type Setup = {
@@ -95,6 +104,8 @@ type Setup = {
   files?: Record<string, string>;
   tokens?: Record<string, { account: string; scopes: string[] | null }>;
   tools?: (base: Registry, tickets: Tickets) => Registry;
+  /** Whether the repository is private; public unless given. */
+  private?: boolean;
 };
 
 const roots: string[] = [];
@@ -122,8 +133,9 @@ function init(setup: Setup) {
   const ran: string[][] = [];
   const opened: string[] = [];
   let synced = 0;
-  const { ask, asked, offered, queue } = scripted(setup.answers, (line) =>
-    transcript.push(line),
+  const { ask, asked, offered, selects, descriptions, queue } = scripted(
+    setup.answers,
+    (line) => transcript.push(line),
   );
   const host = memoryCodeHost([], {
     owner: "dave",
@@ -134,6 +146,7 @@ function init(setup: Setup) {
     },
     signingNeedsScope: setup.signingNeedsScope,
     rulesRefused: setup.rulesRefused,
+    isPrivate: setup.private,
   });
   const runner = memoryRunner({ secrets: setup.secrets ?? {} });
   const tickets = memoryTickets([], {
@@ -189,6 +202,8 @@ function init(setup: Setup) {
     transcript,
     asked,
     offered,
+    selects,
+    descriptions,
     queue,
     ran,
     opened,
@@ -232,7 +247,7 @@ describe("factory init, a first run with every part", () => {
       packageJson: false,
       answers: {
         checkbox: [EVERY],
-        select: ["new"],
+        select: ["new", "own-server"],
         input: ["docs/**, **/*.md"],
         confirm: [true],
         secret: [AGENT, GOOD],
@@ -372,7 +387,7 @@ describe("factory init, told not to go ahead", () => {
     const r = init({
       answers: {
         checkbox: [EVERY],
-        select: ["new"],
+        select: ["new", "own-server"],
         input: ["docs/**"],
         confirm: [false],
       },
@@ -701,7 +716,7 @@ describe("factory init, the board", () => {
     const r = init({
       answers: {
         checkbox: [["from-board"]],
-        select: ["new"],
+        select: ["new", "own-server"],
         confirm: [true],
         secret: [AGENT, GOOD],
       },
@@ -712,6 +727,159 @@ describe("factory init, the board", () => {
       "Builds that start from the board need a board, so that is on too.",
     );
     expect(r.yaml().tickets).toEqual({ board: 1 });
+  });
+});
+
+describe("factory init, where the poller runs", () => {
+  const WHERE = "select: Where does the poller run?";
+  const HOW_OFTEN = "select: How often?";
+  const chosen = (where: string, more: Partial<Setup> = {}, often?: string) =>
+    init({
+      ...more,
+      answers: {
+        checkbox: [["from-board"]],
+        select: ["new", where, ...(often ? [often] : [])],
+        confirm: [true],
+        secret: [AGENT, GOOD],
+      },
+    });
+
+  it("describes the part as running on a schedule or a server you host", async () => {
+    const r = chosen("github-action");
+    await r.run();
+
+    expect(r.descriptions[0]!["from-board"]).toBe(
+      "a schedule on GitHub Actions, or a small server you host",
+    );
+  });
+
+  it("offers the schedule first, then a server you host", async () => {
+    const r = chosen("github-action");
+    await r.run();
+
+    expect(r.asked).toContain(WHERE);
+    expect(r.selects[1]!.names).toEqual([
+      "A schedule on GitHub Actions, every 5 minutes, nothing to host",
+      "A server you host, within a minute",
+    ]);
+    expect(r.offered[1]).toEqual(["github-action", "own-server"]);
+  });
+
+  it("writes the trigger it is given, and on a public repository asks no interval", async () => {
+    const r = chosen("github-action");
+    await r.run();
+
+    expect(r.asked).not.toContain(HOW_OFTEN);
+    expect(r.yaml().builds).toEqual({ trigger: "github-action" });
+  });
+
+  it("writes own-server for a server you host", async () => {
+    const r = chosen("own-server");
+    await r.run();
+
+    expect(r.yaml().builds).toEqual({ trigger: "own-server" });
+  });
+
+  it("on a private repository, asks how often, with each interval's runs a month and what a run bills, suggesting 30", async () => {
+    const r = chosen("github-action", { private: true }, "15");
+    await r.run();
+
+    expect(r.out).toContain(
+      "Each run bills at least one Actions minute on a private repository.",
+    );
+    expect(r.selects[2]).toEqual({
+      names: [
+        "Every 5 minutes, 8,640 runs a month",
+        "Every 10 minutes, 4,320 runs a month",
+        "Every 15 minutes, 2,880 runs a month",
+        "Every 30 minutes, 1,440 runs a month",
+        "Every 60 minutes, 720 runs a month",
+      ],
+      fallback: "30",
+    });
+    expect(r.yaml().builds).toEqual({
+      trigger: "github-action",
+      "poll-minutes": 15,
+    });
+  });
+
+  it("writes no interval for an answer of 5, the default", async () => {
+    const r = chosen("github-action", { private: true }, "5");
+    await r.run();
+
+    expect(r.yaml().builds).toEqual({ trigger: "github-action" });
+  });
+
+  it("leaves no step about hosting a poller when the schedule runs it", async () => {
+    const r = chosen("github-action");
+    await r.run();
+
+    expect(r.out.join("\n")).not.toMatch(/poller/i);
+  });
+
+  it("names the poller's image and its four settings for a server you host", async () => {
+    const r = chosen("own-server");
+    await r.run();
+
+    expect(r.out).toContain(
+      [
+        "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:",
+        "       FACTORY_REPOSITORY=acme/site",
+        "       FACTORY_BOARD_OWNER=acme",
+        "       FACTORY_BOARD_NUMBER=1",
+        "       FACTORY_BOARD_TOKEN=the access token you just made",
+      ].join("\n"),
+    );
+  });
+
+  it.each(["github-action", "own-server"])(
+    "asks neither question on a re-run that finds the trigger %s",
+    async (trigger) => {
+      const r = init({
+        private: true,
+        settings: [
+          "version: 1",
+          "repository: acme/site",
+          "tickets:",
+          "  board: 3",
+          "builds:",
+          `  trigger: ${trigger}`,
+          "",
+        ].join("\n"),
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+        boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
+        answers: {
+          checkbox: [["board", "cloud", "from-board"]],
+          confirm: [false, true],
+        },
+      });
+      await r.run();
+
+      expect(r.asked).not.toContain(WHERE);
+      expect(r.asked).not.toContain(HOW_OFTEN);
+      expect(r.yaml().builds).toEqual({ trigger });
+    },
+  );
+
+  it("takes out the interval with the part", async () => {
+    const r = init({
+      settings: [
+        "version: 1",
+        "repository: acme/site",
+        "tickets:",
+        "  board: 3",
+        "builds:",
+        "  trigger: github-action",
+        "  poll-minutes: 30",
+        "",
+      ].join("\n"),
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+      boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
+      answers: { checkbox: [["board", "cloud"]], confirm: [false, true] },
+    });
+    await r.run();
+
+    expect(r.yaml().builds).toBeUndefined();
   });
 });
 
@@ -735,7 +903,7 @@ describe("factory init, word for word", () => {
       packageJson: false,
       answers: {
         checkbox: [EVERY],
-        select: ["new"],
+        select: ["new", "own-server"],
         input: ["docs/**, **/*.md"],
         confirm: [true],
         secret: [AGENT, GOOD],
@@ -758,6 +926,7 @@ describe("factory init, word for word", () => {
         "? checkbox: Which parts do you want?",
         "? select: Which board?",
         "? input: Which files may merge without you? (comma-separated)",
+        "? select: Where does the poller run?",
         "",
         "This is everything setup will do:",
         "  Write    .claude/factory.yaml",
@@ -786,7 +955,7 @@ describe("factory init, word for word", () => {
         "",
         "Nothing is committed. Left to do:",
         "  1. Install the app the review posts through: https://code.example/apps/review",
-        "  2. Host the poller, which starts a build when a card moves to Ready, with:
+        "  2. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
              FACTORY_REPOSITORY=acme/site
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=1
@@ -852,7 +1021,7 @@ describe("factory init, word for word", () => {
         "",
         "Nothing is committed. Left to do:",
         "  1. Install the app the review posts through: https://code.example/apps/review",
-        "  2. Host the poller, which starts a build when a card moves to Ready, with:
+        "  2. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
              FACTORY_REPOSITORY=acme/site
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=3
