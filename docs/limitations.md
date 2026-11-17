@@ -51,8 +51,8 @@ as a code host's billing or what its workflows can see, are in
   package.
 - **Nothing retries on its own.** A build that stops waits for you.
 - **A cloud build's commits are unsigned unless you give it a signing
-  key.** [Signed commits from cloud builds](github/setup.md#signed-commits-from-cloud-builds)
-  says how.
+  key.** `factory init` makes one when you choose that part
+  ([Setting up on GitHub](github/setup.md#run-factory-init)).
 - **A cloud build cannot be steered.** You can read its log as it runs, and
   cancel it, but not answer it: where it would ask, it stops and reports.
 - **Nothing watches a pull request after its cloud build ends.** Your own

@@ -113,7 +113,7 @@ names each file.
   teammate's session goes out under that teammate's account. A cloud build
   acts as the one account that owns its token: yours, or an account you
   create for the team's builds
-  ([Builds in the cloud](github/setup.md#builds-in-the-cloud)).
+  ([Secrets](github/by-hand.md#secrets)).
 - **Say who approves.** By default only the repository's owner can approve
   a ticket for building or give a session instructions in a comment. List
   the others under [`approvers`](configuration.md#approvers), _[Planned](developing.md#what-is-built)_.

@@ -125,7 +125,7 @@ committer are then that account's.
 
 When a build cannot start, the poller's comment on the ticket reads "Could
 not start a build in GitHub Actions ... answered 403": give the token the
-scopes [Secrets](setup.md#secrets) names. A failed board sync arrives as
+scopes [Secrets](by-hand.md#secrets) names. A failed board sync arrives as
 an email from GitHub.
 
 ## The board

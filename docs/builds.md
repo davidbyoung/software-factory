@@ -6,7 +6,7 @@ the cloud does the same with nobody at the keyboard: it runs on your code
 host's cloud runner, and you read its log or its pull request afterward.
 
 On GitHub, the cloud runner is GitHub Actions.
-[Setting up on GitHub](github/setup.md#builds-in-the-cloud) has the steps,
+[Setting up on GitHub](github/setup.md) has the steps,
 and the [reference](github/reference.md#workflows) has what runs there.
 
 ## Three ways a build starts
@@ -54,8 +54,9 @@ so a failed run does not hold its ticket.
 
 **What it needs.** Two credentials, stored as secrets on the code host:
 the agent's token, which pays for the session, and an access token for the
-code host, which the build acts as. [Setting up on
-GitHub](github/setup.md#secrets) says how to make and store each.
+code host, which the build acts as.
+[`factory init`](github/setup.md#run-factory-init) asks for each and
+stores it.
 
 **Who it acts as.** The build acts as whoever owns that access token. Its
 commits name your coding agent as their author and that account as their
@@ -202,7 +203,7 @@ the factory never deploys it.
 | What you see                                                                | What happened                           | What to do                                                                                   |
 | --------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck             | Read its log                                                                                 |
-| A comment saying a build could not start, with a refusal from the code host | The token cannot start a build          | Give it what [the setup](github/setup.md#secrets) names, then move the ticket to Ready again |
+| A comment saying a build could not start, with a refusal from the code host | The token cannot start a build          | Give it what [Secrets](github/by-hand.md#secrets) names, then move the ticket to Ready again |
 | The board stops updating                                                    | The board's token is missing or expired | Replace it. The poller uses the same token                                                   |
 | A ticket in Ready is skipped                                                | It is blocked by an open ticket         | It starts at the poller's first pass after the blocker closes                                |
 

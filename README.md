@@ -91,12 +91,12 @@ else is optional and comes later.
 
 **Start here**
 
-| Page                                         | For                                                 |
-| -------------------------------------------- | --------------------------------------------------- |
-| [Quick start](docs/quick-start.md)           | Your first built ticket, step by step               |
-| [Setting up on GitHub](docs/github/setup.md) | Every step on GitHub with Claude Code, in one place |
-| [Workflow](docs/workflow.md)                 | How a ticket moves, and which steps are yours       |
-| [Glossary](docs/glossary.md)                 | Any word here you do not know                       |
+| Page                                         | For                                                            |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| [Quick start](docs/quick-start.md)           | Your first built ticket, step by step                          |
+| [Setting up on GitHub](docs/github/setup.md) | What `factory init` asks on GitHub, and what it leaves for you |
+| [Workflow](docs/workflow.md)                 | How a ticket moves, and which steps are yours                  |
+| [Glossary](docs/glossary.md)                 | Any word here you do not know                                  |
 
 **Guides**
 
@@ -116,6 +116,7 @@ else is optional and comes later.
 | [Skills](docs/skills.md)                                     | What each skill does, and what it never does       |
 | [Configuration](docs/configuration.md)                       | The settings most change, then every key           |
 | [GitHub and Claude Code reference](docs/github/reference.md) | Where each part lives on GitHub and in Claude Code |
+| [Setting up on GitHub by hand](docs/github/by-hand.md)       | Every step `factory init` takes, and every secret  |
 
 **About**
 
