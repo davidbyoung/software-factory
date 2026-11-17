@@ -38,3 +38,20 @@ A phrase match that silently misses would leave a repository on the default numb
 ## Dependencies
 
 None. No owner-only step.
+
+## Where the build departs from this design
+
+- **`withRules` replaces a phrase only when its number differs from the
+  default,** and must then match it exactly once. Replacing at the
+  defaults would require every test package to carry the real phrases; a
+  test on the real package with both numbers set catches a rule edit that
+  drops one.
+- **`config explain` writes its own YAML lines** rather than building a
+  `yaml` Document, using `yaml`'s `stringify` for each value's quoting: the
+  comment lines for parts that are off, and the aligned `# default` marks,
+  are simpler to write than to attach to nodes. A test checks it prints
+  every key `SETTINGS_KEYS` lists, so a new key cannot be left out.
+- **`explain` lives in `src/explain.mts`,** loaded only by that command.
+- **The trace's brief also asks the agent to do what the repository's
+  `CLAUDE.md` adds to the trace,** and a missing `change-types.md` leaves
+  the pull request a draft, from the trace of this branch.
