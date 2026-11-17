@@ -48,7 +48,7 @@ jobs:
           minutes: 50
           only-if: npx --no-install factory deps --any
           prompt: |
-            Look after the open Dependabot pull requests of this repository by running the factory-deps skill. The skill is the whole procedure; this prompt only says how this run differs from a laptop. You are running unattended in GitHub Actions, in a fresh checkout of the default branch with its dependencies installed and the commands under `build-setup` in `.claude/factory.yaml` already run. Nobody can answer a question here: where the skill would ask its user, stop and report instead.
+            Look after the open Dependabot pull requests of this repository by running the factory-deps skill. The skill is the whole procedure; this prompt only says how this run differs from a laptop. You are running unattended in GitHub Actions, in a fresh checkout of the default branch with its dependencies installed and the commands under `commands.build-setup` in `.claude/factory.yaml` already run. Nobody can answer a question here: where the skill would ask its user, stop and report instead.
 
             The run started because `factory deps --any` found an open Dependabot pull request, so the skill's step 0 has a result: read the list again anyway, since time has passed. Run `export DO_NOT_TRACK=1`.
 

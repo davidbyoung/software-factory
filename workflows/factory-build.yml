@@ -51,7 +51,7 @@ jobs:
           model: ${{ vars.FACTORY_BUILD_MODEL }}
           signing-key: ${{ secrets.FACTORY_SIGNING_KEY }}
           prompt: |
-            Build ticket #${{ inputs.ticket }} of this repository with the factory-build skill. You are running unattended in GitHub Actions, in a fresh checkout of the default branch with its dependencies installed and the commands under `build-setup` in `.claude/factory.yaml` already run. Nobody can answer a question here: where the skill would ask its user, stop and report instead.
+            Build ticket #${{ inputs.ticket }} of this repository with the factory-build skill. You are running unattended in GitHub Actions, in a fresh checkout of the default branch with its dependencies installed and the commands under `commands.build-setup` in `.claude/factory.yaml` already run. Nobody can answer a question here: where the skill would ask its user, stop and report instead.
 
             The poller started this build for a card moved to Ready, or a person did with `factory build ${{ inputs.ticket }}` or the Actions tab's "Run workflow": the skill's start in GitHub Actions, under "How a build starts" in `.claude/skills/factory-build/SKILL.md`, which has no start check. This is a session nobody can wake later: once the pull request is marked ready, wait for its review with `npx --no-install factory pr state PR --wait`, where PR is its number, and work it with the factory-address-review skill. Do not start `factory pr watch`.
 

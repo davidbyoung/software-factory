@@ -17,7 +17,7 @@ section 0a, and where the marker goes in a comment in its section 4.
 
 Tickets go through `factory ticket` and a pull request through
 `factory pr`. The workflow has set the run up: the dependencies are installed and the
-`build-setup` commands have run, so a run does no setup of its own.
+`commands.build-setup` commands have run, so a run does no setup of its own.
 
 Asked to resolve the conflicts on one pull request N, a session skips the
 sweep: it checks the stop marker and that the sweep's queue admits the pull

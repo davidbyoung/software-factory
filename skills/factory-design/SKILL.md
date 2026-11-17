@@ -97,11 +97,20 @@ depends on the one before.
    An option is its own worktree, made the same way. The change need not
    be committed: the comparison pictures the worktree as it stands.
 
-2. **Install it,** from the scratch worktree: `npm ci` where the
-   repository has a lock file, then each command `npx --no-install factory
-config get build-setup` prints. The comparison installs the default
-   branch's side, not this one, and the factory, the browser, and
-   `site.start` all run from here.
+2. **Install it,** in the scratch worktree: run there the command
+   `commands.relock` holds, which installs the repository's dependencies,
+   then each command under `commands.build-setup`. Read both from the
+   checkout this session works in, where the factory is already installed:
+
+   ```bash
+   npx --no-install factory config get commands.relock
+   npx --no-install factory config get commands.build-setup
+   ```
+
+   The comparison installs the default branch's side, not this one, and
+   the factory, the browser, and `site.start` all run from the scratch
+   worktree.
+
 3. **Picture it,** from the scratch worktree:
 
    ```bash
