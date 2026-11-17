@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Start a build in GitHub Actions for each card the owner moves to Ready. A board owned
 // by a user account sends no event, so this reads it once a minute. It runs
-// as a worker on a server the repository's owner hosts.
+// as a worker on a server the repository's owner hosts, or, with `--once`,
+// as one pass of a scheduled workflow, which reads the board and the Ready
+// column from the settings in its checkout and needs only the token.
 //
-// Environment: FACTORY_REPOSITORY (owner/name), FACTORY_BOARD_OWNER,
+// Hosted, its environment: FACTORY_REPOSITORY (owner/name), FACTORY_BOARD_OWNER,
 // FACTORY_BOARD_NUMBER, and FACTORY_BOARD_TOKEN (a classic token with the
 // repo and project scopes, or a fine-grained one that can also write
 // Actions: it starts the workflow). It has no checkout, so it reads
@@ -16,7 +18,6 @@
 // It names its implementations itself, having no settings to name them:
 // the GitHub ticket adapter, GitHub as the code host, and GitHub Actions as
 // the runner, each over the `fetch` transport, since it runs with no `gh`.
-// Node built-ins and the modules below only; its image copies nothing else.
 import { randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";

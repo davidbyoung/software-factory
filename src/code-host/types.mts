@@ -4,8 +4,6 @@
 // second code host is an implementation added beside `github.mts`, not a
 // rewrite of the commands. Where a build runs is the runner's
 // (`runner/types.mts`).
-//
-// Node built-ins only: the poller's image copies this file.
 import type { PullRequest } from "../lib/work-status.mts";
 
 /** One end of a pull request: the commit, its branch, and the repository

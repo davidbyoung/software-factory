@@ -2,8 +2,6 @@
 // unattended build runs. The factory's commands start a build and read its
 // runs only through it. The job files a runner needs, such as GitHub
 // Actions' workflows, are its own and no part of this.
-//
-// Node built-ins only: the poller's image copies this file.
 
 /** One run of the repository's jobs for a commit. `status` is `completed`
  * once it has ended, and `conclusion` says how. */

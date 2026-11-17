@@ -4,9 +4,6 @@
 //
 // GitHub serves a pull request's conversation comments and labels from its
 // issues API, so those calls are here too, not in the ticket adapter.
-//
-// Node built-ins and the modules beside it only: the poller's image copies
-// this file.
 import type { Gh } from "../lib/gh.mts";
 import type { IssueComment, PullRequest } from "../lib/work-status.mts";
 import { NotFoundError } from "../tickets/types.mts";

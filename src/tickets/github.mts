@@ -3,8 +3,6 @@
 // organization. It reaches GitHub through
 // the transport it is given (`transport.mts`), and picks REST or GraphQL per
 // call.
-//
-// Node built-ins only: the poller's image copies this file.
 import { rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";

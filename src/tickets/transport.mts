@@ -3,8 +3,6 @@
 // the GitHub CLI, for sessions and CI. `fetchTransport` calls the API with a
 // token, for the poller, which runs with no `gh` and no install. A failed
 // call rejects, so a failed read is never mistaken for an empty answer.
-//
-// Node built-ins only: the poller's image copies this file.
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,7 +39,7 @@ export type Transport = {
 
 /** A call GitHub answered with an HTTP error. */
 export class HttpError extends Error {
-  // A plain field, not a parameter property: the poller runs this file
+  // A plain field, not a parameter property: the factory runs its source
   // unbuilt, and Node's type stripping refuses parameter properties.
   readonly status: number;
   /** What GitHub said was wrong: the `message` in its answer, or the status

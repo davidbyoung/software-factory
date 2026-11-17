@@ -1,6 +1,5 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   FIRE_LIMIT,
@@ -623,27 +622,28 @@ describe("the poller's start", () => {
 });
 
 describe("poller.Dockerfile", () => {
-  /** The poller and every file it imports, directly or through another, by
-   * relative path. */
-  function imported(file: string, seen = new Set<string>()): Set<string> {
-    seen.add(file);
-    const src = readFileSync(file, "utf8");
-    for (const [, spec] of src.matchAll(/from\s+"(\.{1,2}\/[^"]+)"/g)) {
-      const next = join(dirname(file), spec);
-      if (!seen.has(next)) imported(next, seen);
-    }
-    return seen;
-  }
+  const file = readFileSync("poller.Dockerfile", "utf8");
+  const name = JSON.parse(readFileSync("package.json", "utf8")).name as string;
 
-  it("copies the poller and every file it imports", () => {
-    const copied = readFileSync("poller.Dockerfile", "utf8")
-      .split("\n")
-      .filter((line) => /^COPY\s/.test(line))
-      .map((line) => line.split(/\s+/)[1]);
+  it("installs the factory's published version the build names, without its dev tools", () => {
+    expect(file).toMatch(/^ARG VERSION$/m);
+    expect(file).toContain(`npm install --omit=dev`);
+    expect(file).toContain(`"${name}@\${VERSION}"`);
+  });
 
-    const missing = [...imported("src/poller.mts")].filter(
-      (f) => !copied.includes(f),
+  it("names this repository as its source, so Dependabot can read its versions", () => {
+    expect(file).toMatch(
+      /^LABEL org\.opencontainers\.image\.source="https:\/\/github\.com\/davidbyoung\/software-factory"$/m,
     );
-    expect(missing).toEqual([]);
+  });
+
+  it("runs the installed poller as an unprivileged user", () => {
+    expect(file).toMatch(/^USER node$/m);
+    expect(file).toMatch(
+      new RegExp(
+        `^CMD \\["node", "node_modules/${name.replace("/", "\\/")}/bin/factory\\.js", "poller"\\]$`,
+        "m",
+      ),
+    );
   });
 });

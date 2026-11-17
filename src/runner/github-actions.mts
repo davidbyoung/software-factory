@@ -2,9 +2,6 @@
 // started by a dispatch, and the review is a run of the review workflow.
 // With `src/tickets/` and `src/code-host/`, this is the only code that
 // calls GitHub.
-//
-// Node built-ins and the modules beside it only: the poller's image copies
-// this file.
 import type { GhIn } from "../lib/gh.mts";
 import { statusOf, type Transport } from "../tickets/transport.mts";
 import type { FailedJob, Run, Runner } from "./types.mts";

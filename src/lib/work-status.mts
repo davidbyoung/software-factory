@@ -4,7 +4,6 @@
 // poller (`factory poller`) all decide from this one module, so they
 // cannot disagree. It reads tickets as the ticket interface returns them
 // (`tickets/types.mts`) and never calls a ticket system itself.
-// Node built-ins only: the poller's image copies this file.
 import type {
   Board,
   BoardItem,
