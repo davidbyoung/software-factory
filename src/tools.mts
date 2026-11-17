@@ -22,6 +22,7 @@ import { githubTickets } from "./tickets/github.mts";
 import { githubTicketsSetup } from "./tickets/github-setup.mts";
 import { openTickets, type Tickets } from "./tickets/index.mts";
 import { ghTransport } from "./tickets/transport.mts";
+import { githubActionsSetup } from "./runner/setup.mts";
 import { BUILT, type Built } from "./tool-names.mts";
 
 export type Tool = { label: string; setup: ToolSetup };
@@ -78,7 +79,7 @@ export const TOOLS: Registry = {
   runner: {
     "github-actions": {
       label: "GitHub Actions",
-      setup: {},
+      setup: githubActionsSetup,
       open: (repository) => openRunner(repository),
     },
   },

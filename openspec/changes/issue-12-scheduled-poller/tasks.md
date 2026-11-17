@@ -20,7 +20,7 @@
 
 - [x] 5.1 `isPrivate` on the code host and `workflowState` on the runner, with their recorded-response tests
 - [x] 5.2 `init`'s two questions, its "Left to do" step, and the part's text; tests in `tests/init.test.ts` for a public and a private repository and a re-run (lines 14 to 21)
-- [ ] 5.3 `doctor`'s workflow check (lines 22 and 23) and `remove`'s leftover (line 24)
+- [x] 5.3 `doctor`'s workflow check (lines 22 and 23) and `remove`'s leftover (line 24)
 - [ ] 5.4 `status`'s wait and flag text by trigger, in `tests/status-lib.test.ts` (lines 25 and 26)
 
 ## 6. The image
