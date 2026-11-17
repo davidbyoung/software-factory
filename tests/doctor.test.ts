@@ -76,6 +76,41 @@ describe("factory doctor", () => {
     ]);
   });
 
+  it("prints the same lines, word for word, with every part on", async () => {
+    const { run, out } = doctor({
+      raw: {
+        "ci-review": null,
+        tickets: { board: 3 },
+        builds: { trigger: "own-server" },
+        "auto-merge": { allow: ["docs/**"] },
+      },
+      secrets: {
+        CLAUDE_CODE_OAUTH_TOKEN: "x",
+        FACTORY_BOARD_TOKEN: "x",
+        FACTORY_AUTOMERGE_TOKEN: "x",
+        FACTORY_SIGNING_KEY: "x",
+      },
+      columns: SIX,
+    });
+    expect(await run()).toBe(0);
+    expect(out).toMatchInlineSnapshot(`
+      [
+        "✓ The settings are valid",
+        "✓ The factory's files match the settings",
+        "✓ Version 0.2.0 is installed, as the repository records",
+        "✓ Signed in to the code host as dave",
+        "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request",
+        "✓ FACTORY_BOARD_TOKEN is set, for a board",
+        "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for builds in the cloud",
+        "✓ FACTORY_BOARD_TOKEN is set, for builds in the cloud",
+        "✓ FACTORY_BOARD_TOKEN is set, for builds that start when you move a card to Ready",
+        "✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
+        "✓ FACTORY_SIGNING_KEY is set, for signed commits from cloud builds",
+        "✓ Board 3 has every column the settings name",
+      ]
+    `);
+  });
+
   it("stops at settings it cannot read, and fails", async () => {
     const { run, out } = doctor({ invalid: "tickets.board: must be a number" });
     expect(await run()).toBe(1);

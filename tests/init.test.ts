@@ -35,7 +35,7 @@ type Answers = {
 };
 
 /** Answers each question in turn from the script, and records each one. */
-function scripted(answers: Answers) {
+function scripted(answers: Answers, log: (line: string) => void = () => {}) {
   const asked: string[] = [];
   const queue = {
     checkbox: [...(answers.checkbox ?? [])],
@@ -46,6 +46,7 @@ function scripted(answers: Answers) {
   };
   const next = <K extends keyof typeof queue>(kind: K, message: string) => {
     asked.push(`${kind}: ${message}`);
+    log(`? ${kind}: ${message}`);
     if (!queue[kind].length) throw new Error(`no scripted ${kind}: ${message}`);
     return queue[kind].shift()!;
   };
@@ -100,10 +101,14 @@ function init(setup: Setup) {
     writeFileSync(join(root, path), text);
   }
   const out: string[] = [];
+  /** Every line printed and every question asked, in the order they came. */
+  const transcript: string[] = [];
   const ran: string[][] = [];
   const opened: string[] = [];
   let synced = 0;
-  const { ask, asked, queue } = scripted(setup.answers);
+  const { ask, asked, queue } = scripted(setup.answers, (line) =>
+    transcript.push(line),
+  );
   const host = memoryCodeHost([], {
     owner: "dave",
     tokens: {
@@ -122,7 +127,10 @@ function init(setup: Setup) {
   const d: InitDeps = {
     root,
     ask,
-    out: (line) => out.push(line),
+    out: (line) => {
+      out.push(line);
+      transcript.push(line);
+    },
     remote: () =>
       setup.remote === undefined
         ? "git@github.com:acme/site.git"
@@ -159,6 +167,7 @@ function init(setup: Setup) {
   return {
     run: () => main([], d),
     out,
+    transcript,
     asked,
     queue,
     ran,
@@ -180,6 +189,15 @@ const EVERY: Part[] = [
   "auto-merge",
   "signing",
   "from-board",
+];
+
+const SIX_COLUMNS = [
+  "Backlog",
+  "In refinement",
+  "Ready",
+  "In progress",
+  "In review",
+  "Done",
 ];
 
 /** No pasted or made value reaches anything printed. */
@@ -688,6 +706,143 @@ describe("factory init, repository rules", () => {
       'Could not require "Review verdict": Upgrade to GitHub Pro or make this repository public',
     );
     expect(r.out.join("\n")).toContain("Every check passed");
+  });
+});
+
+describe("factory init, word for word", () => {
+  it("prints and asks the same on a first run with every part", async () => {
+    const r = init({
+      packageJson: false,
+      answers: {
+        checkbox: [EVERY],
+        select: ["new"],
+        input: ["docs/**, **/*.md"],
+        confirm: [true],
+        secret: [AGENT, GOOD],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.transcript).toMatchInlineSnapshot(`
+      [
+        "Setting up the software factory for acme/site",
+        "",
+        "Found",
+        "  Code host      GitHub (from your git remote)",
+        "  Tickets        GitHub Issues",
+        "  Coding agent   Claude Code",
+        "  Cloud builds   GitHub Actions",
+        "  package.json   none, so a private one will be created",
+        "  Settings       none yet",
+        "  Board          none yet",
+        "",
+        "? checkbox: Which parts do you want?",
+        "? select: Which board?",
+        "? input: Which files may merge without you? (comma-separated)",
+        "",
+        "This is everything setup will do:",
+        "  Write    .claude/factory.yaml",
+        "  Write    package.json",
+        "  Write    .gitignore",
+        "  Write    .claude/skills/factory-build/SKILL.md",
+        "  Create   board "site" under acme, linked to the repository, with the factory's columns and fields",
+        "  Secrets  CLAUDE_CODE_OAUTH_TOKEN, FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, FACTORY_SIGNING_KEY",
+        "  Settings allow auto-merge on the repository",
+        "  Rules    Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
+        "? confirm: Go ahead?",
+        "Created board 1, "site".",
+        "Added to board 1: Backlog, In refinement, Ready, In review, Session, Runs in, Cost.",
+        "",
+        "The coding agent's token: running claude setup-token...",
+        "? secret: Paste the token it printed (leave empty to do this later):",
+        "Stored as CLAUDE_CODE_OAUTH_TOKEN.",
+        "",
+        "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: acme/site",
+        "Check that push, workflows, and board are ticked, choose an expiry, and generate it.",
+        "? secret: Paste it (leave empty to do this later):",
+        "It belongs to dave. Stored as FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN.",
+        "",
+        "Made a signing key and stored it as FACTORY_SIGNING_KEY.",
+        "Added its public half to dave as a signing key.",
+        "",
+        "Nothing is committed. Left to do:",
+        "  1. Install the app the review posts through: https://code.example/apps/review",
+        "  2. Host the poller, which starts a build when a card moves to Ready, with:
+             FACTORY_REPOSITORY=acme/site
+             FACTORY_BOARD_OWNER=acme
+             FACTORY_BOARD_NUMBER=1
+             FACTORY_BOARD_TOKEN=the access token you just made",
+        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "",
+        "Checks",
+        "  ✓ Every check passed",
+      ]
+    `);
+  });
+
+  it("prints and asks the same on a re-run with every part on and every secret set", async () => {
+    const r = init({
+      settings: [
+        "version: 1",
+        "repository: acme/site",
+        "tickets:",
+        "  board: 3",
+        "builds:",
+        "  trigger: own-server",
+        "auto-merge:",
+        "  allow:",
+        "    - docs/**",
+        "ci-review:",
+        "  commands: []",
+        "",
+      ].join("\n"),
+      secrets: {
+        CLAUDE_CODE_OAUTH_TOKEN: "x",
+        FACTORY_BOARD_TOKEN: "x",
+        FACTORY_AUTOMERGE_TOKEN: "x",
+        FACTORY_SIGNING_KEY: "x",
+      },
+      boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
+      answers: { checkbox: [EVERY], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.transcript).toMatchInlineSnapshot(`
+      [
+        "Setting up the software factory for acme/site",
+        "",
+        "Found",
+        "  Code host      GitHub (from your git remote)",
+        "  Tickets        GitHub Issues",
+        "  Coding agent   Claude Code",
+        "  Cloud builds   GitHub Actions",
+        "  package.json   yes",
+        "  Settings       .claude/factory.yaml",
+        "  Board          3, from your settings",
+        "",
+        "? checkbox: Which parts do you want?",
+        "? confirm: 4 secrets these parts read are already set. Replace them?",
+        "",
+        "This is everything setup will do:",
+        "  Write    .gitignore",
+        "  Write    .claude/skills/factory-build/SKILL.md",
+        "  Board    give board 3 any of the factory's columns and fields it lacks",
+        "  Settings allow auto-merge on the repository",
+        "  Rules    Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
+        "? confirm: Go ahead?",
+        "Added to board 3: Session, Runs in, Cost.",
+        "",
+        "Nothing is committed. Left to do:",
+        "  1. Install the app the review posts through: https://code.example/apps/review",
+        "  2. Host the poller, which starts a build when a card moves to Ready, with:
+             FACTORY_REPOSITORY=acme/site
+             FACTORY_BOARD_OWNER=acme
+             FACTORY_BOARD_NUMBER=3
+             FACTORY_BOARD_TOKEN=the access token you just made",
+        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "",
+        "Checks",
+        "  ✓ Every check passed",
+      ]
+    `);
   });
 });
 
