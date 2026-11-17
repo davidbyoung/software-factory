@@ -231,6 +231,19 @@ describe("factory remove", () => {
     expect(r.out.join("\n")).not.toContain("field");
   });
 
+  it("names the ruleset, if there is one, when the review is off", async () => {
+    const r = remove({
+      files: {
+        ...SYNCED,
+        ".claude/factory.yaml": "version: 1\nrepository: acme/site\n",
+      },
+    });
+    await r.run();
+    expect(r.out).toContain(
+      '  1. Delete the "Software factory" ruleset first, if there is one, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
+    );
+  });
+
   it("prints another ticket system's own leftovers", async () => {
     const r = remove({
       files: {
