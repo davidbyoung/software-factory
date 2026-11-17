@@ -185,6 +185,30 @@ export const COMMANDS: Command[] = [
       (await import("./config.mts")).run(["plugins", ...argv]),
   },
   {
+    words: ["gate"],
+    args: "",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["gate", ...argv]),
+  },
+  {
+    words: ["test-one"],
+    args: "FILE [NAME]",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["test-one", ...argv]),
+  },
+  {
+    words: ["end-to-end"],
+    args: "FILE [--times K]",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["end-to-end", ...argv]),
+  },
+  {
+    words: ["specs", "check"],
+    args: "",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["specs-check", ...argv]),
+  },
+  {
     words: ["board", "collect"],
     args: "--out FILE [--event FILE --event-name NAME]",
     run: async (argv) =>
