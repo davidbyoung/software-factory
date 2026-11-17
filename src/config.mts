@@ -387,6 +387,10 @@ export function parseSettings(
 
   const builds = object(top.builds, "builds");
   const trigger = oneOf(builds.trigger, "builds.trigger", TRIGGERS, "manual");
+  if (trigger === "github-action")
+    throw new SettingsError(
+      `${SETTINGS_FILE}: builds.trigger "github-action" is planned, not built. Use own-server or manual.`,
+    );
   if (builds.runner !== undefined && builds.runner !== DEFAULT_RUNNER)
     throw new SettingsError(
       `${SETTINGS_FILE}: ${unsupportedRunner(String(builds.runner))}`,
