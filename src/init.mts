@@ -37,6 +37,7 @@ import {
 } from "./config.mts";
 import { checks as doctorChecks, doctorDeps, line } from "./doctor.mts";
 import { hasCommand } from "./lib/has-command.mts";
+import { DEFAULT_RUNNER } from "./runner/index.mts";
 import { listed } from "./lib/listed.mts";
 import {
   neededSecrets,
@@ -354,15 +355,10 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   // The settings as they will stand, keeping every other key and comment.
   if (!doc.has("version")) doc.set("version", 1);
   if (!doc.has("repository")) doc.set("repository", repository);
-  if (
-    !only(d.tools.tickets) &&
-    doc.getIn(["tickets", "type"]) !== chosen.tickets
-  )
+  // A tool other than the one a setting defaults to is written down.
+  if ((doc.getIn(["tickets", "type"]) ?? "github") !== chosen.tickets)
     doc.setIn(["tickets", "type"], chosen.tickets);
-  if (
-    !only(d.tools.runner) &&
-    doc.getIn(["builds", "runner"]) !== chosen.runner
-  )
+  if ((doc.getIn(["builds", "runner"]) ?? DEFAULT_RUNNER) !== chosen.runner)
     doc.setIn(["builds", "runner"], chosen.runner);
   if (parts.has("board") && typeof board === "number")
     doc.setIn(["tickets", "board"], board);

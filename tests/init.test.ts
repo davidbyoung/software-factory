@@ -19,6 +19,14 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
+import {
+  FAKE_PAGE,
+  FAKE_TOKEN,
+  withFakeTickets,
+  withSecondCodeHost,
+} from "./fake-tools";
+import type { Registry } from "../src/tools.mts";
+import type { Tickets } from "../src/tickets/types.mts";
 
 const GOOD = "tok_good";
 const NARROW = "tok_narrow";
@@ -38,6 +46,8 @@ type Answers = {
 /** Answers each question in turn from the script, and records each one. */
 function scripted(answers: Answers, log: (line: string) => void = () => {}) {
   const asked: string[] = [];
+  /** The values each select offered, in order. */
+  const offered: string[][] = [];
   const queue = {
     checkbox: [...(answers.checkbox ?? [])],
     select: [...(answers.select ?? [])],
@@ -59,12 +69,15 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
           throw new Error(`no choice ${c}`);
       return chosen;
     },
-    select: async (message) => next("select", message) as string,
+    select: async (message, choices) => {
+      offered.push(choices.map((c) => c.value));
+      return next("select", message) as string;
+    },
     confirm: async (message) => next("confirm", message) as boolean,
     secret: async (message) => next("secret", message) as string,
     input: async (message) => next("input", message) as string,
   };
-  return { ask, asked, queue };
+  return { ask, asked, offered, queue };
 }
 
 type Setup = {
@@ -80,6 +93,7 @@ type Setup = {
   claude?: boolean;
   files?: Record<string, string>;
   tokens?: Record<string, { account: string; scopes: string[] | null }>;
+  tools?: (base: Registry, tickets: Tickets) => Registry;
 };
 
 const roots: string[] = [];
@@ -107,7 +121,7 @@ function init(setup: Setup) {
   const ran: string[][] = [];
   const opened: string[] = [];
   let synced = 0;
-  const { ask, asked, queue } = scripted(setup.answers, (line) =>
+  const { ask, asked, offered, queue } = scripted(setup.answers, (line) =>
     transcript.push(line),
   );
   const host = memoryCodeHost([], {
@@ -136,11 +150,14 @@ function init(setup: Setup) {
       setup.remote === undefined
         ? "git@github.com:acme/site.git"
         : setup.remote,
-    tools: memoryTools({
-      codeHost: host.codeHost,
-      runner: runner.runner,
-      tickets: tickets.tickets,
-    }),
+    tools: (setup.tools ?? ((b) => b))(
+      memoryTools({
+        codeHost: host.codeHost,
+        runner: runner.runner,
+        tickets: tickets.tickets,
+      }),
+      tickets.tickets,
+    ),
     sync: async () => {
       synced++;
       return 0;
@@ -170,6 +187,7 @@ function init(setup: Setup) {
     out,
     transcript,
     asked,
+    offered,
     queue,
     ran,
     opened,
@@ -861,6 +879,160 @@ describe("factory init, a secret met another way", () => {
       "confirm: Go ahead?",
     ]);
     expect(r.opened).toEqual([]);
+  });
+});
+
+describe("factory init, a tool's own setup", () => {
+  /** Fake Tickets as the only ticket system. */
+  const fakeOnly = (b: Registry, t: Tickets) => withFakeTickets(b, t, true);
+  const FAKE = "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n";
+
+  it("asks for the value the ticket system needs, and writes it under tickets", async () => {
+    const r = init({
+      tools: fakeOnly,
+      answers: {
+        checkbox: [[]],
+        input: ["https://tickets.example"],
+        confirm: [true],
+        secret: [""],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.slice(0, 2)).toEqual([
+      "checkbox: Which parts do you want?",
+      "input: Your ticket system's address",
+    ]);
+    expect(r.yaml().tickets).toEqual({
+      type: "fake",
+      site: "https://tickets.example",
+    });
+    expect(r.out).toContain("  Write    .claude/factory.yaml");
+  });
+
+  it("does not ask again for a value already in the settings", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      secrets: { [FAKE_TOKEN]: "x" },
+      answers: { checkbox: [[]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.some((q) => q.startsWith("input:"))).toBe(false);
+  });
+
+  it("gets the tool's secret its way, and stores it under the tool's name", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      answers: { checkbox: [[]], confirm: [true], secret: [GOOD] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(`  Secrets  ${FAKE_TOKEN}`);
+    expect(r.transcript).toEqual(
+      expect.arrayContaining([
+        `Fake Tickets' token: opening ${FAKE_PAGE}`,
+        "? secret: Paste the Fake Tickets token (leave empty to do this later):",
+        `Stored as ${FAKE_TOKEN}.`,
+      ]),
+    );
+    expect(r.opened).toEqual([FAKE_PAGE]);
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
+    printsNoSecret(r.out);
+  });
+
+  it("prints the tool's reason for refusing a secret, and asks again", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      answers: { checkbox: [[]], confirm: [true], secret: ["bad", GOOD] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain("That token is refused.");
+    expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
+  });
+
+  it("stores nothing when nothing is pasted, and says to run init again", async () => {
+    const r = init({
+      tools: fakeOnly,
+      settings: `${FAKE}  site: https://tickets.example\n`,
+      answers: { checkbox: [[]], confirm: [true], secret: [""] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "No Fake Tickets token stored. Run npx --no-install factory init again to add it.",
+    );
+    expect(r.runner.secrets.has(FAKE_TOKEN)).toBe(false);
+  });
+
+  it("asks for a secret already set only when told to replace it", async () => {
+    const run = (replace: boolean) =>
+      init({
+        tools: fakeOnly,
+        settings: `${FAKE}  site: https://tickets.example\n`,
+        secrets: { [FAKE_TOKEN]: "x" },
+        answers: {
+          checkbox: [[]],
+          confirm: [replace, true],
+          secret: replace ? [GOOD] : [],
+        },
+      });
+    const kept = run(false);
+    await kept.run();
+    expect(kept.asked).toContain(
+      "confirm: 1 secret these parts read is already set. Replace it?",
+    );
+    expect(kept.asked.some((q) => q.startsWith("secret:"))).toBe(false);
+    const replaced = run(true);
+    await replaced.run();
+    expect(replaced.runner.secrets.get(FAKE_TOKEN)).toBe(GOOD);
+  });
+});
+
+describe("factory init, with more than one tool of a kind", () => {
+  const both = (b: Registry, t: Tickets) => withFakeTickets(b, t);
+
+  it("asks which ticket system right after Found, and writes the choice", async () => {
+    const r = init({
+      tools: both,
+      answers: {
+        select: ["fake"],
+        checkbox: [[]],
+        input: ["https://tickets.example"],
+        confirm: [true],
+        secret: [""],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain("  Tickets        chosen below");
+    expect(r.asked[0]).toBe("select: Which ticket system?");
+    expect(r.yaml().tickets).toMatchObject({ type: "fake" });
+  });
+
+  it("offers the one the settings name first", async () => {
+    const r = init({
+      tools: both,
+      settings:
+        "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
+      secrets: { [FAKE_TOKEN]: "x" },
+      answers: { select: ["fake"], checkbox: [[]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "  Tickets        Fake Tickets, from your settings",
+    );
+    expect(r.offered[0]).toEqual(["fake", "github"]);
+  });
+
+  it("names every code host it supports when the remote is on none", async () => {
+    const r = init({
+      tools: withSecondCodeHost,
+      remote: "https://gitlab.com/acme/site.git",
+      answers: {},
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host the factory supports: GitHub and Elsewhere.",
+    ]);
   });
 });
 
