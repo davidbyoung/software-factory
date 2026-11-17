@@ -17,8 +17,16 @@ The factory's tool runs on Node and is installed with npm, whatever your
 project is written in. In a PHP, Python, or Go repository that means:
 
 - **A `package.json` appears**, holding one development dependency and
-  nothing else. `factory init` creates it if you have
-  none, marked private so it can never be published.
+  nothing else. Make it yourself before installing, marked private so it
+  can never be published:
+
+  ```bash
+  echo '{ "private": true }' > package.json
+  ```
+
+  Without one, npm installs into the nearest folder above that has a
+  `package.json`, if there is one, rather than into your repository.
+
 - **`package-lock.json` is committed.** It is what keeps everyone on the
   same version of the factory.
 - **`node_modules/` is ignored.** `factory init` adds it

@@ -12,8 +12,8 @@ hook, label, and setting.
   lock file beside it; its own skills, agents, rules, and CI workflows, all
   named `factory-...`; one line in your agent's instructions file that
   imports its rules; and a few hooks in your agent's settings that guard
-  every session. If you had no `package.json`, setup adds a small one to
-  install the factory with.
+  every session. If you had no `package.json`, you made a small one to install the factory
+  with.
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
@@ -30,14 +30,11 @@ hook, label, and setting.
 Your code, your tickets, and your pull requests. Your own skills, agents,
 plug-ins, and CI workflows, which the factory never writes to.
 
-Two files belong to you, and removing the factory leaves them: the CI
-workflow that runs the automated review, which you edit to install your
-project, and the review notes you write for it.
+One file belongs to you, and removing the factory leaves it: the review
+notes you write for the automated review. The review's workflow is the
+factory's: every sync rewrites it, and removing the factory deletes it.
 
-## Removing it _[Planned](developing.md#what-is-built)_
-
-Until `factory remove` is built, delete by hand what
-[the reference](github/reference.md#what-setup-adds) lists.
+## Removing it
 
 ```bash
 factory remove
@@ -47,10 +44,32 @@ factory remove
 npm uninstall @davidbyoung/software-factory
 ```
 
-The first command removes everything it added to your repository and
-prints what is left for you to remove by hand: secrets, labels, and
-anything outside the repository. It commits nothing. Review the changes,
-commit them on a branch, and merge.
+If you installed the `factory` command on your machine and no longer want
+it anywhere:
+
+```bash
+npm uninstall -g @davidbyoung/software-factory
+```
+
+The first command shows every file it will delete or change and asks
+before changing anything. It then deletes the factory's files, takes its
+hooks and its import line out of the files it shares with your coding
+agent, and prints what is left outside the repository for you to remove by
+hand: secrets, the rule that requires the review's verdict, labels, and the
+board's fields. Each tool you use adds its own lines to that list. It
+commits nothing. Review the changes, commit them on a branch, and merge.
+
+If your settings file is gone or cannot be read, it says so, removes what
+it finds, and names what the tools it ships with leave behind.
+
+It leaves `package.json`, `package-lock.json`, `node_modules/` in your
+`.gitignore`, and the setting that turns off your agent's lines naming
+itself in commits and pull requests. The second command takes the
+factory's entry out of `package.json`; delete the rest if nothing else
+uses them, as [the reference](github/reference.md#what-setup-adds) says
+for each. If you delete `package.json` and remove the `.gitignore` line,
+delete the `node_modules/` folder too, and any file setup made that is now
+empty, such as `.gitignore` or `.claude/settings.json`.
 
 ## Before you remove it
 
@@ -73,4 +92,5 @@ Each optional part can be turned off by itself. Remove its key from
 factory sync
 ```
 
-That deletes the CI workflows the part used. Delete its secret afterward.
+That deletes the CI workflows only that part uses. Delete its secret
+afterward.

@@ -6,12 +6,18 @@ import { fieldNamesOf, type Settings } from "../config.mts";
 import { githubTickets } from "./github.mts";
 import { ghTransport } from "./transport.mts";
 import type { Tickets } from "./types.mts";
+import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
 
 /** The ticket system's message for a type that is not built. */
 export const unsupportedType = (type: string) =>
-  `tickets.type "${type}" is not supported. "github" is the only ticket system built.`;
+  unsupported(
+    "tickets.type",
+    type,
+    "ticket system",
+    Object.keys(BUILT.tickets),
+  );
 
 export type Opened = { tickets: Tickets };
 

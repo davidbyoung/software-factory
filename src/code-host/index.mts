@@ -6,14 +6,17 @@ import { gh, type Gh } from "../lib/gh.mts";
 import { ghTransport } from "../tickets/transport.mts";
 import { githubCodeHost } from "./github.mts";
 import type { CodeHost } from "./types.mts";
+import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
 
 export const DEFAULT_CODE_HOST = "github" as const;
 
 /** The message for a code host that is not built. */
-export const unsupportedCodeHost = (type: string) =>
-  `code-host.type "${type}" is not supported. "github" is the only code host built.`;
+export const unsupportedCodeHost = (
+  type: string,
+  built: readonly string[] = BUILT.codeHost,
+) => unsupported("code-host.type", type, "code host", built);
 
 /** The code host of that name for the repository, reached through the
  * GitHub CLI. */

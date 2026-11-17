@@ -222,6 +222,15 @@ const isFactory = (h: HookEntry) =>
  * sets its own. Every other entry stays, in its order. */
 export function withHooks(text: string | null, launcher: string): string {
   const settings: ClaudeSettings = text ? JSON.parse(text) : {};
+  const hooks = othersHooks(settings);
+  for (const [event, group] of factoryHooks(launcher))
+    (hooks[event] ??= []).push(group);
+  const attribution = settings.attribution ?? NO_ATTRIBUTION;
+  return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
+}
+
+/** Every hook entry that is not the factory's, by event. */
+function othersHooks(settings: ClaudeSettings): Record<string, HookGroup[]> {
   const hooks: Record<string, HookGroup[]> = {};
   for (const [event, groups] of Object.entries(settings.hooks ?? {})) {
     const kept = groups
@@ -229,17 +238,58 @@ export function withHooks(text: string | null, launcher: string): string {
       .filter((g) => g.hooks.length > 0);
     if (kept.length) hooks[event] = kept;
   }
-  for (const [event, group] of factoryHooks(launcher))
-    (hooks[event] ??= []).push(group);
-  const attribution = settings.attribution ?? NO_ATTRIBUTION;
-  return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
+  return hooks;
 }
+
+/** Whether every event of the five has the factory's entry. */
+export function hasFactoryHooks(text: string | null): boolean {
+  if (!text) return false;
+  const hooks = (JSON.parse(text) as ClaudeSettings).hooks ?? {};
+  return factoryHooks(LAUNCHER).every(([event]) =>
+    (hooks[event] ?? []).some((g) => g.hooks.some(isFactory)),
+  );
+}
+
+/** Whether any hook entry is the factory's. */
+export function hasAnyFactoryHook(text: string | null): boolean {
+  if (!text) return false;
+  const hooks = (JSON.parse(text) as ClaudeSettings).hooks ?? {};
+  return Object.values(hooks).some((groups) =>
+    groups.some((g) => g.hooks.some(isFactory)),
+  );
+}
+
+/** `.claude/settings.json` with the factory's entries taken out and an
+ * emptied `hooks` dropped, or null when nothing is left. */
+export function withoutHooks(text: string): string | null {
+  const { hooks: _, ...rest } = JSON.parse(text) as ClaudeSettings;
+  const hooks = othersHooks(JSON.parse(text) as ClaudeSettings);
+  const after = Object.keys(hooks).length ? { ...rest, hooks } : rest;
+  return Object.keys(after).length
+    ? `${JSON.stringify(after, null, 2)}\n`
+    : null;
+}
+
+export const hasImport = (text: string | null): boolean =>
+  text !== null && text.split("\n").some((line) => line.trim() === IMPORT_LINE);
 
 /** `CLAUDE.md` with the rules' import added when no line is that import. */
 export function withImport(text: string | null): string {
   if (text === null) return `${IMPORT_LINE}\n`;
-  if (text.split("\n").some((line) => line.trim() === IMPORT_LINE)) return text;
+  if (hasImport(text)) return text;
   return `${text}${text.endsWith("\n") || !text ? "" : "\n"}\n${IMPORT_LINE}\n`;
+}
+
+/** `CLAUDE.md` without the rules' import, nor the blank line `withImport`
+ * put before it, or null when nothing else is left. */
+export function withoutImport(text: string): string | null {
+  const lines = text.split("\n");
+  const at = lines.findIndex((line) => line.trim() === IMPORT_LINE);
+  if (at < 0) return text;
+  const from = at > 0 && lines[at - 1] === "" ? at - 1 : at;
+  lines.splice(from, at - from + 1);
+  const after = lines.join("\n");
+  return after.trim() ? after : null;
 }
 
 export function lockText(version: string, files: string[]): string {

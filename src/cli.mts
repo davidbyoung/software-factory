@@ -149,6 +149,11 @@ export const COMMANDS: Command[] = [
     run: async (argv) => (await import("./doctor.mts")).run(argv),
   },
   {
+    words: ["remove"],
+    args: "",
+    run: async (argv) => (await import("./remove.mts")).run(argv),
+  },
+  {
     words: ["config", "get"],
     args: "KEY",
     run: async (argv) => (await import("./config.mts")).run(argv.slice(0, 1)),

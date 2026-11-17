@@ -6,25 +6,25 @@
 // being set.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { boardConfigOf, inspectBoard } from "./board.mts";
-import { openCodeHost, type CodeHost } from "./code-host/index.mts";
 import {
   defaultDeps,
   loadSettings,
   repoRoot,
   type Settings,
 } from "./config.mts";
-import { neededSecrets, PART_TEXT, PARTS, partsOn } from "./parts.mts";
-import { openRunner, type Runner } from "./runner/index.mts";
+import { hasCommand } from "./lib/has-command.mts";
+import {
+  neededSecrets,
+  PART_TEXT,
+  PARTS,
+  partsOn,
+  type Part,
+} from "./parts.mts";
+import type { Check, Chosen, SetupContext } from "./setup.mts";
 import { differences, LOCK, PACKAGE, plan } from "./sync.mts";
-import { openTickets, type Tickets } from "./tickets/index.mts";
+import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 
-export type Check = {
-  state: "pass" | "fail" | "off";
-  text: string;
-  /** What to do about a failure. */
-  fix?: string;
-};
+export type { Check } from "./setup.mts";
 
 export type DoctorDeps = {
   settings: () => Promise<Settings>;
@@ -32,11 +32,9 @@ export type DoctorDeps = {
   outOfStep: (s: Settings) => string[];
   /** The version installed, and the one the repository's lock records. */
   versions: () => { installed: string; locked: string | null };
-  open: (s: Settings) => {
-    codeHost: CodeHost;
-    runner: Runner;
-    tickets: Tickets | Promise<Tickets>;
-  };
+  root: string;
+  hasCommand: (name: string) => boolean;
+  tools: Registry;
   out: (line: string) => void;
 };
 
@@ -96,23 +94,38 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       fix: compareVersions(installed, locked) < 0 ? "Run npm ci" : SYNC,
     });
 
-  const { codeHost, runner, tickets } = d.open(s);
-  try {
-    out.push({
-      state: "pass",
-      text: `Signed in to the code host as ${await codeHost.signedInAs()}`,
-    });
-  } catch (e) {
-    out.push({
-      state: "fail",
-      text: "Signed in to the code host",
-      fix: message(e),
-    });
-  }
+  const chosen: Chosen = {
+    codeHost: s.codeHost.type,
+    tickets: s.tickets.type,
+    runner: s.builds.runner,
+    agent: Object.keys(d.tools.agent)[0]!,
+  };
+  const opened = {
+    codeHost: d.tools.codeHost[chosen.codeHost]!.open(s.repository),
+    runner: d.tools.runner[chosen.runner]!.open(s.repository),
+    tickets: await d.tools.tickets[chosen.tickets]!.open(
+      { repository: s.repository, board: s.tickets.board },
+      s,
+    ),
+  };
+  const context = (parts: Iterable<Part>): SetupContext => ({
+    repository: s.repository,
+    root: d.root,
+    parts: new Set(parts),
+    chosen,
+    settings: s,
+    hasCommand: d.hasCommand,
+    opened,
+  });
+  const [agent, codeHost, tickets, runner] = inUse(d.tools, chosen);
+  out.push(
+    ...((await codeHost!.setup.checks?.({ ...context([]), secrets: null })) ??
+      []),
+  );
 
   let secrets: string[] | null;
   try {
-    secrets = await runner.secretNames();
+    secrets = await opened.runner.secretNames();
   } catch (e) {
     secrets = null;
     out.push({
@@ -121,8 +134,21 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       fix: message(e),
     });
   }
-  const on = partsOn(s, secrets ?? []);
-  const needed = neededSecrets(on);
+  const cloudNeeds = secretSteps(d.tools, context(["cloud"])).flatMap((x) =>
+    x.step.needs.filter((n) => n.part === "cloud"),
+  );
+  const on = partsOn(s, secrets ?? [], cloudNeeds);
+  const needed = neededSecrets(on, secretSteps(d.tools, context(on)));
+  const secretLine = (anyOf: string[], forWhat: string): Check => {
+    const found = anyOf.find((n) => secrets!.includes(n));
+    return found
+      ? { state: "pass", text: `${found} is set, for ${forWhat}` }
+      : {
+          state: "fail",
+          text: `${anyOf.join(" or ")} is not set, for ${forWhat}`,
+          fix: INIT,
+        };
+  };
   for (const part of PARTS) {
     if (!on.has(part)) {
       out.push({ state: "off", text: `${PART_TEXT[part].name}: off` });
@@ -130,45 +156,17 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     }
     if (secrets === null) continue;
     const forPart = PART_TEXT[part].name.replace(/^./, (c) => c.toLowerCase());
-    for (const need of needed.filter((n) => n.part === part)) {
-      const found = need.anyOf.find((n) => secrets.includes(n));
-      out.push(
-        found
-          ? { state: "pass", text: `${found} is set, for ${forPart}` }
-          : {
-              state: "fail",
-              text: `${need.anyOf.join(" or ")} is not set, for ${forPart}`,
-              fix: INIT,
-            },
-      );
-    }
+    for (const need of needed.filter((n) => n.part === part))
+      out.push(secretLine(need.anyOf, forPart));
   }
+  if (secrets !== null)
+    for (const need of needed.filter((n) => n.part === null))
+      out.push(secretLine(need.anyOf, need.tool));
 
-  if (s.tickets.board !== null) {
-    const number = s.tickets.board;
-    try {
-      const board = await (await tickets).board!.read();
-      const { problems } = inspectBoard(board.fields, boardConfigOf(s));
-      out.push(
-        problems.length === 0
-          ? {
-              state: "pass",
-              text: `Board ${number} has every column the settings name`,
-            }
-          : {
-              state: "fail",
-              text: `Board ${number}: ${problems.join("; ")}`,
-              fix: INIT,
-            },
-      );
-    } catch (e) {
-      out.push({
-        state: "fail",
-        text: `Board ${number} can be read`,
-        fix: message(e),
-      });
-    }
-  }
+  for (const tool of [tickets, runner, agent])
+    out.push(
+      ...((await tool!.setup.checks?.({ ...context(on), secrets })) ?? []),
+    );
   return out;
 }
 
@@ -209,14 +207,9 @@ export function doctorDeps(root = repoRoot()): DoctorDeps {
       }
       return { installed, locked };
     },
-    open: (s) => ({
-      codeHost: openCodeHost(s.repository, s.codeHost.type),
-      runner: openRunner(s.repository, s.builds.runner),
-      tickets: openTickets(s, {
-        repository: s.repository,
-        board: s.tickets.board,
-      }).then((o) => o.tickets),
-    }),
+    root,
+    hasCommand,
+    tools: TOOLS,
     out: (l) => console.log(l),
   };
 }

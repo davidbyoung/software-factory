@@ -26,14 +26,14 @@ such as "refine ticket 12". [Skills](skills.md) lists them.
 
 ## Setting up
 
-| Command                | When you run it                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------ |
-| `factory init`         | Once, to set a repository up. Again, to turn a part on or off                        |
-| `factory sync`         | After installing, updating, or editing `.claude/factory.yaml`                        |
-| `factory sync --check` | To see that the factory's files match your settings. It also runs in CI              |
-| `factory config check` | To validate your settings. It also runs in CI                                        |
-| `factory board check`  | After pointing `tickets.board` at your board, to see how it reads it                 |
-| `factory doctor`       | When something seems off. It checks the settings, files, version, secrets, and board |
+| Command                | When you run it                                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `factory init`         | Once, to set a repository up. Again, to turn a part on or off                                               |
+| `factory sync`         | After installing, updating, or editing `.claude/factory.yaml`                                               |
+| `factory sync --check` | To see that the factory's files match your settings. It also runs in CI                                     |
+| `factory config check` | To validate your settings. It also runs in CI                                                               |
+| `factory board check`  | After pointing `tickets.board` at your board, to see how it reads it                                        |
+| `factory doctor`       | When something seems off. It checks the settings, files, version, secrets, board, and each tool's own setup |
 
 `init` asks its questions in the terminal, and reads each token in a
 masked prompt. `doctor` exits 1 when a check fails. GitHub never lets a
@@ -58,11 +58,11 @@ read is set.
 | `factory plugins`        | To see your plug-ins by role                                      | Built   |
 | `factory site compare`   | To picture a website's pages before and after a change. See below | Built   |
 | `factory site stop`      | To end the sites `compare --keep` left running                    | Built   |
-| `factory remove`         | To take the factory out of a repository                           | Planned |
+| `factory remove`         | To take the factory out of a repository                           | Built   |
 
 A new version is installed with npm and applied with `factory sync`, as
-[Updating](updating.md) says; until `remove` is built,
-[Removing](removing.md) lists what to delete by hand.
+[Updating](updating.md) says. [Removing](removing.md) says what `remove`
+deletes and what it leaves to you.
 
 ## Run for you
 

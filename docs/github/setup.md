@@ -23,7 +23,9 @@ factory init
 ```
 
 It says what it found, asks which parts you want, and shows everything it
-will do before it does any of it. Told to go ahead, it writes the settings
+will do before it does any of it. On a first run the automated review, a
+board, and builds in the cloud start checked: uncheck the board unless you
+want one made on your account. Told to go ahead, it writes the settings
 and the factory's files, makes or connects the board with its columns and
 fields, stores every secret your parts need, and turns on the repository
 settings they need. It commits nothing, and ends with what is left for you
