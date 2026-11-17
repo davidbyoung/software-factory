@@ -44,6 +44,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** -1, 0, or 1 as version `a` is older than, the same as, or newer than `b`. */
 function compareVersions(a: string, b: string): number {
+  if (a === b) return 0;
   const pa = a.split(/[.-]/).map(Number);
   const pb = b.split(/[.-]/).map(Number);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {

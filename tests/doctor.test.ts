@@ -200,6 +200,17 @@ describe("factory doctor", () => {
     );
   });
 
+  it("passes a placeholder version the repository records, as the factory's own does", async () => {
+    const { run, out } = doctor({
+      installed: "0.0.0-development",
+      locked: "0.0.0-development",
+    });
+    await run();
+    expect(out[2]).toBe(
+      "✓ Version 0.0.0-development is installed, as the repository records",
+    );
+  });
+
   it("checks each secret a part that is on reads", async () => {
     const { run, out } = doctor({
       raw: { "ci-review": null, "auto-merge": { allow: ["docs/**"] } },
