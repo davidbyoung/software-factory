@@ -206,8 +206,6 @@ It reads no board.
 else. Only `github` is built. Any other value fails
 `factory config check` and every ticket command with:
 `tickets.type "X" is not supported. "github" is the only ticket system built.`
-A type that names a package, for an adapter you write yourself, is not
-planned. The design leaves room.
 
 ### `code-host`
 
@@ -803,8 +801,8 @@ auto-merge:
 ```
 
 If this team moved its tickets to Jira, only the `tickets` block would
-change. **No Jira support is built or planned**; the block below shows the
-shape the design leaves room for.
+change. **Only GitHub is built**; the block below shows the shape the
+design leaves room for.
 
 ```yaml
 tickets:

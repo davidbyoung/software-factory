@@ -186,8 +186,6 @@ adapter.** An adapter is one module in `src/tickets/` that implements the
 `Tickets` type in `src/tickets/types.mts`. `github` is the only one; any
 other value fails `factory config check` and every ticket command with
 `tickets.type "X" is not supported. "github" is the only ticket system built.`
-A type that names a package, so a team can write an adapter for a system
-the factory does not ship, is not planned. The design leaves room.
 
 | Operation               | In `Tickets`              | What it returns or does                                                                                                                                  |
 | ----------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -262,7 +260,6 @@ that implements the `CodeHost` type in `src/code-host/types.mts`. Any other
 value fails `factory config check`, and every command that reads the
 settings and reaches a pull request, with
 `code-host.type "X" is not supported. "github" is the only code host built.`
-A type that names a package is not planned. The design leaves room.
 
 A command that a workflow also runs, such as `factory pr`, does not read
 the settings there, so an unreadable settings file cannot fail the
