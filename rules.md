@@ -38,7 +38,8 @@ here rather than restate it.
   changes no line of it.
 - **No `factory-ticket-readiness` read and no read by the test reviewers**
   (`npx --no-install factory plugins test-reviewer` lists them), with two
-  exceptions that keep the test reviewers, the whole list: a change to
+  exceptions that keep every test reviewer it prints whose `files`, if it
+  has any, the change touches: a change to
   tests alone, the one kind they exist for, and code that builds what is
   sent to an outside service, which "Small changes: this repository" in
   `CLAUDE.md` names, since a broken payload loses data without a sound.

@@ -80,6 +80,16 @@ live, and prints `not live; posted nothing` otherwise, so it never ends a
 newer session's claim. A dirty tree in step 1 is a pause for a live user,
 not a stop.
 
+**Right after `claimed`, and before the branch,** check that the settings
+name a gate:
+
+```bash
+npx --no-install factory config get commands.gate
+```
+
+When it prints nothing, stop as above, saying `commands.gate` is not set,
+so the build would have no way to check its work.
+
 **Before opening the pull request,** check the claim once more:
 
 ```bash
@@ -269,7 +279,11 @@ Read the `CLAUDE.md` for the area first ("Rules by area" in `CLAUDE.md`).
 labels. When the issue carries one of a builder's labels, invoke that skill
 with the Skill tool to build it, in place of the steps below up to the
 reviewers. The reviewers still run on what it built, the test reviewers
-and the repository's own, and so does everything after them. A reviewer
+and the repository's own, and so does everything after them. Which
+reviewers those are is decided by the change's own path: a small change's
+by "Small changes" in `.claude/factory/rules.md`, content the repository
+reviews by what changed by that path in `CLAUDE.md`, and anything else by
+the items below. A reviewer
 the builder's report shows it already ran is not run again: its line in
 the pull request is the skip line "already run by the builder". What the
 builder's report says goes in the pull request body at step 6, where the
@@ -339,10 +353,12 @@ It runs each command under `commands.gate` in the settings, in order, and
 stops at the first that fails. When it says `commands.gate is not set`,
 stop: a build cannot finish until the settings name a gate.
 
-Run the end-to-end specs the change added or changed, where the repository
-has an end-to-end suite, each with
-`npx --no-install factory end-to-end FILE`, and a new one ten times, with
-`--times 10` after FILE; CI runs the full suite on the draft (step 6).
+Run the end-to-end specs the change added or changed. Where
+`npx --no-install factory config get commands.end-to-end` prints a
+command, run each with `npx --no-install factory end-to-end FILE`, and a
+new one ten times, with `--times 10` after FILE. Where it prints `none`,
+run them the way the repository's `CLAUDE.md` says, or say there is no
+end-to-end suite. CI runs the full suite on the draft (step 6).
 Commit and push as "Branching, pushing, and review" in
 `.claude/factory/rules.md` describes: one commit per coherent change,
 describing the defect or the feature, not the issue number alone.

@@ -19,6 +19,16 @@ write it as DEFAULT.
 
 ## 0. The queue, and each one's state
 
+First, check that the settings name a gate:
+
+```bash
+npx --no-install factory config get commands.gate
+```
+
+When it prints nothing, `commands.gate` is not set, and no fix here could
+be checked: do nothing for any pull request, open no issue, and say so
+once in the report.
+
 A run started by the workflow ran `factory deps --any` first, which exits
 0 when a Dependabot pull request is open, and starts a session only then.
 Read the list again, since time has passed.
@@ -73,8 +83,8 @@ Check out the branch and reproduce the failure before changing anything:
 git fetch origin HEAD_REF && git switch HEAD_REF
 ```
 
-Install what the branch's lock file lists, with `commands.relock`, the
-command `npx --no-install factory config get commands.relock` prints. Then
+Install what the branch's lock file lists, the way the repository's
+`CLAUDE.md` says to install, which is `npm ci` for npm. Then
 run the gate, `npx --no-install factory gate`, and the end-to-end suite
 where the repository has one, as its `CLAUDE.md` says to run it, with what
 it needs, such as a browser, installed first.
@@ -130,7 +140,13 @@ A pull request that bumps `@davidbyoung/software-factory` gets steps 2 and
 npx --no-install factory sync
 ```
 
-Commit what it wrote as a second commit, "Sync the factory's files to
+When the sync, or any other `factory` command, fails on the settings after
+the update, the release changed the settings' shape, as version 2 does.
+Stop (step 6), and say the settings are the owner's to move, as "Moving to
+settings version 2" in the factory's `docs/updating.md` says for that
+release. Never edit `.claude/factory.yaml`.
+
+Commit what the sync wrote as a second commit, "Sync the factory's files to
 VERSION", and push. The push changes workflows, so it needs a token with
 the `workflow` scope, such as the build token; a refused push is a stop
 (step 6), with GitHub's error. Until then CI's `factory sync --check` fails, which is

@@ -128,7 +128,9 @@ The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
 gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
 `review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
-the `guard*.mts` files, and `lib/work-status.mts`.
+the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
+`lib/default-branch.mts`, `lib/refined-check.mts`, and `config.mts`'s
+`pluginsOf`.
 
 A change here reaches every repository that uses the factory, through its
 next release, so the fresh-agent trace in "Changing the process" in

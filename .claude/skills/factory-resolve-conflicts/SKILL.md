@@ -35,6 +35,16 @@ which is steps 1 to 3 below, and starts a session only when it exits 0.
 Read what it read again, since time has passed. It finds every pull request that conflicts with
 the default branch and sends each through "A conflict with the default branch" and then its review.
 
+Before it lists the queue, the sweep checks that the settings name a gate:
+
+```bash
+npx --no-install factory config get commands.gate
+```
+
+When it prints nothing, `commands.gate` is not set, and no fix could be
+checked: do nothing for any pull request, open no issue, and say so once
+in the report.
+
 1. **List the queue**, oldest first. Drafts, Dependabot's (the
    `factory-deps` skill keeps those), forks, and pull requests
    not based on the default branch are left alone:

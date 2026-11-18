@@ -318,8 +318,10 @@ npx --no-install factory config get commands.coverage.run
 npx --no-install factory config get commands.coverage.report
 ```
 
-**Skip this section when they print `none`:** the repository measures no
-coverage, and there is none to judge.
+**Skip this whole section when they print `none`,** a coverage service's
+checks included: the settings name no coverage command, so there are no
+lines to judge. A repository that reports to a coverage service sets
+`commands.coverage` to get its verdicts.
 
 If the repository reports to Codecov, read its checks in the same pass,
 including when the review did not run: a failed review still leaves
