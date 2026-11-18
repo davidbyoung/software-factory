@@ -13,7 +13,12 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
-import { reachOf } from "./config.mts";
+import { reachOf, repoRoot } from "./config.mts";
+import {
+  branchDeps,
+  needDefaultBranch,
+  NoDefaultBranch,
+} from "./lib/default-branch.mts";
 import {
   openCodeHost,
   type CheckRun,
@@ -107,8 +112,13 @@ function reviewIsOver(snapshot: Snapshot): boolean {
 }
 
 /** What needs the session now and has not been reported. A closed pull
- * request ends the watch, so nothing else about it is news. */
-export function newEvents(snapshot: Snapshot, seen: Set<string>): WatchEvent[] {
+ * request ends the watch, so nothing else about it is news. `branch` is the
+ * default branch, which a conflict's line names. */
+export function newEvents(
+  snapshot: Snapshot,
+  seen: Set<string>,
+  branch: string,
+): WatchEvent[] {
   if (snapshot.merged) return [{ key: "merged", line: "merged" }];
   if (snapshot.state !== "open") return [{ key: "closed", line: "closed" }];
 
@@ -117,7 +127,7 @@ export function newEvents(snapshot: Snapshot, seen: Set<string>): WatchEvent[] {
   if (snapshot.mergeableState === "dirty") {
     found.push({
       key: `conflict:${sha}`,
-      line: `conflict with main at ${sha}`,
+      line: `conflict with ${branch} at ${sha}`,
     });
   }
   for (const check of snapshot.checks) {
@@ -258,6 +268,20 @@ async function main(argv: string[]) {
     return;
   }
 
+  // The code host is already open, so it is the one asked where the
+  // checkout does not say.
+  let branch: string;
+  try {
+    branch = await needDefaultBranch({
+      ...branchDeps(repoRoot()),
+      host: () => p.defaultBranch(),
+    });
+  } catch (error) {
+    if (!(error instanceof NoDefaultBranch)) throw error;
+    console.error(error.message);
+    process.exit(1);
+  }
+
   const seenFile = execFileSync(
     "git",
     ["rev-parse", "--git-path", `watch-pr-${pr}.json`],
@@ -271,7 +295,7 @@ async function main(argv: string[]) {
   for (;;) {
     try {
       const { snapshot, body } = await readSnapshot(p, n);
-      const events = newEvents(snapshot, seen);
+      const events = newEvents(snapshot, seen, branch);
       if (snapshot.state !== "open") {
         rmSync(seenFile, { force: true });
         console.log(events.map((event) => event.line).join("\n"));

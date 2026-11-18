@@ -97,6 +97,74 @@ describe("factory-build.yml's last step", () => {
   });
 });
 
+describe("the action's setup commands", () => {
+  const setup = step("Run the build's setup commands");
+
+  /** The step's script, run with an `npx` that prints `commands` for
+   * `factory config get commands.build-setup`, one to a line and nothing
+   * at all for an empty list, as the command does, and fails on anything
+   * else. */
+  const runSetup = (commands: string[]) => {
+    const dir = mkdtempSync(join(tmpdir(), "build-setup-"));
+    mkdirSync(join(dir, "bin"));
+    writeFileSync(
+      join(dir, "bin", "npx"),
+      [
+        "#!/bin/bash",
+        'if [ "$*" = "--no-install factory config get commands.build-setup" ]; then',
+        commands.length > 0
+          ? `  printf '%s\\n' ${commands.map((c) => `'${c}'`).join(" ")}`
+          : "  :",
+        "else",
+        '  echo "no such setting: $*" >&2; exit 1',
+        "fi",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    const r = spawnSync("bash", ["-eo", "pipefail", "-c", setup.run!], {
+      cwd: dir,
+      env: {
+        PATH: `${join(dir, "bin")}:${process.env.PATH}`,
+        RUNNER_TEMP: dir,
+      } as unknown as NodeJS.ProcessEnv,
+      encoding: "utf8",
+    });
+    return { status: r.status, stdout: r.stdout, stderr: r.stderr };
+  };
+
+  it("runs each commands.build-setup command of the settings, in order", () => {
+    const r = runSetup(["echo first", "echo second"]);
+    expect([r.status, r.stderr]).toEqual([0, ""]);
+    expect(r.stdout.split("\n").filter((l) => !l.startsWith("::"))).toEqual([
+      "first",
+      "second",
+      "",
+    ]);
+  });
+
+  it("runs nothing, and passes, when commands.build-setup is not set or empty", () => {
+    const r = runSetup([]);
+    expect([r.status, r.stderr]).toEqual([0, ""]);
+    expect(r.stdout).not.toContain("::group::");
+    expect(r.stdout).toBe("");
+  });
+
+  it("stops the run at the first command that fails", () => {
+    const r = runSetup(["echo first", "exit 3", "echo third"]);
+    expect(r.status).toBe(3);
+    expect(r.stdout).toContain("first");
+    expect(r.stdout).not.toContain("third\n");
+  });
+
+  it("run before the session", () => {
+    const names = steps.map((s) => s.name);
+    expect(names).toContain(setup.name);
+    expect(names.indexOf(setup.name)).toBeLessThan(
+      names.indexOf("Run the session"),
+    );
+  });
+});
+
 describe("the action's session step", () => {
   it("sets FACTORY_UNATTENDED=1, which the permission hook answers for", () => {
     expect(step("Run the session").env).toMatchObject({
@@ -321,12 +389,23 @@ describe("factory-review.yml", () => {
   });
 });
 
+describe("factory-check.yml", () => {
+  it("starts on a push to the one branch its trigger names, and on every pull request", () => {
+    expect(read("factory-check.yml").on).toEqual({
+      push: { branches: ["main"] },
+      pull_request: null,
+    });
+  });
+});
+
 describe("factory-conflicts.yml", () => {
   const w = read("factory-conflicts.yml");
 
-  it("starts on a push to main or master, nightly at 09:00 UTC, and by hand", () => {
+  // The source names main; `factory sync` writes the repository's default
+  // branch in its place (`tests/sync.test.ts`).
+  it("starts on a push to the one branch its trigger names, nightly at 09:00 UTC, and by hand", () => {
     expect(w.on).toEqual({
-      push: { branches: ["main", "master"] },
+      push: { branches: ["main"] },
       schedule: [{ cron: "0 9 * * *" }],
       workflow_dispatch: null,
     });

@@ -19,20 +19,23 @@ written by `factory sync`.
 Run the gate before reporting the task as done:
 
 ```bash
-npm run format   # auto-format with Prettier
-npm run check    # format, types, specs, the factory's files and settings, the unit tests
+npm run format                  # auto-format with Prettier
+npx --no-install factory gate   # commands.gate in .claude/factory.yaml
 ```
 
-A hook runs the `before-commit` commands in `.claude/factory.yaml` before
-every `git commit` and blocks the commit if one fails.
+The gate here is `npm run check`: format, types, specs, the factory's
+files and settings, and the unit tests.
+
+A hook runs the `commands.before-commit` commands in `.claude/factory.yaml`
+before every `git commit` and blocks the commit if one fails.
 
 The other commands the factory's skills run here:
 
 ```bash
-npx vitest run PATH -t "NAME"   # one unit test
-npm run pack-check              # pack, install into an empty repository, and run it there
-npm run site-check              # the site comparison against the sample sites, with a browser
-npm run spec:validate           # the spec check, after an OpenSpec change
+npx --no-install factory test-one PATH "NAME"   # one unit test, by commands.test-one
+npx --no-install factory specs check            # the spec check, after an OpenSpec change
+npm run pack-check                              # pack, install into an empty repository, and run it there
+npm run site-check                              # the site comparison against the sample sites, with a browser
 ```
 
 CI runs the same checks on every pull request, in `ci.yml` (format, types,
@@ -107,8 +110,9 @@ since prose has no test to map a scenario to: a change to it goes through
 the fresh-agent trace in "Changing the process" instead. `openspec/specs/` starts empty;
 behavior the factory already has gets a spec when a ticket next changes
 it. The docs stay the reader's guide, and a spec change updates them in
-the same pull request. The `spec:validate` script runs OpenSpec with
-`DO_NOT_TRACK=1`.
+the same pull request. The factory's spec check,
+`npx --no-install factory specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
+itself, and so does the `spec:validate` script the gate and CI run.
 
 ## Changing the process: this repository
 
@@ -124,7 +128,9 @@ The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
 gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
 `review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
-the `guard*.mts` files, and `lib/work-status.mts`.
+the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
+`lib/default-branch.mts`, `lib/refined-check.mts`, and `config.mts`'s
+`pluginsOf`.
 
 A change here reaches every repository that uses the factory, through its
 next release, so the fresh-agent trace in "Changing the process" in

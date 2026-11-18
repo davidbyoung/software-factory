@@ -14,7 +14,7 @@ const withTrigger = (
   const c = memoryContext(["board", "cloud", "from-board"], {
     settings: parseSettings(
       {
-        version: 1,
+        version: 2,
         repository: "acme/site",
         tickets: { board: 3 },
         builds: { trigger },

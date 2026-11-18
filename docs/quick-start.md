@@ -2,8 +2,9 @@
 
 For someone with a repository and a coding agent who has never used the
 factory. At the end you have a pull request built from one of your
-tickets. You run a few commands, write one ticket, and answer a question
-or two. It needs no board, no secrets, and nothing to host.
+tickets. You run a few commands, say how your code is checked, write one
+ticket, and answer a question or two. It needs no board, no secrets, and
+nothing to host.
 
 A word you do not know is in the [glossary](glossary.md).
 
@@ -48,12 +49,36 @@ once you tell it to go ahead, writes your settings file,
 follows. It commits nothing. [What it changes](removing.md) lists every
 file.
 
-A build checks its change with the commands your agent's instructions
-file, such as `CLAUDE.md`, names. If it names none, add your test and lint
-commands there now.
-
 **It worked when** the checks `init` prints last all show ✓, or `-` for a
 part you left off. `factory doctor` runs them again at any time.
+
+**Then say how a change is checked.** `init` ends with a list headed "Left
+to do", and one line of it comes before your first build:
+
+```text
+Add the commands that check a change, under commands.gate in .claude/factory.yaml
+```
+
+A build runs these commands, in order, before it opens its pull request,
+and cannot finish without them. Add
+[`commands.gate`](configuration.md#commandsgate) to
+`.claude/factory.yaml`, with your own test and lint commands in place of
+these:
+
+```yaml
+commands:
+  # What a build runs to check its change, in order.
+  gate:
+    - npm test
+    - npm run lint
+```
+
+A repository with no tests yet lists the checks it does have, such as a
+formatter or a compile, and adds its tests to the gate when there are
+some.
+
+**It worked when** `factory gate` runs each command and ends without a
+line that starts `gate failed on`.
 
 ## 3. Merge the setup
 
@@ -67,7 +92,8 @@ git push -u origin set-up-factory
 ```
 
 Open a pull request for the branch on your code host and merge it, as for
-any change. Then bring your main branch up to date:
+any change. Then bring your default branch up to date. Here it is called
+`main`:
 
 ```bash
 git switch main
@@ -154,6 +180,7 @@ That is the whole loop: **ticket, refine, build, read, merge.**
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | A test or a check fails during the build       | Nothing. The session sees the output, fixes the cause, and tries again                      |
 | The session stops and says it needs you        | It says why, in the session and on the ticket. Answer, then ask it to build ticket 12 again |
+| The build stops on `commands.gate is not set`  | Add your test and lint commands, as in step 2, then ask it to build ticket 12 again         |
 | The session was closed or crashed partway      | Ask a new session to build ticket 12. It picks up the branch it made                        |
 | You want to change what was decided            | Ask a session to refine ticket 12 again, or edit the ticket                                 |
 | CI fails on the pull request                   | Ask a session to address the review on pull request 15. It reads the failure and fixes it   |
@@ -172,7 +199,8 @@ optional, stands alone, and can come later.
   [Setting up on GitHub](github/setup.md#run-factory-init) says what each
   part gives you and what it asks.
 - **A command before every commit a session makes,** such as your linter:
-  two lines under [`before-commit`](configuration.md#before-commit).
+  a few lines under
+  [`commands.before-commit`](configuration.md#commandsbefore-commit).
 - **Your own reviewers,** so a change to your content or your design is
   read by an expert agent: a few lines under
   [`plugins`](configuration.md#plugins), which [Plug-ins](plugins.md)

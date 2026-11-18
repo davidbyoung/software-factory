@@ -16,33 +16,45 @@ The factory's core is what its own steps call, and every repository gets
 it. Everything else is written only when a setting or a file turns it on,
 and `factory sync` removes it again when that is undone.
 
-| Skill or agent              | Written                                               |
-| --------------------------- | ----------------------------------------------------- |
-| `factory-refine`            | Always                                                |
-| `factory-build`             | Always                                                |
-| `factory-address-review`    | Always                                                |
-| `factory-resolve-conflicts` | Always                                                |
-| `factory-diagnose`          | Always                                                |
-| `factory-mutate`            | Always                                                |
-| `factory-ticket-readiness`  | Always                                                |
-| `factory-test-reviewer`     | Always                                                |
-| `factory-design`            | With [`site`](configuration.md#site) in your settings |
-| `factory-ui-reviewer`       | With `site` in your settings                          |
-| `factory-deps`              | With a `.github/dependabot.yml` file                  |
+| Skill or agent              | Written                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `factory-refine`            | Always                                                                             |
+| `factory-build`             | Always                                                                             |
+| `factory-address-review`    | Always                                                                             |
+| `factory-resolve-conflicts` | Always                                                                             |
+| `factory-diagnose`          | Always                                                                             |
+| `factory-mutate`            | Always                                                                             |
+| `factory-trace`             | Always                                                                             |
+| `factory-ticket-readiness`  | Always                                                                             |
+| `factory-test-reviewer`     | Always                                                                             |
+| `factory-design`            | With [`site`](configuration.md#site) in your settings                              |
+| `factory-ui-reviewer`       | With `site` in your settings                                                       |
+| `factory-e2e-reviewer`      | With [`commands.end-to-end`](configuration.md#commandsend-to-end) in your settings |
+| `factory-deps`              | With a `.github/dependabot.yml` file                                               |
+
+No skill names a test runner, a linter, or a branch. Each runs what your
+settings list under [`commands`](configuration.md#commands), through
+commands such as `factory gate` and `factory test-one`
+([The CLI](cli.md#your-repositorys-commands)), and asks
+`factory default-branch` for your default branch's name.
+
+Where a step below names a built-in skill or agent, a
+[plug-in](plugins.md#the-slots) of yours can stand in for it: your own
+refiner, builder, prover, test reviewers, and conflict resolvers.
 
 ## At a glance
 
-| Ask a session                      | Skill                       | It does                                                               |
-| ---------------------------------- | --------------------------- | --------------------------------------------------------------------- |
-| "refine ticket 12"                 | `factory-refine`            | Turns a ticket into a spec a builder can start from                   |
-| "build ticket 12"                  | `factory-build`             | Builds a ticket to a reviewed pull request                            |
-| "address the review on 280"        | `factory-address-review`    | Works a pull request's review until it can merge                      |
-| "resolve the conflicts on 280"     | `factory-resolve-conflicts` | Merges your main branch into a pull request and settles the conflicts |
-| "diagnose this failing test"       | `factory-diagnose`          | Finds a bug's cause before any code changes                           |
-| "mutate this test"                 | `factory-mutate`            | Proves a test can fail                                                |
-| "fix the dependency pull requests" | `factory-deps`              | Moves dependency pull requests toward merged                          |
-| "mock up a new about page"         | `factory-design`            | Designs a visible change to a website, with mockups                   |
-| "trace this rule change"           | `factory-trace`             | Traces a change to the rules through every kind of change             |
+| Ask a session                      | Skill                       | It does                                                                  |
+| ---------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
+| "refine ticket 12"                 | `factory-refine`            | Turns a ticket into a spec a builder can start from                      |
+| "build ticket 12"                  | `factory-build`             | Builds a ticket to a reviewed pull request                               |
+| "address the review on 280"        | `factory-address-review`    | Works a pull request's review until it can merge                         |
+| "resolve the conflicts on 280"     | `factory-resolve-conflicts` | Merges your default branch into a pull request and settles the conflicts |
+| "diagnose this failing test"       | `factory-diagnose`          | Finds a bug's cause before any code changes                              |
+| "mutate this test"                 | `factory-mutate`            | Proves a test can fail                                                   |
+| "fix the dependency pull requests" | `factory-deps`              | Moves dependency pull requests toward merged                             |
+| "mock up a new about page"         | `factory-design`            | Designs a visible change to a website, with mockups                      |
+| "trace this rule change"           | `factory-trace`             | Traces a change to the rules through every kind of change                |
 
 ## `factory-refine`
 
@@ -80,21 +92,34 @@ several tickets, and it proposes the split.
 
 **Its check.** The built-in `factory-ticket-readiness` agent reads the
 result cold, at most twice, and lists what a builder would still have to
-ask.
+ask. Then `factory ticket refined` refuses to mark the ticket refined
+while its body lacks a section a build reads.
+
+**Your own in its place.** A skill of yours can refine tickets instead, as
+the [`refiner` plug-in](plugins.md#refiner), which lists what it has to
+leave for the build. To add questions to this one, write them under
+"Refining: this repository" in your `CLAUDE.md`.
 
 ## `factory-build`
 
 **What it does.** Takes an approved ticket to a reviewed pull request.
 
 1. Claims the ticket, so no other session builds it.
-2. Makes a branch from your main branch, named for the ticket.
+2. Makes a branch from your default branch, named for the ticket.
 3. Builds to the acceptance criteria: the test first where there is a
-   defect to reproduce or a behavior to add, then the change.
-4. Proves each new test can fail, and has `factory-test-reviewer` read the
-   tests.
-5. Has each [`reviewer` plug-in](plugins.md) that applies read the change,
-   and fixes what they find.
-6. Runs the checks your project's instructions name.
+   defect to reproduce or a behavior to add, then the change. A ticket
+   carrying a label of one of your
+   [`builder` plug-ins](plugins.md#builder) is built by that skill
+   instead.
+4. Proves each new test can fail, by its failing run before the change or
+   with the [prover](plugins.md#prover), which is `factory-mutate` unless
+   you name your own, and has the
+   [test reviewers](plugins.md#test-reviewer) read the tests:
+   `factory-test-reviewer`, unless your settings list others.
+5. Has each [`reviewer` plug-in](plugins.md#reviewer) that applies read the
+   change, and fixes what they find.
+6. Runs the gate with `factory gate`: the commands under
+   [`commands.gate`](configuration.md#commandsgate) in your settings.
 7. Opens a draft pull request that closes the ticket, saying what changed,
    how it was checked, and what each reviewer found.
 8. Marks it ready once CI passes on the pushed commit, then works the
@@ -113,10 +138,11 @@ comment on the ticket, a note of what the build cost, and a line on the
 and did not fix.
 
 **When it stops.** On a question only you can answer, a step only you can
-do, an open blocker, or a gate that will not pass. It releases the ticket
-and says why. The ticket stays in "building", waiting on you.
+do, an open blocker, or a gate that will not pass or is not set. It
+releases the ticket and says why. The ticket stays in "building", waiting
+on you.
 
-**What it never does.** Commit on your main branch. Merge. Turn auto-merge
+**What it never does.** Commit on your default branch. Merge. Turn auto-merge
 on. Add the label that overrides a review's verdict. Guess at a decision
 the ticket left open. Reopen a decision the ticket settled.
 
@@ -128,7 +154,9 @@ under it takes the lighter path [Workflow](workflow.md) describes.
 
 **What it does.** Works everything standing between a pull request and its
 merge: the threads from the automated review, your own comments, failed
-checks, patch coverage, and a conflict with your main branch.
+checks, a conflict with your default branch, and, when
+[`commands.coverage`](configuration.md#commandscoverage) is set, the
+changed lines no test covers.
 
 **When to use it.** After every push to a branch with an open pull request.
 The session that built the pull request runs it without being asked.
@@ -160,7 +188,8 @@ Dismiss a failing test as flaky without reproducing it. Merge.
 **What it does.** Finds the cause of a bug, a failing or flaky test, or a
 slowdown, before changing any code. It starts by building one command that
 fails on the exact symptom, shrinks it, ranks the possible causes, and
-tests them one change at a time.
+tests them one change at a time. It runs one test or one end-to-end spec
+alone with `factory test-one` and `factory end-to-end`.
 
 **When to use it.** When something is broken, failing, flaky, or slow, and
 the cause is not already known.
@@ -180,10 +209,13 @@ locks nothing in.
 
 **What it never does.** Leave a mutation in place.
 
+It is the [prover](plugins.md#prover) a build calls, unless your settings
+name one of your own.
+
 ## `factory-deps`
 
 **What it does.** Moves every open dependency pull request one step closer
-to merged: resolves a conflict with your main branch, fixes failing checks,
+to merged: resolves a conflict with your default branch, fixes failing checks,
 does the migration a major version asks for, and opens a ticket for
 anything it cannot fix.
 
@@ -237,11 +269,14 @@ file's shape for you to write.
 
 ## `factory-resolve-conflicts`
 
-**What it does.** Merges your main branch into a pull request that conflicts
-with it, runs the gate, and pushes the merge. It never rebases or forces a
-push. When the two sides of a conflict contradict each other, it pushes
-nothing, comments why, and opens a ticket, because which side wins is your
-decision.
+**What it does.** Merges your default branch into a pull request that
+conflicts with it, runs the gate, and pushes the merge. It never rebases or
+forces a push. A conflict in the lock file is settled by rebuilding it with
+[`commands.relock`](configuration.md#commandsrelock), and one in a file
+that a [`resolver` plug-in](plugins.md#resolver) of yours rebuilds, by
+that skill. When the two sides of a conflict contradict each other, it
+pushes nothing, comments why, and opens a ticket, because which side wins
+is your decision.
 
 **When to use it.** Ask it for one pull request ("resolve the conflicts on
 280"). `factory-address-review` calls it when the pull request it is
@@ -255,8 +290,9 @@ no session when there is not.
 ### `factory-ticket-readiness`
 
 Reads a refined ticket cold, as the session that will build it, and lists
-every question it would still have to ask. `factory-refine` runs it.
-Read-only.
+every question it would still have to ask. `factory-refine` runs it, and
+a refiner of your own can: it reads any refiner's ticket against the same
+list. Read-only.
 
 ### `factory-ui-reviewer`
 
@@ -265,16 +301,29 @@ Reads a change to how a website looks or responds. It runs
 that changed, drives the states the change is about, and judges them
 against built-in rules, your `design-guide` when you wrote one, and what
 your `checks` printed. It is listed under
-[`plugins`](configuration.md#plugins) like a reviewer of your own, with
-the `files` that should trigger it, and is written only to a repository
-with `site` in its settings. Read-only, and slow.
+[`plugins.build.reviewers`](configuration.md#pluginsbuild) like a reviewer
+of your own, with the `files` that should trigger it, and is written only
+to a repository with `site` in its settings. Read-only, and slow.
 
 ### `factory-test-reviewer`
 
-Reads new or changed tests the way a test engineer reviews a pull request:
-one behavior per test, each able to fail, found the way a user would find
-it, with no waits on a timer. `factory-build` runs it. Read-only, and it
-does not run the suite.
+Reads new or changed tests, whatever their kind, the way a test engineer
+reviews a pull request: one behavior per test, each able to fail and
+earning its place, with no waits on a timer. `factory-build` runs it,
+unless your settings list other
+[test reviewers](plugins.md#test-reviewer). Read-only, and it does not run
+the suite.
 
 It takes its specifics from your project's instructions beside your tests. Without one,
 it applies only those general rules.
+
+### `factory-e2e-reviewer`
+
+Reads new or changed browser end-to-end and smoke tests for what only such
+a test can get wrong: specs that go around their page objects, elements
+not found the way a user finds them, waits on a timer, and a check that
+needs no real browser. It is written only to a repository with
+`commands.end-to-end` in its settings, and runs where it is listed under
+[`plugins.test.reviewers`](configuration.md#pluginstest), beside
+`factory-test-reviewer`, since that list, once written, is the whole list.
+Read-only, and it does not run the suite.

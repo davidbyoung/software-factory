@@ -165,9 +165,9 @@ describe("actions/factory-agent/action.yml", () => {
     expect(step("Install dependencies").run!.trim()).toMatch(/^npm ci\n/);
   });
 
-  it("runs each build-setup command from the settings", () => {
+  it("runs each commands.build-setup command from the settings", () => {
     expect(step("Run the build's setup commands").run).toContain(
-      "npx --no-install factory config get build-setup",
+      "npx --no-install factory config get commands.build-setup >",
     );
   });
 

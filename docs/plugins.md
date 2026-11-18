@@ -1,5 +1,10 @@
 # Plug-ins
 
+For someone who wants the factory to use a skill or an agent of their own:
+a reviewer for one part of the code, a builder for one kind of ticket, or
+their own way of refining a ticket. At the end, the factory calls it at a
+set moment of every build, and `factory plugins` lists it.
+
 The factory knows how to refine, build, and review a ticket. It does not
 know your project. A plug-in is one of your own skills or agents that the
 factory calls at a set moment, so what only your project knows is part of
@@ -10,27 +15,187 @@ every build.
 You write a skill or an agent the way your coding agent expects one, in
 the folder it reads them from
 ([on Claude Code](github/reference.md#skills-in-claude-code)). Then you add
-a few lines to `.claude/factory.yaml` saying what job it does:
+a few lines to `.claude/factory.yaml` saying where the factory calls it:
 
 ```yaml
 plugins:
-  - agent: migration-reviewer
-    role: reviewer
-    files:
-      - db/migrations/**
+  build:
+    reviewers:
+      - agent: migration-reviewer
+        files:
+          - db/migrations/**
 ```
 
 That is the whole of it. The factory never copies over your files, and an
 update never touches them.
 
-## The three roles
+## The slots
 
-A role is a moment in the workflow where the factory hands off. There are
-three. A repository can have several plug-ins in one role, or none.
+A slot is a moment in the work where the factory hands off. There are
+seven, grouped under [`plugins`](configuration.md#plugins) by the phase
+each belongs to. Every slot is optional, and leaving one out never turns a
+step off: the last column says what does the work then.
+
+A slot has two names. The settings key, in the second column, is what you
+write in `.claude/factory.yaml`. The slot's own name, in the first column,
+is what `factory plugins` prints, and the headings below use it: `builder`
+is the slot you write as
+[`plugins.build.builders`](configuration.md#pluginsbuild), and no key is
+called `builder`.
+
+| Slot            | Settings key                                                       | It                                             | Left out                                  |
+| --------------- | ------------------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------- |
+| `refiner`       | [`plugins.refine.refiner`](configuration.md#pluginsrefine)         | Refines a ticket, in place of `factory-refine` | `factory-refine`                          |
+| `mockups`       | [`plugins.refine.mockups`](configuration.md#pluginsrefine)         | Makes pictures for a decision about the look   | `factory-design` on a website, else words |
+| `builder`       | [`plugins.build.builders`](configuration.md#pluginsbuild)          | Builds a ticket that carries one of its labels | The built-in build                        |
+| `reviewer`      | [`plugins.build.reviewers`](configuration.md#pluginsbuild)         | Reads a finished change that touches its files | No reviewers of your own                  |
+| `prover`        | [`plugins.test.prover`](configuration.md#pluginstest)              | Proves a new test can fail                     | `factory-mutate`                          |
+| `test-reviewer` | [`plugins.test.reviewers`](configuration.md#pluginstest)           | Reads new and changed tests                    | `factory-test-reviewer`                   |
+| `resolver`      | [`plugins.conflicts.resolvers`](configuration.md#pluginsconflicts) | Rebuilds its files after a merge conflict      | A merge by hand                           |
+
+[Configuration](configuration.md#plugins) has the shape of each key:
+whether it takes a skill or an agent, one or a list, and `files` or
+`labels`.
+
+A reviewer is an agent: a session launches it, and it reads and changes
+nothing. Every other slot is a skill, which the session follows itself.
+
+## Refining
+
+### `refiner`
+
+Refines a ticket your own way, in place of `factory-refine`.
+
+```yaml
+plugins:
+  refine:
+    refiner:
+      skill: acme-refine
+```
+
+| Step        | What happens                                                                                                                                                                                                                                                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Called**  | When you ask a session to refine a ticket: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                        |
+| **Handed**  | The ticket's number. From `factory-build`, for a round of questions you approved while it waited on your answers, also the words "approved while waiting: fold the owner's replies into the body, post no marker". They tell the refiner to write your replies into the ticket's body and to post no [marker](glossary.md), the hidden comment line the board reads |
+| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                                                                                                                                                                       |
+| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                                                                                                                                                                       |
+
+**What a refiner must deliver.** The board and the build read these, so a
+refiner that leaves one out leaves a ticket that cannot be built.
+
+- **The three markers,** each posted with a command, so the board shows
+  where the ticket stands: `factory ticket refining N` when it starts,
+  `factory ticket waiting N` when it has posted questions for you, and
+  `factory ticket refined N` when the ticket is ready for your approval.
+- **The `spec` label, decided.** With
+  [`specs: openspec`](configuration.md#specs), a change your users will
+  see that is not small gets the label, with
+  `factory ticket label N --add spec`. A refiner never removes it, and
+  never adds it back once you took it off.
+- **Each ticket this one waits on,** recorded with
+  `factory ticket block N --by M`. A build order written only in prose is
+  one nothing reads.
+- **The body,** written with `factory ticket edit`, with your text kept
+  first and these sections after it:
+
+  | The ticket            | Its body has                                                                                                                                                                                     |
+  | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | Without `spec`        | `## Decisions`, and `## Acceptance criteria` with at least one list item                                                                                                                         |
+  | With `spec`           | `## Decisions`; `## Spec`, with a `### NAME (new)` or `### NAME (modified)` heading for each capability and numbered lines under it; and `## For the builder`, with `### Design` and `### Tasks` |
+  | The follow-ups ticket | Its checklist. The check passes it whatever else its body holds                                                                                                                                  |
+
+  On a `spec` ticket the build copies these into an OpenSpec change, so
+  they keep its shape: each numbered Spec line is one "When this, then
+  that" sentence, which becomes one requirement, and Tasks are numbered
+  groups of checkboxes, as OpenSpec's `tasks.md` has them.
+
+**The check is a script's.** `factory ticket refined N` refuses to post
+its marker on a body missing one of those sections, for the factory's own
+refiner as for yours. It prints one line for each, such as
+`missing: ### Tasks under ## For the builder`, and exits 1.
+`factory ticket refined N --check` makes the same check and posts nothing:
+it prints `sound` when the body passes. The check is that each section is
+there, not that what it says is right. For that,
+`factory-ticket-readiness`, the built-in agent that reads a refined ticket
+cold, reads any refiner's result against this same list: have your refiner
+launch it, as `factory-refine` does.
+
+`factory-refine` stays in your repository beside your refiner, so ask a
+session for yours by its own name. The surest way to write one is to start
+from a copy of `factory-refine` under your own name.
+
+**To add questions, not replace the refiner,** write them in your own
+instructions for the agent, under a heading "Refining: this repository" in
+`CLAUDE.md`. The refining session reads `CLAUDE.md`, and it wins over the
+factory's rules, so no plug-in is needed for that.
+
+### `mockups`
+
+Makes pictures to choose from when a decision changes how something looks.
+
+A repository with [`site`](configuration.md#site) in its settings has one
+already: the factory's own `factory-design` skill, which `factory sync`
+writes, is its `mockups` plug-in unless you name one of your own.
+
+```yaml
+plugins:
+  refine:
+    mockups:
+      skill: design-mockups
+```
+
+| Step            | What happens                                                                   |
+| --------------- | ------------------------------------------------------------------------------ |
+| **Called**      | By the refiner, when one of the decisions it would bring you is about the look |
+| **Handed**      | The ticket and the decision                                                    |
+| **Returns**     | Pictures of each option, with one recommended                                  |
+| **Then**        | You choose, and the choice goes into the ticket                                |
+| **Without one** | The decision is described in words                                             |
+
+## Building
+
+### `builder`
+
+Builds a kind of ticket the general build would do badly.
+
+```yaml
+plugins:
+  build:
+    builders:
+      - skill: add-endpoint
+        labels:
+          - new-endpoint
+```
+
+| Step          | What happens                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------------- |
+| **Called**    | By `factory-build`, in place of its own build step                                                  |
+| **Used when** | The ticket carries one of its `labels`. When two builders share a label, the first listed is used   |
+| **Handed**    | The ticket, already claimed, on its branch                                                          |
+| **Returns**   | The change, and a report for the pull request body                                                  |
+| **Then**      | `factory-build` carries on as usual: the test reviewers, your reviewers, the gate, the pull request |
+
+**Reviewers still run after a builder.** The test reviewers and your own
+read what it built, and so does everything after them. A reviewer the
+builder's report shows it already ran is not run twice: its line in the
+pull request reads "already run by the builder".
+
+Good candidates: work your project always does the same way, such as a new
+API endpoint with its route, handler, schema, and docs, or a new
+translation added to every locale file.
 
 ### `reviewer`
 
 Reads a finished change and reports problems.
+
+```yaml
+plugins:
+  build:
+    reviewers:
+      - agent: migration-reviewer
+        files:
+          - db/migrations/**
+```
 
 | Step                | What happens                                                                                 |
 | ------------------- | -------------------------------------------------------------------------------------------- |
@@ -44,38 +209,109 @@ Good candidates: database migrations, anything touching authentication or
 payments, a public API that must stay backward compatible, accessibility
 of your components, copy that has to follow a style guide.
 
-### `mockups`
+## Testing
 
-Makes pictures to choose from when a decision changes how something looks.
+### `prover`
 
-A repository with [`site`](configuration.md#site) in its settings has one
-already: the factory's own `factory-design` skill, which `factory sync`
-writes, is its `mockups` plug-in unless you list one of your own with this
-role.
+Proves a new test can fail, in place of `factory-mutate`. A test that
+passes whether or not the code works locks nothing in.
 
-| Step            | What happens                                                                        |
-| --------------- | ----------------------------------------------------------------------------------- |
-| **Called**      | By `factory-refine`, when one of the decisions it would bring you is about the look |
-| **Handed**      | The ticket and the decision                                                         |
-| **Returns**     | Screenshots of each option, with one recommended                                    |
-| **Then**        | You choose, and the choice goes into the ticket                                     |
-| **Without one** | The decision is described in words                                                  |
+```yaml
+plugins:
+  test:
+    prover:
+      skill: acme-mutation
+```
 
-### `builder`
+| Step        | What happens                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------ |
+| **Called**  | By `factory-build` and `factory-address-review`, for a new or changed test nobody saw fail before the change |
+| **Handed**  | The new or changed tests                                                                                     |
+| **Returns** | For each test, what made it fail, and the code put back as it was                                            |
+| **Then**    | The pull request records each proof. A test that stays green is the one that needs work                      |
 
-Builds a kind of ticket the general build would do badly.
+**What a prover must report.** For each new or changed test, one of two
+things, as a line the pull request body takes:
 
-| Step          | What happens                                                               |
-| ------------- | -------------------------------------------------------------------------- |
-| **Called**    | By `factory-build`, in place of its own build step                         |
-| **Used when** | The ticket carries one of its `labels`                                     |
-| **Handed**    | The ticket, already claimed, on its branch                                 |
-| **Returns**   | The change, and a report for the pull request body                         |
-| **Then**      | `factory-build` carries on as usual: reviewers, the gate, the pull request |
+- **its red run:** the test failing before the change was made; or
+- **the one mutation that made it fail:** the edit to the code under test
+  that turned the test red, for a test written after the code.
 
-Good candidates: work your project always does the same way, such as a new
-API endpoint with its route, handler, schema, and docs, or a new
-translation added to every locale file.
+One proof for each test is the rule, and it stays a rule whichever prover
+runs: the slot cannot be set to nothing. No script checks a prover's
+report. The pull request records it, where you read it.
+
+### `test-reviewer`
+
+Reads new and changed tests, the way `factory-test-reviewer` does.
+
+```yaml
+plugins:
+  test:
+    reviewers:
+      - agent: factory-test-reviewer
+      - agent: factory-e2e-reviewer
+        files:
+          - e2e/**
+```
+
+| Step                | What happens                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Called**          | By `factory-build`, once the tests are written and proved, and before your own reviewers                |
+| **Considered when** | The change adds or changes tests. One listed with `files`, only when the change touches a matching file |
+| **Handed**          | The new and changed tests                                                                               |
+| **Returns**         | Findings, each with where it is and why it matters. It changes nothing                                  |
+| **Then**            | The building session fixes what holds up, and the pull request says what each one found                 |
+
+- **[`plugins.test.reviewers`](configuration.md#pluginstest), once
+  written, is the whole list.** Left out, `factory-test-reviewer` reads
+  the tests. Written, only the agents you list do, so list
+  `factory-test-reviewer` to keep it, and leave it off to remove it.
+- **A small change gets no test reviewer,** whichever are listed
+  ([Workflow](workflow.md#sizing-the-work-to-the-change)), with two
+  exceptions that run every one listed, one with `files` only when the
+  change touches a matching file: a change to tests alone, and code that
+  builds what is sent to an outside service.
+- **`factory-e2e-reviewer`** ships with the factory and reads browser
+  end-to-end tests. `factory sync` writes it once
+  [`commands.end-to-end`](configuration.md#commandsend-to-end) is set, and
+  it runs only where it is listed, as above.
+
+## Conflicts
+
+### `resolver`
+
+Rebuilds a file after a merge conflict, in place of merging it by hand: a
+generated API client, a compiled schema, a lock file of a package manager
+other than npm.
+
+```yaml
+plugins:
+  conflicts:
+    resolvers:
+      - skill: regenerate-api-client
+        files:
+          - src/generated/**
+```
+
+| Step          | What happens                                                                                                   |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Called**    | By `factory-resolve-conflicts` and `factory-deps`, during a merge of your default branch into a pull request   |
+| **Used when** | A conflicted file matches one of its `files`. When two resolvers match one file, the first listed is used      |
+| **Handed**    | The conflicted files that match, with the merge still in progress                                              |
+| **Returns**   | Each file resolved and staged, or word that it cannot                                                          |
+| **Then**      | The session runs the gate and pushes the merge. "It cannot" is a stop: nothing is pushed, and you are told why |
+
+- **The conflict sweep reads a resolver from your default branch's
+  copy,** both the list in the settings and the skill's text, never from
+  the pull request's branch. The sweep runs with a token, and a pull
+  request could otherwise change what runs with it. So a new or changed
+  resolver is used once it has merged.
+- **A contradiction is still a stop.** When the two sides of a conflict
+  disagree about what the file should say, a resolver does not settle it:
+  the session pushes nothing, comments why, and opens a ticket.
+- **npm's lock file needs no resolver.**
+  [`commands.relock`](configuration.md#commandsrelock) rebuilds it.
 
 ## `files` filters; the agent decides
 
@@ -124,10 +360,11 @@ runs.
 
 ```yaml
 plugins:
-  - agent: migration-reviewer
-    role: reviewer
-    files:
-      - db/migrations/**
+  build:
+    reviewers:
+      - agent: migration-reviewer
+        files:
+          - db/migrations/**
 ```
 
 **3. A session builds a ticket** that removes an unused column.
@@ -151,11 +388,21 @@ instructions for the agent and in the agent itself. The factory holds none of th
 
 1. Write the skill or agent, and try it by hand until it does its job.
 2. Give it a description that states when it applies.
-3. Add it under [`plugins`](configuration.md#plugins) with its `role`, and
-   `files` or `labels`.
-4. Run `factory config check`. It fails if the file is missing or the
-   role is not one of the three.
-5. Run `factory plugins` to see the list the factory will use.
+3. Add it under [`plugins`](configuration.md#plugins), in its slot, with
+   `files` or `labels` where the slot takes them.
+4. Run `factory config check`. It fails, naming the slot, if the file is
+   missing, or the slot takes a skill and you named an agent.
+5. Run `factory plugins` to see the list the factory will use, the
+   built-in ones included:
+
+   ```text
+   skill factory-refine refiner
+   agent migration-reviewer reviewer db/migrations/**
+   skill factory-mutate prover
+   agent factory-test-reviewer test-reviewer
+   ```
+
+**It worked when** your plug-in is in that list, in its slot.
 
 No sync is needed. Plug-ins are read from your settings each time.
 
@@ -165,10 +412,16 @@ No sync is needed. Plug-ins are read from your settings each time.
   reviewing a ticket should call it, it needs no entry. It stays an
   ordinary skill.
 - **A skill another of your skills calls.** A reviewer that only your own
-  `builder` launches is that builder's business.
+  builder launches is that builder's business.
 - **A rule.** "Migrations always wait for me" is
   [`auto-merge`](configuration.md#auto-merge). "Every migration needs a
   rollback" is a sentence in your project's instructions for the agent.
+- **A question you want every refinement to ask.** That is a line under
+  "Refining: this repository" in `CLAUDE.md`, as [`refiner`](#refiner)
+  says.
+- **A step in another order.** A plug-in replaces a step where it stands.
+  It cannot add a state or move one
+  ([Why it works this way](design.md#the-order-of-the-workflow-is-fixed)).
 
 ## The UI reviewer
 
@@ -177,11 +430,12 @@ with `site` in its settings, but runs only where it is listed:
 
 ```yaml
 plugins:
-  - agent: factory-ui-reviewer
-    role: reviewer
-    files:
-      - src/**
-      - public/**
+  build:
+    reviewers:
+      - agent: factory-ui-reviewer
+        files:
+          - src/**
+          - public/**
 ```
 
 It needs the `site` settings, which say how to start the website.

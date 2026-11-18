@@ -6,61 +6,83 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   gitIn,
   installBehind,
+  main,
   repositoryState,
 } from "../src/session-start.mts";
+import { branchDeps, CANNOT_TELL } from "../src/lib/default-branch.mts";
 
-// A clone of an origin with three local branches: one with a commit main
-// lacks, one squash-merged into main, and one with no commits of its own.
+// Clones of an origin, each with three local branches beside the default
+// one: one with two commits the default branch lacks, one squash-merged into
+// it, and one with no commits of its own. The origin's default branch is
+// main in one clone and develop in the other, which also has a local branch
+// called main with a commit develop lacks.
 let root: string;
 let clone: string;
+let onDevelop: string;
 
-beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), "session-start-"));
-  const origin = join(root, "origin.git");
-  clone = join(root, "clone");
+function cloned(name: string, base: string): string {
+  const origin = join(root, `${name}.git`);
+  const dir = join(root, name);
   const git = (...args: string[]) =>
     execFileSync(
       "git",
       ["-c", "user.name=t", "-c", "user.email=t@t", ...args],
       {
-        cwd: clone,
+        cwd: dir,
         stdio: "pipe",
       },
     );
-  execFileSync("git", ["init", "-q", "--bare", "-b", "main", origin]);
-  execFileSync("git", ["clone", "-q", origin, clone], { stdio: "pipe" });
-  git("checkout", "-q", "-b", "main");
+  execFileSync("git", ["init", "-q", "--bare", "-b", base, origin]);
+  execFileSync("git", ["clone", "-q", origin, dir], { stdio: "pipe" });
+  git("checkout", "-q", "-b", base);
   git("commit", "-q", "--allow-empty", "-m", "init");
-  git("push", "-q", "origin", "main");
+  git("push", "-q", "origin", base);
+  git("remote", "set-head", "origin", base);
 
   git("checkout", "-q", "-b", "unfinished");
-  writeFileSync(join(clone, "a.txt"), "a\n");
+  writeFileSync(join(dir, "a.txt"), "a\n");
   git("add", "a.txt");
   git("commit", "-q", "-m", "one");
   git("commit", "-q", "--allow-empty", "-m", "two");
 
-  git("checkout", "-q", "main");
+  git("checkout", "-q", base);
   git("checkout", "-q", "-b", "squashed");
-  writeFileSync(join(clone, "b.txt"), "b\n");
+  writeFileSync(join(dir, "b.txt"), "b\n");
   git("add", "b.txt");
   git("commit", "-q", "-m", "b");
-  git("checkout", "-q", "main");
+  git("checkout", "-q", base);
   git("merge", "-q", "--squash", "squashed");
   git("commit", "-q", "-m", "squash b");
-  git("push", "-q", "origin", "main");
+  git("push", "-q", "origin", base);
 
   git("branch", "empty");
+  if (base !== "main") {
+    git("checkout", "-q", "-b", "main");
+    writeFileSync(join(dir, "c.txt"), "c\n");
+    git("add", "c.txt");
+    git("commit", "-q", "-m", "on main");
+    git("checkout", "-q", base);
+  }
+  return dir;
+}
+
+beforeAll(() => {
+  root = mkdtempSync(join(tmpdir(), "session-start-"));
+  clone = cloned("clone", "main");
+  onDevelop = cloned("on-develop", "develop");
 });
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
+const listed = (lines: string[]) => lines.filter((l) => l.startsWith("- "));
+
 describe("factory session-start", () => {
   it("lists only the branches with work not on origin/main", () => {
-    const lines = repositoryState(gitIn(clone));
+    const lines = repositoryState(gitIn(clone), "main");
     const at = lines.indexOf("Local branches with work not on origin/main:");
 
     expect(at).toBeGreaterThan(0);
-    expect(lines.slice(at + 2).filter((l) => l.startsWith("- "))).toEqual([
+    expect(listed(lines.slice(at + 2))).toEqual([
       "- unfinished (2 commits not on origin/main)",
     ]);
     expect(lines.at(-1)).toBe(
@@ -68,8 +90,26 @@ describe("factory session-start", () => {
     );
   });
 
+  it("compares with the default branch, whatever it is called, and lists a branch called main like any other", () => {
+    const lines = repositoryState(gitIn(onDevelop), "develop");
+
+    expect(lines).toContain("Local branches with work not on origin/develop:");
+    expect(listed(lines)).toEqual([
+      "- main (1 commits not on origin/develop)",
+      "- unfinished (2 commits not on origin/develop)",
+    ]);
+  });
+
+  it("names the fix, and lists no branch, when the default branch cannot be told", () => {
+    const lines = repositoryState(gitIn(clone), null);
+
+    expect(lines).toContain(CANNOT_TELL);
+    expect(listed(lines)).toEqual([]);
+    expect(lines.join("\n")).not.toContain("Local branches with work");
+  });
+
   it("opens with the checkout's state", () => {
-    const lines = repositoryState(gitIn(clone));
+    const lines = repositoryState(gitIn(clone), "main");
 
     expect(lines.slice(0, 3)).toEqual([
       "## Repository state at session start",
@@ -77,6 +117,49 @@ describe("factory session-start", () => {
       "```",
     ]);
     expect(lines[3]).toMatch(/^## main/);
+  });
+});
+
+describe("the session-start hook", () => {
+  /** The hook, run in `dir` with no workflow event and a code host that
+   * cannot be asked, and what it printed. */
+  const hook = async (dir: string) => {
+    const printed: string[] = [];
+    const status = await main({
+      dir,
+      branch: {
+        ...branchDeps(dir, {}),
+        host: async () => {
+          throw new Error("no code host");
+        },
+      },
+      out: (text) => printed.push(text),
+      tickets: async () => 0,
+    });
+    return { status, text: printed.join("\n") };
+  };
+
+  it("reads the default branch from the checkout, and compares each branch with origin/develop where it is develop", async () => {
+    const { status, text } = await hook(onDevelop);
+
+    expect(status).toBe(0);
+    expect(text).toContain("Local branches with work not on origin/develop:");
+    expect(text).toContain("- unfinished (2 commits not on origin/develop)");
+    expect(text).not.toContain("origin/main");
+  });
+
+  it("prints the fix, and compares no branch, where the default branch cannot be told", async () => {
+    const dir = cloned("no-head", "main");
+    execFileSync("git", ["remote", "set-head", "origin", "--delete"], {
+      cwd: dir,
+      stdio: "pipe",
+    });
+
+    const { status, text } = await hook(dir);
+
+    expect(status).toBe(0);
+    expect(text).toContain(CANNOT_TELL);
+    expect(text).not.toContain("Local branches with work");
   });
 });
 

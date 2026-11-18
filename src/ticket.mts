@@ -8,7 +8,7 @@
 //   npx --no-install factory ticket stop N "one-line reason"
 //   npx --no-install factory ticket end N
 //   npx --no-install factory ticket refining|waiting N
-//   npx --no-install factory ticket refined N [--before-file FILE]
+//   npx --no-install factory ticket refined N [--check] [--before-file FILE]
 //   npx --no-install factory follow-up FILE "what is wrong"
 //   npx --no-install factory ticket ready N
 //   npx --no-install factory ticket cost N
@@ -35,6 +35,11 @@
 // session started when it has none, then restart it. `cost` posts to issue
 // or pull request N. The clock is keyed by CLAUDE_CODE_SESSION_ID, the ID the
 // hooks receive and the transcript's file name.
+//
+// `refined` posts its marker only on a ticket whose body a build can read
+// (`lib/refined-check.mts`): otherwise it prints one line for each part that
+// is missing and exits 1. With `--check` it posts nothing, and prints
+// `sound` when nothing is missing.
 //
 // `ready` moves issue N's card to Ready when the owner asks a session to, so
 // the sync and the poller treat it as the owner's own move. It is the one
@@ -65,6 +70,7 @@ import {
   type IssueComment,
   type PullRequest,
 } from "./lib/work-status.mts";
+import { missingParts } from "./lib/refined-check.mts";
 import { commonDir, readClock, writeClock, type Clock } from "./lib/clock.mts";
 import { costNote, measureSession, projectsDir } from "./lib/usage.mts";
 import type { Measured } from "./lib/usage.mts";
@@ -612,6 +618,17 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         await post(d, issue, { kind: "cost", cost: takeCost(issue, d) });
         break;
       case "refined": {
+        // A body the build could not read gets no marker, whoever wrote it.
+        const ticket = await d.tickets.read(issue);
+        const missing = missingParts(ticket.body, ticket.labels);
+        if (missing.length > 0) {
+          for (const line of missing) console.error(line);
+          return 1;
+        }
+        if (rest.includes("--check")) {
+          d.out("sound");
+          return 0;
+        }
         const at = rest.indexOf("--before-file");
         const before = at === -1 ? undefined : d.readFile(rest[at + 1]);
         await post(d, issue, {

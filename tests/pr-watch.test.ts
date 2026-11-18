@@ -44,9 +44,11 @@ const snapshot = (over: Partial<Snapshot> = {}): Snapshot => ({
   ...over,
 });
 const lines = (over: Partial<Snapshot>, seen = new Set<string>()) =>
-  newEvents(snapshot(over), seen).map((event) => event.line);
+  newEvents(snapshot(over), seen, "main").map((event) => event.line);
 const keysOf = (over: Partial<Snapshot>) =>
-  new Set(newEvents(snapshot(over), new Set()).map((event) => event.key));
+  new Set(
+    newEvents(snapshot(over), new Set(), "main").map((event) => event.key),
+  );
 
 describe("newEvents", () => {
   it("has nothing to say while checks run and nobody has commented", () => {
@@ -176,6 +178,14 @@ describe("newEvents", () => {
     expect(lines(dirty, seen)).toEqual([]);
     expect(lines({ ...dirty, headSha: "def456" }, seen)).toEqual([
       "conflict with main at def456",
+    ]);
+  });
+
+  it("names the default branch in a conflict's line, whatever it is called", () => {
+    const dirty = snapshot({ mergeableState: "dirty" });
+
+    expect(newEvents(dirty, new Set(), "develop").map((e) => e.line)).toEqual([
+      `conflict with develop at ${SHA}`,
     ]);
   });
 

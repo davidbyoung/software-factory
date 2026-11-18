@@ -71,7 +71,7 @@ const pr = (sub: string, args: string): Command => ({
 });
 
 const TICKET_ARGS: Record<string, string> = {
-  refined: "N [--before-file FILE]",
+  refined: "N [--check] [--before-file FILE]",
   stop: 'N "reason"',
   view: "N [--field title|state|labels|body] [--json]",
   list: '[--label LABEL] [--title "TITLE"] [--json]',
@@ -182,9 +182,38 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["plugins"],
-    args: "[ROLE]",
+    args: "[SLOT]",
     run: async (argv) =>
       (await import("./config.mts")).run(["plugins", ...argv]),
+  },
+  {
+    words: ["gate"],
+    args: "",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["gate", ...argv]),
+  },
+  {
+    words: ["test-one"],
+    args: "FILE [NAME]",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["test-one", ...argv]),
+  },
+  {
+    words: ["end-to-end"],
+    args: "FILE [--times K]",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["end-to-end", ...argv]),
+  },
+  {
+    words: ["specs", "check"],
+    args: "",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["specs-check", ...argv]),
+  },
+  {
+    words: ["default-branch"],
+    args: "",
+    run: async (argv) => (await import("./lib/default-branch.mts")).run(argv),
   },
   {
     words: ["board", "collect"],

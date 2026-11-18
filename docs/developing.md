@@ -13,7 +13,7 @@ it shares with that repository: each repository's sync reads only its own
 cards.
 
 **It uses the factory on itself.** `.claude/factory.yaml` here sets the
-board, OpenSpec, and the CI review, and `node bin/factory.js sync` copies
+board, OpenSpec, the gate, and the CI review, and `node bin/factory.js sync` copies
 this repository's own skills, agents, rules, and workflows into `.claude/`
 and `.github/`, with hooks that run `bin/factory.js` at the root. So a
 change to a skill shows in the same pull request twice: the source, and
@@ -61,8 +61,13 @@ marked working below exist only in these docs.
 | `factory remove`                                                                                                 | Working                                                                   |
 | Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                                                   |
 | [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                                                                   |
+| Settings version 2: commands, a spec check, and plug-ins grouped by phase                                        | Working                                                                   |
+| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                                                                   |
+| The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                                                                   |
+| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                                                                   |
+| `factory ticket refined` refusing a ticket a build could not read                                                | Working                                                                   |
+| No skill, agent, rule, or review instruction names a stack, checked by a test                                    | Working                                                                   |
 | `approvers` in the settings                                                                                      | Planned, [#14](https://github.com/davidbyoung/software-factory/issues/14) |
-| `factory migrate`                                                                                                | Not planned. The first release that changes the settings' shape adds it   |
 | Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                                       |
 | A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                                       |
 | Another code host or runner                                                                                      | Not planned. The design leaves room                                       |
@@ -99,8 +104,23 @@ It is laid out as a Claude Code plugin even though it is not delivered as
 one. That costs nothing, and it keeps the plugin's own tooling usable on the
 folder. The settings are validated in code, and `settings.schema.json` is the
 editor's copy of their keys. A new key goes in `SETTINGS_KEYS` in
-`src/config.mts`, in the schema, and in `docs/configuration.md`, and a test
-fails when the first two differ.
+`src/config.mts`, in the schema, in `src/explain.mts`, which prints it, and
+in `docs/configuration.md`, and a test fails when the first two differ.
+
+- **A command a session runs** goes under
+  [`commands`](configuration.md#commands), with a `factory`
+  command in `src/commands.mts` that runs it, so a skill names the
+  `factory` command and never the repository's own.
+- **A plug-in slot** goes in `SLOTS` and `SLOT_SHAPE` in `src/config.mts`,
+  which say its phase, whether it takes a skill or an agent, one or a
+  list, and `files` or `labels`. Its keys in `SETTINGS_KEYS` follow from
+  that table. `docs/plugins.md` gains its table of what it is handed and
+  what it returns.
+- **A key that is renamed or moved** raises the settings' `version`.
+  There is no command that converts a file: the older version is refused
+  with a line that names a section of `docs/updating.md`, as version 1 is
+  with "Moving to settings version 2", and that section shows each key
+  before and after.
 
 ## Running from source
 
@@ -163,6 +183,17 @@ or a file in the repository turns it on: add it to `NEEDS` in
 A factory file must name nothing that belongs to the host repository: not
 its paths, its commands, its subject, or its own skills. A test fails when
 one does. That is what keeps the folder movable.
+
+Nor does a skill, an agent, the rules, or the review's instructions name
+one stack: a test runner, a framework, a package manager's commands, or a
+branch called `main`. A skill runs `factory gate`, `factory test-one`,
+`factory end-to-end`, and `factory specs check`, which run the repository's
+own commands from its settings, and writes the default branch as the name
+`factory default-branch` prints. `tests/boundary.test.ts` lists the words
+it fails on. The three files written only for a website or an end-to-end
+suite, `factory-ui-reviewer`, `factory-e2e-reviewer`, and `factory-design`,
+may name a browser tool, and `factory-deps` npm's own files and commands,
+since the factory's update is an npm package's.
 
 ## Adding a ticket system
 
@@ -454,8 +485,8 @@ drawn out of.
 ## Writing for the factory
 
 - **American English, with the Oxford comma.**
-- **The factory's own words:** ticket, follow-up, the six states, the three
-  roles. Not issue, card, or sweep.
+- **The factory's own words:** ticket, follow-up, the six states, the seven
+  slots. Not issue, card, or sweep.
 - **A key name must make sense unexplained.** Each reference settings file
   is read cold by a fresh agent that is told only what the factory is. A key
   it explains wrongly, or cannot tell from another, is renamed or given a

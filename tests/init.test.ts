@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { afterEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { main, parseRemote, type Ask, type InitDeps } from "../src/init.mts";
@@ -106,6 +107,8 @@ type Setup = {
   tools?: (base: Registry, tickets: Tickets) => Registry;
   /** Whether the repository is private; public unless given. */
   private?: boolean;
+  /** The code host's default branch; null when nobody can tell it. */
+  defaultBranch?: string | null;
 };
 
 const roots: string[] = [];
@@ -147,7 +150,10 @@ function init(setup: Setup) {
     signingNeedsScope: setup.signingNeedsScope,
     rulesRefused: setup.rulesRefused,
     isPrivate: setup.private,
+    defaultBranch: setup.defaultBranch ?? undefined,
   });
+  /** What the code host answered each time the sync's plan asked it. */
+  const branchAsked: string[] = [];
   const runner = memoryRunner({ secrets: setup.secrets ?? {} });
   const tickets = memoryTickets([], {
     boards: setup.boards ?? [],
@@ -176,7 +182,11 @@ function init(setup: Setup) {
       synced++;
       return 0;
     },
-    syncChanges: () => [".claude/skills/factory-build/SKILL.md"],
+    syncChanges: async (_text, askHost) => {
+      if (setup.defaultBranch === null) throw new NoDefaultBranch();
+      branchAsked.push(await askHost());
+      return [".claude/skills/factory-build/SKILL.md"];
+    },
     interactive: async (argv) => {
       ran.push(argv);
       if (argv[0] === "grant") host.grantScope();
@@ -208,6 +218,7 @@ function init(setup: Setup) {
     ran,
     opened,
     synced: () => synced,
+    branchAsked,
     read,
     yaml: () =>
       load(read(".claude/factory.yaml") ?? "") as Record<string, unknown>,
@@ -273,7 +284,7 @@ describe("factory init, a first run with every part", () => {
     const r = first();
     expect(await r.run()).toBe(0);
     expect(r.yaml()).toEqual({
-      version: 1,
+      version: 2,
       repository: "acme/site",
       tickets: { board: 1 },
       builds: { trigger: "own-server" },
@@ -362,6 +373,18 @@ describe("factory init, a first run with every part", () => {
     printsNoSecret(r.out);
   });
 
+  it("leaves the gate's commands to add, before the commit, since a new settings file has none", async () => {
+    const r = first();
+    await r.run();
+    const left = r.out.slice(
+      r.out.indexOf("Nothing is committed. Left to do:"),
+    );
+    expect(left.slice(3, 5)).toEqual([
+      "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+      "  4. Commit this on a branch, open a pull request, and merge it.",
+    ]);
+  });
+
   it("shows the plan, naming secrets but not their values, before changing anything", async () => {
     const r = first();
     await r.run();
@@ -403,18 +426,47 @@ describe("factory init, told not to go ahead", () => {
   });
 });
 
+describe("factory init, the default branch the sync writes", () => {
+  const answers = {
+    checkbox: [EVERY],
+    select: ["new", "own-server"],
+    input: ["docs/**"],
+    confirm: [false],
+  };
+
+  it("lets the plan ask the code host it is setting up, since no settings name one yet", async () => {
+    const r = init({ answers, defaultBranch: "develop" });
+
+    await r.run();
+
+    expect(r.branchAsked).toEqual(["develop"]);
+  });
+
+  it("stops before asking to go ahead, naming the fix, when nobody can tell it", async () => {
+    const r = init({ answers, defaultBranch: null });
+
+    expect(await r.run()).toBe(1);
+    expect(r.out.at(-1)).toBe(
+      "Could not tell the default branch. Run: git remote set-head origin --auto",
+    );
+    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.synced()).toBe(0);
+  });
+});
+
 describe("factory init, run again", () => {
   const SETTINGS = [
     "# Our settings.",
-    "version: 1",
+    "version: 2",
     "repository: acme/site",
     "tickets:",
     "  board: 3 # the roadmap",
     "auto-merge:",
     "  allow:",
     "    - docs/**",
-    "before-commit:",
-    "  - npm run lint",
+    "commands:",
+    "  before-commit:",
+    "    - npm run lint",
     "",
   ].join("\n");
   const SET = {
@@ -449,6 +501,37 @@ describe("factory init, run again", () => {
       "confirm: Go ahead?",
     ]);
     expect(r.opened).toEqual([]);
+  });
+
+  const rerun = (settings: string) =>
+    init({
+      settings,
+      secrets: SET,
+      boards: [{ number: 3, title: "Roadmap", columns: [] }],
+      answers: { checkbox: [["board", "auto-merge"]], confirm: [false, true] },
+    });
+  const GATE_STEP =
+    "Add the commands that check a change, under commands.gate in .claude/factory.yaml";
+
+  it("leaves the gate's commands to add when the settings have none", async () => {
+    const r = rerun(SETTINGS);
+    await r.run();
+    expect(r.out.join("\n")).toContain(`  1. ${GATE_STEP}`);
+  });
+
+  it("leaves the gate's commands to add when the settings write an empty list", async () => {
+    const r = rerun(`${SETTINGS}  gate: []\n`);
+    await r.run();
+    expect(r.out.join("\n")).toContain(`  1. ${GATE_STEP}`);
+  });
+
+  it("leaves no step about the gate when the settings have one", async () => {
+    const r = rerun(`${SETTINGS}  gate:\n    - npm run check\n`);
+    await r.run();
+    expect(r.out.join("\n")).not.toContain("commands.gate");
+    expect(r.out).toContain(
+      "  1. Commit this on a branch, open a pull request, and merge it.",
+    );
   });
 
   it("turns a part off, keeping the rest of the settings and their comments", async () => {
@@ -489,7 +572,7 @@ describe("factory init, run again", () => {
   it("gives a board the columns the settings name, not the defaults they rename", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n",
+        "version: 2\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n",
       boards: [
         {
           number: 3,
@@ -521,28 +604,28 @@ describe("factory init, run again", () => {
   it("turns off a board whose columns the settings rename, leaving valid settings", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n",
+        "version: 2\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n",
       secrets: { FACTORY_BOARD_TOKEN: "x" },
       answers: { checkbox: [[]], confirm: [true] },
     });
     expect(await r.run()).toBe(0);
-    expect(r.yaml()).toEqual({ version: 1, repository: "acme/site" });
+    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
 
   it("takes the review's setting out when the review is turned off, so the sync removes its workflow", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
+        "version: 2\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
       answers: { checkbox: [[]], confirm: [true] },
     });
     await r.run();
-    expect(r.yaml()).toEqual({ version: 1, repository: "acme/site" });
+    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
 
   it("keeps the review's commands when the review stays on", async () => {
     const r = init({
       settings:
-        "version: 1\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
+        "version: 2\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
       answers: { checkbox: [["review"]], confirm: [true], secret: [""] },
     });
     await r.run();
@@ -709,7 +792,7 @@ describe("factory init, the board", () => {
     expect(r.out.join("\n")).toContain(
       "No board to use instead: create one on the code host, then run npx --no-install factory init again.",
     );
-    expect(r.yaml()).toEqual({ version: 1, repository: "acme/site" });
+    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
 
   it("turns on a board and cloud builds with builds that start from the board", async () => {
@@ -838,7 +921,7 @@ describe("factory init, where the poller runs", () => {
       const r = init({
         private: true,
         settings: [
-          "version: 1",
+          "version: 2",
           "repository: acme/site",
           "tickets:",
           "  board: 3",
@@ -864,7 +947,7 @@ describe("factory init, where the poller runs", () => {
   it("takes out the interval with the part", async () => {
     const r = init({
       settings: [
-        "version: 1",
+        "version: 2",
         "repository: acme/site",
         "tickets:",
         "  board: 3",
@@ -960,7 +1043,8 @@ describe("factory init, word for word", () => {
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=1
              FACTORY_BOARD_TOKEN=the access token you just made",
-        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+        "  4. Commit this on a branch, open a pull request, and merge it.",
         "",
         "Checks",
         "  ✓ Every check passed",
@@ -971,7 +1055,7 @@ describe("factory init, word for word", () => {
   it("prints and asks the same on a re-run with every part on and every secret set", async () => {
     const r = init({
       settings: [
-        "version: 1",
+        "version: 2",
         "repository: acme/site",
         "tickets:",
         "  board: 3",
@@ -1026,7 +1110,8 @@ describe("factory init, word for word", () => {
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=3
              FACTORY_BOARD_TOKEN=the access token you just made",
-        "  3. Commit this on a branch, open a pull request, and merge it.",
+        "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+        "  4. Commit this on a branch, open a pull request, and merge it.",
         "",
         "Checks",
         "  ✓ Every check passed",
@@ -1038,7 +1123,7 @@ describe("factory init, word for word", () => {
 describe("factory init, a secret met another way", () => {
   it("asks for no token for cloud builds when the board's token, which they also read, is set", async () => {
     const r = init({
-      settings: "version: 1\nrepository: acme/site\n",
+      settings: "version: 2\nrepository: acme/site\n",
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
       answers: { checkbox: [["cloud"]], confirm: [false, true] },
     });
@@ -1055,7 +1140,7 @@ describe("factory init, a secret met another way", () => {
 describe("factory init, a tool's own setup", () => {
   /** Fake Tickets as the only ticket system. */
   const fakeOnly = (b: Registry, t: Tickets) => withFakeTickets(b, t, true);
-  const FAKE = "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n";
+  const FAKE = "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n";
 
   it("asks for the value the ticket system needs, and writes it under tickets", async () => {
     const r = init({
@@ -1188,7 +1273,7 @@ describe("factory init, with more than one tool of a kind", () => {
     const r = init({
       tools: both,
       settings:
-        "version: 1\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
+        "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
       secrets: { [FAKE_TOKEN]: "x" },
       answers: { select: ["fake"], checkbox: [[]], confirm: [false, true] },
     });

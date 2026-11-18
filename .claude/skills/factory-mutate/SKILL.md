@@ -25,9 +25,10 @@ not compiling proves nothing; choose another.
 
 ## 2. Run them
 
-Each one copies the file aside, applies the edit, runs only the relevant test
+Each one keeps the file's text, applies the edit, runs only the relevant test
 file, and restores the original whatever happens. Put the script in the
-scratchpad, not the repo, as `mutate.mjs`, and run it with `node`:
+scratchpad, not the repo, as `mutate.mjs`, and run it with `node` from the
+repository's root:
 
 ```js
 import { spawnSync } from "node:child_process";
@@ -48,7 +49,12 @@ for (const [path, old, replacement, test] of MUTATIONS) {
       path,
       original.replace(old, () => replacement),
     );
-    failed = spawnSync("npx", ["vitest", "run", test]).status !== 0;
+    const run = spawnSync(
+      "npx",
+      ["--no-install", "factory", "test-one", test],
+      { stdio: "ignore" },
+    );
+    failed = run.status !== 0;
   } finally {
     writeFileSync(path, original);
   }
@@ -56,10 +62,10 @@ for (const [path, old, replacement, test] of MUTATIONS) {
 }
 ```
 
-Use the project's own test command. For a coverage-instrumented runner,
-disable coverage for speed. For Playwright, rebuild before each run if the
-tests run against a build. Not `next dev`: it rewrites `AGENTS.md`, and a
-test can time out there with nothing broken, which reads as red.
+`factory test-one` runs the settings' own command for one test file,
+`commands.test-one`. For a coverage-instrumented runner, disable coverage
+for speed. For an end-to-end spec, run `factory end-to-end` in its place,
+and rebuild before each run if the tests run against a build.
 
 ## 3. Confirm the tree is clean
 

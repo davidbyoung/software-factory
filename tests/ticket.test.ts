@@ -414,15 +414,266 @@ describe("start-check", () => {
   });
 });
 
+// A body `factory-refine` writes for a ticket without the `spec` label, and
+// one for a ticket with it, whose tasks are grouped under level-two
+// headings as OpenSpec's `tasks.md` has them.
+const PLAIN_BODY = [
+  "The owner's own words.",
+  "",
+  "## Decisions",
+  "",
+  "- Which page: the home page.",
+  "",
+  "## Acceptance criteria",
+  "",
+  "- When a guide opens, its title shows.",
+].join("\n");
+const SPEC_BODY = [
+  "The owner's own words.",
+  "",
+  "## Decisions",
+  "",
+  "- Which page: the home page.",
+  "",
+  "## Spec",
+  "",
+  "### feedback-form (new)",
+  "",
+  "1. When the form opens, the first field has focus.",
+  "",
+  "## For the builder",
+  "",
+  "<details>",
+  "",
+  "### Design",
+  "",
+  "#### Where it goes",
+  "",
+  "### Tasks",
+  "",
+  "## 1. The form",
+  "",
+  "- [ ] 1.1 Focus the first field.",
+  "",
+  "</details>",
+].join("\n");
+/** `body` without the lines that match, to take one part out. */
+const without = (body: string, ...patterns: RegExp[]) =>
+  body
+    .split("\n")
+    .filter((line) => !patterns.some((p) => p.test(line)))
+    .join("\n");
+
 describe("refinement markers", () => {
-  it("puts a closing comment's text before the refined sentence", async () => {
-    const { d, memory } = deps();
+  it("puts a closing comment's text before the refined sentence, on a sound ticket", async () => {
+    const { d, out, memory } = deps([{ number: 7, body: PLAIN_BODY }]);
 
-    await main(["refined", "7", "--before-file", "c.md"], d);
+    expect(await main(["refined", "7", "--before-file", "c.md"], d)).toBe(0);
 
+    expect(out).toEqual(["posted"]);
     expect(last(memory, 7)).toContain(
       `Nothing here needs your decision.\n\nThis session used $0.10 of the subscription ($3.41 at API list prices) on #7 since its last note.\n\n<!-- cost: 3.41 session=${SESSION} -->\n\nRefinement is done.`,
     );
+  });
+
+  it("posts the refined marker on a sound ticket", async () => {
+    const { d, out, memory } = deps([{ number: 7, body: PLAIN_BODY }]);
+
+    expect(await main(["refined", "7"], d)).toBe(0);
+
+    expect(out).toEqual(["posted"]);
+    expect(last(memory, 7)).toContain("<!-- work-status: refined -->");
+  });
+});
+
+describe("the refined check", () => {
+  /** `factory ticket refined 7`, with `args` after it, on a ticket with this
+   * body and these labels. */
+  async function refined(body: string, labels: string[], args = ["--check"]) {
+    quiet();
+    const { d, out, memory, clocks } = deps([{ number: 7, body, labels }]);
+    const code = await main(["refined", "7", ...args], d);
+    return { code, out, errors, posted: memory.comments(7), clocks };
+  }
+
+  it("prints `sound`, posts nothing, and exits 0 with --check on a sound ticket", async () => {
+    const r = await refined(PLAIN_BODY, []);
+
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual(["sound"]);
+    expect(r.errors).toEqual([]);
+    expect(r.posted).toEqual([]);
+  });
+
+  it("leaves the session's cost clock alone with --check", async () => {
+    const r = await refined(PLAIN_BODY, []);
+
+    expect(r.clocks.size).toBe(0);
+  });
+
+  describe("a ticket without the spec label", () => {
+    it("is sound with Decisions, and Acceptance criteria with a list item under it", async () => {
+      expect((await refined(PLAIN_BODY, ["bug"])).out).toEqual(["sound"]);
+    });
+
+    it.each([
+      ["no Decisions heading", [/^## Decisions$/], ["missing: ## Decisions"]],
+      [
+        "no Acceptance criteria heading",
+        [/^## Acceptance criteria$/],
+        ["missing: ## Acceptance criteria"],
+      ],
+      [
+        "no list item under Acceptance criteria",
+        [/^- When a guide/],
+        ["missing: a list item under ## Acceptance criteria"],
+      ],
+    ])("is not sound with %s", async (_, lines, missing) => {
+      const r = await refined(without(PLAIN_BODY, ...lines), []);
+
+      expect(r.code).toBe(1);
+      expect(r.errors).toEqual(missing);
+    });
+
+    it("does not count a list item under a later heading as the criteria's", async () => {
+      const body = `${without(PLAIN_BODY, /^- When a guide/)}\n\n## Mockups\n\n- One picture.`;
+
+      expect((await refined(body, [])).errors).toEqual([
+        "missing: a list item under ## Acceptance criteria",
+      ]);
+    });
+
+    it("does not read a heading inside a code block as the body's own", async () => {
+      const body = [
+        "```markdown",
+        "## Decisions",
+        "## Acceptance criteria",
+        "- A sample line.",
+        "```",
+      ].join("\n");
+
+      expect((await refined(body, [])).errors).toEqual([
+        "missing: ## Decisions",
+        "missing: ## Acceptance criteria",
+      ]);
+    });
+
+    it("is sound with a Spec section beside its criteria, as a small change that makes a spec line false has", async () => {
+      const body = `${PLAIN_BODY}\n\n## Spec\n\n### labels (modified)\n\n1. When a label is renamed, the page shows its new name.`;
+
+      expect((await refined(body, [])).out).toEqual(["sound"]);
+    });
+  });
+
+  describe("a ticket with the spec label", () => {
+    it("is sound with Decisions, a Spec with a capability and a numbered line, and For the builder with Design and Tasks", async () => {
+      expect((await refined(SPEC_BODY, ["spec"])).out).toEqual(["sound"]);
+    });
+
+    it("takes a capability marked (modified)", async () => {
+      const body = SPEC_BODY.replace("feedback-form (new)", "card (modified)");
+
+      expect((await refined(body, ["spec"])).out).toEqual(["sound"]);
+    });
+
+    it.each([
+      ["no Decisions heading", [/^## Decisions$/], ["missing: ## Decisions"]],
+      ["no Spec heading", [/^## Spec$/], ["missing: ## Spec"]],
+      [
+        "no capability heading under Spec",
+        [/^### feedback-form/],
+        [
+          "missing: a ### NAME (new) or ### NAME (modified) heading under ## Spec",
+        ],
+      ],
+      [
+        "no numbered line under Spec",
+        [/^1\. When the form/],
+        ["missing: a numbered line under ## Spec"],
+      ],
+      [
+        "no For the builder heading",
+        [/^## For the builder$/],
+        ["missing: ## For the builder"],
+      ],
+      [
+        "no Design under For the builder",
+        [/^### Design$/],
+        ["missing: ### Design under ## For the builder"],
+      ],
+      [
+        "no Tasks under For the builder",
+        [/^### Tasks$/],
+        ["missing: ### Tasks under ## For the builder"],
+      ],
+    ])("is not sound with %s", async (_, lines, missing) => {
+      const r = await refined(without(SPEC_BODY, ...lines), ["spec"]);
+
+      expect(r.code).toBe(1);
+      expect(r.errors).toEqual(missing);
+    });
+
+    it("is not sound with only what a ticket without the label needs", async () => {
+      expect((await refined(PLAIN_BODY, ["spec"])).errors).toEqual([
+        "missing: ## Spec",
+        "missing: ## For the builder",
+      ]);
+    });
+
+    it("does not take a capability heading with no mark", async () => {
+      const body = SPEC_BODY.replace("feedback-form (new)", "feedback-form");
+
+      expect((await refined(body, ["spec"])).errors).toEqual([
+        "missing: a ### NAME (new) or ### NAME (modified) heading under ## Spec",
+      ]);
+    });
+  });
+
+  it("takes the follow-ups issue as sound whatever its body holds", async () => {
+    const r = await refined("- [ ] docs/cli.md: a stale line.", ["follow-up"]);
+
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual(["sound"]);
+  });
+
+  it("prints one line on standard error for each missing part, posts nothing, and exits 1 with --check", async () => {
+    const r = await refined(
+      without(SPEC_BODY, /^## Decisions$/, /^### Tasks$/),
+      ["spec"],
+    );
+
+    expect(r.code).toBe(1);
+    expect(r.errors).toEqual([
+      "missing: ## Decisions",
+      "missing: ### Tasks under ## For the builder",
+    ]);
+    expect(r.out).toEqual([]);
+    expect(r.posted).toEqual([]);
+  });
+
+  it("posts no marker without --check on a ticket that is not sound, prints the same lines, and exits 1", async () => {
+    const r = await refined(
+      without(SPEC_BODY, /^## Decisions$/, /^### Tasks$/),
+      ["spec"],
+      ["--before-file", "c.md"],
+    );
+
+    expect(r.code).toBe(1);
+    expect(r.errors).toEqual([
+      "missing: ## Decisions",
+      "missing: ### Tasks under ## For the builder",
+    ]);
+    expect(r.out).toEqual([]);
+    expect(r.posted).toEqual([]);
+    expect(r.clocks.size).toBe(0);
+  });
+
+  it("posts the marker on the follow-ups issue, whatever its body holds", async () => {
+    const r = await refined("", ["follow-up"], []);
+
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual(["posted"]);
+    expect(r.posted.at(-1)?.body).toContain("<!-- work-status: refined -->");
   });
 });
 
@@ -1230,7 +1481,7 @@ describe("a ticket system other than GitHub", () => {
     d.settings = async () =>
       parseSettings(
         {
-          version: 1,
+          version: 2,
           repository: "acme/widgets",
           tickets: { type: "jira" },
         },

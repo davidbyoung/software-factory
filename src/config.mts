@@ -4,7 +4,7 @@
 // what its functions need, and nothing under src/lib/ loads them.
 //
 //   factory config get KEY     # e.g. repository, tickets.board
-//   factory plugins [ROLE]     # kind, name, role, files or labels
+//   factory plugins [SLOT]     # kind, name, slot, files or labels
 //   factory config check       # prints nothing when sound
 //
 // A list prints one item per line. A failure names the key and exits 1.
@@ -28,8 +28,91 @@ import {
 
 export class SettingsError extends Error {}
 
-export const ROLES = ["mockups", "builder", "reviewer"] as const;
-export type Role = (typeof ROLES)[number];
+/** What a plug-in does, in the order `factory plugins` prints them. */
+export const SLOTS = [
+  "refiner",
+  "mockups",
+  "builder",
+  "reviewer",
+  "prover",
+  "test-reviewer",
+  "resolver",
+] as const;
+export type Slot = (typeof SLOTS)[number];
+/** The phases `plugins` is grouped by. */
+export const PHASES = ["refine", "build", "test", "conflicts"] as const;
+
+type SlotShape = {
+  phase: (typeof PHASES)[number];
+  key: string;
+  kind: Plugin["kind"];
+  list: boolean;
+  files: "required" | "optional" | "none";
+  labels: "required" | "none";
+};
+
+/** A slot's shape: one plug-in with no files and no labels, unless `takes`
+ * says otherwise. */
+const shapeOf = (
+  phase: SlotShape["phase"],
+  key: string,
+  kind: SlotShape["kind"],
+  takes: Partial<Pick<SlotShape, "list" | "files" | "labels">> = {},
+): SlotShape => ({
+  phase,
+  key,
+  kind,
+  list: false,
+  files: "none",
+  labels: "none",
+  ...takes,
+});
+
+/** Each slot: the phase and key it is written under, the one kind it
+ * takes, whether it holds one plug-in or a list, and whether a plug-in in
+ * it must have, may have, or cannot have `files` and `labels`. */
+export const SLOT_SHAPE: Record<Slot, SlotShape> = {
+  refiner: shapeOf("refine", "refiner", "skill"),
+  mockups: shapeOf("refine", "mockups", "skill"),
+  builder: shapeOf("build", "builders", "skill", {
+    list: true,
+    labels: "required",
+  }),
+  reviewer: shapeOf("build", "reviewers", "agent", {
+    list: true,
+    files: "required",
+  }),
+  prover: shapeOf("test", "prover", "skill"),
+  "test-reviewer": shapeOf("test", "reviewers", "agent", {
+    list: true,
+    files: "optional",
+  }),
+  resolver: shapeOf("conflicts", "resolvers", "skill", {
+    list: true,
+    files: "required",
+  }),
+};
+
+/** A slot's path in the settings, such as `plugins.build.reviewers`. */
+const slotPath = (slot: Slot) =>
+  `plugins.${SLOT_SHAPE[slot].phase}.${SLOT_SHAPE[slot].key}`;
+
+/** The keys of each slot's block, by its path in `SETTINGS_KEYS`: a list's
+ * items are under the path with `[]` after it. */
+const slotKeys = (): Record<string, string[]> =>
+  Object.fromEntries(
+    SLOTS.map((slot) => {
+      const shape = SLOT_SHAPE[slot];
+      return [
+        `${slotPath(slot)}${shape.list ? "[]" : ""}`,
+        [
+          shape.kind,
+          ...(shape.files === "none" ? [] : ["files"]),
+          ...(shape.labels === "none" ? [] : ["labels"]),
+        ],
+      ];
+    }),
+  );
 export const TRIGGERS = ["own-server", "github-action", "manual"] as const;
 /** How often the scheduled poller may check the board, in minutes: each
  * divides an hour, so a schedule every N minutes keeps an even beat. */
@@ -46,13 +129,13 @@ export type FieldKey = keyof typeof FIELD_DEFAULTS;
 export type Plugin = {
   kind: "skill" | "agent";
   name: string;
-  role: Role;
+  slot: Slot;
   files: string[];
   labels: string[];
 };
 
 export type Settings = {
-  version: 1;
+  version: 2;
   repository: string;
   tickets: {
     type: string;
@@ -75,10 +158,31 @@ export type Settings = {
     pollMinutes: (typeof POLL_MINUTES)[number];
   };
   specs: (typeof SPECS)[number];
-  beforeCommit: string[];
-  /** Commands an unattended build runs from the root before it starts. */
-  buildSetup: string[];
+  /** The command that checks the specs, or null when `specs` is none. */
+  specCheck: string | null;
+  /** Every command a build runs, each from the repository's root. */
+  commands: {
+    /** Before an unattended build starts work. */
+    buildSetup: string[];
+    /** Before every commit a session makes. */
+    beforeCommit: string[];
+    /** Before a session reports a task done. */
+    gate: string[];
+    /** One test alone, with `FILE` and `NAME` in its environment. */
+    testOne: string | null;
+    /** One end-to-end spec alone, with `FILE` in its environment. */
+    endToEnd: string | null;
+    /** Coverage, and where its report lands. */
+    coverage: { run: string; report: string } | null;
+    /** Rebuilds the package manager's lock file after a conflict in it. */
+    relock: string;
+  };
+  /** The plug-ins the settings name, in the slots' order. `pluginsOf` adds
+   * the factory's own for each slot left out. */
   plugins: Plugin[];
+  /** Whether `plugins.test.reviewers` is written. Written, it is the whole
+   * list of test reviewers, even when it is empty. */
+  testReviewersWritten: boolean;
   autoMerge: { allow: string[]; deny: string[]; commands: string[] };
   /** The CI review, on when `ci-review` is written, with the commands it
    * may run as prefixes beside the factory's own; null when it is off. */
@@ -135,12 +239,19 @@ export type Accessibility = (typeof ACCESSIBILITY)[number];
 
 /** The agent that needs `site`. */
 export const SITE_AGENT = "factory-ui-reviewer";
+/** The agent that needs `commands.end-to-end`. */
+export const E2E_AGENT = "factory-e2e-reviewer";
+/** The spec check where `specs.type` is openspec and none is written. */
+export const OPENSPEC_CHECK =
+  "npx --no-install openspec validate --all --strict --no-interactive";
+/** `commands.relock` where none is written. */
+export const DEFAULT_RELOCK = "npm install";
 export const NO_PLAYWRIGHT = "site needs Playwright: npm install -D playwright";
 
 /** The keys each block allows, by the block's path: `""` is the top of the
- * file and `plugins[]` is one plug-in. `settings.schema.json` lists the same
- * keys, and a test fails when the two differ. A key the code accepts goes
- * here, in the schema, and in docs/configuration.md. */
+ * file and `plugins.build.builders[]` is one builder. `settings.schema.json`
+ * lists the same keys, and a test fails when the two differ. A key the code
+ * accepts goes here, in the schema, and in docs/configuration.md. */
 export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "": [
     "version",
@@ -149,8 +260,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     "code-host",
     "builds",
     "specs",
-    "before-commit",
-    "build-setup",
+    "commands",
     "plugins",
     "auto-merge",
     "ci-review",
@@ -163,7 +273,17 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "tickets.fields": Object.keys(FIELD_DEFAULTS),
   "code-host": ["type"],
   builds: ["trigger", "runner", "poll-minutes"],
-  specs: ["type"],
+  specs: ["type", "check"],
+  commands: [
+    "build-setup",
+    "before-commit",
+    "gate",
+    "test-one",
+    "end-to-end",
+    "coverage",
+    "relock",
+  ],
+  "commands.coverage": ["run", "report"],
   "auto-merge": ["allow", "deny", "commands"],
   "ci-review": ["commands"],
   site: [
@@ -179,7 +299,16 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     "accessibility",
     "new-values",
   ],
-  "plugins[]": ["skill", "agent", "role", "files", "labels"],
+  plugins: PHASES,
+  ...Object.fromEntries(
+    PHASES.map((phase) => [
+      `plugins.${phase}`,
+      SLOTS.filter((slot) => SLOT_SHAPE[slot].phase === phase).map(
+        (slot) => SLOT_SHAPE[slot].key,
+      ),
+    ]),
+  ),
+  ...slotKeys(),
   "session-minutes": Object.keys(SESSION_MINUTES),
   rules: Object.keys(RULE_NUMBERS),
 };
@@ -347,33 +476,101 @@ function typed(v: unknown, key: string, extra?: readonly string[]): Obj {
   return object(v, key, key, extra);
 }
 
-function plugin(v: unknown, i: number, exists: (p: string) => boolean) {
-  const key = `plugins[${i}]`;
-  const o = object(v, key, "plugins[]");
-  const kind =
-    "skill" in o && !("agent" in o)
-      ? "skill"
-      : "agent" in o && !("skill" in o)
-        ? "agent"
-        : fail(key, "names one skill or one agent");
-  const name = o[kind];
+/** One plug-in, written at `key` in the slot `slot`. */
+function plugin(v: unknown, key: string, slot: Slot): Plugin {
+  const shape = SLOT_SHAPE[slot];
+  const other = shape.kind === "skill" ? "agent" : "skill";
+  if (isObj(v) && (other in v || !(shape.kind in v)))
+    fail(key, shape.kind === "skill" ? "names a skill" : "names an agent");
+  const o = object(v, key, `${slotPath(slot)}${shape.list ? "[]" : ""}`);
+  const name = o[shape.kind];
   if (typeof name !== "string" || !/^[\w-]+$/.test(name))
-    fail(`${key}.${kind}`, "must be a name");
-  const path =
-    kind === "skill"
-      ? `.claude/skills/${name}/SKILL.md`
-      : `.claude/agents/${name}.md`;
-  if (!exists(path)) fail(`${key}.${kind}`, `${path} does not exist`);
+    fail(`${key}.${shape.kind}`, "must be a name");
+  const listed = (k: "files" | "labels") => {
+    const list = strings(o[k], `${key}.${k}`);
+    if (shape[k] === "required" && list.length === 0)
+      fail(`${key}.${k}`, "is required");
+    return list;
+  };
   return {
-    kind,
+    kind: shape.kind,
     name: name as string,
-    role:
-      o.role === undefined
-        ? fail(`${key}.role`, `must be one of ${ROLES.join(", ")}`)
-        : oneOf(o.role, `${key}.role`, ROLES, "reviewer"),
-    files: strings(o.files, `${key}.files`),
-    labels: strings(o.labels, `${key}.labels`),
-  } satisfies Plugin;
+    slot,
+    files: listed("files"),
+    labels: listed("labels"),
+  };
+}
+
+/** The plug-ins `plugins` names, in the slots' order, and whether it
+ * writes the list of test reviewers. */
+function pluginsWritten(v: unknown): {
+  plugins: Plugin[];
+  testReviewersWritten: boolean;
+} {
+  if (Array.isArray(v))
+    fail("plugins", `must be grouped by phase: ${PHASES.join(", ")}`);
+  const phases = object(v ?? {}, "plugins");
+  const slots = Object.fromEntries(
+    PHASES.map((phase) => [
+      phase,
+      object(phases[phase] ?? {}, `plugins.${phase}`),
+    ]),
+  );
+  const at = (slot: Slot) =>
+    slots[SLOT_SHAPE[slot].phase]![SLOT_SHAPE[slot].key];
+  return {
+    plugins: SLOTS.flatMap((slot) => {
+      const written = at(slot);
+      const key = slotPath(slot);
+      if (written === undefined) return [];
+      if (!SLOT_SHAPE[slot].list) return [plugin(written, key, slot)];
+      if (!Array.isArray(written)) return fail(key, "must be a list");
+      return written.map((item, i) => plugin(item, `${key}[${i}]`, slot));
+    }),
+    testReviewersWritten: at("test-reviewer") !== undefined,
+  };
+}
+
+/** Where each of the settings' plug-ins is written, such as
+ * `plugins.build.reviewers[0]`. */
+function pluginPaths(plugins: Plugin[]): string[] {
+  const seen = new Map<Slot, number>();
+  return plugins.map((p) => {
+    if (!SLOT_SHAPE[p.slot].list) return slotPath(p.slot);
+    const i = seen.get(p.slot) ?? 0;
+    seen.set(p.slot, i + 1);
+    return `${slotPath(p.slot)}[${i}]`;
+  });
+}
+
+/** A command written as one line of text, or null when it is not written. */
+function command(v: unknown, key: string): string | null {
+  if (v === undefined) return null;
+  return typeof v === "string" && v ? v : fail(key, "must be text");
+}
+
+function commandsOf(v: unknown): Settings["commands"] {
+  const o = object(v ?? {}, "commands");
+  let coverage: Settings["commands"]["coverage"] = null;
+  if (o.coverage !== undefined) {
+    const c = object(o.coverage ?? {}, "commands.coverage");
+    for (const k of ["run", "report"] as const)
+      if (typeof c[k] !== "string" || !c[k])
+        fail(
+          `commands.coverage.${k}`,
+          "is required when commands.coverage is written",
+        );
+    coverage = { run: c.run as string, report: c.report as string };
+  }
+  return {
+    buildSetup: strings(o["build-setup"], "commands.build-setup"),
+    beforeCommit: strings(o["before-commit"], "commands.before-commit"),
+    gate: strings(o.gate, "commands.gate"),
+    testOne: command(o["test-one"], "commands.test-one"),
+    endToEnd: command(o["end-to-end"], "commands.end-to-end"),
+    coverage,
+    relock: command(o.relock, "commands.relock") ?? DEFAULT_RELOCK,
+  };
 }
 
 /** The settings with every default filled in. Throws a SettingsError naming
@@ -384,8 +581,20 @@ export function parseSettings(
   exists: (path: string) => boolean,
   built: Built = BUILT,
 ): Settings {
-  const top = object(raw ?? {}, "");
-  if (top.version !== 1) fail("version", "must be 1");
+  const written = raw ?? {};
+  // The version comes before any other key, so a file in the older shape is
+  // told so, not told its keys are unknown.
+  if (isObj(written)) {
+    if (written.version === 1)
+      fail(
+        "version",
+        'must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+      );
+    if (written.version !== 2) fail("version", "must be 2");
+    for (const key of ["before-commit", "build-setup"])
+      if (key in written) fail(key, `moved to commands.${key}`);
+  }
+  const top = object(written, "");
   if (
     typeof top.repository !== "string" ||
     !/^[\w.-]+\/[\w.-]+$/.test(top.repository)
@@ -485,24 +694,44 @@ export function parseSettings(
     "tickets.fields",
     FIELD_DEFAULTS,
   ) as Record<FieldKey, string | null>;
-  const specs = typed(top.specs ?? "none", "specs");
+  const specsBlock = typed(top.specs ?? "none", "specs");
+  const specs = oneOf(specsBlock.type, "specs", SPECS, "none");
+  if (specsBlock.check !== undefined && specs !== "openspec")
+    throw new SettingsError(
+      `${SETTINGS_FILE}: specs.check needs specs.type: openspec`,
+    );
+  const specCheck =
+    specs === "openspec"
+      ? (command(specsBlock.check, "specs.check") ?? OPENSPEC_CHECK)
+      : null;
   const autoMerge = object(top["auto-merge"], "auto-merge");
   const ciReview =
     top["ci-review"] === undefined
       ? null
       : object(top["ci-review"] ?? {}, "ci-review");
-  if (top.plugins !== undefined && !Array.isArray(top.plugins))
-    fail("plugins", "must be a list");
 
   const site = parseSite(top.site, exists);
-  const plugins = ((top.plugins as unknown[]) ?? []).map((p, i) =>
-    plugin(p, i, exists),
-  );
-  if (!site && plugins.some((p) => p.kind === "agent" && p.name === SITE_AGENT))
+  const commands = commandsOf(top.commands);
+  const { plugins, testReviewersWritten } = pluginsWritten(top.plugins);
+  // What an agent of the factory's needs comes before its file: the sync
+  // writes the file only once the setting is there.
+  const lists = (agent: string) =>
+    plugins.some((p) => p.kind === "agent" && p.name === agent);
+  if (!site && lists(SITE_AGENT))
     fail("site", `is required to list ${SITE_AGENT}`);
+  if (commands.endToEnd === null && lists(E2E_AGENT))
+    fail("commands.end-to-end", `is required to list ${E2E_AGENT}`);
+  pluginPaths(plugins).forEach((key, i) => {
+    const p = plugins[i]!;
+    const path =
+      p.kind === "skill"
+        ? `.claude/skills/${p.name}/SKILL.md`
+        : `.claude/agents/${p.name}.md`;
+    if (!exists(path)) fail(`${key}.${p.kind}`, `${path} does not exist`);
+  });
 
   return {
-    version: 1,
+    version: 2,
     repository: top.repository as string,
     tickets: {
       type: ticketType,
@@ -513,10 +742,11 @@ export function parseSettings(
     },
     codeHost: { type: codeHost },
     builds: { trigger, runner, pollMinutes },
-    specs: oneOf(specs.type, "specs", SPECS, "none"),
-    beforeCommit: strings(top["before-commit"], "before-commit"),
-    buildSetup: strings(top["build-setup"], "build-setup"),
+    specs,
+    specCheck,
+    commands,
     plugins,
+    testReviewersWritten,
     autoMerge: {
       allow: strings(autoMerge.allow, "auto-merge.allow"),
       deny: strings(autoMerge.deny, "auto-merge.deny"),
@@ -552,9 +782,10 @@ function rulesOf(v: unknown): Settings["rules"] {
 /** One line for each pattern that matches none of `files`: a stale pattern
  * is how a policy rots. */
 export function patternWarnings(s: Settings, files: string[]): string[] {
+  const paths = pluginPaths(s.plugins);
   const lists: [string, string[]][] = [
     ...s.plugins.map((p, i): [string, string[]] => [
-      `plugins[${i}].files`,
+      `${paths[i]}.files`,
       p.files,
     ]),
     ["auto-merge.allow", s.autoMerge.allow],
@@ -657,9 +888,18 @@ export function fieldNamesOf(s: Settings) {
 export const loadSettings = (d: Deps = defaultDeps()) => read(d);
 
 function lookup(s: Settings, key: string): unknown {
+  if (key === "specs.check") return s.specCheck;
+  // Coverage is a block whether or not it is written, and its two keys
+  // print `none` when it is not.
+  if (key === "commands.coverage") return undefined;
+  if (s.commands.coverage === null)
+    for (const k of SETTINGS_KEYS["commands.coverage"]!)
+      if (key === `commands.coverage.${k}`) return null;
   const camel: Record<string, string> = {
     "before-commit": "beforeCommit",
     "build-setup": "buildSetup",
+    "test-one": "testOne",
+    "end-to-end": "endToEnd",
     "auto-merge": "autoMerge",
     "ci-review": "ciReview",
     "code-host": "codeHost",
@@ -680,31 +920,47 @@ function lookup(s: Settings, key: string): unknown {
  * site. */
 const DESIGN_SKILL = ".claude/skills/factory-design/SKILL.md";
 
-/** The settings' plug-ins, and the factory's design skill as the mockups
- * plug-in of a site that lists none, once it is synced. */
+/** Every plug-in the factory will use, in the slots' order: the settings'
+ * own, and the factory's for each slot they leave out. The refiner and the
+ * prover are always there. The factory's test reviewer is there unless the
+ * settings write the list. Its design skill is the mockups plug-in of a
+ * site that names none, once it is synced. */
 export function pluginsOf(
   s: Settings,
   exists: (path: string) => boolean,
 ): Plugin[] {
-  if (!s.site || s.plugins.some((p) => p.role === "mockups")) return s.plugins;
-  if (!exists(DESIGN_SKILL)) return s.plugins;
-  return [
-    {
-      kind: "skill",
-      name: "factory-design",
-      role: "mockups",
-      files: [],
-      labels: [],
-    },
-    ...s.plugins,
-  ];
+  const builtIn = (kind: Plugin["kind"], name: string, slot: Slot): Plugin => ({
+    kind,
+    name,
+    slot,
+    files: [],
+    labels: [],
+  });
+  const fallback: Record<Slot, Plugin[]> = {
+    refiner: [builtIn("skill", "factory-refine", "refiner")],
+    mockups:
+      s.site && exists(DESIGN_SKILL)
+        ? [builtIn("skill", "factory-design", "mockups")]
+        : [],
+    builder: [],
+    reviewer: [],
+    prover: [builtIn("skill", "factory-mutate", "prover")],
+    "test-reviewer": s.testReviewersWritten
+      ? []
+      : [builtIn("agent", "factory-test-reviewer", "test-reviewer")],
+    resolver: [],
+  };
+  return SLOTS.flatMap((slot) => {
+    const own = s.plugins.filter((p) => p.slot === slot);
+    return own.length ? own : fallback[slot];
+  });
 }
 
 export async function main(argv: string[], d: Deps): Promise<number> {
   const [command, arg] = argv;
   if (!command) {
     d.err(
-      "Usage: factory config get KEY | config check | config explain | plugins [ROLE]",
+      "Usage: factory config get KEY | config check | config explain | plugins [SLOT]",
     );
     return 2;
   }
@@ -724,7 +980,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       return 1;
     }
     for (const w of patternWarnings(s, d.listFiles())) d.err(`warning: ${w}`);
-    if (s.site && !s.plugins.some((p) => p.role === "mockups"))
+    if (s.site && !s.plugins.some((p) => p.slot === "mockups"))
       if (!d.exists(DESIGN_SKILL))
         d.err(
           `warning: ${DESIGN_SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`,
@@ -733,13 +989,17 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
   if (command === "explain") {
     const { explainLines } = await import("./explain.mts");
-    for (const line of await explainLines(s, raw)) d.out(line);
+    for (const line of await explainLines(s, raw, d.exists)) d.out(line);
     return 0;
   }
   if (command === "plugins") {
+    if (arg && !(SLOTS as readonly string[]).includes(arg)) {
+      d.err(`${arg}: must be one of ${SLOTS.join(", ")}`);
+      return 1;
+    }
     for (const p of pluginsOf(s, d.exists)) {
-      if (arg && p.role !== arg) continue;
-      d.out([p.kind, p.name, p.role, ...p.files, ...p.labels].join(" ").trim());
+      if (arg && p.slot !== arg) continue;
+      d.out([p.kind, p.name, p.slot, ...p.files, ...p.labels].join(" "));
     }
     return 0;
   }
@@ -767,7 +1027,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
 }
 
 /** `factory config get KEY`, `factory config check`, and
- * `factory plugins [ROLE]`. */
+ * `factory plugins [SLOT]`. */
 export async function run(argv: string[]): Promise<number> {
   return main(argv, defaultDeps());
 }

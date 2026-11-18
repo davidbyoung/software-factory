@@ -30,7 +30,7 @@ follows the factory's skills, and writes the change. Today: Claude Code.
 written so each item can be checked. Refining a ticket produces it.
 
 **Agent (reviewer).** A separate reviewer that a session launches to read
-something and report back. It changes nothing. The factory brings three,
+something and report back. It changes nothing. The factory brings four,
 and you can add your own.
 
 **Approver.** A person whose comments a session treats as instructions,
@@ -57,6 +57,10 @@ your board.
 written into your repository by `factory sync`. You do not
 edit them.
 
+**Default branch.** The branch your pull requests merge into, often
+called `main`. The factory reads its name from your checkout or your code
+host, and assumes none.
+
 **Dependency bot.** A tool that opens pull requests when a dependency has
 a new version.
 
@@ -64,8 +68,9 @@ a new version.
 small problems sessions noticed while doing other work.
 
 **Gate.** The commands that must pass before a session calls a task done,
-such as your tests and linter. Yours, named in your instructions for the
-agent; without any, a session checks with the tests it wrote.
+such as your tests and linter. Yours, listed under
+[`commands.gate`](configuration.md#commandsgate) in your settings and run
+by `factory gate`. A build cannot finish without one.
 
 **Hook.** A command the coding agent runs at a set moment in a session,
 such as before a shell command. The factory uses hooks to block risky
@@ -98,6 +103,11 @@ your machine or in the cloud.
 **Skill.** A set of instructions a session follows, named `factory-...`
 for the factory's own. You call one by asking a session in plain words,
 such as "refine ticket 12".
+
+**Slot.** One of the seven moments where the factory calls a plug-in, such
+as `reviewer`, for an agent that reads a finished change, or `refiner`,
+for a skill that refines a ticket in place of the factory's own.
+[Plug-ins](plugins.md#the-slots) lists them.
 
 **Spec.** A written statement of what a change must do. For most tickets
 that is the acceptance criteria. With OpenSpec turned on, a change your

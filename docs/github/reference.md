@@ -73,7 +73,7 @@ anything to do, and stops there when there is not.
 
 | Workflow                      | Starts on                                                       | What it does                                                                                                                                          |
 | ----------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory-check.yml`           | Every pull request                                              | Fails when the factory's files differ from what your settings and version would write                                                                 |
+| `factory-check.yml`           | Every pull request, and a push to the default branch            | Fails when the factory's files differ from what your settings and version would write                                                                 |
 | `factory-build.yml`           | The poller, `factory build N`, or by hand                       | Runs a session that builds the ticket                                                                                                                 |
 | `factory-review.yml`          | A review you submit on a pull request                           | Runs a session that answers it, when `factory pr review-pending N REVIEW` exits 0                                                                     |
 | `factory-conflicts.yml`       | A push to the default branch, nightly at 09:00 UTC, or by hand  | Runs the conflict sweep, when `factory pr conflicts` exits 0                                                                                          |
@@ -163,13 +163,13 @@ number, the last part of its address, is `tickets.board` in your settings.
 `sync` adds five hooks to `.claude/settings.json`. They run inside Claude
 Code sessions in this repository, not in your own terminal.
 
-| Hook                                                      | What it does                                                                                                                                                 |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Before a shell command                                    | Blocks a commit on your main branch, a push to it, and a force push. Runs your [`before-commit`](../configuration.md#before-commit) commands before a commit |
-| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                           |
-| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                        |
-| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                     |
-| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                       |
+| Hook                                                      | What it does                                                                                                                                                                     |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../configuration.md#commandsbefore-commit) commands before a commit |
+| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                               |
+| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                            |
+| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                         |
+| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                           |
 
 Claude Code protects `.claude/`, and an unattended run denies a write
 there that nothing approves. The fourth hook approves, only in a run the
@@ -223,9 +223,11 @@ still laid out as a valid Claude Code plugin, so loading the skills from
 it instead of copying them stays possible.
 
 **Your project's instructions** are its `CLAUDE.md` files: the one at the
-root, and any beside the code they govern. The skills read how to check a
-change, and the rules for each area, from them. `sync` adds one line to
-the root `CLAUDE.md`, which loads the factory's rules.
+root, and any beside the code they govern. The skills read the rules for
+each area from them. How to check a change is not there: it is
+[`commands.gate`](../configuration.md#commandsgate) in your settings.
+`sync` adds one line to the root `CLAUDE.md`, which loads the factory's
+rules.
 
 ## Dependency bots
 
@@ -270,9 +272,12 @@ factory.
 - GitHub switches off scheduled workflows in a public repository with no
   activity for 60 days.
 - GitHub limits how many jobs an account runs at the same time.
-- **A default branch not named `main` or `master` gets no conflict sweep
-  on a push.** A copied workflow cannot ask for the default branch's name.
-  It gets the nightly sweep, and can start one by hand.
+- **A workflow's trigger cannot ask for the default branch's name,** so
+  `factory sync` writes the name into the push triggers of
+  `factory-check.yml` and `factory-conflicts.yml`. After you rename the
+  default branch, `factory sync --check` fails until you run
+  `factory sync` again, and until then the conflict sweep runs nightly and
+  by hand, not on a push.
 - **Every review event costs a minute of Actions,** including the
   factory's own replies, which start runs that find nothing to do.
 - **A token from a GitHub App is not supported** for a build. The run asks

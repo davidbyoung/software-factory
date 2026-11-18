@@ -14,6 +14,12 @@ and every pull request's conversation through `factory pr`, so the skill
 works whatever the ticket system. A command that cannot read exits
 nonzero with the error: that is a failed read, never an empty answer.
 
+Every command a build runs is the settings' own: the gate, one test, an
+end-to-end spec, and the spec check each have a `factory` command below
+that runs what `.claude/factory.yaml` lists under `commands` and `specs`.
+The default branch's name is what `npx --no-install factory default-branch`
+prints, and the commands below write it as DEFAULT.
+
 ## How a build starts
 
 - **Local:** the owner tells a session to work an issue by number. The
@@ -73,6 +79,16 @@ It posts the stopped comment only while this session's claim is still
 live, and prints `not live; posted nothing` otherwise, so it never ends a
 newer session's claim. A dirty tree in step 1 is a pause for a live user,
 not a stop.
+
+**Right after `claimed`, and before the branch,** check that the settings
+name a gate:
+
+```bash
+npx --no-install factory config get commands.gate
+```
+
+When it prints nothing, stop as above, saying `commands.gate` is not set,
+so the build would have no way to check its work.
 
 **Before opening the pull request,** check the claim once more:
 
@@ -151,8 +167,9 @@ counts only for an issue that has:
 - the `follow-up` label, since the follow-ups issue's unchecked lines are
   its criteria.
 
-Without either, run `factory-refine` and stop: no claim, and nothing to
-release. Do not guess at what content should say or how a page
+Without either, run the refiner, the skill
+`npx --no-install factory plugins refiner` prints, and stop: no claim, and
+nothing to release. Do not guess at what content should say or how a page
 should behave.
 
 Otherwise, claim it now ("The claim"), then read on.
@@ -170,11 +187,24 @@ Otherwise, claim it now ("The claim"), then read on.
 - **Approved while a comment round waits on the owner:** the newest
   refinement marker on the issue is `<!-- work-status: waiting -->`.
   Approval means the round's defaults stand, along with the owner's
-  replies. After the claim, run `factory-refine` steps 4 and 5 first, posting
-  no refinement marker: fold the replies in and read the result for
-  readiness. If a reply raises a new decision, or the read finds a
+  replies. After the claim, first invoke the refiner, the skill
+  `npx --no-install factory plugins refiner` prints, with the Skill tool,
+  giving it the issue's number and the words "approved while
+  waiting: fold the owner's replies into the body, post no marker". For
+  `factory-refine` that is its steps 4 and 5: it folds the replies in and
+  reads the result for readiness. Then check that the body is one a build
+  can read:
+
+  ```bash
+  npx --no-install factory ticket refined N --check
+  ```
+
+  It prints `sound` and posts nothing. When it prints what the body is
+  missing instead, release the claim and stop, with its output in the
+  report. If a reply raises a new decision, or the read finds a
   question only the owner can answer, comment it on the issue, release
   the claim, and stop.
+
 - **Already done, or no longer true:** say so with the evidence, release
   the claim, and leave the issue open for the owner to close.
 
@@ -189,20 +219,20 @@ step 2 with the proposal and spec delta only, and step 4.
 
 First, `git status --short`. If it shows anything, stop and ask the user
 whether to commit it, on the current branch or on a new branch of its own if
-the current one is `main`, or to stash it with `git stash -u`. A plain
+the current one is the default branch, or to stash it with `git stash -u`. A plain
 `git stash` leaves untracked files behind. A switch carries
 uncommitted changes onto the new branch, where the issue's commit would sweep
 them into its PR, and refuses outright when a changed file differs between
 the branches.
 
-Then, from the latest origin/main, named for the issue:
+Then, from the latest default branch on `origin`, named for the issue:
 
 ```bash
 git fetch origin
-git switch -c issue-N-short-slug origin/main
+git switch -c issue-N-short-slug origin/DEFAULT
 ```
 
-If the branch you left has commits not on origin/main, name it in the
+If the branch you left has commits not on `origin/DEFAULT`, name it in the
 report, so that work is not lost.
 
 ## 2. Create the change from the issue (`spec`, or a Spec section)
@@ -237,7 +267,7 @@ validates and archives a change without `design.md` or `tasks.md`.
 Then check that every Spec line is exactly one scenario and every
 scenario is a Spec line. If one does not map, stop and comment on the
 issue with the line and why, rather than rewording it to fit. Run the
-spec check ("After every code change" in `CLAUDE.md`), and commit the
+spec check, `npx --no-install factory specs check`, and commit the
 change on its own.
 
 ## 3. Build it
@@ -247,9 +277,17 @@ Read the `CLAUDE.md` for the area first ("Rules by area" in `CLAUDE.md`).
 **A builder plug-in:** list them with
 `npx --no-install factory plugins builder`, which prints each one's
 labels. When the issue carries one of a builder's labels, invoke that skill
-with the Skill tool to build it, in place of the steps below. What its
-report says goes in the pull request body at step 6, where the owner reads
-it before merging.
+with the Skill tool to build it, in place of the steps below up to the
+reviewers. The reviewers still run on what it built, the test reviewers
+and the repository's own, and so does everything after them. Which
+reviewers those are is decided by the change's own path: a small change's
+by "Small changes" in `.claude/factory/rules.md`, content the repository
+reviews by what changed by that path in `CLAUDE.md`, and anything else by
+the items below. A reviewer
+the builder's report shows it already ran is not run again: its line in
+the pull request is the skip line "already run by the builder". What the
+builder's report says goes in the pull request body at step 6, where the
+owner reads it before merging.
 
 **Content the repository reviews by what changed:** when `CLAUDE.md` gives
 a kind of content its own path by what changed in it, an edit to that
@@ -262,11 +300,15 @@ content follows that path.
   and say why in the pull request.
 - Write the test first, where there is a defect to reproduce or a behavior
   to add, and watch it fail before making the change, as the area's rules
-  for tests say ("Rules by area" in `CLAUDE.md`).
+  for tests say ("Rules by area" in `CLAUDE.md`). One test runs alone with
+  `npx --no-install factory test-one FILE NAME`.
 - A small change takes the path in "Small changes" in
   `.claude/factory/rules.md` instead of the next two items.
-- Prove each new test can fail, by its red run or the `factory-mutate`
-  skill, and have `factory-test-reviewer` read them.
+- Prove each new test can fail, by its red run or the prover, the skill
+  `npx --no-install factory plugins prover` prints, and have each test
+  reviewer, the agents `npx --no-install factory plugins test-reviewer`
+  prints, read them: one listed with `files` only when the change touches
+  a file that matches them.
 - **The repository's own reviewers** are listed by
   `npx --no-install factory plugins reviewer`, each with its
   `files`. A reviewer is considered when a file the branch changed matches
@@ -288,7 +330,7 @@ content follows that path.
 Verify before archiving: for every scenario in the change's specs, name
 the test that exercises it, in which file, and run it. A scenario with no
 test gets one now; a scenario whose test cannot fail (its red run before
-the change shows, or `factory-mutate`) is not verified. Record the mapping in the pull request.
+the change shows, or the prover) is not verified. Record the mapping in the pull request.
 
 Then fold the change into the specs, as the last commit before the pull
 request:
@@ -297,15 +339,26 @@ request:
 DO_NOT_TRACK=1 npx --no-install openspec archive issue-N-short-slug --yes
 ```
 
-Then run the spec check ("After every code change" in `CLAUDE.md`).
+Then run the spec check, `npx --no-install factory specs check`.
 
 ## 5. Gate, commit, push
 
-Run the gate ("After every code change" in `CLAUDE.md`).
+Run the gate:
 
-Run the end-to-end specs the change added or changed, with
-`--repeat-each=10` for a new one, with the command "After every code
-change" in `CLAUDE.md` gives; CI runs the full suite on the draft (step 6).
+```bash
+npx --no-install factory gate
+```
+
+It runs each command under `commands.gate` in the settings, in order, and
+stops at the first that fails. When it says `commands.gate is not set`,
+stop: a build cannot finish until the settings name a gate.
+
+Run the end-to-end specs the change added or changed. Where
+`npx --no-install factory config get commands.end-to-end` prints a
+command, run each with `npx --no-install factory end-to-end FILE`, and a
+new one ten times, with `--times 10` after FILE. Where it prints `none`,
+run them the way the repository's `CLAUDE.md` says, or say there is no
+end-to-end suite. CI runs the full suite on the draft (step 6).
 Commit and push as "Branching, pushing, and review" in
 `.claude/factory/rules.md` describes: one commit per coherent change,
 describing the defect or the feature, not the issue number alone.

@@ -6,6 +6,7 @@ import {
   nextStep,
   type Bump,
 } from "../src/deps.mts";
+import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { memoryCodeHost, type PullSeed } from "./memory-code-host";
 
 const bump = (over: Partial<Bump> = {}): Bump => ({
@@ -36,6 +37,12 @@ const bump = (over: Partial<Bump> = {}): Bump => ({
 
 afterEach(() => vi.restoreAllMocks());
 
+/** The default branch, for a run that needs it and one that must not ask. */
+const onMain = async () => "main";
+const notAsked = async (): Promise<string> => {
+  throw new Error("the default branch was asked for");
+};
+
 describe("isMajor", () => {
   it.each([
     ["Bump jsdom from 30.1.3 to 31.0.0", true],
@@ -53,8 +60,10 @@ describe("nextStep", () => {
       checks: [{ id: 1, name: "E2E", status: "in_progress", conclusion: null }],
     });
 
-    expect(nextStep(running)).toBe("leave: checks still running");
-    expect(nextStep(bump({ mergeableState: "unknown" }))).toMatch(/^leave/);
+    expect(nextStep(running, "main")).toBe("leave: checks still running");
+    expect(nextStep(bump({ mergeableState: "unknown" }), "main")).toMatch(
+      /^leave/,
+    );
   });
 
   it("lists the merge, the fix, and the migration in step order", () => {
@@ -65,8 +74,14 @@ describe("nextStep", () => {
       ],
     });
 
-    expect(nextStep(failing)).toBe(
+    expect(nextStep(failing, "main")).toBe(
       "merge main (step 2); fix E2E (step 3); migrate (step 4)",
+    );
+  });
+
+  it("names the default branch in the merge step, whatever it is called", () => {
+    expect(nextStep(bump({ mergeableState: "dirty" }), "develop")).toBe(
+      "merge develop (step 2); migrate (step 4)",
     );
   });
 
@@ -78,11 +93,11 @@ describe("nextStep", () => {
       ],
     });
 
-    expect(nextStep(failing)).toMatch(/^stop/);
+    expect(nextStep(failing, "main")).toMatch(/^stop/);
   });
 
   it("waits on its merge when green and minor", () => {
-    expect(nextStep(bump({ major: false }))).toBe(
+    expect(nextStep(bump({ major: false }), "main")).toBe(
       "nothing: waits on its merge",
     );
   });
@@ -106,7 +121,7 @@ describe("formatBump", () => {
       ],
     });
 
-    expect(formatBump(rerun)[2]).toBe("  checks: passed");
+    expect(formatBump(rerun, "main")[2]).toBe("  checks: passed");
   });
 
   it("names the checks that failed and those still running", () => {
@@ -119,13 +134,15 @@ describe("formatBump", () => {
       ],
     });
 
-    expect(formatBump(mixed)[2]).toBe(
+    expect(formatBump(mixed, "main")[2]).toBe(
       "  checks: failed Unit tests, Types; running Browser tests",
     );
   });
 
   it("says when no check has started", () => {
-    expect(formatBump(bump({ checks: [] }))[2]).toBe("  checks: none started");
+    expect(formatBump(bump({ checks: [] }), "main")[2]).toBe(
+      "  checks: none started",
+    );
   });
 });
 
@@ -150,7 +167,7 @@ describe("main", () => {
     ]);
     const out: string[] = [];
 
-    await main(host.codeHost, (l) => out.push(l));
+    await main(host.codeHost, (l) => out.push(l), [], onMain);
 
     expect(out.filter((l) => l.startsWith("#"))).toEqual([
       "#8 Bump a from 1.0.0 to 1.0.1",
@@ -200,7 +217,7 @@ describe("main", () => {
     );
     const out: string[] = [];
 
-    expect(await main(host.codeHost, (l) => out.push(l))).toBe(0);
+    expect(await main(host.codeHost, (l) => out.push(l), [], onMain)).toBe(0);
     expect(out).toEqual([
       "#8 Bump jsdom from 30.1.3 to 31.0.0",
       "  major; head dependabot/jsdom at abcdef1; mergeable dirty; auto-merge on",
@@ -210,11 +227,65 @@ describe("main", () => {
     ]);
   });
 
+  const DIRTY = {
+    title: "Bump a from 1.0.0 to 1.0.1",
+    mergeableState: "dirty",
+  };
+
+  it("names the default branch in the merge step, whatever it is called", async () => {
+    const host = memoryCodeHost([dependabots(8, "2026-11-01", DIRTY)]);
+    const out: string[] = [];
+
+    await main(
+      host.codeHost,
+      (l) => out.push(l),
+      [],
+      async () => "develop",
+    );
+
+    expect(out.at(-1)).toBe("  next: merge develop (step 2)");
+  });
+
+  it("exits 1, naming the fix, when the default branch cannot be told", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const host = memoryCodeHost([dependabots(8, "2026-11-01", DIRTY)]);
+    const out: string[] = [];
+
+    const code = await main(
+      host.codeHost,
+      (l) => out.push(l),
+      [],
+      async () => {
+        throw new NoDefaultBranch();
+      },
+    );
+
+    expect(code).toBe(1);
+    expect(out).toEqual([]);
+    expect(error).toHaveBeenCalledWith(
+      "Could not tell the default branch. Run: git remote set-head origin --auto",
+    );
+  });
+
+  it("does not ask for the default branch with no dependency pull request open", async () => {
+    const out: string[] = [];
+
+    expect(
+      await main(memoryCodeHost([]).codeHost, (l) => out.push(l), [], notAsked),
+    ).toBe(0);
+    expect(out).toEqual(["no open Dependabot pull requests"]);
+  });
+
   describe("--any", () => {
     const run = async (list: PullSeed[]) => {
       const host = memoryCodeHost(list);
       const out: string[] = [];
-      const code = await main(host.codeHost, (l) => out.push(l), ["--any"]);
+      const code = await main(
+        host.codeHost,
+        (l) => out.push(l),
+        ["--any"],
+        notAsked,
+      );
       return { code, out, log: host.log };
     };
 
@@ -229,7 +300,7 @@ describe("main", () => {
       const host = memoryCodeHost([], {
         fail: { listOpen: new Error("HTTP 401") },
       });
-      const code = await main(host.codeHost, () => {}, ["--any"]);
+      const code = await main(host.codeHost, () => {}, ["--any"], notAsked);
       expect(code).toBe(2);
       expect(error).toHaveBeenCalledWith("HTTP 401");
       error.mockRestore();
@@ -247,7 +318,7 @@ describe("main", () => {
       fail: { listOpen: new Error("HTTP 401") },
     });
 
-    expect(await main(host.codeHost, () => {})).toBe(1);
+    expect(await main(host.codeHost, () => {}, [], onMain)).toBe(1);
     expect(error).toHaveBeenCalledWith("HTTP 401");
   });
 });

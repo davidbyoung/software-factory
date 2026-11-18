@@ -32,7 +32,7 @@ If you followed the quick start, this is done.
 1. Write `.claude/factory.yaml`, with your repository's owner and name:
 
    ```yaml
-   version: 1
+   version: 2
    repository: your-name/your-repo
    ```
 
@@ -47,14 +47,26 @@ If you followed the quick start, this is done.
    to `CLAUDE.md`; and writes the workflows under `.github/workflows/`.
    [What lives where](reference.md) names each.
 
-3. Say in your `CLAUDE.md` how to check a change, such as the commands for
-   your tests and linter. A build runs them.
-4. Optionally, list commands to run before every commit a session makes,
-   under [`before-commit`](../configuration.md#before-commit):
+3. List the commands that check a change, such as your tests and linter,
+   under [`commands.gate`](../configuration.md#commandsgate). A build runs
+   them, and cannot finish without them:
 
    ```yaml
-   before-commit:
-     - npm run lint
+   commands:
+     gate:
+       - npm test
+       - npm run lint
+   ```
+
+4. Optionally, list commands to run before every commit a session makes,
+   under
+   [`commands.before-commit`](../configuration.md#commandsbefore-commit),
+   in the same block:
+
+   ```yaml
+   commands:
+     before-commit:
+       - npm run lint
    ```
 
 5. Check, commit, and merge:
@@ -68,8 +80,9 @@ If you followed the quick start, this is done.
    gh pr create --fill
    ```
 
-   Merge the pull request on GitHub, then `git switch main && git pull`,
-   and start a new Claude Code session.
+   Merge the pull request on GitHub, then switch to your default branch
+   and pull, such as `git switch main && git pull`, and start a new Claude
+   Code session.
 
 **It worked when** typing `/factory` in the new session offers
 `/factory-refine` and `/factory-build`.
@@ -110,7 +123,7 @@ names, and `sync` writes all three:
        - npx tsc --noEmit
    ```
 
-   Each of `commands` is one the reviewer may run to confirm a finding,
+   Each command under it is one the reviewer may run to confirm a finding,
    such as your tests. To let it run nothing of yours, write the key
    alone, and it reads the pull request and comments:
 
@@ -177,7 +190,7 @@ it has work and its secrets:
 | ----------------------- | ------------------------------------------------------------------------------------ |
 | `factory-build.yml`     | builds a ticket                                                                      |
 | `factory-review.yml`    | answers a review you submit on a pull request                                        |
-| `factory-conflicts.yml` | resolves a conflict between a pull request and your main branch                      |
+| `factory-conflicts.yml` | resolves a conflict between a pull request and your default branch                   |
 | `factory-deps.yml`      | moves Dependabot's pull requests along, written once `.github/dependabot.yml` exists |
 
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`.

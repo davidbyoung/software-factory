@@ -11,9 +11,9 @@ starts from. Everything a conversation would have settled has to end up in
 its body. Work in two roles, each writing for its own reader:
 
 - **Product manager, writing for the owner.** Understands the business:
-  its audiences, what it offers them, and its guardrails, as `AGENTS.md`
-  and `CLAUDE.md` describe them. Challenges the ask
-  before refining it, ties each decision to a visitor or a cost, and asks
+  its audiences, what it offers them, and its guardrails, as `CLAUDE.md`
+  and the files it imports describe them. Challenges the ask
+  before refining it, ties each decision to a user or a cost, and asks
   the owner only what is the owner's to decide. The owner's time is the
   scarce part: they settle a round by choosing among options, and write
   only where none fits.
@@ -32,7 +32,7 @@ have yet.
 
 | Label       | Set by                             | Means                                                                            |
 | ----------- | ---------------------------------- | -------------------------------------------------------------------------------- |
-| `spec`      | this skill, in step 1              | a visitor would see the change, and it is not small                              |
+| `spec`      | this skill, in step 1              | a user would see the change, and it is not small                                 |
 | `follow-up` | whoever opens the follow-ups issue | the open checklist of follow-ups; see "Follow-ups" in `.claude/factory/rules.md` |
 
 Never remove `spec` once it is there, and never add it back to an issue
@@ -49,22 +49,35 @@ moves the card to Ready only when the owner asks:
 ```bash
 npx --no-install factory ticket refining N   # step 0, before reading anything else
 npx --no-install factory ticket waiting N    # after a comment round goes out
-npx --no-install factory ticket refined N [--before-file comment.md]   # every other stop
+npx --no-install factory ticket refined N [--before-file comment.md]   # a stop with a body a build can read
 npx --no-install factory ticket ready N      # only when the owner asks, in a local session
 ```
 
 `refined` with `--before-file` puts a closing comment's own text before
-its sentence, so a closing comment and the marker are one comment. Moving
+its sentence, so a closing comment and the marker are one comment.
+`refined` posts nothing and exits 1 when the body is not one a build can
+read, with one `missing:` line for each part: write those parts, then run
+it again. `refined N --check` makes the same check and posts nothing. A stop
+before the body is one a build can read, such as a question only the owner
+can answer in the session, posts `waiting`, not `refined`. Moving
 the card to Ready, or telling a local session to work the issue, is the
 owner's approval; this skill never does either on its own. When the owner
 asks this session to move the card to Ready, `ready` does it, as the
 owner's own move. Run `ready` only after the `refined`
 marker is posted: `refined` resets Ready, so a `refined` posted after the
 move puts the card back In refinement before the poller starts it. When
-`factory-build` runs
-steps 4 and 5 for an approved round, it posts none of these.
+`factory-build` invokes this skill for an approved round, with the words
+"approved while waiting: fold the owner's replies into the body, post no
+marker", it runs steps 4 and 5 only and posts none of these.
 
 ## 0. Read
+
+**A refiner plug-in replaces this skill.** Before anything else, run
+`npx --no-install factory plugins refiner`. When it prints a skill other
+than `factory-refine`, invoke that skill with the Skill tool, with the
+same ticket and words this one was given, and stop: the repository
+refines its own way, and what that skill must leave behind is in the
+factory's plug-ins guide.
 
 Post the `refining` marker first ("Labels and markers"), then:
 
@@ -77,7 +90,8 @@ DO_NOT_TRACK=1 npx --no-install openspec list --specs
 Read the open issues that touch the same code as this one, so step 2 can
 say whether either has to be built first.
 
-Read `AGENTS.md` and the `CLAUDE.md` for every area the issue touches.
+Read `CLAUDE.md`, the files it imports, and the `CLAUDE.md` for every area
+the issue touches.
 Search the code for what the issue would change, and read the spec under
 `openspec/specs/` for every capability it touches, so the questions, the
 spec, and the notes are about real files and real behavior.
@@ -107,22 +121,29 @@ assumption, or "n/a", never silently skipped.
 
 - **Problem and audience.** Who hits this, and what it costs them today.
   If a smaller change would solve the problem, propose it as question 1.
-- **Success.** How the owner will know it works once it ships: an
-  analytics event, something that arrives, a page that changes.
+- **Success.** How the owner will know it works once it ships: something
+  that arrives, or something a user sees change.
 - **Non-goals.** What it deliberately will not do, so the build does not
   gold-plate.
 - **Cost and limits.** Paid plans, quotas, and third-party limits the
   change touches. Check the provider's documentation first; ask only what
   the documentation cannot answer, such as which plan the owner is on.
-- **Privacy and guardrails.** Anything collected from a visitor and what it
-  is used for; the content guardrails in `AGENTS.md`.
-- **Voice.** Copy that speaks for the owner, such as a promise or a
-  thank-you, surfaced for sign-off.
+- **Guardrails.** The guardrails `CLAUDE.md` and the files it imports set
+  on what the change may say or do.
+- **On a website only,** which is when
+  `npx --no-install factory config get site` prints the site's settings
+  and not an error:
+  - **Voice.** Copy that speaks for the owner, such as a promise or a
+    thank-you, surfaced for sign-off.
+  - **Analytics.** The event that will show the owner the change works
+    once it ships.
+  - **Privacy.** Anything collected from the people who use the site and
+    what it is used for.
 - **What the owner receives.** An email, a report, a notification: show it
   filled in, field by field, with the exact links it carries.
 - **Owner-only steps.** Creating an account, a form, or a key. Say plainly
   that the build waits on it, and ask for the value it produces.
-- **Track.** Would a visitor see new or altered behavior, in a change
+- **Track.** Would a user see new or altered behavior, in a change
   that is not small ("Small changes" in `.claude/factory/rules.md`)? If so, and
   the spec track is on, and the issue has no `spec` label and never had one
   (`npx --no-install factory ticket label N --was-removed spec` prints
@@ -158,7 +179,7 @@ change, one requirement per line.
   side-by-side comparison (`factory-build` step 6) for anything else, such
   as terminal output, an email, or a comment, and the Spec says which.
   A decision that changes what a
-  visitor sees, such as an error message or what Cancel does, is a line,
+  user sees, such as an error message or what Cancel does, is a line,
   or the spec leaves it out.
 - **Every style a mockup introduces or changes is a line,** or a "Not
   doing" line: a color, a weight, an underline, a spacing, or a format
@@ -171,16 +192,17 @@ change, one requirement per line.
   count's format, and the header's underline, so its build shipped
   without them.
 - Spell out the behavior the request implied but did not state: errors,
-  empty input, the phone layout, keyboard use, print, content that appears
-  in more than one place.
+  empty input, keyboard use, content that appears in more than one place,
+  and each case the area's rules say a change must cover ("Rules by area"
+  in `CLAUDE.md`).
 
 On an issue without `spec`, write the same lines as a plain list headed
 "Acceptance criteria" instead of grouping them by capability. The one
 addition is a small change that makes a spec line false: put the
 changed line under "## Spec", by its capability, marked `(modified)`,
 above the criteria, so the owner approves it with the rest. Then stop
-here: no Design and no Tasks. The area's `CLAUDE.md`, `tests/CLAUDE.md`,
-and `AGENTS.md` already say where logic goes, how tests are written, and
+here: no Design and no Tasks. The area's rules ("Rules by area" in
+`CLAUDE.md`) already say where logic goes, how tests are written, and
 what a page must look like, so a Design section for a bug or a style
 tweak restates them, and `factory-build` builds from the criteria. Put what
 Dependencies would hold, the build order and each owner-only step with
@@ -190,16 +212,17 @@ track.
 **Design**, for §5, one subheading each:
 
 - **Where it goes.** The files and components it touches, and the
-  existing pattern each change follows (a `.ts` sibling for logic, per
-  `AGENTS.md`; the page objects for tests).
+  existing pattern each change follows, as the area's rules name it
+  ("Rules by area" in `CLAUDE.md`).
 - **Contracts.** Field names and values sent anywhere, environment
   variables and where each is set (the build's config, the deploy's), URL
   and anchor formats, analytics event names.
-- **States.** Every state the UI can be in, as the discriminated union the
-  repository uses, and what moves it from one to the next.
+- **States.** Every state the change's surface can be in, written the way
+  the repository's code already models state, and what moves it from one
+  to the next.
 - **Edge cases.** Content that appears in more than one place, filters and
   query strings, empty and long input, slow or failed network, repeated
-  clicks, keyboard and screen-reader use, phone width, print.
+  clicks, and keyboard and screen-reader use.
 - **Risks and rollback.** What could go wrong in production, and the first
   thing to change if it does.
 - **Dependencies.** Each owner-only step from step 1, with its value once
@@ -217,9 +240,10 @@ says how to verify it.
   collected into a group at the end. Coverage must not drop.
 - **A verify task** maps every Spec line to the test that exercises it,
   and names any line without one so the build writes it.
-- **A last group** runs the new end-to-end specs with `--repeat-each=10`
-  and the gate ("After every code change" in `CLAUDE.md`). CI runs the
-  full end-to-end suite on the draft.
+- **A last group** runs each new end-to-end spec ten times, with
+  `npx --no-install factory end-to-end FILE --times 10`, and the gate,
+  `npx --no-install factory gate`. CI runs the full end-to-end suite on
+  the draft.
 
 ## 3. Settle it with the owner
 
@@ -235,7 +259,7 @@ decision in them.
 **A change to the look gets a mockup; an invisible change gets none.**
 A small change gets none either; how it shows its choices is "Small
 changes" in `.claude/factory/rules.md`.
-When a Decision changes what a visitor sees, invoke the mockups skill,
+When a Decision changes what a user sees, invoke the mockups skill,
 the one `npx --no-install factory plugins mockups` prints, with the
 Skill tool to make the mockup, rather than working from memory of it,
 because a layout or style choice described in words is one the owner has
@@ -259,7 +283,7 @@ cannot settle.
    sample of anything the owner receives in the message.
 2. Ask the decisions with `AskUserQuestion`, one question per decision,
    four to a call. Put the default first, marked "(Recommended)", and say
-   in each option's description what the visitor or the owner would see.
+   in each option's description what the user or the owner would see.
    Ask for any value the build needs from an owner-only step, such as a
    form's address, as its own question; the owner types it as "Other".
 3. Then put the Spec lines, the assumptions, and the non-goals in a

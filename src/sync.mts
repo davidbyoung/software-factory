@@ -7,8 +7,10 @@
 //   factory sync           # write what differs
 //   factory sync --check   # write nothing; exit 1 naming what differs
 //
-// A copy is the source, byte for byte: edit the source in the package, never
-// the copy. A file the lock lists that the package no longer has is
+// A copy is the source, byte for byte but for what the settings and the
+// repository decide: the minutes a session may run, the poller's schedule,
+// the rules' numbers, and the default branch's name in the push triggers.
+// Edit the source in the package, never the copy. A file the lock lists that the package no longer has is
 // deleted. Nothing else is.
 import {
   existsSync,
@@ -30,6 +32,11 @@ import {
   type SessionKind,
   type Settings,
 } from "./config.mts";
+import {
+  branchDeps,
+  CANNOT_TELL,
+  defaultBranch,
+} from "./lib/default-branch.mts";
 
 /** The package's own folder: the parent of `src/`, or of `dist/` once
  * compiled. */
@@ -53,6 +60,7 @@ type Has = (path: string) => boolean;
 const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
   "skills/factory-design": (s) => s.site !== null,
   "agents/factory-ui-reviewer.md": (s) => s.site !== null,
+  "agents/factory-e2e-reviewer.md": (s) => s.commands.endToEnd !== null,
   "skills/factory-deps": (_, has) => has(DEPENDABOT),
   "workflows/factory-deps.yml": (_, has) => has(DEPENDABOT),
   "workflows/factory-deps-auto-merge.yml": (_, has) => has(DEPENDABOT),
@@ -74,6 +82,28 @@ export function withSchedule(text: string, minutes: number, file: string) {
     );
   const cron = minutes === 60 ? "0 * * * *" : `*/${minutes} * * * *`;
   return text.replace(pattern, (_, lead) => `${lead}"${cron}"`);
+}
+
+/** The workflows whose push trigger names the default branch. A workflow
+ * cannot ask for it in a trigger, so the sync writes it there. */
+const PUSH_WORKFLOWS = [
+  "workflows/factory-check.yml",
+  "workflows/factory-conflicts.yml",
+];
+
+/** A workflow with the one `branches:` line of its push trigger naming the
+ * default branch and nothing else. */
+export function withDefaultBranch(text: string, name: string, file: string) {
+  const pattern = /^(\s+branches: )\[[^\]\n]*\]$/gm;
+  if ((text.match(pattern) ?? []).length !== 1)
+    throw new Error(
+      `${file}: expected one branches line, to set the push trigger's branch`,
+    );
+  // Plain where YAML reads the name as text, quoted otherwise.
+  const written = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(name)
+    ? name
+    : JSON.stringify(name);
+  return text.replace(pattern, (_, lead) => `${lead}[${written}]`);
 }
 
 /** The workflows that run a Claude session, by the kind of session each
@@ -417,15 +447,24 @@ export type Plan = {
   remove: string[];
 };
 
-/** What a sync of `root` from `pkg` writes and deletes. */
-export function plan(pkg: string, root: string, s: Settings): Plan {
+/** What a sync of `root` from `pkg` writes and deletes, in a repository
+ * whose default branch is `branch`. */
+export function plan(
+  pkg: string,
+  root: string,
+  s: Settings,
+  branch: string,
+): Plan {
   const manifest = JSON.parse(readFileSync(join(pkg, "package.json"), "utf8"));
   const read = (p: string) =>
     existsSync(join(root, p)) ? readFileSync(join(root, p), "utf8") : null;
   const write = new Map<string, string>();
   const has = (p: string) => existsSync(join(root, p));
   for (const [from, to] of copies(pkg, s, has)) {
-    const text = readFileSync(join(pkg, from), "utf8");
+    const source = readFileSync(join(pkg, from), "utf8");
+    const text = PUSH_WORKFLOWS.includes(from)
+      ? withDefaultBranch(source, branch, from)
+      : source;
     const kind = SESSION_WORKFLOWS[from.replace(/^workflows\//, "")];
     write.set(
       to,
@@ -466,6 +505,8 @@ export async function main(
     root: string;
     pkg: string;
     settings: () => Promise<Settings>;
+    /** The repository's default branch, or null when it cannot be told. */
+    defaultBranch: () => Promise<string | null>;
     out: (line: string) => void;
     err: (line: string) => void;
   },
@@ -478,7 +519,14 @@ export async function main(
     d.err(e instanceof Error ? e.message : String(e));
     return 1;
   }
-  const p = plan(d.pkg, d.root, s);
+  // Nothing is written with a guessed name: a push trigger that names the
+  // wrong branch never runs.
+  const branch = await d.defaultBranch();
+  if (branch === null) {
+    d.err(CANNOT_TELL);
+    return 1;
+  }
+  const p = plan(d.pkg, d.root, s, branch);
   const differ = differences(d.root, p);
   if (check) {
     if (differ.length === 0) return 0;
@@ -508,6 +556,7 @@ export async function run(argv: string[]): Promise<number> {
     root,
     pkg: PACKAGE,
     settings: () => loadSettings(defaultDeps(root)),
+    defaultBranch: () => defaultBranch(branchDeps(root)),
     out: (line) => console.log(line),
     err: (line) => console.error(line),
   });

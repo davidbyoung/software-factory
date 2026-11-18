@@ -21,6 +21,12 @@ import {
   type Part,
 } from "./parts.mts";
 import type { Check, Chosen, SetupContext } from "./setup.mts";
+import {
+  branchDeps,
+  CANNOT_TELL,
+  needDefaultBranch,
+  NoDefaultBranch,
+} from "./lib/default-branch.mts";
 import { differences, LOCK, PACKAGE, plan } from "./sync.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 
@@ -28,8 +34,9 @@ export type { Check } from "./setup.mts";
 
 export type DoctorDeps = {
   settings: () => Promise<Settings>;
-  /** The paths a sync would change. */
-  outOfStep: (s: Settings) => string[];
+  /** The paths a sync would change. It rejects with NoDefaultBranch when
+   * the default branch, which the sync writes, cannot be told. */
+  outOfStep: (s: Settings) => Promise<string[]> | string[];
   /** The version installed, and the one the repository's lock records. */
   versions: () => { installed: string; locked: string | null };
   root: string;
@@ -65,14 +72,19 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   }
   out.push({ state: "pass", text: "The settings are valid" });
 
-  const differ = d.outOfStep(s);
+  let differ: string[] | null = null;
+  try {
+    differ = await d.outOfStep(s);
+  } catch (e) {
+    if (!(e instanceof NoDefaultBranch)) throw e;
+  }
   out.push(
-    differ.length === 0
+    differ?.length === 0
       ? { state: "pass", text: "The factory's files match the settings" }
       : {
           state: "fail",
           text: "The factory's files match the settings",
-          fix: `${differ.length} differ. ${SYNC}`,
+          fix: differ ? `${differ.length} differ. ${SYNC}` : CANNOT_TELL,
         },
   );
 
@@ -160,6 +172,13 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     for (const need of needed.filter((n) => n.part === part))
       out.push(secretLine(need.anyOf, forPart));
   }
+  // A gate is no part and fails no check: it is shown as off, since a
+  // build cannot finish without one.
+  if (s.commands.gate.length === 0)
+    out.push({
+      state: "off",
+      text: "commands.gate is not set: a build cannot finish until it is",
+    });
   if (secrets !== null)
     for (const need of needed.filter((n) => n.part === null))
       out.push(secretLine(need.anyOf, need.tool));
@@ -192,7 +211,11 @@ export function doctorDeps(root = repoRoot()): DoctorDeps {
   const settings = () => loadSettings(defaultDeps(root));
   return {
     settings,
-    outOfStep: (s) => differences(root, plan(PACKAGE, root, s)),
+    outOfStep: async (s) =>
+      differences(
+        root,
+        plan(PACKAGE, root, s, await needDefaultBranch(branchDeps(root))),
+      ),
     versions: () => {
       const installed = JSON.parse(
         readFileSync(join(PACKAGE, "package.json"), "utf8"),

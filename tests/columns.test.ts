@@ -68,7 +68,7 @@ const issue = (
 
 /** GitHub's stock board, and the mapping a repository writes for it. */
 const STOCK_YAML = {
-  version: 1,
+  version: 2,
   repository: "acme/widgets",
   tickets: {
     board: 7,
@@ -112,7 +112,7 @@ const withCards = (
 });
 
 describe("tickets.columns and tickets.fields in the settings", () => {
-  const base = { version: 1, repository: "o/n", tickets: { board: 3 } };
+  const base = { version: 2, repository: "o/n", tickets: { board: 3 } };
   const withTickets = (tickets: object, builds?: object) => ({
     ...base,
     tickets: { board: 3, ...tickets },
@@ -216,13 +216,13 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       ];
     };
     const [a, outA] = d(
-      "version: 1\nrepository: o/n\ntickets:\n  board: 1\n  columns:\n    ready: Ready for dev\n",
+      "version: 2\nrepository: o/n\ntickets:\n  board: 1\n  columns:\n    ready: Ready for dev\n",
     );
     await configMain(["get", "tickets.columns.ready"].slice(1), a);
-    const [b, outB] = d("version: 1\nrepository: o/n\ntickets:\n  board: 1\n");
+    const [b, outB] = d("version: 2\nrepository: o/n\ntickets:\n  board: 1\n");
     await configMain(["tickets.columns.done"], b);
     const [c, outC] = d(
-      "version: 1\nrepository: o/n\ntickets:\n  board: 1\n  columns:\n    ready: none\n",
+      "version: 2\nrepository: o/n\ntickets:\n  board: 1\n  columns:\n    ready: none\n",
     );
     await configMain(["tickets.columns.ready"], c);
     expect([outA, outB, outC]).toEqual([["Ready for dev"], ["Done"], ["none"]]);

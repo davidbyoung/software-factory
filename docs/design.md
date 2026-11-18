@@ -68,10 +68,23 @@ differently from one day to the next.
 
 ## The order of the workflow is fixed
 
-You can turn parts off and add reviewers. You cannot reorder the states or
-add one. Mapping names is cheap to support. Every extra shape of workflow
-is one more path each skill has to handle correctly, and a skill is
-instructions, which cannot be unit tested.
+You can turn parts off in [the settings](configuration.md), such as
+written specs or the automated review, and a [plug-in](plugins.md) of yours can take a
+step over: how a ticket is refined, how a ticket with one of your labels
+is built, how a test is proved able to fail, which agents read the tests
+and the change, and how a generated file is rebuilt after a conflict. You
+cannot reorder the six states, add one, or leave one out.
+
+A step can be replaced because what it hands to the next one can be
+written down, and the part a build depends on is checked by a script: a
+refined ticket is refused until its body has the sections a build reads,
+whichever skill refined it. So whatever does a step, the next step reads
+the same thing.
+
+The order is another matter. Mapping names is cheap to support, which is
+why a board's columns can be yours. Every extra shape of workflow is one
+more path each skill has to handle correctly, and a skill is instructions,
+which cannot be unit tested.
 
 ## Small problems go on one checklist
 

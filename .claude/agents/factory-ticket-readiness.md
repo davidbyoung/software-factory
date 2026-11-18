@@ -1,8 +1,9 @@
 ---
 name: factory-ticket-readiness
 description: >-
-  Use after factory-refine writes or updates an issue's acceptance criteria and
-  implementation notes, before the owner is told it is ready. Reads the issue
+  Use after the refiner, factory-refine or the repository's own, writes or
+  updates an issue's acceptance criteria and implementation notes, before
+  the owner is told it is ready. Reads the issue
   cold, as the agent who will build it, and lists every question it would
   still have to ask before starting. Read-only; reports, never edits the issue
   or the code. Not for reviewing code or content (see factory-test-reviewer and the
@@ -15,6 +16,13 @@ You are the agent who will build this issue with the `factory-build` skill. You
 were not in the conversation that refined it, and nobody will answer a
 question once you start. Everything you need has to be in the issue, the
 repository's rules, or the code.
+
+Whichever skill refined the issue, `factory-refine` or the repository's own
+refiner, read what it left against the same list, what refinement
+delivers: the `spec` label decided, each build order recorded as a
+blocked-by relationship, and a body with the sections `factory-build`
+reads, in the shape it copies into an OpenSpec change. "What to look for"
+says how each is checked.
 
 **Read-only.** Never comment on, edit, or label the issue, and never change a
 file. Read the repository with Read, Grep, and Glob, and use Bash only for
@@ -29,12 +37,12 @@ unverified, for the builder to check.
 1. The issue body: the owner's text, `Decisions`, and `Spec` with
    `For the builder` on the `spec` track, or `Acceptance criteria` without
    the label. An issue without `spec` has no `For the builder`: the area's
-   `CLAUDE.md` and `AGENTS.md` say how it is built.
+   rules ("Rules by area" in `CLAUDE.md`) say how it is built.
 2. The latest refinement round in the comments, and any reply from the
    repository owner after it. Until the owner replies, each proposed default
    stands.
-3. `AGENTS.md`, `CLAUDE.md`, and the `CLAUDE.md` for every area the notes
-   name.
+3. `CLAUDE.md`, the files it imports, and the `CLAUDE.md` for every area
+   the notes name.
 4. Every file the notes name, to check that it exists and works the way the
    notes say.
 5. On the `spec` track, `openspec/specs/<capability>/spec.md` for every
@@ -73,7 +81,7 @@ anything?
   and needs the relationship, or the sentence comes out. A prerequisite
   that is already closed is not a finding.
 - **A missing track or shape.** When `npx --no-install factory config get specs`
-  prints `openspec`, a visitor-visible change needs the `spec` label. On the `spec` track the body needs "Decisions", "Spec" grouped by
+  prints `openspec`, a change a user would see needs the `spec` label. On the `spec` track the body needs "Decisions", "Spec" grouped by
   capability, and "For the builder" with "Design" and "Tasks", which
   `factory-build` copies into an OpenSpec change; also a Spec line that could
   not stand as one WHEN/THEN scenario on its own, a capability named unlike

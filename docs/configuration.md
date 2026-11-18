@@ -13,8 +13,10 @@ page explains every key, then shows three complete files.
 - **Paths are glob patterns.** `*` matches within one folder, `**` matches
   across folders, and both match names that start with a dot. A pattern with
   no wildcard matches that one path from the repository's root.
-- **A part you can swap is a block with a `type`.** Today each has one type.
-  When a part has no settings of its own, you may write it as one word:
+- **A command is one line of shell.** Each runs with bash from the
+  repository's root, with nothing on its standard input.
+- **A part you can swap is a block with a `type`.** When you write nothing
+  else under it, you may write it as one word:
 
   ```yaml
   specs: openspec
@@ -33,18 +35,26 @@ page explains every key, then shows three complete files.
 ## The shortest file
 
 ```yaml
-version: 1
+version: 2
 repository: your-name/your-repo
 ```
 
-With this, sessions refine and build tickets when you tell them to, nothing
-merges without you, and there is no board.
+With this, sessions refine tickets when you tell them to, nothing merges
+without you, and there is no board. A build needs one more key, the gate,
+which is the first entry below.
 
 ## The settings most repositories change
 
-Most repositories change three things, and leave every other key at its
-default.
+One key is required for a build: [`commands.gate`](#commandsgate). Most
+repositories set it and the four other things below, and leave every other
+key at its default.
 
+- **The gate,** the commands that check a change, such as your tests and
+  your linter. A build cannot finish without it. List them under
+  `commands.gate`.
+- **The checks before every commit,** the quick ones of the gate, such as
+  your formatter. List them under
+  [`commands.before-commit`](#commandsbefore-commit).
 - **A board,** to see every ticket's state. Set `tickets.board` to your
   board's number, and when your columns have other names, map them under
   `tickets.columns`. [`tickets`](#tickets) has both. On GitHub,
@@ -52,12 +62,9 @@ default.
   them.
 - **What merges without you.** List the files that may under
   `auto-merge.allow`, such as your docs. [`auto-merge`](#auto-merge).
-- **Your own reviewers.** An agent of yours, listed under `plugins` with
-  the files it reads. [`plugins`](#plugins), and
-  [Plug-ins](plugins.md) for a worked example.
-
-The commands to run before each commit, [`before-commit`](#before-commit),
-are the fourth most repositories set.
+- **Your own reviewers.** An agent of yours, listed under
+  `plugins.build.reviewers` with the files it reads.
+  [`plugins`](#plugins), and [Plug-ins](plugins.md) for a worked example.
 
 After any change, run `factory config check`, and
 `factory sync`, which rewrites the files a change of
@@ -68,13 +75,16 @@ are read from the settings each time.
 
 ### `version`
 
-The shape of this file, not the factory's version. It is `1`. It changes
-only when keys are renamed or moved, and an [update](updating.md) converts
-your file when it does.
+The shape of this file, not the factory's version. It is `2`. It changes
+only when keys are renamed or moved. No command converts a file: the
+release that changes the shape says so, and
+[Updating](updating.md#moving-to-settings-version-2) shows each key that
+moved, before and after.
 
 - **Default:** none. Setup writes it.
-- **If wrong:** every command of the factory stops and says which versions it
-  understands.
+- **If wrong:** every command of the factory that reads the settings stops
+  with `version: must be 2`. For a version 1 file it adds where the move
+  is described.
 
 ### `repository`
 
@@ -265,51 +275,112 @@ with `github-action`.
 
 ### `specs`
 
-How the written spec for a change your visitors or users will see is kept.
+How the written spec for a change your users will see is kept, and the
+command that checks it.
 
 ```yaml
 specs: openspec
 ```
 
-| Allowed    | Meaning                                                                   |
+| `type`     | Meaning                                                                   |
 | ---------- | ------------------------------------------------------------------------- |
 | `none`     | The ticket's acceptance criteria are the only spec                        |
 | `openspec` | A visible, non-trivial change also adds its behavior to `openspec/specs/` |
 
 - **Default:** `none`.
+- **Written as one word,** as above, or as a block with `type`, which is
+  how you also set `check`, the next entry.
 - **If you set `openspec` without OpenSpec installed:** a build of a visible
   change stops at its first spec step and says so.
+- `factory config get specs` prints `openspec` or `none`, whichever way it
+  is written.
 
-### `before-commit`
+#### `specs.check`
 
-Commands run, in order, before every commit a session makes. If one fails,
-the commit is blocked and the session is shown the output.
+The command that says whether the written specs are sound.
+`factory specs check` runs it, and a build runs that each time it writes a
+spec or folds one into `openspec/specs/`.
 
 ```yaml
-before-commit:
-  - npm run -s format:check
-  - npx tsc --noEmit
-  - npm run -s lint
+specs:
+  type: openspec
+  # The command "factory specs check" runs. This is its default.
+  check: npx --no-install openspec validate --all --strict --no-interactive
 ```
 
-- **Default:** none. Setup proposes some from your `package.json`,
-  `composer.json`, or Makefile, and asks.
-- **Keep them fast.** They run on every commit. Your full test suite belongs
-  in the gate your agent's instructions name, which a session runs before it
-  reports a task done, and in CI.
-- **If one is wrong:** every commit is blocked with that command's error.
+- **Default:** the command above, when `type` is `openspec`. Most
+  repositories leave it out.
+- **It runs with `DO_NOT_TRACK=1` in its environment,** so OpenSpec
+  collects no usage statistics, and exits with the command's own status.
+- **With `specs: none`,** there is nothing to check: `factory specs check`
+  prints `specs are off` and exits 0. Writing `check` there fails
+  `factory config check` with `specs.check needs specs.type: openspec`.
+- `factory config get specs.check` prints the command, or `none`.
 
-### `build-setup`
+### `commands`
 
-Commands run, in order, from the repository's root before a build in the
-cloud starts work. Your npm dependencies are already installed by then,
-with `npm ci`.
+The commands a session runs that are your repository's own: how it is set
+up, checked, and tested. The factory's skills name no test runner and no
+linter. They run `factory gate`, `factory test-one`, and the rest, and
+those run what you write here.
 
 ```yaml
-# Commands run from the repository's root before an unattended build starts
-# work. Your npm dependencies are already installed by then.
-build-setup:
-  - npx playwright install --with-deps chromium
+# Every command a build runs, each from the repository's root.
+commands:
+  # Before an unattended build starts work.
+  build-setup:
+    - npx playwright install --with-deps chromium
+  # Before every commit a session makes.
+  before-commit:
+    - npm run -s format:check
+    - npx tsc --noEmit
+  # Before a session reports a task done. "factory gate" runs them in order.
+  gate:
+    - npm run check
+  # One test alone. "factory test-one" sets $FILE and $NAME.
+  test-one: npx vitest run $FILE -t "$NAME"
+  # One end-to-end spec alone. "factory end-to-end" sets $FILE.
+  end-to-end: npx playwright test $FILE
+  # Coverage, and where its lcov report lands.
+  coverage:
+    run: npm run coverage
+    report: coverage/lcov.info
+  # Rebuilds the lock file after a conflict in it.
+  relock: npm install
+```
+
+| Key             | Takes                       | Default       | Run by                                                |
+| --------------- | --------------------------- | ------------- | ----------------------------------------------------- |
+| `build-setup`   | A list of commands          | none          | The cloud runner, before an unattended session starts |
+| `before-commit` | A list of commands          | none          | A hook, before every commit a session makes           |
+| `gate`          | A list of commands          | none          | `factory gate`                                        |
+| `test-one`      | One command                 | not set       | `factory test-one FILE [NAME]`                        |
+| `end-to-end`    | One command                 | not set       | `factory end-to-end FILE [--times K]`                 |
+| `coverage`      | A block, `run` and `report` | not set       | A session judging a pull request's coverage           |
+| `relock`        | One command                 | `npm install` | A session, after a conflict in the lock file          |
+
+- **Only `gate` is needed for a build.** Each of the others turns
+  something on, and its entry says what a session does without it.
+- **A list runs in order and stops at the first command that fails.**
+- **`factory config check` fails, naming the key,** on a list that is not a
+  list of text, on a single command that is not text or is empty, and on a
+  `coverage` block missing `run` or `report`.
+- `factory config get commands.gate` prints one command per line, and
+  nothing for an empty list. A single command prints itself, or `none`
+  when it is not set, and so do `commands.coverage.run` and
+  `commands.coverage.report`.
+
+#### `commands.build-setup`
+
+Commands run, in order, before a build in the cloud starts work. Your npm
+dependencies are already installed by then, with `npm ci`.
+
+```yaml
+commands:
+  # Commands run from the repository's root before an unattended build
+  # starts work. Your npm dependencies are already installed by then.
+  build-setup:
+    - npx playwright install --with-deps chromium
 ```
 
 - **Default:** none.
@@ -317,8 +388,133 @@ build-setup:
   such as a browser for end-to-end tests or a system package.
 - **If one fails:** the run stops before the session starts, with that
   command's output in its log.
-- `factory config get build-setup` prints one command per
-  line.
+
+#### `commands.before-commit`
+
+Commands run, in order, before every commit a session makes. If one fails,
+the commit is blocked and the session is shown the output.
+
+```yaml
+commands:
+  before-commit:
+    - npm run -s format:check
+    - npx tsc --noEmit
+    - npm run -s lint
+```
+
+- **Default:** none.
+- **Keep them fast.** They run on every commit. Your full test suite
+  belongs in [`commands.gate`](#commandsgate), which a session runs once
+  before it reports a task done, and in CI.
+- **They apply to a session's commits,** not to the ones you make in your
+  own terminal.
+- **If one is wrong:** every commit a session makes is blocked with that
+  command's error.
+
+#### `commands.gate`
+
+The commands that check a change, in order: what has to pass before a
+session reports a task done or opens a pull request. `factory gate` runs
+them, printing `$` and the command before each one.
+
+```yaml
+commands:
+  gate:
+    - npm run check
+```
+
+- **Default:** none, and nothing stands in for it. With no gate,
+  `factory gate` fails with
+  `commands.gate is not set: add the commands that check a change to .claude/factory.yaml`,
+  and a build stops there: a gate that passed because it was empty would
+  look the same as one that passed. `factory init` lists it under "Left to
+  do", and `factory doctor` shows it as off.
+- **What goes here:** what your CI runs on a pull request, short of
+  anything too slow for a session to wait on: the format check, the type
+  check, lint, and the unit tests. Any command works, such as
+  `composer test`, `make check`, or `go vet ./...`.
+- **If one fails:** `factory gate` runs none after it, prints
+  `gate failed on:` and the command, and exits 1. The session fixes the
+  cause and runs the gate again.
+
+#### `commands.test-one`
+
+Runs one test file alone, or one test in it. `factory test-one FILE NAME`
+runs it with `FILE` and `NAME` in its environment, the way
+[`site.start`](#site) gets `$PORT`. `NAME` is empty when only a file is
+given, so write the command to run the whole file then.
+
+```yaml
+commands:
+  # One test alone. An empty NAME runs the whole file.
+  test-one: npx vitest run $FILE -t "$NAME"
+```
+
+- **Default:** not set.
+- **What it is for:** watching a new test fail before the change, proving
+  a test can fail, and the loop a session builds to find a bug's cause.
+- **Without it,** `factory test-one` fails with
+  `commands.test-one is not set`, and a session is left to find its own
+  way to run one test.
+- **It exits with the command's own status.**
+
+#### `commands.end-to-end`
+
+Runs one end-to-end spec alone. `factory end-to-end FILE` runs it with
+`FILE` in its environment. With `--times K` it runs K times in a row,
+stops at the first run that fails, and says which, as
+`failed on run 3 of 10`: a build runs each new spec ten times, since a
+spec that fails one run in ten fails someone's pull request.
+
+```yaml
+commands:
+  end-to-end: npx playwright test $FILE
+```
+
+- **Default:** not set. Leave it out of a repository with no end-to-end
+  suite.
+- **Setting it also brings `factory-e2e-reviewer`,** the built-in agent
+  that reads browser end-to-end tests, in two steps:
+  1. Set this key and run `factory sync`, which writes the agent.
+  2. List it under [`plugins.test.reviewers`](#pluginstest), where it
+     runs. That list is the whole list, so list `factory-test-reviewer`
+     there too: listing `factory-e2e-reviewer` alone drops it.
+- **Without it,** `factory end-to-end` fails with
+  `commands.end-to-end is not set`.
+- **Run `factory sync` after adding or removing it.**
+
+#### `commands.coverage`
+
+The command that measures test coverage, and where its lcov report lands.
+A session working a pull request's review runs `run` and reads `report` to
+find the changed lines no test covers.
+
+```yaml
+commands:
+  coverage:
+    run: npm run coverage
+    report: coverage/lcov.info
+```
+
+- **Default:** not set. A session then judges no coverage.
+- **Both keys are required** once `coverage` is written.
+
+#### `commands.relock`
+
+The command that rebuilds your package manager's lock file. After a
+conflict in the lock file, a session takes the default branch's copy and
+runs this, in place of merging the file by hand. A session also runs it to
+install dependencies in a checkout it made.
+
+```yaml
+commands:
+  relock: npm install
+```
+
+- **Default:** `npm install`, since the factory itself is installed with
+  npm and every repository has that lock file.
+- **Any other generated file** that conflicts is a
+  [resolver plug-in's](#pluginsconflicts).
 
 ### `session-minutes`
 
@@ -332,12 +528,12 @@ session-minutes:
   build: 300
 ```
 
-| Key            | The session                                   | Default |
-| -------------- | --------------------------------------------- | ------- |
-| `build`        | A build of a ticket                           | `230`   |
-| `conflicts`    | A fix of a pull request's conflicts with main | `110`   |
-| `review`       | An answer to your review of a pull request    | `50`    |
-| `dependencies` | Work on the dependency pull requests          | `50`    |
+| Key            | The session                                                 | Default |
+| -------------- | ----------------------------------------------------------- | ------- |
+| `build`        | A build of a ticket                                         | `230`   |
+| `conflicts`    | A fix of a pull request's conflicts with the default branch | `110`   |
+| `review`       | An answer to your review of a pull request                  | `50`    |
+| `dependencies` | Work on the dependency pull requests                        | `50`    |
 
 - **Each is a whole number above zero.** A key you leave out keeps its
   default.
@@ -356,45 +552,138 @@ session-minutes:
 
 ### `plugins`
 
-Your own skills and agents, and the job each does. Refining, building, and
-reviewing tests are built in; these add to them.
+Your own skills and agents, grouped by the phase of the work each is called
+in: `refine`, `build`, `test`, and `conflicts`. Under each phase are its
+slots, the moments where the factory hands off. Every slot is optional, and
+leaving one out never turns a step off: the factory's own skill or agent
+does it. [Plug-ins](plugins.md) says what each slot is handed and what it
+has to return.
 
 ```yaml
+# Your own skills and agents, by phase. Every slot is optional.
 plugins:
-  - skill: design-mockups
-    role: mockups
-  - skill: add-endpoint
-    role: builder
-    labels:
-      - new-endpoint
-  - agent: migration-reviewer
-    role: reviewer
-    files:
-      - db/migrations/**
+  refine:
+    # Replaces factory-refine. Must deliver what the build reads.
+    refiner:
+      skill: acme-refine
+    # Makes pictures when a decision changes the look. One only.
+    mockups:
+      skill: design-mockups
+  build:
+    # Each builds a ticket that carries one of its labels.
+    builders:
+      - skill: add-endpoint
+        labels:
+          - new-endpoint
+    # Each is considered when a change touches one of its files.
+    reviewers:
+      - agent: migration-reviewer
+        files:
+          - db/migrations/**
+  test:
+    # Replaces factory-mutate: proves each new test can fail.
+    prover:
+      skill: acme-mutation
+    # The whole list of test reviewers. Left out, it is factory-test-reviewer.
+    reviewers:
+      - agent: factory-test-reviewer
+      - agent: factory-e2e-reviewer
+        files:
+          - e2e/**
+  conflicts:
+    # Each rebuilds its files after a conflict, in place of a hand merge.
+    resolvers:
+      - skill: regenerate-api-client
+        files:
+          - src/generated/**
 ```
 
-| Key              | Meaning                                                               |
-| ---------------- | --------------------------------------------------------------------- |
-| `skill`, `agent` | The name of one of your own skills or agents                          |
-| `role`           | `mockups`, `builder`, or `reviewer`                                   |
-| `labels`         | For a `builder`: it builds a ticket carrying one of these labels      |
-| `files`          | For a `reviewer`: it is considered when a change touches one of these |
+Each slot takes one kind, a skill or an agent, and either one plug-in or
+a list of them. A reviewer is an agent, since it is launched to read and
+changes nothing. Every other slot is a skill, which the session follows.
 
-Where your coding agent keeps them: in Claude Code, see
+| Slot                  | Takes   | One or a list | `files` or `labels` | Left out                                                   |
+| --------------------- | ------- | ------------- | ------------------- | ---------------------------------------------------------- |
+| `refine.refiner`      | A skill | One           | Neither             | `factory-refine`                                           |
+| `refine.mockups`      | A skill | One           | Neither             | `factory-design` with [`site`](#site) set; otherwise words |
+| `build.builders`      | Skills  | A list        | `labels`, required  | The built-in build                                         |
+| `build.reviewers`     | Agents  | A list        | `files`, required   | No reviewers of your own                                   |
+| `test.prover`         | A skill | One           | Neither             | `factory-mutate`                                           |
+| `test.reviewers`      | Agents  | A list        | `files`, optional   | `factory-test-reviewer`                                    |
+| `conflicts.resolvers` | Skills  | A list        | `files`, required   | A merge by hand, and [`commands.relock`](#commandsrelock)  |
+
+Where your coding agent keeps skills and agents: in Claude Code, see
 [Skills in Claude Code](github/reference.md#skills-in-claude-code).
 
-- **Default:** none.
-- **`files` is a filter, not the whole rule.** When a reviewer really
-  applies is in that agent's own description. A reviewer whose files matched
-  but which did not apply gets one line in the pull request saying why.
-- **If a name is wrong:** `factory config check` fails and
-  names the missing file.
+- **`factory plugins` prints the plug-ins the factory will use,** one to a
+  line, the built-in ones included: its kind, its name, its slot, then its
+  files or labels. `factory plugins SLOT` prints one slot's, where the
+  slot is `refiner`, `mockups`, `builder`, `reviewer`, `prover`,
+  `test-reviewer`, or `resolver`.
+- **`factory config check` fails, naming the slot,** on a skill where the
+  slot takes an agent or an agent where it takes a skill, on `files` or
+  `labels` where the slot takes neither, on a builder with no `labels`,
+  on a build reviewer or a resolver with no `files`, and on a name whose
+  file does not exist. It warns on a `files` pattern that matches no file.
+- **Written as a list,** the shape before settings version 2, `plugins`
+  fails with `plugins: must be grouped by phase: refine, build, test, conflicts`.
+  [Updating](updating.md#moving-to-settings-version-2) shows where each
+  plug-in goes.
+- **`plugins: {}`, or a phase with nothing under it,** is the same as
+  leaving it out.
+
+#### `plugins.refine`
+
+- **`refiner`:** the skill that refines a ticket, in place of
+  `factory-refine`. One skill, with no `files` and no `labels`.
+- **`mockups`:** the skill that makes pictures to choose from when a
+  decision changes how something looks. One skill. A repository with
+  [`site`](#site) set has the factory's own `factory-design` here without
+  writing it; any other describes the decision in words.
+
+#### `plugins.build`
+
+- **`builders`:** each is a skill that builds a ticket carrying one of its
+  `labels`, in place of the built-in build step. `labels` is required.
+  When two builders share a label, the first listed builds the ticket.
+- **`reviewers`:** each is an agent considered when a change touches a
+  file matching one of its `files`, which is required.
+  **`files` is a filter, not the whole rule.** When a reviewer really
+  applies is in that agent's own description. A reviewer whose files
+  matched but which did not apply gets one line in the pull request saying
+  why.
+
+#### `plugins.test`
+
+- **`prover`:** the skill that proves a new test can fail, in place of
+  `factory-mutate`. One skill. It cannot be set to nothing: a test's red
+  run before the change is already a proof, and a test written after the
+  code needs one.
+- **`reviewers`:** the agents that read new and changed tests. **Written,
+  it is the whole list:** `factory-test-reviewer` runs only when you list
+  it, and `reviewers: []` means no test reviewer runs. `files` is
+  optional: without it a reviewer reads whenever a change touches tests,
+  and with it only when the change touches a matching file. Listing
+  `factory-e2e-reviewer` needs
+  [`commands.end-to-end`](#commandsend-to-end).
+
+#### `plugins.conflicts`
+
+- **`resolvers`:** each is a skill that rebuilds the files matching its
+  `files` after a conflict, in place of merging them by hand, such as a
+  generated API client. `files` is required. When two resolvers match one
+  file, the first listed rebuilds it. The package manager's lock file
+  needs no resolver: [`commands.relock`](#commandsrelock) rebuilds it.
+- **The conflict sweep reads resolvers from your default branch,** never
+  from a pull request's branch, so a new resolver is used once it has
+  merged.
 
 ### `site`
 
 How the factory looks at your website. Leave it out if the repository is not
-one. With it, and `factory-ui-reviewer` listed under `plugins`, a visible
-change is pictured before and after, and the difference is reviewed.
+one. With it, and `factory-ui-reviewer` listed under
+`plugins.build.reviewers`, a visible change is pictured before and after,
+and the difference is reviewed.
 
 ```yaml
 site:
@@ -638,7 +927,7 @@ unread; anything touching checkout or consent waits for a person.
 # built-in reviewers run.
 #
 # "version" is the shape of this file, not the factory's version.
-version: 1
+version: 2
 repository: harbor-goods/storefront
 
 # Where tickets live. "board" is the number in your GitHub Project's address.
@@ -656,40 +945,48 @@ builds:
 # or none.
 specs: openspec
 
-# Commands run on the session's machine, from the repository's root, before
-# every commit it makes. If one fails, the commit is blocked.
-before-commit:
-  - npm run -s format:check
-  - npx tsc --noEmit
-  - npm run -s lint
+# Every command a build runs, each from the repository's root.
+commands:
+  # Run on the session's machine before every commit it makes. If one
+  # fails, the commit is blocked.
+  before-commit:
+    - npm run -s format:check
+    - npx tsc --noEmit
+    - npm run -s lint
+  # Run before a session reports a task done, in order. A build cannot
+  # finish until they pass.
+  gate:
+    - npm run check
+  # Runs one test alone. $FILE is the test's file and $NAME the test's
+  # name, which is empty when the whole file is wanted.
+  test-one: npx vitest run $FILE -t "$NAME"
 
-# Your own skills and agents. A skill is a set of instructions a session
-# follows; an agent is a separate reviewer a session launches. Refining,
-# building, and reviewing tests are built in; these add to them. "role" is
-# one of:
-#   mockups   makes pictures to choose from when a decision changes the look
-#   builder   builds a ticket that carries one of "labels" (label names),
-#             in place of the built-in build
-#   reviewer  is asked to read a finished change when it touches a path
-#             matching "files", and reports problems; it edits nothing
+# Your own skills and agents, grouped by the phase they work in. A skill is
+# a set of instructions a session follows; an agent is a separate reviewer a
+# session launches. Refining, building, and reviewing tests are built in.
+# Under "build":
+#   builders   each builds a ticket that carries one of its "labels" (label
+#              names), in place of the built-in build
+#   reviewers  each is asked to read a finished change when it touches a
+#              path matching its "files", and reports problems; it edits
+#              nothing
 plugins:
-  - skill: add-endpoint
-    role: builder
-    labels:
-      - new-endpoint
-  - agent: migration-reviewer
-    role: reviewer
-    files:
-      - db/migrations/**
-  - agent: factory-ui-reviewer
-    role: reviewer
-    files:
-      - src/components/**
-      - src/styles/**
-  - agent: accessibility-reviewer
-    role: reviewer
-    files:
-      - src/components/**
+  build:
+    builders:
+      - skill: add-endpoint
+        labels:
+          - new-endpoint
+    reviewers:
+      - agent: migration-reviewer
+        files:
+          - db/migrations/**
+      - agent: factory-ui-reviewer
+        files:
+          - src/components/**
+          - src/styles/**
+      - agent: accessibility-reviewer
+        files:
+          - src/components/**
 
 # How the factory looks at this website, for factory-ui-reviewer.
 site:
@@ -730,18 +1027,24 @@ merging unread. Everything not written here is a default.
 # built-in reviewers run.
 #
 # "version" is the shape of this file, not the factory's version.
-version: 1
+version: 2
 repository: riverbend-studio/site
 
 # Where tickets live. "board" is the number in your GitHub Project's address.
 tickets:
   board: 4
 
-# Commands run on the session's machine, from the repository's root, before
-# every commit it makes. If one fails, the commit is blocked.
-before-commit:
-  - npm run lint
-  - npm run typecheck
+# Every command a build runs, each from the repository's root.
+commands:
+  # Run on the session's machine before every commit it makes. If one
+  # fails, the commit is blocked.
+  before-commit:
+    - npm run lint
+    - npm run typecheck
+  # Run before a session reports a task done, in order. A build cannot
+  # finish until they pass.
+  gate:
+    - npm test
 ```
 
 Builds start when someone tells a session to work a ticket, since
@@ -749,8 +1052,9 @@ Builds start when someone tells a session to work a ticket, since
 
 ### A repository that is not JavaScript
 
-A PHP library. Its commands are Composer's. It lets documentation merge
-unread and has one reviewer of its own for its public API.
+A PHP library. Its commands are Composer's and PHPUnit's. It lets
+documentation merge unread and has one reviewer of its own for its public
+API.
 
 ```yaml
 # $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
@@ -762,7 +1066,7 @@ unread and has one reviewer of its own for its public API.
 # built-in reviewers run.
 #
 # "version" is the shape of this file, not the factory's version.
-version: 1
+version: 2
 repository: northwind-php/ledger
 
 # Where tickets live. "board" is the number in your GitHub Project's address.
@@ -770,26 +1074,38 @@ tickets:
   type: github
   board: 2
 
-# Commands run on the session's machine, from the repository's root, before
-# every commit it makes. If one fails, the commit is blocked.
-before-commit:
-  - composer lint
-  - composer analyse
+# Every command a build runs, each from the repository's root.
+commands:
+  # Run on the session's machine before every commit it makes. If one
+  # fails, the commit is blocked.
+  before-commit:
+    - composer lint
+    - composer analyse
+  # Run before a session reports a task done, in order. A build cannot
+  # finish until they pass.
+  gate:
+    - composer lint
+    - composer analyse
+    - composer test
+  # Runs one test alone. $FILE is the test's file and $NAME the test's
+  # name, which is empty when the whole file is wanted.
+  test-one: vendor/bin/phpunit $FILE ${NAME:+--filter "$NAME"}
 
-# Your own skills and agents. A skill is a set of instructions a session
-# follows; an agent is a separate reviewer a session launches. Refining,
-# building, and reviewing tests are built in; these add to them. "role" is
-# one of:
-#   mockups   makes pictures to choose from when a decision changes the look
-#   builder   builds a ticket that carries one of "labels" (label names),
-#             in place of the built-in build
-#   reviewer  is asked to read a finished change when it touches a path
-#             matching "files", and reports problems; it edits nothing
+# Your own skills and agents, grouped by the phase they work in. A skill is
+# a set of instructions a session follows; an agent is a separate reviewer a
+# session launches. Refining, building, and reviewing tests are built in.
+# Under "build":
+#   builders   each builds a ticket that carries one of its "labels" (label
+#              names), in place of the built-in build
+#   reviewers  each is asked to read a finished change when it touches a
+#              path matching its "files", and reports problems; it edits
+#              nothing
 plugins:
-  - agent: api-compatibility-reviewer
-    role: reviewer
-    files:
-      - src/**
+  build:
+    reviewers:
+      - agent: api-compatibility-reviewer
+        files:
+          - src/**
 
 # Which pull requests may merge without you. Patterns are globs matched
 # against paths from the repository's root, and deny wins over allow. A pull
