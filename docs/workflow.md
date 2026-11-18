@@ -9,7 +9,7 @@ each step, and what the factory will not do on its own.
 | ----------------- | -------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Write a ticket    | You                                                | Your ticket system                                 | A ticket saying what, why, and when it is done                                |
 | Refine it         | A session you start                                | Your machine, in your coding agent                 | The ticket rewritten into acceptance criteria, after you answer its decisions |
-| Approve it        | **You**                                            | A session, or your board                           | Tell a session to build it, or move its card to Ready                         |
+| Approve it        | **You**                                            | A session, or your board                           | Run `/factory-build N` in a session, or move its card to Ready                |
 | Build it          | A session                                          | Your machine, or the cloud when started from Ready | A tested change in a pull request that closes the ticket                      |
 | Review it         | The automated review, if you set it up             | Your CI                                            | Comments and a verdict on the pull request                                    |
 | Answer the review | The session that built it                          | Where it was built                                 | Each comment fixed, or rejected with evidence                                 |
@@ -33,7 +33,7 @@ is approved. A board without a `ready` column approves a build by telling a
 session to build the ticket, or by running
 `factory build N`.
 
-| State    | Board column  | It means                                                                      |
+| State    | Board column  | What it means                                                                 |
 | -------- | ------------- | ----------------------------------------------------------------------------- |
 | backlog  | Backlog       | Nothing is happening                                                          |
 | refining | In refinement | A session is turning it into a spec, or the spec is written and waits for you |
@@ -50,13 +50,13 @@ backlog → refining → ready → building → review → done
 
 ## Who moves a ticket
 
-| Move               | Who                                                              |
-| ------------------ | ---------------------------------------------------------------- |
-| backlog → refining | The session you ask to refine it                                 |
-| refining → ready   | **You**, by moving the card, or by telling a session to build it |
-| ready → building   | The session that claims it                                       |
-| building → review  | Opening the pull request                                         |
-| review → done      | The merge, which closes the ticket                               |
+| Move               | Who                                                                        |
+| ------------------ | -------------------------------------------------------------------------- |
+| backlog → refining | The session you run `/factory-refine N` in                                 |
+| refining → ready   | **You**, by moving the card, or by running `/factory-build N` in a session |
+| ready → building   | The session that claims it                                                 |
+| building → review  | Opening the pull request                                                   |
+| review → done      | The merge, which closes the ticket                                         |
 
 Approving a ticket is the only move a person has to make. A session moves
 the card to Ready only when you ask it to, as your own move.
@@ -149,7 +149,7 @@ small fixes on one checklist cost you one approval and one pull request.
 
 **What becomes a line, and what gets its own ticket.**
 
-| The session noticed                                      | It becomes                                            |
+| What the session noticed                                 | What it becomes                                       |
 | -------------------------------------------------------- | ----------------------------------------------------- |
 | Something small that breaks a rule your guides state     | A line                                                |
 | Something that needs your call before it can be fixed    | A line that says "Needs a decision:" and the question |

@@ -187,23 +187,8 @@ you set yourself alone.
 
 ## Skills in Claude Code
 
-In Claude Code a skill is also a slash command: type `/` and its name,
-with the ticket or pull request number after it. Asking in plain words
-calls the same skill.
-
-| Type                             | Same as asking                     |
-| -------------------------------- | ---------------------------------- |
-| `/factory-refine 12`             | "refine ticket 12"                 |
-| `/factory-build 12`              | "build ticket 12"                  |
-| `/factory-address-review 280`    | "address the review on 280"        |
-| `/factory-resolve-conflicts 280` | "resolve the conflicts on 280"     |
-| `/factory-diagnose`              | "diagnose this failing test"       |
-| `/factory-mutate`                | "mutate this test"                 |
-| `/factory-deps`                  | "fix the dependency pull requests" |
-| `/factory-design`                | "mock up a new about page"         |
-
-Typing `/factory` in a session lists them, which is also how to check that
-a session picked the factory up.
+In Claude Code each skill is a slash command, such as `/factory-refine 12`.
+[Skills](../skills.md#at-a-glance) lists every one with what it does.
 
 **Where the files live.** `sync` writes the factory's skills to
 `.claude/skills/factory-*/` and its agents to

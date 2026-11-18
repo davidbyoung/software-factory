@@ -35,7 +35,7 @@ A role is a job in the work that your own skill or agent can take on, such
 as reviewing a change or refining a ticket. There are
 seven, grouped under [`plugins`](configuration.md#plugins) by the phase
 each belongs to. Every role is optional, and leaving one out never turns a
-step off: the last column says what does the work then.
+step off: the last column says what does the work when you have none.
 
 A role has two names. The settings key, in the second column, is what you
 write in `.claude/factory.yaml`. The role's own name, in the first column,
@@ -44,7 +44,7 @@ is the role you write as
 [`plugins.build.builders`](configuration.md#pluginsbuild), and no key is
 called `builder`.
 
-| Role            | Settings key                                                       | It                                             | Left out                                  |
+| Role            | Settings key                                                       | What it does                                   | Without one                               |
 | --------------- | ------------------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------- |
 | `refiner`       | [`plugins.refine.refiner`](configuration.md#pluginsrefine)         | Refines a ticket, in place of `factory-refine` | `factory-refine`                          |
 | `mockups`       | [`plugins.refine.mockups`](configuration.md#pluginsrefine)         | Makes pictures for a decision about the look   | `factory-design` on a website, else words |

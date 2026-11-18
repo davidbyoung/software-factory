@@ -186,12 +186,12 @@ prints the run's link, with no session open on your machine.
 `sync` already wrote the workflows these use, and each does nothing until
 it has work and its secrets:
 
-| Workflow                | Runs a Claude Code session that                                                      |
+| Workflow                | What its Claude Code session does                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------ |
-| `factory-build.yml`     | builds a ticket                                                                      |
-| `factory-review.yml`    | answers a review you submit on a pull request                                        |
-| `factory-conflicts.yml` | resolves a conflict between a pull request and your default branch                   |
-| `factory-deps.yml`      | moves Dependabot's pull requests along, written once `.github/dependabot.yml` exists |
+| `factory-build.yml`     | Builds a ticket                                                                      |
+| `factory-review.yml`    | Answers a review you submit on a pull request                                        |
+| `factory-conflicts.yml` | Resolves a conflict between a pull request and your default branch                   |
+| `factory-deps.yml`      | Moves Dependabot's pull requests along, written once `.github/dependabot.yml` exists |
 
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`.
 2. **Store a GitHub token that can push**, as `FACTORY_BUILD_TOKEN`. With
