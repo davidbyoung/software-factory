@@ -20,4 +20,4 @@ rules:
   tasks:
     - Include the tests, by file, beside the task each checks; a verify task
       mapping every scenario to its test; and the gate (npm run format,
-      npm run check).
+      then npx --no-install factory gate).
