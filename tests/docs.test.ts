@@ -2,8 +2,16 @@
 // are told to run the command.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
+import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
-import { SETTINGS_KEYS } from "../src/config.mts";
+import {
+  OPENSPEC_CHECK,
+  parseSettings,
+  PHASES,
+  SETTINGS_KEYS,
+  SLOT_SHAPE,
+  SLOTS,
+} from "../src/config.mts";
 
 const PACKAGE = ".";
 const CLI = "docs/cli.md";
@@ -618,5 +626,236 @@ describe("the docs", () => {
       read(page).includes("Not built yet"),
     );
     expect(found).toEqual([]);
+  });
+});
+
+/** The part of a page under `heading`, written as its line is, up to the
+ * next heading at its level or above. A line in a fenced block is no
+ * heading. Empty when the page has no such heading. */
+function sectionOf(text: string, heading: string): string {
+  const level = /^#+/.exec(heading)![0].length;
+  const kept: string[] = [];
+  let inCode = false;
+  let inside = false;
+  for (const line of text.split("\n")) {
+    if (line.trim().startsWith("```")) inCode = !inCode;
+    const at = inCode ? null : /^(#+) /.exec(line);
+    if (at && inside && at[1].length <= level) break;
+    if (inside) kept.push(line);
+    if (at && line === heading) inside = true;
+  }
+  return kept.join("\n");
+}
+
+/** Text with each run of white space made one space, so a phrase is found
+ * across the end of a line. */
+const flat = (text: string) => text.replace(/\s+/g, " ");
+
+/** The cells of each table row in `text`. */
+const rows = (text: string) =>
+  text
+    .split("\n")
+    .filter((line) => line.startsWith("|"))
+    .map((line) =>
+      line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim()),
+    );
+
+// What the docs say about settings version 2: its commands, its spec check,
+// its plug-ins by phase, and the commands that came with it.
+describe("the docs, for settings version 2", () => {
+  const configuration = read(CONFIGURATION);
+  const entries = settingsEntries(configuration);
+  const plugins = read("docs/plugins.md");
+  const updating = read("docs/updating.md");
+  const MOVING = "Moving to settings version 2";
+
+  it.each(SETTINGS_KEYS.commands)(
+    "give commands.%s an entry in docs/configuration.md",
+    (key) => {
+      expect(entries).toContain(`commands.${key}`);
+    },
+  );
+
+  it("give specs.check an entry in docs/configuration.md that states its default", () => {
+    const entry = sectionOf(configuration, "#### `specs.check`");
+
+    expect(entry).toContain("**Default:**");
+    expect(entry).toContain(OPENSPEC_CHECK);
+  });
+
+  it.each(PHASES)(
+    "give the plug-ins of the %s phase an entry in docs/configuration.md",
+    (phase) => {
+      expect(entries).toContain(`plugins.${phase}`);
+    },
+  );
+
+  it.each(SLOTS)(
+    "say in docs/configuration.md what the %s slot takes, one or a list, with files or labels, and what is used when it is left out",
+    (slot) => {
+      const shape = SLOT_SHAPE[slot];
+      const row = rows(sectionOf(configuration, "### `plugins`")).find(
+        ([key]) => key === `\`${shape.phase}.${shape.key}\``,
+      );
+
+      expect(row).toBeDefined();
+      const [, takes, count, filter, leftOut] = row!;
+      expect(takes.toLowerCase()).toContain(shape.kind);
+      expect(/list/i.test(count)).toBe(shape.list);
+      expect(filter.includes("`files`")).toBe(shape.files !== "none");
+      expect(filter.includes("`labels`")).toBe(shape.labels !== "none");
+      expect(leftOut).not.toBe("");
+    },
+  );
+
+  it("show whole settings files in docs/configuration.md that are version 2", () => {
+    const whole = [...configuration.matchAll(/^```yaml\n([\s\S]*?)^```/gm)]
+      .map((m) => m[1])
+      .filter((file) => /^repository:/m.test(file));
+
+    expect(whole.length).toBeGreaterThanOrEqual(4);
+    for (const file of whole)
+      expect(parseSettings(load(file), () => true).version).toBe(2);
+  });
+
+  it.each(SLOTS)(
+    "give the %s slot a table in docs/plugins.md of when it is called, what it is handed, what it returns, and what happens next",
+    (slot) => {
+      const steps = rows(sectionOf(plugins, `### \`${slot}\``)).map(
+        ([step]) => step,
+      );
+
+      expect(steps).toEqual(
+        expect.arrayContaining([
+          "**Called**",
+          "**Handed**",
+          "**Returns**",
+          "**Then**",
+        ]),
+      );
+    },
+  );
+
+  it.each([
+    ["refiner", "What a refiner must deliver"],
+    ["refiner", '"Refining: this repository" in `CLAUDE.md`'],
+    ["prover", "What a prover must report"],
+    ["test-reviewer", "is the whole list"],
+    ["resolver", "from your default branch's copy"],
+    ["builder", "Reviewers still run after a builder"],
+  ])("say in docs/plugins.md, under the %s slot: %s", (slot, said) => {
+    expect(flat(sectionOf(plugins, `### \`${slot}\``))).toContain(said);
+  });
+
+  it("have the section the refusal of a version 1 file names, in the page it names", () => {
+    let refusal = "";
+    try {
+      parseSettings({ version: 1, repository: "o/r" }, () => true);
+    } catch (e) {
+      refusal = (e as Error).message;
+    }
+    const [, heading, page] = /see "([^"]+)" in (docs\/\S+\.md)$/.exec(
+      refusal,
+    )!;
+
+    expect([page, heading]).toEqual(["docs/updating.md", MOVING]);
+    expect(read(page).split("\n")).toContain(`## ${heading}`);
+  });
+
+  it.each([
+    ["`version: 1`", "`version: 2`"],
+    ["`before-commit`", "`commands.before-commit`"],
+    ["`build-setup`", "`commands.build-setup`"],
+    ["`plugins`", "grouped by phase"],
+    ["`specs`", "`check`"],
+  ])(
+    "show in docs/updating.md, under moving to version 2, %s before and %s after",
+    (before, after) => {
+      const table = rows(sectionOf(updating, `## ${MOVING}`));
+
+      expect(table[0]).toEqual(["Version 1", "Version 2"]);
+      expect(
+        table.filter(([was, is]) => was.includes(before) && is.includes(after)),
+      ).toHaveLength(1);
+    },
+  );
+
+  it.each([
+    "factory gate",
+    "factory test-one",
+    "factory end-to-end",
+    "factory specs check",
+    "factory default-branch",
+  ])("give %s a row in docs/cli.md", (command) => {
+    const named = read(CLI)
+      .split("\n")
+      .filter(
+        (line) =>
+          line.startsWith(`| \`${command}\``) ||
+          line.startsWith(`| \`${command} `),
+      );
+
+    expect(named).toHaveLength(1);
+  });
+
+  it("name --check in docs/cli.md's row for factory ticket refined", () => {
+    const row = read(CLI)
+      .split("\n")
+      .find((line) => line.startsWith("| `factory ticket refined N`"));
+
+    expect(row).toContain("`--check`");
+  });
+
+  it("list no factory migrate under What is built in docs/developing.md", () => {
+    const built = sectionOf(read("docs/developing.md"), "## What is built");
+
+    expect(built).toContain("| Part ");
+    expect(built).not.toContain("factory migrate");
+  });
+
+  const ORDER = "The order of the workflow is fixed";
+  it.each([
+    [
+      "docs/design.md's section on the fixed order",
+      () => flat(sectionOf(read("docs/design.md"), `## ${ORDER}`)),
+    ],
+    [
+      "docs/limitations.md's line on the fixed order",
+      () => {
+        const lines = read("docs/limitations.md").split("\n");
+        const at = lines.findIndex((l) => l.startsWith(`- **${ORDER}.**`));
+        return flat(paragraphs(lines)[at] ?? "");
+      },
+    ],
+  ])(
+    "say in %s which steps a plug-in can replace, and that the states and their order cannot change",
+    (_, text) => {
+      const said = text();
+
+      for (const step of ["refined", "built", "proved", "conflict"])
+        expect(said).toMatch(new RegExp(`plug-in.* ${step}\\b`));
+      expect(said).toContain("six states");
+      expect(said).toMatch(/cannot (reorder|change)/);
+    },
+  );
+
+  it("do not say in docs/limitations.md that a build assumes main", () => {
+    expect(flat(read("docs/limitations.md"))).not.toMatch(
+      /\bassum\w*\b[^.]*\bmain\b/i,
+    );
+  });
+
+  it("tell a new user in docs/quick-start.md to set commands.gate before the first build", () => {
+    const page = read("docs/quick-start.md");
+    const gate = page.indexOf(
+      "[`commands.gate`](configuration.md#commandsgate)",
+    );
+    const build = page.search(/^## \d+\. Build it$/m);
+
+    expect(gate).toBeGreaterThan(-1);
+    expect(build).toBeGreaterThan(gate);
   });
 });

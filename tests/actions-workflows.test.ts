@@ -155,6 +155,14 @@ describe("the action's setup commands", () => {
     expect(r.stdout).toContain("first");
     expect(r.stdout).not.toContain("third\n");
   });
+
+  it("run before the session", () => {
+    const names = steps.map((s) => s.name);
+    expect(names).toContain(setup.name);
+    expect(names.indexOf(setup.name)).toBeLessThan(
+      names.indexOf("Run the session"),
+    );
+  });
 });
 
 describe("the action's session step", () => {

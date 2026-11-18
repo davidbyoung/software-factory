@@ -392,6 +392,17 @@ describe("factory guard commit", () => {
       expect(ran()).toEqual(["one"]);
     });
 
+    it("runs the commands from the repository's root, whatever folder the commit is made in", () => {
+      withLoader(prints("pwd > where.txt"));
+      mkdirSync(join(repo, "src/deep"), { recursive: true });
+      const r = hook("git commit -m x", join(repo, "src/deep"));
+      expect(r.status).toBe(0);
+      expect(existsSync(join(repo, "src/deep/where.txt"))).toBe(false);
+      expect(readFileSync(join(repo, "where.txt"), "utf8").trim()).toBe(
+        realpathSync(repo),
+      );
+    });
+
     it("gives a command no standard input, so it cannot swallow the commands after it", () => {
       withLoader(prints("cat > /dev/null", "echo SECOND-RAN >&2; exit 1"));
       const r = hook("git commit -m x", repo);
