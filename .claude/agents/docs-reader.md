@@ -67,6 +67,10 @@ only where you would have to in order to carry on. Note, with its line:
   or links to the page that does.
 - **Something you are told to do that the page, or a page it links to,
   says a command already does.**
+- **A step that has you ask a session for something in words alone,**
+  such as "refine ticket 12", without the slash command that runs it
+  (`/factory-refine 12`). You would not know which skill ran, or that
+  one should have.
 - **A passage you read twice, or one that told you nothing you needed** in
   order to do what the page is for.
 - **A step with no way to tell that it worked.**
@@ -85,6 +89,12 @@ time:
   find where this page says what it is, or links to a page that does,
   before it is first used. One that has neither is a finding, however
   ordinary it looks. So is one word used for two things.
+- **Read each header alone, before its cells.** Say what you expect the
+  column to hold. A header that is a pronoun, a verb with no subject, or
+  a clipped phrase, such as "It", "Left out", "Because", or "It says", is
+  a finding, however well its cells read once you join them to it: a
+  reader scans headers to find the column they need. Check every table in
+  scope, including one whose rows the change did not touch.
 - **Read each table row as a sentence.** A cell is a finding when it only
   makes sense with its header and the rows around it, such as
   "leave default" or "has it, with the right type". So is a column that

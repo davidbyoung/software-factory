@@ -509,7 +509,10 @@ this repository's own reviewer, reads a changed page as that person.
 - **A page says who it is for and what they will have at the end,** in its
   first lines.
 - **Lead with the command that does it.** The same steps by hand go on a
-  page of their own, linked once.
+  page of their own, linked once. A step that runs a skill shows its slash
+  command, such as `/factory-refine 12`, not only words to say to a
+  session: words leave the session to pick the skill, and leave the reader
+  not knowing which one ran.
 - **Say only what the reader must do or decide.** What a command does for
   them is one sentence, and a link to the page that lists it.
 - **A setting links to its entry in `docs/configuration.md` where a page
@@ -522,4 +525,8 @@ this repository's own reviewer, reads a changed page as that person.
   person doing each thing, and an example where the rule is abstract. A
   word the factory gives its own meaning, such as "the sync" or "a
   session", is explained or linked where the page first uses it. A table
-  cell reads as part of a sentence, and no column repeats another.
+  cell reads as part of a sentence, and no column repeats another. A
+  column header names what its cells hold, such as "What it does" or
+  "Without one", and reads on its own: not a pronoun or a clipped phrase,
+  such as "It" or "Left out", that makes sense only once a cell is read
+  into it.
