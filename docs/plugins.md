@@ -66,12 +66,12 @@ plugins:
       skill: acme-refine
 ```
 
-| Step        | What happens                                                                                                                                                     |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Called**  | By you, when you ask a session for it by name. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited          |
-| **Handed**  | The ticket's number. From `factory-build` for an approved round, also the words "approved while waiting: fold the owner's replies into the body, post no marker" |
-| **Returns** | A ticket a build can start from: everything in the list below                                                                                                    |
-| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                    |
+| Step        | What happens                                                                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Called**  | When you ask a session to refine a ticket: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited |
+| **Handed**  | The ticket's number. From `factory-build` for an approved round, also the words "approved while waiting: fold the owner's replies into the body, post no marker"                                             |
+| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                |
+| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                |
 
 **What a refiner must deliver.** The board and the build read these, so a
 refiner that leaves one out leaves a ticket that cannot be built.

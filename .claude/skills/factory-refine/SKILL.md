@@ -70,6 +70,13 @@ marker", it runs steps 4 and 5 only and posts none of these.
 
 ## 0. Read
 
+**A refiner plug-in replaces this skill.** Before anything else, run
+`npx --no-install factory plugins refiner`. When it prints a skill other
+than `factory-refine`, invoke that skill with the Skill tool, with the
+same ticket and words this one was given, and stop: the repository
+refines its own way, and what that skill must leave behind is in the
+factory's plug-ins guide.
+
 Post the `refining` marker first ("Labels and markers"), then:
 
 ```bash
