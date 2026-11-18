@@ -62,7 +62,7 @@ read is set.
 
 `factory plugins` prints one line for each plugin, the factory's own
 included: its kind, its name, its [role](plugins.md#the-roles), then its
-files or labels. `factory plugins SLOT` prints one role's lines.
+files or labels. `factory plugins ROLE` prints one role's lines.
 
 A new version is installed with npm and applied with `factory sync`, as
 [Updating](updating.md) says. [Removing](removing.md) says what `remove`

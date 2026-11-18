@@ -61,7 +61,7 @@ marked working below exist only in these docs.
 | `factory remove`                                                                                                 | Working                                                                   |
 | Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                                                   |
 | [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                                                                   |
-| Settings version 2: commands, a spec check, and plug-ins grouped by phase                                        | Working                                                                   |
+| Settings version 2: commands, a spec check, and plugins grouped by phase                                         | Working                                                                   |
 | `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                                                                   |
 | The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                                                                   |
 | A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                                                                   |
@@ -72,7 +72,7 @@ marked working below exist only in these docs.
 | A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                                       |
 | Another code host or runner                                                                                      | Not planned. The design leaves room                                       |
 | Each tool's setup, checks, and removal declared by the tool                                                      | Working                                                                   |
-| Sharing plug-ins between repositories                                                                            | Not planned                                                               |
+| Sharing plugins between repositories                                                                             | Not planned                                                               |
 
 When a part is built, its pull request updates this table, and corrects any
 page the build had to differ from. [The CLI](cli.md) marks each command
@@ -111,7 +111,7 @@ in `docs/configuration.md`, and a test fails when the first two differ.
   [`commands`](configuration.md#commands), with a `factory`
   command in `src/commands.mts` that runs it, so a skill names the
   `factory` command and never the repository's own.
-- **A plug-in slot** goes in `SLOTS` and `SLOT_SHAPE` in `src/config.mts`,
+- **A plugin role** goes in `ROLES` and `ROLE_SHAPE` in `src/config.mts`,
   which say its phase, whether it takes a skill or an agent, one or a
   list, and `files` or `labels`. Its keys in `SETTINGS_KEYS` follow from
   that table. `docs/plugins.md` gains its table of what it is handed and
