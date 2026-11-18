@@ -73,6 +73,10 @@ commands:
     - npm run lint
 ```
 
+A repository with no tests yet lists the checks it does have, such as a
+formatter or a compile, and adds its tests to the gate when there are
+some.
+
 **It worked when** `factory gate` runs each command and ends without a
 line that starts `gate failed on`.
 

@@ -36,7 +36,14 @@ seven, grouped under [`plugins`](configuration.md#plugins) by the phase
 each belongs to. Every slot is optional, and leaving one out never turns a
 step off: the last column says what does the work then.
 
-| Slot            | Written as                                                         | It                                             | Left out                                  |
+A slot has two names. The settings key, in the second column, is what you
+write in `.claude/factory.yaml`. The slot's own name, in the first column,
+is what `factory plugins` prints, and the headings below use it: `builder`
+is the slot you write as
+[`plugins.build.builders`](configuration.md#pluginsbuild), and no key is
+called `builder`.
+
+| Slot            | Settings key                                                       | It                                             | Left out                                  |
 | --------------- | ------------------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------- |
 | `refiner`       | [`plugins.refine.refiner`](configuration.md#pluginsrefine)         | Refines a ticket, in place of `factory-refine` | `factory-refine`                          |
 | `mockups`       | [`plugins.refine.mockups`](configuration.md#pluginsrefine)         | Makes pictures for a decision about the look   | `factory-design` on a website, else words |
@@ -46,9 +53,9 @@ step off: the last column says what does the work then.
 | `test-reviewer` | [`plugins.test.reviewers`](configuration.md#pluginstest)           | Reads new and changed tests                    | `factory-test-reviewer`                   |
 | `resolver`      | [`plugins.conflicts.resolvers`](configuration.md#pluginsconflicts) | Rebuilds its files after a merge conflict      | A merge by hand                           |
 
-The first column is the name `factory plugins` prints for the slot.
-[Configuration](configuration.md#plugins) has the shape of each: whether it
-takes a skill or an agent, one or a list, and `files` or `labels`.
+[Configuration](configuration.md#plugins) has the shape of each key:
+whether it takes a skill or an agent, one or a list, and `files` or
+`labels`.
 
 A reviewer is an agent: a session launches it, and it reads and changes
 nothing. Every other slot is a skill, which the session follows itself.
@@ -66,12 +73,12 @@ plugins:
       skill: acme-refine
 ```
 
-| Step        | What happens                                                                                                                                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Called**  | When you ask a session to refine a ticket: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited |
-| **Handed**  | The ticket's number. From `factory-build` for an approved round, also the words "approved while waiting: fold the owner's replies into the body, post no marker"                                             |
-| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                |
-| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                |
+| Step        | What happens                                                                                                                                                                                                                                                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Called**  | When you ask a session to refine a ticket: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                        |
+| **Handed**  | The ticket's number. From `factory-build`, for a round of questions you approved while it waited on your answers, also the words "approved while waiting: fold the owner's replies into the body, post no marker". They tell the refiner to write your replies into the ticket's body and to post no [marker](glossary.md), the hidden comment line the board reads |
+| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                                                                                                                                                                       |
+| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                                                                                                                                                                       |
 
 **What a refiner must deliver.** The board and the build read these, so a
 refiner that leaves one out leaves a ticket that cannot be built.
@@ -262,8 +269,9 @@ plugins:
   `factory-test-reviewer` to keep it, and leave it off to remove it.
 - **A small change gets no test reviewer,** whichever are listed
   ([Workflow](workflow.md#sizing-the-work-to-the-change)), with two
-  exceptions that run the whole list: a change to tests alone, and code
-  that builds what is sent to an outside service.
+  exceptions that run every one listed, one with `files` only when the
+  change touches a matching file: a change to tests alone, and code that
+  builds what is sent to an outside service.
 - **`factory-e2e-reviewer`** ships with the factory and reads browser
   end-to-end tests. `factory sync` writes it once
   [`commands.end-to-end`](configuration.md#commandsend-to-end) is set, and

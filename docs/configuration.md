@@ -45,13 +45,16 @@ which is the first entry below.
 
 ## The settings most repositories change
 
-Most repositories set four things, and leave every other key at its
-default.
+One key is required for a build: [`commands.gate`](#commandsgate). Most
+repositories set it and the four other things below, and leave every other
+key at its default.
 
 - **The gate,** the commands that check a change, such as your tests and
   your linter. A build cannot finish without it. List them under
-  [`commands.gate`](#commandsgate), and the quick ones to run before every
-  commit under [`commands.before-commit`](#commandsbefore-commit).
+  `commands.gate`.
+- **The checks before every commit,** the quick ones of the gate, such as
+  your formatter. List them under
+  [`commands.before-commit`](#commandsbefore-commit).
 - **A board,** to see every ticket's state. Set `tickets.board` to your
   board's number, and when your columns have other names, map them under
   `tickets.columns`. [`tickets`](#tickets) has both. On GitHub,
@@ -471,9 +474,11 @@ commands:
 - **Default:** not set. Leave it out of a repository with no end-to-end
   suite.
 - **Setting it also brings `factory-e2e-reviewer`,** the built-in agent
-  that reads browser end-to-end tests. `factory sync` writes it, and it
-  runs once you list it under
-  [`plugins.test.reviewers`](#pluginstest).
+  that reads browser end-to-end tests, in two steps:
+  1. Set this key and run `factory sync`, which writes the agent.
+  2. List it under [`plugins.test.reviewers`](#pluginstest), where it
+     runs. That list is the whole list, so list `factory-test-reviewer`
+     there too: listing `factory-e2e-reviewer` alone drops it.
 - **Without it,** `factory end-to-end` fails with
   `commands.end-to-end is not set`.
 - **Run `factory sync` after adding or removing it.**
@@ -622,6 +627,8 @@ Where your coding agent keeps skills and agents: in Claude Code, see
   file does not exist. It warns on a `files` pattern that matches no file.
 - **Written as a list,** the shape before settings version 2, `plugins`
   fails with `plugins: must be grouped by phase: refine, build, test, conflicts`.
+  [Updating](updating.md#moving-to-settings-version-2) shows where each
+  plug-in goes.
 - **`plugins: {}`, or a phase with nothing under it,** is the same as
   leaving it out.
 

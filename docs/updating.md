@@ -75,9 +75,15 @@ So `factory-deps` cannot run `factory sync` on that release's pull request,
 and its checks fail until the file is moved. On the pull request's branch:
 
 1. Edit `.claude/factory.yaml` as the table and the example below show.
+   A row applies only when your file has that key.
 2. Add [`commands.gate`](configuration.md#commandsgate), which is new and
-   which a build cannot finish without.
-3. Run `factory config check`, then `factory sync`, and commit what
+   which a build cannot finish without. Put in it the commands your
+   `CLAUDE.md` names as the check before a task is done, usually what CI
+   runs, such as `npm run check`.
+3. Once `commands.gate` holds the gate, change the gate's prose in your
+   `CLAUDE.md` to point at `npx --no-install factory gate`, so the two
+   cannot differ.
+4. Run `factory config check`, then `factory sync`, and commit what
    changed.
 
 **It worked when** `factory config check` prints nothing, and
@@ -97,6 +103,11 @@ and its checks fail until the file is moved. On the pull request's branch:
 | [`specs`](configuration.md#specs), one word                              | Still one word. It is now also a block, with `type` and [`check`](configuration.md#specscheck) |
 
 Every other key keeps its name, its place, and its meaning.
+
+`factory-test-reviewer` still runs by default, with nothing to write. Once
+you write [`plugins.test.reviewers`](configuration.md#pluginstest), that
+list is the whole list, so `factory-test-reviewer` runs only when you list
+it there.
 
 Before:
 
