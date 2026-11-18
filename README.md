@@ -85,7 +85,8 @@ else is optional and comes later.
    ticket, review the pull request, and merge it, and whoever merges
    answers for it.
 2. **Everything waits for you unless you said otherwise.**
-3. **It works with nothing configured.** Every setting has a default.
+3. **It asks for almost nothing.** Every setting has a default, and a
+   build needs one thing from you: the commands that check a change.
 
 ## The docs
 
@@ -100,13 +101,13 @@ else is optional and comes later.
 
 **Guides**
 
-| Page                                                           | For                                       |
-| -------------------------------------------------------------- | ----------------------------------------- |
-| [Adopting it in an existing repository](docs/existing-repo.md) | Not JavaScript, an existing board, a team |
-| [Plug-ins](docs/plugins.md)                                    | Adding your own reviewers and skills      |
-| [Builds in the cloud](docs/builds.md)                          | Starting builds from your board           |
-| [Updating](docs/updating.md)                                   | Getting a new version                     |
-| [What it changes, and removing it](docs/removing.md)           | Everything it adds, and how to undo it    |
+| Page                                                           | For                                        |
+| -------------------------------------------------------------- | ------------------------------------------ |
+| [Adopting it in an existing repository](docs/existing-repo.md) | Not JavaScript, an existing board, a team  |
+| [Plug-ins](docs/plugins.md)                                    | Putting your own skills and agents to work |
+| [Builds in the cloud](docs/builds.md)                          | Starting builds from your board            |
+| [Updating](docs/updating.md)                                   | Getting a new version                      |
+| [What it changes, and removing it](docs/removing.md)           | Everything it adds, and how to undo it     |
 
 **Reference**
 

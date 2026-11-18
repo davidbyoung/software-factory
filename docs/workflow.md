@@ -13,7 +13,7 @@ each step, and what the factory will not do on its own.
 | Build it          | A session                                          | Your machine, or the cloud when started from Ready | A tested change in a pull request that closes the ticket                      |
 | Review it         | The automated review, if you set it up             | Your CI                                            | Comments and a verdict on the pull request                                    |
 | Answer the review | The session that built it                          | Where it was built                                 | Each comment fixed, or rejected with evidence                                 |
-| Merge it          | **You**, or the merge policy for files you allowed | Your code host                                     | The change on your main branch, and the ticket closed                         |
+| Merge it          | **You**, or the merge policy for files you allowed | Your code host                                     | The change on your default branch, and the ticket closed                      |
 
 Everything a session does, it does as you: through your account on the
 code host and your coding agent's subscription, on your machine or in the
@@ -73,7 +73,9 @@ These hold in every repository. They are not settings.
   it to Ready again retries it.
 - **The order does not change.** A repository cannot add a state or reorder
   them. A team that wants a security review between building and review adds
-  a [reviewer](plugins.md), not a column.
+  a [reviewer](plugins.md#reviewer), not a column. A
+  [plug-in](plugins.md#the-slots) can take over a step, such as refining a
+  ticket or proving a test, where the step stands.
 - **One session holds a ticket at a time.** The claim is a comment on the
   ticket. A second session that tries is told who holds it and stops.
 
@@ -112,12 +114,13 @@ conflict, and the session that owns the pull request resolves it.
 A change under about 30 lines outside tests (30 by default,
 [`rules.small-change-lines`](configuration.md#rules)), adding no new
 component and no new state, is **small**. It skips the heavier steps: no
-separate spec, no readiness read, and one test that reproduces the defect
-or checks the change. The first message of the work says which path it is
-taking, so you can overrule it before it starts.
+separate spec, no readiness read, no read by the test reviewers, and one
+test that reproduces the defect or checks the change. The first message of
+the work says which path it is taking, so you can overrule it before it
+starts.
 
-The number is `rules.small-change-lines` in your
-[settings](configuration.md), _[Planned](developing.md#what-is-built)_; until it is built, it is 30.
+Two kinds of small change keep the test reviewers: a change to tests
+alone, and code that builds what is sent to an outside service.
 
 ## Follow-ups
 
@@ -172,14 +175,14 @@ Every pull request gets one of two labels:
 Two more things guard a merge:
 
 - **"Review verdict"** is a status, which you can make required on your
-  main branch, that passes only when the automated
+  default branch, that passes only when the automated
   review of the newest commit said it is ready, or an approver overrode it
   with the `verdict: override` label. Sessions never add that label.
 - **Every review thread must be resolved.** A session answers each one,
   fixed or rejected with evidence, before resolving it.
 
-Both the labeling and the verdict run from your main branch's copy of the
-rules, so a pull request cannot change how it is judged.
+Both the labeling and the verdict run from your default branch's copy of
+the rules, so a pull request cannot change how it is judged.
 
 A session never merges, never turns auto-merge on, and never overrides a
 verdict.
