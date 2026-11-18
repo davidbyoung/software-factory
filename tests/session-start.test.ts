@@ -6,13 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   gitIn,
   installBehind,
+  main,
   repositoryState,
 } from "../src/session-start.mts";
-import {
-  branchDeps,
-  CANNOT_TELL,
-  defaultBranch,
-} from "../src/lib/default-branch.mts";
+import { branchDeps, CANNOT_TELL } from "../src/lib/default-branch.mts";
 
 // Clones of an origin, each with three local branches beside the default
 // one: one with two commits the default branch lacks, one squash-merged into
@@ -103,10 +100,6 @@ describe("factory session-start", () => {
     ]);
   });
 
-  it("takes the default branch from the checkout's own origin/HEAD", async () => {
-    expect(await defaultBranch(branchDeps(onDevelop, {}))).toBe("develop");
-  });
-
   it("names the fix, and lists no branch, when the default branch cannot be told", () => {
     const lines = repositoryState(gitIn(clone), null);
 
@@ -124,6 +117,49 @@ describe("factory session-start", () => {
       "```",
     ]);
     expect(lines[3]).toMatch(/^## main/);
+  });
+});
+
+describe("the session-start hook", () => {
+  /** The hook, run in `dir` with no workflow event and a code host that
+   * cannot be asked, and what it printed. */
+  const hook = async (dir: string) => {
+    const printed: string[] = [];
+    const status = await main({
+      dir,
+      branch: {
+        ...branchDeps(dir, {}),
+        host: async () => {
+          throw new Error("no code host");
+        },
+      },
+      out: (text) => printed.push(text),
+      tickets: async () => 0,
+    });
+    return { status, text: printed.join("\n") };
+  };
+
+  it("reads the default branch from the checkout, and compares each branch with origin/develop where it is develop", async () => {
+    const { status, text } = await hook(onDevelop);
+
+    expect(status).toBe(0);
+    expect(text).toContain("Local branches with work not on origin/develop:");
+    expect(text).toContain("- unfinished (2 commits not on origin/develop)");
+    expect(text).not.toContain("origin/main");
+  });
+
+  it("prints the fix, and compares no branch, where the default branch cannot be told", async () => {
+    const dir = cloned("no-head", "main");
+    execFileSync("git", ["remote", "set-head", "origin", "--delete"], {
+      cwd: dir,
+      stdio: "pipe",
+    });
+
+    const { status, text } = await hook(dir);
+
+    expect(status).toBe(0);
+    expect(text).toContain(CANNOT_TELL);
+    expect(text).not.toContain("Local branches with work");
   });
 });
 

@@ -234,6 +234,26 @@ describe("factory sync", () => {
     expect((await sync(["--check"], settings())).code).toBe(0);
   });
 
+  it("fails the check, naming the end-to-end reviewer, while one a sync wrote is still there with commands.end-to-end not set", async () => {
+    await sync([], settings(END_TO_END));
+
+    const r = await sync(["--check"], settings());
+
+    expect(r.code).toBe(1);
+    expect(r.err).toContain(`  ${E2E}`);
+    expect(read(E2E)).toBe("e2e\n");
+  });
+
+  it("fails the check, naming the end-to-end reviewer, while commands.end-to-end is set and no sync has written it", async () => {
+    await sync([], settings());
+
+    const r = await sync(["--check"], settings(END_TO_END));
+
+    expect(r.code).toBe(1);
+    expect(r.err).toContain(`  ${E2E}`);
+    expect(read(E2E)).toBeNull();
+  });
+
   it("writes the deps skill and both deps workflows only where Dependabot is set up", async () => {
     expect((await sync([], settings())).code).toBe(0);
     for (const path of DEPS) expect(read(path)).toBeNull();

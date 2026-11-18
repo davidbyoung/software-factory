@@ -9,6 +9,7 @@ import {
   CANNOT_TELL,
   defaultBranch,
   gitIn,
+  type Deps as BranchDeps,
   type Git,
 } from "./lib/default-branch.mts";
 
@@ -105,6 +106,25 @@ export function installBehind(dir: string): string | null {
   return null;
 }
 
+export type Deps = {
+  /** The checkout the session starts in. */
+  dir: string;
+  /** The sources of the default branch's name. */
+  branch: BranchDeps;
+  out: (text: string) => void;
+  /** Prints each ticket's state, and gives the hook's exit. */
+  tickets: () => Promise<number>;
+};
+
+export async function main(d: Deps): Promise<number> {
+  const branch = await defaultBranch(d.branch).catch(() => null);
+  d.out(repositoryState(gitIn(d.dir), branch).join("\n"));
+  const behind = installBehind(d.dir);
+  if (behind) d.out(`\n${behind}\n`);
+  return d.tickets();
+}
+
+/** `factory session-start`. */
 export async function run(): Promise<number> {
   const dir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   try {
@@ -112,20 +132,23 @@ export async function run(): Promise<number> {
   } catch {
     return 0;
   }
-  const branch = await defaultBranch(branchDeps(dir)).catch(() => null);
-  console.log(repositoryState(gitIn(dir), branch).join("\n"));
-  const behind = installBehind(dir);
-  if (behind) console.log(`\n${behind}\n`);
-  // What each ticket's board card says, and who is working on it. The status
-  // command enforces its own time limit, since a hook the harness kills
-  // prints nothing.
-  const error = console.error;
-  console.error = () => {};
-  try {
-    return await (await import("./status.mts")).run(["--hook"]);
-  } catch {
-    return 0;
-  } finally {
-    console.error = error;
-  }
+  return main({
+    dir,
+    branch: branchDeps(dir),
+    out: (text) => console.log(text),
+    // What each ticket's board card says, and who is working on it. The
+    // status command enforces its own time limit, since a hook the harness
+    // kills prints nothing.
+    tickets: async () => {
+      const error = console.error;
+      console.error = () => {};
+      try {
+        return await (await import("./status.mts")).run(["--hook"]);
+      } catch {
+        return 0;
+      } finally {
+        console.error = error;
+      }
+    },
+  });
 }

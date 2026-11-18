@@ -101,7 +101,9 @@ describe("the action's setup commands", () => {
   const setup = step("Run the build's setup commands");
 
   /** The step's script, run with an `npx` that prints `commands` for
-   * `factory config get commands.build-setup` and fails on anything else. */
+   * `factory config get commands.build-setup`, one to a line and nothing
+   * at all for an empty list, as the command does, and fails on anything
+   * else. */
   const runSetup = (commands: string[]) => {
     const dir = mkdtempSync(join(tmpdir(), "build-setup-"));
     mkdirSync(join(dir, "bin"));
@@ -110,7 +112,9 @@ describe("the action's setup commands", () => {
       [
         "#!/bin/bash",
         'if [ "$*" = "--no-install factory config get commands.build-setup" ]; then',
-        `  printf '%s\\n' ${commands.map((c) => `'${c}'`).join(" ")}`,
+        commands.length > 0
+          ? `  printf '%s\\n' ${commands.map((c) => `'${c}'`).join(" ")}`
+          : "  :",
         "else",
         '  echo "no such setting: $*" >&2; exit 1',
         "fi",
@@ -136,6 +140,13 @@ describe("the action's setup commands", () => {
       "second",
       "",
     ]);
+  });
+
+  it("runs nothing, and passes, when commands.build-setup is not set or empty", () => {
+    const r = runSetup([]);
+    expect([r.status, r.stderr]).toEqual([0, ""]);
+    expect(r.stdout).not.toContain("::group::");
+    expect(r.stdout).toBe("");
   });
 
   it("stops the run at the first command that fails", () => {

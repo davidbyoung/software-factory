@@ -137,6 +137,17 @@ const skillsAgentsAndRules = () => [
   join(PACKAGE, "rules.md"),
 ];
 
+/** The guides every repository gets: each skill, agent, the rules, and the
+ * review instructions, by its path from the package's root. */
+const guideFiles = () =>
+  [
+    ...["skills", "agents"]
+      .flatMap((d) => filesUnder(join(PACKAGE, d)))
+      .filter((path) => path.endsWith(".md")),
+    join(PACKAGE, "rules.md"),
+    join(PACKAGE, "review.md"),
+  ].map((path) => relative(PACKAGE, path));
+
 /** The source files outside the folders named, with each one's path from
  * src/. */
 const sourceFilesOutside = (folders: string[]) =>
@@ -452,7 +463,7 @@ describe("stackWordsIn", () => {
     ).toEqual(["Codecov (line 2)"]);
   });
 
-  it("lets a website's files name Playwright and visitors, and the dependency skill npm's own", () => {
+  it("lets a website's files, and no other, name Playwright and visitors, and no other stack word", () => {
     const website = "Drive it with Playwright, as a visitor would.";
     for (const file of [
       "agents/factory-ui-reviewer.md",
@@ -467,7 +478,9 @@ describe("stackWordsIn", () => {
     expect(
       stackWordsIn("git merge origin/main", "skills/factory-design/SKILL.md"),
     ).toEqual(["origin/main (line 1)"]);
+  });
 
+  it("lets the dependency skill, and no other, name npm's lock file and commands, and no other stack word", () => {
     const npm = "Take package-lock.json, then `npm ci` or `npm install`.";
     expect(stackWordsIn(npm, "skills/factory-deps/SKILL.md")).toEqual([]);
     expect(stackWordsIn(npm, "skills/factory-build/SKILL.md")).toHaveLength(3);
@@ -512,20 +525,39 @@ describe("the boundaries", () => {
     expect(hostNamesIn(readFileSync(path, "utf8"))).toEqual([]);
   });
 
+  it("reads real files: each list below holds a skill, an agent, and the rules it is said to", () => {
+    expect(guideFiles()).toEqual(
+      expect.arrayContaining([
+        "skills/factory-build/SKILL.md",
+        "agents/factory-test-reviewer.md",
+        "rules.md",
+        "review.md",
+      ]),
+    );
+    expect(instructionFiles()).toEqual(
+      expect.arrayContaining([
+        "skills/factory-build/SKILL.md",
+        "agents/factory-test-reviewer.md",
+        "workflows/factory-build.yml",
+        "rules.md",
+        "review.md",
+      ]),
+    );
+    expect(skillsAgentsAndRules()).toEqual(
+      expect.arrayContaining([
+        "skills/factory-build/SKILL.md",
+        "agents/factory-test-reviewer.md",
+        "rules.md",
+      ]),
+    );
+  });
+
   it("no skill, agent, rule, or review instruction names one stack or one layout", () => {
-    const files = [
-      ...["skills", "agents"]
-        .flatMap((d) => filesUnder(join(PACKAGE, d)))
-        .filter((path) => path.endsWith(".md")),
-      join(PACKAGE, "rules.md"),
-      join(PACKAGE, "review.md"),
-    ];
-    const found = files.flatMap((path) => {
-      const file = relative(PACKAGE, path);
-      return stackWordsIn(readFileSync(path, "utf8"), file).map(
+    const found = guideFiles().flatMap((file) =>
+      stackWordsIn(readFileSync(join(PACKAGE, file), "utf8"), file).map(
         (word) => `${file}: ${word}`,
-      );
-    });
+      ),
+    );
     expect(found).toEqual([]);
   });
 

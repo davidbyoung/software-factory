@@ -171,6 +171,20 @@ describe("factory guard commit", () => {
       expect([r.status, r.stderr]).toEqual([0, ""]);
     });
 
+    it("reads a branch name as text, not as a pattern, in a push", async () => {
+      const push = (to: string) =>
+        checkCommit(
+          { cwd: feature, tool_input: { command: `git push origin ${to}` } },
+          () => {},
+          async () => "rel.1",
+        );
+
+      expect(await push("relx1")).toBeNull();
+      expect(await push("rel.1")).toBe(
+        "pushing to rel.1. rel.1 only changes through a merged pull request.",
+      );
+    });
+
     it("reads each checkout's own default branch in one call", () => {
       const r = hook(
         `git -C ${developMain} commit -m x && git -C ${main} commit -m x`,
@@ -235,20 +249,6 @@ describe("factory guard commit", () => {
 
       expect(block).toBe(
         "main is checked out. Create a branch from origin/main first.",
-      );
-    });
-
-    it("reads a branch name as text, not as a pattern, in a push", async () => {
-      const push = (to: string) =>
-        checkCommit(
-          { cwd: feature, tool_input: { command: `git push origin ${to}` } },
-          () => {},
-          async () => "rel.1",
-        );
-
-      expect(await push("relx1")).toBeNull();
-      expect(await push("rel.1")).toBe(
-        "pushing to rel.1. rel.1 only changes through a merged pull request.",
       );
     });
 
