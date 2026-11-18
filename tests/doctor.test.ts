@@ -140,7 +140,7 @@ describe("factory doctor", () => {
   it("prints the same lines, word for word, with every part on", async () => {
     const { run, out } = doctor({
       raw: {
-        "ci-review": null,
+        "pr-review": null,
         tickets: { board: 3 },
         builds: { trigger: "own-server" },
         "auto-merge": { allow: ["docs/**"] },
@@ -262,7 +262,7 @@ describe("factory doctor", () => {
 
   it("checks each secret a part that is on reads", async () => {
     const { run, out } = doctor({
-      raw: { "ci-review": null, "auto-merge": { allow: ["docs/**"] } },
+      raw: { "pr-review": null, "auto-merge": { allow: ["docs/**"] } },
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
     });
     expect(await run()).toBe(1);

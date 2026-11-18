@@ -55,14 +55,14 @@ read is set.
 | ------------------------ | ----------------------------------------------------------------- | ----- |
 | `factory config get KEY` | To print one setting in effect, such as `tickets.board`           | Built |
 | `factory config explain` | To see every setting in effect, defaults included                 | Built |
-| `factory plugins`        | To see the plug-ins the factory will use, by slot                 | Built |
+| `factory plugins`        | To see the plugins the factory will use, by role                  | Built |
 | `factory site compare`   | To picture a website's pages before and after a change. See below | Built |
 | `factory site stop`      | To end the sites `compare --keep` left running                    | Built |
 | `factory remove`         | To take the factory out of a repository                           | Built |
 
-`factory plugins` prints one line for each plug-in, the factory's own
-included: its kind, its name, its [slot](plugins.md#the-slots), then its
-files or labels. `factory plugins SLOT` prints one slot's lines.
+`factory plugins` prints one line for each plugin, the factory's own
+included: its kind, its name, its [role](plugins.md#the-roles), then its
+files or labels. `factory plugins SLOT` prints one role's lines.
 
 A new version is installed with npm and applied with `factory sync`, as
 [Updating](updating.md) says. [Removing](removing.md) says what `remove`
@@ -114,7 +114,7 @@ ticket system would swallow, name it, and post nothing.
 `factory ticket refined N` posts nothing and exits 1 when N's body lacks a
 section a build reads, printing one line for each, such as
 `missing: ## Acceptance criteria`. With `--check` it prints `sound` for a
-body that passes. [Plug-ins](plugins.md#refiner) lists the sections.
+body that passes. [Plugins](plugins.md#refiner) lists the sections.
 
 ### Pull requests
 
@@ -191,7 +191,7 @@ the commit hook blocks a session's git command with it.
 | `factory merge-policy N`    | The merge-policy workflow       | Decides whether N may merge without you, and why                                                                                                                         | Built |
 | `factory review verdict`    | The review-verdict workflow     | Posts the "Review verdict" status for a commit                                                                                                                           | Built |
 | `factory review cost`       | The review workflow             | Adds what the CI review cost to its summary                                                                                                                              | Built |
-| `factory review tools`      | The review workflow             | Prints the tools the CI review may use, from [`ci-review.commands`](configuration.md#ci-review)                                                                          | Built |
+| `factory review tools`      | The review workflow             | Prints the tools the CI review may use, from [`pr-review.commands`](configuration.md#pr-review)                                                                          | Built |
 | `factory poller`            | Your server                     | Starts a build for each Ready ticket. See [Builds](builds.md)                                                                                                            | Built |
 | `factory poller --once`     | The scheduled poller's workflow | One pass of the poller, with the board and Ready column from your settings                                                                                               | Built |
 | `factory guard`             | A hook, before each command     | Runs both guards below on one Bash call                                                                                                                                  | Built |

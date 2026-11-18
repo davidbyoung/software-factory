@@ -9,8 +9,8 @@ import {
   parseSettings,
   PHASES,
   SETTINGS_KEYS,
-  SLOT_SHAPE,
-  SLOTS,
+  ROLE_SHAPE,
+  ROLES,
 } from "../src/config.mts";
 
 const PACKAGE = ".";
@@ -363,33 +363,33 @@ describe("unmarked", () => {
 });
 
 describe("unlinkedSettings", () => {
-  const entries = ["tickets", "tickets.columns", "ci-review", "rules"];
+  const entries = ["tickets", "tickets.columns", "pr-review", "rules"];
 
   it("finds a key named without a link to its entry", () => {
-    expect(unlinkedSettings("Write `ci-review` there.", entries)).toEqual([
-      "`ci-review` does not link to configuration.md#ci-review",
+    expect(unlinkedSettings("Write `pr-review` there.", entries)).toEqual([
+      "`pr-review` does not link to configuration.md#pr-review",
     ]);
   });
 
   it("asks for the link at the first mention only", () => {
-    const linked = "[`ci-review`](../configuration.md#ci-review) turns it on.";
+    const linked = "[`pr-review`](../configuration.md#pr-review) turns it on.";
     expect(
-      unlinkedSettings(`${linked}\n\nDelete \`ci-review\` later.`, entries),
+      unlinkedSettings(`${linked}\n\nDelete \`pr-review\` later.`, entries),
     ).toEqual([]);
     expect(
-      unlinkedSettings(`Delete \`ci-review\` later.\n\n${linked}`, entries),
+      unlinkedSettings(`Delete \`pr-review\` later.\n\n${linked}`, entries),
     ).toHaveLength(1);
   });
 
   it("takes a link whose words wrap around the key", () => {
     const text =
-      "See [the commands under\n`ci-review`](configuration.md#ci-review).";
+      "See [the commands under\n`pr-review`](configuration.md#pr-review).";
     expect(unlinkedSettings(text, entries)).toEqual([]);
   });
 
   it("finds a link to another key's entry", () => {
     expect(
-      unlinkedSettings("[`ci-review`](configuration.md#tickets)", entries),
+      unlinkedSettings("[`pr-review`](configuration.md#tickets)", entries),
     ).toHaveLength(1);
   });
 
@@ -409,10 +409,10 @@ describe("unlinkedSettings", () => {
 
   it("does not read a code block, a heading, or a name that is not a key", () => {
     const text = [
-      "## Turning off `ci-review`",
+      "## Turning off `pr-review`",
       "",
       "```bash",
-      "echo 'Write `ci-review` below.'",
+      "echo 'Write `pr-review` below.'",
       "```",
       "",
       "The label `spec`, and the file `rules.md`.",
@@ -664,7 +664,7 @@ const rows = (text: string) =>
     );
 
 // What the docs say about settings version 2: its commands, its spec check,
-// its plug-ins by phase, and the commands that came with it.
+// its plugins by phase, and the commands that came with it.
 describe("the docs, for settings version 2", () => {
   const configuration = read(CONFIGURATION);
   const entries = settingsEntries(configuration);
@@ -687,16 +687,16 @@ describe("the docs, for settings version 2", () => {
   });
 
   it.each(PHASES)(
-    "give the plug-ins of the %s phase an entry in docs/configuration.md",
+    "give the plugins of the %s phase an entry in docs/configuration.md",
     (phase) => {
       expect(entries).toContain(`plugins.${phase}`);
     },
   );
 
-  it.each(SLOTS)(
-    "say in docs/configuration.md what the %s slot takes, one or a list, with files or labels, and what is used when it is left out",
-    (slot) => {
-      const shape = SLOT_SHAPE[slot];
+  it.each(ROLES)(
+    "say in docs/configuration.md what the %s role takes, one or a list, with files or labels, and what is used when it is left out",
+    (role) => {
+      const shape = ROLE_SHAPE[role];
       const row = rows(sectionOf(configuration, "### `plugins`")).find(
         ([key]) => key === `\`${shape.phase}.${shape.key}\``,
       );
@@ -721,10 +721,10 @@ describe("the docs, for settings version 2", () => {
       expect(parseSettings(load(file), () => true).version).toBe(2);
   });
 
-  it.each(SLOTS)(
-    "give the %s slot a table in docs/plugins.md of when it is called, what it is handed, what it returns, and what happens next",
-    (slot) => {
-      const steps = rows(sectionOf(plugins, `### \`${slot}\``)).map(
+  it.each(ROLES)(
+    "give the %s role a table in docs/plugins.md of when it is called, what it is handed, what it returns, and what happens next",
+    (role) => {
+      const steps = rows(sectionOf(plugins, `### \`${role}\``)).map(
         ([step]) => step,
       );
 
@@ -746,8 +746,8 @@ describe("the docs, for settings version 2", () => {
     ["test-reviewer", "is the whole list"],
     ["resolver", "from your default branch's copy"],
     ["builder", "Reviewers still run after a builder"],
-  ])("say in docs/plugins.md, under the %s slot: %s", (slot, said) => {
-    expect(flat(sectionOf(plugins, `### \`${slot}\``))).toContain(said);
+  ])("say in docs/plugins.md, under the %s role: %s", (role, said) => {
+    expect(flat(sectionOf(plugins, `### \`${role}\``))).toContain(said);
   });
 
   it("have the section the refusal of a version 1 file names, in the page it names", () => {
@@ -831,12 +831,12 @@ describe("the docs, for settings version 2", () => {
       },
     ],
   ])(
-    "say in %s which steps a plug-in can replace, and that the states and their order cannot change",
+    "say in %s which steps a plugin can replace, and that the states and their order cannot change",
     (_, text) => {
       const said = text();
 
       for (const step of ["refined", "built", "proved", "conflict"])
-        expect(said).toMatch(new RegExp(`plug-in.* ${step}\\b`));
+        expect(said).toMatch(new RegExp(`plugin.* ${step}\\b`));
       expect(said).toContain("six states");
       expect(said).toMatch(/cannot (reorder|change)/);
     },

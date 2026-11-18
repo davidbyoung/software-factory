@@ -91,7 +91,7 @@ describe("the schema and parseSettings agree on whole files", () => {
   const base = { version: 2, repository: "owner/name" };
   const site = { start: "npm start", url: "http://localhost:$PORT" };
 
-  it("both accept every command, the spec check, and a plug-in in every slot", () => {
+  it("both accept every command, the spec check, and a plugin in every role", () => {
     const raw = {
       ...base,
       specs: { type: "openspec", check: "make specs" },

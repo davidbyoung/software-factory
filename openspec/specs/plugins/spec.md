@@ -2,15 +2,15 @@
 
 ## Purpose
 
-The `plugins` block of the settings, grouped by phase: what each slot accepts, what is used when a slot is left out, and what `factory plugins` prints.
+The `plugins` block of the settings, grouped by phase: what each role accepts, what is used when a role is left out, and what `factory plugins` prints.
 
 ## Requirements
 
-### Requirement: The slots that take one skill
+### Requirement: The roles that take one skill
 
 The factory SHALL behave as this line says: When `plugins.refine.refiner`, `plugins.refine.mockups`, or `plugins.test.prover` is one block naming a `skill`, `factory config check` accepts it.
 
-#### Scenario: The slots that take one skill
+#### Scenario: The roles that take one skill
 
 - **WHEN** `plugins.refine.refiner`, `plugins.refine.mockups`, or `plugins.test.prover` is one block naming a `skill`
 - **THEN** `factory config check` accepts it.
@@ -51,14 +51,14 @@ The factory SHALL behave as this line says: When `plugins.conflicts.resolvers` i
 - **WHEN** `plugins.conflicts.resolvers` is a list of blocks, each naming a `skill` and at least one of `files`
 - **THEN** `factory config check` accepts it.
 
-### Requirement: The wrong kind in a slot
+### Requirement: The wrong kind in a role
 
-The factory SHALL behave as this line says: When a slot that takes a skill names an `agent`, or one that takes an agent names a `skill`, `factory config check` fails with `.claude/factory.yaml: KEY: names a skill` or `KEY: names an agent`, KEY being the slot's path, such as `plugins.build.reviewers[0]`.
+The factory SHALL behave as this line says: When a role that takes a skill names an `agent`, or one that takes an agent names a `skill`, `factory config check` fails with `.claude/factory.yaml: KEY: names a skill` or `KEY: names an agent`, KEY being the role's path, such as `plugins.build.reviewers[0]`.
 
-#### Scenario: The wrong kind in a slot
+#### Scenario: The wrong kind in a role
 
-- **WHEN** a slot that takes a skill names an `agent`, or one that takes an agent names a `skill`
-- **THEN** `factory config check` fails with `.claude/factory.yaml: KEY: names a skill` or `KEY: names an agent`, KEY being the slot's path, such as `plugins.build.reviewers[0]`.
+- **WHEN** a role that takes a skill names an `agent`, or one that takes an agent names a `skill`
+- **THEN** `factory config check` fails with `.claude/factory.yaml: KEY: names a skill` or `KEY: names an agent`, KEY being the role's path, such as `plugins.build.reviewers[0]`.
 
 ### Requirement: Missing labels or files
 
@@ -69,50 +69,50 @@ The factory SHALL behave as this line says: When a builder has no `labels`, or a
 - **WHEN** a builder has no `labels`, or a build reviewer or a resolver has no `files`
 - **THEN** `factory config check` fails with `.claude/factory.yaml: KEY.labels: is required` or `KEY.files: is required`.
 
-### Requirement: Labels or files a slot does not take
+### Requirement: Labels or files a role does not take
 
-The factory SHALL behave as this line says: When a plug-in has `labels` or `files` where its slot does not take it (either one on `refiner`, `mockups`, or `prover`; `files` on a builder; `labels` on a reviewer or a resolver), `factory config check` fails, naming that key.
+The factory SHALL behave as this line says: When a plugin has `labels` or `files` where its role does not take it (either one on `refiner`, `mockups`, or `prover`; `files` on a builder; `labels` on a reviewer or a resolver), `factory config check` fails, naming that key.
 
-#### Scenario: Labels or files a slot does not take
+#### Scenario: Labels or files a role does not take
 
-- **WHEN** a plug-in has `labels` or `files` where its slot does not take it (either one on `refiner`, `mockups`, or `prover`; `files` on a builder; `labels` on a reviewer or a resolver)
+- **WHEN** a plugin has `labels` or `files` where its role does not take it (either one on `refiner`, `mockups`, or `prover`; `files` on a builder; `labels` on a reviewer or a resolver)
 - **THEN** `factory config check` fails, naming that key.
 
-### Requirement: A plug-in whose file is missing
+### Requirement: A plugin whose file is missing
 
-The factory SHALL behave as this line says: When a plug-in names a skill or an agent whose file does not exist, `factory config check` fails, naming the slot's path and the missing file.
+The factory SHALL behave as this line says: When a plugin names a skill or an agent whose file does not exist, `factory config check` fails, naming the role's path and the missing file.
 
-#### Scenario: A plug-in whose file is missing
+#### Scenario: A plugin whose file is missing
 
-- **WHEN** a plug-in names a skill or an agent whose file does not exist
-- **THEN** `factory config check` fails, naming the slot's path and the missing file.
+- **WHEN** a plugin names a skill or an agent whose file does not exist
+- **THEN** `factory config check` fails, naming the role's path and the missing file.
 
-### Requirement: The plug-ins list
+### Requirement: The plugins list
 
-The factory SHALL behave as this line says: When `factory plugins` runs, it prints one line for each plug-in the factory will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its slot, then its files or labels. The slot is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
+The factory SHALL behave as this line says: When `factory plugins` runs, it prints one line for each plugin the factory will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its role, then its files or labels. The role is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
 
-#### Scenario: The plug-ins list
+#### Scenario: The plugins list
 
 - **WHEN** `factory plugins` runs
-- **THEN** it prints one line for each plug-in the factory will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its slot, then its files or labels. The slot is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
+- **THEN** it prints one line for each plugin the factory will use, the defaults of lines 40 to 42 and 44 included: its kind, its name, its role, then its files or labels. The role is one of `refiner`, `mockups`, `builder`, `reviewer`, `prover`, `test-reviewer`, or `resolver`.
 
-### Requirement: One slot's plug-ins
+### Requirement: One role's plugins
 
-The factory SHALL behave as this line says: When `factory plugins SLOT` runs, it prints only that slot's lines.
+The factory SHALL behave as this line says: When `factory plugins ROLE` runs, it prints only that role's lines.
 
-#### Scenario: One slot's plug-ins
+#### Scenario: One role's plugins
 
-- **WHEN** `factory plugins SLOT` runs
-- **THEN** it prints only that slot's lines.
+- **WHEN** `factory plugins ROLE` runs
+- **THEN** it prints only that role's lines.
 
-### Requirement: A word that is no slot
+### Requirement: A word that is no role
 
-The factory SHALL behave as this line says: When `factory plugins SLOT` runs with a word that is no slot, it prints `SLOT: must be one of refiner, mockups, builder, reviewer, prover, test-reviewer, resolver` on standard error and exits 1.
+The factory SHALL behave as this line says: When `factory plugins ROLE` runs with a word that is no role, it prints `ROLE: must be one of refiner, mockups, builder, reviewer, prover, test-reviewer, resolver` on standard error and exits 1.
 
-#### Scenario: A word that is no slot
+#### Scenario: A word that is no role
 
-- **WHEN** `factory plugins SLOT` runs with a word that is no slot
-- **THEN** it prints `SLOT: must be one of refiner, mockups, builder, reviewer, prover, test-reviewer, resolver` on standard error and exits 1.
+- **WHEN** `factory plugins ROLE` runs with a word that is no role
+- **THEN** it prints `ROLE: must be one of refiner, mockups, builder, reviewer, prover, test-reviewer, resolver` on standard error and exits 1.
 
 ### Requirement: The default refiner
 
@@ -161,12 +161,12 @@ The factory SHALL behave as this line says: When `plugins.refine.mockups` is not
 
 ### Requirement: A pattern that matches nothing
 
-The factory SHALL behave as this line says: When a `files` pattern of any slot matches no file in the repository, `factory config check` prints `warning:` with the slot's path and the pattern, and still exits 0.
+The factory SHALL behave as this line says: When a `files` pattern of any role matches no file in the repository, `factory config check` prints `warning:` with the role's path and the pattern, and still exits 0.
 
 #### Scenario: A pattern that matches nothing
 
-- **WHEN** a `files` pattern of any slot matches no file in the repository
-- **THEN** `factory config check` prints `warning:` with the slot's path and the pattern, and still exits 0.
+- **WHEN** a `files` pattern of any role matches no file in the repository
+- **THEN** `factory config check` prints `warning:` with the role's path and the pattern, and still exits 0.
 
 ### Requirement: The end-to-end reviewer is written
 

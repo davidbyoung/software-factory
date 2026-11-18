@@ -10,7 +10,7 @@ as they stand, so this file never restates them.
 | Kind                                                                   | Example                                                    |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------- |
 | A command's behavior a factory user sees: output, exit, what it writes | the global `factory` handing off to a repository's copy    |
-| A setting: a new key, a default, or what a value means                 | `ci-review` and its `commands`                             |
+| A setting: a new key, a default, or what a value means                 | `pr-review` and its `commands`                             |
 | A skill, an agent, or the rules: what every repository's sessions do   | `factory-deps` completing a factory update with its sync   |
 | A shipped workflow or action: what runs in every repository's CI       | the CI review shipped as `factory-claude-review.yml`       |
 | A small bug fix with no change to what a user sees                     | the commit guard passing a repository with no settings     |

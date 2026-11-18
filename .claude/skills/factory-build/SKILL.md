@@ -274,7 +274,7 @@ change on its own.
 
 Read the `CLAUDE.md` for the area first ("Rules by area" in `CLAUDE.md`).
 
-**A builder plug-in:** list them with
+**A builder plugin:** list them with
 `npx --no-install factory plugins builder`, which prints each one's
 labels. When the issue carries one of a builder's labels, invoke that skill
 with the Skill tool to build it, in place of the steps below up to the

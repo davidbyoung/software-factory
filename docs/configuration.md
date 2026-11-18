@@ -1,36 +1,69 @@
 # Configuration
 
-Everything you can change lives in one file, `.claude/factory.yaml`. This
-page explains every key, then shows three complete files.
+This page is for changing what the factory does in your repository once it
+is set up. Everything you can change is in one file,
+`.claude/factory.yaml`, which [`factory init`](github/setup.md) writes when
+you set the factory up. You don't need to read this page top to bottom:
+start with
+[the settings most repositories change](#the-settings-most-repositories-change),
+and look up any other setting under [Every setting](#every-setting).
+
+## Words this page uses
+
+- **Session:** one conversation with the coding agent, such as Claude
+  Code, working in your repository. A session on your own machine is a
+  local session. One that runs in the cloud with nobody at the keyboard is
+  an unattended session.
+- **Build:** a session taking one approved ticket to a pull request.
+- **The cloud runner:** where the factory's unattended work runs. Today
+  that is GitHub Actions.
+- **The board:** a GitHub Project showing each ticket's state as a column.
+  It is optional.
+- **The board sync:** a job on the cloud runner that moves each ticket to
+  its column on the board and fills in its fields. It is the only thing
+  that writes to the board.
+- **`factory sync`:** a command you run. It copies the factory's skills,
+  agents, rules, and workflows into your repository, choosing which ones
+  from this file. It has nothing to do with the board sync.
+- **Skill and agent:** a skill is a set of instructions a session follows,
+  and an agent is a separate reviewer a session launches to read something
+  and report back.
+
+The [glossary](glossary.md) has the rest.
 
 ## How the file works
 
-- **Every key has a default.** A key belongs in your file only when you
-  change it. The shortest file that works is two lines.
-- **It holds only what a script must compute.** Anything that needs judgment,
-  such as when a reviewer applies, stays as prose in the instructions your
-  coding agent reads, such as `CLAUDE.md`, where sessions already read it.
-- **Paths are glob patterns.** `*` matches within one folder, `**` matches
-  across folders, and both match names that start with a dot. A pattern with
-  no wildcard matches that one path from the repository's root.
-- **A command is one line of shell.** Each runs with bash from the
-  repository's root, with nothing on its standard input.
-- **A part you can swap is a block with a `type`.** When you write nothing
-  else under it, you may write it as one word:
+- **Two settings are required, and a third before any build.** Every
+  file has [`version`](#version) and [`repository`](#repository), and a
+  session can't build a ticket until you set
+  [`commands.gate`](#commandsgate). Every other setting has a default, and
+  you write it only when you want something else.
+- **It holds only what a script needs.** Anything that needs judgment,
+  such as when one of your reviewers should apply, goes in the
+  instructions your coding agent already reads, such as `CLAUDE.md`.
+- **File patterns are globs.** `*` matches within one folder and `**`
+  matches across folders. Both match names that start with a dot. A
+  pattern with no wildcard matches that one path from the repository's
+  root.
+- **A command is one line of shell.** Each runs with bash, from the
+  repository's root. Only the commands under [`site.checks`](#site) and
+  [`auto-merge.commands`](#auto-merge) are given anything on their
+  standard input, and their entries say what.
+- **Some settings choose between tools, and name the tool with `type`.**
+  When `type` is the only thing in the block, you can write the tool's
+  name on the same line. These two mean the same:
 
   ```yaml
   specs: openspec
   ```
-
-  means the same as:
 
   ```yaml
   specs:
     type: openspec
   ```
 
-- **Comments are kept.** Setup writes the same comment above a section in
-  every repository, and updates never remove yours.
+- **Your comments are kept.** `factory init` writes a comment above each
+  section, and updates never remove yours.
 
 ## The shortest file
 
@@ -39,67 +72,68 @@ version: 2
 repository: your-name/your-repo
 ```
 
-With this, sessions refine tickets when you tell them to, nothing merges
-without you, and there is no board. A build needs one more key, the gate,
-which is the first entry below.
+With only this, the factory refines a ticket when you ask a session to,
+nothing merges without you, and there is no board. Before a session can
+build a ticket, you also need to tell it how to check a change:
+[`commands.gate`](#commandsgate), below.
 
 ## The settings most repositories change
 
-One key is required for a build: [`commands.gate`](#commandsgate). Most
-repositories set it and the four other things below, and leave every other
-key at its default.
-
-- **The gate,** the commands that check a change, such as your tests and
-  your linter. A build cannot finish without it. List them under
-  `commands.gate`.
-- **The checks before every commit,** the quick ones of the gate, such as
-  your formatter. List them under
+- **How to check a change:** your tests, linter, and type check, under
+  [`commands.gate`](#commandsgate). A build cannot finish without it.
+- **Quick checks before every commit:** your formatter and the other
+  checks that take a few seconds, under
   [`commands.before-commit`](#commandsbefore-commit).
-- **A board,** to see every ticket's state. Set `tickets.board` to your
-  board's number, and when your columns have other names, map them under
-  `tickets.columns`. [`tickets`](#tickets) has both. On GitHub,
-  [Setting up on GitHub](github/setup.md) has the steps around
-  them.
-- **What merges without you.** List the files that may under
-  `auto-merge.allow`, such as your docs. [`auto-merge`](#auto-merge).
-- **Your own reviewers.** An agent of yours, listed under
-  `plugins.build.reviewers` with the files it reads.
-  [`plugins`](#plugins), and [Plug-ins](plugins.md) for a worked example.
+- **A board:** your GitHub Project's number, under
+  [`tickets.board`](#tickets).
+- **What may merge without you:** for example your docs, under
+  [`auto-merge.allow`](#auto-merge).
+- **Reviewers of your own:** an agent you wrote, which reads a change that
+  touches certain files, under
+  [`plugins.build.reviewers`](#pluginsbuild). [Plugins](plugins.md) has a
+  worked example.
 
-After any change, run `factory config check`, and
-`factory sync`, which rewrites the files a change of
-settings affects. A change under `plugins` alone needs no sync: plug-ins
-are read from the settings each time.
+**After you change the file,** run:
 
-## Every key
+```bash
+factory config check
+factory sync
+```
+
+`factory config check` prints nothing when the file is valid, and names
+the setting when it is not. `factory sync` then rewrites the copied files
+that depend on what you changed, and lists each file it wrote. A change
+under `plugins` alone needs no `factory sync`, since the factory reads
+your plugins from this file each time.
+
+## Every setting
 
 ### `version`
 
-The shape of this file, not the factory's version. It is `2`. It changes
-only when keys are renamed or moved. No command converts a file: the
-release that changes the shape says so, and
-[Updating](updating.md#moving-to-settings-version-2) shows each key that
-moved, before and after.
+Which layout of this file you are using. It is not the factory's version.
+Write `2`.
 
-- **Default:** none. Setup writes it.
-- **If wrong:** every command of the factory that reads the settings stops
-  with `version: must be 2`. For a version 1 file it adds where the move
-  is described.
+- **Default:** none. `factory init` writes it.
+- **If it is wrong,** every factory command that reads this file stops
+  with `version: must be 2`. For a version 1 file, it also says where
+  [Updating](updating.md#moving-to-settings-version-2) shows each setting
+  that moved.
 
 ### `repository`
 
-The repository on the code host, as `owner/name`.
+Your repository, as `owner/name`, such as `harbor-goods/storefront`.
 
-- **Default:** none. Setup writes it once.
-- **If wrong:** commands read and write another repository's tickets, or
-  fail because it does not exist.
+- **Default:** none. `factory init` writes it.
+- **If it is wrong,** commands read and write another repository's
+  tickets, or fail because it does not exist.
 
-It is a setting, not a lookup, so a command run outside a checkout, as the
-poller is, still knows which repository to read.
+It is written down rather than worked out from your checkout, because the
+[poller](#builds), which watches your board from outside any checkout,
+needs it too.
 
 ### `tickets`
 
-Where tickets live and how their state is shown.
+Where your tickets live, and which board shows them.
 
 ```yaml
 tickets:
@@ -107,292 +141,269 @@ tickets:
   board: 1
 ```
 
-| Key     | Meaning            | Allowed          | Default  |
-| ------- | ------------------ | ---------------- | -------- |
-| `type`  | The ticket system  | `github`         | `github` |
-| `board` | The board's number | A number, `none` | `none`   |
+- **`type`** is the ticket system. Only `github` is built, and it is the
+  default.
+- **`board`** is your GitHub Project's number: the last part of its
+  address, such as `1` in `github.com/users/your-name/projects/1`. The
+  default, `none`, means no board.
 
-- **With `type: github`,** the board is a GitHub Project, and its number is
-  the last part of its address.
-- **With no board,** a ticket's state lives in its comments,
-  `factory status` still shows it, and builds start only
-  when you tell a session.
-- **If `board` is wrong:** the board sync fails and names the board it could
-  not read.
-- **One board can hold more than one repository's tickets.** Give each
-  repository the same `board`: each one's sync, `status`, and poller read
-  only the cards for its own issues, and GitHub's Repository field tells
-  them apart on the board.
+Without a board, `factory status` still shows every ticket's state, which
+the factory keeps in comments on the ticket. Builds then start only when
+you ask a session to build a ticket.
 
-A board shows the six states of [Workflow](workflow.md) as columns, and
-keeps three fields the factory writes. A repository that writes nothing
-below gets the factory's own board. `columns` and `fields` need a `board`.
+One board can show tickets from several repositories. Give each
+repository the same `board`. Each repository's board sync,
+`factory status`, and poller only touch that repository's own tickets.
+
+`factory board check` reads your board and says what the factory will do
+with it.
 
 #### `tickets.columns`
 
-Which of your board's columns shows each state. Leave a key out to use the
-factory's own name for it. `none` means your board has no column for that
-state.
-
-| Key        | State    | Default column | May be `none` |
-| ---------- | -------- | -------------- | ------------- |
-| `backlog`  | backlog  | Backlog        | No            |
-| `refining` | refining | In refinement  | Yes           |
-| `ready`    | ready    | Ready          | Yes           |
-| `building` | building | In progress    | Yes           |
-| `review`   | review   | In review      | Yes           |
-| `done`     | done     | Done           | Yes           |
-
-- **A name matches whatever its capitals and the spaces around it,** so
-  the default "In progress" finds a board's "In Progress".
-- **A ticket shows in its state's column. When that state has none, it
-  shows in the column of the nearest earlier state that has one.** Nothing
-  but an approved ticket shows in the `ready` column, so a state with no
-  column passes over it.
-- **A card in a column no state names is left alone.** The sync writes none
-  of its fields while it sits there, and nothing builds it.
-- **With `ready: none`,** no column approves a build. A build starts only
-  when you tell a session to build the ticket or run
-  `factory build N`, so
-  `factory config check` requires `builds.trigger: manual`.
-- **If a repository's `ready` column has another name,** a poller you host
-  needs it too: see `FACTORY_READY_COLUMN` in [Builds](builds.md). A
-  scheduled one reads it from here.
-- `factory config get tickets.columns.ready` prints the
-  name in effect, or `none`.
-
-#### `tickets.fields`
-
-Which of your board's fields the sync writes: `session`, `runs-in`, and
-`cost`, with the defaults Session, Runs in, and Cost. Each may be `none`.
-The board's own status field keeps its name, Status on a GitHub Project,
-and has to be a single select holding every column named above.
-
-| The settings   | The board                          | The sync                                                       |
-| -------------- | ---------------------------------- | -------------------------------------------------------------- |
-| name the field | has it, with the right type        | writes it                                                      |
-| name the field | lacks it, or it has the wrong type | fails, naming the field and its key                            |
-| leave default  | has it, with the right type        | writes it                                                      |
-| leave default  | lacks it                           | skips it, with a note                                          |
-| leave default  | has it, with the wrong type        | fails, and says to name another field or set the key to `none` |
-| say `none`     | either                             | never writes it                                                |
-
-Session is Text, Runs in is a single select with the options Local and
-Actions, and Cost is a Number. `factory board check` reads
-your board and says what the factory will do with it.
-
-Two examples. The default, which needs nothing written:
+The board has one column for each of the six
+[states](workflow.md#the-six-states) a ticket goes through. If your
+board's columns have the factory's names, write nothing here. If they have
+other names, or your board has fewer columns, say which column shows each
+state. A new GitHub Project starts with only Todo, In Progress, and Done,
+so its settings would be:
 
 ```yaml
 tickets:
-  type: github
-  board: 1
-```
-
-A board with only Todo, In Progress, and Done, as a new GitHub Project
-starts, and none of the factory's fields:
-
-```yaml
-tickets:
-  type: github
   board: 7
   columns:
     backlog: Todo
+    building: In Progress
+    done: Done
     refining: none
     ready: none
-    building: In Progress
     review: none
-    done: Done
 builds:
   trigger: manual
 ```
 
-`factory config check` rejects, naming the key: a key it
-does not know;
-`backlog: none`; two states naming the same column; `columns` or `fields`
-with no `board`; and `ready: none` while `builds.trigger` is not `manual`.
-It reads no board.
+The factory's own names, used for any state you leave out, are:
 
-`type` exists so that another ticket system changes this block and nothing
-else. Only `github` is built. Any other value fails
-`factory config check` and every ticket command with:
-`tickets.type "X" is not supported. "github" is the only ticket system built.`
+| State      | Column the factory looks for |
+| ---------- | ---------------------------- |
+| `backlog`  | Backlog                      |
+| `refining` | In refinement                |
+| `ready`    | Ready                        |
+| `building` | In progress                  |
+| `review`   | In review                    |
+| `done`     | Done                         |
+
+- **Capitals don't matter,** so "In progress" finds your "In Progress".
+- **`none` means your board has no column for that state.** A ticket in
+  that state stays in the column of the state before it. With
+  `review: none`, a ticket whose pull request is in review stays in In
+  progress. Every state can be `none` except `backlog`.
+- **A ticket never falls back into Ready,** since only a ticket you
+  approved goes there, so the fallback skips it. With `building: none`
+  alone, a ticket being built has no column of its own, the state before
+  building is ready, and Ready is skipped, so it shows in In refinement.
+- **With `ready: none`, nothing on the board approves a build,** so you
+  need `builds.trigger: manual`, and you start each build by asking a
+  session.
+- **A ticket in a column no state uses is left alone.** The board sync
+  doesn't move it or fill in its fields, and nothing builds it.
+- **If you host your own poller** and rename the Ready column, the poller
+  needs the new name too: see `FACTORY_READY_COLUMN` in
+  [Builds](builds.md#what-it-reads-from-its-environment).
+
+`factory config check` stops on a state it doesn't know, on
+`backlog: none`, on two states sharing one column, on `columns` without a
+`board`, and on `ready: none` when `builds.trigger` isn't `manual`. It
+doesn't read your board: `factory board check` does.
+
+#### `tickets.fields`
+
+Besides moving a ticket between columns, the board sync fills in three
+fields so you can see at a glance what is happening to it:
+
+- **Session:** which session is working on the ticket, or "Waiting on
+  you".
+- **Runs in:** whether that session is on someone's machine or in the
+  cloud.
+- **Cost:** roughly what refining and building the ticket has cost so far.
+
+`factory init` adds these three fields to your board, so most repositories
+write nothing here. Write this block only when your board already has a
+field you want used instead, or to stop the board sync filling one in:
+
+```yaml
+tickets:
+  board: 7
+  fields:
+    session: Agent # fill in your existing "Agent" field instead
+    cost: none # never fill in a cost
+```
+
+- **A field you name must exist,** holding the right kind of value: text
+  for Session, a single select with the options Local and Actions for Runs
+  in, and a number for Cost. If it doesn't, the board sync stops and says
+  which field is wrong.
+- **When you name nothing,** the board sync looks for fields called
+  Session, Runs in, and Cost, fills in those it finds, and skips the rest
+  with a note.
+- **It never overwrites a field of yours.** If your board has a field
+  called Cost that holds text, the board sync stops rather than write over
+  it, and asks you to name another field or write `cost: none`.
+- **The column itself is the board's own Status field,** which has to be
+  a single select with an option for each column in
+  [`tickets.columns`](#ticketscolumns).
 
 ### `code-host`
 
-Where the repository and its pull requests live.
+Where your repository and its pull requests live. Only `github` is built,
+and it is the default, so most files leave this out.
 
 ```yaml
-code-host:
-  type: github
+code-host: github
 ```
 
-| Key    | Meaning       | Allowed  | Default  |
-| ------ | ------------- | -------- | -------- |
-| `type` | The code host | `github` | `github` |
-
-`code-host: github` means the same, and most files leave the block out.
-It exists so that code kept somewhere else changes this block and nothing
-else. Only `github` is built. Any other value fails
-`factory config check`, and every command that reads the
-settings and reaches a pull request, with:
-`code-host.type "X" is not supported. "github" is the only code host built.`
-
 ### `builds`
+
+What starts a build when you approve a ticket, and where the build runs.
 
 ```yaml
 builds:
   trigger: own-server
-  runner: github-actions
 ```
 
-| Key            | Meaning                                                              | Allowed                                 | Default          |
-| -------------- | -------------------------------------------------------------------- | --------------------------------------- | ---------------- |
-| `trigger`      | What starts a build for a ticket you moved to Ready                  | `own-server`, `github-action`, `manual` | `manual`         |
-| `runner`       | Where a build in the cloud runs                                      | `github-actions`                        | `github-actions` |
-| `poll-minutes` | How often the scheduled poller reads the board, with `github-action` | 5, 10, 15, 30, or 60                    | 5                |
+| Setting        | What it sets                                          | Choices                                 | Default          |
+| -------------- | ----------------------------------------------------- | --------------------------------------- | ---------------- |
+| `trigger`      | What notices you moved a ticket to Ready on the board | `manual`, `own-server`, `github-action` | `manual`         |
+| `runner`       | Where a build in the cloud runs                       | `github-actions`                        | `github-actions` |
+| `poll-minutes` | With `github-action`, how often it checks the board   | 5, 10, 15, 30, or 60                    | 5                |
 
-`trigger` is what notices a card moved to Ready, and `runner` is where the
-build it starts then runs: a poller on your own server still starts its
-builds on the cloud runner. Only `github-actions` is built. Any other value
-fails `factory config check`, and every command that reads
-the settings and reaches the runner, with:
-`builds.runner "X" is not supported. "github-actions" is the only runner built.`
+The three triggers:
 
-- **`manual`:** nothing watches the board. You tell a session "work 12".
-- **`own-server`:** a small poller you host reads the board once a minute.
-- **`github-action`:** a schedule on the cloud runner does the same every
-  `poll-minutes` minutes, with nothing to host. On a private repository,
-  each pass is billed as at least an Actions minute.
+- **`manual`:** nothing watches the board. You ask a session to build a
+  ticket, such as "work ticket 12".
+- **`own-server`:** a small program you host, the poller, checks the board
+  once a minute and starts a cloud build for each ticket in Ready.
+  [Hosting the poller](builds.md#hosting-the-poller-own-server) shows how
+  to run it.
+- **`github-action`:** a schedule on GitHub Actions does the same every
+  `poll-minutes` minutes, with nothing for you to host. On a private
+  repository, each check is billed as at least one Actions minute.
+  `factory sync` adds its workflow.
 
-`factory config check` fails on `poll-minutes` beside any other trigger,
-and on any value but the five above.
+Watch the spelling: the trigger is `github-action`, singular, and the
+runner is `github-actions`, plural.
 
-[Builds](builds.md) explains each. **If no poller is running,** a ticket
-moved to Ready sits there, and `factory status` flags it "not started":
-after 5 minutes with `own-server`, and after `poll-minutes` and 15 more
-with `github-action`.
+Whatever starts it, a cloud build runs on the cloud runner.
+[Builds](builds.md) explains each trigger. **It worked when** a ticket you
+move to Ready shows as In progress on the board within a few minutes. If
+nothing is watching the board, a ticket you move to Ready just sits there, and `factory status`
+marks it "not started": after 5 minutes with `own-server`, and after
+`poll-minutes` plus 15 minutes with `github-action`.
+
+`factory config check` stops on `poll-minutes` with any trigger but
+`github-action`, and on any value but the five above.
 
 ### `specs`
 
-How the written spec for a change your users will see is kept, and the
-command that checks it.
+Whether a change your users will see also gets a written spec, kept beside
+your code.
 
 ```yaml
 specs: openspec
 ```
 
-| `type`     | Meaning                                                                   |
-| ---------- | ------------------------------------------------------------------------- |
-| `none`     | The ticket's acceptance criteria are the only spec                        |
-| `openspec` | A visible, non-trivial change also adds its behavior to `openspec/specs/` |
-
-- **Default:** `none`.
-- **Written as one word,** as above, or as a block with `type`, which is
-  how you also set `check`, the next entry.
-- **If you set `openspec` without OpenSpec installed:** a build of a visible
-  change stops at its first spec step and says so.
-- `factory config get specs` prints `openspec` or `none`, whichever way it
-  is written.
+- **`none`,** the default: the ticket's acceptance criteria are the only
+  spec.
+- **`openspec`:** a visible change that isn't
+  [small](workflow.md#sizing-the-work-to-the-change) also writes its new
+  behavior into `openspec/specs/`, using
+  [OpenSpec](https://github.com/Fission-AI/OpenSpec), so that folder
+  always describes what your project does. Install it first, with
+  `npm install -D @fission-ai/openspec`. Without it, a build stops at its
+  first spec step and says so.
 
 #### `specs.check`
 
-The command that says whether the written specs are sound.
-`factory specs check` runs it, and a build runs that each time it writes a
-spec or folds one into `openspec/specs/`.
+The command that checks your written specs are sound.
+`factory specs check` runs it, and so does a build each time it writes a
+spec.
 
 ```yaml
 specs:
   type: openspec
-  # The command "factory specs check" runs. This is its default.
   check: npx --no-install openspec validate --all --strict --no-interactive
 ```
 
-- **Default:** the command above, when `type` is `openspec`. Most
-  repositories leave it out.
-- **It runs with `DO_NOT_TRACK=1` in its environment,** so OpenSpec
-  collects no usage statistics, and exits with the command's own status.
-- **With `specs: none`,** there is nothing to check: `factory specs check`
-  prints `specs are off` and exits 0. Writing `check` there fails
-  `factory config check` with `specs.check needs specs.type: openspec`.
-- `factory config get specs.check` prints the command, or `none`.
+- **Default:** the command above,
+  `npx --no-install openspec validate --all --strict --no-interactive`,
+  with `type: openspec`, so most repositories leave it out.
+- **It runs with `DO_NOT_TRACK=1` set,** so OpenSpec collects no usage
+  statistics.
+- **With `specs: none`** there is nothing to check, and writing `check`
+  fails `factory config check`.
 
 ### `commands`
 
-The commands a session runs that are your repository's own: how it is set
-up, checked, and tested. The factory's skills name no test runner and no
-linter. They run `factory gate`, `factory test-one`, and the rest, and
-those run what you write here.
+The commands that are your project's own: how a session checks a change,
+runs one test, and so on. The factory's skills never name a test runner or
+a linter. They run `factory gate`, `factory test-one`, and the like, which
+run what you write here.
 
 ```yaml
-# Every command a build runs, each from the repository's root.
 commands:
-  # Before an unattended build starts work.
   build-setup:
     - npx playwright install --with-deps chromium
-  # Before every commit a session makes.
   before-commit:
     - npm run -s format:check
     - npx tsc --noEmit
-  # Before a session reports a task done. "factory gate" runs them in order.
   gate:
     - npm run check
-  # One test alone. "factory test-one" sets $FILE and $NAME.
   test-one: npx vitest run $FILE -t "$NAME"
-  # One end-to-end spec alone. "factory end-to-end" sets $FILE.
   end-to-end: npx playwright test $FILE
-  # Coverage, and where its lcov report lands.
   coverage:
     run: npm run coverage
     report: coverage/lcov.info
-  # Rebuilds the lock file after a conflict in it.
   relock: npm install
 ```
 
-| Key             | Takes                       | Default       | Run by                                                |
-| --------------- | --------------------------- | ------------- | ----------------------------------------------------- |
-| `build-setup`   | A list of commands          | none          | The cloud runner, before an unattended session starts |
-| `before-commit` | A list of commands          | none          | A hook, before every commit a session makes           |
-| `gate`          | A list of commands          | none          | `factory gate`                                        |
-| `test-one`      | One command                 | not set       | `factory test-one FILE [NAME]`                        |
-| `end-to-end`    | One command                 | not set       | `factory end-to-end FILE [--times K]`                 |
-| `coverage`      | A block, `run` and `report` | not set       | A session judging a pull request's coverage           |
-| `relock`        | One command                 | `npm install` | A session, after a conflict in the lock file          |
+| Setting         | Runs                                                             | Default                    |
+| --------------- | ---------------------------------------------------------------- | -------------------------- |
+| `build-setup`   | Before a cloud build starts work                                 | none                       |
+| `before-commit` | Before every commit a session makes                              | none                       |
+| `gate`          | Before a session calls a task done                               | none, and a build needs it |
+| `test-one`      | When a session runs one test alone                               | none                       |
+| `end-to-end`    | When a session runs one end-to-end test file alone               | none                       |
+| `coverage`      | When a session checks that a pull request's new lines are tested | none                       |
+| `relock`        | After a conflict in your lock file                               | `npm install`              |
 
+- **`$FILE` and `$NAME`** are set for you when a command runs one test.
+  [`commands.test-one`](#commandstest-one) says how.
 - **Only `gate` is needed for a build.** Each of the others turns
-  something on, and its entry says what a session does without it.
+  something on, and its entry below says what happens without it.
 - **A list runs in order and stops at the first command that fails.**
-- **`factory config check` fails, naming the key,** on a list that is not a
-  list of text, on a single command that is not text or is empty, and on a
-  `coverage` block missing `run` or `report`.
-- `factory config get commands.gate` prints one command per line, and
-  nothing for an empty list. A single command prints itself, or `none`
-  when it is not set, and so do `commands.coverage.run` and
-  `commands.coverage.report`.
 
 #### `commands.build-setup`
 
-Commands run, in order, before a build in the cloud starts work. Your npm
-dependencies are already installed by then, with `npm ci`.
+Commands that run before a cloud build starts work, to install what the
+session will need. Your npm dependencies are already installed by then,
+with `npm ci`, but nothing else is.
 
 ```yaml
 commands:
-  # Commands run from the repository's root before an unattended build
-  # starts work. Your npm dependencies are already installed by then.
   build-setup:
-    - npx playwright install --with-deps chromium
+    - npx playwright install --with-deps chromium # a browser for end-to-end tests
 ```
 
+In a project that isn't JavaScript, install its dependencies here too,
+such as `composer install` or `pip install -r requirements.txt`.
+
 - **Default:** none.
-- **What goes here:** what a session needs that `npm ci` does not give it,
-  such as a browser for end-to-end tests or a system package.
-- **If one fails:** the run stops before the session starts, with that
-  command's output in its log.
+- **If one fails,** the build stops before the session starts, and the
+  run's log shows that command's output.
 
 #### `commands.before-commit`
 
-Commands run, in order, before every commit a session makes. If one fails,
-the commit is blocked and the session is shown the output.
+Quick checks that run before every commit a session makes. If one fails,
+the commit is blocked and the session sees why.
 
 ```yaml
 commands:
@@ -403,19 +414,20 @@ commands:
 ```
 
 - **Default:** none.
-- **Keep them fast.** They run on every commit. Your full test suite
-  belongs in [`commands.gate`](#commandsgate), which a session runs once
-  before it reports a task done, and in CI.
-- **They apply to a session's commits,** not to the ones you make in your
-  own terminal.
-- **If one is wrong:** every commit a session makes is blocked with that
-  command's error.
+- **Keep them to a few seconds.** They run on every commit. Your tests
+  belong in [`commands.gate`](#commandsgate), which runs once per task.
+- **They only apply to a session's commits,** not to commits you make
+  yourself.
 
 #### `commands.gate`
 
-The commands that check a change, in order: what has to pass before a
-session reports a task done or opens a pull request. `factory gate` runs
-them, printing `$` and the command before each one.
+The checks a change has to pass before a session calls it done or opens a
+pull request. Think of it as what your CI runs on a pull request, minus
+anything too slow for a session to sit and wait for. `factory gate` runs
+them in order and stops at the first failure, so put the fastest first.
+
+If you already have one command that runs every check, such as
+`npm run check` or `make check`, the gate can be just that:
 
 ```yaml
 commands:
@@ -423,71 +435,117 @@ commands:
     - npm run check
 ```
 
-- **Default:** none, and nothing stands in for it. With no gate,
-  `factory gate` fails with
-  `commands.gate is not set: add the commands that check a change to .claude/factory.yaml`,
-  and a build stops there: a gate that passed because it was empty would
-  look the same as one that passed. `factory init` lists it under "Left to
-  do", and `factory doctor` shows it as off.
-- **What goes here:** what your CI runs on a pull request, short of
-  anything too slow for a session to wait on: the format check, the type
-  check, lint, and the unit tests. Any command works, such as
-  `composer test`, `make check`, or `go vet ./...`.
-- **If one fails:** `factory gate` runs none after it, prints
-  `gate failed on:` and the command, and exits 1. The session fixes the
-  cause and runs the gate again.
+Otherwise, list each check. What that looks like in a few languages:
+
+```yaml
+# JavaScript or TypeScript
+gate:
+  - npm run format:check
+  - npm run lint
+  - npx tsc --noEmit
+  - npm test
+```
+
+```yaml
+# Python
+gate:
+  - ruff format --check .
+  - ruff check .
+  - mypy src
+  - pytest -q
+```
+
+```yaml
+# Go
+gate:
+  - test -z "$(gofmt -l .)"
+  - go vet ./...
+  - go test ./...
+```
+
+```yaml
+# PHP
+gate:
+  - composer validate --strict
+  - vendor/bin/php-cs-fixer fix --dry-run --diff
+  - vendor/bin/phpstan analyse
+  - vendor/bin/phpunit
+```
+
+```yaml
+# Rust
+gate:
+  - cargo fmt --check
+  - cargo clippy -- -D warnings
+  - cargo test
+```
+
+Leave out:
+
+- **Anything that changes files,** such as `prettier --write`. The gate
+  checks a change; it doesn't fix it.
+- **A test suite that takes many minutes,** such as a full browser suite.
+  CI still runs it on the pull request.
+- **Anything that needs production secrets, or deploys.**
+
+There is no default. Without a gate, `factory gate` fails with
+`commands.gate is not set`, and a build stops there, because an empty gate
+would pass every change. `factory init` lists it under "Left to do".
+
+When a command fails, `factory gate` prints `gate failed on:` and the
+command, and runs none after it. The session fixes the cause and runs the
+gate again.
+
+**Check your gate yourself** before a session relies on it: run
+`factory gate` on a clean checkout. It should print each command and exit 0. `factory config check` only checks that the file is valid, not that
+your commands work.
 
 #### `commands.test-one`
 
-Runs one test file alone, or one test in it. `factory test-one FILE NAME`
-runs it with `FILE` and `NAME` in its environment, the way
-[`site.start`](#site) gets `$PORT`. `NAME` is empty when only a file is
-given, so write the command to run the whole file then.
+Runs one test file alone, or one test in it. A session uses it to watch a
+new test fail before the change, and to narrow down a bug.
+`factory test-one FILE NAME` runs your command with `$FILE` and `$NAME`
+set. When only a file is given, `$NAME` is empty, so the command should
+run the whole file then:
 
 ```yaml
 commands:
-  # One test alone. An empty NAME runs the whole file.
-  test-one: npx vitest run $FILE -t "$NAME"
+  test-one: npx vitest run $FILE -t "$NAME" # an empty -t runs every test
 ```
 
-- **Default:** not set.
-- **What it is for:** watching a new test fail before the change, proving
-  a test can fail, and the loop a session builds to find a bug's cause.
-- **Without it,** `factory test-one` fails with
-  `commands.test-one is not set`, and a session is left to find its own
-  way to run one test.
-- **It exits with the command's own status.**
+```yaml
+commands:
+  test-one: vendor/bin/phpunit $FILE ${NAME:+--filter "$NAME"} # --filter only with a name
+```
+
+- **Default:** none. `factory test-one` then fails with
+  `commands.test-one is not set`, and a session finds its own way to run
+  one test.
 
 #### `commands.end-to-end`
 
-Runs one end-to-end spec alone. `factory end-to-end FILE` runs it with
-`FILE` in its environment. With `--times K` it runs K times in a row,
-stops at the first run that fails, and says which, as
-`failed on run 3 of 10`: a build runs each new spec ten times, since a
-spec that fails one run in ten fails someone's pull request.
+Runs one end-to-end test file alone, with `$FILE` set.
+`factory end-to-end FILE --times 10` runs it ten times and stops at the
+first failure, as `failed on run 3 of 10`. A build does that with each new
+end-to-end test, since one that fails one run in ten will fail someone's
+pull request.
 
 ```yaml
 commands:
   end-to-end: npx playwright test $FILE
 ```
 
-- **Default:** not set. Leave it out of a repository with no end-to-end
-  suite.
-- **Setting it also brings `factory-e2e-reviewer`,** the built-in agent
-  that reads browser end-to-end tests, in two steps:
-  1. Set this key and run `factory sync`, which writes the agent.
-  2. List it under [`plugins.test.reviewers`](#pluginstest), where it
-     runs. That list is the whole list, so list `factory-test-reviewer`
-     there too: listing `factory-e2e-reviewer` alone drops it.
-- **Without it,** `factory end-to-end` fails with
-  `commands.end-to-end is not set`.
-- **Run `factory sync` after adding or removing it.**
+- **Default:** none. Leave it out if you have no end-to-end tests.
+- **Setting it makes `factory-e2e-reviewer` available,** the factory's
+  reviewer for browser tests. To use it, run `factory sync`, then list it
+  under [`plugins.test.reviewers`](#pluginstest). That list replaces the
+  default, so list `factory-test-reviewer` there too.
 
 #### `commands.coverage`
 
-The command that measures test coverage, and where its lcov report lands.
-A session working a pull request's review runs `run` and reads `report` to
-find the changed lines no test covers.
+The command that measures test coverage, and where it writes its lcov
+report. A session working on a pull request's review runs it to find new
+lines no test covers.
 
 ```yaml
 commands:
@@ -496,236 +554,238 @@ commands:
     report: coverage/lcov.info
 ```
 
-- **Default:** not set. A session then judges no coverage.
-- **Both keys are required** once `coverage` is written.
+- **Default:** none, and a session doesn't check coverage.
+- **Write both `run` and `report`,** or neither.
 
 #### `commands.relock`
 
-The command that rebuilds your package manager's lock file. After a
-conflict in the lock file, a session takes the default branch's copy and
-runs this, in place of merging the file by hand. A session also runs it to
-install dependencies in a checkout it made.
+The command that rebuilds your package manager's lock file. When the lock
+file conflicts with the default branch, a session takes the default
+branch's copy and runs this, instead of merging the file by hand.
 
 ```yaml
 commands:
-  relock: npm install
+  relock: composer update --lock
 ```
 
-- **Default:** `npm install`, since the factory itself is installed with
-  npm and every repository has that lock file.
-- **Any other generated file** that conflicts is a
-  [resolver plug-in's](#pluginsconflicts).
+- **Default:** `npm install`.
+- **Another generated file that conflicts,** such as a generated API
+  client, needs a [resolver](#pluginsconflicts).
 
 ### `session-minutes`
 
-How long each kind of session that runs on its own in the cloud may run, in
-minutes. Raise one when your tests, your build, or your site's
-comparison take long enough that honest work is being cut off.
+How long each kind of unattended session may run, in minutes, before the
+cloud runner stops it. Raise one if your tests or your build are slow
+enough that sessions are cut off mid-task.
 
 ```yaml
-# How long each unattended session may run, in minutes.
 session-minutes:
   build: 300
 ```
 
-| Key            | The session                                                 | Default |
-| -------------- | ----------------------------------------------------------- | ------- |
-| `build`        | A build of a ticket                                         | `230`   |
-| `conflicts`    | A fix of a pull request's conflicts with the default branch | `110`   |
-| `review`       | An answer to your review of a pull request                  | `50`    |
-| `dependencies` | Work on the dependency pull requests                        | `50`    |
+| Setting        | The session                                               | Default |
+| -------------- | --------------------------------------------------------- | ------- |
+| `build`        | Building a ticket                                         | `230`   |
+| `conflicts`    | Fixing a pull request's conflicts with the default branch | `110`   |
+| `review`       | Answering your review of a pull request                   | `50`    |
+| `dependencies` | Working through dependency updates                        | `50`    |
 
-- **Each is a whole number above zero.** A key you leave out keeps its
-  default.
-- **The job around a session gets 10 minutes more,** so the steps after it,
-  which release the ticket and post what happened, still run when the
-  session is stopped.
-- **`factory sync` writes these where the cloud runner
-  reads them,** and `factory sync --check` fails until it
-  has run after a change.
-- **The cloud runner may stop a job sooner.** On GitHub, see
+- **Each is a whole number above zero.**
+- **Run `factory sync` after changing one,** since it writes them into the
+  workflows. `factory config check` fails until you do.
+- **GitHub may stop a job sooner:** see
   [its limits](github/reference.md#limits).
-- The cloud jobs that run no session, such as the board's sync and who
-  merges, keep fixed short limits.
-- `factory config get session-minutes.build` prints the
-  value in effect.
 
 ### `plugins`
 
-Your own skills and agents, grouped by the phase of the work each is called
-in: `refine`, `build`, `test`, and `conflicts`. Under each phase are its
-slots, the moments where the factory hands off. Every slot is optional, and
-leaving one out never turns a step off: the factory's own skill or agent
-does it. [Plug-ins](plugins.md) says what each slot is handed and what it
-has to return.
+Your own skills and agents, doing a job the factory would otherwise do
+itself, or adding to it. Each job is a **role**. For example, an agent you
+list in the `reviewers` role reads every change that touches its files,
+alongside the factory's own reviewers. Roles are grouped by the part of
+the work they belong to: `refine`, `build`, `test`, and `conflicts`.
 
 ```yaml
-# Your own skills and agents, by phase. Every slot is optional.
+plugins:
+  build:
+    reviewers:
+      - agent: migration-reviewer # .claude/agents/migration-reviewer.md
+        files:
+          - db/migrations/**
+```
+
+Every role is optional. Leaving one out never turns a step off: the
+factory does that step its own way. A reviewer is an agent, since it only
+reads and reports. Every other role takes a skill, which the session
+follows itself. [Plugins](plugins.md) says what each role is handed and
+what it has to give back.
+
+| Role                  | What you list | How many | When it is used                                                                               | If you list none                                                                                                    |
+| --------------------- | ------------- | -------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `refine.refiner`      | A skill       | One      | Whenever a ticket is refined                                                                  | `factory-refine` refines tickets                                                                                    |
+| `refine.mockups`      | A skill       | One      | Whenever a decision changes how something looks                                               | `factory-design` draws mockups if you set [`site`](#site), and otherwise the session describes the choices in words |
+| `build.builders`      | Skills        | A list   | For a ticket with one of the builder's `labels`. Each builder needs at least one              | The factory's own build builds every ticket                                                                         |
+| `build.reviewers`     | Agents        | A list   | When a change touches one of the reviewer's `files`. Each reviewer needs at least one pattern | Only the factory's own reviewers read a change                                                                      |
+| `test.prover`         | A skill       | One      | Whenever a new test needs proof that it can fail                                              | `factory-mutate` proves each new test can fail                                                                      |
+| `test.reviewers`      | Agents        | A list   | When a change touches tests. A reviewer given `files` reads only changes to those             | `factory-test-reviewer` reads new tests                                                                             |
+| `conflicts.resolvers` | Skills        | A list   | When a conflict is in one of the resolver's `files`. Each resolver needs at least one pattern | The session merges conflicts by hand, and [`commands.relock`](#commandsrelock) rebuilds the lock file               |
+
+In Claude Code, a skill lives at `.claude/skills/NAME/SKILL.md` and an
+agent at `.claude/agents/NAME.md`:
+[Skills in Claude Code](github/reference.md#skills-in-claude-code).
+
+- **`factory plugins`** prints every plugin the factory will use, its own
+  included, one per line: skill or agent, its name, its role, and its
+  files or labels. `factory plugins reviewer` prints one role's.
+- **`factory config check`** stops on an agent in a role that takes a
+  skill, or the other way round; on `files` or `labels` in a role that
+  doesn't take them; on a builder with no `labels`; on a build reviewer or
+  resolver with no `files`; and on a skill or agent whose file doesn't
+  exist. It warns on a `files` pattern that matches no file.
+
+#### `plugins.refine`
+
+- **`refiner`:** your own skill for refining a ticket, used instead of
+  `factory-refine`.
+- **`mockups`:** your own skill for drawing the choices when a decision
+  changes how something looks.
+
+A role that takes one plugin is a block, not a list:
+
+```yaml
 plugins:
   refine:
-    # Replaces factory-refine. Must deliver what the build reads.
     refiner:
-      skill: acme-refine
-    # Makes pictures when a decision changes the look. One only.
+      skill: acme-refine # .claude/skills/acme-refine/SKILL.md
     mockups:
       skill: design-mockups
+```
+
+#### `plugins.build`
+
+- **`builders`:** your own skill for building certain tickets, used
+  instead of the factory's build for any ticket with one of its `labels`.
+  If two builders share a label, the first one listed builds the ticket.
+- **`reviewers`:** your own agents, each asked to read a change that
+  touches a file matching its `files`. The pattern only decides who is
+  asked: the agent's own description says when it really applies. One
+  that was asked but didn't apply gets a line in the pull request saying
+  why.
+
+```yaml
+plugins:
   build:
-    # Each builds a ticket that carries one of its labels.
     builders:
       - skill: add-endpoint
         labels:
           - new-endpoint
-    # Each is considered when a change touches one of its files.
     reviewers:
       - agent: migration-reviewer
         files:
           - db/migrations/**
+```
+
+#### `plugins.test`
+
+- **`prover`:** your own skill for proving a new test can fail, used
+  instead of `factory-mutate`.
+- **`reviewers`:** the agents that read new and changed tests. **This list
+  replaces the default,** so `factory-test-reviewer` runs only if you list
+  it, and `reviewers: []` means no test reviewer runs. Without `files`, a
+  reviewer reads every change to tests; with `files`, only changes to
+  matching files. `factory-e2e-reviewer` needs
+  [`commands.end-to-end`](#commandsend-to-end).
+
+```yaml
+plugins:
   test:
-    # Replaces factory-mutate: proves each new test can fail.
     prover:
       skill: acme-mutation
-    # The whole list of test reviewers. Left out, it is factory-test-reviewer.
     reviewers:
       - agent: factory-test-reviewer
       - agent: factory-e2e-reviewer
         files:
           - e2e/**
+```
+
+#### `plugins.conflicts`
+
+- **`resolvers`:** your own skills for files that should be rebuilt rather
+  than merged by hand after a conflict, such as a generated API client.
+  Each handles the files matching its `files`. If two match one file, the
+  first one listed rebuilds it.
+- **A new resolver is used once it has merged,** since conflicts are fixed
+  using the default branch's copy of this file, never a pull request's.
+
+```yaml
+plugins:
   conflicts:
-    # Each rebuilds its files after a conflict, in place of a hand merge.
     resolvers:
       - skill: regenerate-api-client
         files:
           - src/generated/**
 ```
 
-Each slot takes one kind, a skill or an agent, and either one plug-in or
-a list of them. A reviewer is an agent, since it is launched to read and
-changes nothing. Every other slot is a skill, which the session follows.
-
-| Slot                  | Takes   | One or a list | `files` or `labels` | Left out                                                   |
-| --------------------- | ------- | ------------- | ------------------- | ---------------------------------------------------------- |
-| `refine.refiner`      | A skill | One           | Neither             | `factory-refine`                                           |
-| `refine.mockups`      | A skill | One           | Neither             | `factory-design` with [`site`](#site) set; otherwise words |
-| `build.builders`      | Skills  | A list        | `labels`, required  | The built-in build                                         |
-| `build.reviewers`     | Agents  | A list        | `files`, required   | No reviewers of your own                                   |
-| `test.prover`         | A skill | One           | Neither             | `factory-mutate`                                           |
-| `test.reviewers`      | Agents  | A list        | `files`, optional   | `factory-test-reviewer`                                    |
-| `conflicts.resolvers` | Skills  | A list        | `files`, required   | A merge by hand, and [`commands.relock`](#commandsrelock)  |
-
-Where your coding agent keeps skills and agents: in Claude Code, see
-[Skills in Claude Code](github/reference.md#skills-in-claude-code).
-
-- **`factory plugins` prints the plug-ins the factory will use,** one to a
-  line, the built-in ones included: its kind, its name, its slot, then its
-  files or labels. `factory plugins SLOT` prints one slot's, where the
-  slot is `refiner`, `mockups`, `builder`, `reviewer`, `prover`,
-  `test-reviewer`, or `resolver`.
-- **`factory config check` fails, naming the slot,** on a skill where the
-  slot takes an agent or an agent where it takes a skill, on `files` or
-  `labels` where the slot takes neither, on a builder with no `labels`,
-  on a build reviewer or a resolver with no `files`, and on a name whose
-  file does not exist. It warns on a `files` pattern that matches no file.
-- **Written as a list,** the shape before settings version 2, `plugins`
-  fails with `plugins: must be grouped by phase: refine, build, test, conflicts`.
-  [Updating](updating.md#moving-to-settings-version-2) shows where each
-  plug-in goes.
-- **`plugins: {}`, or a phase with nothing under it,** is the same as
-  leaving it out.
-
-#### `plugins.refine`
-
-- **`refiner`:** the skill that refines a ticket, in place of
-  `factory-refine`. One skill, with no `files` and no `labels`.
-- **`mockups`:** the skill that makes pictures to choose from when a
-  decision changes how something looks. One skill. A repository with
-  [`site`](#site) set has the factory's own `factory-design` here without
-  writing it; any other describes the decision in words.
-
-#### `plugins.build`
-
-- **`builders`:** each is a skill that builds a ticket carrying one of its
-  `labels`, in place of the built-in build step. `labels` is required.
-  When two builders share a label, the first listed builds the ticket.
-- **`reviewers`:** each is an agent considered when a change touches a
-  file matching one of its `files`, which is required.
-  **`files` is a filter, not the whole rule.** When a reviewer really
-  applies is in that agent's own description. A reviewer whose files
-  matched but which did not apply gets one line in the pull request saying
-  why.
-
-#### `plugins.test`
-
-- **`prover`:** the skill that proves a new test can fail, in place of
-  `factory-mutate`. One skill. It cannot be set to nothing: a test's red
-  run before the change is already a proof, and a test written after the
-  code needs one.
-- **`reviewers`:** the agents that read new and changed tests. **Written,
-  it is the whole list:** `factory-test-reviewer` runs only when you list
-  it, and `reviewers: []` means no test reviewer runs. `files` is
-  optional: without it a reviewer reads whenever a change touches tests,
-  and with it only when the change touches a matching file. Listing
-  `factory-e2e-reviewer` needs
-  [`commands.end-to-end`](#commandsend-to-end).
-
-#### `plugins.conflicts`
-
-- **`resolvers`:** each is a skill that rebuilds the files matching its
-  `files` after a conflict, in place of merging them by hand, such as a
-  generated API client. `files` is required. When two resolvers match one
-  file, the first listed rebuilds it. The package manager's lock file
-  needs no resolver: [`commands.relock`](#commandsrelock) rebuilds it.
-- **The conflict sweep reads resolvers from your default branch,** never
-  from a pull request's branch, so a new resolver is used once it has
-  merged.
-
 ### `site`
 
-How the factory looks at your website. Leave it out if the repository is not
-one. With it, and `factory-ui-reviewer` listed under
-`plugins.build.reviewers`, a visible change is pictured before and after,
-and the difference is reviewed.
+How the factory looks at your website, if your repository is one. With
+`site` set and `factory-ui-reviewer` listed under
+[`plugins.build.reviewers`](#pluginsbuild), every change that alters how
+the site looks is screenshotted before and after, and the difference is
+reviewed. The screenshots are taken with Playwright, so install it in
+your repository first, with `npm install -D playwright`. Until you do,
+`factory config check` fails on a file with `site`.
+
+Most sites need only two lines:
 
 ```yaml
 site:
-  # A command that builds and serves the site from the repository's root,
-  # and the address it answers at. $PORT is set for you.
   start: npm run build && npx serve out -p $PORT
   url: http://localhost:$PORT
-  # Optional. Your design rules, applied on top of the built-in ones.
-  design-guide: docs/design.md
 ```
 
-| Key             | Default       | Meaning                                                                                              |
-| --------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
-| `start`         | required      | Builds and serves the site from the repository's root; `$PORT` is set                                |
-| `url`           | required      | The address `start` answers at                                                                       |
-| `design-guide`  | none          | A file of your own design rules                                                                      |
-| `pages`         | found         | The paths to look at. Otherwise from `/sitemap.xml`, or the home page's links                        |
-| `widths`        | `[390, 1280]` | The widths, in pixels, each page is shot at                                                          |
-| `hide`          | none          | CSS selectors hidden before every picture, for something that floats                                 |
-| `checks`        | none          | Your own measuring commands. Each gets one JSON object on its standard input                         |
-| `max-pages`     | `4`           | How many changed pages the agent reads closely                                                       |
-| `start-minutes` | `5`           | How long to wait for the site to answer after `start` is run                                         |
-| `accessibility` | `wcag22aa`    | The WCAG level axe-core measures changed pages against: `wcag22aa`, `wcag21aa`, `wcag2aa`, or `none` |
-| `new-values`    | `true`        | `false` leaves out the font sizes, colors, spacing, and radii the base site does not use             |
+**It worked when** `factory site compare` builds your branch and the
+default branch, takes the screenshots, and prints where it saved them.
+[`factory site`](cli.md#factory-site) has the details.
 
-- **`factory config get site`** prints every key in this
-  order, defaults included, one `key: value` line each.
-  `factory config get site.widths` prints one key, a list one item to a line, and `none` for a key that is not
-  set; `site.pages` prints `found` when it is not set.
-- **`factory config check`** rejects a `site` with no `start` or `url`, a
-  `design-guide` that is not a file, and `factory-ui-reviewer` listed with no
-  `site`. It also fails when the `playwright` package is not found from the
-  repository's root: `npm install -D playwright`. It looks for the package and
-  never for a browser.
-- **A `checks` command** gets `{"before", "after", "pages", "report"}` on its
-  standard input: the two addresses, the paths that changed, and the folder of
-  pictures. Each non-empty line it prints is a finding; its exit code says
-  nothing.
+Every setting `site` takes:
+
+| Setting         | What it sets                                                                                                      | Default                                                              |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `start`         | A command that builds and serves the site, with `$PORT` set for it. Required                                      | none                                                                 |
+| `url`           | The address `start` serves the site at. Required                                                                  | none                                                                 |
+| `design-guide`  | A file of your own design rules, checked on top of the factory's                                                  | none                                                                 |
+| `pages`         | A list of paths to look at                                                                                        | The pages in `/sitemap.xml`, or else the ones the home page links to |
+| `widths`        | A list of screen widths, in pixels                                                                                | `[390, 1280]`                                                        |
+| `hide`          | A list of CSS selectors hidden before each screenshot, for something that floats over the page                    | none                                                                 |
+| `checks`        | A list of your own measuring commands, described below                                                            | none                                                                 |
+| `max-pages`     | How many changed pages the reviewer reads closely                                                                 | `4`                                                                  |
+| `start-minutes` | How long to wait for the site to answer after `start` runs                                                        | `5`                                                                  |
+| `accessibility` | The WCAG level changed pages are checked against: `wcag22aa`, `wcag21aa`, `wcag2aa`, or `none`                    | `wcag22aa`                                                           |
+| `new-values`    | Whether the review points out font sizes, colors, spacing, and corner radii that the rest of the site doesn't use | `true`                                                               |
+
+The optional ones that take a list are written like this:
+
+```yaml
+site:
+  start: npm run build && npx serve out -p $PORT
+  url: http://localhost:$PORT
+  pages:
+    - /
+    - /pricing
+  hide:
+    - .chat-widget
+  checks:
+    - node scripts/check-tap-targets.mjs
+```
+
+**A command under `checks`** is given one JSON object on its standard
+input: `before` and `after`, the two sites' addresses; `pages`, the paths
+that changed; and `report`, the folder of screenshots. Each line it prints
+is reported as a finding. Its exit code is ignored.
 
 ### `auto-merge`
 
-Which pull requests may merge without you.
+Which pull requests may merge without you reading them.
 
 ```yaml
 auto-merge:
@@ -741,108 +801,101 @@ auto-merge:
 
 A pull request merges itself only when **all** of these hold:
 
-1. every changed file matches a pattern under `allow`;
-2. no changed file matches a pattern under `deny`;
+1. every file it changes matches a pattern under `allow`;
+2. no file it changes matches a pattern under `deny`;
 3. every command under `commands` exits 0;
-4. CI passes, including the automated review's verdict.
+4. CI passes. With [`pr-review`](#pr-review) on, that includes the
+   automated review finding it ready.
 
-Anything else waits for you, and the pull request says why.
+Otherwise it waits for you, and the pull request says why.
 
-| Key        | Meaning                                                              | Default |
-| ---------- | -------------------------------------------------------------------- | ------- |
-| `allow`    | Patterns for files safe to merge unread                              | empty   |
-| `deny`     | Exceptions inside `allow`. `deny` always wins                        | empty   |
-| `commands` | Your own checks. Each is run once for a pull request and can veto it | empty   |
+- **By default every list is empty, so nothing merges without you.**
+- **`deny` carves exceptions out of `allow`,** and always wins.
+- **Some files always wait for you,** whatever `allow` says: the
+  factory's own, which are everything under `.claude/` and `.github/`,
+  every `CLAUDE.md` and `AGENTS.md`, and `openspec/config.yaml`.
+- **Start with a short `allow` list** and add to it. Too wide a list
+  merges changes you meant to read.
+- **`factory config check` warns about a pattern that matches no file,**
+  since a stale pattern is how a policy quietly stops meaning anything.
 
-- **With the default, nothing merges without you.**
-- **Always held for you, whatever you allow:** the factory's own files
-  (`.claude/`, `.github/`, every `CLAUDE.md` and `AGENTS.md`, and
-  `openspec/config.yaml`).
-- **A command** is run once for a pull request, from the root of a checkout
-  of your default branch, never the pull request's. It is given one JSON
-  object on its standard input:
+**A command under `commands`** is your own check. It runs once for each
+pull request, from a checkout of your default branch, never the pull
+request's, and reads one JSON object on its standard input:
 
-  ```json
-  {
-    "repository": "harbor-goods/storefront",
-    "pull": 42,
-    "base": "the merge base's commit",
-    "head": "the pull request's newest commit",
-    "files": [
-      {
-        "filename": "src/a.ts",
-        "previous_filename": "src/b.ts",
-        "status": "renamed"
-      }
-    ]
-  }
-  ```
+```json
+{
+  "repository": "harbor-goods/storefront",
+  "pull": 42,
+  "base": "the commit the pull request branched from",
+  "head": "the pull request's newest commit",
+  "files": [
+    {
+      "filename": "src/a.ts",
+      "previous_filename": "src/b.ts",
+      "status": "renamed"
+    }
+  ]
+}
+```
 
-  It exits 0 to allow the merge, and anything else to hold the pull request
-  for you. Each line it prints is shown as a reason; one that prints nothing
-  is shown as "held by" and the command. A command that cannot be run
-  counts as a hold.
+It exits 0 to let the pull request merge, and anything else to hold it for
+you. Each line it prints is shown as a reason.
 
-- **The reasons a held pull request shows**, one for each file or command
-  that held it, in this order of checking:
+What a held pull request says, one line for each file or command that held
+it:
 
-  | Reason                                 | Why                                                 |
-  | -------------------------------------- | --------------------------------------------------- |
-  | `PATH: the factory's own files`        | One of the files below, whatever `allow` says       |
-  | `PATH: held by auto-merge.deny`        | It matches `deny`                                   |
-  | `PATH: not in auto-merge.allow`        | It matches nothing in `allow`                       |
-  | What a command printed                 | A command exited with anything but 0                |
-  | `held by COMMAND`                      | A command exited with anything but 0, printing none |
-  | `held by COMMAND: it could not be run` | The command was not found or could not be started   |
-  | `no changed files`                     | The pull request changes nothing                    |
+| It says                                | Because                                         |
+| -------------------------------------- | ----------------------------------------------- |
+| `PATH: the factory's own files`        | The file is one of the factory's, listed above  |
+| `PATH: held by auto-merge.deny`        | The file matches `deny`                         |
+| `PATH: not in auto-merge.allow`        | The file matches nothing in `allow`             |
+| What your command printed              | Your command exited with something other than 0 |
+| `held by COMMAND`                      | The same, and the command printed nothing       |
+| `held by COMMAND: it could not be run` | The command was not found or could not start    |
+| `no changed files`                     | The pull request changes nothing                |
 
-  A renamed file is checked under both its names.
+A renamed file is checked under both its old and new names.
 
-- **If a pattern matches no file:** `factory config check`
-  warns, since a stale pattern is how a policy rots.
-- **If `allow` is too wide:** changes you meant to read merge unread.
-  Start with a short list and add to it.
-- **If a `deny` pattern matches nothing inside `allow`:** it does nothing,
-  and `factory config check` says so.
+### `pr-review`
 
-### `ci-review`
-
-The automated review of every pull request: Claude reads each one once it
-is marked ready, comments on what it finds, and posts a verdict. It is on
-while `ci-review` is written, even with nothing under it, and `factory
-sync` then writes its workflow, `.github/workflows/factory-claude-review.yml`.
-[Setting up on GitHub](github/setup.md) has what it needs on GitHub.
+An AI code review of every pull request. Once a pull request is marked
+ready, the coding agent reads it, comments on what it finds, and posts a
+verdict that [`auto-merge`](#auto-merge) waits for. It is separate from
+your own CI, which keeps running your tests as before.
 
 ```yaml
-# The automated review of every pull request, on while this is written.
-# "commands" are what it may run to confirm a finding, beside reading the
-# pull request and commenting on it.
-ci-review:
+pr-review:
   commands:
     - npm test
     - npx tsc --noEmit
 ```
 
-- **Default:** off.
-- **`commands`:** each is a command prefix the reviewer may run, such as
-  your tests, the type check, or lint. Without any, it reads the pull
-  request, its history, and your instructions, and runs nothing of yours.
-  A command may hold no comma, parenthesis, or quote.
-- **Read from the pull request's base commit,** so a change to the
-  settings alone cannot widen what its own review may run.
-- **To turn it off,** delete `ci-review` and run
-  `factory sync`, which deletes the workflow.
-- `factory review tools` prints every tool the review may
-  use, as its workflow passes them on.
+- **Default:** off. Writing `pr-review` turns it on, even with nothing
+  under it (`pr-review: {}`), and `factory sync` then adds its workflow,
+  `.github/workflows/factory-claude-review.yml`.
+  [Setting up on GitHub](github/setup.md) has what it needs there.
+- **`commands` is what the reviewer may run** to confirm something it
+  suspects, beyond reading the code and commenting. It doesn't run them on
+  every pull request. Without any, it only reads. A command can't contain
+  a comma, a parenthesis, or a quote.
+- **Each command you list runs the pull request's own code,** in a job
+  that holds the review's token. Only list commands you'd be comfortable
+  running on any pull request.
+- **It reads this list from the branch the pull request merges into,** so
+  a pull request can't widen what its own review may run.
+- **To turn it off,** delete `pr-review` and run `factory sync`, which
+  removes the workflow.
+- `factory review tools` prints everything the reviewer may use.
 
 ### `approvers`
 
-_[Planned](developing.md#what-is-built)_: `factory config check`
-refuses this key until it is built.
+_[Planned](developing.md#what-is-built)_: `factory config check` refuses
+this setting until it is built.
 
-The people whose comments a session treats as instructions, and whose move
-of a ticket to Ready counts as approval. Everyone else's comments are
-information.
+The people whose comments a session takes as instructions, and whose move
+of a ticket to Ready counts as approving it. Everyone else's comments are
+read as information.
 
 ```yaml
 approvers:
@@ -850,20 +903,16 @@ approvers:
   - a-teammate
 ```
 
-- **Default:** the repository's owner. One person never writes this key.
-- **If a name is wrong:** that person's comments are treated as
-  information, and a ticket they move to Ready is not built.
-  _[Planned](developing.md#what-is-built)_: `factory doctor`
-  flags a name that is not an account with access to the repository.
-
-A session posts through a person's account too, so it marks its own comments
-and never takes one as an instruction.
+- **Default:** the repository's owner, so a repository with one person
+  leaves it out.
+- **If a name is wrong,** that person's comments are treated as
+  information, and a ticket they approve is not built.
 
 ### `rules`
 
-Numbers the process rules use, for a repository that wants different ones.
-`factory sync` writes each into the copies of the rules and skills that
-state it, so run it after changing one.
+Two numbers the factory's rules use, for a repository that wants
+different ones. Run `factory sync` after changing one, since it writes the
+number into the rules and skills that use it.
 
 ```yaml
 rules:
@@ -871,105 +920,71 @@ rules:
   review-rounds: 2
 ```
 
-| Key                  | Meaning                                                                                                                    | Default |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `small-change-lines` | A change under this many lines outside tests, specs, and content, adding no component and no state, takes the lighter path | `30`    |
-| `review-rounds`      | Rounds a session works a review before it hands what is left to you                                                        | `2`     |
+| Setting              | What it sets                                                                                                                                                                      | Default |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `small-change-lines` | How many changed lines, outside tests, specs, and content, a change can have and still count as [small](workflow.md#sizing-the-work-to-the-change), which skips the heavier steps | `30`    |
+| `review-rounds`      | How many rounds of review comments a session answers before it hands what is left to you                                                                                          | `2`     |
 
-- **If a value is not a whole number above zero:**
-  `factory config check` fails and names the key.
-
-Any rule that is prose, not a number, you change by saying otherwise in
-your own instructions for the agent, such as `CLAUDE.md`, which win over the
-factory's rules.
+Each must be a whole number above zero. Any rule that isn't a number, you
+change by saying so in your own instructions for the coding agent, such as
+`CLAUDE.md`, which win over the factory's rules.
 
 ## Checking the file
 
-| Command                  | What it does                                                                                                           |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Your editor              | The first line of the file points at the factory's schema, which flags a misspelled key as you type it                 |
-| `factory config check`   | Fails on an unknown key, a wrong type, a plug-in with no file, and warns on a pattern matching nothing. Runs in CI     |
-| `factory config explain` | Prints every setting in effect, as the file would read with every default written out, each default marked `# default` |
-| `factory doctor`         | Checks the file against the real board, and that each secret your parts read is set                                    |
+| Command or tool          | What it does                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Your editor              | Flags a misspelled setting as you type, using the schema named on the file's first line              |
+| `factory config check`   | Stops on anything the factory can't use, and warns about patterns that match nothing. CI runs it     |
+| `factory config explain` | Prints the whole file as the factory reads it, with every default written out and marked `# default` |
+| `factory doctor`         | Checks the file against your real board, and that each secret the factory needs is set               |
 
-The first line of the file, which the three files below start with:
+The first line `factory init` writes is optional. It points your editor at
+the schema in the installed package:
 
 ```yaml
 # $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
 ```
 
-Both editor families read it: JetBrains' editors and the YAML language server
-that Visual Studio Code's YAML extension uses. The path is relative to the
-settings file, so it finds the schema in the installed package, which matches
-the installed version and works offline. In a checkout with nothing installed
-the editor finds no schema and says so.
-
-The editor's check is a help. It accepts some files
-`factory config check` refuses, such as a plug-in whose
-file does not exist, and that command is the one that counts.
+JetBrains editors and Visual Studio Code's YAML extension both read it.
+The editor's check is only a help: it accepts some things
+`factory config check` refuses, such as a plugin whose file doesn't exist.
 
 ## Three complete files
 
+The skills, agents, and scripts these files name are examples. Yours would
+have to exist in your repository for `factory config check` to pass.
+
 ### A web application with its own reviewers
 
-An online store. It adds a skill that builds new API endpoints the way
-this project scaffolds them, and three reviewers of its own. It sets `site`,
-so the factory's design skill makes its mockups with no entry here. Changes to components, styles, docs, and tests merge
-unread; anything touching checkout or consent waits for a person.
+An online store with a board, a skill of its own for building new API
+endpoints, two reviewers of its own, and the factory's UI reviewer.
+Changes to components, styles, docs, and tests merge unread, except
+anything touching checkout or consent.
 
 ```yaml
 # $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
-# Settings for the software factory. Every key is explained in
-# docs/configuration.md in the factory's repository.
-#
-# Anything not listed here keeps its default: no pull request merges without
-# you, a build starts when you tell a session to work a ticket, and only the
-# built-in reviewers run.
-#
-# "version" is the shape of this file, not the factory's version.
 version: 2
 repository: harbor-goods/storefront
 
-# Where tickets live. "board" is the number in your GitHub Project's address.
 tickets:
-  type: github
   board: 1
 
-# What starts a build once a ticket is moved to Ready on the board:
-# own-server (a small poller you host), github-action, or manual (you tell
-# a session to build it).
 builds:
   trigger: own-server
 
-# How the written spec for a change your users will see is kept: openspec,
-# or none.
 specs: openspec
 
-# Every command a build runs, each from the repository's root.
 commands:
-  # Run on the session's machine before every commit it makes. If one
-  # fails, the commit is blocked.
+  build-setup:
+    - npx playwright install --with-deps chromium
   before-commit:
     - npm run -s format:check
     - npx tsc --noEmit
     - npm run -s lint
-  # Run before a session reports a task done, in order. A build cannot
-  # finish until they pass.
   gate:
     - npm run check
-  # Runs one test alone. $FILE is the test's file and $NAME the test's
-  # name, which is empty when the whole file is wanted.
   test-one: npx vitest run $FILE -t "$NAME"
 
-# Your own skills and agents, grouped by the phase they work in. A skill is
-# a set of instructions a session follows; an agent is a separate reviewer a
-# session launches. Refining, building, and reviewing tests are built in.
-# Under "build":
-#   builders   each builds a ticket that carries one of its "labels" (label
-#              names), in place of the built-in build
-#   reviewers  each is asked to read a finished change when it touches a
-#              path matching its "files", and reports problems; it edits
-#              nothing
 plugins:
   build:
     builders:
@@ -980,24 +995,18 @@ plugins:
       - agent: migration-reviewer
         files:
           - db/migrations/**
+      - agent: accessibility-reviewer
+        files:
+          - src/components/**
       - agent: factory-ui-reviewer
         files:
           - src/components/**
           - src/styles/**
-      - agent: accessibility-reviewer
-        files:
-          - src/components/**
 
-# How the factory looks at this website, for factory-ui-reviewer.
 site:
   start: npm run build && npx serve out -p $PORT
   url: http://localhost:$PORT
 
-# Which pull requests may merge without you. Patterns are globs matched
-# against paths from the repository's root, and deny wins over allow. A pull
-# request merges itself only when every changed file matches "allow", none
-# matches "deny", every command under "commands" (if you list any) exits 0
-# when CI runs it, and CI passes. Anything else waits for you.
 auto-merge:
   allow:
     - docs/**
@@ -1010,96 +1019,60 @@ auto-merge:
     - src/components/consent/**
   commands:
     - node scripts/public-api-changed.mjs
-```
 
-### A basic website
-
-A small marketing site with a board, no reviewers of its own, and nothing
-merging unread. Everything not written here is a default.
-
-```yaml
-# $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
-# Settings for the software factory. Every key is explained in
-# docs/configuration.md in the factory's repository.
-#
-# Anything not listed here keeps its default: no pull request merges without
-# you, a build starts when you tell a session to work a ticket, and only the
-# built-in reviewers run.
-#
-# "version" is the shape of this file, not the factory's version.
-version: 2
-repository: riverbend-studio/site
-
-# Where tickets live. "board" is the number in your GitHub Project's address.
-tickets:
-  board: 4
-
-# Every command a build runs, each from the repository's root.
-commands:
-  # Run on the session's machine before every commit it makes. If one
-  # fails, the commit is blocked.
-  before-commit:
-    - npm run lint
-    - npm run typecheck
-  # Run before a session reports a task done, in order. A build cannot
-  # finish until they pass.
-  gate:
+pr-review:
+  commands:
     - npm test
 ```
 
-Builds start when someone tells a session to work a ticket, since
-`builds.trigger` defaults to `manual`.
+### A small website
 
-### A repository that is not JavaScript
-
-A PHP library. Its commands are Composer's and PHPUnit's. It lets
-documentation merge unread and has one reviewer of its own for its public
-API.
+A marketing site with a board and nothing else changed. Builds start when
+someone asks a session, since `builds.trigger` defaults to `manual`.
 
 ```yaml
 # $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
-# Settings for the software factory. Every key is explained in
-# docs/configuration.md in the factory's repository.
-#
-# Anything not listed here keeps its default: no pull request merges without
-# you, a build starts when you tell a session to work a ticket, and only the
-# built-in reviewers run.
-#
-# "version" is the shape of this file, not the factory's version.
+version: 2
+repository: riverbend-studio/site
+
+tickets:
+  board: 4
+
+commands:
+  before-commit:
+    - npm run lint
+  gate:
+    - npm run lint
+    - npm run typecheck
+    - npm test
+```
+
+### A project that isn't JavaScript
+
+A PHP library. Its commands are Composer's and PHPUnit's, and a cloud
+build installs its dependencies first. Docs merge unread, and one reviewer
+of its own reads changes to its public API.
+
+```yaml
+# $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
 version: 2
 repository: northwind-php/ledger
 
-# Where tickets live. "board" is the number in your GitHub Project's address.
 tickets:
-  type: github
   board: 2
 
-# Every command a build runs, each from the repository's root.
 commands:
-  # Run on the session's machine before every commit it makes. If one
-  # fails, the commit is blocked.
+  build-setup:
+    - composer install --no-interaction
   before-commit:
     - composer lint
-    - composer analyse
-  # Run before a session reports a task done, in order. A build cannot
-  # finish until they pass.
   gate:
     - composer lint
     - composer analyse
     - composer test
-  # Runs one test alone. $FILE is the test's file and $NAME the test's
-  # name, which is empty when the whole file is wanted.
   test-one: vendor/bin/phpunit $FILE ${NAME:+--filter "$NAME"}
+  relock: composer update --lock
 
-# Your own skills and agents, grouped by the phase they work in. A skill is
-# a set of instructions a session follows; an agent is a separate reviewer a
-# session launches. Refining, building, and reviewing tests are built in.
-# Under "build":
-#   builders   each builds a ticket that carries one of its "labels" (label
-#              names), in place of the built-in build
-#   reviewers  each is asked to read a finished change when it touches a
-#              path matching its "files", and reports problems; it edits
-#              nothing
 plugins:
   build:
     reviewers:
@@ -1107,25 +1080,9 @@ plugins:
         files:
           - src/**
 
-# Which pull requests may merge without you. Patterns are globs matched
-# against paths from the repository's root, and deny wins over allow. A pull
-# request merges itself only when every changed file matches "allow", none
-# matches "deny", every command under "commands" (if you list any) exits 0
-# when CI runs it, and CI passes. Anything else waits for you.
 auto-merge:
   allow:
     - docs/**
   deny:
     - docs/security/**
-```
-
-If this team moved its tickets to Jira, only the `tickets` block would
-change. **Only GitHub is built**; the block below shows the shape the
-design leaves room for.
-
-```yaml
-tickets:
-  type: jira
-  site: northwind.atlassian.net
-  project: LEDGER
 ```

@@ -59,7 +59,7 @@ end-to-end suite.
 No change here sends anything to an outside service from a visitor, so no
 small change keeps `factory-test-reviewer` for that reason. There is no
 website and no design guide, so no style tweak needs a test, and there is
-no UI reviewer: `docs-reader`, the one reviewer plug-in, reads the docs.
+no UI reviewer: `docs-reader`, the one reviewer plugin, reads the docs.
 
 - **The docs** (`README.md` and `docs/`) count toward a change's size:
   they are not content. Their reviewer is `docs-reader`, whose

@@ -6,7 +6,7 @@ import {
   NO_DEPENDENCIES,
   parseSettings,
   SETTINGS_KEYS,
-  SLOTS,
+  ROLES,
   patternWarnings,
   pluginsOf,
   reachOf,
@@ -56,7 +56,7 @@ describe("parseSettings", () => {
       plugins: [],
       testReviewersWritten: false,
       autoMerge: { allow: [], deny: [], commands: [] },
-      ciReview: null,
+      prReview: null,
       site: null,
       sessionMinutes: {
         build: 230,
@@ -69,8 +69,8 @@ describe("parseSettings", () => {
   });
 
   describe("the CI review and the commands it may run", () => {
-    it("is on with no commands when ci-review is written with nothing under it", () => {
-      expect(parse({ ...MINIMAL, "ci-review": null }).ciReview).toEqual({
+    it("is on with no commands when pr-review is written with nothing under it", () => {
+      expect(parse({ ...MINIMAL, "pr-review": null }).prReview).toEqual({
         commands: [],
       });
     });
@@ -79,18 +79,18 @@ describe("parseSettings", () => {
       expect(
         parse({
           ...MINIMAL,
-          "ci-review": { commands: ["npx vitest run", "node"] },
-        }).ciReview,
+          "pr-review": { commands: ["npx vitest run", "node"] },
+        }).prReview,
       ).toEqual({ commands: ["npx vitest run", "node"] });
     });
 
     it.each([
-      [{ "ci-review": { commands: "npx vitest run" } }, "ci-review.commands:"],
-      [{ "ci-review": { commands: [1] } }, "ci-review.commands[0]:"],
-      [{ "ci-review": { commands: ["a, b"] } }, "ci-review.commands[0]:"],
-      [{ "ci-review": { commands: ["a)"] } }, "ci-review.commands[0]:"],
-      [{ "ci-review": { commands: ['a"'] } }, "ci-review.commands[0]:"],
-      [{ "ci-review": "npx vitest run" }, "ci-review:"],
+      [{ "pr-review": { commands: "npx vitest run" } }, "pr-review.commands:"],
+      [{ "pr-review": { commands: [1] } }, "pr-review.commands[0]:"],
+      [{ "pr-review": { commands: ["a, b"] } }, "pr-review.commands[0]:"],
+      [{ "pr-review": { commands: ["a)"] } }, "pr-review.commands[0]:"],
+      [{ "pr-review": { commands: ['a"'] } }, "pr-review.commands[0]:"],
+      [{ "pr-review": "npx vitest run" }, "pr-review:"],
     ])("fails on %j, naming the key", (raw, message) => {
       expect(() => parse({ ...MINIMAL, ...raw })).toThrow(message);
     });
@@ -529,9 +529,9 @@ describe("parseSettings", () => {
       ["refiner", { refine: { refiner: { skill: "mine" } } }],
       ["mockups", { refine: { mockups: { skill: "mine" } } }],
       ["prover", { test: { prover: { skill: "mine" } } }],
-    ] as const)("takes one skill as the %s", (slot, written) => {
+    ] as const)("takes one skill as the %s", (role, written) => {
       expect(plugins(written)).toEqual([
-        { kind: "skill", name: "mine", slot, ...none },
+        { kind: "skill", name: "mine", role, ...none },
       ]);
     });
 
@@ -546,11 +546,11 @@ describe("parseSettings", () => {
           },
         }),
       ).toEqual([
-        { kind: "skill", name: "a", slot: "builder", files: [], labels: ["x"] },
+        { kind: "skill", name: "a", role: "builder", files: [], labels: ["x"] },
         {
           kind: "skill",
           name: "b",
-          slot: "builder",
+          role: "builder",
           files: [],
           labels: ["y", "z"],
         },
@@ -564,7 +564,7 @@ describe("parseSettings", () => {
         {
           kind: "agent",
           name: "a",
-          slot: "reviewer",
+          role: "reviewer",
           files: ["db/**"],
           labels: [],
         },
@@ -579,11 +579,11 @@ describe("parseSettings", () => {
           },
         }),
       ).toEqual([
-        { kind: "agent", name: "a", slot: "test-reviewer", ...none },
+        { kind: "agent", name: "a", role: "test-reviewer", ...none },
         {
           kind: "agent",
           name: "b",
-          slot: "test-reviewer",
+          role: "test-reviewer",
           files: ["e/**"],
           labels: [],
         },
@@ -599,7 +599,7 @@ describe("parseSettings", () => {
         {
           kind: "skill",
           name: "a",
-          slot: "resolver",
+          role: "resolver",
           files: ["gen/**"],
           labels: [],
         },
@@ -607,7 +607,7 @@ describe("parseSettings", () => {
     });
 
     it.each([{}, null, { build: {} }, { refine: null, test: {} }])(
-      "takes %j as no plug-in of your own",
+      "takes %j as no plugin of your own",
       (written) => {
         expect(plugins(written)).toEqual([]);
       },
@@ -667,7 +667,7 @@ describe("parseSettings", () => {
         { conflicts: { resolvers: [{ skill: "a" }] } },
         "plugins.conflicts.resolvers[0].files",
       ],
-    ])("fails on %j, which leaves out what its slot needs", (written, key) => {
+    ])("fails on %j, which leaves out what its role needs", (written, key) => {
       expect(() => plugins(written)).toThrow(
         `.claude/factory.yaml: ${key}: is required`,
       );
@@ -710,11 +710,11 @@ describe("parseSettings", () => {
         },
         "plugins.conflicts.resolvers[0].labels",
       ],
-    ])("fails on %j, naming the key its slot does not take", (written, key) => {
+    ])("fails on %j, naming the key its role does not take", (written, key) => {
       expect(() => plugins(written)).toThrow(`.claude/factory.yaml: ${key}:`);
     });
 
-    it("fails on a plug-in whose file does not exist, naming its slot and the file", () => {
+    it("fails on a plugin whose file does not exist, naming its role and the file", () => {
       const exists = (p: string) => p === ".claude/agents/here.md";
       const written = {
         build: {
@@ -778,7 +778,7 @@ describe("pluginsOf", () => {
   const site = { start: "npm start", url: "http://localhost:$PORT" };
   const lines = (raw: object, exists: (p: string) => boolean = () => true) =>
     pluginsOf(parse({ ...MINIMAL, ...raw }), exists).map(
-      (p) => `${p.kind} ${p.name} ${p.slot}`,
+      (p) => `${p.kind} ${p.name} ${p.role}`,
     );
 
   it("gives the factory's refiner, prover, and test reviewer to a file that names none", () => {
@@ -789,7 +789,7 @@ describe("pluginsOf", () => {
     ]);
   });
 
-  it("lists every plug-in in the slots' order, yours in place of the factory's", () => {
+  it("lists every plugin in the roles' order, yours in place of the factory's", () => {
     const plugins = {
       conflicts: { resolvers: [{ skill: "regen", files: ["gen/**"] }] },
       test: {
@@ -815,7 +815,7 @@ describe("pluginsOf", () => {
       "skill regen resolver",
     ]);
     expect(lines({ plugins, site }).map((l) => l.split(" ")[2])).toEqual([
-      ...SLOTS,
+      ...ROLES,
     ]);
   });
 
@@ -907,7 +907,7 @@ describe("factory config explain", () => {
     "commands:",
     "  before-commit:",
     "    - npm test",
-    "ci-review:",
+    "pr-review:",
     "  commands: [npm test]",
     "rules:",
     "  review-rounds: 3",
@@ -969,7 +969,7 @@ describe("factory config explain", () => {
         allow: []                                                                  # default
         deny: []                                                                   # default
         commands: []                                                               # default
-      ci-review:
+      pr-review:
         commands:
           - npm test
       # site: off
@@ -1016,7 +1016,7 @@ describe("factory config explain", () => {
 
   it("prints a part that is off, and a default that is no value, as a comment", async () => {
     const r = await explain(["version: 2", "repository: owner/name"]);
-    expect(r.out).toContain("# ci-review: off");
+    expect(r.out).toContain("# pr-review: off");
     expect(r.out).toContain("# site: off");
     expect(r.out).toContainEqual(
       expect.stringMatching(/^ {2}# board: none \(default\)$/),
@@ -1087,11 +1087,11 @@ describe("factory config explain", () => {
   it.each([
     ["a small file", SMALL],
     ["the shortest file", ["version: 2", "repository: owner/name"]],
-    ["plug-ins, lists, and a site", RICH],
+    ["plugins, lists, and a site", RICH],
   ])("prints %s so it reads as the same settings", async (_, file) => {
     const r = await explain(file);
     // The settings in effect: the output writes out the factory's own
-    // plug-ins, which the file leaves to their defaults.
+    // plugins, which the file leaves to their defaults.
     const inEffect = (text: string) => {
       const s = parse(load(text));
       return {
@@ -1181,7 +1181,7 @@ describe("factory config explain", () => {
     });
   });
 
-  describe("the plug-ins", () => {
+  describe("the plugins", () => {
     const plugins = (out: string[]) =>
       out
         .slice(out.indexOf("plugins:"), out.indexOf("auto-merge:"))
@@ -1279,7 +1279,7 @@ describe("factory config explain", () => {
 
   it("prints every key the settings take, so a new one cannot be left out", async () => {
     const r = await explain(
-      RICH.concat(["tickets:", "  board: 3", "ci-review:"]),
+      RICH.concat(["tickets:", "  board: 3", "pr-review:"]),
     );
     const text = r.out.join("\n");
     // A key is printed under its block, two spaces deeper for each step of
@@ -1463,7 +1463,7 @@ describe("main", () => {
       return { code, out: r.out, err: r.err };
     };
 
-    it("prints each plug-in the factory will use: its kind, name, and slot, then its files or labels", async () => {
+    it("prints each plugin the factory will use: its kind, name, and role, then its files or labels", async () => {
       expect((await run([])).out).toEqual([
         "skill factory-refine refiner",
         "skill mock mockups",
@@ -1479,12 +1479,12 @@ describe("main", () => {
       ["builder", ["skill build builder new-thing"]],
       ["mockups", ["skill mock mockups"]],
       ["resolver", []],
-    ])("prints only the lines of the slot %s", async (slot, lines) => {
-      expect(await run([slot])).toEqual({ code: 0, out: lines, err: [] });
+    ])("prints only the lines of the role %s", async (role, lines) => {
+      expect(await run([role])).toEqual({ code: 0, out: lines, err: [] });
     });
 
     it.each(["tester", "reviewers", "refine"])(
-      "fails on %s, a word that is no slot, naming the seven",
+      "fails on %s, a word that is no role, naming the seven",
       async (word) => {
         expect(await run([word])).toEqual({
           code: 1,
@@ -1552,7 +1552,7 @@ describe("main", () => {
     });
   });
 
-  describe("the design skill as a website's mockups plug-in", () => {
+  describe("the design skill as a website's mockups plugin", () => {
     const SKILL = ".claude/skills/factory-design/SKILL.md";
     const WARNING = `warning: ${SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`;
     const settings = (plugins: string[]) =>
@@ -1568,7 +1568,7 @@ describe("main", () => {
     const synced = () => true;
     const unsynced = (path: string) => path !== SKILL;
 
-    it("is listed by its slot for a site that lists none, once it is synced", async () => {
+    it("is listed by its role for a site that lists none, once it is synced", async () => {
       const { d, out } = deps({
         readFile: () => settings([]),
         exists: synced,
@@ -1578,7 +1578,7 @@ describe("main", () => {
       expect(out).toEqual(["skill factory-design mockups"]);
     });
 
-    it("is listed among every plug-in, after the refiner", async () => {
+    it("is listed among every plugin, after the refiner", async () => {
       const { d, out } = deps({
         readFile: () => settings([]),
         exists: synced,
@@ -1591,7 +1591,7 @@ describe("main", () => {
       ]);
     });
 
-    it("gives way to a mockups plug-in the settings list", async () => {
+    it("gives way to a mockups plugin the settings list", async () => {
       const { d, out } = deps({
         readFile: () => settings(OWN),
         exists: synced,
@@ -1601,7 +1601,7 @@ describe("main", () => {
       expect(out).toEqual(["skill mine mockups"]);
     });
 
-    it("is no plug-in where there is no site", async () => {
+    it("is no plugin where there is no site", async () => {
       const { d, out } = deps({
         readFile: () => "version: 2\nrepository: owner/name\n",
         exists: synced,
@@ -1611,7 +1611,7 @@ describe("main", () => {
       expect(out).toEqual([]);
     });
 
-    it("is no plug-in before it is synced", async () => {
+    it("is no plugin before it is synced", async () => {
       const { d, out } = deps({
         readFile: () => settings([]),
         exists: unsynced,

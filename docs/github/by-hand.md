@@ -98,7 +98,7 @@ it finds, and posts a verdict. The session that built the pull request
 answers each comment, fixing it or rejecting it with evidence.
 
 It is on while `.claude/factory.yaml` has
-[`ci-review`](../configuration.md#ci-review). Three files have similar
+[`pr-review`](../configuration.md#pr-review). Three files have similar
 names, and `sync` writes all three:
 
 | File                                           | What it is                                                 |
@@ -113,11 +113,11 @@ names, and `sync` writes all three:
    and also stores the Claude token for you.
 2. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`
    ([Secrets](#secrets)), unless step 1 did.
-3. **Write `ci-review` in `.claude/factory.yaml`,** and run
+3. **Write `pr-review` in `.claude/factory.yaml`,** and run
    `factory sync`, which writes the three files above:
 
    ```yaml
-   ci-review:
+   pr-review:
      commands:
        - npm test
        - npx tsc --noEmit
@@ -128,7 +128,7 @@ names, and `sync` writes all three:
    alone, and it reads the pull request and comments:
 
    ```yaml
-   ci-review:
+   pr-review:
    ```
 
    The workflow installs your project with `npm ci`, and chooses the

@@ -203,5 +203,5 @@ optional, stands alone, and can come later.
   [`commands.before-commit`](configuration.md#commandsbefore-commit).
 - **Your own reviewers,** so a change to your content or your design is
   read by an expert agent: a few lines under
-  [`plugins`](configuration.md#plugins), which [Plug-ins](plugins.md)
+  [`plugins`](configuration.md#plugins), which [Plugins](plugins.md)
   walks through.

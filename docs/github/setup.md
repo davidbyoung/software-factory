@@ -82,12 +82,12 @@ you left off.
 Each is a few lines in `.claude/factory.yaml`, merged like any change.
 
 - **Let the review run your tests.** `init` writes
-  [`ci-review`](../configuration.md#ci-review) with no commands, so the
+  [`pr-review`](../configuration.md#pr-review) with no commands, so the
   reviewer reads the pull request and runs nothing of yours. To let it
   confirm a finding by running something, list each command:
 
   ```yaml
-  ci-review:
+  pr-review:
     commands:
       - npm test
       - npx tsc --noEmit

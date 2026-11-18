@@ -96,10 +96,11 @@ and its checks fail until the file is moved. On the pull request's branch:
 | `version: 1`                                                             | `version: 2`                                                                                   |
 | `before-commit`, at the top of the file                                  | [`commands.before-commit`](configuration.md#commandsbefore-commit)                             |
 | `build-setup`, at the top of the file                                    | [`commands.build-setup`](configuration.md#commandsbuild-setup)                                 |
-| [`plugins`](configuration.md#plugins), one list, each item with a `role` | `plugins`, grouped by phase, each plug-in in a slot, with no `role`                            |
-| A plug-in with `role: mockups`                                           | The one block [`plugins.refine.mockups`](configuration.md#pluginsrefine)                       |
-| A plug-in with `role: builder`                                           | An item of the list [`plugins.build.builders`](configuration.md#pluginsbuild)                  |
-| A plug-in with `role: reviewer`                                          | An item of the list `plugins.build.reviewers`                                                  |
+| [`plugins`](configuration.md#plugins), one list, each item with a `role` | `plugins`, grouped by phase, each plugin listed under its role's key instead of a `role` field |
+| A plugin with `role: mockups`                                            | The one block [`plugins.refine.mockups`](configuration.md#pluginsrefine)                       |
+| A plugin with `role: builder`                                            | An item of the list [`plugins.build.builders`](configuration.md#pluginsbuild)                  |
+| A plugin with `role: reviewer`                                           | An item of the list `plugins.build.reviewers`                                                  |
+| `ci-review`                                                              | [`pr-review`](configuration.md#pr-review), the same block under a new name                     |
 | [`specs`](configuration.md#specs), one word                              | Still one word. It is now also a block, with `type` and [`check`](configuration.md#specscheck) |
 
 Every other key keeps its name, its place, and its meaning.
@@ -195,8 +196,8 @@ needed, and the rest are worth a look while the file is open.
 - **Coverage, and the lock file:**
   [`commands.coverage`](configuration.md#commandscoverage) and
   [`commands.relock`](configuration.md#commandsrelock).
-- **Four more slots for plug-ins:** your own refiner, prover, test
-  reviewers, and conflict resolvers ([Plug-ins](plugins.md#the-slots)).
+- **Four more roles for plugins:** your own refiner, prover, test
+  reviewers, and conflict resolvers ([Plugins](plugins.md#the-roles)).
 - **The default branch is read, not assumed.** A repository whose default
   branch is not `main` needs no setting: `factory sync` writes the
   branch's name where the workflows need it.
@@ -241,7 +242,7 @@ To change what the factory does:
 - **For your repository only:** say so in your own instructions for the
   agent, which win over the factory's rules, change a number under
   [`rules`](configuration.md#rules) in your settings, or put a skill or
-  an agent of your own in a [plug-in slot](plugins.md).
+  an agent of your own in a [plugin role](plugins.md).
 - **For everyone:** change it in the factory, and it reaches you as an
   update.
 

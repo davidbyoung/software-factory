@@ -45,7 +45,7 @@ The factory's hooks run its own tool, so they need nothing beyond Node.
 Someone who only writes code by hand, and never runs an agent session in
 the repository, needs none of this.
 
-[Configuration](configuration.md#a-repository-that-is-not-javascript) has a
+[Configuration](configuration.md#a-project-that-isnt-javascript) has a
 complete settings file for a PHP library.
 
 ## You already have a board

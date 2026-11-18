@@ -82,7 +82,7 @@ anything to do, and stops there when there is not.
 | `factory-board-sync.yml`      | Ticket and pull request events, and nightly                     | Sets the board's columns and fields from the tickets' marker comments. Written once [`tickets.board`](../configuration.md#tickets) is set             |
 | `factory-merge-policy.yml`    | Every pull request                                              | Labels it `merge: automatic` or `merge: manual`, and turns auto-merge on for the first. Written once `auto-merge.allow` is set                        |
 | `factory-review-verdict.yml`  | Each automated review                                           | Posts the "Review verdict" status from the review's summary                                                                                           |
-| `factory-claude-review.yml`   | Every pull request once it is marked ready, and each push after | Runs the automated review. Written once [`ci-review`](../configuration.md#ci-review) is set                                                           |
+| `factory-claude-review.yml`   | Every pull request once it is marked ready, and each push after | Runs the automated review. Written once [`pr-review`](../configuration.md#pr-review) is set                                                           |
 | `factory-poller.yml`          | Every `builds.poll-minutes` minutes, or by hand                 | Runs one pass of the poller, starting a build for each Ready ticket. Written once `builds.trigger` is `github-action`                                 |
 
 **Starting a build by hand.** The Actions tab, "Factory build", "Run
@@ -209,7 +209,7 @@ a session picked the factory up.
 `.claude/skills/factory-*/` and its agents to
 `.claude/agents/factory-*.md`. Your own skills go in
 `.claude/skills/NAME/SKILL.md` and your own agents in
-`.claude/agents/NAME.md`, as for any Claude Code project. A plug-in names
+`.claude/agents/NAME.md`, as for any Claude Code project. A plugin names
 one under [`plugins`](../configuration.md#plugins) in
 `.claude/factory.yaml`, with `skill:` for a folder in `.claude/skills/`
 and `agent:` for a file in `.claude/agents/`. An agent's description is

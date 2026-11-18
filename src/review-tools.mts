@@ -1,6 +1,6 @@
 // Prints the tools the CI review may use, as the one comma-separated value
 // the review step passes to `--allowedTools`: the factory's own, then a
-// `Bash(COMMAND:*)` for each of the settings' `ci-review.commands`.
+// `Bash(COMMAND:*)` for each of the settings' `pr-review.commands`.
 //
 //   FACTORY_SETTINGS=base-settings.yaml npx --no-install factory review tools
 //
@@ -39,7 +39,7 @@ export function allowedTools(commands: string[]): string {
 export async function run(): Promise<number> {
   try {
     const s = await loadSettings();
-    console.log(allowedTools(s.ciReview?.commands ?? []));
+    console.log(allowedTools(s.prReview?.commands ?? []));
     return 0;
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;

@@ -1,7 +1,7 @@
 # The review that reads every pull request once it is marked ready, and
 # every push after that, with the instructions in .github/factory-review.md.
 # The commands it may run beyond reading and commenting are the settings'
-# `ci-review.commands`, read from the pull request's base commit
+# `pr-review.commands`, read from the pull request's base commit
 # (`factory review tools`). Its credential is CLAUDE_CODE_OAUTH_TOKEN, or
 # ANTHROPIC_API_KEY when that is the one set, and
 # FACTORY_BUILD_MODEL, a repository variable, chooses the model as it does

@@ -1,5 +1,5 @@
 // The review reads .github/factory-review.md and .github/review-notes.md,
-// and may run the commands in .claude/factory.yaml's `ci-review`. Its
+// and may run the commands in .claude/factory.yaml's `pr-review`. Its
 // workflow takes all three from the pull request's base commit before the
 // review step, so a pull request cannot edit the instructions its own
 // review follows, or widen what it may run. A file the base commit lacks

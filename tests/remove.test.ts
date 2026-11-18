@@ -28,7 +28,7 @@ const SETTINGS = [
   "repository: acme/site",
   "tickets:",
   "  board: 3",
-  "ci-review:",
+  "pr-review:",
   "  commands: []",
   "",
 ].join("\n");

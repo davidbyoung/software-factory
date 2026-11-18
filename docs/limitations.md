@@ -30,7 +30,7 @@ as a code host's billing or what its workflows can see, are in
 - **It is written for one approver.** `approvers` lets a team list several
   people (_[Planned](developing.md#what-is-built)_), but review by teams, required reviewers per folder, and monorepos
   with several owners are not designed.
-- **The order of the workflow is fixed.** A [plug-in](plugins.md) of
+- **The order of the workflow is fixed.** A [plugin](plugins.md) of
   yours can replace how a ticket is refined, how a ticket with one of your
   labels is built, how a test is proved able to fail, which agents review
   the tests, and how a generated file is rebuilt after a conflict, and you

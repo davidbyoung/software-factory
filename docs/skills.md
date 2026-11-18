@@ -39,7 +39,7 @@ commands such as `factory gate` and `factory test-one`
 `factory default-branch` for your default branch's name.
 
 Where a step below names a built-in skill or agent, a
-[plug-in](plugins.md#the-slots) of yours can stand in for it: your own
+[plugin](plugins.md#the-roles) of yours can stand in for it: your own
 refiner, builder, prover, test reviewers, and conflict resolvers.
 
 ## At a glance
@@ -79,7 +79,7 @@ spec when [`specs`](configuration.md#specs) is on.
   you.
 - A blocked-by relationship for each ticket that must be built first.
 - For a decision about the look, mockups from your
-  [`mockups` plug-in](plugins.md), if you have one.
+  [`mockups` plugin](plugins.md), if you have one.
 
 **How it asks.** In the session if you are there: each decision as a
 choice, the recommended answer first. Otherwise as one comment on the
@@ -96,7 +96,7 @@ ask. Then `factory ticket refined` refuses to mark the ticket refined
 while its body lacks a section a build reads.
 
 **Your own in its place.** A skill of yours can refine tickets instead, as
-the [`refiner` plug-in](plugins.md#refiner), which lists what it has to
+the [`refiner` plugin](plugins.md#refiner), which lists what it has to
 leave for the build. To add questions to this one, write them under
 "Refining: this repository" in your `CLAUDE.md`.
 
@@ -109,14 +109,14 @@ leave for the build. To add questions to this one, write them under
 3. Builds to the acceptance criteria: the test first where there is a
    defect to reproduce or a behavior to add, then the change. A ticket
    carrying a label of one of your
-   [`builder` plug-ins](plugins.md#builder) is built by that skill
+   [`builder` plugins](plugins.md#builder) is built by that skill
    instead.
 4. Proves each new test can fail, by its failing run before the change or
    with the [prover](plugins.md#prover), which is `factory-mutate` unless
    you name your own, and has the
    [test reviewers](plugins.md#test-reviewer) read the tests:
    `factory-test-reviewer`, unless your settings list others.
-5. Has each [`reviewer` plug-in](plugins.md#reviewer) that applies read the
+5. Has each [`reviewer` plugin](plugins.md#reviewer) that applies read the
    change, and fixes what they find.
 6. Runs the gate with `factory gate`: the commands under
    [`commands.gate`](configuration.md#commandsgate) in your settings.
@@ -240,7 +240,7 @@ your visitors are from your project's own instructions.
 **When to use it.** When asked to redesign or restyle a page, and from
 `factory-refine` when a decision changes how something looks. A
 repository with `site` in its settings gets it as its
-[`mockups` plug-in](plugins.md) without listing it; one without `site`
+[`mockups` plugin](plugins.md) without listing it; one without `site`
 does not get it at all.
 
 **What it never does.** Make a mockup of a change with no look to choose,
@@ -273,7 +273,7 @@ file's shape for you to write.
 conflicts with it, runs the gate, and pushes the merge. It never rebases or
 forces a push. A conflict in the lock file is settled by rebuilding it with
 [`commands.relock`](configuration.md#commandsrelock), and one in a file
-that a [`resolver` plug-in](plugins.md#resolver) of yours rebuilds, by
+that a [`resolver` plugin](plugins.md#resolver) of yours rebuilds, by
 that skill. When the two sides of a conflict contradict each other, it
 pushes nothing, comments why, and opens a ticket, because which side wins
 is your decision.

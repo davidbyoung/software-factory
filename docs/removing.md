@@ -28,7 +28,7 @@ hook, label, and setting.
 ## What it never touches
 
 Your code, your tickets, and your pull requests. Your own skills, agents,
-plug-ins, and CI workflows, which the factory never writes to.
+plugins, and CI workflows, which the factory never writes to.
 
 One file belongs to you, and removing the factory leaves it: the review
 notes you write for the automated review. The review's workflow is the

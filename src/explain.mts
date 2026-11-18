@@ -4,8 +4,8 @@
 import {
   PHASES,
   pluginsOf,
-  SLOT_SHAPE,
-  SLOTS,
+  ROLE_SHAPE,
+  ROLES,
   type Settings,
 } from "./config.mts";
 
@@ -29,7 +29,7 @@ function sets(raw: unknown, path: string[]): boolean {
   return true;
 }
 
-/** `exists` says whether a path from the root exists, for the plug-ins the
+/** `exists` says whether a path from the root exists, for the plugins the
  * factory uses where the settings name none. */
 export async function explainLines(
   s: Settings,
@@ -110,16 +110,16 @@ export async function explainLines(
   }
   put(["commands", "relock"], s.commands.relock);
 
-  // Each slot holds what `factory plugins` prints for it: the settings'
-  // own plug-ins, or the factory's where they name none.
+  // Each role holds what `factory plugins` prints for it: the settings'
+  // own plugins, or the factory's where they name none.
   const used = pluginsOf(s, exists);
   block(["plugins"]);
   for (const phase of PHASES) {
     block(["plugins", phase]);
-    for (const slot of SLOTS.filter((x) => SLOT_SHAPE[x].phase === phase)) {
-      const { key, list } = SLOT_SHAPE[slot];
+    for (const role of ROLES.filter((x) => ROLE_SHAPE[x].phase === phase)) {
+      const { key, list } = ROLE_SHAPE[role];
       const path = ["plugins", phase, key];
-      const found = used.filter((p) => p.slot === slot);
+      const found = used.filter((p) => p.role === role);
       if (!found.length) {
         if (list) put(path, []);
         else comment(2, `${key}: none (default)`);
@@ -149,10 +149,10 @@ export async function explainLines(
   put(["auto-merge", "deny"], s.autoMerge.deny);
   put(["auto-merge", "commands"], s.autoMerge.commands);
 
-  if (s.ciReview === null) comment(0, "ci-review: off");
+  if (s.prReview === null) comment(0, "pr-review: off");
   else {
-    block(["ci-review"]);
-    put(["ci-review", "commands"], s.ciReview.commands);
+    block(["pr-review"]);
+    put(["pr-review", "commands"], s.prReview.commands);
   }
 
   if (s.site === null) comment(0, "site: off");

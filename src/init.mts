@@ -424,9 +424,9 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   else remove(doc, ["auto-merge", "allow"]);
   // The review is on while its setting is written; the sync writes its
   // workflow then, and removes it once the setting is gone.
-  if (parts.has("review") && !doc.has("ci-review"))
-    doc.setIn(["ci-review", "commands"], []);
-  if (!parts.has("review")) doc.delete("ci-review");
+  if (parts.has("review") && !doc.has("pr-review"))
+    doc.setIn(["pr-review", "commands"], []);
+  if (!parts.has("review")) doc.delete("pr-review");
 
   // The ticket system's own values: asked for once, and taken out with
   // the part that needed them.
