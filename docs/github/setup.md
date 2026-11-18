@@ -69,12 +69,13 @@ you left off.
 
 `init` ends with this list, under "Left to do":
 
-| If you chose                                 | Do this                                                                                                                                                       |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Anything                                     | Commit what it wrote on a branch, open a pull request, and merge it, as in [step 3 of the quick start](../quick-start.md#3-merge-the-setup)                   |
-| The automated review                         | Install the Claude GitHub App on the repository, from <https://github.com/apps/claude>. The review posts its comments through it                              |
-| Builds from the board, on a server you host  | Run the poller's image with the four values `init` prints. [Hosting the poller](../builds.md#hosting-the-poller-own-server) has the steps                     |
-| Signed commits, and it could not add the key | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key" |
+| If you chose                                 | Do this                                                                                                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Anything, while your settings name no gate   | Add the commands that check a change, such as your tests and linter, under [`commands.gate`](../configuration.md#commandsgate). A build cannot finish without them |
+| Anything                                     | Commit what it wrote on a branch, open a pull request, and merge it, as in [step 3 of the quick start](../quick-start.md#3-merge-the-setup)                        |
+| The automated review                         | Install the Claude GitHub App on the repository, from <https://github.com/apps/claude>. The review posts its comments through it                                   |
+| Builds from the board, on a server you host  | Run the poller's image with the four values `init` prints. [Hosting the poller](../builds.md#hosting-the-poller-own-server) has the steps                          |
+| Signed commits, and it could not add the key | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"      |
 
 ## Optional: tune it
 
@@ -93,11 +94,13 @@ Each is a few lines in `.claude/factory.yaml`, merged like any change.
   ```
 
 - **Run a command before every commit a session makes,** such as your
-  linter, under [`before-commit`](../configuration.md#before-commit):
+  linter, under
+  [`commands.before-commit`](../configuration.md#commandsbefore-commit):
 
   ```yaml
-  before-commit:
-    - npm run lint
+  commands:
+    before-commit:
+      - npm run lint
   ```
 
 - **Tell the reviewer what your `CLAUDE.md` does not say** about your

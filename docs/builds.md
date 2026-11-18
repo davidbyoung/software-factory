@@ -72,8 +72,8 @@ the account the build acts as. Without one, its commits are unsigned.
 commits is not shown as verified, when your own git signs commits.
 
 **Before the session starts,** the commands under
-[`build-setup`](configuration.md#build-setup) in your settings run, after
-your npm dependencies are installed.
+[`commands.build-setup`](configuration.md#commandsbuild-setup) in your
+settings run, after your npm dependencies are installed.
 
 ## The other jobs that run in the cloud
 
@@ -82,11 +82,11 @@ anything to do and starts a session only when there is, so a run with
 nothing to do costs about a minute of the runner and no use of the agent. A
 run that works costs about what a build does.
 
-| Job                      | Starts on                                       | What the session does                                                                                            |
-| ------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Answering your review    | A review you submit on a pull request           | Works your comments with `factory-address-review`                                                                |
-| The conflict sweep       | A push to your main branch, nightly, or by hand | Merges your main branch into each pull request that conflicts with it, with `factory-resolve-conflicts`          |
-| Dependency pull requests | Three times a day, or by hand                   | Moves each dependency update toward merged, with `factory-deps`, in a repository with a `.github/dependabot.yml` |
+| Job                      | Starts on                                          | What the session does                                                                                            |
+| ------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Answering your review    | A review you submit on a pull request              | Works your comments with `factory-address-review`                                                                |
+| The conflict sweep       | A push to your default branch, nightly, or by hand | Merges your default branch into each pull request that conflicts with it, with `factory-resolve-conflicts`       |
+| Dependency pull requests | Three times a day, or by hand                      | Moves each dependency update toward merged, with `factory-deps`, in a repository with a `.github/dependabot.yml` |
 
 Each acts as the same account a build does. The review job answers your
 reviews only: the factory's own replies start runs that find nothing of
@@ -101,7 +101,7 @@ each ticket in Ready with no open blocker it:
 
 1. posts a comment on the ticket saying a build is starting, carrying a
    marker;
-2. starts a build of that ticket in the cloud, from your main branch.
+2. starts a build of that ticket in the cloud, from your default branch.
 
 ```bash
 factory poller

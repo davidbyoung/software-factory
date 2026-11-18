@@ -36,9 +36,10 @@ project is written in. In a PHP, Python, or Go repository that means:
 - **Your own CI does not change.** The factory's cloud jobs install Node
   for themselves. If you turn on the automated review, how it installs your
   project, such as `composer install`, is yours to edit.
-- **Your commands stay yours.**
-  [`before-commit`](configuration.md#before-commit) in the settings takes
-  any command: `composer lint`, `make check`, `go vet ./...`.
+- **Your commands stay yours.** The gate a build runs, and everything
+  else under [`commands`](configuration.md#commands) in the settings, is
+  whatever your project runs: `composer test`, `make check`,
+  `go vet ./...`.
 
 The factory's hooks run its own tool, so they need nothing beyond Node.
 Someone who only writes code by hand, and never runs an agent session in
@@ -139,9 +140,10 @@ and how to undo each. The short version:
 - Files it owns, all named `factory-...`, and its rules.
 - One line in your agent's instructions file, and a few hooks in your
   agent's settings.
-- Hooks that stop a session committing on your main branch or force
-  pushing, and that run your `before-commit` commands. They apply to agent
-  sessions, not to your own terminal.
+- Hooks that stop a session committing on your default branch or force
+  pushing, and that run your
+  [`commands.before-commit`](configuration.md#commandsbefore-commit)
+  commands. They apply to agent sessions, not to your own terminal.
 - Its CI workflows: one that checks the factory's files are in step, the
   ones that run a session in the cloud, and one more for each optional part
   you turn on. With a Dependabot configuration, two more complete

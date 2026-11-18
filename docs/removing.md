@@ -75,7 +75,7 @@ empty, such as `.gitignore` or `.claude/settings.json`.
 
 - **If builds are running,** let them finish or stop them first. Open
   tickets and pull requests stay exactly as they are.
-- **If you made the review's verdict a required check** on your main
+- **If you made the review's verdict a required check** on your default
   branch, remove that requirement first, or every pull request waits on it
   forever.
 - **Deleting a label removes it from every ticket.** Keep the labels if
