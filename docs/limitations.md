@@ -30,8 +30,28 @@ as a code host's billing or what its workflows can see, are in
 - **It is written for one approver.** `approvers` lets a team list several
   people (_[Planned](developing.md#what-is-built)_), but review by teams, required reviewers per folder, and monorepos
   with several owners are not designed.
-- **The order of the workflow is fixed.** You can turn written specs off and
-  add reviewers. You cannot add a state or reorder them.
+- **The order of the workflow is fixed.** A [plug-in](plugins.md) of
+  yours can replace how a ticket is refined, how a ticket with one of your
+  labels is built, how a test is proved able to fail, which agents review
+  the tests, and how a generated file is rebuilt after a conflict, and you
+  can add reviewers and turn written specs off. The six states and their
+  order still cannot change: you cannot add a state, leave one out, or
+  reorder them ([why](design.md#the-order-of-the-workflow-is-fixed)).
+- **A build needs a gate you wrote.** With nothing under
+  [`commands.gate`](configuration.md#commandsgate), `factory gate` fails
+  and a build stops there. The factory cannot guess how your repository is
+  checked.
+- **A renamed default branch is read under its old name** until
+  `git remote set-head origin --auto` runs in the checkout, which keeps
+  the name in `origin/HEAD`. The factory reads the name there before it
+  asks the code host, so a stale one gives a stale answer: the commit hook
+  then guards the old branch and not the new one. After the rename, run
+  that command in each checkout, then `factory sync`, which writes the
+  name into two workflows.
+- **One lock file is rebuilt for you after a conflict,** the one
+  [`commands.relock`](configuration.md#commandsrelock) rebuilds, npm's by
+  default. A second, such as another package manager's beside the
+  factory's own, needs a [resolver](plugins.md#resolver) of yours.
 - **On a board with no refining column, a ticket cannot be sent back to the
   backlog by moving its card.** The card already shows in the backlog column
   while a ticket is being refined, so the move says nothing.
@@ -78,6 +98,11 @@ as a code host's billing or what its workflows can see, are in
   merge policy. They could match differently. The switch compares the old and new
   decision on recent pull requests.
 - **A scheduled job as the poller,** including what it costs.
+- **A default branch not called `main`.** The name is read, never assumed,
+  and the tests run with a branch called `develop`, but no repository with
+  one has run the factory.
+- **A refiner, a prover, or a resolver of your own.** The settings accept
+  each and the skills call them, but no repository has run one.
 - **Windows.** The tool and its hooks need only Node, but nothing here has
   been run on Windows.
 - **Adding the factory's columns to a board you already have.**
