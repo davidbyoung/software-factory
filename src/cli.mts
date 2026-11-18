@@ -54,6 +54,7 @@ const PR_STEPS = [
   "view",
   "review",
   "unverified",
+  "uncovered",
   "failed",
   "review-again",
 ];
@@ -96,6 +97,7 @@ const PR_ARGS: Record<string, string> = {
   label: "N --add LABEL | --remove LABEL",
   "review-pending": "N REVIEW",
   conflicts: "",
+  uncovered: "[BASE] [LCOV]",
 };
 
 export const COMMANDS: Command[] = [

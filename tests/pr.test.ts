@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   formatReport,
@@ -1046,6 +1047,136 @@ describe("what the skills run in place of the code host's and the runner's own t
       expect(await main(["review", "12", "5"], d)).toBe(1);
       expect(out).toEqual([]);
       expect(errors.join("\n")).toContain("review 5 on #12 was not found");
+    });
+  });
+
+  describe("uncovered", () => {
+    const REPORT = ["SF:src/a.ts", "DA:2,0", "DA:3,1", "BRDA:3,0,0,0"].join(
+      "\n",
+    );
+    const DIFF = ["+++ b/src/a.ts", "@@ -1,0 +2,2 @@"].join("\n");
+    const FOUND = ["=== src/a.ts", "MISS 2: two", "PART 3: three"];
+
+    /** `factory pr uncovered` over these files, with `git diff` printing
+     * `diff`. `read` and `asked` are the paths read and the git calls. */
+    function uncovered(
+      files: Record<string, string>,
+      diff: string | Error = DIFF,
+      defaultBranch?: string,
+    ) {
+      const made = pr([], { defaultBranch });
+      const read: string[] = [];
+      const asked: string[] = [];
+      const d: Deps = {
+        ...made.d,
+        readFile: (path) => {
+          read.push(path);
+          if (!(path in files)) throw new Error(`ENOENT: ${path}`);
+          return files[path]!;
+        },
+        git: (args) => {
+          asked.push(args.join(" "));
+          if (diff instanceof Error) throw diff;
+          return diff;
+        },
+      };
+      return { ...made, d, read, asked };
+    }
+    const FILES = {
+      "coverage/lcov.info": REPORT,
+      "src/a.ts": ["one", "two", "three"].join("\n"),
+    };
+
+    it("prints the uncovered lines and exits 0, since they are a report", async () => {
+      const { d, out } = uncovered(FILES);
+
+      expect(await main(["uncovered"], d)).toBe(0);
+      expect(out).toEqual(FOUND);
+    });
+
+    it("prints nothing and exits 0 when every changed line is covered", async () => {
+      const { d, out } = uncovered(FILES, "+++ b/src/a.ts\n@@ -9 +9 @@");
+
+      expect(await main(["uncovered"], d)).toBe(0);
+      expect(out).toEqual([]);
+    });
+
+    it("compares with BASE when it is given, asking the code host nothing", async () => {
+      const { d, asked, log } = uncovered(FILES);
+
+      await main(["uncovered", "origin/release"], d);
+
+      expect(asked).toEqual(["diff -U0 origin/release...HEAD"]);
+      expect(log).toEqual([]);
+    });
+
+    it("compares with the default branch on origin when BASE is not given", async () => {
+      const { d, asked } = uncovered(FILES, DIFF, "trunk");
+
+      await main(["uncovered"], d);
+
+      expect(asked).toEqual(["diff -U0 origin/trunk...HEAD"]);
+    });
+
+    it("reads the report from LCOV when it is given", async () => {
+      const { d, out, read } = uncovered({ ...FILES, "out/lcov.info": REPORT });
+
+      await main(["uncovered", "origin/main", "out/lcov.info"], d);
+
+      expect(read[0]).toBe("out/lcov.info");
+      expect(out).toEqual(FOUND);
+    });
+
+    it("reads the report from coverage/lcov.info when LCOV is not given", async () => {
+      const { d, read } = uncovered(FILES);
+
+      await main(["uncovered"], d);
+
+      expect(read[0]).toBe("coverage/lcov.info");
+    });
+
+    it("matches a file the report names by its full path", async () => {
+      const full = REPORT.replace("src/a.ts", join(process.cwd(), "src/a.ts"));
+      const { d, out } = uncovered({ ...FILES, "coverage/lcov.info": full });
+
+      await main(["uncovered"], d);
+
+      expect(out).toEqual(FOUND);
+    });
+
+    it("says where it looked and exits 1 when there is no coverage report", async () => {
+      const { d, out, asked } = uncovered({});
+
+      expect(await main(["uncovered", "origin/main", "out/lcov.info"], d)).toBe(
+        1,
+      );
+      expect(out).toEqual([
+        "No coverage report at out/lcov.info. Run the project's coverage command first.",
+      ]);
+      expect(asked).toEqual([]);
+    });
+
+    it("prints git's error and exits 1 when the diff fails", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { d, out } = uncovered(
+        FILES,
+        new Error("fatal: bad revision 'origin/nope...HEAD'"),
+      );
+
+      expect(await main(["uncovered", "origin/nope"], d)).toBe(1);
+      expect(error).toHaveBeenCalledWith(
+        "fatal: bad revision 'origin/nope...HEAD'",
+      );
+      expect(out).toEqual([]);
+    });
+
+    it("takes no third argument", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { d, read } = uncovered(FILES);
+
+      expect(await main(["uncovered", "a", "b", "c"], d)).toBe(1);
+      expect(error.mock.calls[0]![0]).toContain("uncovered [BASE] [LCOV]");
+      expect(read).toEqual([]);
     });
   });
 

@@ -41,9 +41,10 @@ const MUTATIONS = [
 for (const [path, old, replacement, test] of MUTATIONS) {
   const original = readFileSync(path, "utf8");
   if (original.split(old).length !== 2)
-    throw new Error(`${path}: expected one match of ${old}`);
+    throw new Error(`${path}: not exactly once: ${old}`);
   let failed;
   try {
+    // A function, so a "$" in the replacement is not read as a pattern.
     writeFileSync(
       path,
       original.replace(old, () => replacement),

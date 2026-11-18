@@ -341,7 +341,7 @@ report CI uploads: run the coverage command, the first of the two above,
 then
 
 ```bash
-python3 .claude/skills/factory-address-review/patch-coverage.py origin/DEFAULT REPORT
+npx --no-install factory pr uncovered origin/DEFAULT REPORT
 ```
 
 which prints each uncovered (`MISS`) or partly covered (`PART`) line in the
