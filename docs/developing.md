@@ -13,7 +13,7 @@ it shares with that repository: each repository's sync reads only its own
 cards.
 
 **It uses the factory on itself.** `.claude/factory.yaml` here sets the
-board, OpenSpec, the gate, and the CI review, and `node bin/factory.js sync` copies
+board, OpenSpec, the gate, and the pull request review, and `node bin/factory.js sync` copies
 this repository's own skills, agents, rules, and workflows into `.claude/`
 and `.github/`, with hooks that run `bin/factory.js` at the root. So a
 change to a skill shows in the same pull request twice: the source, and
@@ -44,7 +44,7 @@ marked working below exist only in these docs.
 | The follow-ups ticket as one checklist                                                                           | Working                                                                   |
 | The `factory` tool, `sync`, and the package folder                                                               | Working                                                                   |
 | A global `factory` command that runs each repository's own copy                                                  | Working                                                                   |
-| The automated review as one of the factory's workflows, and [`ci-review`](configuration.md#ci-review)            | Working                                                                   |
+| The automated review as one of the factory's workflows, and [`pr-review`](configuration.md#pr-review)            | Working                                                                   |
 | Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                                                                   |
 | The `factory-` names and the `FACTORY_` secrets                                                                  | Working                                                                   |
 | Ticket commands that go through one interface                                                                    | Working                                                                   |
@@ -93,7 +93,7 @@ built or planned.
   skills/factory-*/SKILL.md    the skills
   agents/factory-*.md          the built-in reviewers
   rules.md                     the process rules
-  review.md                    the CI reviewer's instructions
+  review.md                    the pull request reviewer's instructions
   workflows/factory-*.yml      the workflows copied into .github/workflows/
   poller.Dockerfile            the poller's image
   docs/                        these pages
@@ -486,7 +486,7 @@ drawn out of.
 
 - **American English, with the Oxford comma.**
 - **The factory's own words:** ticket, follow-up, the six states, the seven
-  slots. Not issue, card, or sweep.
+  roles. Not issue, card, or sweep.
 - **A key name must make sense unexplained.** Each reference settings file
   is read cold by a fresh agent that is told only what the factory is. A key
   it explains wrongly, or cannot tell from another, is renamed or given a
@@ -518,3 +518,8 @@ this repository's own reviewer, reads a changed page as that person.
   what each line is for.
 - **A step ends with how the reader knows it worked.**
 - **Each fact has one home.** Every other page links to it.
+- **Write it as you would say it to a new teammate.** Whole sentences, a
+  person doing each thing, and an example where the rule is abstract. A
+  word the factory gives its own meaning, such as "the sync" or "a
+  session", is explained or linked where the page first uses it. A table
+  cell reads as part of a sentence, and no column repeats another.
