@@ -55,10 +55,14 @@ read is set.
 | ------------------------ | ----------------------------------------------------------------- | ----- |
 | `factory config get KEY` | To print one setting in effect, such as `tickets.board`           | Built |
 | `factory config explain` | To see every setting in effect, defaults included                 | Built |
-| `factory plugins`        | To see your plug-ins by role                                      | Built |
+| `factory plugins`        | To see the plug-ins the factory will use, by slot                 | Built |
 | `factory site compare`   | To picture a website's pages before and after a change. See below | Built |
 | `factory site stop`      | To end the sites `compare --keep` left running                    | Built |
 | `factory remove`         | To take the factory out of a repository                           | Built |
+
+`factory plugins` prints one line for each plug-in, the factory's own
+included: its kind, its name, its [slot](plugins.md#the-slots), then its
+files or labels. `factory plugins SLOT` prints one slot's lines.
 
 A new version is installed with npm and applied with `factory sync`, as
 [Updating](updating.md) says. [Removing](removing.md) says what `remove`
@@ -102,10 +106,15 @@ ticket system would swallow, name it, and post nothing.
 | `factory ticket end N`                                     | A run's last step: releases this session's claim if no open pull request links N. Prints `released`, `kept`, or `not live` |
 | `factory ticket refining N`                                | Marks N as being refined                                                                                                   |
 | `factory ticket waiting N`                                 | Marks N as waiting on your reply to a round of questions                                                                   |
-| `factory ticket refined N`                                 | Marks N as refined and waiting for your approval                                                                           |
+| `factory ticket refined N`                                 | Marks N as refined, unless its body lacks what a build reads. `--check` makes that check alone and posts nothing           |
 | `factory ticket ready N`                                   | Moves N to Ready. Only when you ask a session to                                                                           |
 | `factory ticket cost N`                                    | Notes what this session spent on N since it started                                                                        |
 | `factory follow-up FILE "what is wrong"`                   | Adds a line about that file to the follow-ups ticket, opening the ticket if none is open                                   |
+
+`factory ticket refined N` posts nothing and exits 1 when N's body lacks a
+section a build reads, printing one line for each, such as
+`missing: ## Acceptance criteria`. With `--check` it prints `sound` for a
+body that passes. [Plug-ins](plugins.md#refiner) lists the sections.
 
 ### Pull requests
 
@@ -146,25 +155,50 @@ the factory's own jobs, so a failed board sync does not stop a pull
 request being marked ready. With no run two minutes after the commit became the head, it
 prints `no checks` and exits 0. A failure exits 3.
 
+### Your repository's commands
+
+Skills call these to check and test a change, so no skill names a test
+runner or a linter: each runs what your settings list under
+[`commands`](configuration.md#commands) and
+[`specs`](configuration.md#specs), with bash, from the repository's root.
+You can run them too.
+
+| Command                               | What it does                                                                                                                                                                                                            |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory gate`                        | Runs each [`commands.gate`](configuration.md#commandsgate) command in order, printing `$` and the command before each. Stops at the first that fails, with `gate failed on:` and the command. Fails when no gate is set |
+| `factory test-one FILE [NAME]`        | Runs [`commands.test-one`](configuration.md#commandstest-one), one test file alone or the one test NAME in it, and exits with its status                                                                                |
+| `factory end-to-end FILE [--times K]` | Runs [`commands.end-to-end`](configuration.md#commandsend-to-end), one end-to-end spec alone, and exits with its status. With `--times K`, K times in a row, stopping at the first run that fails                       |
+| `factory specs check`                 | Runs [`specs.check`](configuration.md#specscheck), the check of your written specs, and exits with its status. Prints `specs are off` when `specs` is `none`                                                            |
+| `factory default-branch`              | Prints the name of your repository's default branch, which nothing in the factory assumes is `main`                                                                                                                     |
+
+`factory default-branch` asks, in turn, the event of the workflow run it
+is in, `origin/HEAD` in your checkout, and the code host, whose answer it
+writes to `origin/HEAD` so the next run asks nobody. A checkout with no
+`origin` remote takes git's own `init.defaultBranch`, or `main`. When a
+remote exists and none of the three answers, it exits 1 with
+`Could not tell the default branch. Run: git remote set-head origin --auto`.
+`factory sync` and `factory site compare` stop with the same line, and
+the commit hook blocks a session's git command with it.
+
 ### Workflows and hooks
 
-| Command                     | Run by                          | What it does                                                                                                              | State |
-| --------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `factory board collect`     | The board-sync workflow         | Reads the tickets and posts the comments a closed pull request or the nightly run needs                                   | Built |
-| `factory board apply`       | The board-sync workflow         | Sets each ticket's column and fields from its comments                                                                    | Built |
-| `factory board --dry-run`   | You, to see what it would set   | Reads the tickets and the board, prints what the sync would set, and writes nothing                                       | Built |
-| `factory merge-policy N`    | The merge-policy workflow       | Decides whether N may merge without you, and why                                                                          | Built |
-| `factory review verdict`    | The review-verdict workflow     | Posts the "Review verdict" status for a commit                                                                            | Built |
-| `factory review cost`       | The review workflow             | Adds what the CI review cost to its summary                                                                               | Built |
-| `factory review tools`      | The review workflow             | Prints the tools the CI review may use, from [`ci-review.commands`](configuration.md#ci-review)                           | Built |
-| `factory poller`            | Your server                     | Starts a build for each Ready ticket. See [Builds](builds.md)                                                             | Built |
-| `factory poller --once`     | The scheduled poller's workflow | One pass of the poller, with the board and Ready column from your settings                                                | Built |
-| `factory guard`             | A hook, before each command     | Runs both guards below on one Bash call                                                                                   | Built |
-| `factory guard commit`      | Within `factory guard`          | Blocks a commit on your main branch, a force push, or a failing [`before-commit`](configuration.md#before-commit) command | Built |
-| `factory guard ticket-text` | Within `factory guard`          | Refuses ticket text with a bare `<tag>`, which the ticket system would swallow                                            | Built |
-| `factory reviewers start`   | A hook, when an agent starts    | Records a reviewer's run on the ticket, for its cost                                                                      | Built |
-| `factory reviewers stop`    | A hook, when an agent stops     | The same                                                                                                                  | Built |
-| `factory session-start`     | A hook, when a session starts   | Shows unfinished branches and each ticket's state                                                                         | Built |
+| Command                     | Run by                          | What it does                                                                                                                                                             | State |
+| --------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| `factory board collect`     | The board-sync workflow         | Reads the tickets and posts the comments a closed pull request or the nightly run needs                                                                                  | Built |
+| `factory board apply`       | The board-sync workflow         | Sets each ticket's column and fields from its comments                                                                                                                   | Built |
+| `factory board --dry-run`   | You, to see what it would set   | Reads the tickets and the board, prints what the sync would set, and writes nothing                                                                                      | Built |
+| `factory merge-policy N`    | The merge-policy workflow       | Decides whether N may merge without you, and why                                                                                                                         | Built |
+| `factory review verdict`    | The review-verdict workflow     | Posts the "Review verdict" status for a commit                                                                                                                           | Built |
+| `factory review cost`       | The review workflow             | Adds what the CI review cost to its summary                                                                                                                              | Built |
+| `factory review tools`      | The review workflow             | Prints the tools the CI review may use, from [`ci-review.commands`](configuration.md#ci-review)                                                                          | Built |
+| `factory poller`            | Your server                     | Starts a build for each Ready ticket. See [Builds](builds.md)                                                                                                            | Built |
+| `factory poller --once`     | The scheduled poller's workflow | One pass of the poller, with the board and Ready column from your settings                                                                                               | Built |
+| `factory guard`             | A hook, before each command     | Runs both guards below on one Bash call                                                                                                                                  | Built |
+| `factory guard commit`      | Within `factory guard`          | Blocks a commit on your default branch, a push to it, a force push, or a commit while a [`commands.before-commit`](configuration.md#commandsbefore-commit) command fails | Built |
+| `factory guard ticket-text` | Within `factory guard`          | Refuses ticket text with a bare `<tag>`, which the ticket system would swallow                                                                                           | Built |
+| `factory reviewers start`   | A hook, when an agent starts    | Records a reviewer's run on the ticket, for its cost                                                                                                                     | Built |
+| `factory reviewers stop`    | A hook, when an agent stops     | The same                                                                                                                                                                 | Built |
+| `factory session-start`     | A hook, when a session starts   | Shows unfinished branches and each ticket's state                                                                                                                        | Built |
 
 The board sync runs `collect` and `apply` as two steps, so the board's
 token reaches only the second. The board's number comes from
@@ -174,7 +208,9 @@ token reaches only the second. The board's number comes from
 
 - `0`: done, or the answer is the line printed.
 - `2`: no such command; the usage is printed. A guard also exits 2 when it
-  blocks a call.
+  blocks a call, and so does one of
+  [your repository's commands](#your-repositorys-commands) given an
+  argument it does not know.
 - `3`: `pr wait-checks` saw a check fail.
 - Any other non-zero: it could not do it, and the reason is on standard
   error. A command that could not reach the code host or the ticket system
