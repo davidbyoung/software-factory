@@ -184,7 +184,7 @@ export type Settings = {
    * list of test reviewers, even when it is empty. */
   testReviewersWritten: boolean;
   autoMerge: { allow: string[]; deny: string[]; commands: string[] };
-  /** The CI review, on when `pr-review` is written, with the commands it
+  /** The pull request review, on when `pr-review` is written, with the commands it
    * may run as prefixes beside the factory's own; null when it is off. */
   prReview: { commands: string[] } | null;
   /** How the factory looks at the repository's website; null when the
@@ -426,7 +426,7 @@ function strings(v: unknown, key: string): string[] {
   );
 }
 
-/** The CI review's commands: each becomes `Bash(COMMAND:*)` in a list
+/** The pull request review's commands: each becomes `Bash(COMMAND:*)` in a list
  * that commas separate, so none may hold a comma, a parenthesis, or a
  * quote. */
 function reviewCommands(v: unknown): string[] {

@@ -1,4 +1,4 @@
-// Prints the tools the CI review may use, as the one comma-separated value
+// Prints the tools the pull request review may use, as the one comma-separated value
 // the review step passes to `--allowedTools`: the factory's own, then a
 // `Bash(COMMAND:*)` for each of the settings' `pr-review.commands`.
 //

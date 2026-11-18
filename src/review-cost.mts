@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Adds what the CI review cost to its summary comment, after the review
+// Adds what the pull request review cost to its summary comment, after the review
 // step of .github/workflows/factory-claude-review.yml:
 //
 //   Review cost: $0.03 of the subscription ($0.92 at API list prices).

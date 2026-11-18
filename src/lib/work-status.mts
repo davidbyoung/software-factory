@@ -152,11 +152,11 @@ export function parseMarkers(body: string): Marker[] {
   return found;
 }
 
-// Cost markers, which say what a session or a CI review spent at API list
+// Cost markers, which say what a session or a pull request review spent at API list
 // prices: `<!-- cost: 3.41 session=ID -->` from a session,
-// `<!-- cost: 0.92 -->` from the CI review's summary.
+// `<!-- cost: 0.92 -->` from the pull request review's summary.
 
-/** The account the CI review's summary is posted from. */
+/** The account the pull request review's summary is posted from. */
 export const CI_BOT = "github-actions[bot]";
 
 const COST_LINE = /^<!-- cost: (\d+(?:\.\d+)?)(?: session=\S+)? -->$/;
@@ -170,7 +170,7 @@ export function hasCostMarker(body: string): boolean {
 
 /** The cost markers in one comment, read as markers are: each on a line of
  * its own, outside a fenced code block. Only the owner's account, which the
- * agents post as, and the CI review's bot count; the owner's comments count
+ * agents post as, and the pull request review's bot count; the owner's comments count
  * only with the agent mark. */
 export function parseCosts(comment: IssueComment, owner: string): number[] {
   const fromAgent =
