@@ -84,8 +84,7 @@ recording what happened. The board is worked out from these.
 **OpenSpec.** A tool that keeps a written description of what a project
 does, in the repository. Optional.
 
-**Plug-in.** One of your own skills or agents that the factory calls at a
-set moment.
+**Plugin.** One of your own skills or agents, given a role in the work.
 
 **Poller.** A small program that watches your board and starts a cloud
 build for each ticket moved to Ready, on a server you host or on a
@@ -97,17 +96,17 @@ decisions with you along the way.
 **Review verdict.** A status on a pull request that says whether the
 automated review of the newest commit found it ready.
 
+**Role.** A job in the work that a plugin of yours can take on, such as
+`reviewer`, an agent that reads a finished change, or `refiner`, a skill
+that refines a ticket in place of the factory's own. There are seven.
+[Plugins](plugins.md#the-roles) lists them.
+
 **Session.** One conversation with the coding agent in your repository, on
 your machine or in the cloud.
 
 **Skill.** A set of instructions a session follows, named `factory-...`
 for the factory's own. You call one by asking a session in plain words,
 such as "refine ticket 12".
-
-**Slot.** One of the seven moments where the factory calls a plug-in, such
-as `reviewer`, for an agent that reads a finished change, or `refiner`,
-for a skill that refines a ticket in place of the factory's own.
-[Plug-ins](plugins.md#the-slots) lists them.
 
 **Spec.** A written statement of what a change must do. For most tickets
 that is the acceptance criteria. With OpenSpec turned on, a change your

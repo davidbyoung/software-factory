@@ -4,7 +4,7 @@
 // what its functions need, and nothing under src/lib/ loads them.
 //
 //   factory config get KEY     # e.g. repository, tickets.board
-//   factory plugins [SLOT]     # kind, name, slot, files or labels
+//   factory plugins [ROLE]     # kind, name, role, files or labels
 //   factory config check       # prints nothing when sound
 //
 // A list prints one item per line. A failure names the key and exits 1.
@@ -28,8 +28,8 @@ import {
 
 export class SettingsError extends Error {}
 
-/** What a plug-in does, in the order `factory plugins` prints them. */
-export const SLOTS = [
+/** What a plugin does, in the order `factory plugins` prints them. */
+export const ROLES = [
   "refiner",
   "mockups",
   "builder",
@@ -38,11 +38,11 @@ export const SLOTS = [
   "test-reviewer",
   "resolver",
 ] as const;
-export type Slot = (typeof SLOTS)[number];
+export type Role = (typeof ROLES)[number];
 /** The phases `plugins` is grouped by. */
 export const PHASES = ["refine", "build", "test", "conflicts"] as const;
 
-type SlotShape = {
+type RoleShape = {
   phase: (typeof PHASES)[number];
   key: string;
   kind: Plugin["kind"];
@@ -51,14 +51,14 @@ type SlotShape = {
   labels: "required" | "none";
 };
 
-/** A slot's shape: one plug-in with no files and no labels, unless `takes`
+/** A role's shape: one plugin with no files and no labels, unless `takes`
  * says otherwise. */
 const shapeOf = (
-  phase: SlotShape["phase"],
+  phase: RoleShape["phase"],
   key: string,
-  kind: SlotShape["kind"],
-  takes: Partial<Pick<SlotShape, "list" | "files" | "labels">> = {},
-): SlotShape => ({
+  kind: RoleShape["kind"],
+  takes: Partial<Pick<RoleShape, "list" | "files" | "labels">> = {},
+): RoleShape => ({
   phase,
   key,
   kind,
@@ -68,10 +68,10 @@ const shapeOf = (
   ...takes,
 });
 
-/** Each slot: the phase and key it is written under, the one kind it
- * takes, whether it holds one plug-in or a list, and whether a plug-in in
+/** Each role: the phase and key it is written under, the one kind it
+ * takes, whether it holds one plugin or a list, and whether a plugin in
  * it must have, may have, or cannot have `files` and `labels`. */
-export const SLOT_SHAPE: Record<Slot, SlotShape> = {
+export const ROLE_SHAPE: Record<Role, RoleShape> = {
   refiner: shapeOf("refine", "refiner", "skill"),
   mockups: shapeOf("refine", "mockups", "skill"),
   builder: shapeOf("build", "builders", "skill", {
@@ -93,18 +93,18 @@ export const SLOT_SHAPE: Record<Slot, SlotShape> = {
   }),
 };
 
-/** A slot's path in the settings, such as `plugins.build.reviewers`. */
-const slotPath = (slot: Slot) =>
-  `plugins.${SLOT_SHAPE[slot].phase}.${SLOT_SHAPE[slot].key}`;
+/** A role's path in the settings, such as `plugins.build.reviewers`. */
+const rolePath = (role: Role) =>
+  `plugins.${ROLE_SHAPE[role].phase}.${ROLE_SHAPE[role].key}`;
 
-/** The keys of each slot's block, by its path in `SETTINGS_KEYS`: a list's
+/** The keys of each role's block, by its path in `SETTINGS_KEYS`: a list's
  * items are under the path with `[]` after it. */
-const slotKeys = (): Record<string, string[]> =>
+const roleKeys = (): Record<string, string[]> =>
   Object.fromEntries(
-    SLOTS.map((slot) => {
-      const shape = SLOT_SHAPE[slot];
+    ROLES.map((role) => {
+      const shape = ROLE_SHAPE[role];
       return [
-        `${slotPath(slot)}${shape.list ? "[]" : ""}`,
+        `${rolePath(role)}${shape.list ? "[]" : ""}`,
         [
           shape.kind,
           ...(shape.files === "none" ? [] : ["files"]),
@@ -129,7 +129,7 @@ export type FieldKey = keyof typeof FIELD_DEFAULTS;
 export type Plugin = {
   kind: "skill" | "agent";
   name: string;
-  slot: Slot;
+  role: Role;
   files: string[];
   labels: string[];
 };
@@ -177,16 +177,16 @@ export type Settings = {
     /** Rebuilds the package manager's lock file after a conflict in it. */
     relock: string;
   };
-  /** The plug-ins the settings name, in the slots' order. `pluginsOf` adds
-   * the factory's own for each slot left out. */
+  /** The plugins the settings name, in the roles' order. `pluginsOf` adds
+   * the factory's own for each role left out. */
   plugins: Plugin[];
   /** Whether `plugins.test.reviewers` is written. Written, it is the whole
    * list of test reviewers, even when it is empty. */
   testReviewersWritten: boolean;
   autoMerge: { allow: string[]; deny: string[]; commands: string[] };
-  /** The CI review, on when `ci-review` is written, with the commands it
+  /** The pull request review, on when `pr-review` is written, with the commands it
    * may run as prefixes beside the factory's own; null when it is off. */
-  ciReview: { commands: string[] } | null;
+  prReview: { commands: string[] } | null;
   /** How the factory looks at the repository's website; null when the
    * repository is not one. */
   site: Site | null;
@@ -263,7 +263,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     "commands",
     "plugins",
     "auto-merge",
-    "ci-review",
+    "pr-review",
     "site",
     "session-minutes",
     "rules",
@@ -285,7 +285,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   ],
   "commands.coverage": ["run", "report"],
   "auto-merge": ["allow", "deny", "commands"],
-  "ci-review": ["commands"],
+  "pr-review": ["commands"],
   site: [
     "start",
     "url",
@@ -303,12 +303,12 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   ...Object.fromEntries(
     PHASES.map((phase) => [
       `plugins.${phase}`,
-      SLOTS.filter((slot) => SLOT_SHAPE[slot].phase === phase).map(
-        (slot) => SLOT_SHAPE[slot].key,
+      ROLES.filter((role) => ROLE_SHAPE[role].phase === phase).map(
+        (role) => ROLE_SHAPE[role].key,
       ),
     ]),
   ),
-  ...slotKeys(),
+  ...roleKeys(),
   "session-minutes": Object.keys(SESSION_MINUTES),
   rules: Object.keys(RULE_NUMBERS),
 };
@@ -426,11 +426,11 @@ function strings(v: unknown, key: string): string[] {
   );
 }
 
-/** The CI review's commands: each becomes `Bash(COMMAND:*)` in a list
+/** The pull request review's commands: each becomes `Bash(COMMAND:*)` in a list
  * that commas separate, so none may hold a comma, a parenthesis, or a
  * quote. */
 function reviewCommands(v: unknown): string[] {
-  const key = "ci-review.commands";
+  const key = "pr-review.commands";
   return strings(v, key).map((command, i) =>
     /[,()"]/.test(command)
       ? fail(`${key}[${i}]`, "must hold no comma, parenthesis, or quote")
@@ -476,13 +476,13 @@ function typed(v: unknown, key: string, extra?: readonly string[]): Obj {
   return object(v, key, key, extra);
 }
 
-/** One plug-in, written at `key` in the slot `slot`. */
-function plugin(v: unknown, key: string, slot: Slot): Plugin {
-  const shape = SLOT_SHAPE[slot];
+/** One plugin, written at `key` in the role `role`. */
+function plugin(v: unknown, key: string, role: Role): Plugin {
+  const shape = ROLE_SHAPE[role];
   const other = shape.kind === "skill" ? "agent" : "skill";
   if (isObj(v) && (other in v || !(shape.kind in v)))
     fail(key, shape.kind === "skill" ? "names a skill" : "names an agent");
-  const o = object(v, key, `${slotPath(slot)}${shape.list ? "[]" : ""}`);
+  const o = object(v, key, `${rolePath(role)}${shape.list ? "[]" : ""}`);
   const name = o[shape.kind];
   if (typeof name !== "string" || !/^[\w-]+$/.test(name))
     fail(`${key}.${shape.kind}`, "must be a name");
@@ -495,13 +495,13 @@ function plugin(v: unknown, key: string, slot: Slot): Plugin {
   return {
     kind: shape.kind,
     name: name as string,
-    slot,
+    role,
     files: listed("files"),
     labels: listed("labels"),
   };
 }
 
-/** The plug-ins `plugins` names, in the slots' order, and whether it
+/** The plugins `plugins` names, in the roles' order, and whether it
  * writes the list of test reviewers. */
 function pluginsWritten(v: unknown): {
   plugins: Plugin[];
@@ -510,36 +510,36 @@ function pluginsWritten(v: unknown): {
   if (Array.isArray(v))
     fail("plugins", `must be grouped by phase: ${PHASES.join(", ")}`);
   const phases = object(v ?? {}, "plugins");
-  const slots = Object.fromEntries(
+  const roles = Object.fromEntries(
     PHASES.map((phase) => [
       phase,
       object(phases[phase] ?? {}, `plugins.${phase}`),
     ]),
   );
-  const at = (slot: Slot) =>
-    slots[SLOT_SHAPE[slot].phase]![SLOT_SHAPE[slot].key];
+  const at = (role: Role) =>
+    roles[ROLE_SHAPE[role].phase]![ROLE_SHAPE[role].key];
   return {
-    plugins: SLOTS.flatMap((slot) => {
-      const written = at(slot);
-      const key = slotPath(slot);
+    plugins: ROLES.flatMap((role) => {
+      const written = at(role);
+      const key = rolePath(role);
       if (written === undefined) return [];
-      if (!SLOT_SHAPE[slot].list) return [plugin(written, key, slot)];
+      if (!ROLE_SHAPE[role].list) return [plugin(written, key, role)];
       if (!Array.isArray(written)) return fail(key, "must be a list");
-      return written.map((item, i) => plugin(item, `${key}[${i}]`, slot));
+      return written.map((item, i) => plugin(item, `${key}[${i}]`, role));
     }),
     testReviewersWritten: at("test-reviewer") !== undefined,
   };
 }
 
-/** Where each of the settings' plug-ins is written, such as
+/** Where each of the settings' plugins is written, such as
  * `plugins.build.reviewers[0]`. */
 function pluginPaths(plugins: Plugin[]): string[] {
-  const seen = new Map<Slot, number>();
+  const seen = new Map<Role, number>();
   return plugins.map((p) => {
-    if (!SLOT_SHAPE[p.slot].list) return slotPath(p.slot);
-    const i = seen.get(p.slot) ?? 0;
-    seen.set(p.slot, i + 1);
-    return `${slotPath(p.slot)}[${i}]`;
+    if (!ROLE_SHAPE[p.role].list) return rolePath(p.role);
+    const i = seen.get(p.role) ?? 0;
+    seen.set(p.role, i + 1);
+    return `${rolePath(p.role)}[${i}]`;
   });
 }
 
@@ -575,7 +575,7 @@ function commandsOf(v: unknown): Settings["commands"] {
 
 /** The settings with every default filled in. Throws a SettingsError naming
  * the key on anything unsound. `exists` says whether a path from the root
- * exists, for the plug-ins' files. */
+ * exists, for the plugins' files. */
 export function parseSettings(
   raw: unknown,
   exists: (path: string) => boolean,
@@ -705,10 +705,10 @@ export function parseSettings(
       ? (command(specsBlock.check, "specs.check") ?? OPENSPEC_CHECK)
       : null;
   const autoMerge = object(top["auto-merge"], "auto-merge");
-  const ciReview =
-    top["ci-review"] === undefined
+  const prReview =
+    top["pr-review"] === undefined
       ? null
-      : object(top["ci-review"] ?? {}, "ci-review");
+      : object(top["pr-review"] ?? {}, "pr-review");
 
   const site = parseSite(top.site, exists);
   const commands = commandsOf(top.commands);
@@ -752,7 +752,7 @@ export function parseSettings(
       deny: strings(autoMerge.deny, "auto-merge.deny"),
       commands: strings(autoMerge.commands, "auto-merge.commands"),
     },
-    ciReview: ciReview && { commands: reviewCommands(ciReview.commands) },
+    prReview: prReview && { commands: reviewCommands(prReview.commands) },
     site,
     sessionMinutes: sessionMinutesOf(top["session-minutes"]),
     rules: rulesOf(top.rules),
@@ -901,7 +901,7 @@ function lookup(s: Settings, key: string): unknown {
     "test-one": "testOne",
     "end-to-end": "endToEnd",
     "auto-merge": "autoMerge",
-    "ci-review": "ciReview",
+    "pr-review": "prReview",
     "code-host": "codeHost",
     "design-guide": "designGuide",
     "max-pages": "maxPages",
@@ -920,23 +920,23 @@ function lookup(s: Settings, key: string): unknown {
  * site. */
 const DESIGN_SKILL = ".claude/skills/factory-design/SKILL.md";
 
-/** Every plug-in the factory will use, in the slots' order: the settings'
- * own, and the factory's for each slot they leave out. The refiner and the
+/** Every plugin the factory will use, in the roles' order: the settings'
+ * own, and the factory's for each role they leave out. The refiner and the
  * prover are always there. The factory's test reviewer is there unless the
- * settings write the list. Its design skill is the mockups plug-in of a
+ * settings write the list. Its design skill is the mockups plugin of a
  * site that names none, once it is synced. */
 export function pluginsOf(
   s: Settings,
   exists: (path: string) => boolean,
 ): Plugin[] {
-  const builtIn = (kind: Plugin["kind"], name: string, slot: Slot): Plugin => ({
+  const builtIn = (kind: Plugin["kind"], name: string, role: Role): Plugin => ({
     kind,
     name,
-    slot,
+    role,
     files: [],
     labels: [],
   });
-  const fallback: Record<Slot, Plugin[]> = {
+  const fallback: Record<Role, Plugin[]> = {
     refiner: [builtIn("skill", "factory-refine", "refiner")],
     mockups:
       s.site && exists(DESIGN_SKILL)
@@ -950,9 +950,9 @@ export function pluginsOf(
       : [builtIn("agent", "factory-test-reviewer", "test-reviewer")],
     resolver: [],
   };
-  return SLOTS.flatMap((slot) => {
-    const own = s.plugins.filter((p) => p.slot === slot);
-    return own.length ? own : fallback[slot];
+  return ROLES.flatMap((role) => {
+    const own = s.plugins.filter((p) => p.role === role);
+    return own.length ? own : fallback[role];
   });
 }
 
@@ -960,7 +960,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   const [command, arg] = argv;
   if (!command) {
     d.err(
-      "Usage: factory config get KEY | config check | config explain | plugins [SLOT]",
+      "Usage: factory config get KEY | config check | config explain | plugins [ROLE]",
     );
     return 2;
   }
@@ -980,7 +980,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       return 1;
     }
     for (const w of patternWarnings(s, d.listFiles())) d.err(`warning: ${w}`);
-    if (s.site && !s.plugins.some((p) => p.slot === "mockups"))
+    if (s.site && !s.plugins.some((p) => p.role === "mockups"))
       if (!d.exists(DESIGN_SKILL))
         d.err(
           `warning: ${DESIGN_SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`,
@@ -993,13 +993,13 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     return 0;
   }
   if (command === "plugins") {
-    if (arg && !(SLOTS as readonly string[]).includes(arg)) {
-      d.err(`${arg}: must be one of ${SLOTS.join(", ")}`);
+    if (arg && !(ROLES as readonly string[]).includes(arg)) {
+      d.err(`${arg}: must be one of ${ROLES.join(", ")}`);
       return 1;
     }
     for (const p of pluginsOf(s, d.exists)) {
-      if (arg && p.slot !== arg) continue;
-      d.out([p.kind, p.name, p.slot, ...p.files, ...p.labels].join(" "));
+      if (arg && p.role !== arg) continue;
+      d.out([p.kind, p.name, p.role, ...p.files, ...p.labels].join(" "));
     }
     return 0;
   }
@@ -1027,7 +1027,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
 }
 
 /** `factory config get KEY`, `factory config check`, and
- * `factory plugins [SLOT]`. */
+ * `factory plugins [ROLE]`. */
 export async function run(argv: string[]): Promise<number> {
   return main(argv, defaultDeps());
 }

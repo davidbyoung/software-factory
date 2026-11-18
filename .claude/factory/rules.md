@@ -64,7 +64,7 @@ here rather than restate it.
 - For a visible change, a UI reviewer read pointed at the states the change
   touched, not every size and scheme, and told the change is small. The UI
   reviewer is `factory-ui-reviewer` where the repository lists it, and
-  otherwise the repository's own, among its reviewer plug-ins
+  otherwise the repository's own, among its reviewer plugins
   (`npx --no-install factory plugins reviewer`).
 - The gate and CI stay. The pull request says it took this path.
 

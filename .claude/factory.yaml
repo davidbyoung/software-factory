@@ -36,7 +36,7 @@ commands:
 # The automated review of every pull request, on while this is written.
 # "commands" are what it may run to confirm a finding, beside reading the
 # pull request and commenting on it.
-ci-review:
+pr-review:
   commands:
     - npm test
     - npm run typecheck

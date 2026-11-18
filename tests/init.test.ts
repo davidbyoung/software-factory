@@ -289,7 +289,7 @@ describe("factory init, a first run with every part", () => {
       tickets: { board: 1 },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**", "**/*.md"] },
-      "ci-review": { commands: [] },
+      "pr-review": { commands: [] },
     });
     expect(JSON.parse(r.read("package.json")!)).toEqual({
       name: "site",
@@ -615,7 +615,7 @@ describe("factory init, run again", () => {
   it("takes the review's setting out when the review is turned off, so the sync removes its workflow", async () => {
     const r = init({
       settings:
-        "version: 2\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
+        "version: 2\nrepository: acme/site\npr-review:\n  commands:\n    - npm test\n",
       answers: { checkbox: [[]], confirm: [true] },
     });
     await r.run();
@@ -625,11 +625,11 @@ describe("factory init, run again", () => {
   it("keeps the review's commands when the review stays on", async () => {
     const r = init({
       settings:
-        "version: 2\nrepository: acme/site\nci-review:\n  commands:\n    - npm test\n",
+        "version: 2\nrepository: acme/site\npr-review:\n  commands:\n    - npm test\n",
       answers: { checkbox: [["review"]], confirm: [true], secret: [""] },
     });
     await r.run();
-    expect(r.yaml()).toMatchObject({ "ci-review": { commands: ["npm test"] } });
+    expect(r.yaml()).toMatchObject({ "pr-review": { commands: ["npm test"] } });
   });
 });
 
@@ -1064,7 +1064,7 @@ describe("factory init, word for word", () => {
         "auto-merge:",
         "  allow:",
         "    - docs/**",
-        "ci-review:",
+        "pr-review:",
         "  commands: []",
         "",
       ].join("\n"),

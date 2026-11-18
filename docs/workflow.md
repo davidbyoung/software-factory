@@ -74,7 +74,7 @@ These hold in every repository. They are not settings.
 - **The order does not change.** A repository cannot add a state or reorder
   them. A team that wants a security review between building and review adds
   a [reviewer](plugins.md#reviewer), not a column. A
-  [plug-in](plugins.md#the-slots) can take over a step, such as refining a
+  [plugin](plugins.md#the-roles) can take over a step, such as refining a
   ticket or proving a test, where the step stands.
 - **One session holds a ticket at a time.** The claim is a comment on the
   ticket. A second session that tries is told who holds it and stops.

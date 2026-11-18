@@ -69,7 +69,7 @@ differently from one day to the next.
 ## The order of the workflow is fixed
 
 You can turn parts off in [the settings](configuration.md), such as
-written specs or the automated review, and a [plug-in](plugins.md) of yours can take a
+written specs or the automated review, and a [plugin](plugins.md) of yours can take a
 step over: how a ticket is refined, how a ticket with one of your labels
 is built, how a test is proved able to fail, which agents read the tests
 and the change, and how a generated file is rebuilt after a conflict. You

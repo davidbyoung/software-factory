@@ -13,7 +13,7 @@ it shares with that repository: each repository's sync reads only its own
 cards.
 
 **It uses the factory on itself.** `.claude/factory.yaml` here sets the
-board, OpenSpec, the gate, and the CI review, and `node bin/factory.js sync` copies
+board, OpenSpec, the gate, and the pull request review, and `node bin/factory.js sync` copies
 this repository's own skills, agents, rules, and workflows into `.claude/`
 and `.github/`, with hooks that run `bin/factory.js` at the root. So a
 change to a skill shows in the same pull request twice: the source, and
@@ -44,7 +44,7 @@ marked working below exist only in these docs.
 | The follow-ups ticket as one checklist                                                                           | Working                                                                   |
 | The `factory` tool, `sync`, and the package folder                                                               | Working                                                                   |
 | A global `factory` command that runs each repository's own copy                                                  | Working                                                                   |
-| The automated review as one of the factory's workflows, and [`ci-review`](configuration.md#ci-review)            | Working                                                                   |
+| The automated review as one of the factory's workflows, and [`pr-review`](configuration.md#pr-review)            | Working                                                                   |
 | Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                                                                   |
 | The `factory-` names and the `FACTORY_` secrets                                                                  | Working                                                                   |
 | Ticket commands that go through one interface                                                                    | Working                                                                   |
@@ -61,7 +61,7 @@ marked working below exist only in these docs.
 | `factory remove`                                                                                                 | Working                                                                   |
 | Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                                                   |
 | [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                                                                   |
-| Settings version 2: commands, a spec check, and plug-ins grouped by phase                                        | Working                                                                   |
+| Settings version 2: commands, a spec check, and plugins grouped by phase                                         | Working                                                                   |
 | `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                                                                   |
 | The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                                                                   |
 | A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                                                                   |
@@ -72,7 +72,7 @@ marked working below exist only in these docs.
 | A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                                       |
 | Another code host or runner                                                                                      | Not planned. The design leaves room                                       |
 | Each tool's setup, checks, and removal declared by the tool                                                      | Working                                                                   |
-| Sharing plug-ins between repositories                                                                            | Not planned                                                               |
+| Sharing plugins between repositories                                                                             | Not planned                                                               |
 
 When a part is built, its pull request updates this table, and corrects any
 page the build had to differ from. [The CLI](cli.md) marks each command
@@ -93,7 +93,7 @@ built or planned.
   skills/factory-*/SKILL.md    the skills
   agents/factory-*.md          the built-in reviewers
   rules.md                     the process rules
-  review.md                    the CI reviewer's instructions
+  review.md                    the pull request reviewer's instructions
   workflows/factory-*.yml      the workflows copied into .github/workflows/
   poller.Dockerfile            the poller's image
   docs/                        these pages
@@ -111,7 +111,7 @@ in `docs/configuration.md`, and a test fails when the first two differ.
   [`commands`](configuration.md#commands), with a `factory`
   command in `src/commands.mts` that runs it, so a skill names the
   `factory` command and never the repository's own.
-- **A plug-in slot** goes in `SLOTS` and `SLOT_SHAPE` in `src/config.mts`,
+- **A plugin role** goes in `ROLES` and `ROLE_SHAPE` in `src/config.mts`,
   which say its phase, whether it takes a skill or an agent, one or a
   list, and `files` or `labels`. Its keys in `SETTINGS_KEYS` follow from
   that table. `docs/plugins.md` gains its table of what it is handed and
@@ -486,7 +486,7 @@ drawn out of.
 
 - **American English, with the Oxford comma.**
 - **The factory's own words:** ticket, follow-up, the six states, the seven
-  slots. Not issue, card, or sweep.
+  roles. Not issue, card, or sweep.
 - **A key name must make sense unexplained.** Each reference settings file
   is read cold by a fresh agent that is told only what the factory is. A key
   it explains wrongly, or cannot tell from another, is renamed or given a
@@ -518,3 +518,8 @@ this repository's own reviewer, reads a changed page as that person.
   what each line is for.
 - **A step ends with how the reader knows it worked.**
 - **Each fact has one home.** Every other page links to it.
+- **Write it as you would say it to a new teammate.** Whole sentences, a
+  person doing each thing, and an example where the rule is abstract. A
+  word the factory gives its own meaning, such as "the sync" or "a
+  session", is explained or linked where the page first uses it. A table
+  cell reads as part of a sentence, and no column repeats another.

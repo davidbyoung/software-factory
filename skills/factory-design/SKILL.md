@@ -1,6 +1,6 @@
 ---
 name: factory-design
-description: Design a visible change to a website, a new page or a redesign, as the designer rather than asking the owner to be one: real-content mockups built from the site itself, pictured at its widths in light and dark, reviewed before anyone sees them, and one recommended design. Use when asked to redesign, restyle, or rethink how a page looks or what it says, when an issue asks for renderings to approve, and as the `mockups` plug-in `factory-refine` calls.
+description: Design a visible change to a website, a new page or a redesign, as the designer rather than asking the owner to be one: real-content mockups built from the site itself, pictured at its widths in light and dark, reviewed before anyone sees them, and one recommended design. Use when asked to redesign, restyle, or rethink how a page looks or what it says, when an issue asks for renderings to approve, and as the `mockups` plugin `factory-refine` calls.
 ---
 
 # Designing a change

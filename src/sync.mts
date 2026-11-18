@@ -66,7 +66,7 @@ const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
   "workflows/factory-deps-auto-merge.yml": (_, has) => has(DEPENDABOT),
   "workflows/factory-board-sync.yml": (s) => s.tickets.board !== null,
   "workflows/factory-merge-policy.yml": (s) => s.autoMerge.allow.length > 0,
-  "workflows/factory-claude-review.yml": (s) => s.ciReview !== null,
+  "workflows/factory-claude-review.yml": (s) => s.prReview !== null,
   "workflows/factory-poller.yml": (s) => s.builds.trigger === "github-action",
 };
 

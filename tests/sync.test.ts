@@ -439,11 +439,11 @@ describe("factory sync", () => {
     },
   );
 
-  it("writes the CI review only while ci-review is written, and deletes it once it is gone", async () => {
+  it("writes the CI review only while pr-review is written, and deletes it once it is gone", async () => {
     await sync([], settings());
     expect(read(".github/workflows/factory-claude-review.yml")).toBeNull();
 
-    await sync([], settings({ "ci-review": null }));
+    await sync([], settings({ "pr-review": null }));
     expect(read(".github/workflows/factory-claude-review.yml")).toBe(
       "ci review\n",
     );

@@ -1,4 +1,4 @@
-# Plug-ins
+# Plugins
 
 For someone who wants the factory to use a skill or an agent of their own:
 a reviewer for one part of the code, a builder for one kind of ticket, or
@@ -6,7 +6,7 @@ their own way of refining a ticket. At the end, the factory calls it at a
 set moment of every build, and `factory plugins` lists it.
 
 The factory knows how to refine, build, and review a ticket. It does not
-know your project. A plug-in is one of your own skills or agents that the
+know your project. A plugin is one of your own skills or agents that the
 factory calls at a set moment, so what only your project knows is part of
 every build.
 
@@ -29,21 +29,22 @@ plugins:
 That is the whole of it. The factory never copies over your files, and an
 update never touches them.
 
-## The slots
+## The roles
 
-A slot is a moment in the work where the factory hands off. There are
+A role is a job in the work that your own skill or agent can take on, such
+as reviewing a change or refining a ticket. There are
 seven, grouped under [`plugins`](configuration.md#plugins) by the phase
-each belongs to. Every slot is optional, and leaving one out never turns a
+each belongs to. Every role is optional, and leaving one out never turns a
 step off: the last column says what does the work then.
 
-A slot has two names. The settings key, in the second column, is what you
-write in `.claude/factory.yaml`. The slot's own name, in the first column,
+A role has two names. The settings key, in the second column, is what you
+write in `.claude/factory.yaml`. The role's own name, in the first column,
 is what `factory plugins` prints, and the headings below use it: `builder`
-is the slot you write as
+is the role you write as
 [`plugins.build.builders`](configuration.md#pluginsbuild), and no key is
 called `builder`.
 
-| Slot            | Settings key                                                       | It                                             | Left out                                  |
+| Role            | Settings key                                                       | It                                             | Left out                                  |
 | --------------- | ------------------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------- |
 | `refiner`       | [`plugins.refine.refiner`](configuration.md#pluginsrefine)         | Refines a ticket, in place of `factory-refine` | `factory-refine`                          |
 | `mockups`       | [`plugins.refine.mockups`](configuration.md#pluginsrefine)         | Makes pictures for a decision about the look   | `factory-design` on a website, else words |
@@ -58,7 +59,7 @@ whether it takes a skill or an agent, one or a list, and `files` or
 `labels`.
 
 A reviewer is an agent: a session launches it, and it reads and changes
-nothing. Every other slot is a skill, which the session follows itself.
+nothing. Every other role is a skill, which the session follows itself.
 
 ## Refining
 
@@ -127,7 +128,7 @@ from a copy of `factory-refine` under your own name.
 **To add questions, not replace the refiner,** write them in your own
 instructions for the agent, under a heading "Refining: this repository" in
 `CLAUDE.md`. The refining session reads `CLAUDE.md`, and it wins over the
-factory's rules, so no plug-in is needed for that.
+factory's rules, so no plugin is needed for that.
 
 ### `mockups`
 
@@ -135,7 +136,7 @@ Makes pictures to choose from when a decision changes how something looks.
 
 A repository with [`site`](configuration.md#site) in its settings has one
 already: the factory's own `factory-design` skill, which `factory sync`
-writes, is its `mockups` plug-in unless you name one of your own.
+writes, is its `mockups` plugin unless you name one of your own.
 
 ```yaml
 plugins:
@@ -238,7 +239,7 @@ things, as a line the pull request body takes:
   that turned the test red, for a test written after the code.
 
 One proof for each test is the rule, and it stays a rule whichever prover
-runs: the slot cannot be set to nothing. No script checks a prover's
+runs: the role cannot be set to nothing. No script checks a prover's
 report. The pull request records it, where you read it.
 
 ### `test-reviewer`
@@ -388,10 +389,10 @@ instructions for the agent and in the agent itself. The factory holds none of th
 
 1. Write the skill or agent, and try it by hand until it does its job.
 2. Give it a description that states when it applies.
-3. Add it under [`plugins`](configuration.md#plugins), in its slot, with
-   `files` or `labels` where the slot takes them.
-4. Run `factory config check`. It fails, naming the slot, if the file is
-   missing, or the slot takes a skill and you named an agent.
+3. Add it under [`plugins`](configuration.md#plugins), in its role, with
+   `files` or `labels` where the role takes them.
+4. Run `factory config check`. It fails, naming the role, if the file is
+   missing, or the role takes a skill and you named an agent.
 5. Run `factory plugins` to see the list the factory will use, the
    built-in ones included:
 
@@ -402,11 +403,11 @@ instructions for the agent and in the agent itself. The factory holds none of th
    agent factory-test-reviewer test-reviewer
    ```
 
-**It worked when** your plug-in is in that list, in its slot.
+**It worked when** your plugin is in that list, in its role.
 
-No sync is needed. Plug-ins are read from your settings each time.
+No sync is needed. Plugins are read from your settings each time.
 
-## What is not a plug-in
+## What is not a plugin
 
 - **A skill you call yourself.** If nothing in refining, building, or
   reviewing a ticket should call it, it needs no entry. It stays an
@@ -419,7 +420,7 @@ No sync is needed. Plug-ins are read from your settings each time.
 - **A question you want every refinement to ask.** That is a line under
   "Refining: this repository" in `CLAUDE.md`, as [`refiner`](#refiner)
   says.
-- **A step in another order.** A plug-in replaces a step where it stands.
+- **A step in another order.** A plugin replaces a step where it stands.
   It cannot add a state or move one
   ([Why it works this way](design.md#the-order-of-the-workflow-is-fixed)).
 

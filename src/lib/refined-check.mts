@@ -1,6 +1,6 @@
 // Whether a refined ticket's body is one a build can read: the check
 // `factory ticket refined` makes before it posts the marker, for the
-// factory's own refiner as for a plug-in's. It reads headings only, never
+// factory's own refiner as for a plugin's. It reads headings only, never
 // what a section says.
 
 const SPEC_LABEL = "spec";

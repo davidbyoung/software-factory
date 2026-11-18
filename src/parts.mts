@@ -44,7 +44,7 @@ export const PART_TEXT: Record<Part, { name: string; gives: string }> = {
 };
 
 /** The workflow that runs the automated review, which `factory sync`
- * writes while the settings have `ci-review`. */
+ * writes while the settings have `pr-review`. */
 export const REVIEW_WORKFLOW = ".github/workflows/factory-claude-review.yml";
 
 export const AGENT_TOKEN = "CLAUDE_CODE_OAUTH_TOKEN";
@@ -64,7 +64,7 @@ export function partsOn(
 ): Set<Part> {
   const has = (names: string[]) => names.some((n) => secrets.includes(n));
   const on = new Set<Part>();
-  if (s?.ciReview) on.add("review");
+  if (s?.prReview) on.add("review");
   if (s?.tickets.board != null) on.add("board");
   if (cloudNeeds.length && cloudNeeds.every((n) => has(n.anyOf)))
     on.add("cloud");

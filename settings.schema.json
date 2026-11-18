@@ -60,8 +60,8 @@
     "auto-merge": {
       "$ref": "#/definitions/auto-merge"
     },
-    "ci-review": {
-      "$ref": "#/definitions/ci-review"
+    "pr-review": {
+      "$ref": "#/definitions/pr-review"
     },
     "site": {
       "$ref": "#/definitions/site"
@@ -277,7 +277,7 @@
     },
     "plugins": {
       "type": "object",
-      "description": "Your own skills and agents, grouped by the phase they work in. Every slot is optional.",
+      "description": "Your own skills and agents, grouped by the phase they work in. Every role is optional.",
       "additionalProperties": false,
       "properties": {
         "refine": {
@@ -296,7 +296,7 @@
     },
     "plugins.refine": {
       "type": "object",
-      "description": "Plug-ins for refining a ticket.",
+      "description": "Plugins for refining a ticket.",
       "additionalProperties": false,
       "properties": {
         "refiner": {
@@ -309,7 +309,7 @@
     },
     "plugins.build": {
       "type": "object",
-      "description": "Plug-ins for building a ticket.",
+      "description": "Plugins for building a ticket.",
       "additionalProperties": false,
       "properties": {
         "builders": {
@@ -330,7 +330,7 @@
     },
     "plugins.test": {
       "type": "object",
-      "description": "Plug-ins for a change's tests.",
+      "description": "Plugins for a change's tests.",
       "additionalProperties": false,
       "properties": {
         "prover": {
@@ -347,7 +347,7 @@
     },
     "plugins.conflicts": {
       "type": "object",
-      "description": "Plug-ins for a conflict with the default branch.",
+      "description": "Plugins for a conflict with the default branch.",
       "additionalProperties": false,
       "properties": {
         "resolvers": {
@@ -517,7 +517,7 @@
         }
       }
     },
-    "ci-review": {
+    "pr-review": {
       "type": ["object", "null"],
       "additionalProperties": false,
       "description": "The automated review of every pull request: on when this is written, even with nothing under it.",

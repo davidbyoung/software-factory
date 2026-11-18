@@ -182,7 +182,7 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["plugins"],
-    args: "[SLOT]",
+    args: "[ROLE]",
     run: async (argv) =>
       (await import("./config.mts")).run(["plugins", ...argv]),
   },
