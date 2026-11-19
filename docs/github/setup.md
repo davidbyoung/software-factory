@@ -42,7 +42,7 @@ machine, which is all the [quick start](../quick-start.md) needs.
 
 It then asks only what your parts need:
 
-| It asks                               | For                                                                   | What you do                                                                                                 |
+| Question                              | Asked when you chose                                                  | What you do                                                                                                 |
 | ------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Which board                           | A board                                                               | Choose a new one, made with the factory's columns, or a Project you already have                            |
 | Which files may merge without you     | Pull requests that merge themselves                                   | Type their patterns, such as `docs/**`. Start with a short list                                             |

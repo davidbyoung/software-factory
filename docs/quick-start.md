@@ -103,7 +103,7 @@ git pull
 Start a new session of your coding agent, which loads the factory from the
 files now in your repository.
 
-**It worked when** the new session, asked which skills it has, lists
+**It worked when** typing `/factory` in the new session lists
 `factory-refine` and `factory-build`.
 
 ## 4. Open a ticket
@@ -123,11 +123,14 @@ Done when: every page's footer shows the same hours the contact page does.
 
 ## 5. Refine it
 
-In the session, say:
+In the session, type:
 
 ```text
-refine ticket 12
+/factory-refine 12
 ```
+
+That runs the `factory-refine` skill on ticket 12.
+[Skills](skills.md#at-a-glance) lists the other commands.
 
 The session reads the ticket and the code it touches, then asks you the
 decisions that are yours, each as a choice with its recommendation first:
@@ -146,10 +149,10 @@ of exactly what "done" means, and the session says it is ready to build.
 In the same session, or a new one:
 
 ```text
-build ticket 12
+/factory-build 12
 ```
 
-Telling a session to build a ticket is how you approve it. The session
+Running `factory-build` on a ticket is how you approve it. The session
 makes a branch, writes a test and then the change, and opens a pull
 request that closes the ticket. Expect minutes, not seconds.
 [Workflow](workflow.md#from-a-ticket-to-a-merge) has each step.
@@ -164,11 +167,11 @@ Open the pull request. Its description says what changed, how it was
 verified, and anything the session noticed and left alone. Nothing merges
 without you.
 
-To ask for changes, comment on the pull request, then tell a session to
+To ask for changes, comment on the pull request, then have a session
 answer your comments:
 
 ```text
-address the review on pull request 15
+/factory-address-review 15
 ```
 
 **It worked when** the pull request is merged and ticket 12 is closed.
@@ -176,16 +179,16 @@ That is the whole loop: **ticket, refine, build, read, merge.**
 
 ## If something goes wrong
 
-| What happened                                  | What to do                                                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| A test or a check fails during the build       | Nothing. The session sees the output, fixes the cause, and tries again                      |
-| The session stops and says it needs you        | It says why, in the session and on the ticket. Answer, then ask it to build ticket 12 again |
-| The build stops on `commands.gate is not set`  | Add your test and lint commands, as in step 2, then ask it to build ticket 12 again         |
-| The session was closed or crashed partway      | Ask a new session to build ticket 12. It picks up the branch it made                        |
-| You want to change what was decided            | Ask a session to refine ticket 12 again, or edit the ticket                                 |
-| CI fails on the pull request                   | Ask a session to address the review on pull request 15. It reads the failure and fixes it   |
-| The session does not know the factory's skills | The setup is not merged, or the session started before it was. See step 3                   |
-| Anything else                                  | Run `factory doctor`. It says what is wrong, and what to do about it                        |
+| What happened                                  | What to do                                                                                |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| A test or a check fails during the build       | Nothing. The session sees the output, fixes the cause, and tries again                    |
+| The session stops and says it needs you        | It says why, in the session and on the ticket. Answer, then run `/factory-build 12` again |
+| The build stops on `commands.gate is not set`  | Add your test and lint commands, as in step 2, then run `/factory-build 12` again         |
+| The session was closed or crashed partway      | Run `/factory-build 12` in a new session. It picks up the branch it made                  |
+| You want to change what was decided            | Run `/factory-refine 12` again, or edit the ticket                                        |
+| CI fails on the pull request                   | Run `/factory-address-review 15`. It reads the failure and fixes it                       |
+| The session does not know the factory's skills | The setup is not merged, or the session started before it was. See step 3                 |
+| Anything else                                  | Run `factory doctor`. It says what is wrong, and what to do about it                      |
 
 ## What to add next
 

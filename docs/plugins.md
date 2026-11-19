@@ -35,7 +35,7 @@ A role is a job in the work that your own skill or agent can take on, such
 as reviewing a change or refining a ticket. There are
 seven, grouped under [`plugins`](configuration.md#plugins) by the phase
 each belongs to. Every role is optional, and leaving one out never turns a
-step off: the last column says what does the work then.
+step off: the last column says what does the work when you have none.
 
 A role has two names. The settings key, in the second column, is what you
 write in `.claude/factory.yaml`. The role's own name, in the first column,
@@ -44,7 +44,7 @@ is the role you write as
 [`plugins.build.builders`](configuration.md#pluginsbuild), and no key is
 called `builder`.
 
-| Role            | Settings key                                                       | It                                             | Left out                                  |
+| Role            | Settings key                                                       | What it does                                   | Without one                               |
 | --------------- | ------------------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------- |
 | `refiner`       | [`plugins.refine.refiner`](configuration.md#pluginsrefine)         | Refines a ticket, in place of `factory-refine` | `factory-refine`                          |
 | `mockups`       | [`plugins.refine.mockups`](configuration.md#pluginsrefine)         | Makes pictures for a decision about the look   | `factory-design` on a website, else words |
@@ -76,7 +76,7 @@ plugins:
 
 | Step        | What happens                                                                                                                                                                                                                                                                                                                                                        |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Called**  | When you ask a session to refine a ticket: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                        |
+| **Called**  | When you run `/factory-refine N` in a session: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                    |
 | **Handed**  | The ticket's number. From `factory-build`, for a round of questions you approved while it waited on your answers, also the words "approved while waiting: fold the owner's replies into the body, post no marker". They tell the refiner to write your replies into the ticket's body and to post no [marker](glossary.md), the hidden comment line the board reads |
 | **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                                                                                                                                                                       |
 | **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                                                                                                                                                                       |

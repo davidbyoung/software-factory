@@ -21,8 +21,8 @@ A table with a State column has commands still to come, marked
 **Planned**; every command in a table without one is built.
 [What is built](developing.md#what-is-built) lists the parts.
 
-The skills are not commands: you ask a session for one in plain words,
-such as "refine ticket 12". [Skills](skills.md) lists them.
+The skills are not `factory` commands: you type one in a session as a
+slash command, such as `/factory-refine 12`. [Skills](skills.md) lists them.
 
 ## Setting up
 

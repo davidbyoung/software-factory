@@ -36,7 +36,7 @@ request to read. You decide what merges.
 flowchart LR
     A[You write a ticket] --> B[Refine: a session asks your decisions and writes the spec]
     B --> C{You approve}
-    C -->|tell a session to build it| D[Build: on your machine]
+    C -->|"run /factory-build N in a session"| D[Build: on your machine]
     C -->|move its card to Ready| E[Build: in the cloud]
     D --> F[A pull request, with tests and a review]
     E --> F

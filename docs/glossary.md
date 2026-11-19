@@ -105,8 +105,8 @@ that refines a ticket in place of the factory's own. There are seven.
 your machine or in the cloud.
 
 **Skill.** A set of instructions a session follows, named `factory-...`
-for the factory's own. You call one by asking a session in plain words,
-such as "refine ticket 12".
+for the factory's own. You call one by typing its name as a slash command,
+such as `/factory-refine 12`.
 
 **Spec.** A written statement of what a change must do. For most tickets
 that is the acceptance criteria. With OpenSpec turned on, a change your

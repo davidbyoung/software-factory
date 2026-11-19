@@ -1,7 +1,8 @@
 # Builds in the cloud
 
 A build is one session taking one approved ticket to a pull request. You
-can always build a ticket by asking a session on your machine. A build in
+can always build a ticket by running `/factory-build N` in a session on
+your machine. A build in
 the cloud does the same with nobody at the keyboard: it runs on your code
 host's cloud runner, and you read its log or its pull request afterward.
 
@@ -11,24 +12,24 @@ and the [reference](github/reference.md#workflows) has what runs there.
 
 ## Three ways a build starts
 
-| You                                 | The build runs                          | You need                                                          |
-| ----------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
-| Ask a session: "build ticket 12"    | In that session, wherever you opened it | Nothing                                                           |
-| Run `factory build 12`              | In the cloud                            | Builds in the cloud set up                                        |
-| Move the ticket to Ready on a board | In the cloud, at the poller's next pass | Builds in the cloud set up, and [the poller](#the-poller) running |
+| What you do                          | Where the build runs                    | What you need                                                     |
+| ------------------------------------ | --------------------------------------- | ----------------------------------------------------------------- |
+| Run `/factory-build 12` in a session | In that session, wherever you opened it | Nothing                                                           |
+| Run `factory build 12`               | In the cloud                            | Builds in the cloud set up                                        |
+| Move the ticket to Ready on a board  | In the cloud, at the poller's next pass | Builds in the cloud set up, and [the poller](#the-poller) running |
 
 Which of the last two you use is
 [`builds.trigger`](configuration.md#builds) in your
 [settings](configuration.md#builds):
 
-| `trigger`       | Moving a ticket to Ready                                                                                          |
+| `trigger`       | What moving a ticket to Ready does                                                                                |
 | --------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `manual`        | Records your approval and starts nothing. The default                                                             |
 | `own-server`    | Starts a build within a minute, through the poller you host                                                       |
 | `github-action` | Starts one at the next pass of a schedule on the cloud runner, every `poll-minutes` minutes, with nothing to host |
 
-`manual` is a fine place to stay. Asking a session and running
-`factory build` work whatever the trigger.
+`manual` is a fine place to stay. Running `/factory-build N` in a session
+and running `factory build N` work whatever the trigger.
 
 ## What a build in the cloud does
 
@@ -269,10 +270,10 @@ hour.
 ## No trigger: `manual`
 
 Nothing watches the board. Moving a ticket to Ready records your approval
-and starts nothing. Ask a session:
+and starts nothing. In a session, type:
 
 ```text
-build ticket 12
+/factory-build 12
 ```
 
 The session claims the ticket, which moves it to "building" on the board,

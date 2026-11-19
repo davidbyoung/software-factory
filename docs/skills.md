@@ -5,10 +5,12 @@ it. An agent, in this page's sense, is a separate reviewer a session
 launches, which reads and reports and changes nothing. This page covers
 every skill and agent the factory brings.
 
-You call a skill by asking a session in plain words, such as "refine ticket
-12". Your coding agent may also have a shorter way to call one by name; on
-Claude Code it is a slash command, as
-[the reference](github/reference.md#skills-in-claude-code) shows.
+You call a skill by typing its name as a slash command in a session, with
+the ticket or pull request number after it: `/factory-refine 12`. Slash
+commands are how Claude Code, the one coding agent the factory supports
+today, calls a skill. Asking in
+plain words, such as "refine ticket 12", usually calls the same skill, but
+the session decides which one fits, so the command is the sure way.
 
 ## Which ones a repository gets
 
@@ -44,17 +46,20 @@ refiner, builder, prover, test reviewers, and conflict resolvers.
 
 ## At a glance
 
-| Ask a session                      | Skill                       | It does                                                                  |
-| ---------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
-| "refine ticket 12"                 | `factory-refine`            | Turns a ticket into a spec a builder can start from                      |
-| "build ticket 12"                  | `factory-build`             | Builds a ticket to a reviewed pull request                               |
-| "address the review on 280"        | `factory-address-review`    | Works a pull request's review until it can merge                         |
-| "resolve the conflicts on 280"     | `factory-resolve-conflicts` | Merges your default branch into a pull request and settles the conflicts |
-| "diagnose this failing test"       | `factory-diagnose`          | Finds a bug's cause before any code changes                              |
-| "mutate this test"                 | `factory-mutate`            | Proves a test can fail                                                   |
-| "fix the dependency pull requests" | `factory-deps`              | Moves dependency pull requests toward merged                             |
-| "mock up a new about page"         | `factory-design`            | Designs a visible change to a website, with mockups                      |
-| "trace this rule change"           | `factory-trace`             | Traces a change to the rules through every kind of change                |
+| Slash command                    | Plain words that also work         | What it does                                                             |
+| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
+| `/factory-refine 12`             | "refine ticket 12"                 | Turns a ticket into a spec a builder can start from                      |
+| `/factory-build 12`              | "build ticket 12"                  | Builds a ticket to a reviewed pull request                               |
+| `/factory-address-review 280`    | "address the review on 280"        | Works a pull request's review until it can merge                         |
+| `/factory-resolve-conflicts 280` | "resolve the conflicts on 280"     | Merges your default branch into a pull request and settles the conflicts |
+| `/factory-diagnose`              | "diagnose this failing test"       | Finds a bug's cause before any code changes                              |
+| `/factory-mutate`                | "mutate this test"                 | Proves a test can fail                                                   |
+| `/factory-deps`                  | "fix the dependency pull requests" | Moves dependency pull requests toward merged                             |
+| `/factory-design`                | "mock up a new about page"         | Designs a visible change to a website, with mockups                      |
+| `/factory-trace`                 | "trace this rule change"           | Traces a change to the rules through every kind of change                |
+
+Typing `/factory` in a session lists them, which is also how to check that
+a session picked the factory up.
 
 ## `factory-refine`
 
@@ -126,7 +131,7 @@ leave for the build. To add questions to this one, write them under
    review with `factory-address-review`.
 
 **When to use it.** On a ticket that has acceptance criteria and your
-approval. Telling a session "build ticket 12" is approval. So is moving the ticket
+approval. Running `/factory-build 12` in a session is approval. So is moving the ticket
 to Ready.
 
 **What it reads.** The ticket, its Decisions, and your project's

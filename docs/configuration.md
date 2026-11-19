@@ -72,7 +72,7 @@ version: 2
 repository: your-name/your-repo
 ```
 
-With only this, the factory refines a ticket when you ask a session to,
+With only this, the factory refines a ticket when you run `/factory-refine N` in a session,
 nothing merges without you, and there is no board. Before a session can
 build a ticket, you also need to tell it how to check a change:
 [`commands.gate`](#commandsgate), below.
@@ -149,7 +149,7 @@ tickets:
 
 Without a board, `factory status` still shows every ticket's state, which
 the factory keeps in comments on the ticket. Builds then start only when
-you ask a session to build a ticket.
+you run `/factory-build N` in a session.
 
 One board can show tickets from several repositories. Give each
 repository the same `board`. Each repository's board sync,
@@ -278,8 +278,8 @@ builds:
 
 The three triggers:
 
-- **`manual`:** nothing watches the board. You ask a session to build a
-  ticket, such as "work ticket 12".
+- **`manual`:** nothing watches the board. You build a ticket by running
+  `/factory-build 12` in a session.
 - **`own-server`:** a small program you host, the poller, checks the board
   once a minute and starts a cloud build for each ticket in Ready.
   [Hosting the poller](builds.md#hosting-the-poller-own-server) shows how
@@ -583,7 +583,7 @@ session-minutes:
   build: 300
 ```
 
-| Setting        | The session                                               | Default |
+| Setting        | Limits the session that is                                | Default |
 | -------------- | --------------------------------------------------------- | ------- |
 | `build`        | Building a ticket                                         | `230`   |
 | `conflicts`    | Fixing a pull request's conflicts with the default branch | `110`   |
@@ -845,7 +845,7 @@ you. Each line it prints is shown as a reason.
 What a held pull request says, one line for each file or command that held
 it:
 
-| It says                                | Because                                         |
+| The status says                        | Why                                             |
 | -------------------------------------- | ----------------------------------------------- |
 | `PATH: the factory's own files`        | The file is one of the factory's, listed above  |
 | `PATH: held by auto-merge.deny`        | The file matches `deny`                         |
