@@ -29,9 +29,8 @@ default names.
 
 A state with no column of its own shows in the column of the nearest earlier
 state that has one, and a ticket is shown in the `ready` column only when it
-is approved. A board without a `ready` column approves a build by telling a
-session to build the ticket, or by running
-`factory build N`.
+is approved. A board without a `ready` column approves a build by running
+`/factory-build N` in a session, or by running `factory build N`.
 
 | State    | Board column  | What it means                                                                 |
 | -------- | ------------- | ----------------------------------------------------------------------------- |

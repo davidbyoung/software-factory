@@ -46,7 +46,7 @@ refiner, builder, prover, test reviewers, and conflict resolvers.
 
 ## At a glance
 
-| Type                             | Or say                             | What it does                                                             |
+| Slash command                    | Plain words that also work         | What it does                                                             |
 | -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
 | `/factory-refine 12`             | "refine ticket 12"                 | Turns a ticket into a spec a builder can start from                      |
 | `/factory-build 12`              | "build ticket 12"                  | Builds a ticket to a reviewed pull request                               |
