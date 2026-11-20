@@ -114,6 +114,41 @@ the same pull request. The factory's spec check,
 `npx --no-install factory specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
 itself, and so does the `spec:validate` script the gate and CI run.
 
+## Refining: this repository
+
+**Draft the experience first.** Before step 1 of `factory-refine`, run
+`/dx-first N`, the `dx-first` skill, on a ticket that adds or changes a
+command, a command's output, a setting, a file the factory writes, or a
+docs page, and whose body has no `## Proposed docs` yet. Each is what a
+factory user meets, as "Spec track: this repository" reads them: the text
+of a skill, agent, rule, or workflow is not one, nor is this repository's
+own `.claude/factory.yaml`, and a docs page is `README.md` or one under
+`docs/` other than `docs/developing.md`. Skip it for a small change
+("Small changes" in `.claude/factory/rules.md`), a bug fix that restores
+intended behavior, and the follow-ups ticket. When `dx-first` posts its
+draft as a comment and waits, refinement stops there too.
+
+**Refine from `## Proposed docs`.** Each behavior it shows, in a
+transcript, a file, a diagram, or the docs page, becomes a Spec line, or
+an acceptance criterion on a ticket without `spec`. A draft line that
+would be expensive to build is put to the owner as a question, not
+reworded: the owner approved the draft as written. `## Proposed docs`
+stays in the body, after the owner's text and before `## Decisions`, as
+part of §1 when refinement writes the body. A fix `dx-first` made to a
+fact in the owner's text, and named, is not a change to §1.
+
+**An approved draft is saved first.** The newest round waiting on the
+owner is a `dx-first` draft when its comment ends
+`<!-- dx-first: draft -->`. When `factory-build` folds an approved round
+and that round is a draft, run `dx-first` to save the draft with the
+owner's replies folded in, then fold and check the body as
+`factory-refine` does. When the owner asks a session to build a ticket
+whose draft waits and whose body has no criteria yet, `factory-build`
+runs refinement and stops, as it does for any such ticket: that request
+is the owner saying to save, so `dx-first` saves the draft and refinement
+carries on to its own end. The owner then approves the refined ticket as
+usual.
+
 ## Changing the process: this repository
 
 The source of every factory file is in this repository: `skills/`,
@@ -121,8 +156,9 @@ The source of every factory file is in this repository: `skills/`,
 the source, run `node bin/factory.js sync`, and commit both; CI's
 `Factory files in step` fails when a copy differs from its source. Never
 edit the copy under `.claude/` or `.github/`.
-`.claude/agents/docs-reader.md`, this repository's own reviewer, is not a
-copy: it has no source elsewhere and is edited where it is.
+`.claude/agents/docs-reader.md`, this repository's own reviewer, and
+`.claude/skills/dx-first/`, its own skill, are not copies: they have no
+source elsewhere and are edited where they are.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
