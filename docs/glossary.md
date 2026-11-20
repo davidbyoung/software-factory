@@ -78,6 +78,11 @@ commits.
 
 **Local session.** A session on your own machine.
 
+**Lock.** The file `.claude/factory.lock`, which `factory sync` writes:
+the factory's version, the presets, every setting in effect, and the files
+it copied. Every command reads its settings from it. You commit it and
+never edit it.
+
 **Marker.** A hidden line in a comment the factory posts on a ticket,
 recording what happened. The board is worked out from these.
 

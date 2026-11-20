@@ -74,14 +74,14 @@ A [preset](presets.md) is an npm package of settings that several
 repositories share, listed under
 [`presets`](configuration.md#presets).
 
-| Command                            | When you run it                                                                                    |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `factory preset add NAME`          | To follow a preset. It shows what would change and asks before changing anything                   |
-| `factory preset remove NAME`       | To stop following one, the same way                                                                |
-| `factory preset choices`           | To see where two of your presets disagree, and choose which one this repository follows            |
-| `factory preset choose KEY PRESET` | To record one of those choices without questions, from a session or a script                       |
-| `factory preset check`             | In a preset's own package, before publishing it                                                    |
-| `factory preset changes REF`       | To see what the presets' update changed since git `REF`. The `factory-deps` skill posts it for you |
+| Command                            | When you run it                                                                                                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `factory preset add NAME`          | To follow a preset. It shows what would change and asks before changing anything                                                                                                           |
+| `factory preset remove NAME`       | To stop following one, the same way                                                                                                                                                        |
+| `factory preset choices`           | To see where two of your presets disagree, and choose which one this repository follows                                                                                                    |
+| `factory preset choose KEY PRESET` | To record one of those choices without questions, from a session or a script, as [Your choices](presets.md#your-choices) shows                                                             |
+| `factory preset check`             | In a preset's own package, before publishing it                                                                                                                                            |
+| `factory preset changes REF`       | To see what the presets' update changed since `REF`, a git branch, tag, or commit such as `origin/main`. The [`factory-deps`](skills.md#factory-deps) skill posts it on each preset update |
 
 `add` and `remove` ask only in a terminal. Elsewhere they print what would
 change and stop, unless given `--yes`; `--dry-run` prints it and changes

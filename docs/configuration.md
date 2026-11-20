@@ -67,10 +67,11 @@ The [glossary](glossary.md) has the rest.
   section, and updates never remove yours.
 - **Every command reads the lock, not this file.** `factory sync` combines
   the factory's defaults, any [`presets`](#presets) you list, and this
-  file, and writes every setting in effect into `.claude/factory.lock`,
-  which you commit and never edit. Until you sync after a change, every
-  command but `factory sync`, `factory doctor`, `factory config check`,
-  and the `factory preset` commands stops and says so:
+  file, and writes every setting the factory will use, defaults included,
+  into `.claude/factory.lock`, which you commit and never edit. Until you
+  sync after a change, every command stops and says so, but the ones that
+  fix or report it: `factory sync`, `factory doctor`,
+  `factory config check`, and the `factory preset` commands.
 
   ```text
   .claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync
@@ -117,8 +118,8 @@ factory sync
 `factory config check` prints nothing when the file is valid, and names
 the setting when it is not. `factory sync` then rewrites the lock and the
 copied files that depend on what you changed, and lists each file it
-wrote. Every change needs it, one under `plugins` included, since every
-command reads its settings from the lock.
+wrote. Every change needs it, one under `plugins` included, as
+[How the file works](#how-the-file-works) says.
 
 ## Every setting
 
@@ -148,8 +149,8 @@ needs it too.
 ### `presets`
 
 Settings shared by several repositories, each an npm package your team
-publishes, listed in the order they apply. Your own settings in this file
-come last and win over every preset's.
+publishes, listed in the order they apply: a later preset wins over an
+earlier one, and your own settings in this file win over every preset's.
 
 ```yaml
 presets:
@@ -162,7 +163,8 @@ presets:
   `factory preset remove NAME`, which install or uninstall the package,
   edit this list, and sync. A name that starts with `@` must be quoted.
 - **A preset can't set** `repository`, `auto-merge.allow`, or
-  `auto-merge.commands`, and can't list other presets.
+  `auto-merge.commands`, and can't list other presets
+  ([why](presets.md#what-a-preset-cant-set)).
 
 [Presets](presets.md) says how they combine, how to choose between two
 that disagree, and how to write one.
@@ -689,7 +691,8 @@ agent at `.claude/agents/NAME.md`:
   doesn't take them; on a builder with no `labels`; on a build reviewer or
   resolver with no `files`; on a skill or agent whose file doesn't
   exist and no preset ships; and on `off: true` for a plugin no preset
-  names. It warns on a `files` pattern that matches no file.
+  names, where the fix is to delete that entry. It warns on a `files`
+  pattern that matches no file.
 
 #### `plugins.refine`
 

@@ -348,13 +348,24 @@ describe("factory preset add", () => {
 });
 
 describe("npm's failures and Dependabot's needs", () => {
-  it("names the status, and the token only for 401, 403, and 404", () => {
+  it.each([
+    ["401", "401 Unauthorized"],
+    ["403", "403 Forbidden"],
+    ["404", "404 Not Found"],
+  ])(
+    "names the status of E%s, and the token a private package needs",
+    (code, status) => {
+      expect(installError("p", `npm error code E${code}\n`, "R")).toEqual([
+        `npm couldn't install p: R answered ${status}.`,
+        "If it's a private package, give this machine a token for R, as .npmrc expects.",
+      ]);
+    },
+  );
+
+  it("names any other status without the token line", () => {
     expect(installError("p", "npm error code E500\n", "R")).toEqual([
       "npm couldn't install p: R answered 500 Internal Server Error.",
     ]);
-    expect(installError("p", "npm error code E401\n", "R")[0]).toBe(
-      "npm couldn't install p: R answered 401 Unauthorized.",
-    );
   });
 
   it("gives npm's last error line when it has no HTTP status", () => {
@@ -458,6 +469,9 @@ describe("factory preset remove", () => {
     expect(r.code).toBe(0);
     expect(read(root, ".claude/factory.yaml")).not.toContain(
       "small-change-lines",
+    );
+    expect(read(root, ".claude/factory.lock")).toMatch(
+      /small-change-lines: 40 +# @acme\/factory-preset\n/,
     );
   });
 
@@ -647,12 +661,21 @@ describe("factory preset check", () => {
     put(root, "package.json", "{}");
     r = await preset(["check"]);
     expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      "No preset here: no factory-preset.yaml beside a package.json",
+    ]);
   });
 });
 
 describe("factory preset changes", () => {
   /** The lock at REF, then the working tree's after a newer ACME. */
-  const update = async (acme150: string) => {
+  const update = async (
+    acme150: string,
+    agents: Record<string, string> = {
+      "acme-security-reviewer": "security\n",
+      "acme-a11y-reviewer": "a11y\n",
+    },
+  ) => {
     await setUp([ACME, NODE], GATE);
     put(
       root,
@@ -665,10 +688,7 @@ describe("factory preset changes", () => {
       ...PACKAGES[ACME]!.presets,
       "": {
         settings: acme150,
-        agents: {
-          "acme-security-reviewer": "security\n",
-          "acme-a11y-reviewer": "a11y\n",
-        },
+        agents,
       },
     });
     await sync();
@@ -717,12 +737,13 @@ describe("factory preset changes", () => {
   });
 
   it("says Nothing changes here. when an update changes nothing in effect", async () => {
-    const r = await update(ACME_BASE);
+    const r = await update(ACME_BASE, {
+      "acme-security-reviewer": "security\n",
+    });
     expect(r.out).toEqual([
       `${ACME} 1.4.0 → 1.5.0`,
       "",
-      "Changes here:",
-      "- wrote .claude/agents/acme-a11y-reviewer.md",
+      "Nothing changes here.",
     ]);
   });
 });

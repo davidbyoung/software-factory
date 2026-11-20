@@ -160,7 +160,7 @@ describe("combining presets", () => {
   });
 
   it("adds up every layer's list of values, each once, in layer order", async () => {
-    acme([ACME, NODE], ["pr-review:", "  commands: [npm audit, node]"]);
+    acme([ACME, NODE], ["pr-review:", "  commands: [node, npm audit]"]);
     expect((await resolveAt(root)).settings.prReview?.commands).toEqual([
       "npm audit",
       "node",
@@ -471,18 +471,31 @@ describe("reading the settings from the lock", () => {
   });
 
   it("names the first reason in order: missing, earlier, changed, not installed, another version", () => {
-    const base: StaleDeps = {
-      lock: lock({ presets: withPreset, hash: settingsHash("old", null) }),
-      own: settings,
-      choices: null,
-      changed: () => [],
-      installed: () => null,
-      load: yaml,
-    };
-    expect(staleReason(base)).toContain("changed since the last sync");
+    const two = `presets:\n  - name: "${ACME}"\n    version: 1.4.0\n  - name: "@b/p"\n    version: 1.0.0`;
+    const at = (over: Partial<StaleDeps>) =>
+      staleReason({
+        lock: lock({ presets: two }),
+        own: settings,
+        choices: null,
+        changed: () => [],
+        installed: (pkg) => (pkg === ACME ? "9.9.9" : null),
+        load: yaml,
+        ...over,
+      });
+    const stale = settingsHash("old", null);
+    expect(at({ lock: null })).toContain("is missing");
     expect(
-      staleReason({ ...base, lock: lock({ presets: withPreset }) }),
-    ).toContain("not installed");
+      at({ lock: `version: 0.4.0\nsettings-hash: ${stale}\nfiles: []\n` }),
+    ).toContain("earlier version");
+    expect(at({ lock: lock({ presets: two, hash: stale }) })).toContain(
+      "changed since the last sync",
+    );
+    expect(at({})).toBe(
+      "@b/p is in .claude/factory.lock but not installed. Run: npm ci",
+    );
+    expect(at({ installed: () => "9.9.9" })).toContain(
+      `${ACME} is 9.9.9 in node_modules`,
+    );
   });
 
   it("reads the lock FACTORY_LOCK names without checking it is current", async () => {

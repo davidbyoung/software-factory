@@ -37,7 +37,11 @@ const restore = steps.find(
 const tools = steps.find((s) => s.id === "tools");
 
 let repo = "";
-afterEach(() => rmSync(repo, { recursive: true, force: true }));
+let temp = "";
+afterEach(() => {
+  rmSync(repo, { recursive: true, force: true });
+  if (temp) rmSync(temp, { recursive: true, force: true });
+});
 
 function git(...args: string[]): string {
   const result = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
@@ -144,7 +148,7 @@ describe("the CI review workflow", () => {
       writeFileSync(join(repo, path), text);
     git("add", "-A");
     git("commit", "-q", "-m", "head");
-    const temp = mkdtempSync(join(tmpdir(), "claude-review-temp-"));
+    temp = mkdtempSync(join(tmpdir(), "claude-review-temp-"));
     const output = join(repo, "output");
 
     // The factory itself is not installed here: stand in for it with a
