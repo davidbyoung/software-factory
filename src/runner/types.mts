@@ -64,4 +64,19 @@ export type Runner = {
   /** Stores a secret the runner's jobs can read. The value never appears
    * in a command's arguments or its output. */
   setSecret(name: string, value: string): Promise<void>;
+  /** The names of the secrets the runner gives a job that the dependency
+   * bot's pull request starts. */
+  dependabotSecretNames(): Promise<string[]>;
+  /** Stores a secret for those jobs, as `setSecret` does. */
+  setDependabotSecret(name: string, value: string): Promise<void>;
+  /** The names of the secrets the repository's organization shares with
+   * it. Not called on a repository a person owns. */
+  organizationSecretNames(): Promise<string[]>;
+  /** The names of the organization's secrets for the dependency bot that
+   * reach this repository, which private ones do only when it is private,
+   * or null when the organization will not list them. Not called on a
+   * repository a person owns. */
+  organizationDependabotSecretNames(
+    isPrivate: boolean,
+  ): Promise<string[] | null>;
 };

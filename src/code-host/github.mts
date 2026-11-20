@@ -439,6 +439,10 @@ export function githubCodeHost(o: {
       const repo = await t.rest<{ private: boolean }>("GET", API);
       return repo.private;
     },
+    async ownerIsOrganization() {
+      const repo = await t.rest<{ owner: { type: string } }>("GET", API);
+      return repo.owner.type === "Organization";
+    },
     async checkRuns(sha) {
       const answer = await t.rest<{ check_runs: RestCheckRun[] }>(
         "GET",
