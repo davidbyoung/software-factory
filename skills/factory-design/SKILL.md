@@ -10,7 +10,7 @@ them a recommendation, not a menu. Each round the owner has to spend
 catching a defect or making a design call is a round this skill exists to
 remove.
 
-It works on any site whose `.claude/factory.yaml` has a `site` block:
+It works on any site whose settings have a `site` block:
 `site.start` says how to build and serve it, and `factory site compare`
 pictures it.
 

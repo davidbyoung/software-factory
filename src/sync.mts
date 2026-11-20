@@ -489,14 +489,28 @@ export function lockText(l: LockParts): string {
   ].join("\n");
 }
 
-/** The files a lock lists, from any release's lock. */
+/** The files a lock lists, from any release's lock. One that a merge left
+ * with conflict markers is read line by line, from each side's `files`. */
 export function lockedFiles(
   text: string | null,
   load: (t: string) => unknown,
 ): string[] {
   if (!text) return [];
-  const o = load(text) as { files?: unknown } | null;
-  return Array.isArray(o?.files) ? o.files.map(String) : [];
+  try {
+    const o = load(text) as { files?: unknown } | null;
+    return Array.isArray(o?.files) ? o.files.map(String) : [];
+  } catch {
+    const out: string[] = [];
+    let inFiles = false;
+    for (const line of text.split("\n")) {
+      if (/^files:/.test(line)) inFiles = true;
+      else if (/^\S/.test(line) && !/^(<{7}|={7}|>{7})/.test(line))
+        inFiles = false;
+      const item = inFiles ? /^ {2}- (.+)$/.exec(line)?.[1] : undefined;
+      if (item && !out.includes(item)) out.push(item);
+    }
+    return out;
+  }
 }
 
 const AUTO_MERGE_WORKFLOW = "workflows/factory-deps-auto-merge.yml";

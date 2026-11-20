@@ -125,6 +125,20 @@ describe("the lock factory sync writes", () => {
     ).toBe(true);
   });
 
+  it("reads the files of a lock with conflict markers, so it still deletes what no preset ships", async () => {
+    acme();
+    await sync();
+    const text = read(root, LOCK)!.replace(
+      /^settings-hash: .*$/m,
+      "<<<<<<< HEAD\nsettings-hash: sha256:a\n=======\nsettings-hash: sha256:b\n>>>>>>> other",
+    );
+    put(root, LOCK, text);
+    put(root, ".claude/factory.yaml", own([ACME]));
+    const r = await sync();
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("deleted .claude/agents/node-deps-reviewer.md");
+  });
+
   it("fails the check, naming the fix, when the lock is stale", async () => {
     acme();
     await sync();

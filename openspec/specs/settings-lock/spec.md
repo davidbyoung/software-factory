@@ -44,12 +44,21 @@ The factory SHALL behave as this line says: When `.claude/factory.yaml` has chan
 
 ### Requirement: A preset at another version
 
-The factory SHALL behave as this line says: When a preset's installed version differs from the lock's, those commands print `NAME is V1 in node_modules but V2 in .claude/factory.lock. Run: npx --no-install factory sync` and exit 1.
+The factory SHALL behave as this line says: When a preset's installed version differs from the lock's, those commands print `NAME is V1 in node_modules but V2 in .claude/factory.lock. Run: npx --no-install factory sync` and exit 1, or end it `Run: npm ci` when V1 is the older.
 
 #### Scenario: A preset at another version
 
 - **WHEN** a preset's installed version differs from the lock's
-- **THEN** those commands print `NAME is V1 in node_modules but V2 in .claude/factory.lock. Run: npx --no-install factory sync` and exit 1.
+- **THEN** those commands print `NAME is V1 in node_modules but V2 in .claude/factory.lock. Run: npx --no-install factory sync` and exit 1, or end it `Run: npm ci` when V1 is the older.
+
+### Requirement: An unreadable lock
+
+The factory SHALL behave as this line says: When `.claude/factory.lock` can't be read as YAML, as a merge conflict leaves it, those commands print `.claude/factory.lock can't be read. Run: npx --no-install factory sync` and exit 1, and `factory sync` reads the files each side lists.
+
+#### Scenario: An unreadable lock
+
+- **WHEN** `.claude/factory.lock` can't be read as YAML, as a merge conflict leaves it
+- **THEN** those commands print `.claude/factory.lock can't be read. Run: npx --no-install factory sync` and exit 1, and `factory sync` reads the files each side lists.
 
 ### Requirement: A preset not installed
 

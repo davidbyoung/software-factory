@@ -613,9 +613,23 @@ export const staleMessages = {
     `${file} changed since the last sync. Run: ${SYNC}`,
   notInstalled: (name: string) =>
     `${name} is in ${LOCK_FILE} but not installed. Run: npm ci`,
+  /** An older install is behind a pull: npm ci brings it up. A newer one
+   * is an update: the sync records it. */
   version: (name: string, installed: string, locked: string) =>
-    `${name} is ${installed} in node_modules but ${locked} in ${LOCK_FILE}. Run: ${SYNC}`,
+    `${name} is ${installed} in node_modules but ${locked} in ${LOCK_FILE}. Run: ${older(installed, locked) ? "npm ci" : SYNC}`,
+  unreadable: `${LOCK_FILE} can't be read. Run: ${SYNC}`,
 };
+
+/** Whether version `a` is older than `b`, number by number. */
+function older(a: string, b: string): boolean {
+  const pa = a.split(/[.-]/).map(Number);
+  const pb = b.split(/[.-]/).map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const [x, y] = [pa[i] ?? 0, pb[i] ?? 0];
+    if (x !== y) return x < y;
+  }
+  return false;
+}
 
 export type Lock = {
   version: string;
@@ -666,7 +680,12 @@ export type StaleDeps = {
  * version. Null when it is current. */
 export function staleReason(d: StaleDeps): string | null {
   if (d.lock === null) return staleMessages.missing;
-  const lock = readLock(d.lock, d.load);
+  let lock: Lock;
+  try {
+    lock = readLock(d.lock, d.load);
+  } catch {
+    return staleMessages.unreadable;
+  }
   if (!lock.settings) return staleMessages.earlier;
   if (lock.hash !== settingsHash(d.own, d.choices)) {
     const changed = d.changed();

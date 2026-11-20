@@ -71,7 +71,8 @@ take the default branch's lock file, run `commands.relock`, the command
 `npx --no-install factory config get commands.relock` prints, so the bump
 is reapplied on top of it, and commit the merge. Any other conflicted file
 that matches the `files` of a resolver
-(`npx --no-install factory plugins resolver`) is that resolver's, as
+(`npx --no-install factory plugins resolver`) is that resolver's, and a
+conflict in `.claude/factory.lock` is resolved first, by `factory sync`, as
 "Merge" in the `factory-resolve-conflicts` skill says.
 
 Then go on: a branch with a conflict can be failing as well.
@@ -136,15 +137,16 @@ end for this run: comment what was tried and leave it for the next one.
 
 A pull request that bumps `@davidbyoung/software-factory`, or the package
 of a preset `.claude/factory.lock` lists, gets steps 2 and 3, and the files
-the new version writes. `factory deps` says `sync (step 4)` for each. After
-`npm ci` on its branch:
+the new version writes. `factory deps` says `sync (step 4)` for each. Run
+the sync right after `npm ci` on its branch, before step 3's gate: until it
+runs, every `factory` command stops on the stale lock and names it.
 
 ```bash
 npx --no-install factory sync
 ```
 
-When the sync, or any other `factory` command, fails on the settings after
-the update, the release changed the settings' shape, as version 2 does.
+When the sync itself fails on the settings after the update, the release
+changed the settings' shape, as version 2 does.
 Stop (step 6), and say the settings are the owner's to move, as "Moving to
 settings version 2" in the factory's `docs/updating.md` says for that
 release. Never edit `.claude/factory.yaml`.

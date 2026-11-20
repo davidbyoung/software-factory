@@ -444,6 +444,26 @@ describe("reading the settings from the lock", () => {
     );
   });
 
+  it("names npm ci, not sync, when the installed preset is older than the lock's", async () => {
+    const { d } = lockDeps(lock({ presets: withPreset }), {
+      installed: () => "1.3.0",
+    });
+    await stops(
+      d,
+      `${ACME} is 1.3.0 in node_modules but 1.4.0 in .claude/factory.lock. Run: npm ci`,
+    );
+  });
+
+  it("stops with one line naming sync when the lock can't be read", async () => {
+    const { d } = lockDeps(
+      "settings:\n<<<<<<< HEAD\n  a: 1\n=======\n  a: 2\n>>>>>>> b\n",
+    );
+    await stops(
+      d,
+      ".claude/factory.lock can't be read. Run: npx --no-install factory sync",
+    );
+  });
+
   it("stops, naming npm ci, when a preset the lock lists is not installed", async () => {
     const { d } = lockDeps(lock({ presets: withPreset }), {
       installed: () => null,
