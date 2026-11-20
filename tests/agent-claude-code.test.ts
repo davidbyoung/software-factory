@@ -10,6 +10,8 @@ type Script = {
   code?: number;
   /** Never exits on its own. */
   hang?: boolean;
+  /** Fails to start, as when the command is missing, and never closes. */
+  error?: string;
 };
 
 /** A spawn that records each call and plays one scripted run. */
@@ -41,7 +43,9 @@ function fakeSpawn(script: Script) {
       setImmediate(() => child.emit("close", null));
       return true;
     };
-    if (!script.hang)
+    if (script.error !== undefined)
+      setImmediate(() => child.emit("error", new Error(script.error)));
+    else if (!script.hang)
       setImmediate(() => {
         child.stdout.end(script.stdout ?? "");
         child.stderr.end(script.stderr ?? "");
@@ -144,6 +148,14 @@ describe("Claude Code's answer", () => {
     expect(await claudeCodeAgent(f.spawn).answer(question)).toEqual({
       failed: { code: 2, error: null },
     });
+  });
+
+  it("says the command failed, and deletes its folder, when it can't start", async () => {
+    const f = fakeSpawn({ error: "spawn claude ENOENT" });
+    expect(
+      await claudeCodeAgent(f.spawn).answer({ ...question, timeoutMs: 5000 }),
+    ).toEqual({ failed: { code: 1, error: "spawn claude ENOENT" } });
+    expect(existsSync(f.calls[0]!.cwd)).toBe(false);
   });
 
   it("kills a run past the timeout and says it timed out", async () => {

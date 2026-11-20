@@ -181,7 +181,7 @@ describe("what Yes writes", () => {
 describe("what is sent to the agent", () => {
   it("sends the column names, each state's key and meaning, and whether ready may be none", () => {
     const manual = prompt(BOARD, false);
-    for (const c of BOARD) expect(manual).toContain(`- ${c}\n`.trimEnd());
+    for (const c of BOARD) expect(manual).toContain(`- ${c}`);
     expect(manual).toContain("- refining: a session is turning it into a spec");
     expect(manual).toContain(`ready may be ${NONE}`);
     expect(prompt(BOARD, true)).toContain("ready needs a column");

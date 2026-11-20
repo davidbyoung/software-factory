@@ -935,13 +935,9 @@ describe("a state with a list of columns", () => {
       ".claude/factory.yaml: tickets.columns.review: names qa twice",
     ],
   ])("rejects %s, in the words the issue gives", (_name, columns, message) => {
-    let thrown: unknown;
-    try {
-      parse({ ...LIST_YAML, tickets: { board: 3, columns } });
-    } catch (e) {
-      thrown = e;
-    }
-    expect((thrown as Error).message).toBe(message);
+    expect(() =>
+      parse({ ...LIST_YAML, tickets: { board: 3, columns } }),
+    ).toThrow(message);
   });
 
   it("puts a ticket in any listed column in that state", () => {

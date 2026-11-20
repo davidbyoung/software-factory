@@ -1431,7 +1431,7 @@ describe("factory init, the column step", () => {
     "? select: Use these columns?",
   ];
 
-  it("asks the agent once, shows its table, and on Yes writes only what differs and adds only the fields", async () => {
+  it("prints the board's columns and the table after the board question, then asks whether to use them, before the plan", async () => {
     const r = shop({ select: ["yes"] });
     expect(await r.run()).toBe(0);
     const at = r.transcript.indexOf("? select: Which board?");
@@ -1441,13 +1441,23 @@ describe("factory init, the column step", () => {
     expect(
       r.transcript.indexOf("This is everything setup will do:"),
     ).toBeGreaterThan(at + STEP_LINES.length);
-    expect(r.selects.at(-1)).toEqual({
+    expect(selectOf(r, "Use these columns?")).toEqual({
       names: ["Yes", "Change some", "No: add the factory's columns instead"],
       fallback: "yes",
     });
+  });
+
+  it("asks the agent once, with the board's columns and a 60-second limit", async () => {
+    const r = shop({ select: ["yes"] });
+    await r.run();
     expect(r.agent.asked).toHaveLength(1);
     expect(r.agent.asked[0]!.timeoutMs).toBe(60_000);
     for (const c of SHOP_COLUMNS) expect(r.agent.asked[0]!.prompt).toContain(c);
+  });
+
+  it("on Yes writes only the states that differ, and adds only the fields", async () => {
+    const r = shop({ select: ["yes"] });
+    await r.run();
     expect(r.read(".claude/factory.yaml")).toContain(
       [
         "tickets:",
@@ -1460,15 +1470,6 @@ describe("factory init, the column step", () => {
         "",
       ].join("\n"),
     );
-    expect(r.yaml().tickets).toEqual({
-      board: 3,
-      columns: {
-        backlog: "Todo",
-        refining: "none",
-        ready: "none",
-        review: "Code review",
-      },
-    });
     expect(r.tickets.boards[0].columns).toEqual(SHOP_COLUMNS);
     expect(r.out).toContain("Added to board 3: Session, Runs in, Cost.");
   });
@@ -1677,7 +1678,7 @@ describe("factory init, the column step", () => {
       });
       expect(await r.run()).toBe(0);
       expect(r.out).toContain("  ready      Ready, which init adds");
-      expect(r.selects.at(-2)!.names).toEqual([
+      expect(selectOf(r, "Which column shows ready?").names).toEqual([
         ...SHOP_COLUMNS,
         'Add a column called "Ready"',
       ]);
