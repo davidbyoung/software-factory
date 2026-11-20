@@ -85,14 +85,19 @@ jobs:
           done
 
       # From the base commit too, so a change to the settings alone cannot
-      # widen the commands its own review may run.
+      # widen the commands its own review may run. Its lock holds them, from
+      # a preset as well; a lock written before presets holds no settings,
+      # and then the base commit's settings file does.
       - name: List the tools the review may use
         id: tools
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           FACTORY_SETTINGS: ${{ runner.temp }}/factory.yaml
         run: |
-          if git cat-file -e "$BASE:.claude/factory.yaml" 2>/dev/null; then
+          if git show "$BASE:.claude/factory.lock" > "$RUNNER_TEMP/factory.lock" 2>/dev/null &&
+            grep -q '^settings:' "$RUNNER_TEMP/factory.lock"; then
+            export FACTORY_LOCK="$RUNNER_TEMP/factory.lock"
+          elif git cat-file -e "$BASE:.claude/factory.yaml" 2>/dev/null; then
             git show "$BASE:.claude/factory.yaml" > "$FACTORY_SETTINGS"
           else
             cp .claude/factory.yaml "$FACTORY_SETTINGS"

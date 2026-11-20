@@ -153,6 +153,12 @@ area" in `CLAUDE.md`).
   line on one side and a real change on the other is not a contradiction:
   apply both. In content, that includes sweeps such as the serial
   comma.
+- **`.claude/factory.lock`, first:** it is never merged by hand. Resolve
+  `.claude/factory.yaml` and `.claude/factory.choices.yaml`, take either
+  side's lock, and run `npx --no-install factory sync`, which writes it
+  from them. Do it before anything else that runs `factory`: every command
+  but the sync reads its settings from the lock, and stops while it is
+  conflicted or stale.
 - **The lock file `commands.relock` regenerates:** resolve the manifest
   it is generated from first, then take the default branch's copy of the
   lock file and run `commands.relock`, the command

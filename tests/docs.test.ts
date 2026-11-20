@@ -789,6 +789,12 @@ describe("the docs, for settings version 2", () => {
     "factory end-to-end",
     "factory specs check",
     "factory default-branch",
+    "factory preset add",
+    "factory preset remove",
+    "factory preset choices",
+    "factory preset choose",
+    "factory preset check",
+    "factory preset changes",
   ])("give %s a row in docs/cli.md", (command) => {
     const named = read(CLI)
       .split("\n")

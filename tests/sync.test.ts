@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { parseSettings, type Settings } from "../src/config.mts";
+import { resolveFiles, type Resolved } from "../src/config.mts";
 import {
   launcherPath,
   main,
@@ -32,8 +32,24 @@ const put = (base: string, path: string, text: string) => {
 const read = (path: string) =>
   existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null;
 
-const settings = (raw: Record<string, unknown> = {}): Settings =>
-  parseSettings({ version: 2, repository: "o/r", ...raw }, () => true);
+const settings = (raw: Record<string, unknown> = {}) => ({
+  version: 2,
+  repository: "o/r",
+  ...raw,
+});
+
+/** The settings `raw` writes, resolved as `factory sync` resolves them. */
+const resolved = (raw: Record<string, unknown>): Promise<Resolved> =>
+  resolveFiles({
+    readFile: () => JSON.stringify(raw),
+    exists: () => true,
+    hasPackage: () => true,
+    listFiles: () => [],
+    loadYaml: async () => load,
+    out: () => {},
+    err: () => {},
+    root,
+  });
 const FULL = { tickets: { board: 3 }, "auto-merge": { allow: ["docs/**"] } };
 
 /** A sync of the made-up package into the repository, whose default branch
@@ -48,7 +64,8 @@ async function sync(
   const code = await main(argv, {
     root,
     pkg,
-    settings: async () => s,
+    settings: () => resolved(s),
+    stale: async () => null,
     defaultBranch: async () => branch,
     out: (l) => out.push(l),
     err: (l) => err.push(l),
@@ -469,18 +486,22 @@ describe("the factory's core", () => {
     ".claude/agents/factory-test-reviewer.md",
   ];
 
-  it("is written from the real package to a repository with no settings and no files", () => {
-    const written = [...plan(PACKAGE, root, settings(), "main").write.keys()];
+  it("is written from the real package to a repository with no settings and no files", async () => {
+    const written = [
+      ...(
+        await plan(PACKAGE, root, await resolved(settings()), "main")
+      ).write.keys(),
+    ];
     expect(CORE.filter((path) => !written.includes(path))).toEqual([]);
   });
-  it("gives the trace skill the change types to read and the pull request to post on", () => {
-    const trace = plan(PACKAGE, root, settings(), "main").write.get(
-      ".claude/skills/factory-trace/SKILL.md",
-    );
+  it("gives the trace skill the change types to read and the pull request to post on", async () => {
+    const trace = (
+      await plan(PACKAGE, root, await resolved(settings()), "main")
+    ).write.get(".claude/skills/factory-trace/SKILL.md");
     expect(trace).toContain(".claude/change-types.md");
     expect(trace).toContain("npx --no-install factory pr comment");
     expect(
-      plan(PACKAGE, root, settings(), "main").write.get(
+      (await plan(PACKAGE, root, await resolved(settings()), "main")).write.get(
         ".claude/factory/rules.md",
       ),
     ).toContain("`factory-trace` skill");
@@ -623,12 +644,16 @@ describe("factory sync: the numbers the rules use", () => {
     expect(r.err).toContain(`  ${REVIEW_COPY}`);
   });
 
-  it("finds every phrase in the real package's rules and review skill", () => {
-    const written = plan(
-      PACKAGE,
-      root,
-      settings({ rules: { "small-change-lines": 45, "review-rounds": 3 } }),
-      "main",
+  it("finds every phrase in the real package's rules and review skill", async () => {
+    const written = (
+      await plan(
+        PACKAGE,
+        root,
+        await resolved(
+          settings({ rules: { "small-change-lines": 45, "review-rounds": 3 } }),
+        ),
+        "main",
+      )
     ).write;
     expect(written.get(RULES_COPY)).toContain("under about 45 lines");
     expect(written.get(RULES_COPY)).toContain("After three rounds");
@@ -653,8 +678,10 @@ describe("factory sync: the default branch in the push triggers", () => {
     expect(read(CONFLICTS_COPY)).toBe(conflicts(110, "develop"));
   });
 
-  it("finds the one push trigger in each of the real package's two workflows", () => {
-    const written = plan(PACKAGE, root, settings(), "develop").write;
+  it("finds the one push trigger in each of the real package's two workflows", async () => {
+    const written = (
+      await plan(PACKAGE, root, await resolved(settings()), "develop")
+    ).write;
 
     expect(pushBranches(written.get(CHECK_COPY))).toEqual(["develop"]);
     expect(pushBranches(written.get(CONFLICTS_COPY))).toEqual(["develop"]);

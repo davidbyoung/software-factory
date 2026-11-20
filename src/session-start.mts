@@ -2,7 +2,7 @@
 // the session's context, so work left on another branch is visible before
 // anything new starts: the checkout's state, the local branches with work
 // not on the default branch, then each ticket's state.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   branchDeps,
@@ -114,6 +114,9 @@ export type Deps = {
   out: (text: string) => void;
   /** Prints each ticket's state, and gives the hook's exit. */
   tickets: () => Promise<number>;
+  /** Why the lock is stale, or null when it is current or there is no
+   * factory here. */
+  stale?: () => Promise<string | null>;
 };
 
 export async function main(d: Deps): Promise<number> {
@@ -121,6 +124,10 @@ export async function main(d: Deps): Promise<number> {
   d.out(repositoryState(gitIn(d.dir), branch).join("\n"));
   const behind = installBehind(d.dir);
   if (behind) d.out(`\n${behind}\n`);
+  // A stale lock stops every command but `factory sync`, so the session is
+  // told now, and starts anyway.
+  const stale = await d.stale?.().catch(() => null);
+  if (stale) d.out(`\n${stale}\n`);
   return d.tickets();
 }
 
@@ -136,6 +143,12 @@ export async function run(): Promise<number> {
     dir,
     branch: branchDeps(dir),
     out: (text) => console.log(text),
+    stale: async () => {
+      const { defaultDeps, SETTINGS_FILE, staleOf } =
+        await import("./config.mts");
+      if (!existsSync(join(dir, SETTINGS_FILE))) return null;
+      return staleOf(defaultDeps(dir));
+    },
     // What each ticket's board card says, and who is working on it. The
     // status command enforces its own time limit, since a hook the harness
     // kills prints nothing.

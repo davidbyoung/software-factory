@@ -40,8 +40,14 @@ export function isMajor(title: string): boolean {
 }
 
 /** What the skill does with a bump, in the order its steps take them.
- * `branch` is the default branch, which a conflicting bump merges. */
-export function nextStep(bump: Bump, branch: string): string {
+ * `branch` is the default branch, which a conflicting bump merges, and
+ * `synced` the packages whose update needs `factory sync`: the factory's
+ * own and each preset's. */
+export function nextStep(
+  bump: Bump,
+  branch: string,
+  synced: string[] = [],
+): string {
   if (bump.mergeableState === "unknown") return "leave: state not computed yet";
   if (bump.checks.some((c) => c.status !== "completed"))
     return "leave: checks still running";
@@ -51,6 +57,8 @@ export function nextStep(bump: Bump, branch: string): string {
   if (bump.mergeableState === "dirty") steps.push(`merge ${branch} (step 2)`);
   if (failing(bump).length > 0)
     steps.push(`fix ${failing(bump).join(", ")} (step 3)`);
+  if (synced.some((name) => bump.title.includes(name)))
+    steps.push("sync (step 4)");
   if (bump.major) steps.push("migrate (step 4)");
   return steps.length > 0 ? steps.join("; ") : "nothing: waits on its merge";
 }
@@ -90,13 +98,17 @@ export function checksLine(bump: Bump): string {
   return `checks: ${parts.join("; ")}`;
 }
 
-export function formatBump(bump: Bump, branch: string): string[] {
+export function formatBump(
+  bump: Bump,
+  branch: string,
+  synced: string[] = [],
+): string[] {
   return [
     `#${bump.number} ${bump.title}`,
     `  ${bump.major ? "major" : "minor or patch"}; head ${bump.head} at ${bump.sha.slice(0, 7)}; mergeable ${bump.mergeableState}; auto-merge ${bump.autoMerge ? "on" : "off"}`,
     `  ${checksLine(bump)}`,
     `  earlier shepherd comments: ${bump.shepherdComments}`,
-    `  next: ${nextStep(bump, branch)}`,
+    `  next: ${nextStep(bump, branch, synced)}`,
   ];
 }
 
@@ -127,6 +139,7 @@ export async function main(
   out: (line: string) => void,
   argv: string[],
   defaultBranch: () => Promise<string>,
+  synced: string[] = [],
 ): Promise<number> {
   try {
     const pulls = (await p.listOpen())
@@ -146,12 +159,32 @@ export async function main(
     }
     const branch = await defaultBranch();
     for (const pull of pulls) {
-      formatBump(await readBump(p, pull.number), branch).forEach((l) => out(l));
+      formatBump(await readBump(p, pull.number), branch, synced).forEach((l) =>
+        out(l),
+      );
     }
     return 0;
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     return argv.includes("--any") ? 2 : 1;
+  }
+}
+
+/** The factory's package and each preset's the lock records, whose
+ * updates each need a sync. */
+async function syncedPackages(root: string): Promise<string[]> {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { PACKAGE } = await import("./sync.mts");
+  const { readLock, splitName, LOCK_FILE } = await import("./preset.mts");
+  const { load } = await import("js-yaml");
+  const own = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8"))
+    .name as string;
+  try {
+    const lock = readLock(readFileSync(join(root, LOCK_FILE), "utf8"), load);
+    return [own, ...new Set(lock.presets.map((p) => splitName(p.name).pkg))];
+  } catch {
+    return [own];
   }
 }
 
@@ -170,5 +203,6 @@ export async function run(argv: string[] = []): Promise<number> {
         ...branchDeps(repoRoot()),
         host: () => p.defaultBranch(),
       }),
+    await syncedPackages(repoRoot()),
   );
 }

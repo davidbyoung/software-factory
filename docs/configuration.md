@@ -24,7 +24,8 @@ and look up any other setting under [Every setting](#every-setting).
   that writes to the board.
 - **`factory sync`:** a command you run. It copies the factory's skills,
   agents, rules, and workflows into your repository, choosing which ones
-  from this file. It has nothing to do with the board sync.
+  from this file, and writes the settings in effect into
+  `.claude/factory.lock`. It has nothing to do with the board sync.
 - **Skill and agent:** a skill is a set of instructions a session follows,
   and an agent is a separate reviewer a session launches to read something
   and report back.
@@ -64,6 +65,20 @@ The [glossary](glossary.md) has the rest.
 
 - **Your comments are kept.** `factory init` writes a comment above each
   section, and updates never remove yours.
+- **Every command reads the lock, not this file.** `factory sync` combines
+  the factory's defaults, any [`presets`](#presets) you list, and this
+  file, and writes every setting the factory will use, defaults included,
+  into `.claude/factory.lock`, which you commit and never edit. Until you
+  sync after a change, every command stops and says so, but the ones that
+  fix or report it: `factory sync`, `factory doctor`,
+  `factory config check`, and the `factory preset` commands.
+
+  ```text
+  .claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync
+  ```
+
+  [`factory config explain`](cli.md) prints the settings in effect, each
+  marked with where its value came from.
 
 ## The shortest file
 
@@ -101,10 +116,10 @@ factory sync
 ```
 
 `factory config check` prints nothing when the file is valid, and names
-the setting when it is not. `factory sync` then rewrites the copied files
-that depend on what you changed, and lists each file it wrote. A change
-under `plugins` alone needs no `factory sync`, since the factory reads
-your plugins from this file each time.
+the setting when it is not. `factory sync` then rewrites the lock and the
+copied files that depend on what you changed, and lists each file it
+wrote. Every change needs it, one under `plugins` included, as
+[How the file works](#how-the-file-works) says.
 
 ## Every setting
 
@@ -130,6 +145,29 @@ Your repository, as `owner/name`, such as `harbor-goods/storefront`.
 It is written down rather than worked out from your checkout, because the
 [poller](#builds), which watches your board from outside any checkout,
 needs it too.
+
+### `presets`
+
+Settings shared by several repositories, each an npm package your team
+publishes, listed in the order they apply: a later preset wins over an
+earlier one, and your own settings in this file win over every preset's.
+
+```yaml
+presets:
+  - "@acme/factory-preset" # what every Acme repository shares
+  - "@acme/factory-preset/node" # extra settings for its Node repositories
+```
+
+- **Default:** none.
+- **Add or remove one** with `factory preset add NAME` or
+  `factory preset remove NAME`, which install or uninstall the package,
+  edit this list, and sync. A name that starts with `@` must be quoted.
+- **A preset can't set** `repository`, `auto-merge.allow`, or
+  `auto-merge.commands`, and can't list other presets
+  ([why](presets.md#what-a-preset-cant-set)).
+
+[Presets](presets.md) says how they combine, how to choose between two
+that disagree, and how to write one.
 
 ### `tickets`
 
@@ -636,11 +674,25 @@ agent at `.claude/agents/NAME.md`:
 - **`factory plugins`** prints every plugin the factory will use, its own
   included, one per line: skill or agent, its name, its role, and its
   files or labels. `factory plugins reviewer` prints one role's.
+- **A plugin can come from a [preset](#presets),** which ships its agent
+  or skill too. To leave out one that a preset adds to a list, name it
+  here with `off: true`:
+
+  ```yaml
+  plugins:
+    build:
+      reviewers:
+        - agent: acme-security-reviewer
+          off: true
+  ```
+
 - **`factory config check`** stops on an agent in a role that takes a
   skill, or the other way round; on `files` or `labels` in a role that
   doesn't take them; on a builder with no `labels`; on a build reviewer or
-  resolver with no `files`; and on a skill or agent whose file doesn't
-  exist. It warns on a `files` pattern that matches no file.
+  resolver with no `files`; on a skill or agent whose file doesn't
+  exist and no preset ships; and on `off: true` for a plugin no preset
+  names, where the fix is to delete that entry. It warns on a `files`
+  pattern that matches no file.
 
 #### `plugins.refine`
 

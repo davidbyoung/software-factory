@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { writeSettings } from "./locked.ts";
 import { checkCommit, ownLauncher } from "../src/guard-commit.mts";
 import { CANNOT_TELL, type Sources } from "../src/lib/default-branch.mts";
 
@@ -355,8 +356,7 @@ describe("factory guard commit", () => {
       execFileSync("git", ["config", "init.defaultBranch", "main"], {
         cwd: repo,
       });
-      mkdirSync(join(repo, ".claude"));
-      writeFileSync(join(repo, ".claude/factory.yaml"), settings);
+      writeSettings(repo, settings);
     }
     const ran = () =>
       existsSync(join(repo, LOG))
@@ -424,6 +424,17 @@ describe("factory guard commit", () => {
       expect(r.status).toBe(2);
       expect(r.stderr).toContain("the factory's settings could not be read");
       expect(r.stderr).toContain("version: must be 2");
+    });
+
+    it("blocks the commit, naming the fix, when the settings changed since the last sync", () => {
+      withLoader(prints(`echo one >> ${LOG}`));
+      writeFileSync(join(repo, ".claude/factory.yaml"), prints());
+      const r = hook("git commit -m x", repo);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain(
+        ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync",
+      );
+      expect(ran()).toEqual([]);
     });
 
     it("blocks the commit on settings that still have before-commit at the top level, saying where it moved", () => {

@@ -24,6 +24,7 @@ import { SIGNING_KEY } from "./parts.mts";
 import { OVERRIDE } from "./review-verdict.mts";
 import type { Chosen, SetupContext, Unconfigured } from "./setup.mts";
 import { LOCK, PACKAGE } from "./sync.mts";
+import { CHOICES_FILE } from "./preset.mts";
 import { builtOf, inUse, TOOLS, type Registry } from "./tools.mts";
 
 export type RemoveDeps = {
@@ -43,6 +44,34 @@ const LABELS = [
   "spec",
 ];
 
+/** The agents and skills the lock lists that presets shipped, a skill as
+ * its folder, and the packages of the presets it records. */
+async function presetParts(
+  root: string,
+): Promise<{ files: string[]; packages: string[] }> {
+  const at = join(root, LOCK);
+  if (!existsSync(at)) return { files: [], packages: [] };
+  const { load } = await import("js-yaml");
+  const { readLock, splitName } = await import("./preset.mts");
+  let lock: ReturnType<typeof readLock>;
+  try {
+    lock = readLock(readFileSync(at, "utf8"), load);
+  } catch {
+    return { files: [], packages: [] };
+  }
+  const files = new Set<string>();
+  for (const f of lock.files) {
+    const agent = /^\.claude\/agents\/(?!factory-)[^/]+\.md$/.test(f);
+    const skill = /^\.claude\/skills\/(?!factory-)([^/]+)\//.exec(f);
+    if (agent) files.add(f);
+    else if (skill) files.add(`.claude/skills/${skill[1]}`);
+  }
+  return {
+    files: [...files].filter((p) => existsSync(join(root, p))),
+    packages: [...new Set(lock.presets.map((p) => splitName(p.name).pkg))],
+  };
+}
+
 /** The factory's own files and folders, each a path from the root. */
 function factoryFiles(root: string): string[] {
   const named = (dir: string, match: RegExp) =>
@@ -55,6 +84,7 @@ function factoryFiles(root: string): string[] {
   return [
     SETTINGS_FILE,
     LOCK,
+    CHOICES_FILE,
     ".claude/factory",
     ...named(".claude/skills", /^factory-/),
     ...named(".claude/agents", /^factory-.*\.md$/),
@@ -109,7 +139,8 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
   };
   const tools = inUse(d.tools, chosen);
 
-  const deletes = factoryFiles(d.root);
+  const shipped = await presetParts(d.root);
+  const deletes = [...factoryFiles(d.root), ...shipped.files];
   const changes: Unconfigured[] = tools.flatMap(
     (t) => t.setup.unconfigure?.(context) ?? [],
   );
@@ -161,6 +192,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
       : []),
     `Delete whichever of the labels ${listed(LABELS)} exist, if you do not want their history: deleting one takes it off every ticket`,
     `Run npm uninstall ${d.packageName}`,
+    ...shipped.packages.map((p) => `Run npm uninstall ${p}`),
     "Commit this on a branch, open a pull request, and merge it",
   ];
   d.out("");

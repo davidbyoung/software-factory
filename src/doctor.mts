@@ -8,10 +8,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   defaultDeps,
-  loadSettings,
+  filesDeps,
   repoRoot,
+  resolveFiles,
+  staleOf,
   type Settings,
 } from "./config.mts";
+import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import {
   neededSecrets,
@@ -39,6 +42,9 @@ export type DoctorDeps = {
   outOfStep: (s: Settings) => Promise<string[]> | string[];
   /** The version installed, and the one the repository's lock records. */
   versions: () => { installed: string; locked: string | null };
+  /** Whether the lock is current, and each preset it records is installed
+   * and has a Dependabot group of its own. */
+  lockChecks?: () => Promise<Check[]>;
   root: string;
   hasCommand: (name: string) => boolean;
   tools: Registry;
@@ -106,6 +112,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       text: `Version ${installed} is installed, but the repository records ${locked}`,
       fix: compareVersions(installed, locked) < 0 ? "Run npm ci" : SYNC,
     });
+  out.push(...((await d.lockChecks?.()) ?? []));
 
   const chosen: Chosen = {
     codeHost: s.codeHost.type,
@@ -208,14 +215,21 @@ export async function main(_argv: string[], d: DoctorDeps): Promise<number> {
 
 /** The checks, run in the repository this command runs in. */
 export function doctorDeps(root = repoRoot()): DoctorDeps {
-  const settings = () => loadSettings(defaultDeps(root));
+  const resolved = () => resolveFiles(filesDeps(root));
   return {
-    settings,
+    settings: async () => (await resolved()).settings,
     outOfStep: async (s) =>
       differences(
         root,
-        plan(PACKAGE, root, s, await needDefaultBranch(branchDeps(root))),
+        await plan(
+          PACKAGE,
+          root,
+          await resolved(),
+          await needDefaultBranch(branchDeps(root, process.env, async () => s)),
+        ),
       ),
+    lockChecks: async () =>
+      presetChecks(root, await staleOf(defaultDeps(root))),
     versions: () => {
       const installed = JSON.parse(
         readFileSync(join(PACKAGE, "package.json"), "utf8"),

@@ -8,9 +8,10 @@ description: Move every open Dependabot pull request one step closer to merged: 
 A minor or patch bump already has auto-merge on, set by
 `factory-deps-auto-merge.yml`, so it merges by itself once its checks are
 green. The job here is to get it there. A major bump never has
-auto-merge, and neither does a bump of the factory itself, and this skill
-never turns it on or merges anything: the owner reads a major's migration,
-and every update of the factory, before it lands.
+auto-merge, and neither does a bump of the factory itself or of a preset
+the settings list, and this skill never turns it on or merges anything:
+the owner reads a major's migration, and every update of the factory or a
+preset, before it lands.
 
 Every command below goes through `factory deps`, `factory ticket`, or
 `factory pr`. The default branch's name is what
@@ -70,7 +71,8 @@ take the default branch's lock file, run `commands.relock`, the command
 `npx --no-install factory config get commands.relock` prints, so the bump
 is reapplied on top of it, and commit the merge. Any other conflicted file
 that matches the `files` of a resolver
-(`npx --no-install factory plugins resolver`) is that resolver's, as
+(`npx --no-install factory plugins resolver`) is that resolver's, and a
+conflict in `.claude/factory.lock` is resolved first, by `factory sync`, as
 "Merge" in the `factory-resolve-conflicts` skill says.
 
 Then go on: a branch with a conflict can be failing as well.
@@ -131,27 +133,36 @@ running after 20 minutes: leave the bump for the next run.
 If one still fails, try once more in the same run. A second failure is the
 end for this run: comment what was tried and leave it for the next one.
 
-## 4. An update of the factory
+## 4. An update of the factory or a preset
 
-A pull request that bumps `@davidbyoung/software-factory` gets steps 2 and
-3, and the files the new version writes. After `npm ci` on its branch:
+A pull request that bumps `@davidbyoung/software-factory`, or the package
+of a preset `.claude/factory.lock` lists, gets steps 2 and 3, and the files
+the new version writes. `factory deps` says `sync (step 4)` for each. Run
+the sync right after `npm ci` on its branch, before step 3's gate: until it
+runs, every `factory` command stops on the stale lock and names it.
 
 ```bash
 npx --no-install factory sync
 ```
 
-When the sync, or any other `factory` command, fails on the settings after
-the update, the release changed the settings' shape, as version 2 does.
+When the sync itself fails on the settings after the update, the release
+changed the settings' shape, as version 2 does.
 Stop (step 6), and say the settings are the owner's to move, as "Moving to
 settings version 2" in the factory's `docs/updating.md` says for that
 release. Never edit `.claude/factory.yaml`.
 
 Commit what the sync wrote as a second commit, "Sync the factory's files to
-VERSION", and push. The push changes workflows, so it needs a token with
+VERSION" or "Sync the settings to PACKAGE VERSION", and push. The push changes workflows, so it needs a token with
 the `workflow` scope, such as the build token; a refused push is a stop
 (step 6), with GitHub's error. Until then CI's `factory sync --check` fails, which is
-the sign the commit is missing. Then comment on the pull request with the
-files the sync changed and the release notes' steps to do by hand, first.
+the sign the commit is missing. Then comment on the pull request: for the
+factory, the files the sync changed and the release notes' steps to do by
+hand, first; for a preset, what this prints, as it stands:
+
+```bash
+npx --no-install factory preset changes origin/DEFAULT
+```
+
 Never enable auto-merge, never approve and never merge: it waits for the
 owner, whatever its size.
 

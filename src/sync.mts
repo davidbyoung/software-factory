@@ -1,8 +1,10 @@
 // Writes the factory's skills, agents, rules, review instructions,
 // workflows, and the actions they call from the package into the
-// repository, its hook entries into `.claude/settings.json`, the rules'
-// import into `CLAUDE.md`, and
-// `.claude/factory.lock`: the factory's version and the files it wrote.
+// repository, the agents and skills its presets ship, its hook entries
+// into `.claude/settings.json`, the rules' import into `CLAUDE.md`, and
+// `.claude/factory.lock`: the factory's version, the presets, the settings
+// in effect, and the files it wrote. Every other command reads the
+// settings from the lock.
 //
 //   factory sync           # write what differs
 //   factory sync --check   # write nothing; exit 1 naming what differs
@@ -25,13 +27,23 @@ import {
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  defaultDeps,
-  loadSettings,
+  filesDeps,
   repoRoot,
+  resolveFiles,
   RULE_NUMBERS,
+  staleOf,
+  defaultDeps,
+  type Resolved,
   type SessionKind,
   type Settings,
 } from "./config.mts";
+import {
+  CHOICES_FILE,
+  choicesText,
+  settingsHash,
+  staleChoices,
+  type Replaced,
+} from "./preset.mts";
 import {
   branchDeps,
   CANNOT_TELL,
@@ -421,40 +433,142 @@ export function withoutImport(text: string): string | null {
   return after.trim() ? after : null;
 }
 
-export function lockText(version: string, files: string[]): string {
+export type LockParts = {
+  version: string;
+  presets: { name: string; version: string }[];
+  hash: string;
+  /** The settings in effect, as `factory config explain` prints them. */
+  settings: string[];
+  overridden: Record<string, Replaced[]>;
+  files: string[];
+};
+
+/** A key or a value as YAML: plain where it reads back as the same text,
+ * quoted as JSON otherwise. */
+const scalar = (v: unknown) =>
+  typeof v === "string" &&
+  /^[A-Za-z0-9_./][A-Za-z0-9_./ -]*$/.test(v) &&
+  !/ $/.test(v) &&
+  !/^(true|false|null|yes|no|on|off|~|[-+.\d][\d._eE+-]*)$/i.test(v)
+    ? v
+    : JSON.stringify(v);
+
+export function lockText(l: LockParts): string {
+  const replaced = Object.entries(l.overridden);
   return [
-    "# Written by `factory sync`: the factory's version and the files it",
-    "# wrote. Do not edit.",
-    `version: ${version}`,
+    "# Written by `factory sync`: the factory's version, the presets, the",
+    "# settings in effect, and the files it wrote. Do not edit.",
+    `version: ${l.version}`,
+    ...(l.presets.length
+      ? [
+          "presets:",
+          ...l.presets.flatMap((p) => [
+            `  - name: ${JSON.stringify(p.name)}`,
+            `    version: ${scalar(p.version)}`,
+          ]),
+        ]
+      : ["presets: []"]),
+    `settings-hash: ${l.hash}`,
+    "settings:",
+    ...l.settings.map((line) => `  ${line}`),
+    ...(replaced.length
+      ? [
+          "overridden:",
+          ...replaced.flatMap(([key, values]) => [
+            `  ${scalar(key)}:`,
+            ...values.flatMap((r) => [
+              `    - from: ${JSON.stringify(r.from)}`,
+              `      value: ${JSON.stringify(r.value)}`,
+            ]),
+          ]),
+        ]
+      : ["overridden: {}"]),
     "files:",
-    ...files.map((f) => `  - ${f}`),
+    ...l.files.map((f) => `  - ${f}`),
     "",
   ].join("\n");
 }
 
-export function lockedFiles(text: string | null): string[] {
+/** The files a lock lists, from any release's lock. One that a merge left
+ * with conflict markers is read line by line, from each side's `files`. */
+export function lockedFiles(
+  text: string | null,
+  load: (t: string) => unknown,
+): string[] {
   if (!text) return [];
+  try {
+    const o = load(text) as { files?: unknown } | null;
+    return Array.isArray(o?.files) ? o.files.map(String) : [];
+  } catch {
+    const out: string[] = [];
+    let inFiles = false;
+    for (const line of text.split("\n")) {
+      if (/^files:/.test(line)) inFiles = true;
+      else if (/^\S/.test(line) && !/^(<{7}|={7}|>{7})/.test(line))
+        inFiles = false;
+      const item = inFiles ? /^ {2}- (.+)$/.exec(line)?.[1] : undefined;
+      if (item && !out.includes(item)) out.push(item);
+    }
+    return out;
+  }
+}
+
+const AUTO_MERGE_WORKFLOW = "workflows/factory-deps-auto-merge.yml";
+const FACTORY_EXCLUSION =
+  "!contains(steps.meta.outputs.dependency-names, 'davidbyoung/software-factory')";
+
+/** The dependency auto-merge workflow with each preset's package held back
+ * as the factory's own is, so a preset update waits for a person. */
+export function withPresetPackages(
+  text: string,
+  packages: string[],
+  file: string,
+) {
+  if (!packages.length) return text;
+  const at = text.split(FACTORY_EXCLUSION).length - 1;
+  if (at !== 1)
+    throw new Error(
+      `${file}: expected one line holding back the factory, to hold back the presets too`,
+    );
   return text
     .split("\n")
-    .map((l) => /^ {2}- (.+)$/.exec(l)?.[1])
-    .filter((f): f is string => Boolean(f));
+    .map((line) => {
+      if (line.trim() !== FACTORY_EXCLUSION) return line;
+      const indent = line.slice(0, line.indexOf("!"));
+      return [
+        `${line} &&`,
+        ...packages.map(
+          (p, i) =>
+            `${indent}!contains(steps.meta.outputs.dependency-names, '${p}')${i < packages.length - 1 ? " &&" : ""}`,
+        ),
+      ].join("\n");
+    })
+    .join("\n");
 }
 
 export type Plan = {
   /** Path from the root, and its text, for each file a sync writes. */
   write: Map<string, string>;
-  /** Paths the lock lists that this version no longer writes. */
+  /** Paths the lock lists that this version no longer writes, and the
+   * choices file once its last choice is dropped. */
   remove: string[];
+  /** A line for each preset file left as it is. */
+  kept: string[];
+  /** A line for each choice dropped. */
+  dropped: string[];
 };
 
 /** What a sync of `root` from `pkg` writes and deletes, in a repository
  * whose default branch is `branch`. */
-export function plan(
+export async function plan(
   pkg: string,
   root: string,
-  s: Settings,
+  r: Resolved,
   branch: string,
-): Plan {
+): Promise<Plan> {
+  const { load } = await import("js-yaml");
+  const { explainLines, markerOf } = await import("./explain.mts");
+  const s = r.settings;
   const manifest = JSON.parse(readFileSync(join(pkg, "package.json"), "utf8"));
   const read = (p: string) =>
     existsSync(join(root, p)) ? readFileSync(join(root, p), "utf8") : null;
@@ -472,8 +586,24 @@ export function plan(
         ? withMinutes(text, s.sessionMinutes[kind], from)
         : from === POLLER_WORKFLOW
           ? withSchedule(text, s.builds.pollMinutes, from)
-          : withRules(text, s.rules, from),
+          : from === AUTO_MERGE_WORKFLOW
+            ? withPresetPackages(
+                text,
+                [...new Set(r.presets.map((p) => p.pkg))],
+                from,
+              )
+            : withRules(text, s.rules, from),
     );
+  }
+  // A preset's agent or skill, unless the factory's own file or one the
+  // repository wrote itself is at its path: those always stay.
+  const previous = lockedFiles(read(LOCK), load);
+  const kept: string[] = [];
+  for (const [to, { from, source }] of r.resolution.files) {
+    if (write.has(to)) kept.push(`kept ${to}, the factory's own, over ${from}`);
+    else if (existsSync(join(root, to)) && !previous.includes(to))
+      kept.push(`kept ${to}, this repository's own, over ${from}`);
+    else write.set(to, readFileSync(source, "utf8"));
   }
   const launcher = launcherPath(pkg, root, manifest.name);
   write.set(SETTINGS_JSON, withHooks(read(SETTINGS_JSON), launcher));
@@ -481,11 +611,47 @@ export function plan(
   const files = [...write.keys()].filter(
     (p) => p !== SETTINGS_JSON && p !== CLAUDE_MD,
   );
-  write.set(LOCK, lockText(manifest.version, files));
-  const remove = lockedFiles(read(LOCK)).filter(
-    (p) => !write.has(p) && existsSync(join(root, p)),
+
+  // A choice whose preset is gone, or no longer sets its key, is dropped.
+  const stale = staleChoices(
+    r.choices,
+    r.presets.map((p) => p.name),
+    r.resolution.setBy,
   );
-  return { write, remove };
+  const choices = { ...r.choices };
+  for (const c of stale) delete choices[c.key];
+  const chosen = stale.length ? choicesText(choices) : r.choicesText;
+  const remove: string[] = [];
+  if (stale.length) {
+    if (chosen === null) remove.push(CHOICES_FILE);
+    else write.set(CHOICES_FILE, chosen);
+  }
+
+  const settings = await explainLines(
+    s,
+    markerOf(r.resolution),
+    (p) => r.exists(p) || write.has(p),
+  );
+  write.set(
+    LOCK,
+    lockText({
+      version: manifest.version,
+      presets: r.presets.map((p) => ({ name: p.name, version: p.version })),
+      hash: settingsHash(r.ownText, chosen),
+      settings,
+      overridden: Object.fromEntries(r.resolution.overridden),
+      files,
+    }),
+  );
+  remove.unshift(
+    ...previous.filter((p) => !write.has(p) && existsSync(join(root, p))),
+  );
+  return {
+    write,
+    remove: remove.filter((p) => existsSync(join(root, p))),
+    kept,
+    dropped: stale.map((c) => `dropped the choice for ${c.key}: ${c.reason}`),
+  };
 }
 
 /** The paths whose content a sync would change, in the plan's order. */
@@ -496,7 +662,12 @@ export function differences(root: string, p: Plan): string[] {
       return !existsSync(at) || readFileSync(at, "utf8") !== text;
     })
     .map(([path]) => path);
-  return [...changed, ...p.remove];
+  // The lock comes last, as it records everything before it.
+  return [
+    ...changed.filter((path) => path !== LOCK),
+    ...p.remove,
+    ...changed.filter((path) => path === LOCK),
+  ];
 }
 
 export async function main(
@@ -504,29 +675,38 @@ export async function main(
   d: {
     root: string;
     pkg: string;
-    settings: () => Promise<Settings>;
+    settings: () => Promise<Resolved>;
+    /** Why the lock is stale, or null when it is current. */
+    stale: () => Promise<string | null>;
     /** The repository's default branch, or null when it cannot be told. */
-    defaultBranch: () => Promise<string | null>;
+    defaultBranch: (s: Settings) => Promise<string | null>;
     out: (line: string) => void;
     err: (line: string) => void;
   },
 ): Promise<number> {
   const check = argv.includes("--check");
-  let s: Settings;
+  let r: Resolved;
   try {
-    s = await d.settings();
+    if (check) {
+      const reason = await d.stale();
+      if (reason) {
+        d.err(reason);
+        return 1;
+      }
+    }
+    r = await d.settings();
   } catch (e) {
     d.err(e instanceof Error ? e.message : String(e));
     return 1;
   }
   // Nothing is written with a guessed name: a push trigger that names the
   // wrong branch never runs.
-  const branch = await d.defaultBranch();
+  const branch = await d.defaultBranch(r.settings);
   if (branch === null) {
     d.err(CANNOT_TELL);
     return 1;
   }
-  const p = plan(d.pkg, d.root, s, branch);
+  const p = await plan(d.pkg, d.root, r, branch);
   const differ = differences(d.root, p);
   if (check) {
     if (differ.length === 0) return 0;
@@ -535,6 +715,7 @@ export async function main(
     d.err("Run `npx --no-install factory sync` and commit the result.");
     return 1;
   }
+  for (const line of [...p.kept, ...p.dropped]) d.out(line);
   for (const path of differ) {
     const at = join(d.root, path);
     const text = p.write.get(path);
@@ -550,14 +731,18 @@ export async function main(
   return 0;
 }
 
+/** The sync of the repository at `root`. */
+export const syncDeps = (root: string) => ({
+  root,
+  pkg: PACKAGE,
+  settings: () => resolveFiles(filesDeps(root)),
+  stale: () => staleOf(defaultDeps(root)),
+  defaultBranch: (s: Settings) =>
+    defaultBranch(branchDeps(root, process.env, async () => s)),
+  out: (line: string) => console.log(line),
+  err: (line: string) => console.error(line),
+});
+
 export async function run(argv: string[]): Promise<number> {
-  const root = repoRoot();
-  return main(argv, {
-    root,
-    pkg: PACKAGE,
-    settings: () => loadSettings(defaultDeps(root)),
-    defaultBranch: () => defaultBranch(branchDeps(root)),
-    out: (line) => console.log(line),
-    err: (line) => console.error(line),
-  });
+  return main(argv, syncDeps(repoRoot()));
 }

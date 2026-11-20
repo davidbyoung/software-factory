@@ -23,7 +23,8 @@ settings file: [Moving to settings version 2](#moving-to-settings-version-2).
 ## What the pull request holds
 
 - **The new version**, in `package.json`, the lockfile, and
-  `.claude/factory.lock`.
+  `.claude/factory.lock`. The lock also holds every setting in effect, so
+  a release that changes a default shows in its diff.
 - **The factory's files, rewritten.** Its skills, agents, rules, and CI
   workflows live in your repository, so the diff shows exactly which
   instruction changed.
@@ -32,6 +33,10 @@ settings file: [Moving to settings version 2](#moving-to-settings-version-2).
 
 An update changes the instructions your sessions follow and the code that
 runs with your tokens. Read it as carefully as you would read code.
+
+A new version of a [preset](presets.md) arrives the same way, with a
+comment saying what it changes in this repository:
+[When a preset changes](presets.md#when-a-preset-changes).
 
 ## Doing it yourself
 
@@ -224,12 +229,14 @@ not match `package-lock.json`.
 
 ## When something goes wrong
 
-| What you see                                                                | What happened                                                         | What to do                                                                 |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| CI fails with "the factory's files are out of sync"                         | A factory file was edited by hand, or settings changed without a sync | Run `factory sync` and commit the result                                   |
-| `factory doctor` says your installed version is older than the repository's | You pulled an update and have not installed it                        | Run `npm ci`                                                               |
-| A command stops with `version: must be 2`                                   | The update changed the shape of the settings file                     | [Move the file](#moving-to-settings-version-2)                             |
-| The update pull request conflicts with your default branch                  | Something else changed the same file                                  | `factory-deps` resolves it on its next run, or close it and update by hand |
+| What you see                                                                          | What happened                                                         | What to do                                                                 |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| CI fails with "the factory's files are out of sync"                                   | A factory file was edited by hand, or settings changed without a sync | Run `factory sync` and commit the result                                   |
+| `factory doctor` says your installed version is older than the repository's           | You pulled an update and have not installed it                        | Run `npm ci`                                                               |
+| A command stops with `version: must be 2`                                             | The update changed the shape of the settings file                     | [Move the file](#moving-to-settings-version-2)                             |
+| A command stops with `.claude/factory.lock is from an earlier version of the factory` | The update's sync has not run on this checkout                        | Run `factory sync` and commit the result                                   |
+| A command stops with `.claude/factory.yaml changed since the last sync`               | The settings changed without a sync                                   | Run `factory sync` and commit the result                                   |
+| The update pull request conflicts with your default branch                            | Something else changed the same file                                  | `factory-deps` resolves it on its next run, or close it and update by hand |
 
 ## Never edit a factory file
 

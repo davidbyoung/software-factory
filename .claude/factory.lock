@@ -1,6 +1,82 @@
-# Written by `factory sync`: the factory's version and the files it
-# wrote. Do not edit.
+# Written by `factory sync`: the factory's version, the presets, the
+# settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
+presets: []
+settings-hash: sha256:23a6fe6171893e2c1b821588fe6ca7fea473ba5e45a5e974a7441cf18aeacf8d
+settings:
+  version: 2
+  repository: davidbyoung/software-factory
+  tickets:
+    type: github
+    board: 1
+    columns:
+      backlog: Backlog                                                         # default
+      refining: In refinement                                                  # default
+      ready: Ready                                                             # default
+      building: In progress                                                    # default
+      review: In review                                                        # default
+      done: Done                                                               # default
+    fields:
+      session: Session                                                         # default
+      runs-in: Runs in                                                         # default
+      cost: Cost                                                               # default
+  code-host: github                                                            # default
+  builds:
+    trigger: manual
+    runner: github-actions                                                     # default
+    # poll-minutes: only with trigger github-action
+  specs:
+    type: openspec
+    check: npx --no-install openspec validate --all --strict --no-interactive  # default
+  commands:
+    build-setup: []                                                            # default
+    before-commit:
+      - npm run -s format:check
+      - npx tsc --noEmit
+    gate:
+      - npm run check
+    test-one: npx vitest run $FILE -t "$NAME"
+    # end-to-end: none (default)
+    # coverage: none (default)
+    relock: npm install                                                        # default
+  plugins:
+    refine:
+      refiner:                                                                 # default
+        skill: factory-refine                                                  # default
+      # mockups: none (default)
+    build:
+      builders: []                                                             # default
+      reviewers:
+        - agent: docs-reader
+          files:
+            - README.md
+            - docs/**
+    test:
+      prover:                                                                  # default
+        skill: factory-mutate                                                  # default
+      reviewers:                                                               # default
+        - agent: factory-test-reviewer                                         # default
+    conflicts:
+      resolvers: []                                                            # default
+  auto-merge:
+    allow: []                                                                  # default
+    deny: []                                                                   # default
+    commands: []                                                               # default
+  pr-review:
+    commands:
+      - npm test
+      - npm run typecheck
+      - node
+  # site: off
+  session-minutes:
+    build: 230                                                                 # default
+    conflicts: 110                                                             # default
+    review: 50                                                                 # default
+    dependencies: 50                                                           # default
+  rules:
+    small-change-lines: 30                                                     # default
+    review-rounds: 2                                                           # default
+overridden: {}
 files:
   - .claude/skills/factory-address-review/SKILL.md
   - .claude/skills/factory-build/SKILL.md

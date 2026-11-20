@@ -1291,8 +1291,12 @@ describe("factory config explain", () => {
         : " ".repeat(depth * 2);
       return new RegExp(`^${indent}(# )?${key}:`, "m").test(text);
     };
+    // `presets` and `off` say how the settings are made, not a setting in
+    // effect.
     const missing = Object.entries(SETTINGS_KEYS).flatMap(([block, keys]) =>
-      keys.filter((k) => !printed(block, k)).map((k) => `${block}.${k}`),
+      keys
+        .filter((k) => !printed(block, k) && k !== "presets" && k !== "off")
+        .map((k) => `${block}.${k}`),
     );
     expect(missing).toEqual([]);
   });

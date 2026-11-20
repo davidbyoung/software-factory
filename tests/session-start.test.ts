@@ -123,7 +123,7 @@ describe("factory session-start", () => {
 describe("the session-start hook", () => {
   /** The hook, run in `dir` with no workflow event and a code host that
    * cannot be asked, and what it printed. */
-  const hook = async (dir: string) => {
+  const hook = async (dir: string, stale: string | null = null) => {
     const printed: string[] = [];
     const status = await main({
       dir,
@@ -135,9 +135,19 @@ describe("the session-start hook", () => {
       },
       out: (text) => printed.push(text),
       tickets: async () => 0,
+      stale: async () => stale,
     });
     return { status, text: printed.join("\n") };
   };
+
+  it("prints why the lock is stale, and the session starts", async () => {
+    const message =
+      ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync";
+    const { status, text } = await hook(onDevelop, message);
+    expect(status).toBe(0);
+    expect(text).toContain(message);
+    expect((await hook(onDevelop)).text).not.toContain("since the last sync");
+  });
 
   it("reads the default branch from the checkout, and compares each branch with origin/develop where it is develop", async () => {
     const { status, text } = await hook(onDevelop);

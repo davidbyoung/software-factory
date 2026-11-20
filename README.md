@@ -101,13 +101,14 @@ else is optional and comes later.
 
 **Guides**
 
-| Page                                                           | For                                        |
-| -------------------------------------------------------------- | ------------------------------------------ |
-| [Adopting it in an existing repository](docs/existing-repo.md) | Not JavaScript, an existing board, a team  |
-| [Plugins](docs/plugins.md)                                     | Putting your own skills and agents to work |
-| [Builds in the cloud](docs/builds.md)                          | Starting builds from your board            |
-| [Updating](docs/updating.md)                                   | Getting a new version                      |
-| [What it changes, and removing it](docs/removing.md)           | Everything it adds, and how to undo it     |
+| Page                                                           | For                                          |
+| -------------------------------------------------------------- | -------------------------------------------- |
+| [Adopting it in an existing repository](docs/existing-repo.md) | Not JavaScript, an existing board, a team    |
+| [Plugins](docs/plugins.md)                                     | Putting your own skills and agents to work   |
+| [Presets](docs/presets.md)                                     | Sharing settings across several repositories |
+| [Builds in the cloud](docs/builds.md)                          | Starting builds from your board              |
+| [Updating](docs/updating.md)                                   | Getting a new version                        |
+| [What it changes, and removing it](docs/removing.md)           | Everything it adds, and how to undo it       |
 
 **Reference**
 
