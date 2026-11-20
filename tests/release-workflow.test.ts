@@ -249,10 +249,36 @@ describe("the poller's image", () => {
   const steps = script("image");
 
   it("is built from the version just published", () => {
-    expect(steps).toContain(
-      'npm view "@davidbyoung/software-factory@$VERSION"',
-    );
     expect(steps).toContain('--build-arg VERSION="$VERSION"');
+  });
+
+  it("waits until npm serves the version's tarball, which can come minutes after its listing", () => {
+    dir = mkdtempSync(join(tmpdir(), "release-"));
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    const log = join(dir, "curl.log");
+    writeFileSync(log, "");
+    writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    writeFileSync(join(bin, "sleep"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    writeFileSync(
+      join(bin, "curl"),
+      `#!/bin/sh\necho "$*" >> "${log}"\n[ "$(wc -l < "${log}")" -ge 3 ]\n`,
+      { mode: 0o755 },
+    );
+    const wait = jobs.image?.steps?.find(
+      (s) => s.name === "Wait for the version on npm",
+    );
+    const r = run(wait?.run, {
+      VERSION: "0.2.0",
+      PATH: `${bin}:${clean.PATH}`,
+    });
+    expect(r.status).toBe(0);
+    const calls = readFileSync(log, "utf8").trim().split("\n");
+    expect(calls).toHaveLength(3);
+    for (const call of calls)
+      expect(call).toContain(
+        "https://registry.npmjs.org/@davidbyoung/software-factory/-/software-factory-0.2.0.tgz",
+      );
   });
 
   it("may write packages, and logs in to GitHub's container registry with the run's own token", () => {
