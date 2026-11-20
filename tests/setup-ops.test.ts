@@ -329,6 +329,34 @@ describe("the board's setup operations, on GitHub", () => {
     expect(update).toContain('fieldId: "F_status"');
   });
 
+  it("lists a board's columns in the board's order", async () => {
+    const { board, calls } = boards([
+      [
+        /StatusField\(/,
+        status([
+          { id: "a", name: "Todo" },
+          { id: "b", name: "In Progress" },
+          { id: "c", name: "Code review" },
+          { id: "d", name: "Done" },
+        ]),
+      ],
+    ]);
+    expect(await board.columns(3)).toEqual([
+      "Todo",
+      "In Progress",
+      "Code review",
+      "Done",
+    ]);
+    expect(calls[0]!.line).toContain("number=3");
+  });
+
+  it("lists no columns for a board without a Status field", async () => {
+    const { board } = boards([
+      [/StatusField\(/, { data: { owner: { projectV2: { field: null } } } }],
+    ]);
+    expect(await board.columns(3)).toEqual([]);
+  });
+
   it("changes nothing on a board that has every column", async () => {
     const { board, calls } = boards([
       [/StatusField\(/, status([{ id: "a", name: "Backlog" }])],

@@ -2,12 +2,12 @@
 
 ## 1. The agent's question
 
-- [ ] 1.1 Add `src/agent/types.mts` and the `agent` member on the registry's coding agent; implement Claude Code's `answer` with an injectable spawn. In `tests/agent-claude-code.test.ts` (new), stub the spawn: exit 0 returns `structured_output`, non-zero returns stderr's first line, and a run past the timeout returns the timeout. Check the argv it builds, including `--tools ""`, `--model haiku`, and a `cwd` that is an empty temporary folder.
-- [ ] 1.2 Give Fake Agent in `tests/fake-tools.ts` and the memory registry a scripted `answer`.
+- [x] 1.1 Add `src/agent/types.mts` and the `agent` member on the registry's coding agent; implement Claude Code's `answer` with an injectable spawn. In `tests/agent-claude-code.test.ts` (new), stub the spawn: exit 0 returns `structured_output`, non-zero returns stderr's first line, and a run past the timeout returns the timeout. Check the argv it builds, including `--tools ""`, `--model haiku`, and a `cwd` that is an empty temporary folder.
+- [x] 1.2 Give Fake Agent in `tests/fake-tools.ts` and the memory registry a scripted `answer`.
 
 ## 2. The board's columns
 
-- [ ] 2.1 Add `BoardOps.columns`, in the GitHub adapter and `tests/memory-tickets.ts`. Test the GitHub one in `tests/tickets-github.test.ts` against a recorded fields response: Status options in order, and `[]` without a Status field.
+- [x] 2.1 Add `BoardOps.columns`, in the GitHub adapter and `tests/memory-tickets.ts`. Test the GitHub one in `tests/tickets-github.test.ts` against a recorded fields response: Status options in order, and `[]` without a Status field.
 
 ## 3. Lists in settings
 
