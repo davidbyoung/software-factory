@@ -196,11 +196,21 @@ export function githubActionsRunner(o: {
           )
             names.push(s.name);
           else if (s.visibility === "selected") {
-            const shared = await t.rest<{
-              repositories: { full_name: string }[];
-            }>("GET", `${org}/${s.name}/repositories?per_page=100`);
-            if (shared.repositories.some((r) => r.full_name === o.repository))
-              names.push(s.name);
+            for (let page = 1; ; page++) {
+              const shared = await t.rest<{
+                repositories: { full_name: string }[];
+              }>(
+                "GET",
+                `${org}/${s.name}/repositories?per_page=100&page=${page}`,
+              );
+              if (
+                shared.repositories.some((r) => r.full_name === o.repository)
+              ) {
+                names.push(s.name);
+                break;
+              }
+              if (shared.repositories.length < 100) break;
+            }
           }
         }
         return names;

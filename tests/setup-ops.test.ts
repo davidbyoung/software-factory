@@ -158,6 +158,26 @@ describe("the runner's Dependabot and organization secrets, on GitHub Actions", 
     ]);
   });
 
+  it("reads every page of the repositories a selected secret is shared with", async () => {
+    const others = Array.from({ length: 100 }, (_, i) => ({
+      full_name: `acme/other-${i}`,
+    }));
+    const g = gh([
+      [
+        /orgs\/acme\/dependabot\/secrets\?/,
+        { secrets: [{ name: "PICKED", visibility: "selected" }] },
+      ],
+      [/PICKED\/repositories\?per_page=100&page=1$/, { repositories: others }],
+      [
+        /PICKED\/repositories\?per_page=100&page=2$/,
+        { repositories: [{ full_name: REPO }] },
+      ],
+    ]);
+    expect(await runner(g).organizationDependabotSecretNames(false)).toEqual([
+      "PICKED",
+    ]);
+  });
+
   it("answers null when the organization won't list its Dependabot secrets", async () => {
     const g = gh([
       [
