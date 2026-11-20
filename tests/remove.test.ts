@@ -124,6 +124,58 @@ const DELETED = [
   ".github/actions/factory-agent",
 ];
 
+describe("factory remove with presets", () => {
+  const LOCK = [
+    "version: 0.5.0",
+    "presets:",
+    '  - name: "@acme/factory-preset"',
+    "    version: 1.4.0",
+    '  - name: "@acme/factory-preset/node"',
+    "    version: 1.4.0",
+    "settings-hash: sha256:0",
+    "settings:",
+    "  version: 2",
+    "overridden: {}",
+    "files:",
+    "  - .claude/skills/factory-build/SKILL.md",
+    "  - .claude/agents/acme-security-reviewer.md",
+    "  - .claude/skills/acme-refine/SKILL.md",
+    "",
+  ].join("\n");
+  const withPresets = () =>
+    remove({
+      files: {
+        ...SYNCED,
+        ".claude/factory.lock": LOCK,
+        ".claude/factory.choices.yaml":
+          'rules.review-rounds: "@acme/factory-preset"\n',
+        ".claude/agents/acme-security-reviewer.md": "security\n",
+        ".claude/skills/acme-refine/SKILL.md": "refine\n",
+      },
+    });
+
+  it("deletes the choices file and every agent and skill a preset shipped, as the lock lists them", async () => {
+    const r = withPresets();
+    await r.run();
+    for (const path of [
+      ".claude/factory.choices.yaml",
+      ".claude/agents/acme-security-reviewer.md",
+      ".claude/skills/acme-refine",
+    ])
+      expect(r.has(path)).toBe(false);
+    expect(r.has(".claude/agents/mine.md")).toBe(true);
+  });
+
+  it("adds uninstalling each preset's package to what is left by hand", async () => {
+    const r = withPresets();
+    await r.run();
+    const steps = r.out.filter((l) => /^ {2}\d+\. /.test(l));
+    expect(
+      steps.filter((l) => l.includes("npm uninstall @acme/factory-preset.")),
+    ).toHaveLength(1);
+  });
+});
+
 describe("factory remove", () => {
   it("shows every file it will delete or change, then asks", async () => {
     const r = remove({ go: false });

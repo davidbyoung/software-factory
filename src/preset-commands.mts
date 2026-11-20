@@ -67,8 +67,8 @@ export type PresetDeps = {
   ask: (question: string) => Promise<string>;
   /** Runs npm with these arguments in the root. */
   npm: (args: string[]) => { status: number; stdout: string; stderr: string };
-  /** Runs `factory sync`, which prints its own lines. */
-  sync: () => Promise<number>;
+  /** Runs `factory sync`, giving each line it prints to `out`. */
+  sync: (out: (line: string) => void) => Promise<number>;
   /** A file's text at a git revision, or null when it has none there. */
   show: (ref: string, path: string) => string | null;
   /** The settings resolved from the files, as `factory sync` resolves them,
@@ -217,7 +217,7 @@ async function withPreset(text: string, name: string): Promise<string> {
       ) as (typeof doc.contents.items)[number],
     );
   }
-  return doc.toString();
+  return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
 /** `.claude/factory.yaml` without NAME in `presets`, and without `presets`
@@ -230,7 +230,7 @@ async function withoutPreset(text: string, name: string): Promise<string> {
     list.items = list.items.filter((i) => !(isScalar(i) && i.value === name));
     if (!list.items.length) doc.delete("presets");
   }
-  return doc.toString();
+  return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
 /** `.claude/factory.yaml` without its own value for `key`, and without a
@@ -255,7 +255,7 @@ async function withoutKey(text: string, key: string): Promise<string> {
       doc.deleteIn(path.slice(0, n));
     else break;
   }
-  return doc.toString();
+  return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
 /** `.claude/factory.yaml` with `value` as its own for `key`. */
@@ -272,7 +272,7 @@ async function withKey(
     if (isSeq(seq)) seq.items.push(doc.createNode(value));
     else doc.setIn(list.split("."), doc.createNode([value]));
   } else doc.setIn(key.split("."), doc.createNode(value));
-  return doc.toString();
+  return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
 // ---------------------------------------------------------------- npm
@@ -399,6 +399,19 @@ export async function nextLines(
       );
   }
   return out;
+}
+
+/** Runs the sync, saying the choices file was written, where it was, just
+ * before the lock, as the sync would have said it. */
+async function syncing(d: PresetDeps, wroteChoices: boolean): Promise<number> {
+  const lines: string[] = [];
+  const code = await d.sync((l) => lines.push(l));
+  if (wroteChoices) {
+    const at = lines.indexOf(`wrote ${LOCK_FILE}`);
+    lines.splice(at < 0 ? lines.length : at, 0, `wrote ${CHOICES_FILE}`);
+  }
+  for (const line of lines) d.out(line);
+  return code;
 }
 
 // ---------------------------------------------------------------- add
@@ -595,9 +608,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
   d.out(`added ${name} to presets in ${SETTINGS_FILE}`);
   const chosen = choicesText(choices);
   if (chosen !== choicesBefore) d.write(CHOICES_FILE, chosen);
-  const code = await d.sync();
-  if (chosen !== choicesBefore && chosen !== null)
-    d.out(`wrote ${CHOICES_FILE}`);
+  const code = await syncing(d, chosen !== choicesBefore && chosen !== null);
   for (const line of await nextLines(d.read(DEPENDABOT), d.read(".npmrc"), pkg))
     d.out(line);
   return code;
@@ -657,6 +668,8 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
     from: string;
   }[] = [];
   for (const [key, src] of now.resolution.sources) {
+    // A list's own source is its items', which have lines of their own.
+    if (VALUE_LISTS.includes(key) || PLUGIN_LISTS.includes(key)) continue;
     if (src.from !== name || key.startsWith(".claude/")) continue;
     const list = pluginListOf(key);
     const old = valueInEffect(now, key);
@@ -746,7 +759,7 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
   const { pkg } = splitName(name);
   if (!listed.some((n) => n !== name && splitName(n).pkg === pkg))
     d.npm(["uninstall", pkg]);
-  return d.sync();
+  return syncing(d, false);
 }
 
 // ---------------------------------------------------------------- choices
@@ -761,7 +774,11 @@ export async function choices(_argv: string[], d: PresetDeps): Promise<number> {
     d.err(e instanceof Error ? e.message : String(e));
     return 1;
   }
-  const list = r.resolution.disagreements;
+  // What is not chosen yet comes first: it is what a choice is wanted for.
+  const list = [
+    ...r.resolution.disagreements.filter((g) => !g.chosen),
+    ...r.resolution.disagreements.filter((g) => g.chosen),
+  ];
   if (!list.length) {
     d.out("No two presets disagree here.");
     return 0;
@@ -800,13 +817,12 @@ export async function choices(_argv: string[], d: PresetDeps): Promise<number> {
   if (!d.terminal) return 0;
   d.out("");
   const text = choicesText(next);
-  if (text === before) {
+  if (stable(next) === stable(r.choices)) {
     d.out("Nothing changed.");
     return 0;
   }
   d.write(CHOICES_FILE, text);
-  d.out(`wrote ${CHOICES_FILE}`);
-  return d.sync();
+  return syncing(d, text !== null);
 }
 
 export async function chooseOne(
@@ -836,11 +852,8 @@ export async function chooseOne(
     return 1;
   }
   const text = choicesText({ ...r.choices, [key]: preset });
-  if (text !== before) {
-    d.write(CHOICES_FILE, text);
-    d.out(`wrote ${CHOICES_FILE}`);
-  }
-  return d.sync();
+  if (text !== before) d.write(CHOICES_FILE, text);
+  return syncing(d, text !== before);
 }
 
 // ---------------------------------------------------------------- check
@@ -1080,7 +1093,9 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
           const file = plug ? fileOf(show(item), added) : undefined;
           if (file) explained.add(file);
           here.push(
-            `- ${key}: + ${show(item)}${file ? `,\n  which wrote ${file}` : ""}`,
+            ...(file
+              ? [`- ${key}: + ${show(item)},`, `  which wrote ${file}`]
+              : [`- ${key}: + ${show(item)}`]),
           );
         }
       for (const item of xs)
@@ -1115,7 +1130,16 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
   }
 
   const ignored: string[] = [];
+  const needsChoice = new Set(
+    [...mb]
+      .filter(
+        ([k, m]) =>
+          m.state === "not-chosen" && ma.get(k)?.state !== "not-chosen",
+      )
+      .map(([k]) => k),
+  );
   for (const [key, entries] of Object.entries(b.overridden)) {
+    if (needsChoice.has(key)) continue;
     for (const e of entries) {
       if (e.from === OWN || key.startsWith(".claude/")) continue;
       const was = a.overridden[key]?.find((o) => o.from === e.from);
@@ -1299,7 +1323,13 @@ export function presetDeps(root = repoRoot()): PresetDeps {
         stderr: r.stderr ?? "",
       };
     },
-    sync: async () => (await import("./sync.mts")).run([]),
+    sync: async (out) => {
+      const sync = await import("./sync.mts");
+      return sync.main([], {
+        ...sync.syncDeps(root),
+        out,
+      });
+    },
     show: (ref, path) => {
       try {
         return execFileSync("git", ["show", `${ref}:${path}`], {

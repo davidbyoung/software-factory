@@ -648,7 +648,12 @@ export function differences(root: string, p: Plan): string[] {
       return !existsSync(at) || readFileSync(at, "utf8") !== text;
     })
     .map(([path]) => path);
-  return [...changed, ...p.remove];
+  // The lock comes last, as it records everything before it.
+  return [
+    ...changed.filter((path) => path !== LOCK),
+    ...p.remove,
+    ...changed.filter((path) => path === LOCK),
+  ];
 }
 
 export async function main(
@@ -712,16 +717,18 @@ export async function main(
   return 0;
 }
 
+/** The sync of the repository at `root`. */
+export const syncDeps = (root: string) => ({
+  root,
+  pkg: PACKAGE,
+  settings: () => resolveFiles(filesDeps(root)),
+  stale: () => staleOf(defaultDeps(root)),
+  defaultBranch: (s: Settings) =>
+    defaultBranch(branchDeps(root, process.env, async () => s)),
+  out: (line: string) => console.log(line),
+  err: (line: string) => console.error(line),
+});
+
 export async function run(argv: string[]): Promise<number> {
-  const root = repoRoot();
-  return main(argv, {
-    root,
-    pkg: PACKAGE,
-    settings: () => resolveFiles(filesDeps(root)),
-    stale: () => staleOf(defaultDeps(root)),
-    defaultBranch: (s) =>
-      defaultBranch(branchDeps(root, process.env, async () => s)),
-    out: (line) => console.log(line),
-    err: (line) => console.error(line),
-  });
+  return main(argv, syncDeps(repoRoot()));
 }
