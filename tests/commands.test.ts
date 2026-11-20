@@ -9,6 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { writeSettings } from "./locked.ts";
 import { main, type Deps } from "../src/commands.mts";
 import { parseSettings, SettingsError } from "../src/config.mts";
 
@@ -262,12 +263,8 @@ describe("the commands' own runner", () => {
   function factory(settings: string, args: string[], from = "") {
     repo = mkdtempSync(join(tmpdir(), "factory-commands-"));
     execFileSync("git", ["init", "-q", repo]);
-    mkdirSync(join(repo, ".claude"));
     mkdirSync(join(repo, "src/deep"), { recursive: true });
-    writeFileSync(
-      join(repo, ".claude/factory.yaml"),
-      `version: 2\nrepository: o/r\n${settings}`,
-    );
+    writeSettings(repo, `version: 2\nrepository: o/r\n${settings}`);
     return spawnSync("node", [CLI, ...args], {
       cwd: join(repo, from),
       encoding: "utf8",

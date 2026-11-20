@@ -123,39 +123,83 @@ describe("the CI review workflow", () => {
     );
   });
 
-  it("reads the settings the review's tools come from at the base commit", () => {
+  /** The step run in a repository whose base commit has `base` and whose
+   * head has `head`, each by its path, printing the file the factory would
+   * read its settings from. */
+  const listTools = (
+    base: Record<string, string>,
+    head: Record<string, string>,
+  ) => {
     repo = mkdtempSync(join(tmpdir(), "claude-review-"));
     git("init", "-q");
     git("config", "user.email", "test@example.com");
     git("config", "user.name", "Test");
     mkdirSync(join(repo, ".claude"));
-    writeFileSync(join(repo, ".claude/factory.yaml"), "base settings\n");
+    for (const [path, text] of Object.entries(base))
+      writeFileSync(join(repo, path), text);
     git("add", "-A");
     git("commit", "-q", "-m", "base");
-    const base = git("rev-parse", "HEAD");
-    writeFileSync(join(repo, ".claude/factory.yaml"), "head settings\n");
-    git("commit", "-q", "-am", "head");
-    const settings = join(repo, "settings-read.yaml");
+    const at = git("rev-parse", "HEAD");
+    for (const [path, text] of Object.entries(head))
+      writeFileSync(join(repo, path), text);
+    git("add", "-A");
+    git("commit", "-q", "-m", "head");
+    const temp = mkdtempSync(join(tmpdir(), "claude-review-temp-"));
     const output = join(repo, "output");
 
     // The factory itself is not installed here: stand in for it with a
-    // command that prints the settings file it was pointed at.
+    // command that prints the file it would read, the lock where
+    // FACTORY_LOCK names one.
     const script = tools!.run!.replace(
       "npx --no-install factory review tools",
-      'cat "$FACTORY_SETTINGS"',
+      'cat "${FACTORY_LOCK:-$FACTORY_SETTINGS}"',
     );
     const result = spawnSync("bash", ["-eo", "pipefail", "-c", script], {
       cwd: repo,
       env: {
         ...process.env,
-        BASE: base,
-        FACTORY_SETTINGS: settings,
+        BASE: at,
+        FACTORY_SETTINGS: join(temp, "factory.yaml"),
+        RUNNER_TEMP: temp,
         GITHUB_OUTPUT: output,
       },
       encoding: "utf8",
     });
-
     expect(result.status).toBe(0);
-    expect(readFileSync(output, "utf8")).toBe("allowed=base settings\n");
+    return readFileSync(output, "utf8");
+  };
+
+  it("reads the settings the review's tools come from at the base commit", () => {
+    expect(
+      listTools(
+        { ".claude/factory.yaml": "base settings\n" },
+        { ".claude/factory.yaml": "head settings\n" },
+      ),
+    ).toBe("allowed=base settings\n");
+  });
+
+  it("reads them from the base commit's lock where it holds the settings", () => {
+    const lock = "version: 1.0.0\nsettings:\n  base: lock\n";
+    expect(
+      listTools(
+        {
+          ".claude/factory.yaml": "base settings\n",
+          ".claude/factory.lock": lock,
+        },
+        { ".claude/factory.lock": "version: 1.0.0\nsettings:\n  head: lock\n" },
+      ),
+    ).toBe(`allowed=${lock}`);
+  });
+
+  it("reads the base commit's settings file where its lock is from before presets", () => {
+    expect(
+      listTools(
+        {
+          ".claude/factory.yaml": "base settings\n",
+          ".claude/factory.lock": "version: 0.4.0\nfiles:\n  - a\n",
+        },
+        { ".claude/factory.yaml": "head settings\n" },
+      ),
+    ).toBe("allowed=base settings\n");
   });
 });

@@ -116,6 +116,7 @@ export async function needDefaultBranch(
 export const branchDeps = (
   root: string,
   env: Record<string, string | undefined> = process.env,
+  settings?: () => Promise<import("../config.mts").Settings>,
 ): Deps => ({
   env,
   readFile: (path) => readFileSync(path, "utf8"),
@@ -124,8 +125,9 @@ export const branchDeps = (
     const { defaultDeps, loadSettings, reachOf } =
       await import("../config.mts");
     const { openCodeHost } = await import("../code-host/index.mts");
-    const { repository, codeHost } = await reachOf(env, () =>
-      loadSettings(defaultDeps(root)),
+    const { repository, codeHost } = await reachOf(
+      env,
+      settings ?? (() => loadSettings(defaultDeps(root))),
     );
     return openCodeHost(repository, codeHost).defaultBranch();
   },

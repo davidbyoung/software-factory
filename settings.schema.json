@@ -15,6 +15,15 @@
       "pattern": "^[\\w.-]+/[\\w.-]+$",
       "description": "The repository's owner and name, as owner/name."
     },
+    "presets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "The presets this repository follows, each an npm package, or a folder of one, holding a factory-preset.yaml. Later ones win over earlier ones, and this file wins over them all."
+    },
     "tickets": {
       "description": "Where tickets live and how their state is shown.",
       "anyOf": [
@@ -403,9 +412,21 @@
             "minLength": 1
           },
           "description": "It builds a ticket carrying one of these labels."
+        },
+        "off": {
+          "const": true,
+          "description": "Leaves out the plugin of this name that a preset adds. Only this file can."
         }
       },
-      "required": ["skill", "labels"]
+      "required": ["skill"],
+      "anyOf": [
+        {
+          "required": ["labels"]
+        },
+        {
+          "required": ["off"]
+        }
+      ]
     },
     "plugins.build.reviewers[]": {
       "type": "object",
@@ -425,9 +446,21 @@
             "minLength": 1
           },
           "description": "It is considered when a change touches one of these."
+        },
+        "off": {
+          "const": true,
+          "description": "Leaves out the plugin of this name that a preset adds. Only this file can."
         }
       },
-      "required": ["agent", "files"]
+      "required": ["agent"],
+      "anyOf": [
+        {
+          "required": ["files"]
+        },
+        {
+          "required": ["off"]
+        }
+      ]
     },
     "plugins.test.prover": {
       "type": "object",
@@ -460,6 +493,10 @@
             "minLength": 1
           },
           "description": "It is considered only when a change touches one of these. Left out, it is considered whenever a change touches tests."
+        },
+        "off": {
+          "const": true,
+          "description": "Leaves out the plugin of this name that a preset adds. Only this file can."
         }
       },
       "required": ["agent"]
@@ -482,9 +519,21 @@
             "minLength": 1
           },
           "description": "It resolves a conflict in one of these."
+        },
+        "off": {
+          "const": true,
+          "description": "Leaves out the plugin of this name that a preset adds. Only this file can."
         }
       },
-      "required": ["skill", "files"]
+      "required": ["skill"],
+      "anyOf": [
+        {
+          "required": ["files"]
+        },
+        {
+          "required": ["off"]
+        }
+      ]
     },
     "auto-merge": {
       "type": "object",

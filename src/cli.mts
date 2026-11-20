@@ -155,6 +155,21 @@ export const COMMANDS: Command[] = [
     args: "",
     run: async (argv) => (await import("./remove.mts")).run(argv),
   },
+  ...(
+    [
+      ["add", "NAME [--yes] [--dry-run]"],
+      ["remove", "NAME [--yes] [--dry-run]"],
+      ["choices", ""],
+      ["choose", "KEY PRESET"],
+      ["check", ""],
+      ["changes", "REF"],
+    ] as const
+  ).map(([sub, args]): Command => ({
+    words: ["preset", sub],
+    args,
+    run: async (argv) =>
+      (await import("./preset-commands.mts")).run([sub, ...argv]),
+  })),
   {
     words: ["config", "get"],
     args: "KEY",

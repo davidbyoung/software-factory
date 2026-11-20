@@ -29,7 +29,9 @@ import { NeedsScopeError } from "./code-host/types.mts";
 import {
   columnsOf,
   fieldNamesOf,
+  filesDeps,
   parseSettings,
+  resolveFiles,
   POLL_MINUTES,
   repoRoot,
   SETTINGS_FILE,
@@ -754,10 +756,12 @@ export async function run(argv: string[]): Promise<number> {
     // The settings are not written yet, so the code host asked is the one
     // setup has just opened, not the one a settings file names.
     syncChanges: async (text, host) => {
-      const raw = parseDocument(text).toJS();
-      const s = parseSettings(raw, (p) => existsSync(join(root, p)));
+      const r = await resolveFiles({
+        ...filesDeps(root),
+        readFile: () => text,
+      });
       const branch = await needDefaultBranch({ ...branchDeps(root), host });
-      return differences(root, syncPlan(PACKAGE, root, s, branch));
+      return differences(root, await syncPlan(PACKAGE, root, r, branch));
     },
     interactive: async (argv2) =>
       spawnSync(argv2[0], argv2.slice(1), { stdio: "inherit" }).status ?? 1,

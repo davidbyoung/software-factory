@@ -109,6 +109,9 @@ const roleKeys = (): Record<string, string[]> =>
           shape.kind,
           ...(shape.files === "none" ? [] : ["files"]),
           ...(shape.labels === "none" ? [] : ["labels"]),
+          // Only the repository's own settings leave out a plugin that a
+          // preset adds, and only from a list.
+          ...(shape.list ? ["off"] : []),
         ],
       ];
     }),
@@ -256,6 +259,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "": [
     "version",
     "repository",
+    "presets",
     "tickets",
     "code-host",
     "builds",
@@ -525,7 +529,15 @@ function pluginsWritten(v: unknown): {
       if (written === undefined) return [];
       if (!ROLE_SHAPE[role].list) return [plugin(written, key, role)];
       if (!Array.isArray(written)) return fail(key, "must be a list");
-      return written.map((item, i) => plugin(item, `${key}[${i}]`, role));
+      // A plugin left out with `off: true` is not used, and its role still
+      // counts as written.
+      return written.flatMap((item, i) => {
+        if (isObj(item) && "off" in item) {
+          if (item.off !== true) fail(`${key}[${i}].off`, "must be true");
+          return [];
+        }
+        return [plugin(item, `${key}[${i}]`, role)];
+      });
     }),
     testReviewersWritten: at("test-reviewer") !== undefined,
   };
@@ -595,6 +607,7 @@ export function parseSettings(
       if (key in written) fail(key, `moved to commands.${key}`);
   }
   const top = object(written, "");
+  strings(top.presets, "presets");
   if (
     typeof top.repository !== "string" ||
     !/^[\w.-]+\/[\w.-]+$/.test(top.repository)
@@ -801,6 +814,7 @@ export function patternWarnings(s: Settings, files: string[]): string[] {
 type YamlLoad = (text: string) => unknown;
 
 export type Deps = {
+  /** `.claude/factory.yaml`, or the file FACTORY_SETTINGS names. */
   readFile: () => string;
   exists: (path: string) => boolean;
   /** Whether an npm package resolves from the repository's root. */
@@ -809,6 +823,19 @@ export type Deps = {
   loadYaml: () => Promise<YamlLoad>;
   out: (line: string) => void;
   err: (line: string) => void;
+  /** Where the settings come from when every command reads the lock:
+   * `check` stops on a stale one. Unset, they are resolved from the files
+   * the lock is made from. */
+  lock?: { read: () => string | null; check: boolean };
+  /** `.claude/factory.choices.yaml`, null when there is none. */
+  readChoices?: () => string | null;
+  /** Where presets are installed from. */
+  root?: string;
+  /** Which of the settings files differ from the last commit. */
+  changed?: () => string[];
+  /** A package's installed version: null when it is not installed, and
+   * undefined where there is no node_modules to look in. */
+  installed?: (pkg: string) => string | null | undefined;
 };
 
 export const NO_DEPENDENCIES =
@@ -816,23 +843,230 @@ export const NO_DEPENDENCIES =
 
 /** js-yaml is loaded when needed, so a checkout without dependencies gets
  * one line saying what to do rather than a stack trace. */
-async function read(d: Deps): Promise<Settings> {
-  return parseSettings(await readRaw(d), d.exists);
-}
-
-/** The file as it is written, before any default is filled in. */
-async function readRaw(d: Deps): Promise<unknown> {
-  let load: YamlLoad;
+async function yamlOf(d: Deps): Promise<YamlLoad> {
   try {
-    load = await d.loadYaml();
+    return await d.loadYaml();
   } catch {
     throw new SettingsError(NO_DEPENDENCIES);
   }
+}
+
+const readOrNull = (path: string) => {
   try {
-    return load(d.readFile());
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+};
+
+/** The settings resolved from the files the lock is made from: the
+ * presets, `.claude/factory.yaml`, and the choices between them. */
+export type Resolved = {
+  settings: Settings;
+  resolution: import("./preset.mts").Resolution;
+  presets: import("./preset.mts").Found[];
+  /** `.claude/factory.yaml` as written, and its text. */
+  own: Record<string, unknown>;
+  ownText: string;
+  choices: Record<string, string>;
+  choicesText: string | null;
+  /** Whether a path exists, counting the files the presets ship. */
+  exists: (path: string) => boolean;
+};
+
+/** The choices file read as a map from a key to a preset's name. */
+export function parseChoices(
+  text: string | null,
+  load: YamlLoad,
+): Record<string, string> {
+  if (text === null) return {};
+  const bad = () =>
+    new SettingsError(
+      '.claude/factory.choices.yaml: each line must be KEY: "PRESET"',
+    );
+  let v: unknown;
+  try {
+    v = load(text);
+  } catch {
+    throw bad();
+  }
+  if (v === null || v === undefined) return {};
+  if (!isObj(v) || Object.values(v).some((x) => typeof x !== "string"))
+    throw bad();
+  return v as Record<string, string>;
+}
+
+/** The settings combined from the factory's defaults, each preset in
+ * `presets`, and `.claude/factory.yaml`, as `factory sync` combines them
+ * into the lock. `factoryFile` and `ownFile` say which preset files are
+ * kept back: the factory's own, and the repository's own. */
+export async function resolveFiles(
+  d: Deps,
+  keep: {
+    factoryFile?: (path: string) => boolean;
+    ownFile?: (path: string) => boolean;
+  } = {},
+): Promise<Resolved> {
+  const load = await yamlOf(d);
+  let ownText: string;
+  let own: unknown;
+  try {
+    ownText = d.readFile();
+    own = load(ownText);
   } catch (e) {
     throw new SettingsError(`${SETTINGS_FILE}: ${(e as Error).message}`);
   }
+  const P = await import("./preset.mts");
+  const top = isObj(own) ? own : {};
+  const names = isObj(own) ? strings(top.presets, "presets") : [];
+  const twice = names.find((n, i) => names.indexOf(n) !== i);
+  if (twice) throw new SettingsError(`presets: ${twice} is listed twice`);
+  const root = d.root ?? repoRoot();
+  const presets: import("./preset.mts").Found[] = [];
+  const layers: import("./preset.mts").Layer[] = [];
+  const ships = new Map<string, [string, string][]>();
+  for (const name of names) {
+    let found: import("./preset.mts").Found;
+    try {
+      found = P.findPreset(root, name);
+    } catch (e) {
+      if (e instanceof P.PresetError) throw new SettingsError(e.message);
+      throw e;
+    }
+    let raw: unknown;
+    try {
+      raw = load(readFileSync(join(found.dir, P.PRESET_FILE), "utf8"));
+    } catch (e) {
+      throw new SettingsError(`${name}: ${(e as Error).message}`);
+    }
+    const fault = P.presetFaults(raw)[0];
+    if (fault)
+      throw new SettingsError(`${name}: ${fault.key}: ${fault.message}`);
+    // The version is the preset file's own, and never the repository's.
+    const { version: _, ...settings } = raw as Record<string, unknown>;
+    presets.push(found);
+    layers.push({ name, raw: settings });
+    ships.set(name, P.shipped(found.dir));
+  }
+  layers.push({ name: P.OWN, raw: top });
+  const choicesText = d.readChoices?.() ?? null;
+  const choices = parseChoices(choicesText, load);
+  let resolution: import("./preset.mts").Resolution;
+  try {
+    resolution = P.combine({ layers, choices, ships, ...keep });
+  } catch (e) {
+    if (e instanceof P.PresetError) throw new SettingsError(e.message);
+    throw e;
+  }
+  const exists = (path: string) => d.exists(path) || resolution.files.has(path);
+  let settings: Settings;
+  try {
+    settings = parseSettings(isObj(own) ? resolution.raw : own, exists);
+  } catch (e) {
+    throw e instanceof SettingsError ? fromPreset(e, resolution) : e;
+  }
+  return {
+    settings,
+    resolution,
+    presets,
+    own: top,
+    ownText,
+    choices,
+    choicesText,
+    exists,
+  };
+}
+
+/** A fault the settings' check found in a value a preset gave, named by
+ * that preset rather than by `.claude/factory.yaml`. */
+function fromPreset(
+  e: SettingsError,
+  r: import("./preset.mts").Resolution,
+): SettingsError {
+  const m = new RegExp(
+    `^${SETTINGS_FILE.replace(/\./g, "\\.")}: ([^:]+): `,
+  ).exec(e.message);
+  if (!m) return e;
+  const key = m[1]!.replace(/\[\d+\]/g, "");
+  for (
+    let at = key;
+    at;
+    at = at.includes(".") ? at.slice(0, at.lastIndexOf(".")) : ""
+  ) {
+    const from = r.sources.get(at)?.from;
+    if (from === undefined) continue;
+    if (!from || from === SETTINGS_FILE) return e;
+    return new SettingsError(
+      `${from}: ${e.message.slice(SETTINGS_FILE.length + 2)}`,
+    );
+  }
+  return e;
+}
+
+/** Why the lock `d` reads is stale, or null when it is current or `d`
+ * reads none. */
+export async function staleOf(d: Deps): Promise<string | null> {
+  if (!d.lock) return null;
+  const load = await yamlOf(d);
+  const P = await import("./preset.mts");
+  const root = d.root ?? repoRoot();
+  let own: string | null;
+  try {
+    own = d.readFile();
+  } catch {
+    own = null;
+  }
+  return P.staleReason({
+    lock: d.lock.read(),
+    own,
+    choices: d.readChoices?.() ?? null,
+    changed: d.changed ?? (() => []),
+    installed:
+      d.installed ??
+      ((pkg) =>
+        existsSync(join(root, "node_modules"))
+          ? (P.findPackage(root, pkg)?.version ?? null)
+          : undefined),
+    load,
+  });
+}
+
+/** The settings in the lock, after checking it is current where `check`
+ * says to. */
+async function fromLock(
+  d: Deps,
+  lock: NonNullable<Deps["lock"]>,
+): Promise<{ settings: Settings; text: string }> {
+  const load = await yamlOf(d);
+  const P = await import("./preset.mts");
+  if (lock.check) {
+    const reason = await staleOf(d);
+    if (reason) throw new SettingsError(reason);
+  }
+  const text = lock.read();
+  if (text === null) throw new SettingsError(P.staleMessages.missing);
+  let parsed: ReturnType<typeof P.readLock>;
+  try {
+    parsed = P.readLock(text, load);
+  } catch (e) {
+    throw new SettingsError(`${P.LOCK_FILE}: ${(e as Error).message}`);
+  }
+  if (!parsed.settings) throw new SettingsError(P.staleMessages.earlier);
+  return { settings: parseSettings(parsed.settings, d.exists), text };
+}
+
+/** The lines of the lock's `settings` block, as `factory config explain`
+ * printed them when the lock was written. */
+export function lockSettingsLines(text: string): string[] {
+  const lines = text.split("\n");
+  const start = lines.indexOf("settings:");
+  if (start < 0) return [];
+  const out: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line && !line.startsWith("  ")) break;
+    out.push(line.slice(2));
+  }
+  return out;
 }
 
 /** The settings file: FACTORY_SETTINGS where it is set, for trying settings
@@ -843,8 +1077,47 @@ export const settingsPath = (
   env: Record<string, string | undefined> = process.env,
 ) => env.FACTORY_SETTINGS || `${root}/${SETTINGS_FILE}`;
 
-export const defaultDeps = (root = repoRoot()): Deps => ({
-  readFile: () => readFileSync(settingsPath(root), "utf8"),
+/** The settings of the checkout at `root`, read from its lock, or from
+ * the lock FACTORY_LOCK names without checking it is current, or from the
+ * settings file FACTORY_SETTINGS names with no lock at all. */
+export const defaultDeps = (
+  root = repoRoot(),
+  env: Record<string, string | undefined> = process.env,
+): Deps => ({
+  readFile: () => readFileSync(settingsPath(root, env), "utf8"),
+  root,
+  readChoices: () =>
+    env.FACTORY_SETTINGS
+      ? null
+      : readOrNull(join(root, ".claude/factory.choices.yaml")),
+  lock: env.FACTORY_LOCK
+    ? { read: () => readOrNull(env.FACTORY_LOCK!), check: false }
+    : env.FACTORY_SETTINGS
+      ? undefined
+      : {
+          read: () => readOrNull(join(root, ".claude/factory.lock")),
+          check: true,
+        },
+  changed: () => {
+    try {
+      return execFileSync(
+        "git",
+        [
+          "status",
+          "--porcelain",
+          "--",
+          SETTINGS_FILE,
+          ".claude/factory.choices.yaml",
+        ],
+        { cwd: root, encoding: "utf8" },
+      )
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => l.slice(3));
+    } catch {
+      return [];
+    }
+  },
   exists: (path) => existsSync(`${root}/${path}`),
   hasPackage: (name) => {
     try {
@@ -884,8 +1157,20 @@ export function fieldNamesOf(s: Settings) {
   };
 }
 
-/** The settings of the checkout the command runs in. */
-export const loadSettings = (d: Deps = defaultDeps()) => read(d);
+/** The settings of the checkout at `root` resolved from the files the lock
+ * is made from, for the commands that make or check the lock. */
+export const filesDeps = (
+  root = repoRoot(),
+  env: Record<string, string | undefined> = process.env,
+): Deps => ({ ...defaultDeps(root, env), lock: undefined });
+
+/** The settings of the checkout the command runs in: from its lock, or
+ * resolved from the files where `d` reads no lock. */
+export async function loadSettings(d: Deps = defaultDeps()): Promise<Settings> {
+  return d.lock
+    ? (await fromLock(d, d.lock)).settings
+    : (await resolveFiles(d)).settings;
+}
 
 function lookup(s: Settings, key: string): unknown {
   if (key === "specs.check") return s.specCheck;
@@ -964,11 +1249,21 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     );
     return 2;
   }
+  // `config check` reads the files the lock is made from, so it can say
+  // what is wrong with them while the lock is stale; everything else reads
+  // the lock.
   let s: Settings;
-  let raw: unknown;
+  let resolved: Resolved | null = null;
+  let lockText: string | null = null;
   try {
-    raw = await readRaw(d);
-    s = parseSettings(raw, d.exists);
+    if (d.lock && command !== "check") {
+      const read = await fromLock(d, d.lock);
+      s = read.settings;
+      lockText = read.text;
+    } else {
+      resolved = await resolveFiles({ ...d, lock: undefined });
+      s = resolved.settings;
+    }
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;
     d.err(e.message);
@@ -988,8 +1283,17 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     return 0;
   }
   if (command === "explain") {
-    const { explainLines } = await import("./explain.mts");
-    for (const line of await explainLines(s, raw, d.exists)) d.out(line);
+    if (lockText !== null) {
+      for (const line of lockSettingsLines(lockText)) d.out(line);
+      return 0;
+    }
+    const { explainLines, markerOf } = await import("./explain.mts");
+    for (const line of await explainLines(
+      s,
+      markerOf(resolved!.resolution),
+      resolved!.exists,
+    ))
+      d.out(line);
     return 0;
   }
   if (command === "plugins") {
