@@ -4,6 +4,7 @@
 // checked, and removed with no edit to init, doctor, or remove.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import type { Agent, Answer, Question } from "../src/agent/types.mts";
 import type { ToolSetup } from "../src/setup.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
@@ -68,8 +69,32 @@ export function withFakeTickets(
   };
 }
 
+/** An agent that plays its answers in turn and records each question;
+ * one asked past its answers fails, so a test never reaches a real one. */
+export function scriptedAgent(
+  answers: Answer[] = [],
+  o: { installed?: boolean } = {},
+): Agent & { asked: Question[] } {
+  const asked: Question[] = [];
+  return {
+    asked,
+    installed: () => o.installed ?? true,
+    answer: async (q) => {
+      asked.push(q);
+      return (
+        answers.shift() ?? {
+          failed: { code: 1, error: "the test scripted no answer" },
+        }
+      );
+    },
+  };
+}
+
 /** The registry with Fake Agent in place of the coding agent. */
-export function withFakeAgent(base: Registry): Registry {
+export function withFakeAgent(
+  base: Registry,
+  agent: Agent = scriptedAgent(),
+): Registry {
   const setup: ToolSetup = {
     checks: async (c) => [
       existsSync(join(c.root, FAKE_AGENT_FILE))
@@ -81,7 +106,10 @@ export function withFakeAgent(base: Registry): Registry {
           },
     ],
   };
-  return { ...base, agent: { "fake-agent": { label: "Fake Agent", setup } } };
+  return {
+    ...base,
+    agent: { "fake-agent": { label: "Fake Agent", setup, agent } },
+  };
 }
 
 /** The registry with more code hosts, which recognize no remote. */

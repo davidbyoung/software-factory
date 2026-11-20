@@ -31,12 +31,12 @@ describe("parseSettings", () => {
         options: {},
         board: null,
         columns: {
-          backlog: "Backlog",
-          refining: "In refinement",
-          ready: "Ready",
-          building: "In progress",
-          review: "In review",
-          done: "Done",
+          backlog: ["Backlog"],
+          refining: ["In refinement"],
+          ready: ["Ready"],
+          building: ["In progress"],
+          review: ["In review"],
+          done: ["Done"],
         },
         fields: { session: "Session", "runs-in": "Runs in", cost: "Cost" },
       },
@@ -912,6 +912,26 @@ describe("factory config explain", () => {
     "rules:",
     "  review-rounds: 3",
   ];
+
+  it("prints a state's list of columns as a list, and one name as a string", async () => {
+    const r = await explain([
+      "version: 2",
+      "repository: owner/name",
+      "tickets:",
+      "  board: 3",
+      "  columns:",
+      "    backlog: Todo",
+      "    review: [Code review, QA]",
+    ]);
+    expect(r.code).toBe(0);
+    const at = r.out.findIndex((l) => l.trim() === "review:");
+    expect(r.out.slice(at, at + 3).map((l) => l.trimEnd())).toEqual([
+      "    review:",
+      "      - Code review",
+      "      - QA",
+    ]);
+    expect(r.out.map((l) => l.trimEnd())).toContain("    backlog: Todo");
+  });
 
   it("prints every setting in the file's order, defaults filled in and their marks lined up", async () => {
     const r = await explain(SMALL);

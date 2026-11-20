@@ -97,7 +97,10 @@ export async function explainLines(
     put(["tickets", "board"], s.tickets.board);
     block(["tickets", "columns"]);
     for (const [k, v] of Object.entries(s.tickets.columns))
-      put(["tickets", "columns", k], v ?? "none");
+      put(
+        ["tickets", "columns", k],
+        v === null ? "none" : v.length === 1 ? v[0] : v,
+      );
     block(["tickets", "fields"]);
     for (const [k, v] of Object.entries(s.tickets.fields))
       put(["tickets", "fields", k], v ?? "none");

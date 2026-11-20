@@ -1,6 +1,7 @@
 // The factory's registry with each built tool opening an in-memory fake, so
 // `init`, `doctor`, and `remove` run their real setups with no network. A
 // test adds a tool of its own by spreading the result.
+import type { Agent } from "../src/agent/types.mts";
 import type { CodeHost } from "../src/code-host/types.mts";
 import type { Settings } from "../src/config.mts";
 import type { Part } from "../src/parts.mts";
@@ -8,6 +9,7 @@ import type { SetupContext } from "../src/setup.mts";
 import type { Runner } from "../src/runner/types.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import { TOOLS, type Registry } from "../src/tools.mts";
+import { scriptedAgent } from "./fake-tools";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -16,6 +18,8 @@ export function memoryTools(o: {
   codeHost: CodeHost;
   runner: Runner;
   tickets: Tickets;
+  /** Claude Code's answers, which never run claude. */
+  agent?: Agent;
 }): Registry {
   return {
     codeHost: { github: { ...TOOLS.codeHost.github!, open: () => o.codeHost } },
@@ -26,7 +30,12 @@ export function memoryTools(o: {
         open: () => o.runner,
       },
     },
-    agent: TOOLS.agent,
+    agent: {
+      "claude-code": {
+        ...TOOLS.agent["claude-code"]!,
+        agent: o.agent ?? scriptedAgent(),
+      },
+    },
   };
 }
 

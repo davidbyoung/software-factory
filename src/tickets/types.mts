@@ -77,6 +77,9 @@ export type BoardOps = {
   /** Creates a board under the repository's owner, linked to the
    * repository, and returns its number. */
   create(title: string): Promise<number>;
+  /** Board `number`'s columns, its Status field's options in the board's
+   * order, or none when it has no Status field. */
+  columns(number: number): Promise<string[]>;
   /** Gives board `number` each of `columns` it lacks, the columns in that
    * order before any other it has, and returns the ones it added. */
   addColumns(number: number, columns: string[]): Promise<string[]>;

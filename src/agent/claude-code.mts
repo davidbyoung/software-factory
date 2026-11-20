@@ -1,11 +1,13 @@
 // Claude Code as the factory's coding agent: the token it needs, the
-// configuration `factory sync` writes for it, and how `remove` takes that
-// configuration out.
-import { existsSync, readFileSync } from "node:fs";
+// configuration `factory sync` writes for it, how `remove` takes that
+// configuration out, and how it answers one question for `init`.
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listed } from "../lib/listed.mts";
 import { AGENT_KEY, AGENT_TOKEN, type Part } from "../parts.mts";
 import type { ToolSetup, Unconfigured } from "../setup.mts";
+import type { Agent, Answer } from "./types.mts";
 import {
   CLAUDE_MD,
   hasAnyFactoryHook,
@@ -105,3 +107,96 @@ export const claudeCodeSetup: ToolSetup = {
     return out;
   },
 };
+
+/** The part of a child process `answer` uses. */
+export type Child = {
+  stdout: NodeJS.ReadableStream | null;
+  stderr: NodeJS.ReadableStream | null;
+  kill(): boolean;
+  on(event: "close", listener: (code: number | null) => void): unknown;
+  on(event: "error", listener: (e: Error) => void): unknown;
+};
+
+export type Spawn = (
+  command: string,
+  args: string[],
+  options: { cwd: string },
+) => Child;
+
+const firstLine = (text: string): string | null =>
+  text
+    .split("\n")
+    .map((l) => l.trim())
+    .find(Boolean) ?? null;
+
+/** Claude Code's answer to one question: `claude -p` with no tools, on its
+ * smallest model, run from an empty folder so no project's settings or
+ * hooks load. */
+export function claudeCodeAgent(spawn: Spawn): Agent {
+  return {
+    installed: (hasCommand) => hasCommand(COMMAND),
+    answer: (q) =>
+      new Promise<Answer>((resolve) => {
+        const cwd = mkdtempSync(join(tmpdir(), "factory-ask-"));
+        const child = spawn(
+          COMMAND,
+          [
+            "-p",
+            q.prompt,
+            "--output-format",
+            "json",
+            "--json-schema",
+            JSON.stringify(q.schema),
+            "--tools",
+            "",
+            "--model",
+            "haiku",
+            "--setting-sources",
+            "",
+          ],
+          { cwd },
+        );
+        let stdout = "";
+        let stderr = "";
+        child.stdout?.on("data", (b: Buffer) => (stdout += String(b)));
+        child.stderr?.on("data", (b: Buffer) => (stderr += String(b)));
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          child.kill();
+        }, q.timeoutMs);
+        const done = (answer: Answer) => {
+          clearTimeout(timer);
+          rmSync(cwd, { recursive: true, force: true });
+          resolve(answer);
+        };
+        child.on("error", (e) =>
+          done({ failed: { code: 1, error: firstLine(e.message) } }),
+        );
+        child.on("close", (code: number | null) => {
+          if (timedOut) return done({ timedOut: true });
+          let json: { structured_output?: unknown; result?: unknown } = {};
+          try {
+            json = JSON.parse(stdout) ?? {};
+          } catch {
+            // Not JSON: no answer, and no result line to fall back to.
+          }
+          const result = typeof json.result === "string" ? json.result : "";
+          if (code !== 0)
+            return done({
+              failed: {
+                code: code ?? 1,
+                error: firstLine(stderr) ?? firstLine(result),
+              },
+            });
+          if (json.structured_output !== undefined)
+            return done({ answer: json.structured_output });
+          try {
+            return done({ answer: JSON.parse(result) });
+          } catch {
+            return done({ answer: undefined });
+          }
+        });
+      }),
+  };
+}

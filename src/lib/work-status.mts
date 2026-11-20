@@ -39,40 +39,47 @@ export const STATE_KEYS = {
 } as const satisfies Record<string, Status>;
 export type StateKey = keyof typeof STATE_KEYS;
 
-/** The column each state has on the board, or null for a board with none. */
-export type Columns = Record<Status, string | null>;
+/** The columns each state has on the board, the first the one a ticket
+ * moves to, or null for a board with none. */
+export type Columns = Record<Status, readonly string[] | null>;
 
 /** The factory's own board: every state has the column of its own name. */
 export const DEFAULT_COLUMNS: Columns = {
-  Backlog: "Backlog",
-  "In refinement": "In refinement",
-  Ready: "Ready",
-  "In progress": "In progress",
-  "In review": "In review",
-  Done: "Done",
+  Backlog: ["Backlog"],
+  "In refinement": ["In refinement"],
+  Ready: ["Ready"],
+  "In progress": ["In progress"],
+  "In review": ["In review"],
+  Done: ["Done"],
 };
 
 /** A name matches whatever its capitals and the spaces around it. */
 export const sameName = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
-/** The column a ticket in `status` shows in: its own, or else the nearest
- * earlier state's. Nothing but an approved ticket shows in the Ready
- * column, so a state with no column passes over it. */
-export function columnFor(status: Status, columns: Columns): string {
+/** The columns a ticket in `status` shows in: its own, or else the
+ * nearest earlier state's. Nothing but an approved ticket shows in the
+ * Ready column, so a state with no column passes over it. */
+export function columnsFor(
+  status: Status,
+  columns: Columns,
+): readonly string[] {
   for (let i = STATUSES.indexOf(status); i >= 0; i--) {
-    const name = columns[STATUSES[i]];
-    if (name !== null && (STATUSES[i] !== "Ready" || status === "Ready"))
-      return name;
+    const names = columns[STATUSES[i]];
+    if (names !== null && (STATUSES[i] !== "Ready" || status === "Ready"))
+      return names;
   }
-  return columns.Backlog ?? "Backlog";
+  return columns.Backlog ?? ["Backlog"];
 }
 
-/** The state whose column is named `name`, or null when none is. */
+/** The column a ticket in `status` moves to: the first of `columnsFor`. */
+export const columnFor = (status: Status, columns: Columns): string =>
+  columnsFor(status, columns)[0]!;
+
+/** The state that lists a column named `name`, or null when none does. */
 export function statusOfColumn(name: string, columns: Columns): Status | null {
   return (
-    STATUSES.find((s) => columns[s] !== null && sameName(columns[s]!, name)) ??
-    null
+    STATUSES.find((s) => columns[s]?.some((c) => sameName(c, name))) ?? null
   );
 }
 
@@ -683,7 +690,7 @@ const waiting = (columns: Columns) =>
 /** Where a ticket can be sent to build again: the Ready column when the
  * board has one, and always a session. */
 const again = (issue: number, columns: Columns) => {
-  const ready = columns.Ready;
+  const ready = columns.Ready?.[0] ?? null;
   if (ready === null)
     return `To try again, tell a session to build #${issue}, or run \`factory build ${issue}\`.`;
   return `Move it to ${ready} to try again.`;
@@ -699,7 +706,7 @@ export function commentBody(
   const withCost = (text: string, cost: string | undefined) =>
     cost ? `${text}\n\n${cost}` : text;
   const WAITING = waiting(columns);
-  const ready = columns.Ready;
+  const ready = columns.Ready?.[0] ?? null;
   switch (c.kind) {
     case "cost":
       return `${c.cost}\n${AGENT_MARK}`;

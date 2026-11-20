@@ -80,7 +80,7 @@ export function startMarker(): string {
 export function columnsFrom(env: Record<string, string | undefined>): Columns {
   return {
     ...DEFAULT_COLUMNS,
-    Ready: env.FACTORY_READY_COLUMN?.trim() || "Ready",
+    Ready: [env.FACTORY_READY_COLUMN?.trim() || "Ready"],
   };
 }
 
@@ -317,7 +317,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
 export type OnceSettings = { board: number | null; ready: string | null };
 
 export function onceSettings(s: Settings): OnceSettings {
-  return { board: s.tickets.board, ready: columnsOf(s).Ready };
+  return { board: s.tickets.board, ready: columnsOf(s).Ready?.[0] ?? null };
 }
 
 /** One pass, for a scheduled run: the board and the Ready column come from

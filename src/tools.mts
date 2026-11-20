@@ -1,7 +1,13 @@
 // Every tool the factory has built, by kind and by the name a setting gives
 // it: how to open it, and its setup (`setup.mts`). `init`, `doctor`, and
 // `remove` take this as a parameter, so a test adds a tool of its own.
-import { claudeCodeSetup, DEFAULT_AGENT } from "./agent/index.mts";
+import { spawn } from "node:child_process";
+import {
+  claudeCodeAgent,
+  claudeCodeSetup,
+  DEFAULT_AGENT,
+} from "./agent/index.mts";
+import type { Agent } from "./agent/types.mts";
 import {
   githubRepository,
   githubCodeHostSetup,
@@ -49,7 +55,7 @@ export type Registry = {
     }
   >;
   runner: Record<string, Tool & { open(repository: string): Runner }>;
-  agent: Record<string, Tool>;
+  agent: Record<string, Tool & { agent: Agent }>;
 };
 
 export const TOOLS: Registry = {
@@ -83,7 +89,13 @@ export const TOOLS: Registry = {
       open: (repository) => openRunner(repository),
     },
   },
-  agent: { [DEFAULT_AGENT]: { label: "Claude Code", setup: claudeCodeSetup } },
+  agent: {
+    [DEFAULT_AGENT]: {
+      label: "Claude Code",
+      setup: claudeCodeSetup,
+      agent: claudeCodeAgent(spawn),
+    },
+  },
 };
 
 /** The names and keys the settings accept, as `config.mts` checks them. */

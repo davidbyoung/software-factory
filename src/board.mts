@@ -33,6 +33,7 @@ import {
   STATE_KEYS,
   cardOf,
   columnFor,
+  columnsFor,
   sameName,
   statusOfColumn,
   type Columns,
@@ -154,12 +155,11 @@ export function inspectBoard(
     problems.push("the Status field is missing or not a single select");
   } else {
     const names = (status.options ?? []).map((o) => o.name);
-    const missing = (Object.keys(STATE_KEYS) as StateKey[]).flatMap((key) => {
-      const column = cfg.columns[STATE_KEYS[key]];
-      return column !== null && !names.some((n) => sameName(n, column))
-        ? [`${column} (tickets.columns.${key})`]
-        : [];
-    });
+    const missing = (Object.keys(STATE_KEYS) as StateKey[]).flatMap((key) =>
+      (cfg.columns[STATE_KEYS[key]] ?? [])
+        .filter((column) => !names.some((n) => sameName(n, column)))
+        .map((column) => `${column} (tickets.columns.${key})`),
+    );
     if (missing.length)
       problems.push(`the Status field lacks ${missing.join(", ")}`);
     for (const name of names)
@@ -250,7 +250,7 @@ export function boardReport(
     out.push(
       pad(key) +
         (column !== null
-          ? column
+          ? column.join(", ")
           : key === "ready"
             ? "no column: builds start only when you ask"
             : `no column, shows in ${columnFor(status, cfg.columns)}`),
@@ -258,11 +258,11 @@ export function boardReport(
   }
   out.push("");
   for (const line of found.lines) out.push(pad(line.label) + line.text);
-  const ready = cfg.columns.Ready;
+  const ready = cfg.columns.Ready?.[0] ?? null;
   const extra = [
     ...found.notes.map((n) => `Note: ${n}`),
     ...(ready !== null &&
-    ready !== DEFAULT_COLUMNS.Ready &&
+    ready !== DEFAULT_COLUMNS.Ready![0] &&
     settings.builds.trigger === "own-server"
       ? [`Note: The poller needs FACTORY_READY_COLUMN set to "${ready}".`]
       : []),
@@ -327,7 +327,12 @@ export function planSync(
     const column = columnFor(derived.status, cfg.columns);
     const option = fields.status.options?.find((o) => sameName(o.name, column));
     const writes: Write[] = [];
-    if (item?.status == null || !sameName(item.status, column))
+    if (
+      item?.status == null ||
+      !columnsFor(derived.status, cfg.columns).some((c) =>
+        sameName(item.status!, c),
+      )
+    )
       writes.push({
         field: fields.status.name,
         optionName: option?.name ?? column,

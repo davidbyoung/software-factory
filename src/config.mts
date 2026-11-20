@@ -24,6 +24,7 @@ import {
   type Watch,
   type Columns,
   type StateKey,
+  type Status,
 } from "./lib/work-status.mts";
 
 export class SettingsError extends Error {}
@@ -146,7 +147,9 @@ export type Settings = {
     options: Record<string, string>;
     board: number | null;
     /** The board's column for each state, null for none. */
-    columns: Record<StateKey, string | null>;
+    /** Each state's columns, the first the one a ticket moves to, or
+     * null for none. */
+    columns: Record<StateKey, readonly string[] | null>;
     /** The board's field for each of three the sync writes, null for none. */
     fields: Record<FieldKey, string | null>;
   };
@@ -474,6 +477,38 @@ function names(
   );
 }
 
+/** Each state's columns: a name, a list of names, or none, each left out
+ * keeping the factory's own name. Only an approved ticket goes to ready,
+ * so it takes one name. */
+function columnNames(v: unknown): Record<StateKey, readonly string[] | null> {
+  const o = object(v, "tickets.columns");
+  const out = {} as Record<StateKey, readonly string[] | null>;
+  for (const [k, status] of Object.entries(STATE_KEYS) as [
+    StateKey,
+    Status,
+  ][]) {
+    const key = `tickets.columns.${k}`;
+    const value = o[k];
+    if (Array.isArray(value)) {
+      if (k === "ready")
+        fail(
+          key,
+          "must be one column, or none: only a ticket you approved goes there",
+        );
+      if (value.length === 0) fail(key, "must name at least one column");
+      out[k] = value.map((n, i) =>
+        typeof n === "string" && n.trim()
+          ? n.trim()
+          : fail(`${key}[${i}]`, "must be a name"),
+      );
+    } else if (value === undefined) out[k] = DEFAULT_COLUMNS[status];
+    else if (value === "none") out[k] = null;
+    else if (typeof value === "string" && value.trim()) out[k] = [value.trim()];
+    else fail(key, "must be a name, a list of names, or none");
+  }
+  return out;
+}
+
 /** A part you can swap, written as a block with a `type` or as one word. */
 function typed(v: unknown, key: string, extra?: readonly string[]): Obj {
   if (typeof v === "string") return { type: v };
@@ -677,25 +712,22 @@ export function parseSettings(
     fail("tickets.columns", "needs tickets.board");
   if (tickets.fields !== undefined && !hasBoard)
     fail("tickets.fields", "needs tickets.board");
-  const columns = names(
-    tickets.columns,
-    "tickets.columns",
-    Object.fromEntries(
-      Object.entries(STATE_KEYS).map(([k, s]) => [k, DEFAULT_COLUMNS[s]!]),
-    ),
-  ) as Record<StateKey, string | null>;
+  const columns = columnNames(tickets.columns);
   if (columns.backlog === null)
     fail(
       "tickets.columns.backlog",
       "cannot be none: every ticket starts there",
     );
   const seen = new Map<string, string>();
-  for (const [key, name] of Object.entries(columns)) {
-    if (name === null) continue;
-    const other = [...seen].find(([n]) => sameName(n, name));
-    if (other)
-      fail(`tickets.columns.${key}`, `names the same column as ${other[1]}`);
-    seen.set(name, key);
+  for (const [key, list] of Object.entries(columns)) {
+    for (const [i, name] of (list ?? []).entries()) {
+      if (list!.slice(0, i).some((n) => sameName(n, name)))
+        fail(`tickets.columns.${key}`, `names ${name} twice`);
+      const other = [...seen].find(([n]) => sameName(n, name));
+      if (other)
+        fail(`tickets.columns.${key}`, `names the same column as ${other[1]}`);
+    }
+    for (const name of list ?? []) seen.set(name, key);
   }
   if (columns.ready === null && trigger !== "manual")
     fail(

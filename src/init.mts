@@ -59,7 +59,8 @@ import {
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { RULE, type Check, type Chosen, type SetupContext } from "./setup.mts";
 import { differences, PACKAGE, plan as syncPlan } from "./sync.mts";
-import { DEFAULT_COLUMNS } from "./lib/work-status.mts";
+import { DEFAULT_COLUMNS, STATE_KEYS, sameName } from "./lib/work-status.mts";
+import { askReady, suggestColumns } from "./columns-suggest.mts";
 import type { NewField } from "./tickets/types.mts";
 
 /** The questions init asks. Each is answered at the terminal, and in tests
@@ -126,8 +127,8 @@ function boardShape(s: Settings | null): {
   columns: string[];
   fields: NewField[];
 } {
-  const columns = Object.values(s ? columnsOf(s) : DEFAULT_COLUMNS).filter(
-    (c): c is string => c !== null,
+  const columns = Object.values(s ? columnsOf(s) : DEFAULT_COLUMNS).flatMap(
+    (c) => c ?? [],
   );
   const names = s
     ? fieldNamesOf(s)
@@ -208,6 +209,15 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       return 1;
     }
   }
+  /** The settings as the file will stand, for the board's columns and
+   * fields; files the sync has yet to write don't matter to those. */
+  const standing = (): Settings | null => {
+    try {
+      return parseSettings(doc.toJS(), () => true, builtOf(d.tools));
+    } catch {
+      return settings;
+    }
+  };
   const hasPackage = existsSync(at("package.json"));
 
   // A kind with one tool is that tool; with several, the settings' choice,
@@ -403,6 +413,54 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
   }
 
+  // The board's columns: the coding agent suggests them when an existing
+  // board lacks one of the factory's and the settings name none, and a
+  // ready column is asked for when builds from the board turn on without
+  // one.
+  let columnLines: [string, string][] = [];
+  let readyColumn: string | null | undefined;
+  if (parts.has("board") && typeof board === "number" && boardOps) {
+    const asksReady =
+      parts.has("from-board") &&
+      !before.has("from-board") &&
+      settings?.tickets.columns.ready === null;
+    const suggests = !doc.hasIn(["tickets", "columns"]);
+    let names: string[] = [];
+    if (suggests || asksReady)
+      try {
+        names = await boardOps.columns(board);
+      } catch (e) {
+        d.out(`Could not read board ${board}'s columns: ${message(e)}`);
+        d.out("Nothing changed.");
+        return 1;
+      }
+    const lacks = Object.values(STATE_KEYS).some(
+      (f) => !names.some((n) => sameName(n, f)),
+    );
+    if (suggests && names.length && lacks) {
+      const got = await suggestColumns(
+        {
+          ask: d.ask,
+          out: d.out,
+          agent: agent.agent,
+          label: agent.label,
+          hasCommand: d.hasCommand,
+        },
+        {
+          board,
+          columns: names,
+          fromBoard: parts.has("from-board") && trigger !== "manual",
+        },
+      );
+      if (got === 1) return 1;
+      if (got !== "default") columnLines = got;
+    } else if (asksReady && settings)
+      readyColumn = await askReady(
+        { ask: d.ask, out: d.out },
+        { columns: names, current: columnsOf(settings) },
+      );
+  }
+
   // The settings as they will stand, keeping every other key and comment.
   if (!doc.has("version")) doc.set("version", 2);
   if (!doc.has("repository")) doc.set("repository", repository);
@@ -413,6 +471,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     doc.setIn(["builds", "runner"], chosen.runner);
   if (parts.has("board") && typeof board === "number")
     doc.setIn(["tickets", "board"], board);
+  for (const [key, name] of columnLines)
+    doc.setIn(["tickets", "columns", key], name);
+  if (readyColumn === null) remove(doc, ["tickets", "columns", "ready"]);
+  else if (readyColumn !== undefined)
+    doc.setIn(["tickets", "columns", "ready"], readyColumn);
   if (!parts.has("board"))
     for (const key of ["board", "columns", "fields"])
       remove(doc, ["tickets", key]);
@@ -550,7 +613,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     if (typeof board === "number") {
       doc.setIn(["tickets", "board"], board);
       try {
-        const shape = boardShape(settings);
+        const shape = boardShape(standing());
         const columns = await boardOps.addColumns(board, shape.columns);
         const fields = await boardOps.addFields(board, shape.fields);
         const added = [...columns, ...fields];

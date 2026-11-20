@@ -361,6 +361,20 @@ export function githubTickets(o: GithubOptions): Tickets {
   const issue = (n: number) =>
     found(`#${n}`, t.rest<RestIssue>("GET", `${API}/issues/${n}`));
 
+  /** Board `number`'s Status field, or null when it has none. */
+  const statusField = async (number: number) => {
+    const answer = await t.graphql<{
+      data: {
+        owner: {
+          projectV2: {
+            field: { id: string; options: StatusOption[] } | null;
+          } | null;
+        } | null;
+      };
+    }>(STATUS_FIELD, { owner: o.boardOwner ?? repoOwner, number });
+    return answer.data.owner?.projectV2?.field ?? null;
+  };
+
   const readBoard = async (): Promise<Board> => {
     if (o.board === null)
       return { projectId: "", fields: [], items: new Map() };
@@ -558,17 +572,12 @@ export function githubTickets(o: GithubOptions): Tickets {
         });
         return made.data.createProjectV2.projectV2.number;
       },
+      async columns(number) {
+        const field = await statusField(number);
+        return (field?.options ?? []).map((x) => x.name);
+      },
       async addColumns(number, columns) {
-        const answer = await t.graphql<{
-          data: {
-            owner: {
-              projectV2: {
-                field: { id: string; options: StatusOption[] } | null;
-              } | null;
-            } | null;
-          };
-        }>(STATUS_FIELD, { owner: o.boardOwner ?? repoOwner, number });
-        const field = answer.data.owner?.projectV2?.field;
+        const field = await statusField(number);
         if (!field) throw new Error(`Board ${number} has no Status field.`);
         const has = (name: string) =>
           field.options.find((x) => sameName(x.name, name));

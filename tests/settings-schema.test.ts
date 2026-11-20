@@ -120,6 +120,17 @@ describe("the schema and parseSettings agree on whole files", () => {
     expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);
   });
 
+  it("both accept a list of columns for a state other than ready", () => {
+    const raw = {
+      ...base,
+      tickets: {
+        board: 3,
+        columns: { backlog: "Todo", review: ["Code review", "QA"] },
+      },
+    };
+    expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);
+  });
+
   it("both accept plugins and a phase with nothing in them", () => {
     for (const plugins of [{}, { build: {} }, { test: { reviewers: [] } }])
       expect([
@@ -183,6 +194,14 @@ describe("the schema and parseSettings agree on whole files", () => {
     "site.widths that is not a list of whole numbers": {
       ...base,
       site: { ...site, widths: [390, "wide"] },
+    },
+    "a list of columns for ready": {
+      ...base,
+      tickets: { board: 3, columns: { ready: ["Ready", "Go"] } },
+    },
+    "an empty list of columns": {
+      ...base,
+      tickets: { board: 3, columns: { review: [] } },
     },
     "site.pages that is not a list of text": {
       ...base,

@@ -202,7 +202,10 @@ The board has one column for each of the six
 [states](workflow.md#the-six-states) a ticket goes through. If your
 board's columns have the factory's names, write nothing here. If they have
 other names, or your board has fewer columns, say which column shows each
-state. A new GitHub Project starts with only Todo, In Progress, and Done,
+state. `factory init` suggests this block when you choose a board without the
+factory's columns: see
+[You already have a board](existing-repo.md#you-already-have-a-board).
+A new GitHub Project starts with only Todo, In Progress, and Done,
 so its settings would be:
 
 ```yaml
@@ -235,6 +238,24 @@ The factory's own names, used for any state you leave out, are:
   that state stays in the column of the state before it. With
   `review: none`, a ticket whose pull request is in review stays in In
   progress. Every state can be `none` except `backlog`.
+- **A state can take a list of columns,** when more than one of yours
+  means it. `factory init` suggests one column for each state, so you
+  write a list yourself. A ticket in any of the columns is in that
+  state. When the factory moves a ticket into the state, it uses the
+  first, and a ticket already in any of them stays where it is:
+
+  ```yaml
+  tickets:
+    board: 7
+    columns:
+      backlog: Todo
+      # When a pull request opens, its ticket moves to Code review.
+      # One you moved to QA stays there.
+      review: [Code review, QA]
+  ```
+
+  `ready` takes one column, since only a ticket you approved goes there.
+
 - **A ticket never falls back into Ready,** since only a ticket you
   approved goes there, so the fallback skips it. With `building: none`
   alone, a ticket being built has no column of its own, the state before
@@ -248,10 +269,17 @@ The factory's own names, used for any state you leave out, are:
   needs the new name too: see `FACTORY_READY_COLUMN` in
   [Builds](builds.md#what-it-reads-from-its-environment).
 
-`factory config check` stops on a state it doesn't know, on
-`backlog: none`, on two states sharing one column, on `columns` without a
-`board`, and on `ready: none` when `builds.trigger` isn't `manual`. It
-doesn't read your board: `factory board check` does.
+`factory config check` stops, naming the key, when `columns` has:
+
+- a state it doesn't know;
+- `backlog: none`;
+- one column for two states;
+- an empty list, or a list for `ready`;
+- no `board` beside it;
+- `ready: none` while [`builds.trigger`](#builds) isn't `manual`,
+  since then a build starts only from the ready column.
+
+It doesn't read your board: `factory board check` does.
 
 #### `tickets.fields`
 
