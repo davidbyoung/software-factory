@@ -11,7 +11,7 @@ import {
   resolveFiles,
   staleOf,
 } from "../src/config.mts";
-import { main, PACKAGE } from "../src/sync.mts";
+import { main, PACKAGE, withNpmEnv } from "../src/sync.mts";
 import { own, put, read, repo } from "./preset-fixture.ts";
 
 let root = "";
@@ -244,5 +244,56 @@ describe("the lock and .npmrc", () => {
     await sync();
     put(root, LOCK, read(root, LOCK)!.replace("npmrc-variables: []\n", ""));
     expect(await staleOf(defaultDeps(root, {}))).toBeNull();
+  });
+});
+
+describe("the install steps sync recognizes", () => {
+  const workflow = (job: string[]) =>
+    [
+      "name: Example",
+      "on: push",
+      "permissions:",
+      "  contents: read",
+      "jobs:",
+      "  example:",
+      "    runs-on: ubuntu-latest",
+      ...job,
+      "",
+    ].join("\n");
+  const envOf = (text: string) =>
+    (load(text) as { jobs: { example: Job } }).jobs.example.env;
+
+  it.each([
+    ["a step with no name", ["    steps:", "      - run: npm ci"]],
+    [
+      "npm ci inside a run block",
+      [
+        "    steps:",
+        "      - name: Install",
+        "        run: |",
+        "          npm ci --ignore-scripts",
+        "          echo done",
+      ],
+    ],
+  ])("sets the variable for %s", (_, job) => {
+    expect(envOf(withNpmEnv(workflow(job), ["NPM_TOKEN"], "x.yml"))).toEqual({
+      NPM_TOKEN: "${{ secrets.NPM_TOKEN }}",
+    });
+  });
+
+  it("lets a job with permissions of its own read packages for GITHUB_TOKEN", () => {
+    const text = withNpmEnv(
+      workflow([
+        "    permissions:",
+        "      contents: read",
+        "    steps:",
+        "      - run: npm ci",
+      ]),
+      ["GITHUB_TOKEN"],
+      "x.yml",
+    );
+    const job = (load(text) as { jobs: { example: { permissions: object } } })
+      .jobs.example;
+    expect(job.permissions).toEqual({ contents: "read", packages: "read" });
   });
 });

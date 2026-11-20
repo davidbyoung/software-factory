@@ -162,12 +162,18 @@ export function withNpmEnv(text: string, names: string[], file: string) {
     const job = lines.slice(start, end);
     const installs = job.some(
       (l) =>
-        /^\s+run: npm ci\b/.test(l) ||
+        (/\bnpm ci\b/.test(l) && !/^\s*#/.test(l)) ||
         /^\s+uses: \.\/\.github\/actions\/factory-agent\s*$/.test(l),
     );
     if (!installs) return;
     const env = job.findIndex((l) => /^ {4}env:\s*$/.test(l));
     const runsOn = job.findIndex((l) => /^ {4}runs-on:/.test(l));
+    const permissions = job.findIndex((l) => /^ {4}permissions:\s*$/.test(l));
+    if (names.includes("GITHUB_TOKEN") && permissions >= 0)
+      inserts.push({
+        at: start + permissions + 1,
+        lines: ["      packages: read"],
+      });
     if (env >= 0) inserts.push({ at: start + env + 1, lines: entries });
     else if (runsOn >= 0)
       inserts.push({ at: start + runsOn + 1, lines: ["    env:", ...entries] });
