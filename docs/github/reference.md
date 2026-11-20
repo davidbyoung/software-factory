@@ -40,6 +40,7 @@ The "Removing it" column says what `factory remove` does with each.
 | ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Secrets and variables named `FACTORY_...`                                             | You create them                                                 | Delete them                                                                               |
 | `CLAUDE_CODE_OAUTH_TOKEN`                                                             | You create it, for the automated review and builds in the cloud | Delete it, unless another workflow uses it                                                |
+| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot  | `init`, when you paste them                                     | Leave them if your own CI uses them; otherwise delete both copies                         |
 | Labels: `merge: automatic`, `merge: manual`, `verdict: override`, `follow-up`, `spec` | First use                                                       | Delete them. Deleting a label removes it from every ticket                                |
 | A CI check that the factory's files are in step                                       | Setup                                                           | Goes with `factory-check.yml`                                                             |
 | A "Review verdict" required check, as the ruleset "Software factory"                  | `init`, when the review is on; or you, in your branch rules     | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
@@ -253,6 +254,10 @@ factory.
   session step's timeout.
 - GitHub's shortest schedule is every five minutes, and scheduled runs can
   start late.
+- **A pull request from a fork can't install a private package.** GitHub
+  gives a fork's pull request no secrets, so the factory check fails at
+  `npm ci` on one, in a repository with
+  [private npm packages](setup.md#private-npm-packages).
 - Public repositories are not billed for Actions minutes.
 - GitHub switches off scheduled workflows in a public repository with no
   activity for 60 days.

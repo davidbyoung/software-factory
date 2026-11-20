@@ -391,16 +391,12 @@ it gets a pull request at its dependency bot's next run, as
 
 A preset is an npm package, so a private one installs on your machine the
 way any other private package does, from whichever registry your company
-uses, through your repository's `.npmrc`. Give the preset a Dependabot
-group of its own, the way
+uses, through your repository's `.npmrc`.
+[Private npm packages](github/setup.md#private-npm-packages) sets up the
+factory's workflows and Dependabot to install it too. Give the preset a
+Dependabot group of its own as well, the way
 [Dependency bots](github/reference.md#dependency-bots) does for the
-factory, and add its registry under `registries` in
-`.github/dependabot.yml`, so Dependabot sees its new versions.
-`factory preset add` names either one that's missing.
-
-_[Planned](developing.md#what-is-built)_: the factory's workflows can't
-install a private package yet, so a private preset works on your machine
-and not yet in the factory's workflows.
+factory. `factory preset add` names what's missing.
 
 **It worked when** `factory doctor` shows:
 

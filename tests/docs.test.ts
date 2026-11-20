@@ -538,6 +538,16 @@ describe("the docs", () => {
     );
   });
 
+  it("say how the workflows install a private npm package, and no longer mark it Planned", () => {
+    expect(anchorsOf(read("docs/github/setup.md"))).toContain(
+      "private-npm-packages",
+    );
+    for (const page of ["docs/presets.md", "docs/limitations.md"])
+      expect(read(page), page).not.toMatch(
+        /Planned[^\n]*\n?[^\n]*(install a private package|private preset)/,
+      );
+  });
+
   it("mark every use of a planned command", () => {
     const found = pages().flatMap((page) =>
       unmarked(read(page), planned, page === CLI).map(

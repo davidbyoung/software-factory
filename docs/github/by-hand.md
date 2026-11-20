@@ -312,6 +312,10 @@ gh secret set FACTORY_BUILD_TOKEN       # builds in the cloud, with no board
 gh secret set FACTORY_AUTOMERGE_TOKEN   # pull requests that merge themselves
 ```
 
+For a private npm registry, each variable your `.npmrc` reads is stored
+twice, with `gh secret set NAME` and `gh secret set NAME --app dependabot`:
+[Private npm packages](setup.md#private-npm-packages).
+
 Two optional settings:
 
 - **Paying by the token instead of a subscription:** store an API key from
