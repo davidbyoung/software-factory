@@ -393,7 +393,9 @@ instructions for the agent and in the agent itself. The factory holds none of th
    `files` or `labels` where the role takes them.
 4. Run `factory config check`. It fails, naming the role, if the file is
    missing, or the role takes a skill and you named an agent.
-5. Run `factory plugins` to see the list the factory will use, the
+5. Run `factory sync`, since every command reads your settings from what
+   it last wrote.
+6. Run `factory plugins` to see the list the factory will use, the
    built-in ones included:
 
    ```text
@@ -405,7 +407,14 @@ instructions for the agent and in the agent itself. The factory holds none of th
 
 **It worked when** your plugin is in that list, in its role.
 
-No sync is needed. Plugins are read from your settings each time.
+## Plugins from a preset
+
+A [preset](presets.md) your repository follows can add plugins too, and
+ship their agents and skills, which `factory sync` copies into
+`.claude/agents/` and `.claude/skills/`. They are in the list
+`factory plugins` prints, beside your own. To leave one out, name it in
+your own settings with `off: true`, as
+[`plugins`](configuration.md#plugins) shows.
 
 ## What is not a plugin
 

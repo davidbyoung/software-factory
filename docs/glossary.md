@@ -90,6 +90,11 @@ does, in the repository. Optional.
 build for each ticket moved to Ready, on a server you host or on a
 schedule in the cloud.
 
+**Preset.** An npm package of settings, and of any agents and skills they
+name, that several repositories share. A repository lists it under
+[`presets`](configuration.md#presets), and `factory sync` combines it with
+the repository's own settings. [Presets](presets.md) says how.
+
 **Refine.** To turn a ticket into acceptance criteria, settling the
 decisions with you along the way.
 

@@ -48,6 +48,9 @@ as a code host's billing or what its workflows can see, are in
   then guards the old branch and not the new one. After the rename, run
   that command in each checkout, then `factory sync`, which writes the
   name into two workflows.
+- **A private [preset](presets.md) works on your machine, not yet in the
+  factory's workflows.** _[Planned](developing.md#what-is-built)_: the
+  workflows can't install a private package yet.
 - **One lock file is rebuilt for you after a conflict,** the one
   [`commands.relock`](configuration.md#commandsrelock) rebuilds, npm's by
   default. A second, such as another package manager's beside the
