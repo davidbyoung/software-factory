@@ -162,7 +162,8 @@ npx --no-install factory ticket view N --field body > .dx-first/N/body.md
 npx --no-install factory ticket edit N --body-file .dx-first/N/body.md
 ```
 
-Add a `## Proposed docs` section to the body. It holds, in order:
+Add a `## Proposed docs` section to the body, after the owner's text and
+before `## Decisions`. It holds, in order:
 
 1. the syntax and workflows from `draft.md`, as Markdown with Mermaid
    blocks, which GitHub draws;
@@ -213,11 +214,19 @@ reads the owner's replies since the newest draft comment. Only the owner's
 comments are answers.
 
 - **A reply that says to save,** or the owner approving the ticket, saves
-  the draft (step 8) with the replies folded in. A build that folds an
-  approved round says so in the words it invokes refinement with,
-  "approved while waiting". That save posts no marker, and refinement
-  carries on.
+  the draft (step 8) with the replies folded in. The owner approves it by
+  asking a session to build the ticket, which reaches this skill through
+  refinement, or, when the body already has criteria, through the words a
+  build invokes refinement with, "approved while waiting". That save
+  posts no marker, and refinement carries on.
 - **Any other reply** gets the next round as a new comment, never an edit
   of the last one, since the owner may already have read it.
+- **No reply and no approval:** say the draft still waits on the owner,
+  and stop.
 - **After two comment rounds,** ask in the conversation instead of a
-  third.
+  third. With nobody in the session, post nothing more, and say the draft
+  waits for a session the owner is in. These rounds count apart from
+  refinement's own two.
+
+Step 5 asks here rather than acts: put each ticket it would open in the
+comment as a numbered question, and open it once a reply agrees.
