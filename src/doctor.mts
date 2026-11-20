@@ -4,7 +4,11 @@
 //
 // A stored secret cannot be read back, so a secret is checked only for
 // being set.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { load } from "js-yaml";
+import type { CodeHost } from "./code-host/index.mts";
+import { bareRegistry, npmrcAt, privateRegistries } from "./npmrc.mts";
+import type { Runner } from "./runner/index.mts";
 import { join } from "node:path";
 import {
   defaultDeps,
@@ -143,17 +147,25 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       []),
   );
 
-  let secrets: string[] | null;
+  // A secret the organization shares with the repository counts as set.
+  const isOrganization = await opened.codeHost
+    .ownerIsOrganization()
+    .catch(() => false);
+  const shared = isOrganization
+    ? await opened.runner.organizationSecretNames().catch(() => [])
+    : [];
+  let own: string[] | null;
   try {
-    secrets = await opened.runner.secretNames();
+    own = await opened.runner.secretNames();
   } catch (e) {
-    secrets = null;
+    own = null;
     out.push({
       state: "fail",
       text: "The secrets can be listed",
       fix: message(e),
     });
   }
+  const secrets = own === null ? null : [...own, ...shared];
   const cloudNeeds = secretSteps(d.tools, context(["cloud"])).flatMap((x) =>
     x.step.needs.filter((n) => n.part === "cloud"),
   );
@@ -161,8 +173,9 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   const needed = neededSecrets(on, secretSteps(d.tools, context(on)));
   const secretLine = (anyOf: string[], forWhat: string): Check => {
     const found = anyOf.find((n) => secrets!.includes(n));
+    const by = found && !own!.includes(found) ? " by the organization" : "";
     return found
-      ? { state: "pass", text: `${found} is set, for ${forWhat}` }
+      ? { state: "pass", text: `${found} is set${by}, for ${forWhat}` }
       : {
           state: "fail",
           text: `${anyOf.join(" or ")} is not set, for ${forWhat}`,
@@ -190,6 +203,8 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     for (const need of needed.filter((n) => n.part === null))
       out.push(secretLine(need.anyOf, need.tool));
 
+  out.push(...(await npmChecks(d.root, opened, isOrganization, own, shared)));
+
   for (const tool of [tickets, runner, agent])
     out.push(
       ...((await tool!.setup.checks?.({ ...context(on), secrets })) ?? []),
@@ -197,10 +212,149 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   return out;
 }
 
+const DEPENDABOT = ".github/dependabot.yml";
+const FOR_NPM = "for installing what .npmrc names";
+const FOR_DEPENDABOT = "for installing on Dependabot's pull requests";
+
+/** The checks for the variables `.npmrc`'s sign-in lines read: each one's
+ * secret for Actions and for Dependabot, and whether Dependabot's settings
+ * use each registry `.npmrc` names. */
+async function npmChecks(
+  root: string,
+  opened: { codeHost: CodeHost; runner: Runner },
+  isOrganization: boolean,
+  own: string[] | null,
+  shared: string[],
+): Promise<Check[]> {
+  const npmrc = npmrcAt(root);
+  if (!npmrc.names.length) return [];
+  const out: Check[] = [];
+  let dependabot: string[] | null;
+  try {
+    dependabot = await opened.runner.dependabotSecretNames();
+  } catch (e) {
+    dependabot = null;
+    out.push({
+      state: "fail",
+      text: "The Dependabot secrets can be listed",
+      fix: message(e),
+    });
+  }
+  const tokens = npmrc.names.filter((n) => n !== "GITHUB_TOKEN");
+  const organizations =
+    isOrganization &&
+    dependabot !== null &&
+    tokens.some((n) => !dependabot!.includes(n))
+      ? await opened.runner.organizationDependabotSecretNames(
+          await opened.codeHost.isPrivate(),
+        )
+      : [];
+  for (const name of npmrc.names) {
+    if (name === "GITHUB_TOKEN") {
+      out.push({
+        state: "off",
+        text: "GITHUB_TOKEN is the workflow's own token: it installs only the packages that give this repository access",
+      });
+      continue;
+    }
+    if (own !== null)
+      out.push(
+        own.includes(name)
+          ? { state: "pass", text: `${name} is set, ${FOR_NPM}` }
+          : shared.includes(name)
+            ? {
+                state: "pass",
+                text: `${name} is set by the organization, ${FOR_NPM}`,
+              }
+            : {
+                state: "fail",
+                text: `${name} is not set, ${FOR_NPM}`,
+                fix: INIT,
+              },
+      );
+    if (dependabot === null) continue;
+    out.push(
+      dependabot.includes(name)
+        ? {
+            state: "pass",
+            text: `${name} is set for Dependabot, ${FOR_DEPENDABOT}`,
+          }
+        : organizations === null
+          ? {
+              state: "unknown",
+              text: `${name} is not set for Dependabot on the repository, and only an organization admin can see whether the organization sets it`,
+            }
+          : organizations.includes(name)
+            ? {
+                state: "pass",
+                text: `${name} is set by the organization for Dependabot, ${FOR_DEPENDABOT}`,
+              }
+            : {
+                state: "fail",
+                text: `${name} is not set for Dependabot, ${FOR_DEPENDABOT}`,
+                fix: INIT,
+              },
+    );
+  }
+  const path = join(root, DEPENDABOT);
+  if (existsSync(path)) {
+    const settings = readFileSync(path, "utf8");
+    for (const url of privateRegistries(npmrc))
+      out.push(
+        usesRegistry(settings, url)
+          ? {
+              state: "pass",
+              text: `${DEPENDABOT} uses ${url} for its npm updates`,
+            }
+          : {
+              state: "unknown",
+              text: `${DEPENDABOT} doesn't use ${url} for its npm updates: unless your organization sets that registry for Dependabot, it never sees a new version of a package from there. Add it under registries, and name it in the npm entry's registries`,
+            },
+      );
+  }
+  return out;
+}
+
+/** Whether Dependabot's settings name the registry at `url` under their
+ * `registries`, and every npm update lists it, or all of them. */
+export function usesRegistry(settings: string, url: string): boolean {
+  let o: unknown;
+  try {
+    o = load(settings);
+  } catch {
+    return false;
+  }
+  const isObj = (x: unknown): x is Record<string, unknown> =>
+    typeof x === "object" && x !== null && !Array.isArray(x);
+  if (!isObj(o) || !isObj(o.registries)) return false;
+  const names = Object.entries(o.registries)
+    .filter(
+      ([, r]) =>
+        isObj(r) &&
+        typeof r.url === "string" &&
+        bareRegistry(r.url) === bareRegistry(url),
+    )
+    .map(([name]) => name);
+  const npm = (Array.isArray(o.updates) ? o.updates : []).filter(
+    (u) => isObj(u) && u["package-ecosystem"] === "npm",
+  ) as Record<string, unknown>[];
+  return (
+    names.length > 0 &&
+    npm.length > 0 &&
+    npm.every(
+      (u) =>
+        u.registries === "*" ||
+        (Array.isArray(u.registries) &&
+          u.registries.some((r) => names.includes(String(r)))),
+    )
+  );
+}
+
 /** One check as a line: a tick, a cross with what to do, or a dash for a
  * part that is off. */
 export function line(c: Check): string {
   if (c.state === "off") return `- ${c.text}`;
+  if (c.state === "unknown") return `? ${c.text}`;
   if (c.state === "pass") return `✓ ${c.text}`;
   const fix = c.fix ?? "";
   // An instruction follows as its own sentence; a reason, after a colon.
