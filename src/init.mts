@@ -45,7 +45,15 @@ import {
   NoDefaultBranch,
 } from "./lib/default-branch.mts";
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
-import { DEFAULT_RUNNER } from "./runner/index.mts";
+import { DEFAULT_RUNNER, type Runner } from "./runner/index.mts";
+import type { CodeHost } from "./code-host/index.mts";
+import {
+  addressOf,
+  firstRefusal,
+  NPMRC,
+  npmrcAt,
+  type Npmrc,
+} from "./npmrc.mts";
 import { listed } from "./lib/listed.mts";
 import {
   neededSecrets,
@@ -244,6 +252,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       : "chosen below";
   };
 
+  const npmrc = npmrcAt(d.root);
   d.out(`Setting up the software factory for ${repository}`);
   d.out("");
   d.out("Found");
@@ -263,6 +272,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     "package.json",
     hasPackage ? "yes" : "none, so a private one will be created",
   );
+  if (npmrc.names.length) row(NPMRC, `reads ${npmrc.names.join(", ")}`);
   row("Settings", settingsText === null ? "none yet" : SETTINGS_FILE);
   row(
     "Board",
@@ -271,6 +281,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       : "none yet",
   );
   d.out("");
+  const refused = firstRefusal(npmrc);
+  if (refused) {
+    d.out(refused);
+    return 1;
+  }
 
   const pick = async (kind: "tickets" | "runner", question: string) => {
     const tools = d.tools[kind];
@@ -306,13 +321,23 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     hasCommand: d.hasCommand,
     opened: { codeHost, runner, tickets },
   });
-  let secrets: string[];
+  let own: string[];
+  let npm: NpmSecrets;
+  // A secret the organization shares with the repository counts as set.
+  const isOrganization = await codeHost
+    .ownerIsOrganization()
+    .catch(() => false);
+  let shared: string[] = [];
   try {
-    secrets = await runner.secretNames();
+    own = await runner.secretNames();
+    if (isOrganization)
+      shared = await runner.organizationSecretNames().catch(() => []);
+    npm = await npmSecrets(npmrc, runner, codeHost, isOrganization);
   } catch (e) {
     d.out(`Could not reach the code host: ${message(e)}`);
     return 1;
   }
+  const secrets = [...own, ...shared];
   const isSet = (n: string) => secrets.includes(n);
 
   const cloudNeeds = secretSteps(d.tools, context(["cloud"])).flatMap((s) =>
@@ -515,7 +540,15 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   // you choose to replace them.
   const steps = secretSteps(d.tools, context(parts));
   const needed = neededSecrets(parts, steps);
-  const alreadySet = [...new Set(needed.flatMap((n) => n.anyOf.filter(isSet)))];
+  const npmBothSet = npm.tokens.filter(
+    (n) => isSet(n) && npm.dependabot(n) === "set",
+  );
+  const alreadySet = [
+    ...new Set([
+      ...needed.flatMap((n) => n.anyOf.filter(isSet)),
+      ...npmBothSet,
+    ]),
+  ];
   let replace = false;
   if (alreadySet.length)
     replace = await d.ask.confirm(
@@ -536,13 +569,24 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }))
     .filter((a) => a.names.length > 0);
   const wantsKey = parts.has("signing") && (replace || !isSet(SIGNING_KEY));
+  const npmAsked = npm.tokens
+    .map((name) => {
+      const again = replace && npmBothSet.includes(name);
+      return {
+        name,
+        actions: again || !isSet(name),
+        dependabot: again || npm.dependabot(name) !== "set",
+        unseen: !again && npm.dependabot(name) === "unknown",
+      };
+    })
+    .filter((a) => a.actions || a.dependabot);
 
   const stillRead = new Set(needed.flatMap((n) => n.anyOf));
   const deletable = [
     ...new Set(
       neededSecrets(new Set(removed), secretSteps(d.tools, context(removed)))
         .flatMap((n) => n.anyOf)
-        .filter((n) => isSet(n) && !stillRead.has(n)),
+        .filter((n) => own.includes(n) && !stillRead.has(n)),
     ),
   ];
 
@@ -586,6 +630,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       `give board ${board} any of the factory's columns and fields it lacks`,
     );
   if (toStore.length) planRow("Secrets", toStore.join(", "));
+  for (const a of npmAsked) planRow("Secrets", `${a.name} ${forWhich(a)}`);
   if (parts.has("auto-merge"))
     planRow("Settings", "allow auto-merge on the repository");
   if (parts.has("review"))
@@ -677,6 +722,38 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       d.out(step.stored(names, checked.account));
       break;
     }
+  }
+
+  // The tokens .npmrc reads, each stored where it is missing.
+  for (const a of npmAsked) {
+    d.out("");
+    let prompt = "Paste the same token again (leave empty to do this later):";
+    if (a.actions && a.dependabot) {
+      d.out(`${NPMRC} reads ${a.name} for ${addressOf(npmrc, a.name)}.`);
+      d.out(
+        "The factory's workflows install with it. Use a token that can only read.",
+      );
+      prompt = "Paste it (leave empty to do this later):";
+    } else if (!a.unseen)
+      d.out(
+        a.actions
+          ? `${a.name} is set for Dependabot but not for Actions, and GitHub never shows a secret's value.`
+          : `${a.name} is set for Actions but not for Dependabot, and GitHub never shows a secret's value.`,
+      );
+    if (a.unseen)
+      d.out(
+        `${a.name} isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.`,
+      );
+    const value = await d.ask.secret(prompt);
+    if (!value) {
+      d.out(
+        `No ${a.name} stored. The factory's workflows fail at npm ci until it is. ${AGAIN}`,
+      );
+      continue;
+    }
+    if (a.actions) await runner.setSecret(a.name, value);
+    if (a.dependabot) await runner.setDependabotSecret(a.name, value);
+    d.out(`Stored ${a.name} ${forWhich(a)}.`);
   }
 
   // The signing key.
@@ -879,3 +956,51 @@ export async function run(argv: string[]): Promise<number> {
     throw e;
   }
 }
+
+/** Where a token .npmrc reads is set for Dependabot: on the repository or
+ * by the organization, not set, or unknown, when the organization's
+ * Dependabot secrets can't be listed. */
+type DependabotState = "set" | "missing" | "unknown";
+type NpmSecrets = {
+  /** The variables `.npmrc` reads that come from secrets. */
+  tokens: string[];
+  dependabot: (name: string) => DependabotState;
+};
+
+/** The tokens `.npmrc` reads, and whether each is set for Dependabot. */
+async function npmSecrets(
+  npmrc: Npmrc,
+  runner: Runner,
+  codeHost: CodeHost,
+  isOrganization: boolean,
+): Promise<NpmSecrets> {
+  const tokens = npmrc.names.filter((n) => n !== "GITHUB_TOKEN");
+  if (!tokens.length) return { tokens, dependabot: () => "set" };
+  const own = await runner.dependabotSecretNames();
+  const organization =
+    isOrganization && tokens.some((n) => !own.includes(n))
+      ? await runner.organizationDependabotSecretNames(
+          await codeHost.isPrivate(),
+        )
+      : [];
+  return {
+    tokens,
+    dependabot: (name) =>
+      own.includes(name)
+        ? "set"
+        : organization === null
+          ? isOrganization
+            ? "unknown"
+            : "missing"
+          : organization.includes(name)
+            ? "set"
+            : "missing",
+  };
+}
+
+const forWhich = (a: { actions: boolean; dependabot: boolean }) =>
+  a.actions && a.dependabot
+    ? "for Actions and for Dependabot"
+    : a.actions
+      ? "for Actions"
+      : "for Dependabot";
