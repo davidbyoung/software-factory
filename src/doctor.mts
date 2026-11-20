@@ -150,7 +150,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   // A secret the organization shares with the repository counts as set.
   const isOrganization = await opened.codeHost
     .ownerIsOrganization()
-    .catch(() => false);
+    .catch(() => true);
   const shared = isOrganization
     ? await opened.runner.organizationSecretNames().catch(() => [])
     : [];

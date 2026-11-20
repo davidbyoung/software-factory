@@ -127,6 +127,7 @@ type Setup = {
   organizationSecrets?: string[];
   organizationDependabotSecrets?: string[] | null;
   runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
+  codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
 };
 
 const roots: string[] = [];
@@ -168,6 +169,7 @@ function init(setup: Setup) {
     isPrivate: setup.private,
     defaultBranch: setup.defaultBranch ?? undefined,
     ownerIsOrganization: setup.organization,
+    fail: setup.codeHostFails,
   });
   /** What the code host answered each time the sync's plan asked it. */
   const branchAsked: string[] = [];
@@ -1889,6 +1891,15 @@ describe("the tokens .npmrc reads", () => {
       "? secret: Paste it (leave empty to do this later):",
     ]);
     expect(r.runner.dependabotSecrets.get("NPM_TOKEN")).toBe(TOKEN);
+  });
+
+  it("reads an owner it can't tell as an organization, asking for a Dependabot copy it can't see", async () => {
+    const r = first(NPMRC, {
+      codeHostFails: { ownerIsOrganization: new Error("HTTP 502") },
+      organizationDependabotSecrets: null,
+    });
+    await r.run();
+    expect(r.out).toContain(UNSEEN);
   });
 
   it("says only that, before asking for the same token, when Actions has it", async () => {

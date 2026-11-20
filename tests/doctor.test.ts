@@ -70,6 +70,7 @@ function doctor(o: {
   organization?: boolean;
   /** What a runner operation fails with. */
   runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
+  codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
   columns?: string[];
   files?: Record<string, string>;
   claude?: boolean;
@@ -91,6 +92,7 @@ function doctor(o: {
       codeHost: memoryCodeHost([], {
         owner: "dave",
         ownerIsOrganization: o.organization,
+        fail: o.codeHostFails,
       }).codeHost,
       runner: memoryRunner({
         secrets: o.secrets ?? {},
@@ -510,6 +512,10 @@ describe("factory doctor", () => {
         DEPENDABOT(JFROG, "    open-pull-requests-limit: 5"),
       ],
       [
+        "a second npm update that doesn't name it",
+        `${DEPENDABOT(JFROG, "    registries: [acme]")}  - package-ecosystem: npm\n    directory: /web\n    schedule:\n      interval: weekly\n`,
+      ],
+      [
         "no npm update",
         DEPENDABOT(JFROG, "    registries: [acme]").replace(
           "package-ecosystem: npm",
@@ -594,6 +600,19 @@ describe("factory doctor", () => {
           SET,
           "? NPM_TOKEN is not set for Dependabot on the repository, and only an organization admin can see whether the organization sets it",
         ]);
+      });
+
+      it("reads an owner it can't tell as an organization, so a Dependabot secret it can't see is unknown", async () => {
+        const { run, out } = doctor({
+          files: { ".npmrc": NPMRC },
+          secrets: { NPM_TOKEN: "x" },
+          codeHostFails: { ownerIsOrganization: new Error("HTTP 502") },
+          organizationDependabotSecrets: null,
+        });
+        expect(await run()).toBe(0);
+        expect(npmLines(out).at(-1)).toMatch(
+          /^\? NPM_TOKEN is not set for Dependabot on the repository/,
+        );
       });
 
       it("fails a Dependabot secret the organization's list doesn't name", async () => {

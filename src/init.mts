@@ -324,9 +324,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   let own: string[];
   let npm: NpmSecrets;
   // A secret the organization shares with the repository counts as set.
-  const isOrganization = await codeHost
-    .ownerIsOrganization()
-    .catch(() => false);
+  const isOrganization = await codeHost.ownerIsOrganization().catch(() => true);
   let shared: string[] = [];
   try {
     own = await runner.secretNames();
