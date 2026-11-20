@@ -122,3 +122,12 @@ The factory SHALL behave as this line says: When `factory config explain` runs, 
 
 - **WHEN** `factory config explain` runs
 - **THEN** it reads the lock's `settings` and prints them, so its output and the lock's `settings` are the same lines.
+
+### Requirement: Explain prints a list of columns as a list
+
+The factory SHALL behave as this line says: When a state under `tickets.columns` is a list, `factory config explain` prints it as a YAML list. A single name prints as a string, as today.
+
+#### Scenario: Explain prints a list of columns as a list
+
+- **WHEN** a state under `tickets.columns` is a list
+- **THEN** `factory config explain` prints it as a YAML list. A single name prints as a string, as today.
