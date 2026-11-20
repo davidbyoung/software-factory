@@ -134,19 +134,16 @@ describe("the workflows sync writes for .npmrc's variables", () => {
     everyPart(`${NPMRC}//other.example/:_authToken=\${OTHER_TOKEN}\n`);
     await sync();
     const after = workflows();
+    const added =
+      /^ {4}env:$|^ {6}(NPM|OTHER)_TOKEN: \$\{\{ secrets\.\1_TOKEN \}\}$/;
     for (const [name, text] of Object.entries(after)) {
-      const added =
-        /^ {4}env:$|^ {6}(NPM|OTHER)_TOKEN: \$\{\{ secrets\.\1_TOKEN \}\}$/;
-      const kept = text
-        .split("\n")
-        .filter(
-          (l) =>
-            !added.test(l) ||
-            // a job's own env: line stays when it held entries before
-            (l === "    env:" && before[name]!.split("\n").includes(l)),
-        )
-        .join("\n");
-      expect(kept, name).toBe(before[name]);
+      // Today's lines, in order, with only added lines between them.
+      const old = before[name]!.split("\n");
+      let at = 0;
+      for (const line of text.split("\n"))
+        if (at < old.length && line === old[at]) at++;
+        else expect(line, name).toMatch(added);
+      expect(at, name).toBe(old.length);
     }
   });
 

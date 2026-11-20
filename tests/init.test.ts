@@ -1988,39 +1988,42 @@ describe("the tokens .npmrc reads", () => {
       ]);
     });
 
-    it("offers to delete only the repository's own secrets when a part goes", async () => {
-      const SETTINGS = [
-        "version: 2",
-        "repository: acme/site",
-        "tickets:",
-        "  board: 3",
-        "auto-merge:",
-        "  allow:",
-        "    - docs/**",
-        "",
-      ].join("\n");
-      const r = init({
-        settings: SETTINGS,
-        secrets: { FACTORY_BOARD_TOKEN: "x", FACTORY_AUTOMERGE_TOKEN: "x" },
-        organization: true,
-        organizationSecrets: ["FACTORY_AUTOMERGE_TOKEN"],
-        boards: [{ number: 3, title: "Roadmap", columns: [] }],
-        answers: { checkbox: [["board"]], confirm: [false, true] },
-      });
-      await r.run();
-      expect(r.out.join("\n")).toContain(
-        "You can now delete these secrets: FACTORY_AUTOMERGE_TOKEN",
-      );
-      const shared = init({
-        settings: SETTINGS,
-        secrets: { FACTORY_BOARD_TOKEN: "x" },
-        organization: true,
-        organizationSecrets: ["FACTORY_AUTOMERGE_TOKEN"],
-        boards: [{ number: 3, title: "Roadmap", columns: [] }],
-        answers: { checkbox: [["board"]], confirm: [false, true] },
-      });
-      await shared.run();
-      expect(shared.out.join("\n")).not.toContain("You can now delete");
-    });
+    it.each([
+      [
+        "its own",
+        { FACTORY_BOARD_TOKEN: "x", FACTORY_AUTOMERGE_TOKEN: "x" },
+        true,
+      ],
+      ["the organization's", { FACTORY_BOARD_TOKEN: "x" }, false],
+    ])(
+      "offers to delete a secret a part read when it goes only when it is the repository's own: %s",
+      async (_, secrets, offered) => {
+        const r = init({
+          settings: [
+            "version: 2",
+            "repository: acme/site",
+            "tickets:",
+            "  board: 3",
+            "auto-merge:",
+            "  allow:",
+            "    - docs/**",
+            "",
+          ].join("\n"),
+          secrets,
+          organization: true,
+          organizationSecrets: ["FACTORY_AUTOMERGE_TOKEN"],
+          boards: [{ number: 3, title: "Roadmap", columns: [] }],
+          answers: { checkbox: [["board"]], confirm: [false, true] },
+        });
+        await r.run();
+        expect(
+          r.out
+            .join("\n")
+            .includes(
+              "You can now delete these secrets: FACTORY_AUTOMERGE_TOKEN",
+            ),
+        ).toBe(offered);
+      },
+    );
   });
 });

@@ -542,10 +542,17 @@ describe("the docs", () => {
     expect(anchorsOf(read("docs/github/setup.md"))).toContain(
       "private-npm-packages",
     );
-    for (const page of ["docs/presets.md", "docs/limitations.md"])
-      expect(read(page), page).not.toMatch(
-        /Planned[^\n]*\n?[^\n]*(install a private package|private preset)/,
+    for (const page of ["docs/presets.md", "docs/limitations.md"]) {
+      const lines = read(page).split("\n");
+      const near = lines.filter(
+        (l, i) =>
+          /Planned/.test(l) &&
+          lines
+            .slice(Math.max(0, i - 3), i + 4)
+            .some((x) => /private/i.test(x)),
       );
+      expect(near, page).toEqual([]);
+    }
   });
 
   it("mark every use of a planned command", () => {

@@ -447,7 +447,11 @@ describe("factory doctor", () => {
         },
       });
       expect(await run()).toBe(0);
-      expect(npmLines(out)).toEqual([]);
+      const without = doctor({
+        files: { ".github/dependabot.yml": "version: 2\nupdates: []\n" },
+      });
+      await without.run();
+      expect(out).toEqual(without.out);
     });
 
     it("passes a token set for Actions and for Dependabot, and a registry Dependabot uses, after the secrets and before the tools' checks", async () => {
@@ -540,7 +544,7 @@ describe("factory doctor", () => {
       );
     });
 
-    it("checks no registry without a dependabot.yml, nor the public registry", async () => {
+    it("checks no registry Dependabot needn't know, the public one", async () => {
       const { out, run } = doctor({
         files: {
           ".npmrc": `registry=https://registry.npmjs.org/\n${NPMRC}`,
@@ -551,9 +555,12 @@ describe("factory doctor", () => {
       expect(out.filter((l) => l.includes("dependabot.yml"))).toEqual([
         `✓ .github/dependabot.yml uses ${JFROG} for its npm updates`,
       ]);
-      const none = doctor({ files: { ".npmrc": NPMRC } });
-      await none.run();
-      expect(none.out.join("\n")).not.toContain("dependabot.yml");
+    });
+
+    it("checks no registry without a dependabot.yml", async () => {
+      const { out, run } = doctor({ files: { ".npmrc": NPMRC } });
+      await run();
+      expect(out.join("\n")).not.toContain("dependabot.yml");
     });
 
     describe("on a repository an organization owns", () => {
@@ -590,13 +597,16 @@ describe("factory doctor", () => {
       });
 
       it("fails a Dependabot secret the organization's list doesn't name", async () => {
-        const { run } = doctor({
+        const { run, out } = doctor({
           files: { ".npmrc": NPMRC },
           secrets: { NPM_TOKEN: "x" },
           organization: true,
           organizationDependabotSecrets: [],
         });
         expect(await run()).toBe(1);
+        expect(npmLines(out).at(-1)).toBe(
+          "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run npx --no-install factory init",
+        );
       });
     });
 
