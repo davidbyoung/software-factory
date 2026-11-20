@@ -18,8 +18,8 @@
 
 ## 4. The column step in init
 
-- [ ] 4.1 `src/columns-suggest.mts`: unit-test `check` for every reason in line 7, and `table` for line 4's three row forms, in `tests/columns-suggest.test.ts` (new).
-- [ ] 4.2 Wire it into `init.mts`. In `tests/init.test.ts`, with the memory board holding Todo, In Progress, Code review, and Done:
+- [x] 4.1 `src/columns-suggest.mts`: unit-test `check` for every reason in line 7, and `table` for line 4's three row forms, in `tests/columns-suggest.test.ts` (new).
+- [x] 4.2 Wire it into `init.mts`. In `tests/init.test.ts`, with the memory board holding Todo, In Progress, Code review, and Done:
   - lines 1, 3, 4, 8, 9, and 13: Yes writes exactly the YAML in Proposed docs and adds only the fields;
   - line 10: Change some, then Add, writes the second YAML and adds In refinement;
   - line 11: a clash, then a valid pick;
@@ -31,7 +31,7 @@
   - line 25: a re-run that turns on builds from the board with `ready: none`, where Add removes the key and a board column writes it, and no agent is called;
   - line 7's two new reasons, and the order when several apply;
   - line 14: Fake Agent's label in the lines, and no "Claude Code".
-- [ ] 4.3 Write line 24's two sentences into the `tool-setup` change's MODIFIED requirement, and make sure the existing init tests still pass. The ones that pick an existing board without the six columns now meet the column step: give them a scripted answer.
+- [x] 4.3 Write line 24's two sentences into the `tool-setup` change's MODIFIED requirement, and make sure the existing init tests still pass. The ones that pick an existing board without the six columns now meet the column step: give them a scripted answer.
 
 ## 5. Docs
 
