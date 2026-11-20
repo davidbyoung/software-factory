@@ -139,7 +139,7 @@ jobs:
     name: Publish the poller's image
     needs: [version, publish]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
       packages: write
@@ -149,15 +149,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # The registry can take a moment to serve a version it has just
-      # accepted, and the image installs it from there.
+      # The registry lists a version it has just accepted minutes before it
+      # serves the tarball the image installs, so `npm view` is not enough.
       - name: Wait for the version on npm
         run: |
-          for _ in $(seq 1 30); do
-            npm view "@davidbyoung/software-factory@$VERSION" version >/dev/null 2>&1 && exit 0
+          for _ in $(seq 1 90); do
+            curl -fs -o /dev/null "https://registry.npmjs.org/@davidbyoung/software-factory/-/software-factory-$VERSION.tgz" && exit 0
             sleep 10
           done
-          echo "npm did not serve $VERSION within five minutes. No image was published."
+          echo "npm did not serve $VERSION within fifteen minutes. No image was published."
           exit 1
 
       - name: Log in to GitHub's container registry
