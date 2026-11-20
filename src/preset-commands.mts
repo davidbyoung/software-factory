@@ -48,6 +48,7 @@ import {
   type Lock,
 } from "./preset.mts";
 import type { Check } from "./setup.mts";
+import { npmrcRegistry } from "./npmrc.mts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
@@ -357,17 +358,6 @@ export async function hasOwnGroup(
           g.patterns[0] === pkg,
       ),
   );
-}
-
-/** The registry `.npmrc` sends a package's scope to, or null. */
-export function npmrcRegistry(text: string | null, pkg: string): string | null {
-  if (!text || !pkg.startsWith("@")) return null;
-  const scope = pkg.split("/")[0]!;
-  for (const line of text.split("\n")) {
-    const m = /^\s*(@[^:\s]+):registry\s*=\s*(\S+)\s*$/.exec(line);
-    if (m && m[1] === scope) return m[2]!;
-  }
-  return null;
 }
 
 const bare = (url: string) => url.replace(/\/+$/, "");
