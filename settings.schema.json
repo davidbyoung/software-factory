@@ -118,14 +118,26 @@
       "additionalProperties": false,
       "properties": {
         "backlog": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The board's column for the backlog state. Default: Backlog."
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ],
+          "description": "The board's column for the backlog state, or a list of its columns. Default: Backlog."
         },
         "refining": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The board's column for the refining state. Default: In refinement. May be none."
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ],
+          "description": "The board's column for the refining state, or a list of its columns. Default: In refinement. May be none."
         },
         "ready": {
           "type": "string",
@@ -133,19 +145,37 @@
           "description": "The board's column for the ready state. Default: Ready. May be none."
         },
         "building": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The board's column for the building state. Default: In progress. May be none."
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ],
+          "description": "The board's column for the building state, or a list of its columns. Default: In progress. May be none."
         },
         "review": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The board's column for the review state. Default: In review. May be none."
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ],
+          "description": "The board's column for the review state, or a list of its columns. Default: In review. May be none."
         },
         "done": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The board's column for the done state. Default: Done. May be none."
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ],
+          "description": "The board's column for the done state, or a list of its columns. Default: Done. May be none."
         }
       }
     },

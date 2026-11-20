@@ -318,7 +318,7 @@ async function moveToReady(issue: number, d: Ctx) {
   const found = await d.tickets.read(issue);
   if (found.state !== "open") throw new Error(`#${issue} is closed.`);
   if (d.board === null) throw new Error("The settings name no board.");
-  const ready = d.config.columns.Ready;
+  const ready = d.config.columns.Ready?.[0] ?? null;
   if (ready === null)
     throw new Error(
       `This board has no column for ready. Tell a session to build #${issue}, or run factory build ${issue}.`,

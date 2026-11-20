@@ -296,6 +296,25 @@ describe("factory doctor", () => {
     );
   });
 
+  it("passes a board only when it has every name a state's list gives", async () => {
+    const board = (columns: string[]) =>
+      doctor({
+        raw: {
+          tickets: { board: 3, columns: { review: ["In review", "QA"] } },
+        },
+        secrets: { FACTORY_BOARD_TOKEN: "x" },
+        columns,
+      });
+    const all = board([...SIX, "QA"]);
+    expect(await all.run()).toBe(0);
+    expect(all.out).toContain("✓ Board 3 has every column the settings name");
+    const lacking = board(SIX);
+    expect(await lacking.run()).toBe(1);
+    expect(lacking.out.find((l) => l.startsWith("✗ Board"))).toBe(
+      "✗ Board 3: the Status field lacks QA (tickets.columns.review). Run npx --no-install factory init",
+    );
+  });
+
   describe("a tool of another kind", () => {
     const FAKE = {
       tickets: { type: "fake", site: "https://tickets.example" },

@@ -126,8 +126,8 @@ function boardShape(s: Settings | null): {
   columns: string[];
   fields: NewField[];
 } {
-  const columns = Object.values(s ? columnsOf(s) : DEFAULT_COLUMNS).filter(
-    (c): c is string => c !== null,
+  const columns = Object.values(s ? columnsOf(s) : DEFAULT_COLUMNS).flatMap(
+    (c) => c ?? [],
   );
   const names = s
     ? fieldNamesOf(s)

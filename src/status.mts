@@ -472,7 +472,7 @@ export function formatRows(
         ...g,
         // The repository's column for the state, or the factory's own name
         // where the board has none.
-        label: (style.columns ?? DEFAULT_COLUMNS)[g.name] ?? g.name,
+        label: (style.columns ?? DEFAULT_COLUMNS)[g.name]?.[0] ?? g.name,
         cells: cells.filter(
           (c) => c.row.kind === "issue" && c.row.derived?.status === g.name,
         ),

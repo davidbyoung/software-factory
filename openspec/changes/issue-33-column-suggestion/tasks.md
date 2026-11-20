@@ -11,10 +11,10 @@
 
 ## 3. Lists in settings
 
-- [ ] 3.1 `config.mts`, `work-status.mts`, and `settings.schema.json` take lists. In `tests/config.test.ts`, cover lines 17, 18, and 19, each message exact. In `tests/columns.test.ts`, cover lines 15 and 22 through `statusOfColumn` and `columnFor`.
-- [ ] 3.2 `board.mts`: in `tests/board.test.ts`, cover line 16, where `planSync` writes the first name and leaves a ticket already in the second, and line 20, the `boardReport` row and a missing listed name.
-- [ ] 3.3 `explain.mts`, `status.mts`, `ticket.mts`, and `poller.mts` follow the type. Cover line 23 in the config explain tests in `tests/config.test.ts`, and line 22's status heading in `tests/status.test.ts`. The existing poller tests stay green unchanged.
-- [ ] 3.4 The board check that `doctor` and `init` print lives in `src/tickets/github-setup.mts` and calls `inspectBoard`. Cover line 21 in `tests/doctor.test.ts`: it passes with every listed name, and fails naming a missing one.
+- [x] 3.1 `config.mts`, `work-status.mts`, and `settings.schema.json` take lists. In `tests/config.test.ts`, cover lines 17, 18, and 19, each message exact. In `tests/columns.test.ts`, cover lines 15 and 22 through `statusOfColumn` and `columnFor`.
+- [x] 3.2 `board.mts`: in `tests/board.test.ts`, cover line 16, where `planSync` writes the first name and leaves a ticket already in the second, and line 20, the `boardReport` row and a missing listed name.
+- [x] 3.3 `explain.mts`, `status.mts`, `ticket.mts`, and `poller.mts` follow the type. Cover line 23 in the config explain tests in `tests/config.test.ts`, and line 22's status heading in `tests/status.test.ts`. The existing poller tests stay green unchanged.
+- [x] 3.4 The board check that `doctor` and `init` print lives in `src/tickets/github-setup.mts` and calls `inspectBoard`. Cover line 21 in `tests/doctor.test.ts`: it passes with every listed name, and fails naming a missing one.
 
 ## 4. The column step in init
 

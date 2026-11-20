@@ -137,10 +137,10 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       ),
     );
     expect(s.tickets.columns).toMatchObject({
-      backlog: "Todo",
+      backlog: ["Todo"],
       refining: null,
-      ready: "Ready",
-      done: "Done",
+      ready: ["Ready"],
+      done: ["Done"],
     });
     expect(
       parse(withTickets({ fields: { cost: "none" } })).tickets.fields,
@@ -471,7 +471,10 @@ describe("the sentences that name a column", () => {
     { kind: "pull-closed", issue: 7, pull: 9 },
   ];
   const sentence = (body: string) => body.split("\n\n<!--")[0];
-  const stockWithReady: Columns = { ...STOCK_COLUMNS, Ready: "Ready for dev" };
+  const stockWithReady: Columns = {
+    ...STOCK_COLUMNS,
+    Ready: ["Ready for dev"],
+  };
 
   it.each(kinds)(
     "names no factory column on the stock mapping: $kind",
@@ -585,7 +588,7 @@ describe("the poller", () => {
   });
 
   it("defaults to Ready", () => {
-    expect(columnsFrom({}).Ready).toBe("Ready");
+    expect(columnsFrom({}).Ready).toEqual(["Ready"]);
     expect(selectToStart(snap, board("Ready"), columnsFrom({}))).toEqual([1]);
   });
 });
@@ -849,5 +852,174 @@ describe("factory board check", () => {
     expect(written).toEqual([]);
     expect(out).toEqual([]);
     err.mockRestore();
+  });
+});
+
+describe("a state with a list of columns", () => {
+  const LIST_YAML = {
+    version: 2,
+    repository: "acme/widgets",
+    tickets: {
+      board: 3,
+      columns: {
+        backlog: "Todo",
+        refining: "none",
+        ready: "none",
+        building: ["In Progress", "Blocked"],
+        review: ["Code review", "QA"],
+      },
+    },
+  };
+  const LIST = parse(LIST_YAML);
+  const sentence = (body: string) => body.split("\n\n<!--")[0];
+  const COLUMNS = columnsOf(LIST);
+  const CONFIG: BoardConfig = { columns: COLUMNS, fields: fieldNamesOf(LIST) };
+  const statusField = (...names: string[]): BoardField => ({
+    id: "F_status",
+    name: "Status",
+    dataType: "SINGLE_SELECT",
+    options: names.map((name) => ({ id: `O_${name}`, name })),
+  });
+  const BOARD_NAMES = [
+    "Todo",
+    "In Progress",
+    "Blocked",
+    "Code review",
+    "QA",
+    "Done",
+  ];
+  const listBoard = (cards: [number, string | null, string][]): Board => ({
+    projectId: "PVT_3",
+    title: "Shop board",
+    fields: [statusField(...BOARD_NAMES)],
+    items: new Map(
+      cards.map(([number, status, updatedAt]) => [
+        number,
+        {
+          itemId: `I${number}`,
+          number,
+          status,
+          updatedAt,
+          session: "",
+          runsIn: "",
+        },
+      ]),
+    ),
+  });
+
+  it("reads a list for a state and a single name as a list of one", () => {
+    expect(LIST.tickets.columns.review).toEqual(["Code review", "QA"]);
+    expect(LIST.tickets.columns.backlog).toEqual(["Todo"]);
+    expect(LIST.tickets.columns.refining).toBeNull();
+  });
+
+  it.each([
+    [
+      "a list for ready",
+      { ready: ["Ready", "Go"] },
+      ".claude/factory.yaml: tickets.columns.ready: must be one column, or none: only a ticket you approved goes there",
+    ],
+    [
+      "an empty list",
+      { review: [] },
+      ".claude/factory.yaml: tickets.columns.review: must name at least one column",
+    ],
+    [
+      "a listed name another state names",
+      { backlog: "Todo", review: ["Code review", "todo"] },
+      ".claude/factory.yaml: tickets.columns.review: names the same column as backlog",
+    ],
+    [
+      "a name twice in one list",
+      { review: ["QA", "Code review", "qa"] },
+      ".claude/factory.yaml: tickets.columns.review: names qa twice",
+    ],
+  ])("rejects %s, in the words the issue gives", (_name, columns, message) => {
+    let thrown: unknown;
+    try {
+      parse({ ...LIST_YAML, tickets: { board: 3, columns } });
+    } catch (e) {
+      thrown = e;
+    }
+    expect((thrown as Error).message).toBe(message);
+  });
+
+  it("puts a ticket in any listed column in that state", () => {
+    expect(statusOfColumn("QA", COLUMNS)).toBe("In review");
+    expect(statusOfColumn("code review", COLUMNS)).toBe("In review");
+    expect(statusOfColumn("Blocked", COLUMNS)).toBe("In progress");
+    expect(cardOf(listBoard([[1, "QA", at(0)]]), 1, COLUMNS)?.status).toBe(
+      "In review",
+    );
+  });
+
+  it("names a state's one column by the first name in its list", () => {
+    expect(columnFor("In review", COLUMNS)).toBe("Code review");
+    expect(
+      sentence(commentBody({ kind: "ended", issue: 7 }, COLUMNS)),
+    ).toContain("The card stays In Progress, waiting on you.");
+  });
+
+  it("writes the first name, and leaves a card already in any listed name", () => {
+    const snap = toSnapshot(
+      [
+        issue(1, [marked(1, 1, "claim actions 99")]),
+        issue(2, [marked(1, 1, "claim actions 98")]),
+        issue(3, [marked(1, 1, "claim actions 97")]),
+        issue(4, [marked(1, 1, "refining local s1")]),
+      ],
+      [],
+      new Date(at(30)),
+    );
+    const board = listBoard([
+      [1, "Todo", at(0)],
+      [2, "Blocked", at(0)],
+      [3, "In Progress", at(0)],
+      [4, "Todo", at(0)],
+    ]);
+    const plans = planSync(snap, board, "acme/widgets", RUN_PAGE, CONFIG);
+    const status = (n: number) =>
+      plans
+        .find((p) => p.number === n)!
+        .writes.find((w) => w.field === "Status");
+    expect(status(1)).toEqual({ field: "Status", optionName: "In Progress" });
+    expect(status(2)).toBeUndefined();
+    expect(status(3)).toBeUndefined();
+    expect(status(4)).toBeUndefined();
+  });
+
+  it("prints a list's row joined by commas, and reports each listed name the board lacks", () => {
+    const report = (names: string[]) =>
+      boardReport(
+        3,
+        { ...listBoard([]), fields: [statusField(...names)] },
+        CONFIG,
+        LIST,
+      );
+    expect(report(BOARD_NAMES)).toContain("  review     Code review, QA");
+    expect(report(BOARD_NAMES)).toContain("  building   In Progress, Blocked");
+    expect(report(BOARD_NAMES).join("\n")).not.toContain("Problem");
+    expect(report(BOARD_NAMES.filter((n) => n !== "QA"))).toContain(
+      "Problem: the Status field lacks QA (tickets.columns.review).",
+    );
+  });
+
+  it("heads a factory status group with the first name", () => {
+    const heads = formatRows(
+      toRows(
+        { issues: [issue(1, [marked(1, 0, "claim local s1")])], pulls: [] },
+        listBoard([[1, "QA", at(5)]]),
+        new Map(),
+        new Date(at(30)),
+        null,
+        COLUMNS,
+      ),
+      new Date(at(30)),
+      false,
+      { color: false, width: null, columns: COLUMNS },
+    ).filter((l) => l && !l.startsWith(" ") && !l.startsWith("#"));
+    expect(heads).toEqual(
+      expect.arrayContaining(["In Progress  1", "Code review  0"]),
+    );
   });
 });
