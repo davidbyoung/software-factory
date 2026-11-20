@@ -53,6 +53,7 @@ marked working below exist only in these docs.
 | Updates through Dependabot, which `factory-deps` completes with `factory sync`                                   | Working                                                                   |
 | `factory board --dry-run`                                                                                        | Working                                                                   |
 | Your own column names on a board                                                                                 | Working                                                                   |
+| `init` suggesting a board's columns through the coding agent                                                     | Working                                                                   |
 | A UI reviewer for any website                                                                                    | Working                                                                   |
 | Built-in measurements for any website                                                                            | Working                                                                   |
 | A design skill for any website                                                                                   | Working                                                                   |
@@ -248,12 +249,12 @@ whole or not at all, and `factory ticket supports GROUP` prints `yes` or
 `no`. A skill asks before it relies on one; a command that needs a group
 its adapter lacks exits non-zero, names the group, and posts nothing.
 
-| Group           | In `Tickets`   | Operations                                                                                               |
-| --------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
-| `board`         | `board`        | Read every card and the board's fields; add a ticket to the board; set its fields                        |
-| `blockers`      | `blockers`     | List what a ticket waits on; record that it waits on another; remove that                                |
-| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how the factory knows the owner took `spec` off |
-| `attachments`   | `attachments`  | Comment with images attached, or write a body with them                                                  |
+| Group           | In `Tickets`   | Operations                                                                                                                      |
+| --------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `board`         | `board`        | Read every card and the board's fields; list a board's columns, in the board's order; add a ticket to the board; set its fields |
+| `blockers`      | `blockers`     | List what a ticket waits on; record that it waits on another; remove that                                                       |
+| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how the factory knows the owner took `spec` off                        |
+| `attachments`   | `attachments`  | Comment with images attached, or write a body with them                                                                         |
 
 The GitHub adapter has every group, except that `attachments` needs the
 GitHub CLI, so an adapter built without it has none. With
@@ -419,6 +420,14 @@ With more than one tool of a kind, `init` asks which, except for the code
 host, which it reads from the git remote: each code host says which
 remotes are its own. The coding agent has no setting until there is a
 second.
+
+A coding agent also answers one question for `init`: given a prompt and
+the shape of the answer as a JSON schema, it runs once, with no tools and
+none of the repository's settings or hooks, and returns the answer or
+the reason it has none. Claude Code runs `claude -p` on its smallest
+model, from an empty folder. The prompt, the checks on the answer, and
+what `init` prints live in `src/columns-suggest.mts`, which names no
+agent and no ticket system, so a second agent adds only its `answer`.
 
 The tests show a tool that the factory does not ship going through all
 three commands: `tests/fake-tools.ts` has a ticket system with a site

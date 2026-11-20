@@ -86,6 +86,21 @@ why a board's columns can be yours. Every extra shape of workflow is one
 more path each skill has to handle correctly, and a skill is instructions,
 which cannot be unit tested.
 
+Your coding agent suggests which of your board's columns shows each
+state once, when `factory init` sets up your board
+([You already have a board](existing-repo.md#you-already-have-a-board)).
+After that it is an ordinary setting, read the same way every time.
+
+A state can already take a list of column names.
+[_Planned_](developing.md#what-is-built): other ticket systems, which
+name their states differently and fit the same setting. Jira lets each kind of ticket, such
+as a bug or a story, follow its own sequence of states; the factory
+would move a ticket to the first listed name that its own sequence has.
+Linear gives each team one sequence, which works as a board does. If a
+name ever had to mean different states for different kinds of ticket,
+an optional `columns-by-type` setting would hold only those exceptions,
+and every settings file written before it would read the same.
+
 ## Small problems go on one checklist
 
 A session that notices a small problem adds a line to one follow-ups

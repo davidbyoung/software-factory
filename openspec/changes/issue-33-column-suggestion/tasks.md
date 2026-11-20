@@ -35,7 +35,7 @@
 
 ## 5. Docs
 
-- [ ] 5.1 Apply Proposed docs to `docs/existing-repo.md`, `docs/configuration.md`, `docs/design.md`, and `docs/developing.md`. `tests/docs.test.ts` passes, and `docs-reader` reads `existing-repo.md`'s section.
+- [x] 5.1 Apply Proposed docs to `docs/existing-repo.md`, `docs/configuration.md`, `docs/design.md`, and `docs/developing.md`. `tests/docs.test.ts` passes, and `docs-reader` reads `existing-repo.md`'s section.
 
 ## 6. Verify
 
