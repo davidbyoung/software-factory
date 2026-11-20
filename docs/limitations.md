@@ -71,11 +71,6 @@ as a code host's billing or what its workflows can see, are in
 - **A state that takes a click to reach is the agent's to drive,** not the
   command's.
 - **No budgets.** What each ticket cost is recorded. Nothing caps it.
-- **Without the global install, the command needs `--no-install`.**
-  Another package on npm is called `factory`. Where this one is not
-  installed, `npx` without `--no-install` offers to download and run that
-  one instead, so `npx --no-install factory` fails rather than run another
-  package.
 - **Nothing retries on its own.** A build that stops waits for you.
 - **A cloud build's commits are unsigned unless you give it a signing
   key.** `factory init` makes one when you choose that part
