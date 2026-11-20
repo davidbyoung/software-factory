@@ -26,6 +26,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { firstRefusal, npmrcAt } from "./npmrc.mts";
 import {
   filesDeps,
   repoRoot,
@@ -140,6 +141,59 @@ export function withMinutes(text: string, minutes: number, file: string) {
   };
   const session = one(/^(\s+minutes: )\d+$/gm, minutes, text);
   return one(/^(\s+timeout-minutes: )\d+$/gm, minutes + 10, session);
+}
+
+/** A workflow whose jobs that install packages set each name in `names`
+ * from a secret of the same name, in the job's `env`, so every step that
+ * runs npm reads it, a composite action's included. With `GITHUB_TOKEN`
+ * among them, the workflow may also read packages. Only lines are added. */
+export function withNpmEnv(text: string, names: string[], file: string) {
+  if (!names.length) return text;
+  const lines = text.split("\n");
+  const jobsAt = lines.indexOf("jobs:");
+  if (jobsAt < 0) return text;
+  const starts = lines
+    .map((l, i) => (i > jobsAt && /^ {2}[A-Za-z0-9_-]+:\s*$/.test(l) ? i : -1))
+    .filter((i) => i >= 0);
+  const entries = names.map((n) => `      ${n}: \${{ secrets.${n} }}`);
+  const inserts: { at: number; lines: string[] }[] = [];
+  starts.forEach((start, k) => {
+    const end = starts[k + 1] ?? lines.length;
+    const job = lines.slice(start, end);
+    const installs = job.some(
+      (l) =>
+        (/\bnpm ci\b/.test(l) && !/^\s*#/.test(l)) ||
+        /^\s+uses: \.\/\.github\/actions\/factory-agent\s*$/.test(l),
+    );
+    if (!installs) return;
+    const env = job.findIndex((l) => /^ {4}env:\s*$/.test(l));
+    const runsOn = job.findIndex((l) => /^ {4}runs-on:/.test(l));
+    const permissions = job.findIndex((l) => /^ {4}permissions:\s*$/.test(l));
+    if (names.includes("GITHUB_TOKEN") && permissions >= 0)
+      inserts.push({
+        at: start + permissions + 1,
+        lines: ["      packages: read"],
+      });
+    if (env >= 0) inserts.push({ at: start + env + 1, lines: entries });
+    else if (runsOn >= 0)
+      inserts.push({ at: start + runsOn + 1, lines: ["    env:", ...entries] });
+    else
+      throw new Error(
+        `${file}: expected a runs-on line in each job that installs, to set its env`,
+      );
+  });
+  if (!inserts.length) return text;
+  if (names.includes("GITHUB_TOKEN")) {
+    const permissions = lines.indexOf("permissions:");
+    if (permissions < 0)
+      throw new Error(
+        `${file}: expected a permissions block, to let GITHUB_TOKEN read packages`,
+      );
+    inserts.push({ at: permissions + 1, lines: ["  packages: read"] });
+  }
+  for (const { at, lines: added } of inserts.sort((a, b) => b.at - a.at))
+    lines.splice(at, 0, ...added);
+  return lines.join("\n");
 }
 
 const WORDS = [
@@ -437,6 +491,8 @@ export type LockParts = {
   version: string;
   presets: { name: string; version: string }[];
   hash: string;
+  /** The variables `.npmrc`'s sign-in lines read. */
+  npmrcVariables: string[];
   /** The settings in effect, as `factory config explain` prints them. */
   settings: string[];
   overridden: Record<string, Replaced[]>;
@@ -469,6 +525,9 @@ export function lockText(l: LockParts): string {
         ]
       : ["presets: []"]),
     `settings-hash: ${l.hash}`,
+    ...(l.npmrcVariables.length
+      ? ["npmrc-variables:", ...l.npmrcVariables.map((n) => `  - ${n}`)]
+      : ["npmrc-variables: []"]),
     "settings:",
     ...l.settings.map((line) => `  ${line}`),
     ...(replaced.length
@@ -574,14 +633,14 @@ export async function plan(
     existsSync(join(root, p)) ? readFileSync(join(root, p), "utf8") : null;
   const write = new Map<string, string>();
   const has = (p: string) => existsSync(join(root, p));
+  const npmrc = npmrcAt(root);
   for (const [from, to] of copies(pkg, s, has)) {
     const source = readFileSync(join(pkg, from), "utf8");
     const text = PUSH_WORKFLOWS.includes(from)
       ? withDefaultBranch(source, branch, from)
       : source;
     const kind = SESSION_WORKFLOWS[from.replace(/^workflows\//, "")];
-    write.set(
-      to,
+    const written =
       kind && from.startsWith("workflows/")
         ? withMinutes(text, s.sessionMinutes[kind], from)
         : from === POLLER_WORKFLOW
@@ -592,7 +651,12 @@ export async function plan(
                 [...new Set(r.presets.map((p) => p.pkg))],
                 from,
               )
-            : withRules(text, s.rules, from),
+            : withRules(text, s.rules, from);
+    write.set(
+      to,
+      from.startsWith("workflows/")
+        ? withNpmEnv(written, npmrc.names, from)
+        : written,
     );
   }
   // A preset's agent or skill, unless the factory's own file or one the
@@ -638,6 +702,7 @@ export async function plan(
       version: manifest.version,
       presets: r.presets.map((p) => ({ name: p.name, version: p.version })),
       hash: settingsHash(r.ownText, chosen),
+      npmrcVariables: npmrc.names,
       settings,
       overridden: Object.fromEntries(r.resolution.overridden),
       files,
@@ -695,6 +760,11 @@ export async function main(
       }
     }
     r = await d.settings();
+    const refused = firstRefusal(npmrcAt(d.root));
+    if (refused) {
+      d.err(refused);
+      return 1;
+    }
   } catch (e) {
     d.err(e instanceof Error ? e.message : String(e));
     return 1;

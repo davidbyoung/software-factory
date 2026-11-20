@@ -127,6 +127,8 @@ export type CodeHost = {
   defaultBranch(): Promise<string>;
   /** Whether only people given access can see the repository. */
   isPrivate(): Promise<boolean>;
+  /** Whether an organization owns the repository, rather than a person. */
+  ownerIsOrganization(): Promise<boolean>;
 
   /** The check runs on a commit, without its statuses. */
   checkRuns(sha: string): Promise<CheckRun[]>;

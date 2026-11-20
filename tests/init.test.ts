@@ -121,6 +121,13 @@ type Setup = {
   defaultBranch?: string | null;
   /** The coding agent's answers. */
   agent?: Agent;
+  dependabotSecrets?: Record<string, string>;
+  /** Whether an organization owns the repository; a person unless given. */
+  organization?: boolean;
+  organizationSecrets?: string[];
+  organizationDependabotSecrets?: string[] | null;
+  runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
+  codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
 };
 
 const roots: string[] = [];
@@ -161,10 +168,18 @@ function init(setup: Setup) {
     rulesRefused: setup.rulesRefused,
     isPrivate: setup.private,
     defaultBranch: setup.defaultBranch ?? undefined,
+    ownerIsOrganization: setup.organization,
+    fail: setup.codeHostFails,
   });
   /** What the code host answered each time the sync's plan asked it. */
   const branchAsked: string[] = [];
-  const runner = memoryRunner({ secrets: setup.secrets ?? {} });
+  const runner = memoryRunner({
+    secrets: setup.secrets ?? {},
+    dependabotSecrets: setup.dependabotSecrets,
+    organizationSecrets: setup.organizationSecrets,
+    organizationDependabotSecrets: setup.organizationDependabotSecrets,
+    fail: setup.runnerFails,
+  });
   const tickets = memoryTickets([], {
     boards: setup.boards ?? [],
     createRefused: setup.createRefused,
@@ -1775,6 +1790,251 @@ describe("factory init, the column step", () => {
     expect(await missing.run()).toBe(1);
     expect(missing.out).toContain(
       "Matching them to the factory's six states needs Fake Agent, which is not installed.",
+    );
+  });
+});
+
+describe("the tokens .npmrc reads", () => {
+  const TOKEN = "npm_read_only";
+  const JFROG = "https://acme.jfrog.io/artifactory/api/npm/npm/";
+  const NPMRC = `@acme:registry=${JFROG}\n//acme.jfrog.io/artifactory/api/npm/npm/:_authToken=\${NPM_TOKEN}\n`;
+  const FOUND_ROW = "  .npmrc         reads NPM_TOKEN";
+  const INTRO = [
+    "",
+    `.npmrc reads NPM_TOKEN for ${JFROG}.`,
+    "The factory's workflows install with it. Use a token that can only read.",
+  ];
+  const UNSEEN =
+    "NPM_TOKEN isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.";
+  /** A first run with no parts chosen, in a repository with `npmrc`. */
+  const first = (npmrc: string, over: Partial<Setup> = {}) =>
+    init({
+      files: { ".npmrc": npmrc },
+      answers: { checkbox: [[]], confirm: [true], secret: [TOKEN] },
+      ...over,
+    });
+  const after = (out: string[], line: string) => out.slice(out.indexOf(line));
+
+  it("lists .npmrc and the names it reads under Found, after package.json", async () => {
+    const r = first(`${NPMRC}//b.example/:_authToken=\${B_TOKEN}\n`, {
+      answers: { checkbox: [[]], confirm: [true], secret: [TOKEN, TOKEN] },
+    });
+    await r.run();
+    const at = r.out.findIndex((l) => l.startsWith("  package.json"));
+    expect(r.out[at + 1]).toBe("  .npmrc         reads NPM_TOKEN, B_TOKEN");
+  });
+
+  it("has no .npmrc row when it reads no token", async () => {
+    const r = init({
+      files: { ".npmrc": "cache=${HOME}/.npm\n" },
+      answers: { checkbox: [[]], confirm: [true] },
+    });
+    await r.run();
+    expect(r.out.join("\n")).not.toContain(".npmrc");
+  });
+
+  it("asks for a token set nowhere and stores it for Actions and for Dependabot", async () => {
+    const r = first(NPMRC);
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "  Secrets  NPM_TOKEN for Actions and for Dependabot",
+    );
+    expect(after(r.transcript, INTRO[1]!).slice(0, 4)).toEqual([
+      INTRO[1],
+      INTRO[2],
+      "? secret: Paste it (leave empty to do this later):",
+      "Stored NPM_TOKEN for Actions and for Dependabot.",
+    ]);
+    expect(r.out).toContain(INTRO[0]);
+    expect(r.runner.secrets.get("NPM_TOKEN")).toBe(TOKEN);
+    expect(r.runner.dependabotSecrets.get("NPM_TOKEN")).toBe(TOKEN);
+    expect(r.out.join("\n")).not.toContain(TOKEN);
+  });
+
+  it("asks only for the Dependabot copy when Actions has it", async () => {
+    const r = first(NPMRC, { secrets: { NPM_TOKEN: "x" } });
+    await r.run();
+    expect(r.out).toContain("  Secrets  NPM_TOKEN for Dependabot");
+    const at =
+      "NPM_TOKEN is set for Actions but not for Dependabot, and GitHub never shows a secret's value.";
+    expect(after(r.transcript, at).slice(0, 3)).toEqual([
+      at,
+      "? secret: Paste the same token again (leave empty to do this later):",
+      "Stored NPM_TOKEN for Dependabot.",
+    ]);
+    expect(r.runner.secrets.get("NPM_TOKEN")).toBe("x");
+    expect(r.runner.dependabotSecrets.get("NPM_TOKEN")).toBe(TOKEN);
+  });
+
+  it("asks only for the Actions copy when Dependabot has it", async () => {
+    const r = first(NPMRC, { dependabotSecrets: { NPM_TOKEN: "x" } });
+    await r.run();
+    expect(r.out).toContain("  Secrets  NPM_TOKEN for Actions");
+    expect(r.out).toContain(
+      "NPM_TOKEN is set for Dependabot but not for Actions, and GitHub never shows a secret's value.",
+    );
+    expect(r.out).toContain("Stored NPM_TOKEN for Actions.");
+    expect(r.runner.secrets.get("NPM_TOKEN")).toBe(TOKEN);
+    expect(r.runner.dependabotSecrets.get("NPM_TOKEN")).toBe("x");
+  });
+
+  it("asks for a Dependabot copy it can't see on an organization's repository, saying so, after the intro", async () => {
+    const r = first(NPMRC, {
+      organization: true,
+      organizationDependabotSecrets: null,
+    });
+    await r.run();
+    expect(after(r.transcript, INTRO[1]!).slice(0, 4)).toEqual([
+      INTRO[1],
+      INTRO[2],
+      UNSEEN,
+      "? secret: Paste it (leave empty to do this later):",
+    ]);
+    expect(r.runner.dependabotSecrets.get("NPM_TOKEN")).toBe(TOKEN);
+  });
+
+  it("reads an owner it can't tell as an organization, asking for a Dependabot copy it can't see", async () => {
+    const r = first(NPMRC, {
+      codeHostFails: { ownerIsOrganization: new Error("HTTP 502") },
+      organizationDependabotSecrets: null,
+    });
+    await r.run();
+    expect(r.out).toContain(UNSEEN);
+  });
+
+  it("says only that, before asking for the same token, when Actions has it", async () => {
+    const r = first(NPMRC, {
+      secrets: { NPM_TOKEN: "x" },
+      organization: true,
+      organizationDependabotSecrets: null,
+    });
+    await r.run();
+    expect(after(r.transcript, UNSEEN).slice(0, 2)).toEqual([
+      UNSEEN,
+      "? secret: Paste the same token again (leave empty to do this later):",
+    ]);
+    expect(r.out.join("\n")).not.toContain("is set for Actions but not");
+  });
+
+  it("stores nothing when nothing is pasted, saying the workflows fail until it is", async () => {
+    const r = first(NPMRC, {
+      answers: { checkbox: [[]], confirm: [true], secret: [""] },
+    });
+    await r.run();
+    expect(r.out).toContain(
+      "No NPM_TOKEN stored. The factory's workflows fail at npm ci until it is. Run npx --no-install factory init again to add it.",
+    );
+    expect(r.runner.secrets.has("NPM_TOKEN")).toBe(false);
+    expect(r.runner.dependabotSecrets.has("NPM_TOKEN")).toBe(false);
+  });
+
+  it("counts a token set for both among the secrets to replace, storing both copies on yes", async () => {
+    const r = first(NPMRC, {
+      secrets: { NPM_TOKEN: "old" },
+      dependabotSecrets: { NPM_TOKEN: "old" },
+      answers: { checkbox: [[]], confirm: [true, true], secret: [TOKEN] },
+    });
+    await r.run();
+    expect(r.asked).toContain(
+      "confirm: 1 secret these parts read is already set. Replace it?",
+    );
+    expect(r.runner.secrets.get("NPM_TOKEN")).toBe(TOKEN);
+    expect(r.runner.dependabotSecrets.get("NPM_TOKEN")).toBe(TOKEN);
+  });
+
+  it("asks nothing for a token set for both, without replacing", async () => {
+    const r = first(NPMRC, {
+      secrets: { NPM_TOKEN: "old" },
+      dependabotSecrets: { NPM_TOKEN: "old" },
+      answers: { checkbox: [[]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.filter((q) => q.startsWith("secret"))).toEqual([]);
+  });
+
+  it("asks nothing and stores nothing for GITHUB_TOKEN", async () => {
+    const r = first("//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}\n", {
+      answers: { checkbox: [[]], confirm: [true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.filter((q) => q.startsWith("secret"))).toEqual([]);
+    expect(r.runner.secrets.size).toBe(0);
+  });
+
+  it("stops right after Found on a name sync refuses, changing nothing", async () => {
+    const r = first("//a.example/:_authToken=${HOME}\n");
+    expect(await r.run()).toBe(1);
+    expect(r.asked).toEqual([]);
+    const at = r.out.indexOf(FOUND_ROW.replace("NPM_TOKEN", "HOME"));
+    expect(r.out.slice(at + 1)).toEqual([
+      "  Settings       none yet",
+      "  Board          none yet",
+      "",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: npx --no-install factory sync",
+    ]);
+    expect(r.read(".claude/factory.yaml")).toBeNull();
+  });
+
+  it("stops when the Dependabot secrets can't be listed", async () => {
+    const r = first(NPMRC, {
+      runnerFails: { dependabotSecretNames: new Error("HTTP 403") },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out.at(-1)).toBe("Could not reach the code host: HTTP 403");
+  });
+
+  describe("on a repository an organization owns", () => {
+    it("asks for no secret the organization shares, for Actions or a Dependabot one it can see", async () => {
+      const r = first(NPMRC, {
+        organization: true,
+        organizationSecrets: ["NPM_TOKEN"],
+        organizationDependabotSecrets: ["NPM_TOKEN"],
+        answers: { checkbox: [[]], confirm: [false, true] },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.asked).toEqual([
+        "checkbox: Which parts do you want?",
+        "confirm: 1 secret these parts read is already set. Replace it?",
+        "confirm: Go ahead?",
+      ]);
+    });
+
+    it.each([
+      [
+        "its own",
+        { FACTORY_BOARD_TOKEN: "x", FACTORY_AUTOMERGE_TOKEN: "x" },
+        true,
+      ],
+      ["the organization's", { FACTORY_BOARD_TOKEN: "x" }, false],
+    ])(
+      "offers to delete a secret a part read when it goes only when it is the repository's own: %s",
+      async (_, secrets, offered) => {
+        const r = init({
+          settings: [
+            "version: 2",
+            "repository: acme/site",
+            "tickets:",
+            "  board: 3",
+            "auto-merge:",
+            "  allow:",
+            "    - docs/**",
+            "",
+          ].join("\n"),
+          secrets,
+          organization: true,
+          organizationSecrets: ["FACTORY_AUTOMERGE_TOKEN"],
+          boards: [{ number: 3, title: "Roadmap", columns: [] }],
+          answers: { checkbox: [["board"]], confirm: [false, true] },
+        });
+        await r.run();
+        expect(
+          r.out
+            .join("\n")
+            .includes(
+              "You can now delete these secrets: FACTORY_AUTOMERGE_TOKEN",
+            ),
+        ).toBe(offered);
+      },
     );
   });
 });

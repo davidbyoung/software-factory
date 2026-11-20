@@ -1,7 +1,7 @@
 // `factory doctor`: one line per check, and a failing exit when any fails.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { main, type DoctorDeps } from "../src/doctor.mts";
@@ -40,8 +40,10 @@ function checkout(files: Record<string, string> = {}): string {
     ),
     ...files,
   };
-  for (const [path, text] of Object.entries(all))
+  for (const [path, text] of Object.entries(all)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
+  }
   return root;
 }
 
@@ -61,6 +63,14 @@ function doctor(o: {
   installed?: string;
   locked?: string | null;
   secrets?: Record<string, string>;
+  dependabotSecrets?: Record<string, string>;
+  organizationSecrets?: string[];
+  organizationDependabotSecrets?: string[] | null;
+  /** Whether an organization owns the repository; a person unless given. */
+  organization?: boolean;
+  /** What a runner operation fails with. */
+  runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
+  codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
   columns?: string[];
   files?: Record<string, string>;
   claude?: boolean;
@@ -79,8 +89,18 @@ function doctor(o: {
   }).tickets;
   const tools = (o.tools ?? ((b) => b))(
     memoryTools({
-      codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
-      runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
+      codeHost: memoryCodeHost([], {
+        owner: "dave",
+        ownerIsOrganization: o.organization,
+        fail: o.codeHostFails,
+      }).codeHost,
+      runner: memoryRunner({
+        secrets: o.secrets ?? {},
+        dependabotSecrets: o.dependabotSecrets,
+        organizationSecrets: o.organizationSecrets,
+        organizationDependabotSecrets: o.organizationDependabotSecrets,
+        fail: o.runnerFails,
+      }).runner,
       tickets,
     }),
     tickets,
@@ -393,6 +413,253 @@ describe("factory doctor", () => {
         `✗ Fake Agent: ${FAKE_AGENT_FILE} is there. Run fake-agent init`,
       );
       expect(r.out.join("\n")).not.toContain("Claude Code");
+    });
+  });
+
+  describe("the tokens .npmrc reads", () => {
+    const JFROG = "https://acme.jfrog.io/artifactory/api/npm/npm/";
+    const NPMRC = `@acme:registry=${JFROG}\n//acme.jfrog.io/artifactory/api/npm/npm/:_authToken=\${NPM_TOKEN}\n`;
+    const SET = "✓ NPM_TOKEN is set, for installing what .npmrc names";
+    const SET_DEPENDABOT =
+      "✓ NPM_TOKEN is set for Dependabot, for installing on Dependabot's pull requests";
+    const DEPENDABOT = (registry: string, npm: string) =>
+      [
+        "version: 2",
+        "registries:",
+        "  acme:",
+        "    type: npm-registry",
+        `    url: ${registry}`,
+        "    token: ${{secrets.NPM_TOKEN}}",
+        "updates:",
+        "  - package-ecosystem: npm",
+        "    directory: /",
+        npm,
+        "    schedule:",
+        "      interval: weekly",
+        "",
+      ].join("\n");
+    const npmLines = (out: string[]) =>
+      out.filter((l) => /NPM_TOKEN|GITHUB_TOKEN|dependabot\.yml/.test(l));
+
+    it("prints nothing about .npmrc when it reads no token", async () => {
+      const { run, out } = doctor({
+        files: {
+          ".npmrc": `cache=\${HOME}/.npm\n@acme:registry=${JFROG}\n`,
+          ".github/dependabot.yml": "version: 2\nupdates: []\n",
+        },
+      });
+      expect(await run()).toBe(0);
+      const without = doctor({
+        files: { ".github/dependabot.yml": "version: 2\nupdates: []\n" },
+      });
+      await without.run();
+      expect(out).toEqual(without.out);
+    });
+
+    it("passes a token set for Actions and for Dependabot, and a registry Dependabot uses, after the secrets and before the tools' checks", async () => {
+      const { run, out } = doctor({
+        files: {
+          ".npmrc": NPMRC,
+          ".github/dependabot.yml": DEPENDABOT(JFROG, "    registries: [acme]"),
+        },
+        secrets: { NPM_TOKEN: "x" },
+        dependabotSecrets: { NPM_TOKEN: "x" },
+      });
+      expect(await run()).toBe(0);
+      const at = out.indexOf(
+        "- commands.gate is not set: a build cannot finish until it is",
+      );
+      expect(out.slice(at + 1, at + 4)).toEqual([
+        SET,
+        SET_DEPENDABOT,
+        `✓ .github/dependabot.yml uses ${JFROG} for its npm updates`,
+      ]);
+      expect(out[at + 4]).toMatch(/^✓ Claude Code:/);
+    });
+
+    it("fails a token not set, for Actions and for Dependabot, naming init", async () => {
+      const { run, out } = doctor({ files: { ".npmrc": NPMRC } });
+      expect(await run()).toBe(1);
+      expect(npmLines(out)).toEqual([
+        "✗ NPM_TOKEN is not set, for installing what .npmrc names. Run npx --no-install factory init",
+        "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run npx --no-install factory init",
+      ]);
+    });
+
+    it("shows GITHUB_TOKEN as the workflow's own, asking for no secret", async () => {
+      const { run, out } = doctor({
+        files: {
+          ".npmrc": "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}\n",
+        },
+      });
+      expect(await run()).toBe(0);
+      expect(npmLines(out)).toEqual([
+        "- GITHUB_TOKEN is the workflow's own token: it installs only the packages that give this repository access",
+      ]);
+    });
+
+    it.each([
+      [
+        "a registry the npm update doesn't name",
+        DEPENDABOT(JFROG, "    registries: [other]"),
+      ],
+      [
+        "a registry not listed",
+        DEPENDABOT("https://other.example/", "    registries: [acme]"),
+      ],
+      [
+        "an npm update with no registries",
+        DEPENDABOT(JFROG, "    open-pull-requests-limit: 5"),
+      ],
+      [
+        "a second npm update that doesn't name it",
+        `${DEPENDABOT(JFROG, "    registries: [acme]")}  - package-ecosystem: npm\n    directory: /web\n    schedule:\n      interval: weekly\n`,
+      ],
+      [
+        "no npm update",
+        DEPENDABOT(JFROG, "    registries: [acme]").replace(
+          "package-ecosystem: npm",
+          "package-ecosystem: github-actions",
+        ),
+      ],
+    ])("marks %s as unknown, without failing", async (_, settings) => {
+      const { run, out } = doctor({
+        files: { ".npmrc": NPMRC, ".github/dependabot.yml": settings },
+        secrets: { NPM_TOKEN: "x" },
+        dependabotSecrets: { NPM_TOKEN: "x" },
+      });
+      expect(await run()).toBe(0);
+      expect(npmLines(out).at(-1)).toBe(
+        `? .github/dependabot.yml doesn't use ${JFROG} for its npm updates: unless your organization sets that registry for Dependabot, it never sees a new version of a package from there. Add it under registries, and name it in the npm entry's registries`,
+      );
+    });
+
+    it('passes registries: "*" and a URL that differs by a trailing slash', async () => {
+      const r = doctor({
+        files: {
+          ".npmrc": NPMRC,
+          ".github/dependabot.yml": DEPENDABOT(
+            JFROG.replace(/\/$/, ""),
+            '    registries: "*"',
+          ),
+        },
+      });
+      await r.run();
+      expect(r.out).toContain(
+        `✓ .github/dependabot.yml uses ${JFROG} for its npm updates`,
+      );
+    });
+
+    it("checks no registry Dependabot needn't know, the public one", async () => {
+      const { out, run } = doctor({
+        files: {
+          ".npmrc": `registry=https://registry.npmjs.org/\n${NPMRC}`,
+          ".github/dependabot.yml": DEPENDABOT(JFROG, "    registries: [acme]"),
+        },
+      });
+      await run();
+      expect(out.filter((l) => l.includes("dependabot.yml"))).toEqual([
+        `✓ .github/dependabot.yml uses ${JFROG} for its npm updates`,
+      ]);
+    });
+
+    it("checks no registry without a dependabot.yml", async () => {
+      const { out, run } = doctor({ files: { ".npmrc": NPMRC } });
+      await run();
+      expect(out.join("\n")).not.toContain("dependabot.yml");
+    });
+
+    describe("on a repository an organization owns", () => {
+      it("passes a secret the organization shares, saying so, for any secret the factory reads", async () => {
+        const { run, out } = doctor({
+          raw: { "pr-review": null },
+          files: { ".npmrc": NPMRC },
+          organization: true,
+          organizationSecrets: ["NPM_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"],
+          organizationDependabotSecrets: ["NPM_TOKEN"],
+        });
+        expect(await run()).toBe(0);
+        expect(out).toContain(
+          "✓ CLAUDE_CODE_OAUTH_TOKEN is set by the organization, for an automated review of every pull request",
+        );
+        expect(npmLines(out)).toEqual([
+          "✓ NPM_TOKEN is set by the organization, for installing what .npmrc names",
+          "✓ NPM_TOKEN is set by the organization for Dependabot, for installing on Dependabot's pull requests",
+        ]);
+      });
+
+      it("marks a Dependabot secret it can't see as unknown, without failing", async () => {
+        const { run, out } = doctor({
+          files: { ".npmrc": NPMRC },
+          secrets: { NPM_TOKEN: "x" },
+          organization: true,
+          organizationDependabotSecrets: null,
+        });
+        expect(await run()).toBe(0);
+        expect(npmLines(out)).toEqual([
+          SET,
+          "? NPM_TOKEN is not set for Dependabot on the repository, and only an organization admin can see whether the organization sets it",
+        ]);
+      });
+
+      it("reads an owner it can't tell as an organization, so a Dependabot secret it can't see is unknown", async () => {
+        const { run, out } = doctor({
+          files: { ".npmrc": NPMRC },
+          secrets: { NPM_TOKEN: "x" },
+          codeHostFails: { ownerIsOrganization: new Error("HTTP 502") },
+          organizationDependabotSecrets: null,
+        });
+        expect(await run()).toBe(0);
+        expect(npmLines(out).at(-1)).toMatch(
+          /^\? NPM_TOKEN is not set for Dependabot on the repository/,
+        );
+      });
+
+      it("fails a Dependabot secret the organization's list doesn't name", async () => {
+        const { run, out } = doctor({
+          files: { ".npmrc": NPMRC },
+          secrets: { NPM_TOKEN: "x" },
+          organization: true,
+          organizationDependabotSecrets: [],
+        });
+        expect(await run()).toBe(1);
+        expect(npmLines(out).at(-1)).toBe(
+          "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run npx --no-install factory init",
+        );
+      });
+    });
+
+    it("on a person's repository, fails a missing secret without asking about an organization", async () => {
+      const { run, out } = doctor({
+        files: { ".npmrc": NPMRC },
+        secrets: { NPM_TOKEN: "x" },
+        organizationDependabotSecrets: null,
+      });
+      expect(await run()).toBe(1);
+      expect(npmLines(out).at(-1)).toMatch(
+        /^✗ NPM_TOKEN is not set for Dependabot/,
+      );
+    });
+
+    it("fails a Dependabot list it can't read, and prints no Dependabot line", async () => {
+      const { run, out } = doctor({
+        files: { ".npmrc": NPMRC },
+        secrets: { NPM_TOKEN: "x" },
+        runnerFails: { dependabotSecretNames: new Error("HTTP 403") },
+      });
+      expect(await run()).toBe(1);
+      expect(out).toContain("✗ The Dependabot secrets can be listed: HTTP 403");
+      expect(npmLines(out)).toEqual([SET]);
+    });
+
+    it("prints no Actions line when the secrets can't be listed, but still the rest", async () => {
+      const r = doctor({
+        files: { ".npmrc": NPMRC },
+        dependabotSecrets: { NPM_TOKEN: "x" },
+        runnerFails: { secretNames: new Error("HTTP 403") },
+      });
+      expect(await r.run()).toBe(1);
+      expect(npmLines(r.out)).toEqual([SET_DEPENDABOT]);
     });
   });
 });

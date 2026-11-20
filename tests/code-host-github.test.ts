@@ -529,6 +529,19 @@ describe("the default branch, open threads, and unverified commits", () => {
     expect(calls).toEqual(["api repos/acme/widgets"]);
   });
 
+  it.each([
+    ["Organization", true],
+    ["User", false],
+  ])(
+    "reads whether an organization owns the repository (%s)",
+    async (type, said) => {
+      const { p } = pulls([
+        [/^api repos\/acme\/widgets$/, { owner: { login: "acme", type } }],
+      ]);
+      expect(await p.ownerIsOrganization()).toBe(said);
+    },
+  );
+
   it("reads the repository's default branch", async () => {
     const { p, calls } = pulls([
       [/^api repos\/acme\/widgets$/, { default_branch: "trunk" }],

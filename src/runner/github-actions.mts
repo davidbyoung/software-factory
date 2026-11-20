@@ -44,6 +44,18 @@ export function githubActionsRunner(o: {
 }): Runner {
   const t = o.transport;
   const API = `repos/${o.repository}`;
+  /** Every secret a listing names, page by page: the list is an object,
+   * not an array, so it is paged by hand. */
+  const secretsAt = async (path: string) => {
+    const all: { name: string; visibility?: string }[] = [];
+    for (let page = 1; ; page++) {
+      const listed = await t.rest<{
+        secrets: { name: string; visibility?: string }[];
+      }>("GET", `${path}?per_page=100&page=${page}`);
+      all.push(...listed.secrets);
+      if (listed.secrets.length < 100) return all;
+    }
+  };
   const reviewsOf = async (sha: string) =>
     (
       await t.rest<{
@@ -154,21 +166,58 @@ export function githubActionsRunner(o: {
         throw error;
       }
     },
-    async secretNames() {
-      // The list is an object, not an array, so it is paged by hand.
-      const names: string[] = [];
-      for (let page = 1; ; page++) {
-        const listed = await t.rest<{ secrets: { name: string }[] }>(
-          "GET",
-          `${API}/actions/secrets?per_page=100&page=${page}`,
-        );
-        names.push(...listed.secrets.map((x) => x.name));
-        if (listed.secrets.length < 100) return names;
-      }
-    },
+    secretNames: async () =>
+      (await secretsAt(`${API}/actions/secrets`)).map((x) => x.name),
     async setSecret(name, value) {
       if (!o.cli) throw new Error("Storing a secret needs the GitHub CLI.");
       await o.cli(["secret", "set", name, "--repo", o.repository], value);
+    },
+    dependabotSecretNames: async () =>
+      (await secretsAt(`${API}/dependabot/secrets`)).map((x) => x.name),
+    async setDependabotSecret(name, value) {
+      if (!o.cli) throw new Error("Storing a secret needs the GitHub CLI.");
+      await o.cli(
+        ["secret", "set", name, "--app", "dependabot", "--repo", o.repository],
+        value,
+      );
+    },
+    organizationSecretNames: async () =>
+      (await secretsAt(`${API}/actions/organization-secrets`)).map(
+        (x) => x.name,
+      ),
+    async organizationDependabotSecretNames(isPrivate) {
+      const org = `orgs/${o.repository.split("/")[0]}/dependabot/secrets`;
+      try {
+        const names: string[] = [];
+        for (const s of await secretsAt(org)) {
+          if (
+            s.visibility === "all" ||
+            (s.visibility === "private" && isPrivate)
+          )
+            names.push(s.name);
+          else if (s.visibility === "selected") {
+            for (let page = 1; ; page++) {
+              const shared = await t.rest<{
+                repositories: { full_name: string }[];
+              }>(
+                "GET",
+                `${org}/${s.name}/repositories?per_page=100&page=${page}`,
+              );
+              if (
+                shared.repositories.some((r) => r.full_name === o.repository)
+              ) {
+                names.push(s.name);
+                break;
+              }
+              if (shared.repositories.length < 100) break;
+            }
+          }
+        }
+        return names;
+      } catch (error) {
+        if (statusOf(error) !== null) return null;
+        throw error;
+      }
     },
   };
 }

@@ -26,6 +26,13 @@ export type MemoryRunnerOptions = {
   log?: string[];
   /** The secrets set on the repository, by name. */
   secrets?: Record<string, string>;
+  /** The secrets set on the repository for Dependabot, by name. */
+  dependabotSecrets?: Record<string, string>;
+  /** The organization's secrets shared with the repository. */
+  organizationSecrets?: string[];
+  /** The organization's Dependabot secrets that reach the repository, or
+   * null when the organization will not list them; none unless given. */
+  organizationDependabotSecrets?: string[] | null;
   /** Each workflow's state, by its file name; missing unless given. */
   workflows?: Record<string, "active" | "disabled">;
 };
@@ -40,6 +47,9 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     [];
   const reviewsAsked: string[] = [];
   const secrets = new Map(Object.entries(options.secrets ?? {}));
+  const dependabotSecrets = new Map(
+    Object.entries(options.dependabotSecrets ?? {}),
+  );
   let looked = 0;
 
   /** Records the call, and fails it when the test asked for that. */
@@ -95,6 +105,23 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       called("setSecret", name);
       secrets.set(name, value);
     },
+    async dependabotSecretNames() {
+      called("dependabotSecretNames");
+      return [...dependabotSecrets.keys()];
+    },
+    async setDependabotSecret(name, value) {
+      called("setDependabotSecret", name);
+      dependabotSecrets.set(name, value);
+    },
+    async organizationSecretNames() {
+      called("organizationSecretNames");
+      return [...(options.organizationSecrets ?? [])];
+    },
+    async organizationDependabotSecretNames(isPrivate) {
+      called("organizationDependabotSecretNames", isPrivate);
+      const names = options.organizationDependabotSecrets;
+      return names === null ? null : [...(names ?? [])];
+    },
   };
 
   return {
@@ -107,6 +134,8 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     reviewsAsked,
     /** The secrets as they stand, by name. */
     secrets,
+    /** The Dependabot secrets as they stand, by name. */
+    dependabotSecrets,
     /** Replaces a commit's runs, as time passing on the runner would. */
     setRuns(sha: string, to: Run[]) {
       runs.set(sha, to);

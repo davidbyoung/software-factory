@@ -42,6 +42,8 @@ export type MemoryCodeHostOptions = {
   defaultBranch?: string;
   /** Whether the repository is private; public unless given. */
   isPrivate?: boolean;
+  /** Whether an organization owns the repository; a person unless given. */
+  ownerIsOrganization?: boolean;
   /** The check runs and statuses on each commit. */
   commits?: Record<
     string,
@@ -231,6 +233,10 @@ export function memoryCodeHost(
     async isPrivate() {
       called("isPrivate");
       return options.isPrivate ?? false;
+    },
+    async ownerIsOrganization() {
+      called("ownerIsOrganization");
+      return options.ownerIsOrganization ?? false;
     },
     async checkRuns(sha) {
       called("checkRuns", sha);

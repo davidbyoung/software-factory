@@ -9,6 +9,7 @@ import { dirname, join, relative, sep } from "node:path";
 import { DEFAULT_CODE_HOST } from "./code-host/index.mts";
 import { ROLE_SHAPE, ROLES, SETTINGS_FILE, SETTINGS_KEYS } from "./config.mts";
 import { BUILT } from "./tool-names.mts";
+import { NPMRC, refusal } from "./npmrc.mts";
 
 export const PRESET_FILE = "factory-preset.yaml";
 export const CHOICES_FILE = ".claude/factory.choices.yaml";
@@ -635,6 +636,8 @@ export type Lock = {
   version: string;
   presets: { name: string; version: string }[];
   hash: string | null;
+  /** The variables `.npmrc`'s sign-in lines read at the last sync. */
+  npmrcVariables: string[];
   settings: Obj | null;
   overridden: Record<string, Replaced[]>;
   files: string[];
@@ -654,6 +657,9 @@ export function readLock(text: string, load: (t: string) => unknown): Lock {
         }))
       : [],
     hash: typeof d["settings-hash"] === "string" ? d["settings-hash"] : null,
+    npmrcVariables: Array.isArray(d["npmrc-variables"])
+      ? d["npmrc-variables"].map(String)
+      : [],
     settings: isObj(d.settings) ? d.settings : null,
     overridden: isObj(d.overridden)
       ? (d.overridden as Record<string, Replaced[]>)
@@ -673,6 +679,8 @@ export type StaleDeps = {
    * undefined when there is no node_modules to look in. */
   installed: (pkg: string) => string | null | undefined;
   load: (t: string) => unknown;
+  /** The variables `.npmrc`'s sign-in lines read now. */
+  npmrcNames?: string[];
 };
 
 /** Why the lock is stale, the first of: missing, from an earlier release,
@@ -693,6 +701,11 @@ export function staleReason(d: StaleDeps): string | null {
       changed.includes(CHOICES_FILE) && !changed.includes(SETTINGS_FILE);
     return staleMessages.changed(choicesOnly ? CHOICES_FILE : SETTINGS_FILE);
   }
+  const names = d.npmrcNames ?? [];
+  const refused = names.map(refusal).find((r) => r !== null);
+  if (refused) return refused;
+  if (names.join("\n") !== lock.npmrcVariables.join("\n"))
+    return staleMessages.changed(NPMRC);
   for (const p of lock.presets) {
     const v = d.installed(splitName(p.name).pkg);
     if (v === null) return staleMessages.notInstalled(p.name);

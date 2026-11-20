@@ -86,6 +86,109 @@ describe("the runner's secrets, on GitHub Actions", () => {
   });
 });
 
+describe("the runner's Dependabot and organization secrets, on GitHub Actions", () => {
+  const runner = (g: ReturnType<typeof gh>) =>
+    githubActionsRunner({
+      transport: ghTransport(g.run),
+      repository: REPO,
+      cli: g.runIn,
+    });
+
+  it("lists the repository's Dependabot secrets", async () => {
+    const g = gh([
+      [
+        /repos\/acme\/site\/dependabot\/secrets/,
+        { secrets: [{ name: "NPM_TOKEN" }] },
+      ],
+    ]);
+    expect(await runner(g).dependabotSecretNames()).toEqual(["NPM_TOKEN"]);
+  });
+
+  it("stores a Dependabot secret with its value on standard input", async () => {
+    const g = gh([[/^secret set/, ""]]);
+    await runner(g).setDependabotSecret("NPM_TOKEN", "npm_secret");
+    expect(g.calls).toEqual([
+      {
+        line: `secret set NPM_TOKEN --app dependabot --repo ${REPO}`,
+        stdin: "npm_secret",
+      },
+    ]);
+  });
+
+  it("lists the organization's secrets shared with the repository", async () => {
+    const g = gh([
+      [
+        /repos\/acme\/site\/actions\/organization-secrets/,
+        { secrets: [{ name: "NPM_TOKEN" }] },
+      ],
+    ]);
+    expect(await runner(g).organizationSecretNames()).toEqual(["NPM_TOKEN"]);
+  });
+
+  it("lists the organization's Dependabot secrets that reach the repository, by visibility", async () => {
+    const g = gh([
+      [
+        /orgs\/acme\/dependabot\/secrets\?/,
+        {
+          secrets: [
+            { name: "ALL", visibility: "all" },
+            { name: "PRIVATE", visibility: "private" },
+            { name: "PICKED", visibility: "selected" },
+            { name: "ELSEWHERE", visibility: "selected" },
+          ],
+        },
+      ],
+      [
+        /secrets\/PICKED\/repositories/,
+        { repositories: [{ full_name: REPO }] },
+      ],
+      [
+        /secrets\/ELSEWHERE\/repositories/,
+        { repositories: [{ full_name: "acme/other" }] },
+      ],
+    ]);
+    expect(await runner(g).organizationDependabotSecretNames(false)).toEqual([
+      "ALL",
+      "PICKED",
+    ]);
+    expect(await runner(g).organizationDependabotSecretNames(true)).toEqual([
+      "ALL",
+      "PRIVATE",
+      "PICKED",
+    ]);
+  });
+
+  it("reads every page of the repositories a selected secret is shared with", async () => {
+    const others = Array.from({ length: 100 }, (_, i) => ({
+      full_name: `acme/other-${i}`,
+    }));
+    const g = gh([
+      [
+        /orgs\/acme\/dependabot\/secrets\?/,
+        { secrets: [{ name: "PICKED", visibility: "selected" }] },
+      ],
+      [/PICKED\/repositories\?per_page=100&page=1$/, { repositories: others }],
+      [
+        /PICKED\/repositories\?per_page=100&page=2$/,
+        { repositories: [{ full_name: REPO }] },
+      ],
+    ]);
+    expect(await runner(g).organizationDependabotSecretNames(false)).toEqual([
+      "PICKED",
+    ]);
+  });
+
+  it("answers null when the organization won't list its Dependabot secrets", async () => {
+    const g = gh([
+      [
+        /orgs\/acme\/dependabot\/secrets/,
+        new Error("gh: Forbidden (HTTP 403)"),
+      ],
+    ]);
+    expect(await runner(g).organizationDependabotSecretNames(false)).toBeNull();
+  });
+});
+
 describe("the code host's setup operations, on GitHub", () => {
   const host = (routes: [RegExp, unknown][], f?: typeof fetch) => {
     const g = gh(routes);

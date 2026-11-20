@@ -14,7 +14,9 @@ import type { Tickets } from "./tickets/types.mts";
 export const RULE = "Software factory";
 
 export type Check = {
-  state: "pass" | "fail" | "off";
+  /** `unknown`: the check can't be made from the repository, and fails
+   * nothing. */
+  state: "pass" | "fail" | "off" | "unknown";
   text: string;
   /** What to do about a failure. */
   fix?: string;

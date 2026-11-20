@@ -150,6 +150,10 @@ changed the settings' shape, as version 2 does.
 Stop (step 6), and say the settings are the owner's to move, as "Moving to
 settings version 2" in the factory's `docs/updating.md` says for that
 release. Never edit `.claude/factory.yaml`.
+When it fails on `.npmrc` instead, refusing a variable a sign-in line
+reads, stop the same way and say the name is the owner's to change:
+renaming it renames the secret and every developer's variable. Never edit
+`.npmrc`.
 
 Commit what the sync wrote as a second commit, "Sync the factory's files to
 VERSION" or "Sync the settings to PACKAGE VERSION", and push. The push changes workflows, so it needs a token with
