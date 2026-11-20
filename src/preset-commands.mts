@@ -1039,6 +1039,7 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
     version: "",
     presets: [],
     hash: null,
+    npmrcVariables: [],
     settings: {},
     overridden: {},
     files: [],

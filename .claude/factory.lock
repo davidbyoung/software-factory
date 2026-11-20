@@ -3,6 +3,7 @@
 version: 0.0.0-development
 presets: []
 settings-hash: sha256:23a6fe6171893e2c1b821588fe6ca7fea473ba5e45a5e974a7441cf18aeacf8d
+npmrc-variables: []
 settings:
   version: 2
   repository: davidbyoung/software-factory

@@ -52,7 +52,7 @@ const acme = (body: string[] = []) => {
 };
 
 describe("the lock factory sync writes", () => {
-  it("holds the version, the presets, the settings' hash, the settings, what they replaced, and the files, in that order", async () => {
+  it("holds the version, the presets, the settings' hash, .npmrc's variables, the settings, what they replaced, and the files, in that order", async () => {
     acme();
     expect((await sync()).code).toBe(0);
     const text = read(root, LOCK)!;
@@ -64,6 +64,7 @@ describe("the lock factory sync writes", () => {
       "version",
       "presets",
       "settings-hash",
+      "npmrc-variables",
       "settings",
       "overridden",
       "files",
@@ -76,6 +77,7 @@ describe("the lock factory sync writes", () => {
     expect(lock["settings-hash"]).toBe(
       settingsHash(read(root, ".claude/factory.yaml"), null),
     );
+    expect(lock["npmrc-variables"]).toEqual([]);
     expect(
       (lock.overridden as Record<string, unknown>)["rules.small-change-lines"],
     ).toEqual([{ from: ACME, value: 40 }]);

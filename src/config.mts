@@ -861,6 +861,9 @@ export type Deps = {
   lock?: { read: () => string | null; check: boolean };
   /** `.claude/factory.choices.yaml`, null when there is none. */
   readChoices?: () => string | null;
+  /** The text of `.npmrc` at the root, or null. Read from disk unless
+   * given. */
+  readNpmrc?: () => string | null;
   /** Where presets are installed from. */
   root?: string;
   /** Which of the settings files differ from the last commit. */
@@ -1060,6 +1063,13 @@ export async function staleOf(d: Deps): Promise<string | null> {
           ? (P.findPackage(root, pkg)?.version ?? null)
           : undefined),
     load,
+    npmrcNames: (await import("./npmrc.mts")).readNpmrc(
+      d.readNpmrc
+        ? d.readNpmrc()
+        : existsSync(join(root, ".npmrc"))
+          ? readFileSync(join(root, ".npmrc"), "utf8")
+          : null,
+    ).names,
   });
 }
 
