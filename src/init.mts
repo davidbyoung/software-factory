@@ -130,7 +130,7 @@ const SIGNING_TITLE = "software factory builds";
 const POLLER_IMAGE = "ghcr.io/davidbyoung/software-factory-poller";
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
-const AGAIN = "Run npx --no-install factory init again to add it.";
+const AGAIN = "Run factory init again to add it.";
 
 /** The columns and fields the board sync uses: the settings' names where
  * they rename one, and none for one they set to none. */
@@ -381,7 +381,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     const existing = boardOps ? await boardOps.list() : [];
     if (!offerNew && existing.length === 0) {
       d.out(
-        "No board to use instead: create one on the code host, then run npx --no-install factory init again.",
+        "No board to use instead: create one on the code host, then run factory init again.",
       );
       return null;
     }
@@ -936,7 +936,7 @@ export async function run(argv: string[]): Promise<number> {
       }
     },
     tools: TOOLS,
-    sync: async () => (await import("./sync.mts")).run([]),
+    sync: async () => (await import("./sync.mts")).run([], false),
     // The settings are not written yet, so the code host asked is the one
     // setup has just opened, not the one a settings file names.
     syncChanges: async (text, host) => {

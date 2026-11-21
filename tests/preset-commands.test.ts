@@ -343,6 +343,18 @@ describe("factory preset add", () => {
     expect(read(root, ".claude/factory.lock")).not.toContain("\x1B");
   });
 
+  it("says to run factory init when there are no settings", async () => {
+    await setUp([ACME]);
+    rmSync(join(root, ".claude/factory.yaml"));
+
+    const r = await preset(["add", NODE]);
+
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      ".claude/factory.yaml is missing. Run: factory init",
+    ]);
+  });
+
   it("refuses a preset already listed", async () => {
     await setUp([ACME]);
     const r = await preset(["add", ACME]);

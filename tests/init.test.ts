@@ -737,7 +737,7 @@ describe("factory init, the access token", () => {
     await r.run();
     expect(r.runner.secrets.has("FACTORY_BUILD_TOKEN")).toBe(false);
     expect(r.out.join("\n")).toContain(
-      "No token stored. Run npx --no-install factory init again to add it.",
+      "No token stored. Run factory init again to add it.",
     );
   });
 
@@ -861,7 +861,7 @@ describe("factory init, the board", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out.join("\n")).toContain(
-      "No board to use instead: create one on the code host, then run npx --no-install factory init again.",
+      "No board to use instead: create one on the code host, then run factory init again.",
     );
     expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
@@ -1285,7 +1285,7 @@ describe("factory init, a tool's own setup", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
-      "No Fake Tickets token stored. Run npx --no-install factory init again to add it.",
+      "No Fake Tickets token stored. Run factory init again to add it.",
     );
     expect(r.runner.secrets.has(FAKE_TOKEN)).toBe(false);
   });
@@ -1938,7 +1938,7 @@ describe("the tokens .npmrc reads", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "No NPM_TOKEN stored. The factory's workflows fail at npm ci until it is. Run npx --no-install factory init again to add it.",
+      "No NPM_TOKEN stored. The factory's workflows fail at npm ci until it is. Run factory init again to add it.",
     );
     expect(r.runner.secrets.has("NPM_TOKEN")).toBe(false);
     expect(r.runner.dependabotSecrets.has("NPM_TOKEN")).toBe(false);

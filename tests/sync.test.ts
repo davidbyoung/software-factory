@@ -58,6 +58,7 @@ async function sync(
   argv: string[] = [],
   s = settings(FULL),
   branch: string | null = "main",
+  extra: { announce?: boolean } = {},
 ) {
   const out: string[] = [];
   const err: string[] = [];
@@ -69,6 +70,7 @@ async function sync(
     defaultBranch: async () => branch,
     out: (l) => out.push(l),
     err: (l) => err.push(l),
+    ...extra,
   });
   return { code, out, err };
 }
@@ -694,10 +696,10 @@ describe("factory sync: the default branch in the push triggers", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "the factory's files are out of sync:",
+      "✗ 2 of the factory's files don't match the settings:",
       `  ${CHECK_COPY}`,
       `  ${CONFLICTS_COPY}`,
-      "Run `npx --no-install factory sync` and commit the result.",
+      "Run factory sync and commit what it writes.",
     ]);
   });
 
@@ -769,11 +771,38 @@ describe("factory sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "the factory's files are out of sync:",
+      "✗ 1 of the factory's files doesn't match the settings:",
       "  .claude/factory/rules.md",
-      "Run `npx --no-install factory sync` and commit the result.",
+      "Run factory sync and commit what it writes.",
     ]);
     expect(read(".claude/factory/rules.md")).toBe("rulez\n");
+  });
+
+  it("says the files match when the check passes", async () => {
+    await sync();
+
+    const r = await sync(["--check"]);
+
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual(["✓ The factory's files match the settings."]);
+  });
+
+  it("says nothing changed when a person's sync writes nothing", async () => {
+    await sync();
+
+    const again = await sync([], settings(FULL), "main", { announce: true });
+
+    expect(again.out.at(-1)).toBe(
+      "The factory's files already match the settings. Nothing changed.",
+    );
+  });
+
+  it("says nothing of it when init or a preset command runs the sync", async () => {
+    await sync();
+
+    expect((await sync()).out).not.toContain(
+      "The factory's files already match the settings. Nothing changed.",
+    );
   });
 
   it("exits 1 naming the agent action or the build workflow when either differs", async () => {

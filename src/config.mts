@@ -1374,8 +1374,9 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     if (s.site && !s.plugins.some((p) => p.role === "mockups"))
       if (!d.exists(DESIGN_SKILL))
         d.err(
-          `warning: ${DESIGN_SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`,
+          `warning: ${DESIGN_SKILL} is missing: run \`factory sync\` to give the site its design skill`,
         );
+    d.out(`${(d.paint ?? plain)("green", "✓")} The settings are valid.`);
     return 0;
   }
   if (command === "explain") {
