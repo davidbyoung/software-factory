@@ -53,12 +53,12 @@ The factory SHALL behave as this line says: When a name appears in two states, `
 
 ### Requirement: Board check prints a list
 
-The factory SHALL behave as this line says: `factory board check` prints a list state's row as its names joined by `, `, such as `review     Code review, QA`. It reports each listed name the board lacks, as it reports a single name today.
+The factory SHALL behave as this line says: `factory board check` prints a list state's row as its names joined by `, `, such as `✓ review     Code review, QA`, and a row whose names the board lacks as line 11 says.
 
 #### Scenario: Board check prints a list
 
 - **WHEN** `factory board check` runs with a state given a list
-- **THEN** it prints the state's row as its names joined by `, `, such as `review     Code review, QA`. It reports each listed name the board lacks, as it reports a single name today.
+- **THEN** `factory board check` prints a list state's row as its names joined by `, `, such as `✓ review     Code review, QA`, and a row whose names the board lacks as line 11 says.
 
 ### Requirement: The board check needs every listed name
 

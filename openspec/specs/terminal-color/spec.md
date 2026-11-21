@@ -35,12 +35,12 @@ The factory SHALL behave as this line says: When `FORCE_COLOR` is not set and th
 
 ### Requirement: Output that is not a terminal stays plain
 
-The factory SHALL behave as this line says: When `FORCE_COLOR` is not set and their output does not go to a terminal, they print plain text, character for character as they print today.
+The factory SHALL behave as this line says: When the commands `terminal-color`'s Purpose lists print to something that is not a terminal and `FORCE_COLOR` is not set, they print no color codes.
 
 #### Scenario: Output that is not a terminal stays plain
 
-- **WHEN** `FORCE_COLOR` is not set and their output does not go to a terminal
-- **THEN** they print plain text, character for character as they print today.
+- **WHEN** the commands `terminal-color`'s Purpose lists print to something that is not a terminal and `FORCE_COLOR` is not set
+- **THEN** they print no color codes.
 
 ### Requirement: Color adds only codes
 
@@ -68,15 +68,6 @@ The factory SHALL behave as this line says: When `init` prints its closing check
 
 - **WHEN** `init` prints its closing checks in color
 - **THEN** each check line is colored as line 6 says, and the lines before `Checks` are not colored.
-
-### Requirement: Board check's words are colored
-
-The factory SHALL behave as this line says: When `factory board check` prints in color, a state's `no column…` text is dim, a field's `written` green, `missing` red, `skipped: …` yellow, and `never written: set to none` dim; the `Note:` label is yellow and the `Problem:` label red, with the text after each label not colored; the heading line, the state and field names, and the column names are not colored.
-
-#### Scenario: Board check's words are colored
-
-- **WHEN** `factory board check` prints in color
-- **THEN** a state's `no column…` text is dim, a field's `written` green, `missing` red, `skipped: …` yellow, and `never written: set to none` dim; the `Note:` label is yellow and the `Problem:` label red, with the text after each label not colored; the heading line, the state and field names, and the column names are not colored.
 
 ### Requirement: The preset summary's changes are colored
 
@@ -122,3 +113,12 @@ The factory SHALL behave as this line says: When `factory status` prints in colo
 
 - **WHEN** `factory status` prints in color
 - **THEN** its ticket and pull request numbers are links and its groups, marks, and counts take the colors they take today, and when it prints plain text, they are neither links nor colored.
+
+### Requirement: Board check's marks are colored
+
+The factory SHALL behave as this line says: When `factory board check` prints in color, each row's mark is colored as `doctor`'s are, `✓` green, `✗` red, `?` yellow, and `-` dim, and the text after it, the headings, and the first line are not colored.
+
+#### Scenario: Board check's marks are colored
+
+- **WHEN** `factory board check` prints in color
+- **THEN** each row's mark is colored as `doctor`'s are, `✓` green, `✗` red, `?` yellow, and `-` dim, and the text after it, the headings, and the first line are not colored.
