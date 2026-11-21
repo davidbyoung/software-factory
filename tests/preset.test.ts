@@ -411,6 +411,8 @@ describe("reading the settings from the lock", () => {
     const r = lockDeps(lock());
     expect(await config(["explain"], r.d)).toBe(0);
     expect(r.out).toEqual([
+      '# The settings in effect. "# default" marks the factory\'s own value,',
+      "# a preset's name marks that preset's, and an unmarked line is yours.",
       "version: 2",
       "repository: o/r",
       "rules:",

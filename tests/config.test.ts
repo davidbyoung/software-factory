@@ -945,7 +945,9 @@ describe("factory config explain", () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
     expect(r.out.join("\n")).toMatchInlineSnapshot(`
-      "version: 2
+      "# The settings in effect. \"# default\" marks the factory's own value,
+      # a preset's name marks that preset's, and an unmarked line is yours.
+      version: 2
       repository: owner/name
       tickets:
         type: github                                                               # default
@@ -1966,6 +1968,16 @@ describe("factory config explain, in color", () => {
     expect(r.out).toContainEqual(
       expect.stringMatching(/^\x1B\[2m {2}type: github +# default\x1B\[22m$/),
     );
-    expect(r.out[0]).toBe("version: 2");
+    expect(r.out.slice(0, 3)).toEqual([
+      paint(
+        "dim",
+        '# The settings in effect. "# default" marks the factory\'s own value,',
+      ),
+      paint(
+        "dim",
+        "# a preset's name marks that preset's, and an unmarked line is yours.",
+      ),
+      "version: 2",
+    ]);
   });
 });
