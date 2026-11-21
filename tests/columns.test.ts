@@ -40,6 +40,7 @@ import {
 } from "../src/lib/work-status.mts";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import stockPages from "./fixtures/stock-board.json";
+import { painter } from "../src/lib/color.mts";
 import { BOARD_FIELDS, memoryTickets } from "./memory-tickets";
 
 const AGENT = "<!-- agent -->";
@@ -801,6 +802,50 @@ describe("factory board check", () => {
     expect(
       boardReport(7, stockBoard(), STOCK_CONFIG, STOCK).join("\n"),
     ).not.toContain("poller");
+  });
+
+  it("colors each state's word and each label when it paints, and nothing else", () => {
+    const paint = painter(true);
+    const s = parse({
+      ...STOCK_YAML,
+      tickets: {
+        board: 7,
+        columns: { ...STOCK_YAML.tickets.columns, review: "In review" },
+        fields: { cost: "none" },
+      },
+    });
+    const config = { columns: columnsOf(s), fields: fieldNamesOf(s) };
+    const report = boardReport(7, stockBoard(), config, s, paint);
+    expect(report).toEqual([
+      'Board 7, "Roadmap"',
+      "",
+      "  backlog    Todo",
+      `  refining   ${paint("dim", "no column, shows in Todo")}`,
+      `  ready      ${paint("dim", "no column: builds start only when you ask")}`,
+      "  building   In Progress",
+      "  review     In review",
+      "  done       Done",
+      "",
+      `  Status     ${paint("green", "written")}`,
+      `  Session    ${paint("yellow", "skipped: the board has no field named Session")}`,
+      `  Runs in    ${paint("yellow", "skipped: the board has no field named Runs in")}`,
+      `  Cost       ${paint("dim", "never written: set to none")}`,
+      "",
+      `${paint("yellow", "Note:")} cards in "Blocked" are left alone. No state names that column.`,
+      `${paint("red", "Problem:")} the Status field lacks In review (tickets.columns.review).`,
+    ]);
+    expect(report.map((l) => l.replace(/\x1B\[\d+m/g, ""))).toEqual(
+      boardReport(7, stockBoard(), config, s),
+    );
+  });
+
+  it("colors a missing Status field red", () => {
+    const paint = painter(true);
+    const board = stockBoard();
+    board.fields = board.fields.filter((f) => f.name !== "Status");
+    expect(boardReport(7, board, STOCK_CONFIG, STOCK, paint)).toContain(
+      `  Status     ${paint("red", "missing")}`,
+    );
   });
 
   it("prints no reminder for a scheduled poller, which reads the column from the settings", () => {

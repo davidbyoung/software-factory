@@ -8,6 +8,7 @@
 //   factory preset choose KEY PRESET
 //   factory preset check
 //   factory preset changes REF
+import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -77,6 +78,7 @@ export type PresetDeps = {
   resolve: (own: string, choices: string | null) => Promise<Resolved>;
   write: (path: string, text: string | null) => void;
   read: (path: string) => string | null;
+  paint?: Paint;
 };
 
 // ---------------------------------------------------------------- Values
@@ -155,7 +157,12 @@ function valueInEffect(r: Resolved, key: string): unknown {
 type Row = { key: string; text: string };
 type Group = { title: string; rows: Row[] };
 
-function summary(head: string, groups: Group[], files: string[]): string[] {
+function summary(
+  head: string,
+  groups: Group[],
+  files: string[],
+  paint: Paint,
+): string[] {
   const shown = groups.filter((g) => g.rows.length);
   const width =
     Math.max(0, ...shown.flatMap((g) => g.rows.map((r) => r.key.length))) + 3;
@@ -163,12 +170,16 @@ function summary(head: string, groups: Group[], files: string[]): string[] {
     head,
     "",
     ...shown.flatMap((g) => [
-      `  ${g.title}`,
+      `  ${paint("bold", g.title)}`,
       ...g.rows.map((r) => `    ${r.key.padEnd(width)}${r.text}`),
     ]),
     ...(files.length ? ["", ...files.map((f) => `  ${f}`)] : []),
   ];
 }
+
+/** An `OLD → NEW` row: the old value dim, the new one bold. */
+const change = (paint: Paint, was: string, now: string) =>
+  `${paint("dim", was)} → ${paint("bold", now)}`;
 
 /** A question asked until the answer is one of `options`. */
 async function choose(
@@ -409,6 +420,7 @@ async function syncing(d: PresetDeps, wroteChoices: boolean): Promise<number> {
 const PAREN = "this preset";
 
 export async function add(argv: string[], d: PresetDeps): Promise<number> {
+  const paint = d.paint ?? plain;
   const name = argv.find((a) => !a.startsWith("--"));
   const yes = argv.includes("--yes");
   const dry = argv.includes("--dry-run");
@@ -510,12 +522,12 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       continue;
     }
     if (list) {
-      added.push({ key: list, text: `+ ${show(mine)}` });
+      added.push({ key: list, text: paint("green", `+ ${show(mine)}`) });
       continue;
     }
     const was = getPath(effNow, key.split("."));
     if (stable(was) === stable(mine)) continue;
-    replacesDefault.push({ key, text: `${show(was)} → ${show(mine)}` });
+    replacesDefault.push({ key, text: change(paint, show(was), show(mine)) });
   }
   for (const path of VALUE_LISTS) {
     const was = getPath(effNow, path.split("."));
@@ -527,7 +539,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
         !had.has(stable(item)) &&
         after.resolution.sources.get(`${path}[${stable(item)}]`)?.from === name
       )
-        added.push({ key: path, text: `+ ${show(item)}` });
+        added.push({ key: path, text: paint("green", `+ ${show(item)}`) });
   }
   const locked = await lockFiles(d);
   const writes = [...after.resolution.files]
@@ -547,6 +559,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       { title: `replaced by your ${SETTINGS_FILE}`, rows: yours },
     ],
     writes,
+    paint,
   ))
     d.out(line);
 
@@ -615,6 +628,7 @@ async function lockFiles(d: PresetDeps): Promise<string[]> {
 // ---------------------------------------------------------------- remove
 
 export async function remove(argv: string[], d: PresetDeps): Promise<number> {
+  const paint = d.paint ?? plain;
   const name = argv.find((a) => !a.startsWith("--"));
   const yes = argv.includes("--yes");
   const dry = argv.includes("--dry-run");
@@ -669,16 +683,24 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
       if (!after.resolution.sources.has(key))
         removed.push({
           key: path,
-          text: `− ${show(JSON.parse(key.slice(path.length + 1, -1)))}`,
+          text: paint(
+            "red",
+            `− ${show(JSON.parse(key.slice(path.length + 1, -1)))}`,
+          ),
         });
       continue;
     }
     if (!nextSrc) {
-      if (list) removed.push({ key: list, text: `− ${show(old)}` });
+      if (list)
+        removed.push({ key: list, text: paint("red", `− ${show(old)}`) });
       else
         toDefault.push({
           key,
-          text: `${show(old)} → ${show(getPath(effAfter, key.split(".")))}`,
+          text: change(
+            paint,
+            show(old),
+            show(getPath(effAfter, key.split("."))),
+          ),
         });
       continue;
     }
@@ -686,7 +708,7 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
     if (stable(next) === stable(old)) continue;
     const row = {
       key: list ?? key,
-      text: `${show(old)} → ${show(next)}, from ${nextSrc.from}`,
+      text: `${change(paint, show(old), show(next))}, from ${nextSrc.from}`,
     };
     if (src.state === "chosen") {
       chosenAgainst.push(row);
@@ -707,6 +729,7 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
       { title: "back to a value you chose against", rows: chosenAgainst },
     ],
     deletes,
+    paint,
   ))
     d.out(line);
 
@@ -1294,6 +1317,7 @@ export function presetDeps(root = repoRoot()): PresetDeps {
     out: (l) => console.log(l),
     err: (l) => console.error(l),
     terminal: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+    paint: painter(colorOn()),
     ask: async (question) => {
       const { createInterface } = await import("node:readline/promises");
       const rl = createInterface({

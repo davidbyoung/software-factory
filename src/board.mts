@@ -20,6 +20,13 @@
 //
 // Tickets and the board go through the ticket interface (`tickets/`); the
 // pull requests through `code-host/`.
+import {
+  colorOn,
+  painter,
+  plain,
+  type Paint,
+  type StyleFormat,
+} from "./lib/color.mts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -230,6 +237,15 @@ export function checkFields(
   return { status: found.status!, ...found.fields };
 }
 
+const fieldColor = (text: string): StyleFormat =>
+  text === "written"
+    ? "green"
+    : text === "missing"
+      ? "red"
+      : text.startsWith("skipped")
+        ? "yellow"
+        : "dim";
+
 /** The report `factory board check` prints: each state's column, each
  * field, then the notes and problems. */
 export function boardReport(
@@ -237,6 +253,7 @@ export function boardReport(
   board: Board,
   cfg: BoardConfig,
   settings: Pick<Settings, "builds">,
+  paint: Paint = plain,
 ): string[] {
   const found = inspectBoard(board.fields, cfg);
   const pad = (label: string) => `  ${label.padEnd(10)} `;
@@ -251,22 +268,28 @@ export function boardReport(
       pad(key) +
         (column !== null
           ? column.join(", ")
-          : key === "ready"
-            ? "no column: builds start only when you ask"
-            : `no column, shows in ${columnFor(status, cfg.columns)}`),
+          : paint(
+              "dim",
+              key === "ready"
+                ? "no column: builds start only when you ask"
+                : `no column, shows in ${columnFor(status, cfg.columns)}`,
+            )),
     );
   }
   out.push("");
-  for (const line of found.lines) out.push(pad(line.label) + line.text);
+  for (const line of found.lines)
+    out.push(pad(line.label) + paint(fieldColor(line.text), line.text));
   const ready = cfg.columns.Ready?.[0] ?? null;
   const extra = [
-    ...found.notes.map((n) => `Note: ${n}`),
+    ...found.notes.map((n) => `${paint("yellow", "Note:")} ${n}`),
     ...(ready !== null &&
     ready !== DEFAULT_COLUMNS.Ready![0] &&
     settings.builds.trigger === "own-server"
-      ? [`Note: The poller needs FACTORY_READY_COLUMN set to "${ready}".`]
+      ? [
+          `${paint("yellow", "Note:")} The poller needs FACTORY_READY_COLUMN set to "${ready}".`,
+        ]
       : []),
-    ...found.problems.map((p) => `Problem: ${p}.`),
+    ...found.problems.map((p) => `${paint("red", "Problem:")} ${p}.`),
   ];
   if (extra.length) out.push("", ...extra);
   return out;
@@ -481,6 +504,7 @@ export type Deps = {
    * and the repository where FACTORY_BOARD_NUMBER and GITHUB_REPOSITORY do
    * not name them. */
   settings: () => Promise<Settings>;
+  paint?: Paint;
 };
 
 /** The dependencies, with the repository the command works on and its
@@ -658,7 +682,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
     if (argv[0] === "check") {
       const found = await boardOps.read();
       const number = await projectNumber(deps);
-      for (const line of boardReport(number, found, config, settings))
+      for (const line of boardReport(number, found, config, settings, d.paint))
         d.out(line);
       return inspectBoard(found.fields, config).problems.length ? 1 : 0;
     }
@@ -683,10 +707,10 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
   }
 }
 
-/** `factory board collect` and `factory board apply`. */
-export async function run(argv: string[]): Promise<number> {
+/** The dependencies `run` gives `main`. */
+export function boardDeps(argv: string[]): Deps {
   const nowArg = option(argv, "--now");
-  return main(argv, {
+  return {
     open: async (settings, target) => {
       const { tickets } = await openTickets(settings, target);
       return {
@@ -701,5 +725,11 @@ export async function run(argv: string[]): Promise<number> {
     readFile: (path) => readFileSync(path, "utf8"),
     writeFile: (path, text) => writeFileSync(path, text),
     settings: () => loadSettings(),
-  });
+    paint: painter(colorOn()),
+  };
+}
+
+/** `factory board collect` and `factory board apply`. */
+export async function run(argv: string[]): Promise<number> {
+  return main(argv, boardDeps(argv));
 }

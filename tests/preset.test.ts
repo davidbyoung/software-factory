@@ -4,6 +4,7 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { painter } from "../src/lib/color.mts";
 import {
   defaultDeps,
   loadSettings,
@@ -415,6 +416,13 @@ describe("reading the settings from the lock", () => {
       "rules:",
       "  review-rounds: 7  # @x/y",
     ]);
+  });
+
+  it("colors the lock's settings lines as it colors resolved ones", async () => {
+    const paint = painter(true);
+    const r = lockDeps(lock(), { paint });
+    expect(await config(["explain"], r.d)).toBe(0);
+    expect(r.out.at(-1)).toBe(`  review-rounds: 7  ${paint("dim", "# @x/y")}`);
   });
 
   const stops = async (d: Deps, message: string) => {

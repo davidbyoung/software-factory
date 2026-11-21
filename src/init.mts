@@ -38,6 +38,7 @@ import {
   SettingsError,
   type Settings,
 } from "./config.mts";
+import { colorOn, painter, type Paint } from "./lib/color.mts";
 import { checks as doctorChecks, doctorDeps, line } from "./doctor.mts";
 import {
   branchDeps,
@@ -104,6 +105,7 @@ export type InitDeps = {
   /** The `origin` remote's address, or null without one. */
   remote: () => string | null;
   tools: Registry;
+  paint?: Paint;
   sync: () => Promise<number>;
   /** The files a sync with these settings would write or delete. `host`
    * asks the code host for the default branch, where the checkout does not
@@ -883,7 +885,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   d.out("");
   d.out("Checks");
   const found2 = await d.checks();
-  for (const c of found2) d.out(`  ${line(c)}`);
+  for (const c of found2) d.out(`  ${line(c, d.paint)}`);
   return found2.some((c) => c.state === "fail") ? 1 : 0;
 }
 
@@ -981,6 +983,7 @@ export async function run(argv: string[]): Promise<number> {
       }
     },
     checks: () => doctorChecks(doctorDeps(root)),
+    paint: painter(colorOn()),
     packageName: manifest.name,
     packageVersion: manifest.version,
   };

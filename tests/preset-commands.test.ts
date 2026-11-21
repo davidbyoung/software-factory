@@ -3,7 +3,8 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { painter } from "../src/lib/color.mts";
 import {
   defaultDeps,
   filesDeps,
@@ -34,7 +35,10 @@ import {
 } from "./preset-fixture.ts";
 
 let root = "";
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+  vi.unstubAllEnvs();
+});
 
 /** The docs' organization preset: it does not set review-rounds. */
 const ACME_BASE = [
@@ -308,6 +312,37 @@ describe("factory preset add", () => {
     expect(read(root, ".claude/factory.yaml")).toBe(before);
   });
 
+  it("colors the summary when it paints, even outside a terminal", async () => {
+    await setUp([ACME], GATE);
+    const paint = painter(true);
+    const r = await preset(["add", NODE, "--dry-run"], [], {
+      terminal: false,
+      paint,
+    });
+    expect(r.out).toEqual([
+      `${NODE} 1.4.0 would change these settings here:`,
+      "",
+      `  ${paint("bold", "added")}`,
+      `    plugins.build.reviewers    ${paint("green", "+ node-deps-reviewer")}`,
+      `    pr-review.commands         ${paint("green", "+ npm audit")}`,
+      `  ${paint("bold", "replaces the default")}`,
+      `    rules.review-rounds        ${paint("dim", "2")} → ${paint("bold", "3")}`,
+      `  ${paint("bold", `disagrees with ${ACME}`)}`,
+      `    rules.small-change-lines   ${ACME}: 40   this preset: 30`,
+      `  ${paint("bold", "replaced by your .claude/factory.yaml")}`,
+      "    commands.gate              yours: npm run check   this preset's: npm test",
+      "",
+      "  writes .claude/agents/node-deps-reviewer.md",
+    ]);
+  });
+
+  it("writes the lock without color, even where FORCE_COLOR asks for it", async () => {
+    vi.stubEnv("FORCE_COLOR", "1");
+    await setUp([ACME, NODE]);
+    expect(read(root, ".claude/factory.lock")).toContain("# default");
+    expect(read(root, ".claude/factory.lock")).not.toContain("\x1B");
+  });
+
   it("refuses a preset already listed", async () => {
     await setUp([ACME]);
     const r = await preset(["add", ACME]);
@@ -445,6 +480,26 @@ describe("factory preset remove", () => {
     ]);
     expect(read(root, ".claude/factory.yaml")).not.toContain(NODE);
     expect(read(root, ".claude/factory.choices.yaml")).toBeNull();
+  });
+
+  it("colors the summary when it paints", async () => {
+    await both();
+    const paint = painter(true);
+    const r = await preset(["remove", NODE, "--dry-run"], [], { paint });
+    expect(r.out).toEqual([
+      `Removing ${NODE} would change these settings here:`,
+      "",
+      `  ${paint("bold", "removed")}`,
+      `    plugins.build.reviewers    ${paint("red", "− node-deps-reviewer")}`,
+      `    pr-review.commands         ${paint("red", "− npm audit")}`,
+      `  ${paint("bold", "back to the default")}`,
+      `    rules.review-rounds        ${paint("dim", "3")} → ${paint("bold", "2")}`,
+      `    commands.gate              ${paint("dim", "npm test")} → ${paint("bold", "none")}`,
+      `  ${paint("bold", "back to a value you chose against")}`,
+      `    rules.small-change-lines   ${paint("dim", "30")} → ${paint("bold", "40")}, from ${ACME}`,
+      "",
+      "  deletes .claude/agents/node-deps-reviewer.md",
+    ]);
   });
 
   it("writes the kept value into .claude/factory.yaml", async () => {

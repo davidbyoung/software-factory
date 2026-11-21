@@ -11,6 +11,7 @@ import {
   type Settings,
 } from "./config.mts";
 import { itemKey, markText, type Resolution, type Source } from "./preset.mts";
+import type { Paint } from "./lib/color.mts";
 
 /** A line of output, and its mark, or null for none. */
 type Line = { text: string; mark: string | null };
@@ -221,4 +222,31 @@ export async function explainLines(
   return lines.map((l) =>
     l.mark !== null ? `${l.text.padEnd(at)}# ${l.mark}` : l.text,
   );
+}
+
+/** The lines as `config explain` prints them to a terminal: a default's
+ * whole line dim, a comment line dim, and any other mark alone dim. It
+ * works on the text alone, since the lock keeps only that. */
+export function paintExplainLines(lines: string[], paint: Paint): string[] {
+  const comment = (l: string) => l.trimStart().startsWith("#");
+  // Every mark starts at one column, two spaces past the longest marked
+  // line. A quoted value can hold "  # " too, but rarely at that column.
+  const counts = new Map<number, number>();
+  for (const l of lines.filter((l) => !comment(l)))
+    for (const m of l.matchAll(/ {2}# /g)) {
+      const at = m.index + 2;
+      counts.set(at, (counts.get(at) ?? 0) + 1);
+    }
+  const most = Math.max(0, ...counts.values());
+  const at = Math.max(
+    -1,
+    ...[...counts].filter(([, n]) => n === most).map(([c]) => c),
+  );
+  return lines.map((l) => {
+    if (comment(l)) return paint("dim", l);
+    if (at < 0 || !l.startsWith("  # ", at - 2)) return l;
+    return l.slice(at) === "# default"
+      ? paint("dim", l)
+      : l.slice(0, at) + paint("dim", l.slice(at));
+  });
 }

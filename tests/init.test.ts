@@ -15,6 +15,7 @@ import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { afterEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { main, parseRemote, type Ask, type InitDeps } from "../src/init.mts";
+import { painter, type Paint } from "../src/lib/color.mts";
 import type { Part } from "../src/parts.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
@@ -132,6 +133,7 @@ type Setup = {
   organizationDependabotSecrets?: string[] | null;
   runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
   codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
+  paint?: Paint;
 };
 
 const roots: string[] = [];
@@ -234,6 +236,7 @@ function init(setup: Setup) {
     checks: async () => [{ state: "pass", text: "Every check passed" }],
     packageName: "@davidbyoung/software-factory",
     packageVersion: "0.2.0",
+    paint: setup.paint,
   };
   const read = (path: string) =>
     existsSync(join(root, path))
@@ -287,8 +290,9 @@ function printsNoSecret(out: string[]) {
 }
 
 describe("factory init, a first run with every part", () => {
-  const first = () =>
+  const first = (paint?: Paint) =>
     init({
+      paint,
       packageJson: false,
       answers: {
         checkbox: [EVERY],
@@ -417,6 +421,17 @@ describe("factory init, a first run with every part", () => {
       "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
       "  4. Commit this on a branch, open a pull request, and merge it.",
     ]);
+  });
+
+  it("colors its closing checks as doctor does, and nothing before them", async () => {
+    const paint = painter(true);
+    const r = first(paint);
+    await r.run();
+    const at = r.out.indexOf("Checks");
+    expect(r.out.slice(at + 1)).toEqual([
+      `  ${paint("green", "✓")} Every check passed`,
+    ]);
+    expect(r.out.slice(0, at).join("\n")).not.toContain("\x1B");
   });
 
   it("shows the plan, naming secrets but not their values, before changing anything", async () => {

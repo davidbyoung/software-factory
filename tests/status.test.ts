@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { painter } from "../src/lib/color.mts";
 import {
   age,
   failureLine,
@@ -250,6 +251,12 @@ const LINKS = {
   run: (id: string) => `${SITE}/actions/runs/${id}`,
 };
 const TTY = { color: true, width: 120, links: LINKS };
+const p = painter(true);
+/** Text as a pattern that matches it exactly. */
+const re = (text: string) => text.replace(/[[\]\\^$.*+?()|{}]/g, "\\$&");
+/** The codes a format opens and closes with, for a line whose text a
+ * pattern matches loosely. */
+const ends = (format: Parameters<typeof p>[0]) => p(format, "\0").split("\0");
 const issueLink = (n: number, text: string) =>
   `${ESC}]8;;https://github.com/acme/widgets/issues/${n}${ESC}\\${text}${ESC}]8;;${ESC}\\`;
 const pullLink = (n: number, text: string) =>
@@ -508,7 +515,7 @@ describe("formatRows in a terminal", () => {
     );
 
   it("underlines the header's words in bold, and not the spaces between them", () => {
-    const head = (word: string) => `${ESC}\\[1;4m${word}${ESC}\\[0m`;
+    const head = (word: string) => re(p(["bold", "underline"], word));
 
     expect(styled([issue(1)], [])[0]).toMatch(
       new RegExp(
@@ -524,14 +531,10 @@ describe("formatRows in a terminal", () => {
       [[1, "In progress", "2026-11-09T11:00:00Z"]],
     );
 
-    expect(lines.join("\n")).toContain(
-      `${ESC}[94m${issueLink(1, "#1")}${ESC}[0m`,
-    );
-    expect(lines).toContainEqual(
-      expect.stringContaining(`${ESC}[2m1h${ESC}[0m`),
-    );
+    expect(lines.join("\n")).toContain(p("blueBright", issueLink(1, "#1")));
+    expect(lines).toContainEqual(expect.stringContaining(p("dim", "1h")));
     expect(lines.at(-1)).toBe(
-      `${ESC}[2mClosed in the last 24 hours:${ESC}[0m ${ESC}[94m${issueLink(3, "#3")}${ESC}[0m`,
+      `${p("dim", "Closed in the last 24 hours:")} ${p("blueBright", issueLink(3, "#3"))}`,
     );
   });
 
@@ -584,12 +587,12 @@ describe("formatRows in a terminal", () => {
 
     expect(lines).toEqual(
       expect.arrayContaining([
-        `${ESC}[1;97mBacklog${ESC}[0m  ${ESC}[2m1${ESC}[0m`,
-        `${ESC}[1;33mIn refinement${ESC}[0m  ${ESC}[2m1${ESC}[0m`,
-        `${ESC}[1;32mReady${ESC}[0m  ${ESC}[2m1${ESC}[0m`,
-        `${ESC}[2mIn progress  0${ESC}[0m`,
-        `${ESC}[1;35mIn review${ESC}[0m  ${ESC}[2m1${ESC}[0m`,
-        `${ESC}[1;97mPull requests that close no issue${ESC}[0m  ${ESC}[2m1${ESC}[0m`,
+        `${p(["bold", "whiteBright"], "Backlog")}  ${p("dim", "1")}`,
+        `${p(["bold", "yellow"], "In refinement")}  ${p("dim", "1")}`,
+        `${p(["bold", "green"], "Ready")}  ${p("dim", "1")}`,
+        p("dim", "In progress  0"),
+        `${p(["bold", "magenta"], "In review")}  ${p("dim", "1")}`,
+        `${p(["bold", "whiteBright"], "Pull requests that close no issue")}  ${p("dim", "1")}`,
       ]),
     );
     expect(
@@ -598,7 +601,7 @@ describe("formatRows in a terminal", () => {
         [],
         [[1, "In progress", "2026-11-09T11:00:00Z"]],
       ),
-    ).toContain(`${ESC}[1;36mIn progress${ESC}[0m  ${ESC}[2m1${ESC}[0m`);
+    ).toContain(`${p(["bold", "cyan"], "In progress")}  ${p("dim", "1")}`);
   });
 
   it("prints Waiting on you in bold yellow", () => {
@@ -621,7 +624,7 @@ describe("formatRows in a terminal", () => {
 
     expect(lines).toContainEqual(
       expect.stringMatching(
-        new RegExp(` {2}${ESC}\\[1;33mWaiting on you${ESC}\\[0m$`),
+        new RegExp(` {2}${re(p(["bold", "yellow"], "Waiting on you"))}$`),
       ),
     );
   });
@@ -721,7 +724,9 @@ describe("formatRows in a terminal", () => {
   it("prints the pull request line dim", () => {
     expect(styled([issue(1)], [pull(9, { closes: [1] })])).toContainEqual(
       expect.stringMatching(
-        new RegExp(`^ +${ESC}\\[2m↳ Pull request .*${ESC}\\[0m$`),
+        new RegExp(
+          `^ +${re(ends("dim")[0]!)}↳ Pull request .*${re(ends("dim")[1]!)}$`,
+        ),
       ),
     );
   });
@@ -742,7 +747,7 @@ describe("formatRows in a terminal", () => {
         TTY,
       ),
     ).toContainEqual(
-      expect.stringMatching(new RegExp(`^ +${ESC}\\[31m⚠ stale${ESC}\\[0m$`)),
+      expect.stringMatching(new RegExp(`^ +${re(p("red", "⚠ stale"))}$`)),
     );
   });
 
@@ -786,16 +791,13 @@ describe("formatRows in a terminal", () => {
 
 describe("styleFor", () => {
   it.each([
-    [true, 100, undefined, { color: true, width: 100 }],
-    [true, 100, "", { color: true, width: 100 }],
-    [true, 100, "1", { color: false, width: null }],
-    [false, 100, undefined, { color: false, width: null }],
-    [undefined, undefined, undefined, { color: false, width: null }],
-    [true, undefined, undefined, { color: true, width: 80 }],
+    [true, 100, { color: true, width: 100 }],
+    [true, undefined, { color: true, width: 80 }],
+    [false, 100, { color: false, width: null }],
   ])(
-    "styles only a terminal with NO_COLOR unset or empty: a terminal %s, %s columns, NO_COLOR %s gives %o",
-    (tty, columns, noColor, expected) => {
-      expect(styleFor(tty, columns, noColor)).toEqual(expected);
+    "styles only output that is colored: color %s, %s columns, gives %o",
+    (color, columns, expected) => {
+      expect(styleFor(color, columns)).toEqual(expected);
     },
   );
 });
@@ -1353,7 +1355,7 @@ describe("reviewer rows", () => {
       color,
     );
     expect(passed).toBe(
-      "\x1B[32m✓\x1B[0m factory-test-reviewer  \x1B[2mSonnet\x1B[0m  \x1B[32mpassed              \x1B[0m  \x1B[2m3 min      \x1B[0m  \x1B[2m$0.84\x1B[0m",
+      `${p("green", "✓")} factory-test-reviewer  ${p("dim", "Sonnet")}  ${p("green", "passed              ")}  ${p("dim", "3 min      ")}  ${p("dim", "$0.84")}`,
     );
     const running = runLine(
       {
@@ -1366,9 +1368,9 @@ describe("reviewer rows", () => {
       NOW,
       color,
     );
-    expect(running).toContain("\x1B[33m…\x1B[0m");
-    expect(running).toContain("\x1B[33mrunning");
-    expect(running).toContain("\x1B[2m8 min so far\x1B[0m");
+    expect(running).toContain(p("yellow", "…"));
+    expect(running).toContain(`${ends("yellow")[0]}running`);
+    expect(running).toContain(p("dim", "8 min so far"));
     const failed = runLine(
       {
         id: "a",
@@ -1383,8 +1385,8 @@ describe("reviewer rows", () => {
       NOW,
       color,
     );
-    expect(failed).toContain("\x1B[31m✗\x1B[0m");
-    expect(failed).toContain("\x1B[31m2 findings to fix");
+    expect(failed).toContain(p("red", "✗"));
+    expect(failed).toContain(`${ends("red")[0]}2 findings to fix`);
     const noVerdict = runLine(
       {
         id: "a",
@@ -1398,8 +1400,8 @@ describe("reviewer rows", () => {
       NOW,
       color,
     );
-    expect(noVerdict).toContain("\x1B[2m?\x1B[0m");
-    expect(noVerdict).toContain("\x1B[2mfinished, no verdict");
+    expect(noVerdict).toContain(p("dim", "?"));
+    expect(noVerdict).toContain(`${ends("dim")[0]}finished, no verdict`);
   });
 });
 

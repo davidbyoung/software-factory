@@ -11,6 +11,7 @@
 // The repository and the board come from the factory's settings, whose
 // loader needs dependencies installed; before npm ci the hook prints
 // nothing.
+import { colorOn, painter } from "./lib/color.mts";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   NO_DEPENDENCIES,
@@ -201,33 +202,27 @@ export type Style = {
 };
 export const PLAIN: Style = { color: false, width: null };
 
-/** A terminal unless NO_COLOR is set to anything (no-color.org). */
-export function styleFor(
-  isTTY: boolean | undefined,
-  columns: number | undefined,
-  noColor: string | undefined,
-): Style {
-  return isTTY && !noColor ? { color: true, width: columns ?? 80 } : PLAIN;
+/** Colors, links, and fitting to the window go together, where `colorOn`
+ * says the output is colored. */
+export function styleFor(color: boolean, columns: number | undefined): Style {
+  return color ? { color: true, width: columns ?? 80 } : PLAIN;
 }
 
 const ESC = "\x1B";
-const SGR = {
-  bold: 1,
-  dim: 2,
-  underline: 4,
-  red: 31,
-  green: 32,
-  yellow: 33,
-  magenta: 35,
-  cyan: 36,
-  white: 37,
-  brightBlue: 94,
-  brightWhite: 97,
-} as const;
-type Sgr = keyof typeof SGR;
+type Sgr =
+  | "bold"
+  | "dim"
+  | "underline"
+  | "red"
+  | "green"
+  | "yellow"
+  | "magenta"
+  | "cyan"
+  | "blueBright"
+  | "whiteBright";
 
 const GROUPS: { name: Status; color: Sgr }[] = [
-  { name: "Backlog", color: "brightWhite" },
+  { name: "Backlog", color: "whiteBright" },
   { name: "In refinement", color: "yellow" },
   { name: "Ready", color: "green" },
   { name: "In progress", color: "cyan" },
@@ -248,7 +243,7 @@ const width = (segs: Seg[]) => segs.reduce((n, s) => n + [...s.text].length, 0);
 
 function paint(text: string, style: Style, ...codes: Sgr[]): string {
   if (!style.color || codes.length === 0) return text;
-  return `${ESC}[${codes.map((c) => SGR[c]).join(";")}m${text}${ESC}[0m`;
+  return painter(true)(codes, text);
 }
 
 function render(segs: Seg[], style: Style): string {
@@ -481,7 +476,7 @@ export function formatRows(
       {
         name: UNLINKED,
         label: UNLINKED,
-        color: "brightWhite" as Sgr,
+        color: "whiteBright" as Sgr,
         cells: cells.filter((c) => c.row.kind === "pull"),
         always: false,
       },
@@ -507,7 +502,7 @@ export function formatRows(
             paint(
               render([{ text: c.number, url: c.url }], style),
               style,
-              "brightBlue",
+              "blueBright",
             ) +
             pad(c.number, numW) +
             GAP +
@@ -568,7 +563,7 @@ export function formatRows(
               style,
             ),
             style,
-            "brightBlue",
+            "blueBright",
           ),
         )
         .join(", ")}`,
@@ -734,6 +729,10 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
 }
 
+/** The style for what `run` prints to stdout. */
+export const terminalStyle = (): Style =>
+  styleFor(colorOn(), process.stdout.columns);
+
 /** `factory status [--watch]`, and `factory session-start`'s second half. */
 export async function run(argv: string[]): Promise<number> {
   const code = await main(argv, {
@@ -756,12 +755,7 @@ export async function run(argv: string[]): Promise<number> {
           process.exit(130);
         });
     },
-    style: () =>
-      styleFor(
-        process.stdout.isTTY,
-        process.stdout.columns,
-        process.env.NO_COLOR,
-      ),
+    style: terminalStyle,
     settings: () => loadSettings(),
     env: process.env,
   });
