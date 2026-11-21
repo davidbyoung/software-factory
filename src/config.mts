@@ -5,7 +5,7 @@
 //
 //   factory config get KEY     # e.g. repository, tickets.board
 //   factory plugins [ROLE]     # kind, name, role, files or labels
-//   factory config check       # prints nothing when sound
+//   factory config check       # ✓ The settings are valid., or what is wrong
 //
 // A list prints one item per line. A failure names the key and exits 1.
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";

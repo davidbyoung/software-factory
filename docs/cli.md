@@ -51,7 +51,7 @@ nothing to fix.
 `doctor` prints its checks under headings: `Settings and files`, then
 each tool's name, such as `GitHub` or `Claude Code`, then the parts you
 left off. Each check starts with a mark: ✓ works, ✗ needs fixing, ?
-can't be told from here, and - off on purpose. `doctor` exits 1 when a
+worth a look, and - off on purpose. `doctor` exits 1 when a
 check fails. GitHub never lets a secret be read back, so `doctor` checks
 only that each secret your parts read is set.
 
