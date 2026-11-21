@@ -774,6 +774,12 @@ describe("factory doctor, in color", () => {
     );
   });
 
+  it("prints a failing check with no fix as its mark and text alone", () => {
+    expect(line({ state: "fail", text: "Board 1 can be read" }, paint)).toBe(
+      `${paint("red", "✗")} Board 1 can be read`,
+    );
+  });
+
   it("prints its checks with the paint it is given", async () => {
     const { run, out } = doctor({ paint });
     await run();
