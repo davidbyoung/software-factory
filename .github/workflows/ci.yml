@@ -37,8 +37,19 @@ jobs:
       - name: Validate specs
         run: npm run spec:validate
 
-      - name: Run the unit tests
-        run: npm test
+      # Fails under the coverage floors in vitest.config.ts.
+      - name: Run the unit tests, with coverage
+        run: npm run coverage
+
+      # Release calls this workflow, and there github.event_name is the
+      # caller's, workflow_dispatch: testing for workflow_call never matches.
+      - name: Upload the coverage to Codecov
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
       # Packs the package, installs the tarball into an empty repository,
       # runs it there, and fails when a packed file names the repository the

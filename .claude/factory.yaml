@@ -32,6 +32,10 @@ commands:
     - npm run check
   # One unit test alone. An empty NAME runs the whole file.
   test-one: npx vitest run $FILE -t "$NAME"
+  # The unit tests with coverage, which a review reads for untested lines.
+  coverage:
+    run: npm run coverage
+    report: coverage/lcov.info
 
 # The automated review of every pull request, on while this is written.
 # "commands" are what it may run to confirm a finding, beside reading the
