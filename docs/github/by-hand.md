@@ -163,11 +163,20 @@ what each column means.
    Runs in, a single select with the options Local and Actions; and Cost, a
    Number. A field the sync does not find, it skips.
 4. **Point the settings at it,** with the Project's number under
-   [`tickets`](../configuration.md#tickets):
+   [`tickets`](../configuration.md#tickets), and which column shows each
+   state under [`tickets.columns`](../configuration.md#ticketscolumns),
+   here the columns step 2 added:
 
    ```yaml
    tickets:
      board: 7
+     columns:
+       backlog: Backlog
+       refining: In refinement
+       ready: Ready
+       building: In progress
+       review: In review
+       done: Done
    ```
 
    Then `factory board check` shows how it reads your

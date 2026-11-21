@@ -116,7 +116,7 @@ does no further check.
 ### What it reads from its environment
 
 On a server you host, the poller runs with no copy of your repository, so
-it takes everything from environment variables. All four are required; it
+it takes everything from environment variables. All five are required; it
 exits at startup naming any that is missing. On a schedule it has a
 checkout, and needs only the token.
 
@@ -124,20 +124,30 @@ checkout, and needs only the token.
 | ---------------------- | ------------------------------------------------------------------- |
 | `FACTORY_REPOSITORY`   | The repository, as `owner/name`                                     |
 | `FACTORY_BOARD_OWNER`  | The account the board belongs to                                    |
-| `FACTORY_BOARD_NUMBER` | Which board                                                         |
+| `FACTORY_BOARD_NUMBER` | The board's number, the last part of its address                    |
 | `FACTORY_BOARD_TOKEN`  | An access token that can read the board, comment, and start a build |
+| `FACTORY_READY_COLUMN` | The column that approves a build                                    |
 
-One more is optional. `FACTORY_READY_COLUMN` is the name of the column
-that approves a build, and defaults to Ready. The poller has no settings
-file, so a repository whose
-[`tickets.columns.ready`](configuration.md#ticketscolumns) names another
-column sets it where the poller runs. `factory board check` reminds you
-when it applies.
+The repository, the board's number, and the ready column repeat what your
+settings file says, because the poller cannot read it. The ready column
+is the one [`tickets.columns.ready`](configuration.md#ticketscolumns)
+names. [`factory board check`](cli.md) prints it on the ready row, for
+you to copy:
 
-The repository and the board's number repeat what your settings file says,
-because the poller cannot read it. The factory takes the board's owner to
-be the repository's owner everywhere else, a person or an organization, so
-a board owned by another account is not supported yet.
+```text
+? ready      Ready: the poller needs FACTORY_READY_COLUMN set to "Ready"
+```
+
+A poller only runs with a ready column: with `ready: none`, builds start
+only when you ask, and there is no poller to host.
+
+A poller set up before `FACTORY_READY_COLUMN` was required logs
+`not polling: FACTORY_READY_COLUMN not set` after an update, and polls
+nothing until you set it.
+
+The factory takes the board's owner to be the repository's owner
+everywhere else, a person or an organization, so a board owned by another
+account is not supported yet.
 
 ### Its limits
 
@@ -171,6 +181,7 @@ docker run \
   -e FACTORY_BOARD_OWNER=your-name \
   -e FACTORY_BOARD_NUMBER=1 \
   -e FACTORY_BOARD_TOKEN \
+  -e FACTORY_READY_COLUMN=Ready \
   ghcr.io/davidbyoung/software-factory-poller:0.2.0
 ```
 
