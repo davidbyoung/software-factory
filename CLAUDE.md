@@ -152,10 +152,12 @@ usual.
 ## Issues that wait on another: this repository
 
 **A new ticket gets its blockers checked.** A session the owner steers
-that opens an issue with `factory ticket open` runs `/ticket-order N`,
-the `ticket-order` skill, on it before finishing, so the links in both
-directions are proposed while the owner is there to approve them. A run
-in GitHub Actions skips it, since nobody can answer its question.
+that opens issues, by any command, runs the `ticket-order` skill on them
+once before finishing, as `/ticket-order N M ...`, so the links in both
+directions are proposed in one question while the owner is there to
+approve them. The follow-ups issue is not one of them: its lines are
+built as one pull request, not ordered. A run in GitHub Actions skips it,
+since nobody can answer its question.
 Refinement's own check of the build order is unchanged. The owner runs
 `/ticket-order` for the order of every open ticket.
 

@@ -1,6 +1,6 @@
 ---
 name: ticket-order
-description: Keep the open tickets' blocked-by relationships complete, and show the order to work them in, those that unblock the most first. Use when the owner asks what to work on next, what order the tickets go in, or what blocks what, when they invoke `/ticket-order` or `/ticket-order N`, and on a ticket a session has just opened with `factory ticket open`.
+description: Keep the open tickets' blocked-by relationships complete, and show the order to work them in, those that unblock the most first. Use when the owner asks what to work on next, what order the tickets go in, or what blocks what, when they invoke `/ticket-order` or `/ticket-order N`, and, in a session the owner steers, on the issues it has just opened. Not for a run in GitHub Actions, where nobody can answer its question.
 ---
 
 # The order to work tickets in
@@ -16,7 +16,8 @@ system the factory has an adapter for. It never reads or writes the
 board's Priority field: that is the owner's business priority, not a
 build order.
 
-With `/ticket-order N`, the ticket is N, and step 2 looks only at N.
+With `/ticket-order N`, or several numbers, step 2 looks only at those
+tickets.
 
 ## 0. Can the ticket system record blockers?
 
@@ -65,7 +66,8 @@ Propose, each with a one-line reason a reader can check:
 - for each cycle step 1 printed, the link to remove to break it.
 
 With `/ticket-order N`, propose only links that involve N, in both
-directions: what N waits on, and which open tickets wait on N.
+directions: what N waits on, and which open tickets wait on N. With
+several numbers, do the same for each.
 
 ## 3. Ask, then record
 
@@ -76,16 +78,23 @@ question with `AskUserQuestion` when there are four or fewer, each
 option a proposal with its reason as the description, or a numbered list
 in a message when there are more, answered with the numbers to keep.
 
-For each kept proposal, record it, then say why on the waiting ticket:
+For each kept proposal, record it, then say why:
 
 ```bash
 npx --no-install factory ticket block N --by M     # or: unblock N --by M
-npx --no-install factory ticket comment N --body-file reason.md
 ```
 
-The comment is one line: "Waits on #M: reason." or "No longer waits on
-#M: reason." Leave the ticket's body alone; the owner may already have
-approved it.
+The reason is one line: "#N waits on #M: reason." or "#N no longer waits
+on #M: reason." When this session opened either ticket, the reason goes
+in that ticket's body, as "Issues that wait on another" in
+`.claude/factory/rules.md` asks of whoever opens an issue: under
+`## Decisions` when it has one, and otherwise as a line at the end.
+Otherwise it is a comment on the waiting ticket, and the body is left
+alone, since the owner may already have approved it:
+
+```bash
+npx --no-install factory ticket comment N --body-file reason.md
+```
 
 ## 4. Report
 
