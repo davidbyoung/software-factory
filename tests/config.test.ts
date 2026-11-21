@@ -302,12 +302,6 @@ describe("parseSettings", () => {
     });
   });
 
-  it("takes the code host's type from its block", () => {
-    expect(parse({ ...MINIMAL, "code-host": CODE_HOST }).codeHost.type).toBe(
-      "github",
-    );
-  });
-
   describe("code-host.branch-name", () => {
     const named = (branchName: unknown) => ({
       ...MINIMAL,

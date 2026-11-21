@@ -693,6 +693,9 @@ describe("the pull-request commands", () => {
 
         expect(await main(["for-branch", ...args], d)).toBe(1);
         expect(out).toEqual([]);
+        expect(errors).toEqual([
+          expect.stringMatching(/^Usage: .*\| for-branch BRANCH \|/),
+        ]);
       },
     );
 

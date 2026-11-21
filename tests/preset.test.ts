@@ -377,11 +377,14 @@ describe("a branch name a preset supplies", () => {
     );
   });
 
-  it("is none to init when no preset sets one, or the presets can't be read", async () => {
+  it("is none to init when the presets listed set none", async () => {
+    acme([ACME]);
+    const text = `version: 2\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
+    expect(await presetBranchNameAt(root)(text)).toBeNull();
+  });
+
+  it("is none to init when a preset listed can't be read", async () => {
     withoutOwn();
-    expect(
-      await presetBranchNameAt(root)("version: 2\nrepository: acme/billing\n"),
-    ).toBeNull();
     expect(
       await presetBranchNameAt(root)(
         'version: 2\nrepository: acme/billing\npresets:\n  - "@acme/missing"\n',
