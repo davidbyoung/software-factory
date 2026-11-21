@@ -434,7 +434,8 @@ it out:
 | `{user}`    | The GitHub account the build runs as | `octocat`     |
 
 In a session, `{user}` is the account the GitHub CLI, `gh`, is signed in
-as, exactly as GitHub spells it. In GitHub Actions, it is the owner of
+as, exactly as GitHub spells it, so the same ticket built by two people
+gets two branches. In GitHub Actions, it is the owner of
 the [token the build runs with](github/reference.md#workflows), not
 whoever approved the ticket, so with a shared bot account every branch
 built in Actions carries the bot's name.
@@ -460,11 +461,12 @@ that branch's newest pull request:
   no work is lost:
 
   ```text
-  Branch 12 is already on origin. Delete it with: git push origin --delete 12
+  Branch 12 is already on origin, with work no pull request merged. Open a pull request from it to keep that work, or delete it with: git push origin --delete 12
   ```
 
-  Once nothing on the branch is worth keeping, delete it, and build the
-  ticket again with `/factory-build 12`.
+  A build that stopped partway pushes its branch so its work is kept. To
+  keep it, open a pull request from the branch on GitHub. Otherwise
+  delete the branch, and build the ticket again with `/factory-build 12`.
 
 Once you change the pattern, run `factory config check`, then
 `factory sync` (every setting needs it, as

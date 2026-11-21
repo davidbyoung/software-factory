@@ -246,12 +246,16 @@ request decides, from `npx --no-install factory pr for-branch BRANCH`:
 - **`#M open`:** stop ("The claim") with
   `Branch BRANCH is already on origin, with open pull request #M. Work it with /factory-address-review M`.
 - **Anything else,** or commits pushed after the merge: stop with
-  `Branch BRANCH is already on origin. Delete it with: git push origin --delete BRANCH`.
+  `Branch BRANCH is already on origin, with work no pull request merged. Open a pull request from it to keep that work, or delete it with: git push origin --delete BRANCH`.
+  A build that lost its claim pushed its branch to keep its work, and
+  this is how the owner keeps it.
 
 No build carries on from an unmerged branch. A local branch of the same
-name stops the build the same way, naming `git branch -D BRANCH`,
-unless its last commit is the merged pull request's head, when it is
-deleted with the remote one. Then, from the latest default branch:
+name stops the build the same way, naming `git branch -D BRANCH` for the
+owner to run once they have looked at its commits, unless its last
+commit is the merged pull request's head: then switch away from it if
+it is checked out, with `git switch --detach origin/DEFAULT`, and
+delete it with the remote one. Then, from the latest default branch:
 
 ```bash
 git switch -c BRANCH origin/DEFAULT
