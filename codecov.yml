@@ -8,6 +8,7 @@ coverage:
     patch:
       default:
         informational: true
-# The review skill reads a missing comment as "coverage did not move".
+# The comment is posted only when the project's coverage drops; the
+# review skill reads a missing one as normal, not as a failed upload.
 comment:
-  require_changes: true
+  require_changes: "coverage_drop"
