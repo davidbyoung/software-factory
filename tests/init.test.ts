@@ -1469,8 +1469,8 @@ describe("factory init, the column step", () => {
     "",
     "  State      Column",
     "  backlog    Todo",
-    "  refining   no column, shows in Todo",
-    "  ready      no column: builds start only when you ask",
+    "  refining   none, shows in Todo",
+    "  ready      none",
     "  building   In Progress",
     "  review     Code review",
     "  done       Done",
@@ -1530,8 +1530,8 @@ describe("factory init, the column step", () => {
     expect(r.checkboxes.at(-1)).toEqual({
       names: [
         "backlog: Todo",
-        "refining: no column, shows in Todo",
-        "ready: no column: builds start only when you ask",
+        "refining: none, shows in Todo",
+        "ready: none",
         "building: In Progress",
         "review: Code review",
         "done: Done",

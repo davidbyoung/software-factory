@@ -144,8 +144,8 @@ function shown(key: StateKey, mapping: Mapping): string {
   const c = mapping[key];
   if (c === "add") return `${STATE_KEYS[key]}, which init adds`;
   if (c !== "none") return c.column;
-  if (key === "ready") return "no column: builds start only when you ask";
-  return `no column, shows in ${columnFor(STATE_KEYS[key], toColumns(mapping))}`;
+  if (key === "ready") return "none";
+  return `none, shows in ${columnFor(STATE_KEYS[key], toColumns(mapping))}`;
 }
 
 /** The table of each state's column, as `factory board check` words it. */

@@ -753,58 +753,187 @@ describe("factory board check", () => {
     return { d, out, written };
   };
 
-  it("prints the report for the stock mapping against the recorded stock board", async () => {
+  /** A report of the board with the factory's own fields, whose Status
+   * holds the columns given, with `fields` in place of any of the same name. */
+  const fullBoard = (columns: string[], fields: BoardField[] = []): Board => ({
+    ...stockBoard(),
+    fields: [
+      {
+        ...BOARD_FIELDS[0]!,
+        options: columns.map((name) => ({ id: `O_${name}`, name })),
+      },
+      ...BOARD_FIELDS.slice(1).filter(
+        (f) => !fields.some((g) => g.name === f.name),
+      ),
+      ...fields,
+    ],
+  });
+  const SIX = [
+    "Backlog",
+    "In refinement",
+    "Ready",
+    "In progress",
+    "In review",
+    "Done",
+  ];
+  const report = (yaml: Record<string, unknown>, board: Board) => {
+    const s = parse({ version: 2, repository: "acme/widgets", ...yaml });
+    return boardReport(
+      7,
+      board,
+      { columns: columnsOf(s), fields: fieldNamesOf(s) },
+      s,
+    );
+  };
+  const rowOf = (lines: string[], key: string) =>
+    lines.find((l) => l.slice(4).startsWith(`${key} `) || l.slice(4) === key);
+
+  it("prints the stock mapping as rows under each setting, each with a mark", async () => {
     const { d, out } = stockDeps();
     expect(await boardMain(["check"], d)).toBe(0);
-    expect(out.join("\n")).toBe(
-      [
-        'Board 7, "Roadmap"',
-        "",
-        "  backlog    Todo",
-        "  refining   no column, shows in Todo",
-        "  ready      no column: builds start only when you ask",
-        "  building   In Progress",
-        "  review     no column, shows in In Progress",
-        "  done       Done",
-        "",
-        "  Status     written",
-        "  Session    skipped: the board has no field named Session",
-        "  Runs in    skipped: the board has no field named Runs in",
-        "  Cost       skipped: the board has no field named Cost",
-        "",
-        'Note: cards in "Blocked" are left alone. No state names that column.',
-      ].join("\n"),
-    );
+    expect(out).toEqual([
+      'Board 7, "Roadmap"',
+      "",
+      "tickets.columns",
+      "  ✓ backlog    Todo",
+      "  - refining   none, shows in Todo",
+      "  - ready      none",
+      "  ✓ building   In Progress",
+      "  - review     none, shows in In Progress",
+      "  ✓ done       Done",
+      "  ? Blocked    no state: left alone",
+      "",
+      "tickets.fields",
+      "  ✓ Status     synced",
+      "  ? Session    skipped: no such field",
+      "  ? Runs in    skipped: no such field",
+      "  ? Cost       skipped: no such field",
+    ]);
   });
 
-  it("prints the poller's reminder when ready is named and builds are not manual", () => {
+  it("marks a state whose column the board lacks, and exits 1", async () => {
     const s = parse({
       ...STOCK_YAML,
-      builds: { trigger: "own-server" },
-      tickets: { board: 7, columns: { ready: "Ready for dev" } },
+      tickets: {
+        board: 7,
+        columns: { ...STOCK_YAML.tickets.columns, review: "In review" },
+      },
     });
-    const board = stockBoard();
-    board.fields = board.fields.map((f) =>
-      f.name === "Status"
-        ? { ...f, options: [...f.options!, { id: "r", name: "Ready for dev" }] }
-        : f,
+    const { d, out } = stockDeps(s);
+    expect(await boardMain(["check"], d)).toBe(1);
+    expect(out).toContain(
+      "  ✗ review     In review: no such column on the board",
     );
-    expect(
-      boardReport(
-        7,
-        board,
-        { columns: columnsOf(s), fields: fieldNamesOf(s) },
-        s,
-      ).join("\n"),
-    ).toContain(
-      'The poller needs FACTORY_READY_COLUMN set to "Ready for dev".',
-    );
-    expect(
-      boardReport(7, stockBoard(), STOCK_CONFIG, STOCK).join("\n"),
-    ).not.toContain("poller");
+    expect(out.join("\n")).not.toMatch(/Problem:|Note:/);
   });
 
-  it("colors each state's word and each label when it paints, and nothing else", () => {
+  it("names the missing ones of a state with a list", () => {
+    const lines = report(
+      { tickets: { board: 7, columns: { review: ["Code review", "QA"] } } },
+      fullBoard([
+        "Backlog",
+        "In refinement",
+        "Ready",
+        "In progress",
+        "Code review",
+        "Done",
+      ]),
+    );
+    expect(rowOf(lines, "review")).toBe(
+      "  ✗ review     Code review, QA: no such column on the board: QA",
+    );
+  });
+
+  it("reminds an own-server poller of its ready column, unless the column is missing", () => {
+    const yaml = (trigger: string) => ({
+      builds: { trigger },
+      tickets: { board: 7, columns: { ready: "Ready for dev" } },
+    });
+    const withColumn = fullBoard(
+      SIX.map((c) => (c === "Ready" ? "Ready for dev" : c)),
+    );
+    expect(rowOf(report(yaml("own-server"), withColumn), "ready")).toBe(
+      '  ? ready      Ready for dev: the poller needs FACTORY_READY_COLUMN set to "Ready for dev"',
+    );
+    expect(rowOf(report(yaml("github-action"), withColumn), "ready")).toBe(
+      "  ✓ ready      Ready for dev",
+    );
+    expect(rowOf(report(yaml("own-server"), fullBoard(SIX)), "ready")).toBe(
+      "  ✗ ready      Ready for dev: no such column on the board",
+    );
+  });
+
+  it("fails a missing Status field, prints the states without a mark, and no extra column", async () => {
+    const board = stockBoard();
+    board.fields = board.fields.filter((f) => f.name !== "Status");
+    const { d, out } = stockDeps(STOCK, board);
+    expect(await boardMain(["check"], d)).toBe(1);
+    expect(out).toContain("  ✗ Status     no such field");
+    expect(out).toContain("    backlog    Todo");
+    expect(out.join("\n")).not.toContain("Blocked");
+  });
+
+  it("fails a Status field that is not a single select", () => {
+    const board = fullBoard(SIX);
+    board.fields[0] = { id: "F_status", name: "Status", dataType: "TEXT" };
+    expect(rowOf(report({ tickets: { board: 7 } }, board), "Status")).toBe(
+      "  ✗ Status     not a single select",
+    );
+  });
+
+  it.each([
+    ["synced", {}, [], "  ✓ Runs in    synced"],
+    ["off", { "runs-in": "none" }, [], "  - Runs in    off"],
+    [
+      "named but missing",
+      { "runs-in": "Where" },
+      [],
+      "  ✗ Runs in    no such field: Where",
+    ],
+    [
+      "named but of the wrong kind",
+      { "runs-in": "Where" },
+      [{ id: "F_w", name: "Where", dataType: "TEXT" }],
+      "  ✗ Runs in    Where: not a single select field",
+    ],
+    [
+      "named but lacking an option",
+      { "runs-in": "Where" },
+      [
+        {
+          id: "F_w",
+          name: "Where",
+          dataType: "SINGLE_SELECT",
+          options: [{ id: "L", name: "Local" }],
+        },
+      ],
+      "  ✗ Runs in    Where: lacks Actions",
+    ],
+    [
+      "at its default name but lacking an option",
+      {},
+      [
+        {
+          id: "F_runs",
+          name: "Runs in",
+          dataType: "SINGLE_SELECT",
+          options: [{ id: "L", name: "Local" }],
+        },
+      ],
+      "  ✗ Runs in    lacks Actions: name another field in tickets.fields.runs-in, or set it to none",
+    ],
+  ] as [string, Record<string, string>, BoardField[], string][])(
+    "prints a field that is %s",
+    (_, fields, boardFields, row) => {
+      const lines = report(
+        { tickets: { board: 7, fields } },
+        fullBoard(SIX, boardFields),
+      );
+      expect(rowOf(lines, "Runs in")).toBe(row);
+    },
+  );
+
+  it("colors each row's mark alone when it paints", () => {
     const paint = painter(true);
     const s = parse({
       ...STOCK_YAML,
@@ -815,81 +944,22 @@ describe("factory board check", () => {
       },
     });
     const config = { columns: columnsOf(s), fields: fieldNamesOf(s) };
-    const report = boardReport(7, stockBoard(), config, s, paint);
-    expect(report).toEqual([
+    const painted = boardReport(7, stockBoard(), config, s, paint);
+    expect(painted).toContain(`  ${paint("green", "✓")} backlog    Todo`);
+    expect(painted).toContain(
+      `  ${paint("red", "✗")} review     In review: no such column on the board`,
+    );
+    expect(painted).toContain(
+      `  ${paint("yellow", "?")} Blocked    no state: left alone`,
+    );
+    expect(painted).toContain(`  ${paint("dim", "-")} Cost       off`);
+    expect(painted.slice(0, 3)).toEqual([
       'Board 7, "Roadmap"',
       "",
-      "  backlog    Todo",
-      `  refining   ${paint("dim", "no column, shows in Todo")}`,
-      `  ready      ${paint("dim", "no column: builds start only when you ask")}`,
-      "  building   In Progress",
-      "  review     In review",
-      "  done       Done",
-      "",
-      `  Status     ${paint("green", "written")}`,
-      `  Session    ${paint("yellow", "skipped: the board has no field named Session")}`,
-      `  Runs in    ${paint("yellow", "skipped: the board has no field named Runs in")}`,
-      `  Cost       ${paint("dim", "never written: set to none")}`,
-      "",
-      `${paint("yellow", "Note:")} cards in "Blocked" are left alone. No state names that column.`,
-      `${paint("red", "Problem:")} the Status field lacks In review (tickets.columns.review).`,
+      "tickets.columns",
     ]);
-    expect(report.map((l) => l.replace(/\x1B\[\d+m/g, ""))).toEqual(
+    expect(painted.map((l) => l.replace(/\x1B\[\d+m/g, ""))).toEqual(
       boardReport(7, stockBoard(), config, s),
-    );
-  });
-
-  it("colors a missing Status field red", () => {
-    const paint = painter(true);
-    const board = stockBoard();
-    board.fields = board.fields.filter((f) => f.name !== "Status");
-    expect(boardReport(7, board, STOCK_CONFIG, STOCK, paint)).toContain(
-      `  Status     ${paint("red", "missing")}`,
-    );
-  });
-
-  it("prints no reminder for a scheduled poller, which reads the column from the settings", () => {
-    const s = parse({
-      ...STOCK_YAML,
-      builds: { trigger: "github-action" },
-      tickets: { board: 7, columns: { ready: "Ready for dev" } },
-    });
-    const board = stockBoard();
-    board.fields = board.fields.map((f) =>
-      f.name === "Status"
-        ? { ...f, options: [...f.options!, { id: "r", name: "Ready for dev" }] }
-        : f,
-    );
-    expect(
-      boardReport(
-        7,
-        board,
-        { columns: columnsOf(s), fields: fieldNamesOf(s) },
-        s,
-      ).join("\n"),
-    ).not.toContain("FACTORY_READY_COLUMN");
-  });
-
-  it("exits 1 naming each column the Status field lacks, with its key", async () => {
-    const { d, out } = stockDeps(
-      parse({ ...STOCK_YAML, tickets: { board: 7 } }),
-    );
-    expect(await boardMain(["check"], d)).toBe(1);
-    const problem = out.find((l) => l.startsWith("Problem:"))!;
-    expect(problem).toContain(
-      "Backlog (tickets.columns.backlog), In refinement (tickets.columns.refining), Ready (tickets.columns.ready), In review (tickets.columns.review)",
-    );
-    expect(problem).not.toContain("In progress");
-    expect(problem).not.toContain("Done");
-  });
-
-  it("exits 1 when Status is not a single select", async () => {
-    const board = stockBoard();
-    board.fields = board.fields.filter((f) => f.name !== "Status");
-    const { d, out } = stockDeps(STOCK, board);
-    expect(await boardMain(["check"], d)).toBe(1);
-    expect(out.join("\n")).toContain(
-      "the Status field is missing or not a single select",
     );
   });
 
@@ -1062,11 +1132,12 @@ describe("a state with a list of columns", () => {
         CONFIG,
         LIST,
       );
-    expect(report(BOARD_NAMES)).toContain("  review     Code review, QA");
-    expect(report(BOARD_NAMES)).toContain("  building   In Progress, Blocked");
-    expect(report(BOARD_NAMES).join("\n")).not.toContain("Problem");
+    expect(report(BOARD_NAMES)).toContain("  ✓ review     Code review, QA");
+    expect(report(BOARD_NAMES)).toContain(
+      "  ✓ building   In Progress, Blocked",
+    );
     expect(report(BOARD_NAMES.filter((n) => n !== "QA"))).toContain(
-      "Problem: the Status field lacks QA (tickets.columns.review).",
+      "  ✗ review     Code review, QA: no such column on the board: QA",
     );
   });
 
