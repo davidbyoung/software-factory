@@ -285,7 +285,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
+const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -464,6 +464,13 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         }
         await p.ready(pr);
         d.out("ready");
+        return 0;
+      }
+      case "for-branch": {
+        const [branch] = rest;
+        if (!branch || rest.length > 1) throw new Error(USAGE);
+        const last = await p.lastForBranch(branch);
+        d.out(last ? `#${last.number} ${last.state}` : "none");
         return 0;
       }
       case "closes": {

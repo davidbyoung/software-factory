@@ -407,6 +407,24 @@ export function githubCodeHost(o: {
       );
       return open[0]?.number ?? null;
     },
+    async lastForBranch(branch) {
+      const [newest] = await t.rest<
+        { number: number; state: string; merged_at: string | null }[]
+      >(
+        "GET",
+        `${API}/pulls?head=${owner}:${branch}&state=all&sort=created&direction=desc&per_page=1`,
+      );
+      if (!newest) return null;
+      return {
+        number: newest.number,
+        state:
+          newest.state === "open"
+            ? "open"
+            : newest.merged_at
+              ? "merged"
+              : "closed",
+      };
+    },
     forCommit: async (sha) =>
       (
         await t.rest<{ number: number; state: string }[]>(

@@ -93,6 +93,10 @@ export type NewStatus = {
   link?: string;
 };
 
+/** A pull request as `lastForBranch` finds it: `closed` is closed without
+ * merging. */
+export type LastPull = { number: number; state: "open" | "merged" | "closed" };
+
 /** A pull request to open: from the `head` branch into the `base` branch. */
 export type NewPull = {
   title: string;
@@ -119,6 +123,9 @@ export type CodeHost = {
   listOpen(): Promise<Pull[]>;
   /** The open pull request from this branch, or null. */
   forBranch(branch: string): Promise<number | null>;
+  /** The newest pull request from this branch, open or not, or null when
+   * none came from it. */
+  lastForBranch(branch: string): Promise<LastPull | null>;
   /** The pull requests that hold the commit, open or not. */
   forCommit(sha: string): Promise<{ number: number; state: string }[]>;
   files(pull: number): Promise<ChangedFile[]>;

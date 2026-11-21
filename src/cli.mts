@@ -45,6 +45,7 @@ const PR_STEPS = [
   "resolve",
   "ready",
   "closes",
+  "for-branch",
   "comments",
   "comment",
   "comment-view",
@@ -98,6 +99,7 @@ const PR_ARGS: Record<string, string> = {
   label: "N --add LABEL | --remove LABEL",
   "review-pending": "N REVIEW",
   conflicts: "",
+  "for-branch": "BRANCH",
   uncovered: "[BASE] [LCOV]",
 };
 

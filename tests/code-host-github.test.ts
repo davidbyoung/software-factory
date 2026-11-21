@@ -725,3 +725,28 @@ describe("who the CLI is signed in as", () => {
     await expect(p.signedInAs()).rejects.toBe(failure);
   });
 });
+
+describe("the newest pull request from a branch", () => {
+  it.each([
+    [{ number: 7, state: "open", merged_at: null }, "open"],
+    [
+      { number: 7, state: "closed", merged_at: "2026-11-20T10:00:00Z" },
+      "merged",
+    ],
+    [{ number: 7, state: "closed", merged_at: null }, "closed"],
+  ])("reads %j as %s", async (raw, state) => {
+    const { p, calls } = pulls([[/pulls\?head=/, [raw]]]);
+    expect(await p.lastForBranch("feature/dave/54")).toEqual({
+      number: 7,
+      state,
+    });
+    expect(calls).toEqual([
+      "api repos/acme/widgets/pulls?head=acme:feature/dave/54&state=all&sort=created&direction=desc&per_page=1",
+    ]);
+  });
+
+  it("is null when no pull request came from the branch", async () => {
+    const { p } = pulls([[/pulls\?head=/, []]]);
+    expect(await p.lastForBranch("54")).toBeNull();
+  });
+});
