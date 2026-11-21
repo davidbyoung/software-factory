@@ -741,10 +741,10 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
     if (typeof board === "number") {
       doc.setIn(["tickets", "board"], board);
+      // A block needs a board, so one init creates has none written yet.
       if (creating)
         for (const [key, name] of FACTORY_LINES)
-          if (!doc.hasIn(["tickets", "columns", key]))
-            doc.setIn(["tickets", "columns", key], name);
+          doc.setIn(["tickets", "columns", key], name);
       try {
         const shape = boardShape(standing());
         const columns = await boardOps.addColumns(board, shape.columns);
