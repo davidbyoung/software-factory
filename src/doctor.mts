@@ -20,6 +20,7 @@ import {
 } from "./config.mts";
 import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
+import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   neededSecrets,
   PART_TEXT,
@@ -54,6 +55,7 @@ export type DoctorDeps = {
   hasCommand: (name: string) => boolean;
   tools: Registry;
   out: (line: string) => void;
+  paint?: Paint;
 };
 
 const SYNC = "Run npx --no-install factory sync";
@@ -361,18 +363,18 @@ export function usesRegistry(settings: string, url: string): boolean {
 
 /** One check as a line: a tick, a cross with what to do, or a dash for a
  * part that is off. */
-export function line(c: Check): string {
-  if (c.state === "off") return `- ${c.text}`;
-  if (c.state === "unknown") return `? ${c.text}`;
-  if (c.state === "pass") return `✓ ${c.text}`;
+export function line(c: Check, paint: Paint = plain): string {
+  if (c.state === "off") return `${paint("dim", "-")} ${c.text}`;
+  if (c.state === "unknown") return `${paint("yellow", "?")} ${c.text}`;
+  if (c.state === "pass") return `${paint("green", "✓")} ${c.text}`;
   const fix = c.fix ?? "";
   // An instruction follows as its own sentence; a reason, after a colon.
-  return `✗ ${c.text}${!fix ? "" : /^Run /.test(fix) ? `. ${fix}` : `: ${fix}`}`;
+  return `${paint("red", "✗")} ${c.text}${!fix ? "" : /^Run /.test(fix) ? `. ${fix}` : `: ${fix}`}`;
 }
 
 export async function main(_argv: string[], d: DoctorDeps): Promise<number> {
   const found = await checks(d);
-  for (const c of found) d.out(line(c));
+  for (const c of found) d.out(line(c, d.paint));
   return found.some((c) => c.state === "fail") ? 1 : 0;
 }
 
@@ -412,6 +414,7 @@ export function doctorDeps(root = repoRoot()): DoctorDeps {
     hasCommand,
     tools: TOOLS,
     out: (l) => console.log(l),
+    paint: painter(colorOn()),
   };
 }
 

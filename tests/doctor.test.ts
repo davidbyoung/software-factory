@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
-import { main, type DoctorDeps } from "../src/doctor.mts";
+import { line, main, type DoctorDeps } from "../src/doctor.mts";
+import { painter, type Paint } from "../src/lib/color.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -73,6 +74,7 @@ function doctor(o: {
   codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
   columns?: string[];
   files?: Record<string, string>;
+  paint?: Paint;
   claude?: boolean;
   tools?: (base: Registry, tickets: Tickets) => Registry;
   ticketFields?: TicketField[];
@@ -128,6 +130,7 @@ function doctor(o: {
     hasCommand: (name) => name !== "claude" || o.claude !== false,
     tools,
     out: (line) => out.push(line),
+    paint: o.paint,
   };
   return { run: () => main([], d), out };
 }
@@ -739,5 +742,42 @@ describe("factory doctor, the ticket fields the settings name", () => {
     expect(line).toMatch(/^✗ acme\/site's ticket fields can be read/);
     expect(line).toContain("Server Error (HTTP 500)");
     expect(line).not.toContain("more");
+  });
+});
+
+describe("factory doctor, in color", () => {
+  const paint = painter(true);
+  const strip = (s: string) => s.replace(/\x1B\[\d+m/g, "");
+
+  it.each([
+    ["pass", "✓", "green"],
+    ["fail", "✗", "red"],
+    ["off", "-", "dim"],
+    ["unknown", "?", "yellow"],
+  ] as const)(
+    "colors a %s mark %s %s, and only the mark",
+    (state, mark, color) => {
+      const c = { state, text: "The settings are valid", fix: "Run npm ci" };
+      expect(line(c, paint).startsWith(`${paint(color, mark)} `)).toBe(true);
+      expect(strip(line(c, paint))).toBe(line(c));
+    },
+  );
+
+  it("leaves a failing check's text and fix uncolored", () => {
+    const c = {
+      state: "fail" as const,
+      text: "Version 0.4.0 is installed",
+      fix: "Run npm ci",
+    };
+    expect(line(c, paint)).toBe(
+      `${paint("red", "✗")} Version 0.4.0 is installed. Run npm ci`,
+    );
+  });
+
+  it("prints its checks with the paint it is given", async () => {
+    const { run, out } = doctor({ paint });
+    await run();
+    expect(out[0]).toBe(`${paint("green", "✓")} The settings are valid`);
+    expect(out).toContain(`${paint("dim", "-")} A board: off`);
   });
 });
