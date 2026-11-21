@@ -283,40 +283,93 @@ It doesn't read your board: `factory board check` does.
 
 #### `tickets.fields`
 
-Besides moving a ticket between columns, the board sync fills in three
-fields so you can see at a glance what is happening to it:
-
-- **Session:** which session is working on the ticket, or "Waiting on
-  you".
-- **Runs in:** whether that session is on someone's machine or in the
-  cloud.
-- **Cost:** roughly what refining and building the ticket has cost so far.
-
-`factory init` adds these three fields to your board, so most repositories
-write nothing here. Write this block only when your board already has a
-field you want used instead, or to stop the board sync filling one in:
+The factory fills in fields of its own in two places: on your board,
+to show what is happening to a ticket, and on the ticket itself, to hold
+the result of refining it. This block maps each of these factory fields
+to the field of yours that holds it: a board field, or a ticket field
+set on the ticket itself. `factory init` sets up both the board fields
+and the ticket fields, so most repositories write nothing here by
+hand.
 
 ```yaml
 tickets:
   board: 7
   fields:
+    # Factory fields on the board
     session: Agent # fill in your existing "Agent" field instead
     cost: none # never fill in a cost
+    # Factory fields on the ticket
+    decisions: none
+    spec: Acceptance criteria
+    acceptance-criteria: Acceptance criteria
+    for-the-builder: Design notes
 ```
 
-- **A field you name must exist,** holding the right kind of value: text
-  for Session, a single select with the options Local and Actions for Runs
-  in, and a number for Cost. If it doesn't, the board sync stops and says
-  which field is wrong.
-- **When you name nothing,** the board sync looks for fields called
-  Session, Runs in, and Cost, fills in those it finds, and skips the rest
-  with a note.
+**On the board,** besides moving a ticket between columns, the
+[board sync](workflow.md#the-board) fills in three factory fields so you
+can see at a glance what is happening to a ticket:
+
+- **`session`:** which session is working on the ticket, or "Waiting on
+  you".
+- **`runs-in`:** whether that session is on someone's machine or in the
+  cloud.
+- **`cost`:** roughly what refining and building the ticket has cost so
+  far.
+
+`factory init` adds board fields called Session, Runs in, and Cost. Name
+a board field here only when your board already has one you want used
+instead, or write `none` to stop the board sync filling one in.
+
+- **These three need [`board`](#tickets).**
+- **A board field you name must exist,** holding the right kind of
+  value: text for `session`, a single select with the options Local and
+  Actions for `runs-in`, and a number for `cost`. If it doesn't, the
+  board sync stops and says which field is wrong.
+- **When you name nothing,** the board sync looks for board fields
+  called Session, Runs in, and Cost, fills in those it finds, and skips
+  the rest with a note.
 - **It never overwrites a field of yours.** If your board has a field
-  called Cost that holds text, the board sync stops rather than write over
-  it, and asks you to name another field or write `cost: none`.
+  called Cost that holds text, the board sync stops rather than write
+  over it, and asks you to name another field or write `cost: none`.
 - **The column itself is the board's own Status field,** which has to be
   a single select with an option for each column in
   [`tickets.columns`](#ticketscolumns).
+
+**On the ticket,** refining a ticket writes four factory fields into its
+description, each under its own heading. Each can go instead in a ticket
+field that holds text, which on GitHub is an issue field: see
+[Your tickets already have fields](existing-repo.md#your-tickets-already-have-fields),
+which also says why a board field can't hold one.
+
+| Key                   | What the factory field holds                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| `decisions`           | Decisions: the questions refinement settled, and what was chosen       |
+| `spec`                | Spec: what a change your users will notice must do, line by line       |
+| `acceptance-criteria` | Acceptance criteria: what must be true for any other ticket to be done |
+| `for-the-builder`     | For the builder: how to build it, as a design and a list of tasks      |
+
+`factory init` asks your coding agent to suggest the ticket fields, and
+you confirm them.
+
+- **`none` keeps the factory field in the description,** and so does
+  leaving its key out. Unlike the board's three, a factory field never
+  goes in a ticket field just because the names match.
+- **A ticket field is named as GitHub shows it,** capitals included.
+- **These keys don't need a board,** since the ticket field belongs to
+  the ticket.
+- **The ticket field must exist and hold text.** One that doesn't, such
+  as a single select, fails the checks [`factory doctor`](cli.md#setting-up)
+  and init print, and refining a ticket stops, naming it, and writes
+  nothing.
+- **Two factory fields can't name the same ticket field,** except `spec`
+  and `acceptance-criteria`, since a ticket has only one of them.
+  `factory config check` stops on any other pair.
+- **A heading of your own,** such as one
+  [a refiner of your own](plugins.md#refiner) writes, can go in a ticket
+  field too: write it in lowercase, with hyphens for spaces, so
+  `## Proposed docs` is `proposed-docs`.
+- **Changing a line** affects tickets refined afterwards. A ticket
+  refined before keeps its factory fields where they were written.
 
 ### `code-host`
 

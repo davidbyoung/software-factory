@@ -79,7 +79,9 @@ spec when [`specs`](configuration.md#specs) is on.
 **What it writes.**
 
 - The ticket's body: your text first, untouched, then Decisions and
-  Acceptance criteria, or a Spec when the change is visible and not small.
+  Acceptance criteria, or a Spec when the change is visible and not
+  small. Each of these goes in a ticket field of yours instead, when
+  [`tickets.fields`](configuration.md#ticketsfields) names one.
 - Marker comments that move the ticket to "refining" and show it waiting on
   you.
 - A blocked-by relationship for each ticket that must be built first.

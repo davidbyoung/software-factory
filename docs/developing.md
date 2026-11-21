@@ -54,6 +54,7 @@ marked working below exist only in these docs.
 | `factory board --dry-run`                                                                                        | Working                                                                   |
 | Your own column names on a board                                                                                 | Working                                                                   |
 | `init` suggesting a board's columns through the coding agent                                                     | Working                                                                   |
+| Refinement's factory fields in your ticket fields, suggested by `init`                                           | Working                                                                   |
 | A UI reviewer for any website                                                                                    | Working                                                                   |
 | Built-in measurements for any website                                                                            | Working                                                                   |
 | A design skill for any website                                                                                   | Working                                                                   |
@@ -249,17 +250,24 @@ whole or not at all, and `factory ticket supports GROUP` prints `yes` or
 `no`. A skill asks before it relies on one; a command that needs a group
 its adapter lacks exits non-zero, names the group, and posts nothing.
 
-| Group           | In `Tickets`   | Operations                                                                                                                      |
-| --------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `board`         | `board`        | Read every card and the board's fields; list a board's columns, in the board's order; add a ticket to the board; set its fields |
-| `blockers`      | `blockers`     | List what a ticket waits on; record that it waits on another; remove that                                                       |
-| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how the factory knows the owner took `spec` off                        |
-| `attachments`   | `attachments`  | Comment with images attached, or write a body with them                                                                         |
+| Group           | In `Tickets`   | Operations                                                                                                                                                       |
+| --------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `board`         | `board`        | Read every card and the board's fields; list a board's columns, in the board's order; add a ticket to the board; set its fields                                  |
+| `blockers`      | `blockers`     | List what a ticket waits on; record that it waits on another; remove that                                                                                        |
+| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how the factory knows the owner took `spec` off                                                         |
+| `attachments`   | `attachments`  | Comment with images attached, or write a body with them                                                                                                          |
+| `fields`        | `fields`       | List the ticket fields that hold text, with their descriptions; say whether a ticket can hold one, and how much; read a ticket's field values; set or clear them |
 
 The GitHub adapter has every group, except that `attachments` needs the
 GitHub CLI, so an adapter built without it has none. With
 no board, state lives in the ticket's comments. With no blockers, the build
 order is prose in the ticket and nothing enforces it.
+
+The GitHub adapter's `fields` are issue fields, which it reads and
+writes with the `repo` scope. With no fields group, every factory field
+of a refined ticket stays in its description. `factory ticket view` and
+`edit` join and split a ticket's document above the interface, so no
+skill or agent knows whether a ticket has fields.
 
 **The transport is a parameter.** The GitHub adapter, `src/code-host/`, and
 `src/runner/` take one function for a REST call, one for a GraphQL query,
@@ -400,7 +408,7 @@ when the two differ. Every member of a setup is optional.
 
 | Member        | What it gives                                                                                                                           | Used by  |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `found`       | Its row under "Found", when it says more than the tool's name, such as that a command is not installed                                  | `init`   |
+| `found`       | Its row under "Found", when it says more than the tool's name, such as where it was found                                               | `init`   |
 | `steps`       | A value to write under the tool's block of the settings, or a secret: which parts read it, how to get it, and how to check a pasted one | `init`   |
 | `checks`      | Its own lines in `doctor`: that it is reachable, signed in, or configured, each failure with its fix in the tool's words                | `doctor` |
 | `leftovers`   | What removing the factory leaves outside the repository, such as its secrets                                                            | `remove` |
@@ -425,9 +433,12 @@ A coding agent also answers one question for `init`: given a prompt and
 the shape of the answer as a JSON schema, it runs once, with no tools and
 none of the repository's settings or hooks, and returns the answer or
 the reason it has none. Claude Code runs `claude -p` on its smallest
-model, from an empty folder. The prompt, the checks on the answer, and
-what `init` prints live in `src/columns-suggest.mts`, which names no
-agent and no ticket system, so a second agent adds only its `answer`.
+model, from an empty folder. The prompts, the checks on the answers, and
+what `init` prints live in `src/columns-suggest.mts` and
+`src/ticket-fields.mts`, which name no agent and no ticket system, so a
+second agent adds only its `answer`. `factory init` stops before its
+first question when the coding agent's command isn't installed, by the
+agent's `installed` method.
 
 The tests show a tool that the factory does not ship going through all
 three commands: `tests/fake-tools.ts` has a ticket system with a site
