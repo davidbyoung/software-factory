@@ -116,8 +116,10 @@ does no further check.
 ### What it reads from its environment
 
 On a server you host, the poller runs with no copy of your repository, so
-it takes everything from environment variables. All five are required; it
-exits at startup naming any that is missing. On a schedule it has a
+it takes everything from environment variables. All five are required.
+Without `FACTORY_REPOSITORY` it doesn't start. Without any of the others,
+it logs `not polling:` naming each that is missing, and starts no build
+until they are set. On a schedule it has a
 checkout, and needs only the token.
 
 | Variable               | What it is                                                          |
