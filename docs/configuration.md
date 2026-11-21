@@ -177,6 +177,13 @@ Where your tickets live, and which board shows them.
 tickets:
   type: github
   board: 1
+  columns:
+    backlog: Backlog
+    refining: In refinement
+    ready: Ready
+    building: In progress
+    review: In review
+    done: Done
 ```
 
 - **`type`** is the ticket system. Only `github` is built, and it is the
@@ -184,6 +191,8 @@ tickets:
 - **`board`** is your GitHub Project's number: the last part of its
   address, such as `1` in `github.com/users/your-name/projects/1`. The
   default, `none`, means no board.
+- **`columns`** says which of the board's columns shows each state, and a
+  board needs it: see [`tickets.columns`](#ticketscolumns).
 
 Without a board, `factory status` still shows every ticket's state, which
 the factory keeps in comments on the ticket. Builds then start only when
@@ -199,12 +208,14 @@ with it.
 #### `tickets.columns`
 
 The board has one column for each of the six
-[states](workflow.md#the-six-states) a ticket goes through. If your
-board's columns have the factory's names, write nothing here. If they have
-other names, or your board has fewer columns, say which column shows each
-state. `factory init` suggests this block when you choose a board without the
-factory's columns: see
+[states](workflow.md#the-six-states) a ticket goes through. This block
+says which of your board's columns shows each state, and it names all
+six. `factory init` writes it for you, from the board you choose: see
 [You already have a board](existing-repo.md#you-already-have-a-board).
+There is no default: your board's column names may not be the
+factory's, and a guess would put tickets in the wrong column without
+telling you.
+
 A new GitHub Project starts with only Todo, In Progress, and Done,
 so its settings would be:
 
@@ -213,73 +224,86 @@ tickets:
   board: 7
   columns:
     backlog: Todo
-    building: In Progress
-    done: Done
     refining: none
     ready: none
+    building: In Progress
     review: none
+    done: Done
 builds:
   trigger: manual
 ```
 
-The factory's own names, used for any state you leave out, are:
+When init creates your board, or adds columns to one, it gives them the
+factory's own names:
 
-| State      | Column the factory looks for |
-| ---------- | ---------------------------- |
-| `backlog`  | Backlog                      |
-| `refining` | In refinement                |
-| `ready`    | Ready                        |
-| `building` | In progress                  |
-| `review`   | In review                    |
-| `done`     | Done                         |
+| Key        | Name of the column init creates |
+| ---------- | ------------------------------- |
+| `backlog`  | Backlog                         |
+| `refining` | In refinement                   |
+| `ready`    | Ready                           |
+| `building` | In progress                     |
+| `review`   | In review                       |
+| `done`     | Done                            |
 
 - **Capitals don't matter,** so "In progress" finds your "In Progress".
 - **`none` means your board has no column for that state.** A ticket in
   that state stays in the column of the state before it. With
   `review: none`, a ticket whose pull request is in review stays in In
-  progress. Every state can be `none` except `backlog`.
+  Progress. Every state can be `none` except `backlog`.
 - **A state can take a list of columns,** when more than one of yours
-  means it. `factory init` suggests one column for each state, so you
-  write a list yourself. A ticket in any of the columns is in that
-  state. When the factory moves a ticket into the state, it uses the
-  first, and a ticket already in any of them stays where it is:
+  means it. Init never writes a list, so add one to the block yourself.
+  A ticket in any of the columns is in that state. When the factory
+  moves a ticket into the state, it uses the first, and a ticket already
+  in any of them stays where it is:
 
   ```yaml
   tickets:
     board: 7
     columns:
       backlog: Todo
+      refining: none
+      ready: none
+      building: In Progress
       # When a pull request opens, its ticket moves to Code review.
       # One you moved to QA stays there.
       review: [Code review, QA]
+      done: Done
   ```
 
   `ready` takes one column, since only a ticket you approved goes there.
 
-- **A ticket never falls back into Ready,** since only a ticket you
-  approved goes there, so the fallback skips it. With `building: none`
-  alone, a ticket being built has no column of its own, the state before
-  building is ready, and Ready is skipped, so it shows in In refinement.
+- **A ticket never stays in the ready column unless you approved it.**
+  With `building: none`, a ticket being built would stay in ready's
+  column, so it stays in refining's column instead. On a board with the
+  factory's columns and `building: none`, it shows in In refinement.
 - **With `ready: none`, nothing on the board approves a build,** so you
   need `builds.trigger: manual`, and you start each build by asking a
   session.
 - **A ticket in a column no state uses is left alone.** The board sync
   doesn't move it or fill in its fields, and nothing builds it.
-- **If you host your own poller** and rename the Ready column, the poller
-  needs the new name too: see `FACTORY_READY_COLUMN` in
+- **If you host your own poller,** it needs `FACTORY_READY_COLUMN` set
+  to the column `ready` names: see
   [Builds](builds.md#what-it-reads-from-its-environment).
 
 `factory config check` stops, naming the key, when `columns` has:
 
+- no `board` beside it, or a `board` with no `columns`;
+- a state left out, naming each one;
 - a state it doesn't know;
 - `backlog: none`;
 - one column for two states;
 - an empty list, or a list for `ready`;
-- no `board` beside it;
 - `ready: none` while [`builds.trigger`](#builds) isn't `manual`,
   since then a build starts only from the ready column.
 
-It doesn't read your board: `factory board check` does.
+Such as:
+
+```text
+.claude/factory.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run factory init to choose them
+```
+
+`factory config check` doesn't read your board. `factory board check`
+does, and says which of the columns you named the board lacks.
 
 #### `tickets.fields`
 
@@ -1101,6 +1125,13 @@ repository: harbor-goods/storefront
 
 tickets:
   board: 1
+  columns:
+    backlog: Backlog
+    refining: In refinement
+    ready: Ready
+    building: In progress
+    review: In review
+    done: Done
 
 builds:
   trigger: own-server
@@ -1170,6 +1201,13 @@ repository: riverbend-studio/site
 
 tickets:
   board: 4
+  columns:
+    backlog: Backlog
+    refining: In refinement
+    ready: Ready
+    building: In progress
+    review: In review
+    done: Done
 
 commands:
   before-commit:
@@ -1193,6 +1231,13 @@ repository: northwind-php/ledger
 
 tickets:
   board: 2
+  columns:
+    backlog: Backlog
+    refining: In refinement
+    ready: Ready
+    building: In progress
+    review: In review
+    done: Done
 
 commands:
   build-setup:

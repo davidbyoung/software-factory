@@ -15,6 +15,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { DEFAULT_CODE_HOST, unsupportedCodeHost } from "./code-host/index.mts";
 import { matchesAny } from "./lib/glob.mts";
+import { listed } from "./lib/listed.mts";
 import { DEFAULT_RUNNER, unsupportedRunner } from "./runner/index.mts";
 import { FACTORY_FIELDS, type FieldMapping } from "./ticket-fields.mts";
 import { BUILT, unsupported, type Built } from "./tool-names.mts";
@@ -521,16 +522,47 @@ function ticketFieldsOf(o: Obj): FieldMapping {
   return out;
 }
 
-/** Each state's columns: a name, a list of names, or none, each left out
- * keeping the factory's own name. Only an approved ticket goes to ready,
- * so it takes one name. */
-function columnNames(v: unknown): Record<StateKey, readonly string[] | null> {
-  const o = object(v, "tickets.columns");
+/** Each state's columns: a name, a list of names, or none. With a board,
+ * every state is written, since the factory's own names describe one
+ * board and a state left to them would read any other wrong. Without one,
+ * each state keeps its own name, for the comments and `factory status`.
+ * `partial` lets a board's block leave states out, each read as no column
+ * and listed in `missing`, for init alone, which fills them in. Only an
+ * approved ticket goes to ready, so it takes one name. */
+function columnNames(
+  v: unknown,
+  board: number | null,
+  partial: boolean,
+): {
+  columns: Record<StateKey, readonly string[] | null>;
+  missing: StateKey[];
+} {
+  const states = Object.entries(STATE_KEYS) as [StateKey, Status][];
+  if (board === null)
+    return {
+      columns: Object.fromEntries(
+        states.map(([k, status]) => [k, DEFAULT_COLUMNS[status]]),
+      ) as Record<StateKey, readonly string[] | null>,
+      missing: [],
+    };
+  const empty =
+    v === undefined || v === null || (isObj(v) && !Object.keys(v).length);
+  if (empty && !partial)
+    fail(
+      "tickets.columns",
+      `is required with tickets.board: run factory init to choose which of board ${board}'s columns shows each state`,
+    );
+  const o = empty ? {} : object(v, "tickets.columns");
+  const missing = states.map(([k]) => k).filter((k) => o[k] === undefined);
+  if (missing.length && !partial)
+    fail(
+      "tickets.columns",
+      missing.length === 1
+        ? `${missing[0]} has no column: give it a column, a list of columns, or none, or run factory init to choose it`
+        : `${listed(missing)} have no column: give each a column, a list of columns, or none, or run factory init to choose them`,
+    );
   const out = {} as Record<StateKey, readonly string[] | null>;
-  for (const [k, status] of Object.entries(STATE_KEYS) as [
-    StateKey,
-    Status,
-  ][]) {
+  for (const [k] of states) {
     const key = `tickets.columns.${k}`;
     const value = o[k];
     if (Array.isArray(value)) {
@@ -545,12 +577,12 @@ function columnNames(v: unknown): Record<StateKey, readonly string[] | null> {
           ? n.trim()
           : fail(`${key}[${i}]`, "must be a name"),
       );
-    } else if (value === undefined) out[k] = DEFAULT_COLUMNS[status];
+    } else if (value === undefined) out[k] = null;
     else if (value === "none") out[k] = null;
     else if (typeof value === "string" && value.trim()) out[k] = [value.trim()];
     else fail(key, "must be a name, a list of names, or none");
   }
-  return out;
+  return { columns: out, missing };
 }
 
 /** A part you can swap, written as a block with a `type` or as one word. */
@@ -671,6 +703,7 @@ export function parseSettings(
   raw: unknown,
   exists: (path: string) => boolean,
   built: Built = BUILT,
+  { partialColumns = false }: { partialColumns?: boolean } = {},
 ): Settings {
   const written = raw ?? {};
   // The version comes before any other key, so a file in the older shape is
@@ -760,8 +793,12 @@ export function parseSettings(
   );
   if (Object.keys(boardFields).length && !hasBoard)
     fail("tickets.fields", "needs tickets.board");
-  const columns = columnNames(tickets.columns);
-  if (columns.backlog === null)
+  const { columns, missing } = columnNames(
+    tickets.columns,
+    hasBoard ? (board as number) : null,
+    partialColumns,
+  );
+  if (columns.backlog === null && !missing.includes("backlog"))
     fail(
       "tickets.columns.backlog",
       "cannot be none: every ticket starts there",
@@ -777,7 +814,11 @@ export function parseSettings(
     }
     for (const name of list ?? []) seen.set(name, key);
   }
-  if (columns.ready === null && trigger !== "manual")
+  if (
+    columns.ready === null &&
+    trigger !== "manual" &&
+    !missing.includes("ready")
+  )
     fail(
       "tickets.columns.ready",
       "no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
@@ -1238,10 +1279,12 @@ export const defaultDeps = (
 
 /** The column each state shows in on the board, null for none. */
 export function columnsOf(s: Settings): Columns {
-  const out = { ...DEFAULT_COLUMNS };
-  for (const [key, status] of Object.entries(STATE_KEYS))
-    out[status] = s.tickets.columns[key as StateKey];
-  return out;
+  return Object.fromEntries(
+    Object.entries(STATE_KEYS).map(([key, status]) => [
+      status,
+      s.tickets.columns[key as StateKey],
+    ]),
+  ) as Columns;
 }
 
 /** The board's names for the fields the sync writes, null for none. */

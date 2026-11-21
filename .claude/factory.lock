@@ -2,7 +2,7 @@
 # settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
 presets: []
-settings-hash: sha256:534d5ae0894ce4174c4167978cb24eaef0fd137230321f7e4b0a85cffadd0598
+settings-hash: sha256:96786bb001b86579f4fdd3bb752ccce1e5f1124ed1ade8a13e43ddc4ef1755c6
 npmrc-variables: []
 settings:
   version: 2
@@ -11,12 +11,12 @@ settings:
     type: github
     board: 1
     columns:
-      backlog: Backlog                                                         # default
-      refining: In refinement                                                  # default
-      ready: Ready                                                             # default
-      building: In progress                                                    # default
-      review: In review                                                        # default
-      done: Done                                                               # default
+      backlog: Backlog
+      refining: In refinement
+      ready: Ready
+      building: In progress
+      review: In review
+      done: Done
     fields:
       session: Session                                                         # default
       runs-in: Runs in                                                         # default

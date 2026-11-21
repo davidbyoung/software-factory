@@ -5,6 +5,7 @@ import { parseSettings } from "../src/config.mts";
 import { TOOLS } from "../src/tools.mts";
 import { memoryContext } from "./memory-tools";
 import { memoryRunner } from "./memory-runner";
+import { FACTORY_COLUMNS } from "./factory-columns";
 
 const setup = TOOLS.runner["github-actions"]!.setup;
 const withTrigger = (
@@ -16,7 +17,7 @@ const withTrigger = (
       {
         version: 2,
         repository: "acme/site",
-        tickets: { board: 3 },
+        tickets: { board: 3, columns: FACTORY_COLUMNS },
         builds: { trigger },
       },
       () => true,

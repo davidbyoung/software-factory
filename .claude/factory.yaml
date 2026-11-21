@@ -9,6 +9,14 @@ repository: davidbyoung/software-factory
 tickets:
   type: github
   board: 1
+  # Which of the board's columns shows each state.
+  columns:
+    backlog: Backlog
+    refining: In refinement
+    ready: Ready
+    building: In progress
+    review: In review
+    done: Done
 
 # Builds start when a session is told to work a ticket. Moving a card to
 # Ready starts nothing here.

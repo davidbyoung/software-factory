@@ -298,6 +298,13 @@ maintains the preset.
    tickets:
      type: github
      board: 7
+     columns:
+       backlog: Backlog
+       refining: In refinement
+       ready: Ready
+       building: In progress
+       review: In review
+       done: Done
    rules:
      small-change-lines: 40
    plugins:

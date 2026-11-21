@@ -19,6 +19,7 @@ import {
   plan,
   withDefaultBranch,
 } from "../src/sync.mts";
+import { FACTORY_COLUMNS } from "./factory-columns";
 
 // A made-up package and an empty repository beside it.
 let dir: string;
@@ -50,7 +51,10 @@ const resolved = (raw: Record<string, unknown>): Promise<Resolved> =>
     err: () => {},
     root,
   });
-const FULL = { tickets: { board: 3 }, "auto-merge": { allow: ["docs/**"] } };
+const FULL = {
+  tickets: { board: 3, columns: FACTORY_COLUMNS },
+  "auto-merge": { allow: ["docs/**"] },
+};
 
 /** A sync of the made-up package into the repository, whose default branch
  * is `branch`, or cannot be told when that is null. */
@@ -419,7 +423,7 @@ describe("factory sync", () => {
 
   it("writes the scheduled poller only with the github-action trigger, and deletes it once the trigger changes", async () => {
     const scheduled = {
-      tickets: { board: 3 },
+      tickets: { board: 3, columns: FACTORY_COLUMNS },
       builds: { trigger: "github-action" },
     };
     await sync([], settings());
@@ -430,7 +434,10 @@ describe("factory sync", () => {
 
     await sync(
       [],
-      settings({ tickets: { board: 3 }, builds: { trigger: "own-server" } }),
+      settings({
+        tickets: { board: 3, columns: FACTORY_COLUMNS },
+        builds: { trigger: "own-server" },
+      }),
     );
     expect(read(".github/workflows/factory-poller.yml")).toBeNull();
   });
@@ -447,7 +454,7 @@ describe("factory sync", () => {
       await sync(
         [],
         settings({
-          tickets: { board: 3 },
+          tickets: { board: 3, columns: FACTORY_COLUMNS },
           builds: { trigger: "github-action", "poll-minutes": minutes },
         }),
       );

@@ -17,6 +17,7 @@ import { painter } from "../src/lib/color.mts";
 import { paintExplainLines } from "../src/explain.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { builtOf, TOOLS } from "../src/tools.mts";
+import { FACTORY_COLUMNS_YAML } from "./factory-columns";
 
 const MINIMAL = { version: 2, repository: "owner/name" };
 
@@ -871,6 +872,7 @@ function deps(over: Partial<Deps> = {}) {
         "repository: owner/name",
         "tickets:",
         "  board: 3",
+        FACTORY_COLUMNS_YAML,
         "plugins:",
         "  refine:",
         "    mockups:",
@@ -911,6 +913,11 @@ describe("factory config explain", () => {
     "  board: 3",
     "  columns:",
     "    backlog: Todo",
+    "    refining: In refinement",
+    "    ready: Ready",
+    "    building: In progress",
+    "    review: In review",
+    "    done: Done",
     "specs: openspec",
     "commands:",
     "  before-commit:",
@@ -929,7 +936,11 @@ describe("factory config explain", () => {
       "  board: 3",
       "  columns:",
       "    backlog: Todo",
+      "    refining: In refinement",
+      "    ready: Ready",
+      "    building: In progress",
       "    review: [Code review, QA]",
+      "    done: Done",
     ]);
     expect(r.code).toBe(0);
     const at = r.out.findIndex((l) => l.trim() === "review:");
@@ -945,7 +956,7 @@ describe("factory config explain", () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
     expect(r.out.join("\n")).toMatchInlineSnapshot(`
-      "# The settings in effect. \"# default\" marks the factory's own value,
+      "# The settings in effect. "# default" marks the factory's own value,
       # a preset's name marks that preset's, and an unmarked line is yours.
       version: 2
       repository: owner/name
@@ -954,11 +965,11 @@ describe("factory config explain", () => {
         board: 3
         columns:
           backlog: Todo
-          refining: In refinement                                                  # default
-          ready: Ready                                                             # default
-          building: In progress                                                    # default
-          review: In review                                                        # default
-          done: Done                                                               # default
+          refining: In refinement
+          ready: Ready
+          building: In progress
+          review: In review
+          done: Done
         fields:
           session: Session                                                         # default
           runs-in: Runs in                                                         # default
@@ -1324,7 +1335,12 @@ describe("factory config explain", () => {
 
   it("prints every key the settings take, so a new one cannot be left out", async () => {
     const r = await explain(
-      RICH.concat(["tickets:", "  board: 3", "pr-review:"]),
+      RICH.concat([
+        "tickets:",
+        "  board: 3",
+        FACTORY_COLUMNS_YAML,
+        "pr-review:",
+      ]),
     );
     const text = r.out.join("\n");
     // A key is printed under its block, two spaces deeper for each step of

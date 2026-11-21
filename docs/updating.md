@@ -3,8 +3,11 @@
 **When a new version is released, a pull request appears in your
 repository. You read it and merge it.** That is all you have to do.
 
-One release asks more of you, because it changes the shape of your
-settings file: [Moving to settings version 2](#moving-to-settings-version-2).
+Two releases ask more of you, because they need lines in your settings
+file that it doesn't have: [Moving to settings version
+2](#moving-to-settings-version-2), for every repository, and [Naming
+every column](#naming-every-column), for a repository whose settings
+have a [`tickets.board`](configuration.md#tickets).
 
 ## What happens
 
@@ -207,6 +210,73 @@ needed, and the rest are worth a look while the file is open.
   branch is not `main` needs no setting: `factory sync` writes the
   branch's name where the workflows need it.
 
+## Naming every column
+
+From this release, a repository with a board names a column for all six
+states in [`tickets.columns`](configuration.md#ticketscolumns). Before
+it, a state you left out used the factory's own column name, so a
+repository set up earlier has no `columns` block, or one with only the
+states whose column has another name. A repository with no
+`tickets.board` needs nothing.
+
+Until the block names all six, every command that reads the settings
+stops with one of these, the second naming the states you left out:
+
+```text
+.claude/factory.yaml: tickets.columns: is required with tickets.board: run factory init to choose which of board 3's columns shows each state
+.claude/factory.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run factory init to choose them
+```
+
+So on the factory's update pull request, `factory-deps`, which opens
+and finishes it ([What happens](#what-happens)), cannot run
+`factory sync`. It stops and opens an issue in your repository quoting
+the line. Check out the pull request's branch, and from your
+repository's root run:
+
+```bash
+gh pr checkout 123   # the update pull request's number
+factory init
+```
+
+Init keeps everything your settings already say and adds only the
+missing states. It shows the whole block it saves, the states you had
+and the ones it added. A state whose column of the factory's name is on
+your board, which is the column the factory was reading for it, is added
+with no question:
+
+```text
+Your settings give no column to building or done.
+Board 3 has a column of the factory's name for each:
+
+  State      Column
+  backlog    Todo
+  refining   none, shows in Todo
+  ready      none
+  building   In Progress
+  review     Code review
+  done       Done
+```
+
+For a state whose column your board doesn't have, init asks which column
+shows it, offering your columns, no column, or a new column with the
+factory's name. When it needs Claude Code to suggest columns, it asks
+as [You already have a board](existing-repo.md#you-already-have-a-board)
+shows.
+
+You can add the lines by hand instead. For each state your block leaves
+out, the factory used the name in the table in
+[`tickets.columns`](configuration.md#ticketscolumns), so write that name
+to keep things as they were. If your board has no column of that name,
+write one of your columns, or `none`.
+
+Then run `factory sync`, which rewrites the factory's files for the new
+version, commit what changed, `.claude/factory.yaml` included, and push.
+The pull request's checks run again, and you close the issue
+`factory-deps` opened.
+
+**It worked when** `factory config check` prints
+`✓ The settings are valid.`, and `factory sync --check` passes.
+
 ## The commands
 
 | Command          | When                                                       |
@@ -234,6 +304,7 @@ not match `package-lock.json`.
 | CI fails with "of the factory's files don't match the settings"                       | A factory file was edited by hand, or settings changed without a sync | Run `factory sync` and commit the result                                   |
 | `factory doctor` says your installed version is older than the repository's           | You pulled an update and have not installed it                        | Run `npm ci`                                                               |
 | A command stops with `version: must be 2`                                             | The update changed the shape of the settings file                     | [Move the file](#moving-to-settings-version-2)                             |
+| A command stops with `tickets.columns: is required` or `have no column`               | The update needs a column named for every state                       | [Name every column](#naming-every-column)                                  |
 | A command stops with `.claude/factory.lock is from an earlier version of the factory` | The update's sync has not run on this checkout                        | Run `factory sync` and commit the result                                   |
 | A command stops with `.claude/factory.yaml changed since the last sync`               | The settings changed without a sync                                   | Run `factory sync` and commit the result                                   |
 | The update pull request conflicts with your default branch                            | Something else changed the same file                                  | `factory-deps` resolves it on its next run, or close it and update by hand |

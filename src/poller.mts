@@ -6,10 +6,12 @@
 // column from the settings in its checkout and needs only the token.
 //
 // Hosted, its environment: FACTORY_REPOSITORY (owner/name), FACTORY_BOARD_OWNER,
-// FACTORY_BOARD_NUMBER, and FACTORY_BOARD_TOKEN (a classic token with the
+// FACTORY_BOARD_NUMBER, FACTORY_BOARD_TOKEN (a classic token with the
 // repo and project scopes, or a fine-grained one that can also write
-// Actions: it starts the workflow). It has no checkout, so it reads
-// the repository from its environment rather than the factory's settings.
+// Actions: it starts the workflow), and FACTORY_READY_COLUMN (the column
+// tickets.columns.ready names). It has no checkout, so it reads the
+// repository and the column from its environment rather than the
+// factory's settings.
 //
 // Once started it never exits on its own: a host that deploys every
 // component together can fail the whole deploy when a worker exits during
@@ -76,11 +78,11 @@ export function startMarker(): string {
 
 /** The columns the poller reads a board by. It runs with no settings file,
  * so it is told the one name it needs, the column that approves a build:
- * FACTORY_READY_COLUMN, which defaults to Ready. */
+ * FACTORY_READY_COLUMN, which `readConfig` requires. */
 export function columnsFrom(env: Record<string, string | undefined>): Columns {
   return {
     ...DEFAULT_COLUMNS,
-    Ready: [env.FACTORY_READY_COLUMN?.trim() || "Ready"],
+    Ready: [env.FACTORY_READY_COLUMN!.trim()],
   };
 }
 
@@ -137,8 +139,9 @@ export function readConfig(
     "FACTORY_BOARD_OWNER",
     "FACTORY_BOARD_NUMBER",
     "FACTORY_BOARD_TOKEN",
+    "FACTORY_READY_COLUMN",
   ];
-  const missing = names.filter((name) => !env[name]);
+  const missing = names.filter((name) => !env[name]?.trim());
   if (missing.length) return { missing };
   return {
     owner: env.FACTORY_BOARD_OWNER!,

@@ -51,16 +51,34 @@ complete settings file for a PHP library.
 ## You already have a board
 
 A ticket is always in one of six [states](workflow.md#the-six-states),
-and the factory shows each state as a column of your board. Its own names
-for them are Backlog, In refinement, Ready, In progress, In review, and
-Done, and the settings call the states `backlog`, `refining`, `ready`,
-`building`, `review`, and `done`, in that order. Capitals don't matter, so
-your "In Progress" is its "In progress".
+and the factory shows each state as a column of your board. The settings
+call the states `backlog`, `refining`, `ready`, `building`, `review`, and
+`done`, in that order. `factory init` saves which of your columns shows
+each in [`tickets.columns`](configuration.md#ticketscolumns), always all
+six, and every factory command needs all six there.
 
 When you run `factory init`, step 2 of the
-[quick start](quick-start.md#2-set-it-up), it lists your boards to choose from. If the
-one you choose has all six columns, there is nothing to set up. If it
-lacks any, init asks your coding agent, Claude Code, which of your
+[quick start](quick-start.md#2-set-it-up), it lists your boards to choose
+from. If the one you choose already has the factory's own columns,
+Backlog, In refinement, Ready, In progress, In review, and Done, init
+asks nothing and saves them. Capitals don't matter, so your
+"In Progress" is its "In progress":
+
+```text
+? Which board? Use an existing one: Shop board (#3)
+
+Board 3 has a column for each of the factory's six states:
+
+  State      Column
+  backlog    Backlog
+  refining   In refinement
+  ready      Ready
+  building   In Progress
+  review     In review
+  done       Done
+```
+
+If it lacks any, init asks your coding agent, Claude Code, which of your
 columns shows each state, and shows you the answer before it changes
 anything. This is one short request with no tools, made with the sign-in
 Claude Code already has, and it sends your column names and nothing else.
@@ -74,8 +92,8 @@ Asking Claude Code which of them shows each of the factory's six states...
 
   State      Column
   backlog    Todo
-  refining   no column, shows in Todo
-  ready      no column: builds start only when you ask
+  refining   none, shows in Todo
+  ready      none
   building   In Progress
   review     Code review
   done       Done
@@ -89,12 +107,11 @@ Asking Claude Code which of them shows each of the factory's six states...
 A state with no column shows its tickets in the column of the state
 before it, so here a ticket being refined stays in Todo. With no column
 for ready, you start each build with `/factory-build N` in a session,
-rather than by moving its ticket on the board. That is the factory's
-default, so the settings need nothing more: init offers no column for
-ready only when builds start when you ask.
+rather than by moving its ticket on the board. So init offers no column
+for ready only when [`builds.trigger`](configuration.md#builds) is
+`manual`, the setting for builds that start when you ask.
 
-- **Yes** saves the table in your settings, `.claude/factory.yaml`, with
-  only the states whose column isn't the factory's own name:
+- **Yes** saves the table in your settings, `.claude/factory.yaml`:
 
   ```yaml
   tickets:
@@ -103,7 +120,9 @@ ready only when builds start when you ask.
       backlog: Todo
       refining: none
       ready: none
+      building: In Progress
       review: Code review
+      done: Done
   ```
 
 - **Change some** lets you pick the states to change from a list, then,
@@ -111,11 +130,11 @@ ready only when builds start when you ask.
   factory's name, which init adds to your board. Each state needs a column
   of its own: two states can't share one.
 - **No** adds each of the factory's six columns your board lacks, here
-  Backlog, In refinement, Ready, and In review, and saves nothing. Your
-  Todo, In Progress, Code review, and Done columns stay. In Progress and
-  Done are used, since their names match. The factory ignores the tickets
-  in Todo and Code review: nothing moves or builds them until you move
-  them to one of its columns.
+  Backlog, In refinement, Ready, and In review, and saves the six
+  factory names. Your Todo, In Progress, Code review, and Done columns
+  stay. In Progress and Done are used, since their names match. The
+  factory ignores the tickets in Todo and Code review: nothing moves or
+  builds them until you move them to one of its columns.
 
 Init ends by running its checks. When the columns are right, you see:
 
@@ -131,14 +150,16 @@ one column for two states. It prints why. Then do one of these, and run
 
 - sign in to Claude Code, by running `claude` once;
 - write a `columns` block like the one above in `.claude/factory.yaml`
-  yourself, with your own columns, as
-  [`tickets.columns`](configuration.md#ticketscolumns) describes: init
-  then doesn't ask;
+  yourself, with all six states, beside your `board`, as
+  [`tickets.columns`](configuration.md#ticketscolumns) describes. When
+  `factory config check` ends with `✓ The settings are valid.`, init
+  won't ask;
 - add the six columns to your board yourself, so init has nothing to ask.
 
-Running init again is safe: it keeps what your settings already say. Once
-they have a `columns` block, init doesn't ask about columns again. If you
-change your board's columns later, edit the block, or delete it and run
+Running init again is safe: it keeps what your settings already say. If
+the block leaves a state out, every factory command stops and names it,
+and running init asks you only for that state. If you change your
+board's columns later, edit the block, or delete it and run
 `factory init` again for a new suggestion.
 
 Init suggests one column for each state. When two of your columns mean the

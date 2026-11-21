@@ -20,6 +20,7 @@ import {
   withFakeAgent,
   withFakeTickets,
 } from "./fake-tools";
+import { FACTORY_COLUMNS } from "./factory-columns";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -193,7 +194,7 @@ describe("factory doctor", () => {
     const { run, printed } = doctor({
       raw: {
         "pr-review": null,
-        tickets: { board: 3 },
+        tickets: { board: 3, columns: FACTORY_COLUMNS },
         builds: { trigger: "own-server" },
         "auto-merge": { allow: ["docs/**"] },
         commands: { gate: ["npm run check"] },
@@ -332,7 +333,7 @@ describe("factory doctor", () => {
 
   it("passes a board that has every column the settings name", async () => {
     const r = doctor({
-      raw: { tickets: { board: 3 } },
+      raw: { tickets: { board: 3, columns: FACTORY_COLUMNS } },
       secrets: { FACTORY_BOARD_TOKEN: "x" },
       columns: SIX,
     });
@@ -342,7 +343,7 @@ describe("factory doctor", () => {
 
   it("fails a board that lacks a column, naming it", async () => {
     const r = doctor({
-      raw: { tickets: { board: 3 } },
+      raw: { tickets: { board: 3, columns: FACTORY_COLUMNS } },
       secrets: { FACTORY_BOARD_TOKEN: "x" },
       columns: ["Backlog", "Done"],
     });
@@ -356,7 +357,10 @@ describe("factory doctor", () => {
     const board = (columns: string[]) =>
       doctor({
         raw: {
-          tickets: { board: 3, columns: { review: ["In review", "QA"] } },
+          tickets: {
+            board: 3,
+            columns: { ...FACTORY_COLUMNS, review: ["In review", "QA"] },
+          },
         },
         secrets: { FACTORY_BOARD_TOKEN: "x" },
         columns,

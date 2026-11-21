@@ -68,8 +68,19 @@ import {
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { RULE, type Check, type Chosen, type SetupContext } from "./setup.mts";
 import { differences, PACKAGE, plan as syncPlan } from "./sync.mts";
-import { DEFAULT_COLUMNS, STATE_KEYS, sameName } from "./lib/work-status.mts";
-import { askReady, suggestColumns } from "./columns-suggest.mts";
+import {
+  DEFAULT_COLUMNS,
+  STATE_KEYS,
+  sameName,
+  type StateKey,
+} from "./lib/work-status.mts";
+import {
+  askReady,
+  everyColumn,
+  FACTORY_LINES,
+  fillColumns,
+  suggestColumns,
+} from "./columns-suggest.mts";
 import { FACTORY_FIELDS, suggestFields } from "./ticket-fields.mts";
 import type { NewField, TicketField } from "./tickets/types.mts";
 
@@ -131,6 +142,24 @@ const POLLER_IMAGE = "ghcr.io/davidbyoung/software-factory-poller";
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 const AGAIN = "Run factory init again to add it.";
+
+/** Each state `tickets.columns` writes, as its columns or null for none,
+ * from the settings as parsed YAML. */
+function writtenColumnsOf(
+  raw: unknown,
+): Partial<Record<StateKey, readonly string[] | null>> {
+  const tickets = (raw as { tickets?: unknown } | null)?.tickets;
+  const columns = (tickets as { columns?: unknown } | null)?.columns;
+  if (typeof columns !== "object" || columns === null) return {};
+  return Object.fromEntries(
+    Object.entries(columns)
+      .filter(([k]) => k in STATE_KEYS)
+      .map(([k, v]) => [
+        k,
+        v === "none" ? null : Array.isArray(v) ? v.map(String) : [String(v)],
+      ]),
+  );
+}
 
 /** The columns and fields the board sync uses: the settings' names where
  * they rename one, and none for one they set to none. */
@@ -209,10 +238,12 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   let settings: Settings | null = null;
   if (settingsText !== null) {
     try {
+      // A block that leaves states out is what the column step fills in.
       settings = parseSettings(
         doc.toJS(),
         (p) => existsSync(at(p)),
         builtOf(d.tools),
+        { partialColumns: true },
       );
     } catch (e) {
       d.out(`${SETTINGS_FILE}: ${message(e)}`);
@@ -447,20 +478,24 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
   }
 
-  // The board's columns: the coding agent suggests them when an existing
-  // board lacks one of the factory's and the settings name none, and a
-  // ready column is asked for when builds from the board turn on without
-  // one.
+  // The board's columns, all six written: the coding agent suggests them
+  // when an existing board lacks one of the factory's and the settings
+  // name none, a block that leaves states out is filled in, and a ready
+  // column is asked for when builds from the board turn on without one.
   let columnLines: [string, string][] = [];
   let readyColumn: string | null | undefined;
+  const writtenColumns = writtenColumnsOf(doc.toJS());
+  const missing = (Object.keys(STATE_KEYS) as StateKey[]).filter(
+    (k) => !(k in writtenColumns),
+  );
   if (parts.has("board") && typeof board === "number" && boardOps) {
     const asksReady =
       parts.has("from-board") &&
       !before.has("from-board") &&
       settings?.tickets.columns.ready === null;
-    const suggests = !doc.hasIn(["tickets", "columns"]);
+    const suggests = missing.length === Object.keys(STATE_KEYS).length;
     let names: string[] = [];
-    if (suggests || asksReady)
+    if (missing.length || asksReady)
       try {
         names = await boardOps.columns(board);
       } catch (e) {
@@ -471,6 +506,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     const lacks = Object.values(STATE_KEYS).some(
       (f) => !names.some((n) => sameName(n, f)),
     );
+    const fromBoard = parts.has("from-board") && trigger !== "manual";
     if (suggests && names.length && lacks) {
       const got = await suggestColumns(
         {
@@ -479,15 +515,19 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
           agent: agent.agent,
           label: agent.label,
         },
-        {
-          board,
-          columns: names,
-          fromBoard: parts.has("from-board") && trigger !== "manual",
-        },
+        { board, columns: names, fromBoard },
       );
       if (got === 1) return 1;
-      if (got !== "default") columnLines = got;
-    } else if (asksReady && settings)
+      columnLines = got;
+    } else if (suggests && names.length)
+      columnLines = everyColumn(d, { board, columns: names });
+    else if (suggests) columnLines = FACTORY_LINES;
+    else if (missing.length)
+      columnLines = await fillColumns(
+        { ask: d.ask, out: d.out },
+        { board, columns: names, written: writtenColumns, fromBoard },
+      );
+    else if (asksReady && settings)
       readyColumn = await askReady(
         { ask: d.ask, out: d.out },
         { columns: names, current: columnsOf(settings) },
@@ -540,9 +580,8 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     doc.setIn(["tickets", "columns", key], name);
   for (const [key, name] of fieldLines)
     doc.setIn(["tickets", "fields", key], name);
-  if (readyColumn === null) remove(doc, ["tickets", "columns", "ready"]);
-  else if (readyColumn !== undefined)
-    doc.setIn(["tickets", "columns", "ready"], readyColumn);
+  if (readyColumn !== undefined)
+    doc.setIn(["tickets", "columns", "ready"], readyColumn ?? "Ready");
   if (!parts.has("board")) {
     for (const key of ["board", "columns"]) remove(doc, ["tickets", key]);
     for (const key of ["session", "runs-in", "cost"])
@@ -690,6 +729,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
 
   // The board first, since the settings name its number.
   if (parts.has("board") && boardOps) {
+    const creating = board === "new";
     while (board === "new") {
       try {
         board = await boardOps.create(name);
@@ -701,6 +741,10 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
     if (typeof board === "number") {
       doc.setIn(["tickets", "board"], board);
+      // A block needs a board, so one init creates has none written yet.
+      if (creating)
+        for (const [key, name] of FACTORY_LINES)
+          doc.setIn(["tickets", "columns", key], name);
       try {
         const shape = boardShape(standing());
         const columns = await boardOps.addColumns(board, shape.columns);
@@ -870,6 +914,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         `       FACTORY_BOARD_OWNER=${owner}`,
         `       FACTORY_BOARD_NUMBER=${board}`,
         "       FACTORY_BOARD_TOKEN=the access token you just made",
+        `       FACTORY_READY_COLUMN=${columnsOf(standing()!).Ready?.[0]}`,
       ].join("\n"),
     );
   // Init asks for no command, so a gate is the owner's to add: without one

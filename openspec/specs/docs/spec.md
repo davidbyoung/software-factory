@@ -122,3 +122,12 @@ The factory SHALL behave as this line says: When this ships, `docs/github/setup.
 
 - **WHEN** this ships
 - **THEN** `docs/github/setup.md` has the section "Private npm packages" as Proposed docs drafts it, the row in the table of what `init` asks, and the changed sentence under "Changing it later"; `docs/presets.md`, `docs/limitations.md`, `docs/github/reference.md`, and `docs/github/by-hand.md` change as "Other pages that change" shows, and no page marks a private preset's workflows _Planned_.
+
+### Requirement: The docs require every column
+
+The factory SHALL behave as this line says: `docs/configuration.md`, `docs/existing-repo.md`, `docs/updating.md`, and `docs/builds.md` read as "The docs pages" under Proposed docs shows them, and `docs/workflow.md`, `docs/github/by-hand.md`, and `docs/presets.md` change as "The docs that change" says. The `docker run` example in `docs/builds.md`, under the poller image, gains `-e FACTORY_READY_COLUMN=Ready \` after `-e FACTORY_BOARD_TOKEN \`.
+
+#### Scenario: The docs require every column
+
+- **WHEN** the docs describe `tickets.columns`, the poller's variables, and updating
+- **THEN** `docs/configuration.md`, `docs/existing-repo.md`, `docs/updating.md`, and `docs/builds.md` read as "The docs pages" under Proposed docs shows them, and `docs/workflow.md`, `docs/github/by-hand.md`, and `docs/presets.md` change as "The docs that change" says. The `docker run` example in `docs/builds.md`, under the poller image, gains `-e FACTORY_READY_COLUMN=Ready \` after `-e FACTORY_BOARD_TOKEN \`.

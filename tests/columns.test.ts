@@ -18,6 +18,8 @@ import {
   settingsPath,
   columnsOf,
   fieldNamesOf,
+  filesDeps,
+  resolveFiles,
   type Deps as ConfigDeps,
 } from "../src/config.mts";
 import { columnsFrom, selectToStart } from "../src/poller.mts";
@@ -42,6 +44,8 @@ import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import stockPages from "./fixtures/stock-board.json";
 import { painter } from "../src/lib/color.mts";
 import { BOARD_FIELDS, memoryTickets } from "./memory-tickets";
+import { FACTORY_COLUMNS, FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { ACME, installAcme, own, repo } from "./preset-fixture";
 
 const AGENT = "<!-- agent -->";
 const RUN_PAGE = (id: string) => `https://runs.example/${id}`;
@@ -113,16 +117,44 @@ const withCards = (
 });
 
 describe("tickets.columns and tickets.fields in the settings", () => {
-  const base = { version: 2, repository: "o/n", tickets: { board: 3 } };
-  const withTickets = (tickets: object, builds?: object) => ({
+  const base = {
+    version: 2,
+    repository: "o/n",
+    tickets: { board: 3, columns: FACTORY_COLUMNS },
+  };
+  /** The tickets block as given, with no state filled in. */
+  const bare = (tickets: object) => ({
     ...base,
     tickets: { board: 3, ...tickets },
+  });
+  /** The tickets block with every state its columns leave out named by the
+   * factory's own name. */
+  const withTickets = (
+    tickets: { columns?: object; fields?: object },
+    builds?: object,
+  ) => ({
+    ...base,
+    tickets: {
+      board: 3,
+      ...tickets,
+      columns: { ...FACTORY_COLUMNS, ...tickets.columns },
+    },
     ...(builds ? { builds } : {}),
   });
+  const columns = (written: object) => ({ columns: written });
+  const without = (...states: string[]) => ({
+    columns: Object.fromEntries(
+      Object.entries(FACTORY_COLUMNS).filter(([k]) => !states.includes(k)),
+    ),
+  });
 
-  it("gives every state and field its default when nothing is written", () => {
+  it("reads every state as written", () => {
+    const s = parse(withTickets({ columns: { ready: "Approved" } }));
+    expect(columnsOf(s)).toEqual({ ...DEFAULT_COLUMNS, Ready: ["Approved"] });
+  });
+
+  it("reads each board field at its default when none is written", () => {
     const s = parse(base);
-    expect(columnsOf(s)).toEqual(DEFAULT_COLUMNS);
     expect(fieldNamesOf(s)).toEqual({
       session: "Session",
       runsIn: "Runs in",
@@ -130,12 +162,11 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     });
   });
 
-  it("keeps the default for a key left out and reads none as no column", () => {
+  it("reads none as no column", () => {
     const s = parse(
-      withTickets(
-        { columns: { backlog: "Todo", refining: "none" } },
-        { trigger: "manual" },
-      ),
+      withTickets(columns({ backlog: "Todo", refining: "none" }), {
+        trigger: "manual",
+      }),
     );
     expect(s.tickets.columns).toMatchObject({
       backlog: ["Todo"],
@@ -144,8 +175,79 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       done: ["Done"],
     });
     expect(
-      parse(withTickets({ fields: { cost: "none" } })).tickets.fields,
+      parse(withTickets({ ...columns({}), fields: { cost: "none" } })).tickets
+        .fields,
     ).toEqual({ session: "Session", "runs-in": "Runs in", cost: null });
+  });
+
+  it.each([
+    ["no columns", {}],
+    ["empty columns", { columns: {} }],
+    ["null columns", { columns: null }],
+  ])("requires tickets.columns with a board, given %s", (_name, tickets) => {
+    expect(() => parse(bare(tickets))).toThrow(
+      ".claude/factory.yaml: tickets.columns: is required with tickets.board: run factory init to choose which of board 3's columns shows each state",
+    );
+  });
+
+  it("names every state left out, in the states' order, with the Oxford comma", () => {
+    expect(() => parse(bare(without("done", "building")))).toThrow(
+      ".claude/factory.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run factory init to choose them",
+    );
+    expect(() => parse(bare(without("done", "refining", "building")))).toThrow(
+      "tickets.columns: refining, building, and done have no column: give each",
+    );
+  });
+
+  it("words one state left out on its own", () => {
+    expect(() => parse(bare(without("review")))).toThrow(
+      ".claude/factory.yaml: tickets.columns: review has no column: give it a column, a list of columns, or none, or run factory init to choose it",
+    );
+  });
+
+  it("counts none and a list as a state named", () => {
+    expect(() =>
+      parse(
+        withTickets(
+          columns({ refining: "none", review: ["Code review", "QA"] }),
+        ),
+      ),
+    ).not.toThrow();
+  });
+
+  it("counts the states a preset names", async () => {
+    const root = repo(
+      own(
+        [ACME],
+        ["tickets:", "  board: 3", "  columns:", "    backlog: Todo"],
+      ),
+    );
+    installAcme(
+      root,
+      "1.4.0",
+      [
+        "version: 2",
+        "tickets:",
+        "  columns:",
+        "    refining: none",
+        "    ready: Ready",
+        "    building: Doing",
+        "    review: none",
+        "    done: Done",
+        "",
+      ].join("\n"),
+    );
+    const { settings } = await resolveFiles(filesDeps(root, {}));
+    expect(settings.tickets.columns).toMatchObject({
+      backlog: ["Todo"],
+      building: ["Doing"],
+      review: null,
+    });
+  });
+
+  it("requires no columns without a board, and names each state by its own name", () => {
+    const s = parse({ version: 2, repository: "o/n", tickets: {} });
+    expect(columnsOf(s)).toEqual(DEFAULT_COLUMNS);
   });
 
   it.each([
@@ -225,7 +327,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     ).not.toThrow();
   });
 
-  it("prints a column's name in effect, default included, or none", async () => {
+  it("prints a column's name in effect, or none", async () => {
     const d = (yaml: string): [ConfigDeps, string[]] => {
       const out: string[] = [];
       return [
@@ -241,15 +343,15 @@ describe("tickets.columns and tickets.fields in the settings", () => {
         out,
       ];
     };
-    const [a, outA] = d(
-      "version: 2\nrepository: o/n\ntickets:\n  board: 1\n  columns:\n    ready: Ready for dev\n",
-    );
+    const withReady = (ready: string) =>
+      "version: 2\nrepository: o/n\ntickets:\n  board: 1\n" +
+      FACTORY_COLUMNS_YAML.replace("ready: Ready", `ready: ${ready}`) +
+      "\n";
+    const [a, outA] = d(withReady("Ready for dev"));
     await configMain(["get", "tickets.columns.ready"].slice(1), a);
-    const [b, outB] = d("version: 2\nrepository: o/n\ntickets:\n  board: 1\n");
+    const [b, outB] = d(withReady("Ready"));
     await configMain(["tickets.columns.done"], b);
-    const [c, outC] = d(
-      "version: 2\nrepository: o/n\ntickets:\n  board: 1\n  columns:\n    ready: none\n",
-    );
+    const [c, outC] = d(withReady("none"));
     await configMain(["tickets.columns.ready"], c);
     expect([outA, outB, outC]).toEqual([["Ready for dev"], ["Done"], ["none"]]);
   });
@@ -612,11 +714,6 @@ describe("the poller", () => {
     expect(selectToStart(snap, board("ready for dev"), columns)).toEqual([1]);
     expect(selectToStart(snap, board("Ready"), columns)).toEqual([]);
   });
-
-  it("defaults to Ready", () => {
-    expect(columnsFrom({}).Ready).toEqual(["Ready"]);
-    expect(selectToStart(snap, board("Ready"), columnsFrom({}))).toEqual([1]);
-  });
 });
 
 describe("factory ticket ready", () => {
@@ -665,7 +762,10 @@ describe("factory ticket ready", () => {
   it("sets the column the settings name for ready", async () => {
     const settings = parse({
       ...STOCK_YAML,
-      tickets: { board: 7, columns: { ready: "ready for DEV" } },
+      tickets: {
+        board: 7,
+        columns: { ...FACTORY_COLUMNS, ready: "ready for DEV" },
+      },
     });
     const { code, memory } = await run(settings, "Backlog", ["Ready for dev"]);
     expect(code).toBe(0);
@@ -829,7 +929,12 @@ describe("factory board check", () => {
 
   it("names the missing ones of a state with a list", () => {
     const lines = report(
-      { tickets: { board: 7, columns: { review: ["Code review", "QA"] } } },
+      {
+        tickets: {
+          board: 7,
+          columns: { ...FACTORY_COLUMNS, review: ["Code review", "QA"] },
+        },
+      },
       fullBoard([
         "Backlog",
         "In refinement",
@@ -847,7 +952,10 @@ describe("factory board check", () => {
   it("reminds an own-server poller of its ready column, unless the column is missing", () => {
     const yaml = (trigger: string) => ({
       builds: { trigger },
-      tickets: { board: 7, columns: { ready: "Ready for dev" } },
+      tickets: {
+        board: 7,
+        columns: { ...FACTORY_COLUMNS, ready: "Ready for dev" },
+      },
     });
     const withColumn = fullBoard(
       SIX.map((c) => (c === "Ready" ? "Ready for dev" : c)),
@@ -860,6 +968,16 @@ describe("factory board check", () => {
     );
     expect(rowOf(report(yaml("own-server"), fullBoard(SIX)), "ready")).toBe(
       "  ✗ ready      Ready for dev: no such column on the board",
+    );
+  });
+
+  it("reminds an own-server poller of a ready column called Ready too", () => {
+    const yaml = {
+      builds: { trigger: "own-server" },
+      tickets: { board: 7, columns: FACTORY_COLUMNS },
+    };
+    expect(rowOf(report(yaml, fullBoard(SIX)), "ready")).toBe(
+      '  ? ready      Ready: the poller needs FACTORY_READY_COLUMN set to "Ready"',
     );
   });
 
@@ -876,9 +994,12 @@ describe("factory board check", () => {
   it("fails a Status field that is not a single select", () => {
     const board = fullBoard(SIX);
     board.fields[0] = { id: "F_status", name: "Status", dataType: "TEXT" };
-    expect(rowOf(report({ tickets: { board: 7 } }, board), "Status")).toBe(
-      "  ✗ Status     not a single select",
-    );
+    expect(
+      rowOf(
+        report({ tickets: { board: 7, columns: FACTORY_COLUMNS } }, board),
+        "Status",
+      ),
+    ).toBe("  ✗ Status     not a single select");
   });
 
   it.each([
@@ -926,7 +1047,7 @@ describe("factory board check", () => {
     "prints a field that is %s",
     (_, fields, boardFields, row) => {
       const lines = report(
-        { tickets: { board: 7, fields } },
+        { tickets: { board: 7, columns: FACTORY_COLUMNS, fields } },
         fullBoard(SIX, boardFields),
       );
       expect(rowOf(lines, "Runs in")).toBe(row);
@@ -966,7 +1087,10 @@ describe("factory board check", () => {
   it("fails the sync with the same words before it writes anything", async () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const { d, out, written } = stockDeps(
-      parse({ ...STOCK_YAML, tickets: { board: 7 } }),
+      parse({
+        ...STOCK_YAML,
+        tickets: { board: 7, columns: FACTORY_COLUMNS },
+      }),
     );
     d.env = { GH_TOKEN: "t" };
     d.readFile = () =>
@@ -1007,6 +1131,7 @@ describe("a state with a list of columns", () => {
         ready: "none",
         building: ["In Progress", "Blocked"],
         review: ["Code review", "QA"],
+        done: "Done",
       },
     },
   };
@@ -1076,7 +1201,10 @@ describe("a state with a list of columns", () => {
     ],
   ])("rejects %s, in the words the issue gives", (_name, columns, message) => {
     expect(() =>
-      parse({ ...LIST_YAML, tickets: { board: 3, columns } }),
+      parse({
+        ...LIST_YAML,
+        tickets: { board: 3, columns: { ...FACTORY_COLUMNS, ...columns } },
+      }),
     ).toThrow(message);
   });
 

@@ -25,7 +25,7 @@ A ticket is always in one of six states. They are fixed: you cannot add one
 or reorder them. Your board shows them as columns, and which column shows
 which state is your repository's choice
 ([`tickets.columns`](configuration.md#ticketscolumns)). The table gives the
-default names.
+names `factory init` gives the columns it adds.
 
 A state with no column of its own shows in the column of the nearest earlier
 state that has one, and a ticket is shown in the `ready` column only when it

@@ -10,6 +10,7 @@ import {
 } from "../src/parts.mts";
 import { secretSteps, TOOLS } from "../src/tools.mts";
 import { memoryContext } from "./memory-tools";
+import { FACTORY_COLUMNS } from "./factory-columns";
 
 const settings = (raw: Record<string, unknown> = {}) =>
   parseSettings({ version: 2, repository: "acme/site", ...raw }, () => true);
@@ -26,7 +27,7 @@ describe("partsOn", () => {
 
   it("reads a board, builds from the board, and auto-merge from the settings", () => {
     const s = settings({
-      tickets: { board: 3 },
+      tickets: { board: 3, columns: FACTORY_COLUMNS },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**"] },
     });

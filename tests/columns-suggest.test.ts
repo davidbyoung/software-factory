@@ -163,17 +163,23 @@ describe("the table", () => {
 });
 
 describe("what Yes writes", () => {
-  it("writes only the states whose column isn't the factory's name", () => {
+  it("writes every state, a column init adds by the factory's name", () => {
     const m = check(SHOP, BOARD, false, 3) as { mapping: Mapping };
     expect(written(m.mapping)).toEqual([
       ["backlog", "Todo"],
       ["refining", "none"],
       ["ready", "none"],
+      ["building", "In Progress"],
       ["review", "Code review"],
+      ["done", "Done"],
     ]);
     expect(written({ ...m.mapping, refining: "add", review: "add" })).toEqual([
       ["backlog", "Todo"],
+      ["refining", "In refinement"],
       ["ready", "none"],
+      ["building", "In Progress"],
+      ["review", "In review"],
+      ["done", "Done"],
     ]);
   });
 });
