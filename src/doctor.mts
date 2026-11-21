@@ -208,7 +208,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     // line, or the names asked for when none is.
     const key = anyOf.find((n) => secrets!.includes(n)) ?? anyOf.join(" or ");
     const entry = reads.get(key) ?? { anyOf, fors: [] };
-    if (!entry.fors.includes(forWhat)) entry.fors.push(forWhat);
+    entry.fors.push(forWhat);
     reads.set(key, entry);
   };
   for (const part of PARTS) {

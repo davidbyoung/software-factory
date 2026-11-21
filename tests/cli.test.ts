@@ -135,8 +135,8 @@ describe("factory's usage", () => {
     ]);
   });
 
-  it("prints the usage alone for --help", () => {
-    const r = factory(["--help"]);
+  it.each([["--help"], ["-h"]])("prints the usage alone for %s", (flag) => {
+    const r = factory([flag]);
 
     expect(r.status).toBe(2);
     expect(r.stderr.split("\n")[0]).toBe("Usage: factory COMMAND");
