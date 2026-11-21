@@ -13,6 +13,7 @@ import { writeSettings } from "./locked.ts";
 import { main, type Deps } from "../src/commands.mts";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { painter } from "../src/lib/color.mts";
+import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 
 const ROOT = "/repo";
 
@@ -29,7 +30,10 @@ function deps(raw: Record<string, unknown> = {}, statuses: number[] = []) {
   const d: Deps = {
     root: ROOT,
     settings: async () =>
-      parseSettings({ version: 2, repository: "o/r", ...raw }, () => true),
+      parseSettings(
+        { version: 2, repository: "o/r", "code-host": CODE_HOST, ...raw },
+        () => true,
+      ),
     exec: (command, cwd, env) => {
       // The `$ COMMAND` line is printed before the command runs.
       out.push(`(ran ${command})`);
@@ -280,6 +284,38 @@ describe("factory specs check", () => {
   });
 });
 
+describe("factory specs change-name", () => {
+  it("prints the spec change's name for the ticket, whatever the branch is called", async () => {
+    const { d, out, err, ran } = deps({
+      specs: "openspec",
+      "code-host": { type: "github", "branch-name": "feature/{user}/{ticket}" },
+    });
+
+    expect(await main(["specs-change-name", "54"], d)).toBe(0);
+    expect(out).toEqual(["issue-54"]);
+    expect(err).toEqual([]);
+    expect(ran).toEqual([]);
+  });
+
+  it("says there is no change to name when specs are off, and exits 1", async () => {
+    const { d, out, err } = deps({ specs: "none" });
+
+    expect(await main(["specs-change-name", "54"], d)).toBe(1);
+    expect(out).toEqual([]);
+    expect(err).toEqual(["specs are off: there is no spec change to name"]);
+  });
+
+  it.each([[[]], [["x"]], [["0"]], [["54", "55"]]])(
+    "prints its usage and exits 2 for %j",
+    async (args) => {
+      const { d, err } = deps({ specs: "openspec" });
+
+      expect(await main(["specs-change-name", ...args], d)).toBe(2);
+      expect(err).toEqual(["Usage: factory specs change-name N"]);
+    },
+  );
+});
+
 describe("the four commands", () => {
   it("print the settings' error and exit 1 when the settings cannot be read", async () => {
     const { d, err } = deps();
@@ -309,7 +345,10 @@ describe("the commands' own runner", () => {
     repo = mkdtempSync(join(tmpdir(), "factory-commands-"));
     execFileSync("git", ["init", "-q", repo]);
     mkdirSync(join(repo, "src/deep"), { recursive: true });
-    writeSettings(repo, `version: 2\nrepository: o/r\n${settings}`);
+    writeSettings(
+      repo,
+      `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n${settings}`,
+    );
     return spawnSync("node", [CLI, ...args], {
       cwd: join(repo, from),
       encoding: "utf8",

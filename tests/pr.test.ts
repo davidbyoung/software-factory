@@ -653,6 +653,60 @@ describe("the pull-request commands", () => {
     expect(host.pull(12).labels).toEqual(["spec"]);
   });
 
+  describe("for-branch", () => {
+    const from = (number: number, branch: string, over: object = {}) => ({
+      number,
+      head: { sha: `sha${number}`, branch, repository: "acme/widgets" },
+      ...over,
+    });
+
+    it.each([
+      ["open", {}],
+      ["merged", { state: "closed", merged: true }],
+      ["closed", { state: "closed", merged: false }],
+    ])(
+      "prints #N %s for the pull request from the branch",
+      async (said, over) => {
+        const { d, out } = pr([from(12, "54", over)]);
+
+        expect(await main(["for-branch", "54"], d)).toBe(0);
+        expect(out).toEqual([`#12 ${said}`]);
+      },
+    );
+
+    it("prints the newest of several, and none from another branch", async () => {
+      const { d, out } = pr([
+        from(12, "54", { state: "closed", merged: true }),
+        from(20, "54"),
+        from(30, "feature/someone/54"),
+      ]);
+
+      expect(await main(["for-branch", "54"], d)).toBe(0);
+      expect(out).toEqual(["#20 open"]);
+    });
+
+    it.each([[[]], [["54", "55"]]])(
+      "prints its usage and exits 1 for %j",
+      async (args) => {
+        quiet();
+        const { d, out } = pr();
+
+        expect(await main(["for-branch", ...args], d)).toBe(1);
+        expect(out).toEqual([]);
+        expect(errors).toEqual([
+          expect.stringMatching(/^Usage: .*\| for-branch BRANCH \|/),
+        ]);
+      },
+    );
+
+    it("prints none when no pull request came from the branch", async () => {
+      const { d, out } = pr([from(30, "feature/someone/54")]);
+
+      expect(await main(["for-branch", "54"], d)).toBe(0);
+      expect(out).toEqual(["none"]);
+    });
+  });
+
   it("closes prints the tickets a pull request closes", async () => {
     const { d, out } = twelve({ closes: [7, 8] });
 

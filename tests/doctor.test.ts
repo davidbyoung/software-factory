@@ -21,6 +21,7 @@ import {
   withFakeTickets,
 } from "./fake-tools";
 import { FACTORY_COLUMNS } from "./factory-columns";
+import { CODE_HOST } from "./settings-fixture";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -51,7 +52,7 @@ function checkout(files: Record<string, string> = {}): string {
 
 const settings = (raw: Record<string, unknown> = {}, tools: Registry = TOOLS) =>
   parseSettings(
-    { version: 2, repository: "acme/site", ...raw },
+    { version: 2, repository: "acme/site", "code-host": CODE_HOST, ...raw },
     () => true,
     builtOf(tools),
   );

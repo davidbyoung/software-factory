@@ -34,6 +34,9 @@ If you followed the quick start, this is done.
    ```yaml
    version: 2
    repository: your-name/your-repo
+   code-host:
+     type: github
+     branch-name: "{ticket}"
    ```
 
 2. Write the factory's files:

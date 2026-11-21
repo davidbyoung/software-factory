@@ -2,7 +2,7 @@
 # settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
 presets: []
-settings-hash: sha256:96786bb001b86579f4fdd3bb752ccce1e5f1124ed1ade8a13e43ddc4ef1755c6
+settings-hash: sha256:010b4eb4fcede635180c32450e2666bbc23a91e88a90e26ab435d5e85880394c
 npmrc-variables: []
 settings:
   version: 2
@@ -25,7 +25,9 @@ settings:
       spec: none                                                               # default
       acceptance-criteria: none                                                # default
       for-the-builder: none                                                    # default
-  code-host: github                                                            # default
+  code-host:
+    type: github
+    branch-name: "{ticket}"
   builds:
     trigger: manual
     runner: github-actions                                                     # default

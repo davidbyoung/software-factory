@@ -225,11 +225,40 @@ uncommitted changes onto the new branch, where the issue's commit would sweep
 them into its PR, and refuses outright when a changed file differs between
 the branches.
 
-Then, from the latest default branch on `origin`, named for the issue:
+Then name the branch, as `code-host.branch-name` in the settings says,
+and look for it on `origin`:
 
 ```bash
 git fetch origin
-git switch -c issue-N-short-slug origin/DEFAULT
+npx --no-install factory ticket branch N          # prints BRANCH
+git ls-remote --exit-code origin refs/heads/BRANCH
+```
+
+Give `ls-remote` the full ref: `--heads origin 12` also matches
+`feature/someone/12`. Exit 2 means `origin` has no such branch: go on.
+Exit 0 means an earlier build's branch is there, and its newest pull
+request decides, from `npx --no-install factory pr for-branch BRANCH`:
+
+- **`#M merged`,** and the commit `ls-remote` printed is
+  `npx --no-install factory pr view M --field head`: its work is on the
+  default branch. Delete it with `git push origin --delete BRANCH`, say
+  `Branch BRANCH's pull request #M merged; replacing it.`, and go on.
+- **`#M open`:** stop ("The claim") with
+  `Branch BRANCH is already on origin, with open pull request #M. Work it with /factory-address-review M`.
+- **Anything else,** or commits pushed after the merge: stop with
+  `Branch BRANCH is already on origin, with work no pull request merged. Open a pull request from it to keep that work, or delete it with: git push origin --delete BRANCH`.
+  A build that lost its claim pushed its branch to keep its work, and
+  this is how the owner keeps it.
+
+No build carries on from an unmerged branch. A local branch of the same
+name stops the build the same way, naming `git branch -D BRANCH` for the
+owner to run once they have looked at its commits, unless its last
+commit is the merged pull request's head: then switch away from it if
+it is checked out, with `git switch --detach origin/DEFAULT`, and
+delete it with the remote one. Then, from the latest default branch:
+
+```bash
+git switch -c BRANCH origin/DEFAULT
 ```
 
 If the branch you left has commits not on `origin/DEFAULT`, name it in the
@@ -242,12 +271,15 @@ commit. Nothing in it is new; the thinking was done at refinement.
 
 ```bash
 export DO_NOT_TRACK=1
-npx --no-install openspec new change issue-N-short-slug
-npx --no-install openspec status --change issue-N-short-slug
+npx --no-install factory specs change-name N      # prints NAME
+npx --no-install openspec new change NAME
+npx --no-install openspec status --change NAME
 ```
 
-For each artifact `status` lists, run `npx --no-install openspec instructions <artifact>
---change issue-N-short-slug` and fill it from the issue. An issue without
+Read NAME once, here, and use it through step 4's archive, whatever
+the branch is called. For each artifact `status` lists, run
+`npx --no-install openspec instructions <artifact> --change NAME` and
+fill it from the issue. An issue without
 the `spec` label fills `proposal.md` and the spec delta only; OpenSpec
 validates and archives a change without `design.md` or `tasks.md`.
 
@@ -336,7 +368,7 @@ Then fold the change into the specs, as the last commit before the pull
 request:
 
 ```bash
-DO_NOT_TRACK=1 npx --no-install openspec archive issue-N-short-slug --yes
+DO_NOT_TRACK=1 npx --no-install openspec archive NAME --yes
 ```
 
 Then run the spec check, `npx --no-install factory specs check`.

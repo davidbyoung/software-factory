@@ -36,6 +36,7 @@ import type { Registry } from "../src/tools.mts";
 import type { Agent } from "../src/agent/types.mts";
 import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
 import { FACTORY_COLUMNS, FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 
 const GOOD = "tok_good";
 const NARROW = "tok_narrow";
@@ -50,7 +51,13 @@ type Answers = {
   confirm?: boolean[];
   secret?: string[];
   input?: string[];
+  /** Answers to the branch name question; unscripted, it takes the
+   * pattern offered, as Enter does. */
+  branch?: string[];
 };
+
+const BRANCH_QUESTION =
+  "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
 
 /** Answers each question in turn from the script, and records each one. */
 function scripted(answers: Answers, log: (line: string) => void = () => {}) {
@@ -70,6 +77,7 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
     confirm: [...(answers.confirm ?? [])],
     secret: [...(answers.secret ?? [])],
     input: [...(answers.input ?? [])],
+    branch: [...(answers.branch ?? [])],
   };
   const next = <K extends keyof typeof queue>(kind: K, message: string) => {
     asked.push(`${kind}: ${message}`);
@@ -99,7 +107,12 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
     },
     confirm: async (message) => next("confirm", message) as boolean,
     secret: async (message) => next("secret", message) as string,
-    input: async (message) => next("input", message) as string,
+    input: async (message, fallback) => {
+      if (message !== BRANCH_QUESTION) return next("input", message) as string;
+      asked.push(`input: ${message}`);
+      log(`? input: ${message}`);
+      return queue.branch.shift() ?? fallback;
+    },
   };
   return { ask, asked, offered, selects, descriptions, checkboxes, queue };
 }
@@ -137,6 +150,8 @@ type Setup = {
   codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
   paint?: Paint;
   checks?: Check[];
+  /** The branch name a preset in effect supplies, if any. */
+  presetBranchName?: string;
 };
 
 const roots: string[] = [];
@@ -241,6 +256,7 @@ function init(setup: Setup) {
     packageName: "@davidbyoung/software-factory",
     packageVersion: "0.2.0",
     paint: setup.paint,
+    presetBranchName: async () => setup.presetBranchName ?? null,
   };
   const read = (path: string) =>
     existsSync(join(root, path))
@@ -334,6 +350,7 @@ describe("factory init, a first run with every part", () => {
     expect(r.yaml()).toEqual({
       version: 2,
       repository: "acme/site",
+      "code-host": CODE_HOST,
       tickets: { board: 1, columns: FACTORY_COLUMNS },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**", "**/*.md"] },
@@ -549,6 +566,7 @@ describe("factory init, run again", () => {
     "# Our settings.",
     "version: 2",
     "repository: acme/site",
+    CODE_HOST_YAML,
     "tickets:",
     "  board: 3 # the roadmap",
     "auto-merge:",
@@ -661,8 +679,7 @@ describe("factory init, run again", () => {
 
   it("gives a board the columns the settings name, not the defaults they rename", async () => {
     const r = init({
-      settings:
-        "version: 2\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n",
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n`,
       boards: [
         {
           number: 3,
@@ -693,29 +710,34 @@ describe("factory init, run again", () => {
 
   it("turns off a board whose columns the settings rename, leaving valid settings", async () => {
     const r = init({
-      settings:
-        "version: 2\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n",
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n`,
       secrets: { FACTORY_BOARD_TOKEN: "x" },
       answers: { checkbox: [[]], confirm: [true] },
     });
     expect(await r.run()).toBe(0);
-    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
+    expect(r.yaml()).toEqual({
+      version: 2,
+      repository: "acme/site",
+      "code-host": CODE_HOST,
+    });
   });
 
   it("takes the review's setting out when the review is turned off, so the sync removes its workflow", async () => {
     const r = init({
-      settings:
-        "version: 2\nrepository: acme/site\npr-review:\n  commands:\n    - npm test\n",
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review:\n  commands:\n    - npm test\n`,
       answers: { checkbox: [[]], confirm: [true] },
     });
     await r.run();
-    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
+    expect(r.yaml()).toEqual({
+      version: 2,
+      repository: "acme/site",
+      "code-host": CODE_HOST,
+    });
   });
 
   it("keeps the review's commands when the review stays on", async () => {
     const r = init({
-      settings:
-        "version: 2\nrepository: acme/site\npr-review:\n  commands:\n    - npm test\n",
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review:\n  commands:\n    - npm test\n`,
       answers: { checkbox: [["review"]], confirm: [true], secret: [""] },
     });
     await r.run();
@@ -904,7 +926,11 @@ describe("factory init, the board", () => {
     expect(r.out.join("\n")).toContain(
       "No board to use instead: create one on the code host, then run factory init again.",
     );
-    expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
+    expect(r.yaml()).toEqual({
+      version: 2,
+      repository: "acme/site",
+      "code-host": CODE_HOST,
+    });
   });
 
   it("turns on a board and cloud builds with builds that start from the board", async () => {
@@ -1036,6 +1062,7 @@ describe("factory init, where the poller runs", () => {
         settings: [
           "version: 2",
           "repository: acme/site",
+          CODE_HOST_YAML,
           "tickets:",
           "  board: 3",
           "builds:",
@@ -1063,6 +1090,7 @@ describe("factory init, where the poller runs", () => {
       settings: [
         "version: 2",
         "repository: acme/site",
+        CODE_HOST_YAML,
         "tickets:",
         "  board: 3",
         FACTORY_COLUMNS_YAML.replace("ready: Ready", "ready: Ready for dev"),
@@ -1096,6 +1124,7 @@ describe("factory init, where the poller runs", () => {
       settings: [
         "version: 2",
         "repository: acme/site",
+        CODE_HOST_YAML,
         "tickets:",
         "  board: 3",
         "builds:",
@@ -1153,6 +1182,7 @@ describe("factory init, word for word", () => {
         "  Settings       none yet",
         "  Board          none yet",
         "",
+        "? input: How should a build name its branch? Use {ticket}, and {user} for the GitHub account:",
         "? checkbox: Which parts do you want?",
         "? select: Which board?",
         "? input: Which files may merge without you? (comma-separated)",
@@ -1205,6 +1235,7 @@ describe("factory init, word for word", () => {
       settings: [
         "version: 2",
         "repository: acme/site",
+        CODE_HOST_YAML,
         "tickets:",
         "  board: 3",
         FACTORY_COLUMNS_YAML,
@@ -1273,7 +1304,7 @@ describe("factory init, word for word", () => {
 describe("factory init, a secret met another way", () => {
   it("asks for no token for cloud builds when the board's token, which they also read, is set", async () => {
     const r = init({
-      settings: "version: 2\nrepository: acme/site\n",
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
       answers: { checkbox: [["cloud"]], confirm: [false, true] },
     });
@@ -1290,7 +1321,7 @@ describe("factory init, a secret met another way", () => {
 describe("factory init, a tool's own setup", () => {
   /** Fake Tickets as the only ticket system. */
   const fakeOnly = (b: Registry, t: Tickets) => withFakeTickets(b, t, true);
-  const FAKE = "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n";
+  const FAKE = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n`;
 
   it("asks for the value the ticket system needs, and writes it under tickets", async () => {
     const r = init({
@@ -1303,7 +1334,8 @@ describe("factory init, a tool's own setup", () => {
       },
     });
     expect(await r.run()).toBe(0);
-    expect(r.asked.slice(0, 2)).toEqual([
+    expect(r.asked.slice(0, 3)).toEqual([
+      `input: ${BRANCH_QUESTION}`,
       "checkbox: Which parts do you want?",
       "input: Your ticket system's address",
     ]);
@@ -1398,6 +1430,126 @@ describe("factory init, a tool's own setup", () => {
   });
 });
 
+describe("factory init, the branch name", () => {
+  const ASKED = `input: ${BRANCH_QUESTION}`;
+  const quick = (over: Partial<Setup> = {}) =>
+    init({ answers: { checkbox: [[]], confirm: [true] }, ...over });
+
+  it("asks for it first when one tool of each kind leaves nothing to choose", async () => {
+    const r = quick();
+    expect(await r.run()).toBe(0);
+    expect(r.asked[0]).toBe(ASKED);
+  });
+
+  it("asks for it right after the tools are chosen", async () => {
+    const r = init({
+      tools: withSecondRunner,
+      answers: { select: ["fake-runner"], checkbox: [[]], confirm: [true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.slice(0, 2)).toEqual([
+      "select: Where do cloud builds run?",
+      ASKED,
+    ]);
+  });
+
+  it("writes the pattern it offers, quoted, in a code-host block", async () => {
+    const r = quick();
+    await r.run();
+    expect(r.read(".claude/factory.yaml")).toContain(
+      'code-host:\n  type: github\n  branch-name: "{ticket}"\n',
+    );
+  });
+
+  it("writes a pattern of the person's own, quoted", async () => {
+    const r = quick({
+      answers: {
+        checkbox: [[]],
+        confirm: [true],
+        branch: ["feature/{user}/{ticket}"],
+      },
+    });
+    await r.run();
+    expect(r.read(".claude/factory.yaml")).toContain(
+      'code-host:\n  type: github\n  branch-name: "feature/{user}/{ticket}"\n',
+    );
+  });
+
+  it("says why it refuses a pattern, and asks again", async () => {
+    const r = quick({
+      answers: {
+        checkbox: [[]],
+        confirm: [true],
+        branch: ["{slug}", "a b/{ticket}", "issue-{ticket}"],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.filter((q) => q === ASKED)).toHaveLength(3);
+    expect(r.out).toContain(
+      "{slug} is not a placeholder. The placeholders are {ticket} and {user}",
+    );
+    expect(r.out).toContain(
+      "a b/{ticket} can't be a git branch name: it has a space",
+    );
+    expect(r.yaml()["code-host"]).toEqual({
+      type: "github",
+      "branch-name": "issue-{ticket}",
+    });
+  });
+
+  it("asks nothing on a re-run whose settings have it, and keeps it", async () => {
+    const settings = [
+      "version: 2",
+      "repository: acme/site",
+      "code-host:",
+      "  type: github",
+      '  branch-name: "feature/{user}/{ticket}"',
+      "",
+    ].join("\n");
+    const r = quick({ settings });
+    expect(await r.run()).toBe(0);
+    expect(r.asked).not.toContain(ASKED);
+    expect(r.yaml()["code-host"]).toEqual({
+      type: "github",
+      "branch-name": "feature/{user}/{ticket}",
+    });
+  });
+
+  it("asks nothing when a preset in effect supplies it, and writes none", async () => {
+    const r = quick({
+      settings: "version: 2\nrepository: acme/site\n",
+      presetBranchName: "feature/{user}/{ticket}",
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.asked).not.toContain(ASKED);
+    expect(r.yaml()["code-host"]).toBeUndefined();
+  });
+
+  it("adds it to a code-host block that has only a type, keeping the block", async () => {
+    const r = quick({
+      settings:
+        "version: 2\nrepository: acme/site\ncode-host:\n  # ours\n  type: github\n",
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.read(".claude/factory.yaml")).toContain(
+      'code-host:\n  # ours\n  type: github\n  branch-name: "{ticket}"\n',
+    );
+  });
+
+  it("reads a file set up before it was required, asks for it, and writes the block", async () => {
+    const r = quick({
+      settings: "version: 2\nrepository: acme/site\ncode-host: github\n",
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).not.toContain("Fix it, then run init again.");
+    expect(r.asked).toContain(ASKED);
+    expect(r.yaml()["code-host"]).toEqual({
+      type: "github",
+      "branch-name": "{ticket}",
+    });
+  });
+});
+
 describe("factory init, with more than one tool of a kind", () => {
   const both = (b: Registry, t: Tickets) => withFakeTickets(b, t);
 
@@ -1422,8 +1574,7 @@ describe("factory init, with more than one tool of a kind", () => {
   it("offers the one the settings name first", async () => {
     const r = init({
       tools: both,
-      settings:
-        "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: https://tickets.example\n`,
       secrets: { [FAKE_TOKEN]: "x" },
       answers: { select: ["fake"], checkbox: [[]], confirm: [false, true] },
     });
@@ -1762,6 +1913,7 @@ describe("factory init, the column step", () => {
         settings: [
           "version: 2",
           "repository: acme/site",
+          CODE_HOST_YAML,
           "tickets:",
           "  board: 3",
           FACTORY_COLUMNS_YAML.replace("Backlog", "Todo"),
@@ -1851,6 +2003,7 @@ describe("factory init, the column step", () => {
     const SETTINGS = [
       "version: 2",
       "repository: acme/site",
+      CODE_HOST_YAML,
       "tickets:",
       "  board: 3",
       "  columns:",
@@ -1956,6 +2109,7 @@ describe("factory init, a block that leaves states out", () => {
     [
       "version: 2",
       "repository: acme/site",
+      CODE_HOST_YAML,
       "tickets:",
       "  board: 3",
       ...(columns.length
@@ -2005,6 +2159,20 @@ describe("factory init, a block that leaves states out", () => {
     "ready: none",
     "review: Code review",
   ];
+
+  it("fills in the states and asks for a branch name both left out of an older file", async () => {
+    const r = init({
+      settings: settings(SHOP_PARTIAL).replace(`${CODE_HOST_YAML}\n`, ""),
+      boards: [{ number: 3, title: "Shop board", columns: SHOP_COLUMNS }],
+      secrets: ALL_SET,
+      answers: { checkbox: [["board"]], confirm: [false, true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).not.toContain("Fix it, then run init again.");
+    expect(r.asked).toContain(`input: ${BRANCH_QUESTION}`);
+    expect(r.yaml()["code-host"]).toEqual(CODE_HOST);
+    expect(Object.keys(r.columns() as object)).toHaveLength(6);
+  });
 
   it("fills in each state left out from the board's column of the factory's name, asking nothing", async () => {
     const r = rerun(SHOP_PARTIAL);
@@ -2413,6 +2581,7 @@ describe("the tokens .npmrc reads", () => {
       });
       expect(await r.run()).toBe(0);
       expect(r.asked).toEqual([
+        `input: ${BRANCH_QUESTION}`,
         "checkbox: Which parts do you want?",
         "confirm: 1 secret these parts read is already set. Replace it?",
         "confirm: Go ahead?",
@@ -2433,6 +2602,7 @@ describe("the tokens .npmrc reads", () => {
           settings: [
             "version: 2",
             "repository: acme/site",
+            CODE_HOST_YAML,
             "tickets:",
             "  board: 3",
             "auto-merge:",
@@ -2520,7 +2690,7 @@ describe("factory init, the field step", () => {
       out.indexOf("This is everything setup will do:"),
     );
   const FOUR = (d: string, s: string, a: string, f: string) =>
-    `version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: ${d}\n    spec: ${s}\n    acceptance-criteria: ${a}\n    for-the-builder: ${f}\n`;
+    `version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: ${d}\n    spec: ${s}\n    acceptance-criteria: ${a}\n    for-the-builder: ${f}\n${CODE_HOST_YAML}\n`;
 
   it("names the text fields and shows the suggestion as a table, before the plan", async () => {
     const r = fielded({ select: ["yes"] });
@@ -2707,8 +2877,7 @@ describe("factory init, the field step", () => {
     [
       "settings that name one of the four",
       {
-        settings:
-          "version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: none\n",
+        settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  fields:\n    decisions: none\n`,
       },
     ],
   ])("asks nothing about ticket fields with %s", async (_name, extra) => {

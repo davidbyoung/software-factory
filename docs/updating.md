@@ -3,9 +3,10 @@
 **When a new version is released, a pull request appears in your
 repository. You read it and merge it.** That is all you have to do.
 
-Two releases ask more of you, because they need lines in your settings
-file that it doesn't have: [Moving to settings version
-2](#moving-to-settings-version-2), for every repository, and [Naming
+Three releases ask more of you, because they need lines in your
+settings file that it doesn't have: [Moving to settings version
+2](#moving-to-settings-version-2) and [Naming build
+branches](#naming-build-branches), for every repository, and [Naming
 every column](#naming-every-column), for a repository whose settings
 have a [`tickets.board`](configuration.md#tickets).
 
@@ -152,6 +153,10 @@ After:
 version: 2
 repository: your-name/your-repo
 
+code-host:
+  type: github
+  branch-name: "{ticket}"
+
 specs: openspec
 
 commands:
@@ -277,6 +282,56 @@ The pull request's checks run again, and you close the issue
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory sync --check` passes.
 
+## Naming build branches
+
+From this release, every repository says how a build names its branch,
+in [`code-host.branch-name`](configuration.md#code-host). Before it, a
+build named its branch `issue-` with the ticket's number and a few words
+of its title, such as `issue-47-terminal-color`, and no setting said so.
+So a repository set up earlier has no `branch-name`, or writes
+`code-host: github` on one line, and every command that reads the
+settings stops with `code-host.branch-name: is required`.
+
+There is no pattern that keeps the old names, since they held words a
+session chose. The pattern you choose names new builds only: branches
+already pushed keep their names, and their pull requests carry on as
+before.
+
+So on the factory's update pull request, `factory-deps` cannot run
+`factory sync`. It stops and opens an issue in your repository quoting
+the line. Check out the pull request's branch, and from your
+repository's root run:
+
+```bash
+gh pr checkout 123   # the update pull request's number
+factory init
+```
+
+Init keeps everything your settings already say, so it asks again only
+what they lack: how a build names its branch, offering `{ticket}`. Press
+Enter to keep it, or type your team's pattern, such as
+`feature/{user}/{ticket}`; [`code-host`](configuration.md#code-host)
+lists what a pattern can hold. If the update also needs [Naming every
+column](#naming-every-column), the same run fills in both. When a
+[preset](presets.md) you follow sets the pattern, init asks nothing.
+
+You can add the lines by hand instead:
+
+```yaml
+code-host:
+  type: github
+  branch-name: "{ticket}"
+```
+
+Keep the quotes: without them, YAML reads `{ticket}` as a map rather
+than as text. Then run `factory sync`, commit what changed,
+`.claude/factory.yaml` included, and push. The pull request's checks run
+again, and you close the issue `factory-deps` opened.
+
+**It worked when** `factory config check` prints
+`✓ The settings are valid.`, and `factory ticket branch 12` prints the
+branch a build of ticket 12 would push.
+
 ## The commands
 
 | Command          | When                                                       |
@@ -305,6 +360,7 @@ not match `package-lock.json`.
 | `factory doctor` says your installed version is older than the repository's           | You pulled an update and have not installed it                        | Run `npm ci`                                                               |
 | A command stops with `version: must be 2`                                             | The update changed the shape of the settings file                     | [Move the file](#moving-to-settings-version-2)                             |
 | A command stops with `tickets.columns: is required` or `have no column`               | The update needs a column named for every state                       | [Name every column](#naming-every-column)                                  |
+| A command stops with `code-host.branch-name: is required`                             | The update needs the pattern a build names its branch by              | [Name build branches](#naming-build-branches)                              |
 | A command stops with `.claude/factory.lock is from an earlier version of the factory` | The update's sync has not run on this checkout                        | Run `factory sync` and commit the result                                   |
 | A command stops with `.claude/factory.yaml changed since the last sync`               | The settings changed without a sync                                   | Run `factory sync` and commit the result                                   |
 | The update pull request conflicts with your default branch                            | Something else changed the same file                                  | `factory-deps` resolves it on its next run, or close it and update by hand |

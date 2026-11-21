@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { load } from "js-yaml";
 import { filesDeps, resolveFiles, type Deps } from "../src/config.mts";
+import { CODE_HOST_YAML } from "./settings-fixture";
 
 export type PresetFiles = {
   settings: string;
@@ -108,6 +109,7 @@ export const own = (presets: string[], body: string[] = []) =>
   [
     "version: 2",
     "repository: acme/billing",
+    CODE_HOST_YAML,
     ...(presets.length
       ? ["presets:", ...presets.map((p) => `  - "${p}"`)]
       : []),

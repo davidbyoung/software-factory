@@ -32,6 +32,7 @@ const TICKET_STEPS = [
   "open",
   "label",
   "link",
+  "branch",
   "blockers",
   "block",
   "unblock",
@@ -44,6 +45,7 @@ const PR_STEPS = [
   "resolve",
   "ready",
   "closes",
+  "for-branch",
   "comments",
   "comment",
   "comment-view",
@@ -97,6 +99,7 @@ const PR_ARGS: Record<string, string> = {
   label: "N --add LABEL | --remove LABEL",
   "review-pending": "N REVIEW",
   conflicts: "",
+  "for-branch": "BRANCH",
   uncovered: "[BASE] [LCOV]",
 };
 
@@ -224,6 +227,12 @@ export const COMMANDS: Command[] = [
     args: "",
     run: async (argv) =>
       (await import("./commands.mts")).run(["specs-check", ...argv]),
+  },
+  {
+    words: ["specs", "change-name"],
+    args: "N",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["specs-change-name", ...argv]),
   },
   {
     words: ["default-branch"],
@@ -363,6 +372,7 @@ const USAGE: [string, [string, string][]][] = [
       ["test-one FILE [NAME]", "Run one test file, or one test in it"],
       ["end-to-end FILE", "Run one end-to-end spec"],
       ["specs check", "Check your written specs"],
+      ["specs change-name N", "Print the name of ticket N's spec change"],
       ["default-branch", "Print the default branch's name"],
     ],
   ],

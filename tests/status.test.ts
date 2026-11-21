@@ -32,6 +32,7 @@ import type { Ticket } from "../src/tickets/types.mts";
 import saved from "./fixtures/sync/repo.json";
 import boardPages from "./fixtures/sync/board.json";
 import { FACTORY_COLUMNS } from "./factory-columns";
+import { CODE_HOST } from "./settings-fixture";
 
 /** The sync fixture's tickets and cards in the in-memory adapter, and its
  * open pull requests. `fail` makes the tickets' list fail. */
@@ -896,6 +897,7 @@ describe("main with a mapped board", () => {
       {
         version: 2,
         repository: "acme/widgets",
+        "code-host": CODE_HOST,
         tickets: {
           board: 1,
           columns: {

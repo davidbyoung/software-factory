@@ -46,6 +46,7 @@ import { painter } from "../src/lib/color.mts";
 import { BOARD_FIELDS, memoryTickets } from "./memory-tickets";
 import { FACTORY_COLUMNS, FACTORY_COLUMNS_YAML } from "./factory-columns";
 import { ACME, installAcme, own, repo } from "./preset-fixture";
+import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 
 const AGENT = "<!-- agent -->";
 const RUN_PAGE = (id: string) => `https://runs.example/${id}`;
@@ -75,6 +76,7 @@ const issue = (
 const STOCK_YAML = {
   version: 2,
   repository: "acme/widgets",
+  "code-host": CODE_HOST,
   tickets: {
     board: 7,
     columns: {
@@ -120,6 +122,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
   const base = {
     version: 2,
     repository: "o/n",
+    "code-host": CODE_HOST,
     tickets: { board: 3, columns: FACTORY_COLUMNS },
   };
   /** The tickets block as given, with no state filled in. */
@@ -246,7 +249,12 @@ describe("tickets.columns and tickets.fields in the settings", () => {
   });
 
   it("requires no columns without a board, and names each state by its own name", () => {
-    const s = parse({ version: 2, repository: "o/n", tickets: {} });
+    const s = parse({
+      version: 2,
+      repository: "o/n",
+      "code-host": CODE_HOST,
+      tickets: {},
+    });
     expect(columnsOf(s)).toEqual(DEFAULT_COLUMNS);
   });
 
@@ -344,7 +352,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       ];
     };
     const withReady = (ready: string) =>
-      "version: 2\nrepository: o/n\ntickets:\n  board: 1\n" +
+      `version: 2\nrepository: o/n\n${CODE_HOST_YAML}\ntickets:\n  board: 1\n` +
       FACTORY_COLUMNS_YAML.replace("ready: Ready", `ready: ${ready}`) +
       "\n";
     const [a, outA] = d(withReady("Ready for dev"));
@@ -740,6 +748,7 @@ describe("factory ticket ready", () => {
     const code = await ticketMain(["ready", "10"], {
       open: async () => ({ tickets: memory.tickets }),
       openPulls: async () => [],
+      signedInAs: async () => "dave",
       runner: () => ({ thisRun: () => null }),
       settings: async () => settings,
       env: { CLAUDE_CODE_SESSION_ID: "s" },
@@ -877,7 +886,12 @@ describe("factory board check", () => {
     "Done",
   ];
   const report = (yaml: Record<string, unknown>, board: Board) => {
-    const s = parse({ version: 2, repository: "acme/widgets", ...yaml });
+    const s = parse({
+      version: 2,
+      repository: "acme/widgets",
+      "code-host": CODE_HOST,
+      ...yaml,
+    });
     return boardReport(
       7,
       board,
@@ -1123,6 +1137,7 @@ describe("a state with a list of columns", () => {
   const LIST_YAML = {
     version: 2,
     repository: "acme/widgets",
+    "code-host": CODE_HOST,
     tickets: {
       board: 3,
       columns: {

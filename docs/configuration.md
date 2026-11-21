@@ -34,9 +34,10 @@ The [glossary](glossary.md) has the rest.
 
 ## How the file works
 
-- **Two settings are required, and a third before any build.** Every
-  file has [`version`](#version) and [`repository`](#repository), and a
-  session can't build a ticket until you set
+- **Three settings are required, and a fourth before any build.** Every
+  file has [`version`](#version), [`repository`](#repository), and
+  [`code-host.branch-name`](#code-host), which `factory init` writes for
+  you, and a session can't build a ticket until you set
   [`commands.gate`](#commandsgate). Every other setting has a default, and
   you write it only when you want something else.
 - **It holds only what a script needs.** Anything that needs judgment,
@@ -85,6 +86,9 @@ The [glossary](glossary.md) has the rest.
 ```yaml
 version: 2
 repository: your-name/your-repo
+code-host:
+  type: github
+  branch-name: "{ticket}"
 ```
 
 With only this, the factory refines a ticket when you run `/factory-refine N` in a session,
@@ -397,12 +401,103 @@ you confirm them.
 
 ### `code-host`
 
-Where your repository and its pull requests live. Only `github` is built,
-and it is the default, so most files leave this out.
+Where your repository and its pull requests live, and what every
+[build](#words-this-page-uses) names the branch it pushes, in a session
+on your machine and in the cloud alike.
 
 ```yaml
-code-host: github
+code-host:
+  type: github
+  branch-name: "feature/{user}/{ticket}"
 ```
+
+- **`type`** is the code host. GitHub is the only one so far, and it is
+  the default.
+- **`branch-name`** is the pattern for the branch's name. It has no
+  default: [`factory init`](github/setup.md) asks for it and offers
+  `{ticket}`, so ticket 12 is built on a branch named `12`. A
+  [preset](#presets) can set it for every repository that follows it.
+
+Without `branch-name`, `factory config check` stops:
+
+```text
+.claude/factory.yaml: code-host.branch-name: is required. Run factory init to set it, or add it, such as branch-name: "{ticket}"
+```
+
+A pattern uses these placeholders. It must have `{ticket}`; `{user}` is
+for a convention that names who did the work, and a pattern can leave
+it out:
+
+| Placeholder | What it becomes                      | For ticket 12 |
+| ----------- | ------------------------------------ | ------------- |
+| `{ticket}`  | The ticket's number, without `#`     | `12`          |
+| `{user}`    | The GitHub account the build runs as | `octocat`     |
+
+In a session, `{user}` is the account the GitHub CLI, `gh`, is signed in
+as, exactly as GitHub spells it, so the same ticket built by two people
+gets two branches. In GitHub Actions, it is the owner of
+the [token the build runs with](github/reference.md#workflows), not
+whoever approved the ticket, so with a shared bot account every branch
+built in Actions carries the bot's name.
+
+Keep the quotes, as in the examples. YAML reads an unquoted
+`branch-name: {ticket}` as a map rather than as text, and
+`factory config check` stops and says to quote it.
+
+`{ticket}` gives each ticket its own branch, and the same branch every
+time. So a ticket built a second time, such as the
+[follow-ups ticket](workflow.md#follow-ups), a reopened ticket, or one whose first
+build stopped, finds its earlier branch still on GitHub, unless GitHub
+deleted it when its pull request merged. What the build does depends on
+that branch's newest pull request:
+
+- **Merged, with nothing pushed to the branch since:** the build deletes
+  the old branch and starts fresh, since its work is already merged.
+- **Open:** the build stops before it starts and names the pull request.
+  Work that one instead, with `/factory-address-review N` for pull
+  request N.
+- **Anything else:** closed without merging, no pull request at all, or
+  merged with commits pushed since. The build stops before it starts, so
+  no work is lost:
+
+  ```text
+  Branch 12 is already on origin, with work no pull request merged. Open a pull request from it to keep that work, or delete it with: git push origin --delete 12
+  ```
+
+  A build that stopped partway pushes its branch so its work is kept. To
+  keep it, open a pull request from the branch on GitHub. Otherwise
+  delete the branch, and build the ticket again with `/factory-build 12`.
+
+Once you change the pattern, run `factory config check`, then
+`factory sync` (every setting needs it, as
+[How the file works](#how-the-file-works) says), then see what the
+pattern gives one ticket:
+
+```console
+$ factory config check
+✓ The settings are valid.
+$ factory ticket branch 12
+feature/octocat/12
+```
+
+`factory config check` stops on a placeholder it doesn't know, a pattern
+without `{ticket}`, and a pattern git can't use as a branch name. Git
+refuses a name that:
+
+- has a space, a control character, `..`, `//`, or `@{`
+- has any of `~`, `^`, `:`, `?`, `*`, `[`, or `\`
+- starts with `-` or `/`, or ends with `/`, `.`, or `.lock`
+- has a part between slashes that starts with `.` or ends with `.lock`
+
+Anything else is fine, `#` and `_` included. The check names the first
+fault it finds:
+
+```text
+.claude/factory.yaml: code-host.branch-name: feature//{ticket} can't be a git branch name: it has //
+```
+
+Commit `.claude/factory.yaml` and `.claude/factory.lock`. The next build
+uses the new pattern; branches already pushed keep their names.
 
 ### `builds`
 
@@ -1133,6 +1228,10 @@ tickets:
     review: In review
     done: Done
 
+code-host:
+  type: github
+  branch-name: "{ticket}"
+
 builds:
   trigger: own-server
 
@@ -1209,6 +1308,10 @@ tickets:
     review: In review
     done: Done
 
+code-host:
+  type: github
+  branch-name: "{ticket}"
+
 commands:
   before-commit:
     - npm run lint
@@ -1238,6 +1341,10 @@ tickets:
     building: In progress
     review: In review
     done: Done
+
+code-host:
+  type: github
+  branch-name: "{ticket}"
 
 commands:
   build-setup:

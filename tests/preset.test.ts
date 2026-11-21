@@ -25,6 +25,8 @@ import {
   resolveAt,
   yaml,
 } from "./preset-fixture.ts";
+import { CODE_HOST_YAML } from "./settings-fixture";
+import { presetBranchNameAt } from "../src/init.mts";
 
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -339,6 +341,66 @@ describe("what a preset can't do", () => {
   });
 });
 
+describe("a branch name a preset supplies", () => {
+  const preset = [
+    "version: 2",
+    "code-host:",
+    "  type: github",
+    '  branch-name: "feature/{user}/{ticket}"',
+    "",
+  ].join("\n");
+  const withoutOwn = () => {
+    root = repo(
+      [
+        "version: 2",
+        "repository: acme/billing",
+        "presets:",
+        `  - "${ACME}"`,
+        "",
+      ].join("\n"),
+    );
+    installAcme(root, "1.4.0", preset);
+  };
+
+  it("is the pattern of a repository whose own file has none", async () => {
+    withoutOwn();
+    const { settings } = await resolveAt(root);
+    expect(settings.codeHost.branchName).toBe("feature/{user}/{ticket}");
+  });
+
+  it("is what init finds, so it asks nothing", async () => {
+    withoutOwn();
+    const text =
+      "version: 2\nrepository: acme/billing\npresets:\n" + `  - "${ACME}"\n`;
+    expect(await presetBranchNameAt(root)(text)).toBe(
+      "feature/{user}/{ticket}",
+    );
+  });
+
+  it("is none to init when the presets listed set none", async () => {
+    acme([ACME]);
+    const text = `version: 2\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
+    expect(await presetBranchNameAt(root)(text)).toBeNull();
+  });
+
+  it("is none to init when a preset listed can't be read", async () => {
+    withoutOwn();
+    expect(
+      await presetBranchNameAt(root)(
+        'version: 2\nrepository: acme/billing\npresets:\n  - "@acme/missing"\n',
+      ),
+    ).toBeNull();
+  });
+
+  it("is printed by config explain, marked with the preset's name", async () => {
+    withoutOwn();
+    const { out } = await explain();
+    expect(lineOf(out, "branch-name:")).toMatch(
+      /^branch-name: "feature\/\{user\}\/\{ticket\}" +# @acme\/factory-preset$/,
+    );
+  });
+});
+
 describe("factory config explain with presets", () => {
   it("marks a value from a preset with its name, and a disagreement with whether it is chosen", async () => {
     acme();
@@ -381,14 +443,14 @@ describe("factory config explain with presets", () => {
 });
 
 describe("reading the settings from the lock", () => {
-  const settings = "version: 2\nrepository: o/r\n";
+  const settings = `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`;
   const lock = (over: Record<string, string> = {}) =>
     [
       "version: 1.0.0",
       over.presets ?? "presets: []",
       `settings-hash: ${over.hash ?? settingsHash(settings, null)}`,
       over.settings ??
-        "settings:\n  version: 2\n  repository: o/r\n  rules:\n    review-rounds: 7  # @x/y",
+        'settings:\n  version: 2\n  repository: o/r\n  code-host:\n    type: github\n    branch-name: "{ticket}"\n  rules:\n    review-rounds: 7  # @x/y',
       "overridden: {}",
       "files: []",
       "",
@@ -415,6 +477,7 @@ describe("reading the settings from the lock", () => {
       "# a preset's name marks that preset's, and an unmarked line is yours.",
       "version: 2",
       "repository: o/r",
+      ...CODE_HOST_YAML.split("\n"),
       "rules:",
       "  review-rounds: 7  # @x/y",
     ]);

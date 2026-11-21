@@ -4,11 +4,11 @@
 //
 // GitHub serves a pull request's conversation comments and labels from its
 // issues API, so those calls are here too, not in the ticket adapter.
-import type { Gh } from "../lib/gh.mts";
+import { GhError, type Gh } from "../lib/gh.mts";
 import type { IssueComment, PullRequest } from "../lib/work-status.mts";
 import { NotFoundError } from "../tickets/types.mts";
 import { statusOf, type Transport } from "../tickets/transport.mts";
-import { NeedsScopeError } from "./types.mts";
+import { NeedsScopeError, NotSignedInError } from "./types.mts";
 import type {
   ChangedFile,
   CheckRun,
@@ -407,6 +407,24 @@ export function githubCodeHost(o: {
       );
       return open[0]?.number ?? null;
     },
+    async lastForBranch(branch) {
+      const [newest] = await t.rest<
+        { number: number; state: string; merged_at: string | null }[]
+      >(
+        "GET",
+        `${API}/pulls?head=${owner}:${encodeURIComponent(branch)}&state=all&sort=created&direction=desc&per_page=1`,
+      );
+      if (!newest) return null;
+      return {
+        number: newest.number,
+        state:
+          newest.state === "open"
+            ? "open"
+            : newest.merged_at
+              ? "merged"
+              : "closed",
+      };
+    },
     forCommit: async (sha) =>
       (
         await t.rest<{ number: number; state: string }[]>(
@@ -635,7 +653,13 @@ export function githubCodeHost(o: {
     address: (n) => `https://github.com/${o.repository}/pull/${n}`,
 
     async signedInAs() {
-      return (await t.rest<{ login: string }>("GET", "user")).login;
+      try {
+        return (await t.rest<{ login: string }>("GET", "user")).login;
+      } catch (e) {
+        if (statusOf(e) === 401 || (e instanceof GhError && e.exitCode === 4))
+          throw new NotSignedInError();
+        throw e;
+      }
     },
     async tokenOwner(token) {
       const response = await (o.fetch ?? fetch)("https://api.github.com/user", {

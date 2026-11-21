@@ -212,6 +212,22 @@ export function memoryCodeHost(
       );
       return found?.number ?? null;
     },
+    async lastForBranch(branch) {
+      called("lastForBranch", branch);
+      const newest = [...pulls.values()]
+        .filter((p) => p.head.branch === branch)
+        .sort((a, b) => b.number - a.number)[0];
+      if (!newest) return null;
+      return {
+        number: newest.number,
+        state:
+          newest.state === "open"
+            ? "open"
+            : newest.merged
+              ? "merged"
+              : "closed",
+      };
+    },
     async forCommit(sha) {
       called("forCommit", sha);
       return [...pulls.values()]

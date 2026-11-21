@@ -22,11 +22,13 @@ import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
 import { FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { CODE_HOST_YAML } from "./settings-fixture";
 
 const LAUNCHER = "node_modules/@davidbyoung/software-factory/bin/factory.js";
 const SETTINGS = [
   "version: 2",
   "repository: acme/site",
+  CODE_HOST_YAML,
   "tickets:",
   "  board: 3",
   FACTORY_COLUMNS_YAML,
@@ -278,7 +280,7 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml": "version: 2\nrepository: acme/site\n",
+        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
       },
     });
     await r.run();
@@ -289,7 +291,7 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml": "version: 2\nrepository: acme/site\n",
+        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
       },
     });
     await r.run();
@@ -302,8 +304,7 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml":
-          "version: 2\nrepository: acme/site\ntickets:\n  type: fake\n  site: https://tickets.example\n",
+        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: https://tickets.example\n`,
       },
       tools: (b, t) => withFakeTickets(b, t),
     });

@@ -4,6 +4,8 @@ import {
   type LinkingPage,
   type RawPull,
 } from "../src/code-host/github.mts";
+import { NotSignedInError } from "../src/code-host/types.mts";
+import { GhError } from "../src/lib/gh.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
 import { fetchTransport, ghTransport } from "../src/tickets/transport.mts";
 import { fakeGh } from "./fake-gh";
@@ -694,5 +696,63 @@ describe("the open pull requests and those linking to tickets", () => {
       repository: REPO,
     });
     expect((await p.open()).map((x) => x.closes)).toEqual([[261]]);
+  });
+});
+
+describe("who the CLI is signed in as", () => {
+  it("is the account GitHub names", async () => {
+    const { p } = pulls([[/^api user$/, { login: "dave" }]]);
+    expect(await p.signedInAs()).toBe("dave");
+  });
+
+  it.each([
+    [
+      "the CLI signed in as nobody",
+      new GhError("gh api user: gh auth login", 4),
+    ],
+    [
+      "a sign-in GitHub refuses",
+      new Error("gh api user: Bad credentials (HTTP 401)"),
+    ],
+  ])("is not signed in for %s", async (_, error) => {
+    const { p } = pulls([[/^api user$/, error]]);
+    await expect(p.signedInAs()).rejects.toBeInstanceOf(NotSignedInError);
+  });
+
+  it("passes any other failure through as it came", async () => {
+    const failure = new GhError("gh api user: connection refused", 1);
+    const { p } = pulls([[/^api user$/, failure]]);
+    await expect(p.signedInAs()).rejects.toBe(failure);
+  });
+});
+
+describe("the newest pull request from a branch", () => {
+  it.each([
+    [{ number: 7, state: "open", merged_at: null }, "open"],
+    [
+      { number: 7, state: "closed", merged_at: "2026-11-20T10:00:00Z" },
+      "merged",
+    ],
+    [{ number: 7, state: "closed", merged_at: null }, "closed"],
+  ])("reads %j as %s", async (raw, state) => {
+    const { p, calls } = pulls([[/pulls\?head=/, [raw]]]);
+    expect(await p.lastForBranch("feature/dave/54")).toEqual({
+      number: 7,
+      state,
+    });
+    expect(calls).toEqual([
+      "api repos/acme/widgets/pulls?head=acme:feature%2Fdave%2F54&state=all&sort=created&direction=desc&per_page=1",
+    ]);
+  });
+
+  it("is null when no pull request came from the branch", async () => {
+    const { p } = pulls([[/pulls\?head=/, []]]);
+    expect(await p.lastForBranch("54")).toBeNull();
+  });
+
+  it("asks for a branch whose name has + or & as that name", async () => {
+    const { p, calls } = pulls([[/pulls\?head=/, []]]);
+    await p.lastForBranch("fix+54&more");
+    expect(calls[0]).toContain("head=acme:fix%2B54%26more&state=all");
   });
 });

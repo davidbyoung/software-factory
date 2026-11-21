@@ -93,6 +93,10 @@ export type NewStatus = {
   link?: string;
 };
 
+/** A pull request as `lastForBranch` finds it: `closed` is closed without
+ * merging. */
+export type LastPull = { number: number; state: "open" | "merged" | "closed" };
+
 /** A pull request to open: from the `head` branch into the `base` branch. */
 export type NewPull = {
   title: string;
@@ -119,6 +123,9 @@ export type CodeHost = {
   listOpen(): Promise<Pull[]>;
   /** The open pull request from this branch, or null. */
   forBranch(branch: string): Promise<number | null>;
+  /** The newest pull request from this branch, open or not, or null when
+   * none came from it. */
+  lastForBranch(branch: string): Promise<LastPull | null>;
   /** The pull requests that hold the commit, open or not. */
   forCommit(sha: string): Promise<{ number: number; state: string }[]>;
   files(pull: number): Promise<ChangedFile[]>;
@@ -180,7 +187,8 @@ export type CodeHost = {
   /** The address of a pull request's page. */
   address(pull: number): string;
 
-  /** Who the code host's command-line tool is signed in as. */
+  /** Who the code host's command-line tool is signed in as. Rejects with
+   * NotSignedInError when it is signed in as nobody, or refused. */
   signedInAs(): Promise<string>;
   /** The account a token belongs to, and its scopes: null when the code
    * host does not say, as for a token with fine-grained permissions.
@@ -208,6 +216,15 @@ export type CodeHost = {
 /** What a token for the factory's jobs may need to do: push a branch,
  * change a workflow's file, and write the board. */
 export type TokenNeed = "push" | "workflows" | "board";
+
+/** The code host's CLI is signed in as nobody, or its sign-in is
+ * refused. */
+export class NotSignedInError extends Error {
+  constructor() {
+    super("The code host's command-line tool is not signed in.");
+    this.name = "NotSignedInError";
+  }
+}
 
 /** A call the signed-in account's sign-in lacks the permission for. `fix`
  * is the command that asks for it. */

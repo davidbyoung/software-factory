@@ -40,6 +40,17 @@ export function failureOf(
   return `gh ${args.slice(0, 4).join(" ")}: ${detail.trim()}${said ? `: ${said}` : ""}`;
 }
 
+/** A call the GitHub CLI failed, with the status it exited with: 4 when
+ * it is signed in as nobody. */
+export class GhError extends Error {
+  readonly exitCode: number | null;
+  constructor(message: string, exitCode: number | null) {
+    super(message);
+    this.name = "GhError";
+    this.exitCode = exitCode;
+  }
+}
+
 export const gh: Gh = (args) =>
   new Promise((resolve, reject) => {
     execFile(
@@ -48,7 +59,12 @@ export const gh: Gh = (args) =>
       { maxBuffer: 64 * 1024 * 1024 },
       (error, stdout, stderr) => {
         if (error)
-          reject(new Error(failureOf(args, stderr || error.message, stdout)));
+          reject(
+            new GhError(
+              failureOf(args, stderr || error.message, stdout),
+              typeof error.code === "number" ? error.code : null,
+            ),
+          );
         else resolve(stdout);
       },
     );

@@ -9,6 +9,7 @@ import {
   parseSettings,
 } from "../src/config.mts";
 import { FACTORY_COLUMNS } from "./factory-columns";
+import { CODE_HOST } from "./settings-fixture";
 
 type Block = { properties: Record<string, unknown>; enum?: string[] };
 const schema = JSON.parse(
@@ -102,13 +103,18 @@ describe("the schema and parseSettings agree on whole files", () => {
     const raw = {
       version: 2,
       repository: "a/b",
+      "code-host": CODE_HOST,
       tickets: "github",
       specs: "openspec",
     };
     expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);
   });
 
-  const base = { version: 2, repository: "owner/name" };
+  const base = {
+    version: 2,
+    repository: "owner/name",
+    "code-host": CODE_HOST,
+  };
   const site = { start: "npm start", url: "http://localhost:$PORT" };
 
   it("both accept every command, the spec check, and a plugin in every role", () => {
