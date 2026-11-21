@@ -12,7 +12,7 @@ A word you do not know is in the [glossary](glossary.md).
 
 - A repository on a supported code host, cloned on your machine, with the
   code host's command-line tool signed in.
-- A supported coding agent, signed in.
+- A supported coding agent, signed in. `factory init` stops without one.
 - Node 22.18 or later.
 
 [What you need](github/setup.md#what-you-need) names the supported tools

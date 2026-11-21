@@ -119,22 +119,34 @@
       "properties": {
         "backlog": {
           "oneOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ],
           "description": "The board's column for the backlog state, or a list of its columns. Default: Backlog."
         },
         "refining": {
           "oneOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ],
           "description": "The board's column for the refining state, or a list of its columns. Default: In refinement. May be none."
@@ -146,33 +158,51 @@
         },
         "building": {
           "oneOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ],
           "description": "The board's column for the building state, or a list of its columns. Default: In progress. May be none."
         },
         "review": {
           "oneOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ],
           "description": "The board's column for the review state, or a list of its columns. Default: In review. May be none."
         },
         "done": {
           "oneOf": [
-            { "type": "string", "minLength": 1 },
+            {
+              "type": "string",
+              "minLength": 1
+            },
             {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           ],
           "description": "The board's column for the done state, or a list of its columns. Default: Done. May be none."
@@ -181,7 +211,7 @@
     },
     "tickets.fields": {
       "type": "object",
-      "description": "Which of your board's fields the sync writes. Needs a board.",
+      "description": "Which of your fields holds each of the factory's fields: on the board, session, runs-in, and cost, which need a board; on the ticket, decisions, spec, acceptance-criteria, for-the-builder, and any heading of your own.",
       "additionalProperties": false,
       "properties": {
         "session": {
@@ -198,6 +228,33 @@
           "type": "string",
           "minLength": 1,
           "description": "The board's field the sync writes for cost. Default: Cost. May be none."
+        },
+        "decisions": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ticket field that holds Decisions. Default: none, the description. Spec and acceptance-criteria may name the same field."
+        },
+        "spec": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ticket field that holds Spec. Default: none, the description. Spec and acceptance-criteria may name the same field."
+        },
+        "acceptance-criteria": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ticket field that holds Acceptance criteria. Default: none, the description. Spec and acceptance-criteria may name the same field."
+        },
+        "for-the-builder": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ticket field that holds For the builder. Default: none, the description. Spec and acceptance-criteria may name the same field."
+        }
+      },
+      "patternProperties": {
+        "^[a-z0-9]+(-[a-z0-9]+)*$": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ticket field that holds a heading of your own: the heading in lowercase, with hyphens for spaces. May be none."
         }
       }
     },

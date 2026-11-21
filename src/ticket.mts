@@ -446,22 +446,22 @@ async function ticketCommand(
       const newTitle = command === "edit" ? option(args, "--title") : undefined;
       if (!file && newTitle === undefined) throw new Error(USAGE);
       if (!file && options(args, "--attach").length) throw new Error(USAGE);
-      if (newTitle !== undefined) {
-        refuseBareTags(newTitle);
-        await t.writeTitle(ticket, newTitle);
-        if (!file) {
-          d.out("edited");
-          return 0;
-        }
+      if (newTitle !== undefined) refuseBareTags(newTitle);
+      if (!file) {
+        await t.writeTitle(ticket, newTitle!);
+        d.out("edited");
+        return 0;
       }
-      if (!file) throw new Error(USAGE);
       const attach = options(args, "--attach");
       const body = d.readFile(file);
       refuseBareTags(body);
       const files = attach.length ? need(t, "attachments") : null;
       if (command === "edit") {
+        // The body first: a body refused, as by a missing ticket field,
+        // leaves the title as it was.
         if (files) await files.writeBody(ticket, body, attach);
         else await t.writeBody(ticket, body);
+        if (newTitle !== undefined) await t.writeTitle(ticket, newTitle);
         d.out("edited");
       } else
         d.out(

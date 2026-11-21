@@ -125,11 +125,11 @@ Checks
 ```
 
 **Init stops, and changes nothing, when it can't get an answer:** when
-Claude Code isn't installed or isn't signed in, or when its answer can't
-be used, such as one column for two states. It prints why. Then do one of
-these, and run `factory init` again:
+Claude Code isn't signed in, or when its answer can't be used, such as
+one column for two states. It prints why. Then do one of these, and run
+`factory init` again:
 
-- install Claude Code and sign in, by running `claude` once;
+- sign in to Claude Code, by running `claude` once;
 - write a `columns` block like the one above in `.claude/factory.yaml`
   yourself, with your own columns, as
   [`tickets.columns`](configuration.md#ticketscolumns) describes: init
@@ -150,8 +150,8 @@ What else to expect on a board you already use:
 - **The factory never renames or deletes your columns,** and only adds the
   ones you agree to.
 - **It adds three fields to your board,** Session, Runs in, and Cost, and
-  overwrites them on every sync, so don't type into them. Your own fields
-  are never touched. [`tickets.fields`](configuration.md#ticketsfields)
+  overwrites them on every sync, so don't type into them. Your own board
+  fields are never touched. [`tickets.fields`](configuration.md#ticketsfields)
   says what each holds.
 - **Your board's own automations**, such as moving a closed ticket to
   Done, have not been tested alongside the factory. Turn them off if
@@ -161,6 +161,135 @@ To see what the factory will do with your board at any time, run
 `factory board check`. It lists each state's column, as the table above
 does, and ends with any problem, such as a column your settings name that
 the board lacks.
+
+## Your tickets already have fields
+
+If your tickets have text fields of their own, such as an "Acceptance
+criteria" field your team fills in by hand, the factory can write what
+it settles when it refines a ticket into those fields instead of the
+ticket's description. At the end, refining a ticket fills in your
+fields, and the description holds your text and whatever has no field.
+If your tickets have no such field, skip this section: nothing changes.
+
+[Refining a ticket](skills.md#factory-refine), with `/factory-refine N`,
+writes four parts after your own text, each under its own heading. These
+are the factory's fields for a refined ticket:
+
+| Factory field       | What it holds                                              |
+| ------------------- | ---------------------------------------------------------- |
+| Decisions           | The questions refinement settled, and what was chosen      |
+| Spec                | What a change your users will notice must do, line by line |
+| Acceptance criteria | What must be true for any other ticket to be done          |
+| For the builder     | How to build it, as a design and a list of tasks           |
+
+A ticket has a Spec or Acceptance criteria, never both: refinement writes
+a Spec when the change is one
+[your users will notice](workflow.md#a-change-your-users-will-see), and
+Acceptance criteria otherwise.
+
+This page calls a field of yours that is set on the ticket itself a
+ticket field. On GitHub, a ticket field is an
+[issue field](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/managing-issue-fields-in-your-organization),
+shown beside the issue, which you create in your account's or
+organization's settings, under Issue fields. A field you add to your
+board, which shows as a column of the board's table, can't hold a
+factory field: GitHub limits it to 1,024 characters, and a Spec is often
+several thousand. Create the issue field before you run init, since init
+offers only ticket fields that exist.
+
+When you run `factory init`, step 2 of the
+[quick start](quick-start.md#2-set-it-up), it finds your text ticket
+fields and asks your coding agent, Claude Code, which of them should hold
+each factory field. If you already ran init, run it again after creating
+the field: it keeps what your settings say and asks only about ticket
+fields. As for your board's columns, this is one short request with no
+tools, and it sends your ticket fields' names and descriptions and
+nothing else. Init shows you the answer before it writes anything. On a
+repository whose tickets have the text fields Acceptance criteria,
+Design notes, and Customer, init shows:
+
+```text
+acme/shop's tickets have the text fields Acceptance criteria, Design notes, and Customer.
+Asking Claude Code which of them should hold each of the factory's fields...
+
+  Factory field         Ticket field
+  Decisions             the description
+  Spec                  Acceptance criteria
+  Acceptance criteria   Acceptance criteria
+  For the builder       Design notes
+
+Your own text stays in the description.
+GitHub Issues shows a field's text as typed, without Markdown formatting.
+
+? Use these ticket fields? (Use arrow keys)
+❯ Yes
+  Change some
+  No: keep everything in the description
+```
+
+A factory field goes in the description unless a ticket field clearly
+fits it, so here Decisions stays there, and nothing goes in Customer.
+Spec and Acceptance criteria share a ticket field here, since a ticket
+has only one of them.
+
+- **Yes** saves the table in your settings, `.claude/factory.yaml`, one
+  line for each factory field, with `none` for one that stays in the
+  description:
+
+  ```yaml
+  tickets:
+    fields:
+      decisions: none
+      spec: Acceptance criteria
+      acceptance-criteria: Acceptance criteria
+      for-the-builder: Design notes
+  ```
+
+- **Change some** lets you pick the factory fields to change from a list,
+  then, for each, pick one of your ticket fields or the description.
+- **No** saves all four as `none`, so everything stays in the
+  description, as it would with no ticket fields.
+
+When your tickets have no text field, init doesn't ask, writes nothing
+about them, and prints no check for them.
+
+**It worked when** the checks init prints last include:
+
+```text
+Checks
+  ✓ acme/shop's tickets have every field the settings name
+```
+
+Then refine a ticket and open it on GitHub. Here, its Spec or
+Acceptance criteria shows in the Acceptance criteria field beside the
+issue, and its design and tasks in Design notes. GitHub shows a field's
+text as typed, so a list reads as written, with its numbers and dashes,
+and a table shows its `|` marks. You and your coding agent see no other
+difference: the agent still reads the whole ticket, fields included.
+
+**Init stops, and changes nothing, when it can't use the answer,** such
+as when Claude Code isn't signed in, or names a ticket field your tickets
+don't have. It prints why. Then do one of these, and run `factory init`
+again:
+
+- if it says Claude Code isn't signed in, sign in by running `claude`
+  once;
+- otherwise, write the four lines above yourself, as
+  [`tickets.fields`](configuration.md#ticketsfields) describes: init
+  then doesn't ask.
+
+**Running init again** keeps what the four lines say, and doesn't ask
+again. To be asked again, for example after creating another ticket
+field, delete the four lines and run `factory init`.
+
+**If you change a line later,** a ticket refined before keeps its
+factory fields where they were written, and a ticket field it no longer
+uses keeps its text until you clear it. For a ticket not yet built, run
+`/factory-refine N` again: it rewrites the four parts where the settings
+now say, and leaves your own text as it is.
+
+A heading of your own, such as one your own refiner writes, can go in a
+ticket field too: see [`tickets.fields`](configuration.md#ticketsfields).
 
 ## You already have agent instructions, settings, or CI workflows
 

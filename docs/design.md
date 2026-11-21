@@ -101,6 +101,16 @@ name ever had to mean different states for different kinds of ticket,
 an optional `columns-by-type` setting would hold only those exceptions,
 and every settings file written before it would read the same.
 
+Refinement writes each factory field into a ticket field of yours, or
+into the description, by the ticket field's name, with no setting for
+each kind of ticket. A ticket whose kind can't hold the ticket field
+keeps that factory field in its description.
+[_Planned_](developing.md#what-is-built): on Jira, where a kind of
+ticket can leave a field out, a factory field could name a list of
+ticket fields, `spec: [Acceptance criteria, AC]`, and go in the first
+the ticket can hold, as a state does with columns. A `fields-by-type`
+setting would hold only the exceptions, if one were ever needed.
+
 ## Small problems go on one checklist
 
 A session that notices a small problem adds a line to one follow-ups

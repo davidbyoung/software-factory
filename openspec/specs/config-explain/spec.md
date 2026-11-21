@@ -33,15 +33,6 @@ The factory SHALL behave as this line says: When an optional part is off, or a s
 - **WHEN** an optional part is off (`pr-review` or `site`), or a setting's default is no value (`tickets.board`, `site.pages`, `site.design-guide`, `commands.test-one`, `commands.end-to-end`, `commands.coverage`, or a mockups plugin where there is none)
 - **THEN** it prints a comment line in its place: `# pr-review: off`, `# board: none (default)`, `# pages: found by the factory (default)`, `# design-guide: none (default)`, `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`, or `# mockups: none (default)`.
 
-### Requirement: Columns and fields print only with a board
-
-The factory SHALL behave as this line says: `tickets.columns` and `tickets.fields` print only when `tickets.board` is set, since `config check` refuses them without a board.
-
-#### Scenario: Columns and fields print only with a board
-
-- **WHEN** `tickets.board` is or is not set
-- **THEN** `tickets.columns` and `tickets.fields` print only when `tickets.board` is set, since `config check` refuses them without a board.
-
 ### Requirement: The output is a valid settings file
 
 The factory SHALL behave as this line says: When every `# default` comment is taken out, the output passes `factory config check` and reads as the same settings.
@@ -131,3 +122,12 @@ The factory SHALL behave as this line says: When a state under `tickets.columns`
 
 - **WHEN** a state under `tickets.columns` is a list
 - **THEN** `factory config explain` prints it as a YAML list. A single name prints as a string, as today.
+
+### Requirement: Ticket-side fields print without a board
+
+The factory SHALL behave as this line says: `factory config explain` prints the four ticket-side keys under `tickets.fields`, each as its ticket field or `none`, and any key of the repository's own heading as written, whether or not `tickets.board` is set. `tickets.columns`, and `tickets.fields`' `session`, `runs-in`, and `cost`, print only when `tickets.board` is set, as today.
+
+#### Scenario: Ticket-side fields print without a board
+
+- **WHEN** `factory config explain` runs, with or without `tickets.board`
+- **THEN** `factory config explain` prints the four ticket-side keys under `tickets.fields`, each as its ticket field or `none`, and any key of the repository's own heading as written, whether or not `tickets.board` is set. `tickets.columns`, and `tickets.fields`' `session`, `runs-in`, and `cost`, print only when `tickets.board` is set, as today.

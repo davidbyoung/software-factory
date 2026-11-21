@@ -69,7 +69,8 @@ import { RULE, type Check, type Chosen, type SetupContext } from "./setup.mts";
 import { differences, PACKAGE, plan as syncPlan } from "./sync.mts";
 import { DEFAULT_COLUMNS, STATE_KEYS, sameName } from "./lib/work-status.mts";
 import { askReady, suggestColumns } from "./columns-suggest.mts";
-import type { NewField } from "./tickets/types.mts";
+import { FACTORY_FIELDS, suggestFields } from "./ticket-fields.mts";
+import type { NewField, TicketField } from "./tickets/types.mts";
 
 /** The questions init asks. Each is answered at the terminal, and in tests
  * from a script. */
@@ -255,6 +256,14 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const npmrc = npmrcAt(d.root);
   d.out(`Setting up the software factory for ${repository}`);
   d.out("");
+  if (!agent.agent.installed(d.hasCommand)) {
+    d.out(
+      `The factory runs in a coding agent, and ${agent.label} is not installed.`,
+    );
+    d.out("Install it and run factory init again.");
+    d.out("Nothing changed.");
+    return 1;
+  }
   d.out("Found");
   const row = (label: string, text: string) =>
     d.out(`  ${label.padEnd(14)} ${text}`);
@@ -467,7 +476,6 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
           out: d.out,
           agent: agent.agent,
           label: agent.label,
-          hasCommand: d.hasCommand,
         },
         {
           board,
@@ -484,6 +492,38 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       );
   }
 
+  // The factory fields a refined ticket has: the coding agent suggests
+  // which of the tickets' text fields holds each, when the settings name
+  // none of the four.
+  let fieldLines: [string, string][] = [];
+  if (
+    tickets.fields &&
+    !FACTORY_FIELDS.some((f) => doc.hasIn(["tickets", "fields", f.key]))
+  ) {
+    let text: TicketField[];
+    try {
+      text = (await tickets.fields.list()).filter((f) => f.text);
+    } catch (e) {
+      d.out(`Could not read ${repository}'s ticket fields: ${message(e)}`);
+      d.out("Nothing changed.");
+      return 1;
+    }
+    if (text.length) {
+      const got = await suggestFields(
+        { ask: d.ask, out: d.out, agent: agent.agent, label: agent.label },
+        {
+          repository,
+          fields: text,
+          plainText: tickets.fields.plainText
+            ? d.tools.tickets[chosen.tickets]!.label
+            : null,
+        },
+      );
+      if (got === 1) return 1;
+      fieldLines = got;
+    }
+  }
+
   // The settings as they will stand, keeping every other key and comment.
   if (!doc.has("version")) doc.set("version", 2);
   if (!doc.has("repository")) doc.set("repository", repository);
@@ -496,12 +536,16 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     doc.setIn(["tickets", "board"], board);
   for (const [key, name] of columnLines)
     doc.setIn(["tickets", "columns", key], name);
+  for (const [key, name] of fieldLines)
+    doc.setIn(["tickets", "fields", key], name);
   if (readyColumn === null) remove(doc, ["tickets", "columns", "ready"]);
   else if (readyColumn !== undefined)
     doc.setIn(["tickets", "columns", "ready"], readyColumn);
-  if (!parts.has("board"))
-    for (const key of ["board", "columns", "fields"])
-      remove(doc, ["tickets", key]);
+  if (!parts.has("board")) {
+    for (const key of ["board", "columns"]) remove(doc, ["tickets", key]);
+    for (const key of ["session", "runs-in", "cost"])
+      remove(doc, ["tickets", "fields", key]);
+  }
   if (parts.has("from-board")) doc.setIn(["builds", "trigger"], trigger);
   else if (before.has("from-board")) remove(doc, ["builds", "trigger"]);
   if (pollMinutes !== null && pollMinutes !== 5)

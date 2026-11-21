@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { DEFAULT_CODE_HOST, unsupportedCodeHost } from "./code-host/index.mts";
 import { matchesAny } from "./lib/glob.mts";
 import { DEFAULT_RUNNER, unsupportedRunner } from "./runner/index.mts";
+import { FACTORY_FIELDS, type FieldMapping } from "./ticket-fields.mts";
 import { BUILT, unsupported, type Built } from "./tool-names.mts";
 import {
   DEFAULT_COLUMNS,
@@ -152,6 +153,10 @@ export type Settings = {
     columns: Record<StateKey, readonly string[] | null>;
     /** The board's field for each of three the sync writes, null for none. */
     fields: Record<FieldKey, string | null>;
+    /** Each ticket-side key under `tickets.fields`, the four factory fields
+     * first and then any heading of the repository's own, with the ticket
+     * field that holds it, or null for the description. */
+    ticketFields: FieldMapping;
   };
   /** Where pull requests are. */
   codeHost: { type: string };
@@ -277,7 +282,10 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   ],
   tickets: ["type", "board", "columns", "fields"],
   "tickets.columns": Object.keys(STATE_KEYS),
-  "tickets.fields": Object.keys(FIELD_DEFAULTS),
+  "tickets.fields": [
+    ...Object.keys(FIELD_DEFAULTS),
+    ...FACTORY_FIELDS.map((f) => f.key),
+  ],
   "code-host": ["type"],
   builds: ["trigger", "runner", "poll-minutes"],
   specs: ["type", "check"],
@@ -475,6 +483,41 @@ function names(
       return [k, value.trim()];
     }),
   );
+}
+
+/** A key under `tickets.fields` naming a heading of the repository's own. */
+export const OWN_HEADING = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** The ticket-side keys under `tickets.fields`: the four factory fields,
+ * each a ticket field's name or none, and any other key a heading of the
+ * repository's own. Spec and Acceptance criteria may share a field. */
+function ticketFieldsOf(o: Obj): FieldMapping {
+  const out: FieldMapping = Object.fromEntries(
+    FACTORY_FIELDS.map((f) => [f.key, null]),
+  );
+  const seen: [string, string][] = [];
+  for (const [k, value] of Object.entries(o)) {
+    if (k in FIELD_DEFAULTS) continue;
+    const key = `tickets.fields.${k}`;
+    if (!FACTORY_FIELDS.some((f) => f.key === k) && !OWN_HEADING.test(k))
+      fail(key, "must be a heading in lowercase, with hyphens for spaces");
+    if (value === "none") {
+      out[k] = null;
+      continue;
+    }
+    if (typeof value !== "string" || !value.trim())
+      fail(key, "must be a name, or none");
+    const name = (value as string).trim();
+    const other = seen.find(
+      ([o, n]) =>
+        sameName(n, name) &&
+        !([o, k].includes("spec") && [o, k].includes("acceptance-criteria")),
+    );
+    if (other) fail(key, `names the same field as ${other[0]}`);
+    seen.push([k, name]);
+    out[k] = name;
+  }
+  return out;
 }
 
 /** Each state's columns: a name, a list of names, or none, each left out
@@ -710,7 +753,11 @@ export function parseSettings(
   const hasBoard = typeof board === "number";
   if (tickets.columns !== undefined && !hasBoard)
     fail("tickets.columns", "needs tickets.board");
-  if (tickets.fields !== undefined && !hasBoard)
+  const rawFields = isObj(tickets.fields) ? tickets.fields : {};
+  const boardFields = Object.fromEntries(
+    Object.entries(rawFields).filter(([k]) => k in FIELD_DEFAULTS),
+  );
+  if (Object.keys(boardFields).length && !hasBoard)
     fail("tickets.fields", "needs tickets.board");
   const columns = columnNames(tickets.columns);
   if (columns.backlog === null)
@@ -734,11 +781,14 @@ export function parseSettings(
       "tickets.columns.ready",
       "no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
     );
+  if (tickets.fields !== undefined && !isObj(tickets.fields))
+    fail("tickets.fields", "must be a block of settings");
   const fieldNames = names(
-    tickets.fields,
+    boardFields,
     "tickets.fields",
     FIELD_DEFAULTS,
   ) as Record<FieldKey, string | null>;
+  const ticketFields = ticketFieldsOf(rawFields);
   const specsBlock = typed(top.specs ?? "none", "specs");
   const specs = oneOf(specsBlock.type, "specs", SPECS, "none");
   if (specsBlock.check !== undefined && specs !== "openspec")
@@ -784,6 +834,7 @@ export function parseSettings(
       board: typeof board === "number" ? board : null,
       columns,
       fields: fieldNames,
+      ticketFields,
     },
     codeHost: { type: codeHost },
     builds: { trigger, runner, pollMinutes },

@@ -15,6 +15,11 @@ it leaves for you to do.
 | Claude Code, signed in              | `claude --version` | [Install it](https://claude.com/claude-code), run `claude`, and sign in |
 | Node 22.18 or later                 | `node --version`   | [nodejs.org](https://nodejs.org)                                        |
 
+`factory init` stops before its first question when Claude Code isn't
+installed, and changes nothing. It needs Claude Code to set up the
+coding agent's token, and to suggest your board's columns and your
+tickets' fields.
+
 ## Run `factory init`
 
 In your repository, with the package

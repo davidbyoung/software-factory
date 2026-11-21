@@ -11,7 +11,9 @@ import { sessionIdentity } from "../src/lib/gh.mts";
 import { githubActionsRunner } from "../src/runner/github-actions.mts";
 import { ghTransport } from "../src/tickets/transport.mts";
 import { parseSettings } from "../src/config.mts";
-import type { Group, Tickets } from "../src/tickets/types.mts";
+import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
+import { withTicketFields } from "../src/tickets/index.mts";
+import type { FieldMapping } from "../src/ticket-fields.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets, type Seed } from "./memory-tickets";
@@ -49,9 +51,14 @@ function deps(
     stored?: number | null;
     groups?: Group[];
     pulls?: Partial<PullRequest>[];
+    /** The tickets' own fields, and which factory field each holds. */
+    ticketFields?: { fields: TicketField[]; mapping: FieldMapping };
   } = {},
 ) {
-  const memory = memoryTickets(seed, { groups: options.groups });
+  const memory = memoryTickets(seed, {
+    groups: options.groups,
+    ticketFields: options.ticketFields?.fields,
+  });
   const out: string[] = [];
   const written: [number, number][] = [];
   const clocks = new Map<string, Clock>();
@@ -63,7 +70,15 @@ function deps(
   const d: Deps = {
     open: async (_settings, target) => {
       opened.push(target);
-      return { tickets: memory.tickets };
+      return {
+        tickets: options.ticketFields
+          ? withTicketFields(
+              memory.tickets,
+              options.ticketFields.mapping,
+              "acme/shop",
+            )
+          : memory.tickets,
+      };
     },
     openPulls: async () =>
       (options.pulls ?? []).map((p) => ({
@@ -1337,7 +1352,7 @@ describe("the ticket commands", () => {
     expect(memory.blockers.get(7)).toEqual([]);
   });
 
-  it.each(["board", "blockers", "label-history", "attachments"])(
+  it.each(["board", "blockers", "label-history", "attachments", "fields"])(
     "supports %s prints yes when the adapter has it",
     async (group) => {
       const { d, out } = deps([SEVEN]);
@@ -1347,7 +1362,7 @@ describe("the ticket commands", () => {
     },
   );
 
-  it.each(["board", "blockers", "label-history", "attachments"])(
+  it.each(["board", "blockers", "label-history", "attachments", "fields"])(
     "supports %s prints no, and exits 0, when the adapter lacks it",
     async (group) => {
       const { d, out } = deps([SEVEN], { groups: [] });
@@ -1525,5 +1540,201 @@ describe("a ticket opened with a bare tag in its title", () => {
     ).toBe(1);
     expect(errors.join("\n")).toContain("<slug>");
     expect(memory.state.size).toBe(1);
+  });
+});
+
+describe("tickets whose factory fields sit in ticket fields", () => {
+  const FIELDS: TicketField[] = [
+    { name: "Priority", description: null, text: false },
+    { name: "Acceptance criteria", description: null, text: true },
+    { name: "Design notes", description: null, text: true },
+  ];
+  const MAPPING: FieldMapping = {
+    decisions: null,
+    spec: "Acceptance criteria",
+    "acceptance-criteria": "Acceptance criteria",
+    "for-the-builder": "Design notes",
+  };
+  const BODY =
+    "Ask.\n\n## Decisions\n\n- One.\n\n## Spec\n\n### cart (new)\n\n1. When saved, kept.\n\n## For the builder\n\n<details>\n\n### Design\n\n### Tasks\n\n## 1. Save\n\n- [ ] 1.1 Save.\n\n</details>\n";
+
+  function withFields(
+    seed: Seed[] = [{ number: 7, labels: ["spec"] }],
+    mapping = MAPPING,
+    groups?: Group[],
+  ) {
+    quiet();
+    return deps(seed, { groups, ticketFields: { fields: FIELDS, mapping } });
+  }
+
+  it("edit writes each named section to its field and the rest to the description", async () => {
+    const { d, out, memory, files } = withFields();
+    files.set("body.md", BODY);
+
+    expect(await main(["edit", "7", "--body-file", "body.md"], d)).toBe(0);
+    expect(out).toEqual(["edited"]);
+    expect(memory.state.get(7)?.body).toBe("Ask.\n\n## Decisions\n\n- One.\n");
+    expect(memory.fieldValues.get(7)).toEqual({
+      "Acceptance criteria": "### cart (new)\n\n1. When saved, kept.",
+      "Design notes":
+        "<details>\n\n### Design\n\n### Tasks\n\n## 1. Save\n\n- [ ] 1.1 Save.\n\n</details>",
+    });
+  });
+
+  /** Ticket 7 as edit leaves BODY: its description, and two fields. */
+  function seeded() {
+    const r = withFields([
+      { number: 7, labels: ["spec"], body: "Ask.\n\n## Decisions\n\n- One.\n" },
+    ]);
+    r.memory.fieldValues.set(7, {
+      "Acceptance criteria": "### cart (new)\n\n1. When saved, kept.",
+      "Design notes":
+        "<details>\n\n### Design\n\n### Tasks\n\n## 1. Save\n\n- [ ] 1.1 Save.\n\n</details>",
+    });
+    return r;
+  }
+
+  it("view --field body prints the description and fields joined back", async () => {
+    const { d, out } = seeded();
+    await main(["view", "7", "--field", "body"], d);
+    expect(out.join("\n")).toBe(BODY);
+  });
+
+  it("view prints the joined document as the ticket's body", async () => {
+    const { d, out } = seeded();
+    await main(["view", "7"], d);
+    expect(out.join("\n")).toContain(BODY.trimEnd());
+  });
+
+  it("the refined check reads the joined document", async () => {
+    const { d, out } = seeded();
+    expect(await main(["refined", "7", "--check"], d)).toBe(0);
+    expect(out).toEqual(["sound"]);
+  });
+
+  it("keeps the follow-ups ticket whole in its description", async () => {
+    const { d, memory, files } = withFields([
+      { number: 4, labels: ["follow-up"] },
+    ]);
+    files.set("body.md", BODY);
+
+    expect(await main(["edit", "4", "--body-file", "body.md"], d)).toBe(0);
+    expect(memory.state.get(4)?.body).toBe(BODY);
+    expect(memory.fieldValues.get(4)).toBeUndefined();
+  });
+
+  it.each([
+    [
+      "a field the tickets don't have",
+      { ...MAPPING, decisions: "Decision log" },
+      undefined,
+      "acme/shop's tickets have no field called Decision log, which tickets.fields.decisions names.",
+    ],
+    [
+      "a field that doesn't hold text",
+      { ...MAPPING, decisions: "Priority" },
+      undefined,
+      "Priority, which tickets.fields.decisions names, doesn't hold text.",
+    ],
+    [
+      "a ticket system without fields",
+      MAPPING,
+      ["board"] as Group[],
+      "This ticket system does not support fields; check with `factory ticket supports fields` first.",
+    ],
+  ])(
+    "edit stops on %s, writing nothing",
+    async (_name, mapping, groups, message) => {
+      const { d, memory, files } = withFields(
+        [{ number: 7, labels: ["spec"], body: "Before.\n" }],
+        mapping,
+        groups,
+      );
+      files.set("body.md", BODY);
+
+      expect(await main(["edit", "7", "--body-file", "body.md"], d)).toBe(1);
+      expect(errors).toEqual([message]);
+      expect(memory.state.get(7)?.body).toBe("Before.\n");
+      expect(memory.fieldValues.get(7)).toBeUndefined();
+    },
+  );
+
+  it("edit with --title leaves the title alone when the body is refused", async () => {
+    const { d, memory, files } = withFields(
+      [{ number: 7, labels: ["spec"], title: "Before" }],
+      { ...MAPPING, decisions: "Decision log" },
+    );
+    files.set("body.md", BODY);
+
+    expect(
+      await main(
+        ["edit", "7", "--title", "After", "--body-file", "body.md"],
+        d,
+      ),
+    ).toBe(1);
+    expect(memory.state.get(7)?.title).toBe("Before");
+  });
+
+  it("edit stops on Spec and Acceptance criteria both in their shared field, writing nothing", async () => {
+    const { d, memory, files } = withFields([
+      { number: 7, labels: ["spec"], body: "Before.\n" },
+    ]);
+    files.set(
+      "body.md",
+      "Ask.\n\n## Spec\n\n1. A.\n\n## Acceptance criteria\n\n- B.\n",
+    );
+
+    expect(await main(["edit", "7", "--body-file", "body.md"], d)).toBe(1);
+    expect(errors).toEqual([
+      "Spec and Acceptance criteria both go in Acceptance criteria, and the file has both: keep one.",
+    ]);
+    expect(memory.state.get(7)?.body).toBe("Before.\n");
+  });
+
+  it("view stops on a ticket system without fields", async () => {
+    const { d } = withFields(undefined, MAPPING, ["board"]);
+
+    expect(await main(["view", "7"], d)).toBe(1);
+    expect(errors).toEqual([
+      "This ticket system does not support fields; check with `factory ticket supports fields` first.",
+    ]);
+  });
+
+  it("view stops with the ticket system's error when the fields can't be read", async () => {
+    quiet();
+    const memory = memoryTickets([{ number: 7, labels: ["spec"] }], {
+      ticketFields: FIELDS,
+      fail: { fields: new Error("Server Error (HTTP 500)") },
+    });
+    const { d } = deps();
+    d.open = async () => ({
+      tickets: withTicketFields(memory.tickets, MAPPING, "acme/shop"),
+    });
+    expect(await main(["view", "7"], d)).toBe(1);
+    expect(errors).toEqual(["Server Error (HTTP 500)"]);
+  });
+
+  it("leaves the description as it was when writing a field fails", async () => {
+    quiet();
+    const memory = memoryTickets(
+      [{ number: 7, labels: ["spec"], body: "Before.\n" }],
+      { ticketFields: FIELDS },
+    );
+    const inner = memory.tickets;
+    const failing = {
+      ...inner,
+      fields: {
+        ...inner.fields!,
+        write: async () => {
+          throw new Error("Server Error (HTTP 500)");
+        },
+      },
+    };
+    const t = withTicketFields(failing, MAPPING, "acme/shop");
+
+    await expect(t.writeBody(7, BODY)).rejects.toThrow(
+      "Server Error (HTTP 500)",
+    );
+    expect(memory.state.get(7)?.body).toBe("Before.\n");
   });
 });

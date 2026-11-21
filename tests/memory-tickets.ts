@@ -9,6 +9,7 @@ import {
   type Blocker,
   type Board,
   type BoardField,
+  type TicketField,
   type BoardItem,
   type Group,
   type Ticket,
@@ -33,7 +34,8 @@ type Op =
   | "board"
   | "blockers"
   | "labelHistory"
-  | "attachments";
+  | "attachments"
+  | "fields";
 
 /** The Status, Session, Runs in, and Cost fields the board sync checks. */
 export const BOARD_FIELDS: BoardField[] = [
@@ -81,6 +83,10 @@ export type MemoryOptions = {
   }[];
   /** Why creating a board fails, as when the owner's settings refuse it. */
   createRefused?: string;
+  /** The fields tickets can have, set on the ticket itself. */
+  ticketFields?: TicketField[];
+  /** Whether those fields show their text as typed; true unless given. */
+  plainText?: boolean;
 };
 
 export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
@@ -105,6 +111,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
   const blockers = new Map<number, number[]>();
   const removedLabels = new Map<number, string[]>();
   const attached: { ticket: number; files: string[] }[] = [];
+  const fieldValues = new Map<number, Record<string, string>>();
   const writes: { itemId: string; writes: Write[] }[] = [];
   const boards = (options.boards ?? []).map((b) => ({
     ...b,
@@ -338,6 +345,36 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         return (removedLabels.get(n) ?? []).includes(label);
       },
     };
+  if (groups.has("fields"))
+    adapter.fields = {
+      plainText: options.plainText ?? true,
+      async list() {
+        check("fields");
+        return (options.ticketFields ?? []).map((f) => ({ ...f }));
+      },
+      async holds() {
+        check("fields");
+        return { max: null };
+      },
+      async read(n) {
+        check("fields");
+        get(n);
+        return { ...(fieldValues.get(n) ?? {}) };
+      },
+      async write(n, values) {
+        check("fields");
+        get(n);
+        const known = options.ticketFields ?? [];
+        const now = { ...(fieldValues.get(n) ?? {}) };
+        for (const [name, value] of Object.entries(values)) {
+          if (!known.some((f) => f.name === name))
+            throw new Error(`No field called ${name}.`);
+          if (value === null) delete now[name];
+          else now[name] = value;
+        }
+        fieldValues.set(n, now);
+      },
+    };
   if (groups.has("attachments"))
     adapter.attachments = {
       async comment(n, body, files) {
@@ -363,6 +400,8 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
     removedLabels,
     attached,
     writes,
+    /** Each ticket's field values, by field name, as they stand. */
+    fieldValues,
     /** Puts a card on the board, as the owner would. */
     card(n: number, item: Partial<BoardItem> = {}) {
       board.set(n, {
