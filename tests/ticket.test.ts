@@ -1659,6 +1659,22 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     },
   );
 
+  it("edit with --title leaves the title alone when the body is refused", async () => {
+    const { d, memory, files } = withFields(
+      [{ number: 7, labels: ["spec"], title: "Before" }],
+      { ...MAPPING, decisions: "Decision log" },
+    );
+    files.set("body.md", BODY);
+
+    expect(
+      await main(
+        ["edit", "7", "--title", "After", "--body-file", "body.md"],
+        d,
+      ),
+    ).toBe(1);
+    expect(memory.state.get(7)?.title).toBe("Before");
+  });
+
   it("edit stops on Spec and Acceptance criteria both in their shared field, writing nothing", async () => {
     const { d, memory, files } = withFields([
       { number: 7, labels: ["spec"], body: "Before.\n" },
