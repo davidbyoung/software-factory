@@ -1581,25 +1581,33 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     });
   });
 
-  it("view, with and without --field body, prints the document joined back", async () => {
-    const { d, out, files } = withFields();
-    files.set("body.md", BODY);
-    await main(["edit", "7", "--body-file", "body.md"], d);
-    out.length = 0;
+  /** Ticket 7 as edit leaves BODY: its description, and two fields. */
+  function seeded() {
+    const r = withFields([
+      { number: 7, labels: ["spec"], body: "Ask.\n\n## Decisions\n\n- One.\n" },
+    ]);
+    r.memory.fieldValues.set(7, {
+      "Acceptance criteria": "### cart (new)\n\n1. When saved, kept.",
+      "Design notes":
+        "<details>\n\n### Design\n\n### Tasks\n\n## 1. Save\n\n- [ ] 1.1 Save.\n\n</details>",
+    });
+    return r;
+  }
 
+  it("view --field body prints the description and fields joined back", async () => {
+    const { d, out } = seeded();
     await main(["view", "7", "--field", "body"], d);
     expect(out.join("\n")).toBe(BODY);
-    out.length = 0;
+  });
+
+  it("view prints the joined document as the ticket's body", async () => {
+    const { d, out } = seeded();
     await main(["view", "7"], d);
     expect(out.join("\n")).toContain(BODY.trimEnd());
   });
 
   it("the refined check reads the joined document", async () => {
-    const { d, out, files } = withFields();
-    files.set("body.md", BODY);
-    await main(["edit", "7", "--body-file", "body.md"], d);
-    out.length = 0;
-
+    const { d, out } = seeded();
     expect(await main(["refined", "7", "--check"], d)).toBe(0);
     expect(out).toEqual(["sound"]);
   });

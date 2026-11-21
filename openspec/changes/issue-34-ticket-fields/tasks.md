@@ -18,11 +18,11 @@
 
 ## 4. Init
 
-- [ ] 4.1 Line 28: in `tests/init.test.ts`, with the agent's command not installed, the exact lines, exit 1, no settings file, and no board or secret call. Update the existing tests that ran init without the agent, and remove the column step's not-installed test with its requirement.
-- [ ] 4.2 `src/ticket-fields.mts`'s `check`: each reason of line 11, and the order when several apply.
-- [ ] 4.3 The field step in `tests/init.test.ts`, including line 2's failing field read and line 7's empty pick, with the memory adapter's fields Priority (single select), Acceptance criteria, Design notes, and Customer: lines 1, 3, 4, 5, and 6, where Yes writes exactly Proposed docs' YAML; line 7 with a change to Customer; line 8's clash and that Spec and Acceptance criteria sharing is none; line 9; line 10; line 2's three cases; line 12 with Fake Agent and the memory ticket system's label.
-- [ ] 4.4 Lines 23, 25, and 26 in `tests/doctor.test.ts`: the `✓` line, each `✗` line, and no line with nothing named.
-- [ ] 4.5 Line 29's sentences in the `tool-setup` change's MODIFIED requirement, and the existing init tests still pass.
+- [x] 4.1 Line 28: in `tests/init.test.ts`, with the agent's command not installed, the exact lines, exit 1, no settings file, and no board or secret call. Update the existing tests that ran init without the agent, and remove the column step's not-installed test with its requirement.
+- [x] 4.2 `src/ticket-fields.mts`'s `check`: each reason of line 11, and the order when several apply.
+- [x] 4.3 The field step in `tests/init.test.ts`, including line 2's failing field read and line 7's empty pick, with the memory adapter's fields Priority (single select), Acceptance criteria, Design notes, and Customer: lines 1, 3, 4, 5, and 6, where Yes writes exactly Proposed docs' YAML; line 7 with a change to Customer; line 8's clash and that Spec and Acceptance criteria sharing is none; line 9; line 10; line 2's three cases; line 12 with Fake Agent and the memory ticket system's label.
+- [x] 4.4 Lines 23, 25, and 26 in `tests/doctor.test.ts`: the `✓` line, each `✗` line, and no line with nothing named.
+- [x] 4.5 Line 29's sentences in the `tool-setup` change's MODIFIED requirement, and the existing init tests still pass.
 
 ## 5. Docs
 

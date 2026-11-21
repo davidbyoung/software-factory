@@ -32,7 +32,7 @@ import {
 import { ADD, NONE } from "../src/columns-suggest.mts";
 import type { Registry } from "../src/tools.mts";
 import type { Agent } from "../src/agent/types.mts";
-import type { Tickets } from "../src/tickets/types.mts";
+import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
 
 const GOOD = "tok_good";
 const NARROW = "tok_narrow";
@@ -111,7 +111,6 @@ type Setup = {
   signingNeedsScope?: boolean;
   rulesRefused?: string;
   createRefused?: string;
-  claude?: boolean;
   files?: Record<string, string>;
   tokens?: Record<string, { account: string; scopes: string[] | null }>;
   tools?: (base: Registry, tickets: Tickets) => Registry;
@@ -121,6 +120,11 @@ type Setup = {
   defaultBranch?: string | null;
   /** The coding agent's answers. */
   agent?: Agent;
+  /** The fields tickets can have, set on the ticket itself. */
+  ticketFields?: TicketField[];
+  /** The ticket system's optional groups; every one unless given. */
+  ticketGroups?: Group[];
+  ticketsFail?: NonNullable<Parameters<typeof memoryTickets>[1]>["fail"];
   dependabotSecrets?: Record<string, string>;
   /** Whether an organization owns the repository; a person unless given. */
   organization?: boolean;
@@ -183,6 +187,9 @@ function init(setup: Setup) {
   const tickets = memoryTickets([], {
     boards: setup.boards ?? [],
     createRefused: setup.createRefused,
+    ticketFields: setup.ticketFields,
+    groups: setup.ticketGroups,
+    fail: setup.ticketsFail,
   });
   const d: InitDeps = {
     root,
@@ -218,7 +225,7 @@ function init(setup: Setup) {
       if (argv[0] === "grant") host.grantScope();
       return 0;
     },
-    hasCommand: (name) => (name === "claude" ? setup.claude !== false : true),
+    hasCommand: () => true,
     openPage: (url) => opened.push(url),
     keygen: async () => ({
       privateKey: PRIVATE_KEY,
@@ -719,14 +726,24 @@ describe("factory init, the access token", () => {
     );
   });
 
-  it("takes an API key when the coding agent is not installed", async () => {
+  it("stops before its first question when the coding agent is not installed", async () => {
     const r = init({
-      claude: false,
-      answers: { checkbox: [["review"]], confirm: [true], secret: [AGENT] },
+      agent: scriptedAgent([], { installed: false }),
+      boards: [{ number: 3, title: "Shop board", columns: ["Todo"] }],
+      answers: {},
     });
-    await r.run();
-    expect(r.ran).toEqual([]);
-    expect(r.runner.secrets.get("ANTHROPIC_API_KEY")).toBe(AGENT);
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      "Setting up the software factory for acme/site",
+      "",
+      "The factory runs in a coding agent, and Claude Code is not installed.",
+      "Install it and run factory init again.",
+      "Nothing changed.",
+    ]);
+    expect(r.asked).toEqual([]);
+    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.runner.secrets.size).toBe(0);
+    expect(r.tickets.boards[0].columns).toEqual(["Todo"]);
   });
 });
 
@@ -1581,22 +1598,6 @@ describe("factory init, the column step", () => {
     );
   });
 
-  it("stops before the plan, changing nothing, when the agent is not installed", async () => {
-    const r = shop({ agent: scriptedAgent([], { installed: false }) });
-    expect(await r.run()).toBe(1);
-    expect(r.out.slice(-4)).toEqual([
-      "Board 3 has the columns Todo, In Progress, Code review, and Done.",
-      "Matching them to the factory's six states needs Claude Code, which is not installed.",
-      "Install it and run factory init again, or write tickets.columns in .claude/factory.yaml yourself.",
-      "Nothing changed.",
-    ]);
-    expect(r.agent.asked).toEqual([]);
-    expect(r.asked).not.toContain("confirm: Go ahead?");
-    expect(r.read(".claude/factory.yaml")).toBeNull();
-    expect(r.tickets.boards[0].columns).toEqual(SHOP_COLUMNS);
-    expect(r.tickets.boards[0].fields ?? []).toEqual([]);
-  });
-
   it.each([
     [
       "an answer it can't use",
@@ -1789,7 +1790,7 @@ describe("factory init, the column step", () => {
     });
     expect(await missing.run()).toBe(1);
     expect(missing.out).toContain(
-      "Matching them to the factory's six states needs Fake Agent, which is not installed.",
+      "The factory runs in a coding agent, and Fake Agent is not installed.",
     );
   });
 });
@@ -2036,5 +2037,288 @@ describe("the tokens .npmrc reads", () => {
         ).toBe(offered);
       },
     );
+  });
+});
+
+describe("factory init, the field step", () => {
+  const FIELDS: TicketField[] = [
+    { name: "Priority", description: null, text: false },
+    {
+      name: "Acceptance criteria",
+      description: "What must be true for this to be done",
+      text: true,
+    },
+    {
+      name: "Design notes",
+      description: "How engineering plans to build it",
+      text: true,
+    },
+    { name: "Customer", description: "Who asked for it", text: true },
+  ];
+  const SUGGESTION = {
+    decisions: "__description__",
+    spec: "Acceptance criteria",
+    "acceptance-criteria": "Acceptance criteria",
+    "for-the-builder": "Design notes",
+  };
+  /** "Which parts do you want?" answered with none: the step needs none. */
+  const NO_PARTS: string[] = [];
+  const fielded = (
+    o: {
+      answer?: unknown;
+      agent?: ReturnType<typeof scriptedAgent>;
+      select?: string[];
+      checkbox?: string[][];
+      settings?: string;
+      fields?: TicketField[];
+      tools?: Setup["tools"];
+      input?: string[];
+      secret?: string[];
+    } = {},
+  ) => {
+    const agent =
+      o.agent ?? scriptedAgent([{ answer: o.answer ?? { ...SUGGESTION } }]);
+    const r = init({
+      agent,
+      settings: o.settings,
+      ticketFields: o.fields ?? FIELDS,
+      tools: o.tools,
+      answers: {
+        checkbox: [NO_PARTS, ...(o.checkbox ?? [])],
+        select: o.select ?? [],
+        confirm: [true],
+        input: o.input,
+        secret: o.secret,
+      },
+    });
+    return { ...r, agent };
+  };
+
+  /** The field step's lines: from its first to the plan's heading. */
+  const step = (out: string[]) =>
+    out.slice(
+      out.findIndex((l) => l.includes("tickets have the text fields")),
+      out.indexOf("This is everything setup will do:"),
+    );
+  const FOUR = (d: string, s: string, a: string, f: string) =>
+    `version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: ${d}\n    spec: ${s}\n    acceptance-criteria: ${a}\n    for-the-builder: ${f}\n`;
+
+  it("names the text fields and shows the suggestion as a table, before the plan", async () => {
+    const r = fielded({ select: ["yes"] });
+    expect(await r.run()).toBe(0);
+    expect(step(r.out)).toEqual([
+      "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
+      "Asking Claude Code which of them should hold each of the factory's fields...",
+      "",
+      "  Factory field         Ticket field",
+      "  Decisions             the description",
+      "  Spec                  Acceptance criteria",
+      "  Acceptance criteria   Acceptance criteria",
+      "  For the builder       Design notes",
+      "",
+      "Your own text stays in the description.",
+      "GitHub Issues shows a field's text as typed, without Markdown formatting.",
+      "",
+      "",
+    ]);
+    expect(r.selects[0]).toEqual({
+      names: ["Yes", "Change some", "No: keep everything in the description"],
+      fallback: "yes",
+    });
+  });
+
+  it("asks the agent once, sending the text fields' names and descriptions only", async () => {
+    const r = fielded({ select: ["yes"] });
+    await r.run();
+    expect(r.agent.asked).toHaveLength(1);
+    const q = r.agent.asked[0]!;
+    expect(q.prompt).toContain("- Customer: Who asked for it");
+    expect(q.prompt).not.toContain("Priority");
+    expect(q.prompt).toContain("__description__");
+  });
+
+  it("Yes writes all four factory fields, none for the description", async () => {
+    const r = fielded({ select: ["yes"] });
+    expect(await r.run()).toBe(0);
+    expect(r.read(".claude/factory.yaml")).toBe(
+      FOUR(
+        "none",
+        "Acceptance criteria",
+        "Acceptance criteria",
+        "Design notes",
+      ),
+    );
+  });
+
+  it("keeps a file's comments when it writes the four lines", async () => {
+    const r = fielded({
+      settings: "# ours\nversion: 2\nrepository: acme/site\n",
+      select: ["yes"],
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.read(".claude/factory.yaml")).toContain("# ours");
+  });
+
+  it("No keeps everything in the description, writing all four as none", async () => {
+    const r = fielded({ select: ["no"] });
+    expect(await r.run()).toBe(0);
+    expect(r.read(".claude/factory.yaml")).toBe(
+      FOUR("none", "none", "none", "none"),
+    );
+  });
+
+  it("Change some asks only about the factory fields you pick, then shows the table again", async () => {
+    const r = fielded({
+      checkbox: [["decisions"]],
+      select: ["change", "field:Customer", "yes"],
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.checkboxes[1]).toEqual({
+      names: [
+        "Decisions: the description",
+        "Spec: Acceptance criteria",
+        "Acceptance criteria: Acceptance criteria",
+        "For the builder: Design notes",
+      ],
+      checked: [],
+    });
+    expect(r.selects[1]).toEqual({
+      names: [
+        "The description",
+        "Acceptance criteria",
+        "Design notes",
+        "Customer",
+      ],
+      fallback: "__description__",
+    });
+    expect(r.out).toContain("  Decisions             Customer");
+    expect(r.read(".claude/factory.yaml")).toBe(
+      FOUR(
+        "Customer",
+        "Acceptance criteria",
+        "Acceptance criteria",
+        "Design notes",
+      ),
+    );
+  });
+
+  it("Change some with nothing picked goes back to the table", async () => {
+    const r = fielded({ checkbox: [[]], select: ["change", "yes"] });
+    expect(await r.run()).toBe(0);
+    expect(
+      r.asked.filter((a) => a === "select: Use these ticket fields?"),
+    ).toHaveLength(2);
+  });
+
+  it("refuses one ticket field for two factory fields, and asks which to change again", async () => {
+    const r = fielded({
+      checkbox: [["decisions"], ["decisions"]],
+      select: ["change", "field:Design notes", "field:Customer", "yes"],
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "Design notes already holds For the builder. Pick another ticket field for Decisions.",
+    );
+    expect(r.checkboxes.at(-1)).toEqual({
+      names: [
+        "Decisions: the description",
+        "Spec: Acceptance criteria",
+        "Acceptance criteria: Acceptance criteria",
+        "For the builder: Design notes",
+      ],
+      checked: ["decisions"],
+    });
+    expect(r.yaml().tickets).toMatchObject({
+      fields: { decisions: "Customer" },
+    });
+  });
+
+  it("lets Spec and Acceptance criteria share a ticket field", async () => {
+    const r = fielded({
+      answer: {
+        ...SUGGESTION,
+        spec: "Customer",
+        "acceptance-criteria": "Customer",
+      },
+      checkbox: [["spec"]],
+      select: ["change", "field:Acceptance criteria", "yes"],
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).not.toContain("already holds");
+  });
+
+  it("stops before the plan, changing nothing, when the answer can't be used", async () => {
+    const r = fielded({
+      answer: { ...SUGGESTION, decisions: "Design notes" },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out.slice(-3)).toEqual([
+      "Claude Code's answer could not be used: it put Design notes in both Decisions and For the builder.",
+      "Run factory init again, or write tickets.fields in .claude/factory.yaml yourself.",
+      "Nothing changed.",
+    ]);
+    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.asked).not.toContain("confirm: Go ahead?");
+  });
+
+  it.each([
+    ["no fields group", { ticketGroups: ["board"] as Group[] }],
+    [
+      "no text field",
+      { ticketFields: [{ name: "Priority", description: null, text: false }] },
+    ],
+    [
+      "settings that name one of the four",
+      {
+        settings:
+          "version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: none\n",
+      },
+    ],
+  ])("asks nothing about ticket fields with %s", async (_name, extra) => {
+    const agent = scriptedAgent([]);
+    const r = init({
+      agent,
+      ticketFields: FIELDS,
+      ...extra,
+      answers: { checkbox: [NO_PARTS], confirm: [true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(agent.asked).toEqual([]);
+    expect(r.out.join("\n")).not.toContain("text fields");
+  });
+
+  it("stops before the plan when reading the ticket fields fails", async () => {
+    const r = init({
+      agent: scriptedAgent([]),
+      ticketFields: FIELDS,
+      ticketsFail: { fields: new Error("Server Error (HTTP 500)") },
+      answers: { checkbox: [NO_PARTS] },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out.slice(-2)).toEqual([
+      "Could not read acme/site's ticket fields: Server Error (HTTP 500)",
+      "Nothing changed.",
+    ]);
+    expect(r.read(".claude/factory.yaml")).toBeNull();
+  });
+
+  it("names the agent and the ticket system by their registered labels", async () => {
+    const agent = scriptedAgent([{ answer: { ...SUGGESTION } }]);
+    const r = fielded({
+      agent,
+      select: ["yes"],
+      input: ["https://tickets.example"],
+      secret: [""],
+      tools: (b, t) => withFakeTickets(withFakeAgent(b, agent), t, true),
+    });
+    expect(await r.run()).toBe(0);
+    const lines = step(r.out).join("\n");
+    expect(lines).toContain(
+      "Asking Fake Agent which of them should hold each of the factory's fields...",
+    );
+    expect(lines).toContain(
+      "Fake Tickets shows a field's text as typed, without Markdown formatting.",
+    );
+    expect(lines).not.toMatch(/Claude Code|GitHub/);
   });
 });

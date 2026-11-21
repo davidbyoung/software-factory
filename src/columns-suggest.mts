@@ -174,7 +174,6 @@ export type SuggestDeps = {
   agent: Agent;
   /** The agent's registered label, which every line names it by. */
   label: string;
-  hasCommand: (name: string) => boolean;
 };
 
 const AGAIN_OR_WRITE =
@@ -280,14 +279,6 @@ export async function suggestColumns(
 ): Promise<[StateKey, string][] | "default" | 1> {
   d.out("");
   d.out(boardLine(o.board, o.columns));
-  if (!d.agent.installed(d.hasCommand)) {
-    d.out(
-      `Matching them to the factory's six states needs ${d.label}, which is not installed.`,
-    );
-    d.out(`Install it and run factory init again, or ${AGAIN_OR_WRITE}`);
-    d.out("Nothing changed.");
-    return 1;
-  }
   d.out(
     `Asking ${d.label} which of them shows each of the factory's six states...`,
   );

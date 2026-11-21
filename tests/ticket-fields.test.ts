@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { join, split } from "../src/ticket-fields.mts";
+import { check, join, split, table } from "../src/ticket-fields.mts";
 
 const MAPPING = {
   decisions: null,
@@ -173,5 +173,95 @@ describe("join", () => {
       Object.entries(parts.values).filter(([, v]) => v !== null),
     ) as Record<string, string>;
     expect(join(parts.description, values, MAPPING, ["spec"])).toBe(DOC);
+  });
+});
+
+describe("check, the agent's answer", () => {
+  const FIELDS = [
+    { name: "Acceptance criteria", description: null },
+    { name: "Design notes", description: null },
+  ];
+  const GOOD = {
+    decisions: "__description__",
+    spec: "Acceptance criteria",
+    "acceptance-criteria": "Acceptance criteria",
+    "for-the-builder": "Design notes",
+  };
+  const reason = (answer: unknown) => {
+    const got = check(answer, FIELDS, "acme/shop");
+    return "reason" in got ? got.reason : null;
+  };
+
+  it("gives the suggestion, the description as null, Spec and Acceptance criteria sharing", () => {
+    expect(check(GOOD, FIELDS, "acme/shop")).toEqual({
+      suggestion: {
+        decisions: null,
+        spec: "Acceptance criteria",
+        "acceptance-criteria": "Acceptance criteria",
+        "for-the-builder": "Design notes",
+      },
+    });
+  });
+
+  it.each([
+    [
+      "a field the tickets don't have",
+      { ...GOOD, decisions: "Notes" },
+      "it named Notes, which acme/shop's tickets don't have",
+    ],
+    [
+      "one field for two factory fields",
+      { ...GOOD, decisions: "Design notes" },
+      "it put Design notes in both Decisions and For the builder",
+    ],
+    [
+      "a factory field left out",
+      { ...GOOD, "for-the-builder": undefined },
+      "it left out For the builder",
+    ],
+    [
+      "output that isn't an object",
+      "Acceptance criteria",
+      "it did not answer in the form asked for",
+    ],
+    [
+      "a value that isn't a string",
+      { ...GOOD, decisions: 3 },
+      "it did not answer in the form asked for",
+    ],
+  ])("refuses %s", (_name, answer, words) => {
+    expect(reason(answer)).toBe(words);
+  });
+
+  it("names the first reason in the issue's order when several apply", () => {
+    expect(
+      reason({
+        decisions: "Notes",
+        spec: "Design notes",
+        "for-the-builder": "Design notes",
+      }),
+    ).toBe("it named Notes, which acme/shop's tickets don't have");
+    expect(
+      reason({ decisions: "Design notes", "for-the-builder": "Design notes" }),
+    ).toBe("it put Design notes in both Decisions and For the builder");
+  });
+});
+
+describe("table", () => {
+  it("lines each factory field up with its ticket field, or the description", () => {
+    expect(
+      table({
+        decisions: null,
+        spec: "Acceptance criteria",
+        "acceptance-criteria": "Acceptance criteria",
+        "for-the-builder": "Design notes",
+      }),
+    ).toEqual([
+      "  Factory field         Ticket field",
+      "  Decisions             the description",
+      "  Spec                  Acceptance criteria",
+      "  Acceptance criteria   Acceptance criteria",
+      "  For the builder       Design notes",
+    ]);
   });
 });

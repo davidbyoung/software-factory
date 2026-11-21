@@ -9,7 +9,7 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
-import type { Tickets } from "../src/tickets/types.mts";
+import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
 import { IMPORT_LINE, withHooks } from "../src/sync.mts";
 import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { builtOf, TOOLS, type Registry } from "../src/tools.mts";
@@ -75,9 +75,15 @@ function doctor(o: {
   files?: Record<string, string>;
   claude?: boolean;
   tools?: (base: Registry, tickets: Tickets) => Registry;
+  ticketFields?: TicketField[];
+  ticketGroups?: Group[];
+  ticketsFail?: NonNullable<Parameters<typeof memoryTickets>[1]>["fail"];
 }) {
   const out: string[] = [];
   const tickets = memoryTickets([], {
+    ticketFields: o.ticketFields,
+    groups: o.ticketGroups,
+    fail: o.ticketsFail,
     fields: [
       {
         id: "S",
@@ -661,5 +667,77 @@ describe("factory doctor", () => {
       expect(await r.run()).toBe(1);
       expect(npmLines(r.out)).toEqual([SET_DEPENDABOT]);
     });
+  });
+});
+
+describe("factory doctor, the ticket fields the settings name", () => {
+  const FIELDS: TicketField[] = [
+    { name: "Priority", description: null, text: false },
+    { name: "Acceptance criteria", description: null, text: true },
+  ];
+  const named = (fields: Record<string, string>) => ({
+    raw: { tickets: { fields } },
+    ticketFields: FIELDS,
+  });
+  /** The lines the ticket field check prints, by their exact openings. */
+  const about = (out: string[]) =>
+    out.filter((l) =>
+      [
+        "✓ acme/site's tickets have every field",
+        "✗ acme/site's tickets have no field called",
+        "✗ acme/site's ticket fields can be read",
+        "✗ GitHub Issues has no ticket fields",
+        "✗ Priority, which tickets.fields",
+      ].some((start) => l.startsWith(start)),
+    );
+
+  it("passes when each named field exists and holds text", async () => {
+    const r = doctor(named({ spec: "Acceptance criteria" }));
+    await r.run();
+    expect(about(r.out)).toEqual([
+      "✓ acme/site's tickets have every field the settings name",
+    ]);
+  });
+
+  it("fails a field the tickets don't have, and one that doesn't hold text, each on its line", async () => {
+    const r = doctor(named({ spec: "Spec", decisions: "Priority" }));
+    expect(await r.run()).toBe(1);
+    const lines = about(r.out);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(
+      /^✗ Priority, which tickets\.fields\.decisions names, doesn't hold text/,
+    );
+    expect(lines[1]).toMatch(
+      /^✗ acme\/site's tickets have no field called Spec, which tickets\.fields\.spec names/,
+    );
+  });
+
+  it("prints nothing about ticket fields when the settings name none", async () => {
+    const r = doctor({ ticketFields: FIELDS });
+    await r.run();
+    expect(about(r.out)).toEqual([]);
+  });
+
+  it("fails a ticket system without fields, by its label", async () => {
+    const r = doctor({
+      ...named({ spec: "Acceptance criteria" }),
+      ticketGroups: ["board"],
+    });
+    expect(await r.run()).toBe(1);
+    expect(about(r.out)[0]).toMatch(
+      /^✗ GitHub Issues has no ticket fields, which tickets\.fields names/,
+    );
+  });
+
+  it("fails with the error's first line when the fields can't be read", async () => {
+    const r = doctor({
+      ...named({ spec: "Acceptance criteria" }),
+      ticketsFail: { fields: new Error("Server Error (HTTP 500)\nmore") },
+    });
+    expect(await r.run()).toBe(1);
+    const line = about(r.out)[0]!;
+    expect(line).toMatch(/^✗ acme\/site's ticket fields can be read/);
+    expect(line).toContain("Server Error (HTTP 500)");
+    expect(line).not.toContain("more");
   });
 });

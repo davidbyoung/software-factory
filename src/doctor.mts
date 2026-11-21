@@ -36,6 +36,7 @@ import {
 } from "./lib/default-branch.mts";
 import { differences, LOCK, PACKAGE, plan } from "./sync.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
+import { fieldChecks } from "./ticket-fields.mts";
 
 export type { Check } from "./setup.mts";
 
@@ -209,6 +210,14 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     out.push(
       ...((await tool!.setup.checks?.({ ...context(on), secrets })) ?? []),
     );
+  out.push(
+    ...(await fieldChecks(
+      opened.tickets,
+      s.tickets.ticketFields,
+      s.repository,
+      tickets!.label,
+    )),
+  );
   return out;
 }
 

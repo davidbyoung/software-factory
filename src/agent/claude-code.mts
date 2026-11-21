@@ -27,29 +27,21 @@ const read = (root: string, path: string) =>
   existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null;
 
 export const claudeCodeSetup: ToolSetup = {
-  found: (c) =>
-    c.hasCommand(COMMAND)
-      ? LABEL
-      : `${LABEL}, which is not installed: sessions and its token need it`,
-
   steps: (c) => {
     const parts = READS.filter((p) => c.parts.has(p));
     if (!parts.length) return [];
-    const installed = c.hasCommand(COMMAND);
-    const name = installed ? AGENT_TOKEN : AGENT_KEY;
     return [
       {
         kind: "secret",
         needs: parts.map((part) => ({ part, anyOf: [AGENT_TOKEN, AGENT_KEY] })),
-        storeAs: [name],
-        intro: installed
-          ? ["", `The coding agent's token: running ${COMMAND} setup-token...`]
-          : [],
-        get: installed ? { command: [COMMAND, "setup-token"] } : undefined,
-        prompt: installed
-          ? "Paste the token it printed (leave empty to do this later):"
-          : "Paste an API key from the Claude Console (leave empty to do this later):",
-        skipped: `No ${name} stored.`,
+        storeAs: [AGENT_TOKEN],
+        intro: [
+          "",
+          `The coding agent's token: running ${COMMAND} setup-token...`,
+        ],
+        get: { command: [COMMAND, "setup-token"] },
+        prompt: "Paste the token it printed (leave empty to do this later):",
+        skipped: `No ${AGENT_TOKEN} stored.`,
         stored: (names) => `Stored as ${names.join(", ")}.`,
       },
     ];

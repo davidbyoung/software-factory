@@ -707,23 +707,28 @@ describe("GitHub adapter: fields", () => {
     });
   });
 
-  it("sets a field by its ID on the issue's node, and clears one", async () => {
-    const { t, calls } = tickets([
+  const writing = () =>
+    tickets([
       [/IssueFields\(/, fieldsAnswer],
       [/^api repos\/acme\/widgets\/issues\/7$/, restIssue(7)],
       [/mutation/, { data: {} }],
     ]);
-    await t.fields!.write(7, {
-      "Acceptance criteria": "Done when",
-      Priority: null,
-    });
-    const mutations = calls.filter((c) => c.includes("mutation"));
-    expect(mutations).toHaveLength(2);
-    expect(mutations[0]).toMatch(/SetIssueField.*field=IF_ac/s);
-    expect(mutations[0]).toContain("text=Done when");
-    expect(mutations[0]).toContain("issue=I_7");
-    expect(mutations[1]).toMatch(/ClearIssueField.*field=IF_pri/s);
-    expect(mutations[1]).toContain("delete: true");
+  const operation = (call: string) => /query=mutation (\w+)/.exec(call)?.[1];
+
+  it("sets a field by its ID on the issue's node", async () => {
+    const { t, calls } = writing();
+    await t.fields!.write(7, { "Acceptance criteria": "Done when" });
+    const [set] = calls.filter((c) => c.includes("mutation"));
+    expect(operation(set!)).toBe("SetIssueField");
+    expect(set).toContain("-f issue=I_7 -f field=IF_ac -f text=Done when");
+  });
+
+  it("clears a field given null, by its ID", async () => {
+    const { t, calls } = writing();
+    await t.fields!.write(7, { Priority: null });
+    const [clear] = calls.filter((c) => c.includes("mutation"));
+    expect(operation(clear!)).toBe("ClearIssueField");
+    expect(clear).toContain("-f issue=I_7 -f field=IF_pri");
   });
 
   it("refuses to write a field the repository doesn't have", async () => {
