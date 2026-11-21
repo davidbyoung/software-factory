@@ -1057,6 +1057,40 @@ describe("factory init, where the poller runs", () => {
     },
   );
 
+  it("names the ready column the settings give in the poller's settings", async () => {
+    const r = init({
+      private: true,
+      settings: [
+        "version: 2",
+        "repository: acme/site",
+        "tickets:",
+        "  board: 3",
+        FACTORY_COLUMNS_YAML.replace("ready: Ready", "ready: Ready for dev"),
+        "builds:",
+        "  trigger: own-server",
+        "",
+      ].join("\n"),
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+      boards: [
+        {
+          number: 3,
+          title: "Roadmap",
+          columns: SIX_COLUMNS.map((c) =>
+            c === "Ready" ? "Ready for dev" : c,
+          ),
+        },
+      ],
+      answers: {
+        checkbox: [["board", "cloud", "from-board"]],
+        confirm: [false, true],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).toContain(
+      "       FACTORY_READY_COLUMN=Ready for dev",
+    );
+  });
+
   it("takes out the interval with the part", async () => {
     const r = init({
       settings: [
@@ -1935,6 +1969,7 @@ describe("factory init, a block that leaves states out", () => {
       board?: string[];
       parts?: string[];
       select?: string[];
+      checkbox?: string[][];
       answer?: unknown;
     } = {},
   ) => {
@@ -1947,7 +1982,7 @@ describe("factory init, a block that leaves states out", () => {
       secrets: ALL_SET,
       agent,
       answers: {
-        checkbox: [o.parts ?? ["board"]],
+        checkbox: [o.parts ?? ["board"], ...(o.checkbox ?? [])],
         select: o.select ?? [],
         confirm: [false, true],
       },
@@ -2054,6 +2089,25 @@ describe("factory init, a block that leaves states out", () => {
     });
   });
 
+  it("changes only the states left out on Change some, and writes only those", async () => {
+    const r = rerun(
+      [
+        "backlog: Todo",
+        "refining: none",
+        "ready: none",
+        "building: In Progress",
+        "done: Done",
+      ],
+      {
+        select: ["column:Code review", "change", NONE, "yes"],
+        checkbox: [["review"]],
+      },
+    );
+    expect(await r.run()).toBe(0);
+    expect(r.checkboxes.at(-1)!.names).toEqual(["review: Code review"]);
+    expect(r.columns()).toMatchObject({ review: "none", backlog: "Todo" });
+  });
+
   it("asks again when the column picked for a state left out shows another state", async () => {
     const r = rerun(
       [
@@ -2131,6 +2185,9 @@ describe("factory init, a block that leaves states out", () => {
       answers: { checkbox: [["board"]] },
     });
     expect(await r.run()).toBe(1);
+    expect(r.out.join("\n")).toContain(
+      "tickets.columns.backlog: cannot be none",
+    );
     expect(r.out).toContain("Fix it, then run init again.");
   });
 });

@@ -148,9 +148,13 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     ),
   });
 
-  it("reads every state as written, and each board field at its default when none is written", () => {
+  it("reads every state as written", () => {
+    const s = parse(withTickets({ columns: { ready: "Approved" } }));
+    expect(columnsOf(s)).toEqual({ ...DEFAULT_COLUMNS, Ready: ["Approved"] });
+  });
+
+  it("reads each board field at its default when none is written", () => {
     const s = parse(base);
-    expect(columnsOf(s)).toEqual(DEFAULT_COLUMNS);
     expect(fieldNamesOf(s)).toEqual({
       session: "Session",
       runsIn: "Runs in",
@@ -241,10 +245,9 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     });
   });
 
-  it("requires no columns without a board", () => {
-    expect(() =>
-      parse({ version: 2, repository: "o/n", tickets: {} }),
-    ).not.toThrow();
+  it("requires no columns without a board, and names each state by its own name", () => {
+    const s = parse({ version: 2, repository: "o/n", tickets: {} });
+    expect(columnsOf(s)).toEqual(DEFAULT_COLUMNS);
   });
 
   it.each([

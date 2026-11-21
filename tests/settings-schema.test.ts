@@ -72,9 +72,13 @@ describe("tickets.columns in the schema", () => {
     properties: Record<string, { description: string }>;
   };
 
-  it("gives no state a default, and says a board needs all six", () => {
+  it("gives none of the six states a default", () => {
+    expect(Object.keys(columns.properties)).toHaveLength(6);
     for (const state of Object.values(columns.properties))
       expect(state.description).not.toMatch(/Default/);
+  });
+
+  it("says a board needs all six states", () => {
     expect(columns.description).toMatch(
       /With a board, all six states are required/,
     );
