@@ -165,6 +165,24 @@ function writtenColumnsOf(
   );
 }
 
+/** The branch name a preset in effect supplies to the settings `text`
+ * of the repository at `root`, or null for none. Settings whose presets
+ * can't be read get the question: the check that follows says what is
+ * wrong with them. */
+export const presetBranchNameAt =
+  (root: string) =>
+  async (text: string): Promise<string | null> => {
+    try {
+      const r = await resolveFiles(
+        { ...filesDeps(root), readFile: () => text },
+        { partial: true },
+      );
+      return r.settings.codeHost.branchName;
+    } catch {
+      return null;
+    }
+  };
+
 const BRANCH_QUESTION =
   "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
 
@@ -1023,19 +1041,7 @@ export async function run(argv: string[]): Promise<number> {
       const branch = await needDefaultBranch({ ...branchDeps(root), host });
       return differences(root, await syncPlan(PACKAGE, root, r, branch));
     },
-    // Settings a preset can't be read for get the question: the check
-    // that follows says what is wrong with the preset.
-    presetBranchName: async (text) => {
-      try {
-        const r = await resolveFiles(
-          { ...filesDeps(root), readFile: () => text },
-          { partial: true },
-        );
-        return r.settings.codeHost.branchName;
-      } catch {
-        return null;
-      }
-    },
+    presetBranchName: presetBranchNameAt(root),
     interactive: async (argv2) =>
       spawnSync(argv2[0], argv2.slice(1), { stdio: "inherit" }).status ?? 1,
     hasCommand,

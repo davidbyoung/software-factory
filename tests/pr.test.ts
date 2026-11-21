@@ -685,6 +685,17 @@ describe("the pull-request commands", () => {
       expect(out).toEqual(["#20 open"]);
     });
 
+    it.each([[[]], [["54", "55"]]])(
+      "prints its usage and exits 1 for %j",
+      async (args) => {
+        quiet();
+        const { d, out } = pr();
+
+        expect(await main(["for-branch", ...args], d)).toBe(1);
+        expect(out).toEqual([]);
+      },
+    );
+
     it("prints none when no pull request came from the branch", async () => {
       const { d, out } = pr([from(30, "feature/someone/54")]);
 

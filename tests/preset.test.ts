@@ -26,6 +26,7 @@ import {
   yaml,
 } from "./preset-fixture.ts";
 import { CODE_HOST_YAML } from "./settings-fixture";
+import { presetBranchNameAt } from "../src/init.mts";
 
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -365,6 +366,27 @@ describe("a branch name a preset supplies", () => {
     withoutOwn();
     const { settings } = await resolveAt(root);
     expect(settings.codeHost.branchName).toBe("feature/{user}/{ticket}");
+  });
+
+  it("is what init finds, so it asks nothing", async () => {
+    withoutOwn();
+    const text =
+      "version: 2\nrepository: acme/billing\npresets:\n" + `  - "${ACME}"\n`;
+    expect(await presetBranchNameAt(root)(text)).toBe(
+      "feature/{user}/{ticket}",
+    );
+  });
+
+  it("is none to init when no preset sets one, or the presets can't be read", async () => {
+    withoutOwn();
+    expect(
+      await presetBranchNameAt(root)("version: 2\nrepository: acme/billing\n"),
+    ).toBeNull();
+    expect(
+      await presetBranchNameAt(root)(
+        'version: 2\nrepository: acme/billing\npresets:\n  - "@acme/missing"\n',
+      ),
+    ).toBeNull();
   });
 
   it("is printed by config explain, marked with the preset's name", async () => {

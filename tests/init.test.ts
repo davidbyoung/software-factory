@@ -1526,6 +1526,17 @@ describe("factory init, the branch name", () => {
     expect(r.yaml()["code-host"]).toBeUndefined();
   });
 
+  it("adds it to a code-host block that has only a type, keeping the block", async () => {
+    const r = quick({
+      settings:
+        "version: 2\nrepository: acme/site\ncode-host:\n  # ours\n  type: github\n",
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.read(".claude/factory.yaml")).toContain(
+      'code-host:\n  # ours\n  type: github\n  branch-name: "{ticket}"\n',
+    );
+  });
+
   it("reads a file set up before it was required, asks for it, and writes the block", async () => {
     const r = quick({
       settings: "version: 2\nrepository: acme/site\ncode-host: github\n",
