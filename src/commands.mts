@@ -38,6 +38,7 @@ const USAGE = {
   "test-one": "Usage: factory test-one FILE [NAME]",
   "end-to-end": "Usage: factory end-to-end FILE [--times K]",
   "specs-check": "Usage: factory specs check",
+  "specs-change-name": "Usage: factory specs change-name N",
 } as const;
 
 type Name = keyof typeof USAGE;
@@ -70,6 +71,8 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   const e2e = name === "end-to-end" ? endToEndArgs(args) : null;
   if (name === "gate" || name === "specs-check") {
     if (args.length > 0) return usage();
+  } else if (name === "specs-change-name") {
+    if (args.length !== 1 || !/^[1-9]\d*$/.test(args[0]!)) return usage();
   } else if (name === "test-one") {
     if (args.length < 1 || args.length > 2) return usage();
     if (args.some((a) => a.startsWith("--"))) return usage();
@@ -132,6 +135,14 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       }
     return test(0);
   }
+  if (name === "specs-change-name") {
+    if (s.specs === "none") {
+      d.err("specs are off: there is no spec change to name");
+      return 1;
+    }
+    d.out(`issue-${args[0]}`);
+    return 0;
+  }
   if (s.specCheck === null) {
     d.out("specs are off");
     return 0;
@@ -143,8 +154,9 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   );
 }
 
-/** `factory gate`, `factory test-one`, `factory end-to-end`, and
- * `factory specs check`, the last as `specs-check`. */
+/** `factory gate`, `factory test-one`, `factory end-to-end`,
+ * `factory specs check`, and `factory specs change-name`, the last two as
+ * `specs-check` and `specs-change-name`. */
 export async function run(argv: string[]): Promise<number> {
   const root = repoRoot();
   return main(argv, {

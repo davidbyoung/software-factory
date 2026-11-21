@@ -284,6 +284,38 @@ describe("factory specs check", () => {
   });
 });
 
+describe("factory specs change-name", () => {
+  it("prints the spec change's name for the ticket, whatever the branch is called", async () => {
+    const { d, out, err, ran } = deps({
+      specs: "openspec",
+      "code-host": { type: "github", "branch-name": "feature/{user}/{ticket}" },
+    });
+
+    expect(await main(["specs-change-name", "54"], d)).toBe(0);
+    expect(out).toEqual(["issue-54"]);
+    expect(err).toEqual([]);
+    expect(ran).toEqual([]);
+  });
+
+  it("says there is no change to name when specs are off, and exits 1", async () => {
+    const { d, out, err } = deps({ specs: "none" });
+
+    expect(await main(["specs-change-name", "54"], d)).toBe(1);
+    expect(out).toEqual([]);
+    expect(err).toEqual(["specs are off: there is no spec change to name"]);
+  });
+
+  it.each([[[]], [["x"]], [["0"]], [["54", "55"]]])(
+    "prints its usage and exits 2 for %j",
+    async (args) => {
+      const { d, err } = deps({ specs: "openspec" });
+
+      expect(await main(["specs-change-name", ...args], d)).toBe(2);
+      expect(err).toEqual(["Usage: factory specs change-name N"]);
+    },
+  );
+});
+
 describe("the four commands", () => {
   it("print the settings' error and exit 1 when the settings cannot be read", async () => {
     const { d, err } = deps();

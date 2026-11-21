@@ -227,6 +227,12 @@ export const COMMANDS: Command[] = [
       (await import("./commands.mts")).run(["specs-check", ...argv]),
   },
   {
+    words: ["specs", "change-name"],
+    args: "N",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["specs-change-name", ...argv]),
+  },
+  {
     words: ["default-branch"],
     args: "",
     run: async (argv) => (await import("./lib/default-branch.mts")).run(argv),
