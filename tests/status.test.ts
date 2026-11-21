@@ -254,7 +254,8 @@ const TTY = { color: true, width: 120, links: LINKS };
 const p = painter(true);
 /** Text as a pattern that matches it exactly. */
 const re = (text: string) => text.replace(/[[\]\\^$.*+?()|{}]/g, "\\$&");
-/** The codes a format opens and closes with. */
+/** The codes a format opens and closes with, for a line whose text a
+ * pattern matches loosely. */
 const ends = (format: Parameters<typeof p>[0]) => p(format, "\0").split("\0");
 const issueLink = (n: number, text: string) =>
   `${ESC}]8;;https://github.com/acme/widgets/issues/${n}${ESC}\\${text}${ESC}]8;;${ESC}\\`;

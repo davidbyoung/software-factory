@@ -35,7 +35,10 @@ import {
 } from "./preset-fixture.ts";
 
 let root = "";
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+  vi.unstubAllEnvs();
+});
 
 /** The docs' organization preset: it does not set review-rounds. */
 const ACME_BASE = [
@@ -335,11 +338,7 @@ describe("factory preset add", () => {
 
   it("writes the lock without color, even where FORCE_COLOR asks for it", async () => {
     vi.stubEnv("FORCE_COLOR", "1");
-    try {
-      await setUp([ACME, NODE]);
-    } finally {
-      vi.unstubAllEnvs();
-    }
+    await setUp([ACME, NODE]);
     expect(read(root, ".claude/factory.lock")).toContain("# default");
     expect(read(root, ".claude/factory.lock")).not.toContain("\x1B");
   });

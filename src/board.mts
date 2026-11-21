@@ -707,10 +707,10 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
   }
 }
 
-/** `factory board collect` and `factory board apply`. */
-export async function run(argv: string[]): Promise<number> {
+/** The dependencies `run` gives `main`. */
+export function boardDeps(argv: string[]): Deps {
   const nowArg = option(argv, "--now");
-  return main(argv, {
+  return {
     open: async (settings, target) => {
       const { tickets } = await openTickets(settings, target);
       return {
@@ -726,5 +726,10 @@ export async function run(argv: string[]): Promise<number> {
     writeFile: (path, text) => writeFileSync(path, text),
     settings: () => loadSettings(),
     paint: painter(colorOn()),
-  });
+  };
+}
+
+/** `factory board collect` and `factory board apply`. */
+export async function run(argv: string[]): Promise<number> {
+  return main(argv, boardDeps(argv));
 }

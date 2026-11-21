@@ -729,6 +729,10 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
 }
 
+/** The style for what `run` prints to stdout. */
+export const terminalStyle = (): Style =>
+  styleFor(colorOn(), process.stdout.columns);
+
 /** `factory status [--watch]`, and `factory session-start`'s second half. */
 export async function run(argv: string[]): Promise<number> {
   const code = await main(argv, {
@@ -751,7 +755,7 @@ export async function run(argv: string[]): Promise<number> {
           process.exit(130);
         });
     },
-    style: () => styleFor(colorOn(), process.stdout.columns),
+    style: terminalStyle,
     settings: () => loadSettings(),
     env: process.env,
   });

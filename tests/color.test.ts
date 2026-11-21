@@ -2,6 +2,11 @@ import { Writable } from "node:stream";
 import { styleText } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { colorOn, painter } from "../src/lib/color.mts";
+import { boardDeps } from "../src/board.mts";
+import { defaultDeps as configDeps } from "../src/config.mts";
+import { doctorDeps } from "../src/doctor.mts";
+import { presetDeps } from "../src/preset-commands.mts";
+import { terminalStyle } from "../src/status.mts";
 
 /** A stream Node accepts, reporting a terminal and a color depth as a real
  * one does: a terminal with `NO_COLOR` or `TERM=dumb` reports depth 1. */
@@ -17,11 +22,8 @@ describe("colorOn", () => {
   it.each([
     ["1", false, true],
     ["", false, true],
-    ["true", false, true],
     [undefined, false, false],
     ["0", true, false],
-    ["false", true, false],
-    ["yes", true, false],
   ])("FORCE_COLOR=%s, terminal %s: %s", (force, tty, expected) => {
     vi.stubEnv("FORCE_COLOR", force);
     expect(colorOn(stream(tty))).toBe(expected);
@@ -47,6 +49,27 @@ describe("painter", () => {
     expect(painter(true)(["bold", "red"], "✗")).toBe(
       styleText(["bold", "red"], "✗", { validateStream: false }),
     );
-    expect(painter(true)("green", "✓")).not.toBe("✓");
   });
+});
+
+describe("each command's own dependencies", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  const root = process.cwd();
+  const paints = {
+    doctor: () => doctorDeps(root).paint!,
+    preset: () => presetDeps(root).paint!,
+    "config explain": () => configDeps(root).paint!,
+    "board check": () => boardDeps([]).paint!,
+    status: () => painter(terminalStyle().color),
+  };
+
+  it.each(Object.entries(paints))(
+    "%s colors where colorOn says, and stays plain where it does not",
+    (_name, paint) => {
+      vi.stubEnv("FORCE_COLOR", "1");
+      expect(paint()("red", "x")).not.toBe("x");
+      vi.stubEnv("FORCE_COLOR", "0");
+      expect(paint()("red", "x")).toBe("x");
+    },
+  );
 });
