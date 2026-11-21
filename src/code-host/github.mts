@@ -412,7 +412,7 @@ export function githubCodeHost(o: {
         { number: number; state: string; merged_at: string | null }[]
       >(
         "GET",
-        `${API}/pulls?head=${owner}:${branch}&state=all&sort=created&direction=desc&per_page=1`,
+        `${API}/pulls?head=${owner}:${encodeURIComponent(branch)}&state=all&sort=created&direction=desc&per_page=1`,
       );
       if (!newest) return null;
       return {

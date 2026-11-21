@@ -741,12 +741,18 @@ describe("the newest pull request from a branch", () => {
       state,
     });
     expect(calls).toEqual([
-      "api repos/acme/widgets/pulls?head=acme:feature/dave/54&state=all&sort=created&direction=desc&per_page=1",
+      "api repos/acme/widgets/pulls?head=acme:feature%2Fdave%2F54&state=all&sort=created&direction=desc&per_page=1",
     ]);
   });
 
   it("is null when no pull request came from the branch", async () => {
     const { p } = pulls([[/pulls\?head=/, []]]);
     expect(await p.lastForBranch("54")).toBeNull();
+  });
+
+  it("asks for a branch whose name has + or & as that name", async () => {
+    const { p, calls } = pulls([[/pulls\?head=/, []]]);
+    await p.lastForBranch("fix+54&more");
+    expect(calls[0]).toContain("head=acme:fix%2B54%26more&state=all");
   });
 });
