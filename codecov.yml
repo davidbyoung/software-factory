@@ -8,3 +8,6 @@ coverage:
     patch:
       default:
         informational: true
+# The review skill reads a missing comment as "coverage did not move".
+comment:
+  require_changes: true
