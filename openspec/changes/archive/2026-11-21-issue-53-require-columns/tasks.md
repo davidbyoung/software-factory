@@ -27,4 +27,4 @@
 - [x] 5.1 Map every Spec line to the test that exercises it, and write a test for any without one. Line 25 is checked by the docs tests and the review.
 - [x] 5.2 Run each Proposed docs transcript against the built command and put the side-by-side comparison in the pull request.
 - [x] 5.3 `npm run format`, then `npx --no-install factory gate`, and `npm run pack-check`.
-- [ ] 5.4 Run `factory-trace` before marking the pull request ready.
+- [x] 5.4 Run `factory-trace` before marking the pull request ready.
