@@ -94,12 +94,15 @@ describe("the lock factory sync writes", () => {
     await sync();
     const fromFiles = deps(root);
     await config(["explain"], fromFiles.d);
+    // The two comment lines that open the output say how to read it; the
+    // lock holds only the settings.
+    const printed = fromFiles.out.slice(2);
     const lines = read(root, LOCK)!.split("\n");
     const start = lines.indexOf("settings:") + 1;
     const settings = lines
-      .slice(start, start + fromFiles.out.length)
+      .slice(start, start + printed.length)
       .map((l) => l.slice(2));
-    expect(settings).toEqual(fromFiles.out);
+    expect(settings).toEqual(printed);
     const fromLock = deps(root, { lock: defaultDeps(root, {}).lock });
     expect(await config(["explain"], fromLock.d)).toBe(0);
     expect(fromLock.out).toEqual(fromFiles.out);
