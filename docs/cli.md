@@ -42,24 +42,37 @@ slash command, such as `/factory-refine 12`. [Skills](skills.md) lists them.
 | `factory doctor`       | When something seems off. It checks the settings, files, version, secrets, board, and each tool's own setup |
 
 `init` asks its questions in the terminal, and reads each token in a
-masked prompt. `doctor` exits 1 when a check fails. GitHub never lets a
-secret be read back, so `doctor` checks only that each secret your parts
-read is set. `sync --check` and `config check` end with
-`✓ The factory's files match the settings.` and
-`✓ The settings are valid.` when all is well.
+masked prompt.
 
-`board check` prints one row for each state and each field, marked as
-`doctor` marks its checks: ✓ works, ✗ needs fixing and exits 1, ? worth
-a look, and - off on purpose. The words after the mark mean:
+`sync --check` ends with `✓ The factory's files match the settings.`,
+and `config check` with `✓ The settings are valid.`, when there is
+nothing to fix.
 
-| Words                         | Meaning                                                                    |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| `synced`                      | The board sync fills this field in on every card                           |
-| `skipped: no such field`      | The field is left at its default name, and the board has none of that name |
-| `off`                         | The settings set this field to `none`                                      |
-| `none, shows in COLUMN`       | The state has no column, so its tickets show in COLUMN                     |
-| `no state: left alone`        | No state names this column, so the sync leaves its cards where they are    |
-| `no such column on the board` | The settings name a column the board lacks                                 |
+`doctor` prints its checks under headings: `Settings and files`, then
+each tool's name, such as `GitHub` or `Claude Code`, then the parts you
+left off. Each check starts with a mark: ✓ works, ✗ needs fixing, ?
+can't be told from here, and - off on purpose. `doctor` exits 1 when a
+check fails. GitHub never lets a secret be read back, so `doctor` checks
+only that each secret your parts read is set.
+
+`board check` prints two blocks, each headed by the setting it shows.
+Under [`tickets.columns`](configuration.md#ticketscolumns) is a row for
+each of a ticket's states, such as `backlog` or `review`, with the
+[board](glossary.md) column it sits in. Under
+[`tickets.fields`](configuration.md#ticketsfields) is a row for each
+field the [board sync](glossary.md) fills in on a card. A row is a mark,
+the state or the field, and what the factory makes of it, such as
+`✗ review     In review: no such column on the board`. When every row is
+✓ or -, the factory reads your board as your settings say. A ✗ makes the
+command exit 1.
+
+| Mark | Words after the state or field     | What to do                                                                                                  |
+| ---- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| ✓    | the column's name, or `synced`     | Nothing                                                                                                     |
+| -    | `none, shows in Backlog`, or `off` | Nothing: the settings set it to `none`, so the ticket shows in the column named, or the field is left empty |
+| ?    | `skipped: no such field`           | Add the field to the board, or set it to `none` under `tickets.fields`, if you want it gone from this list  |
+| ?    | `no state: left alone`             | Name the column under `tickets.columns` if the factory should move cards there; otherwise nothing           |
+| ✗    | `no such column on the board`      | Add the column to the board, or change its name under `tickets.columns` to one the board has                |
 
 ## Every day
 
