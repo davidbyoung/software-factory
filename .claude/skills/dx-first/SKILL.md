@@ -72,7 +72,9 @@ design, not a menu of options: the owner reacts to something concrete,
 and the two refine it. It has:
 
 - **A transcript of each command the reader runs,** with its whole output,
-  on success and on each way it fails or asks something.
+  on success and on each way it fails or asks something. Each transcript
+  follows "A command's output" in `docs/developing.md`, not the rules for
+  a page.
 - **Each file the reader writes or reads,** in full: the settings they
   paste, and the files the command writes for them.
 - **A Mermaid diagram of each workflow,** such as a first install, an
