@@ -133,14 +133,14 @@ export const githubCodeHostSetup: ToolSetup = {
       return [
         {
           state: "pass",
-          text: `Signed in to the code host as ${await c.opened.codeHost.signedInAs()}`,
+          text: `Signed in as ${await c.opened.codeHost.signedInAs()}`,
         },
       ];
     } catch (e) {
       return [
         {
           state: "fail",
-          text: "Signed in to the code host",
+          text: "Signed in",
           fix: e instanceof Error ? e.message : String(e),
         },
       ];

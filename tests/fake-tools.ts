@@ -98,10 +98,10 @@ export function withFakeAgent(
   const setup: ToolSetup = {
     checks: async (c) => [
       existsSync(join(c.root, FAKE_AGENT_FILE))
-        ? { state: "pass", text: `Fake Agent: ${FAKE_AGENT_FILE} is there` }
+        ? { state: "pass", text: `${FAKE_AGENT_FILE} is there` }
         : {
             state: "fail",
-            text: `Fake Agent: ${FAKE_AGENT_FILE} is there`,
+            text: `${FAKE_AGENT_FILE} is there`,
             fix: "Run fake-agent init",
           },
     ],

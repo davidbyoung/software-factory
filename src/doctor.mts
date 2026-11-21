@@ -4,6 +4,7 @@
 //
 // A stored secret cannot be read back, so a secret is checked only for
 // being set.
+import { listed } from "./lib/listed.mts";
 import { existsSync, readFileSync } from "node:fs";
 import { load } from "js-yaml";
 import type { CodeHost } from "./code-host/index.mts";
@@ -58,8 +59,10 @@ export type DoctorDeps = {
   paint?: Paint;
 };
 
-const SYNC = "Run npx --no-install factory sync";
-const INIT = "Run npx --no-install factory init";
+const SYNC = "Run factory sync";
+const INIT = "Run factory init";
+const SETTINGS = "Settings and files";
+const OFF = "Parts that are off";
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** -1, 0, or 1 as version `a` is older than, the same as, or newer than `b`. */
@@ -81,7 +84,14 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   try {
     s = await d.settings();
   } catch (e) {
-    return [{ state: "fail", text: "The settings are valid", fix: message(e) }];
+    return [
+      {
+        state: "fail",
+        text: "The settings are valid",
+        fix: message(e),
+        group: SETTINGS,
+      },
+    ];
   }
   out.push({ state: "pass", text: "The settings are valid" });
 
@@ -120,6 +130,9 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       fix: compareVersions(installed, locked) < 0 ? "Run npm ci" : SYNC,
     });
   out.push(...((await d.lockChecks?.()) ?? []));
+  for (const c of out) c.group = SETTINGS;
+  const under = (group: string, found: Check[]) =>
+    found.map((c) => ({ ...c, group }));
 
   const chosen: Chosen = {
     codeHost: s.codeHost.type,
@@ -146,8 +159,10 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   });
   const [agent, codeHost, tickets, runner] = inUse(d.tools, chosen);
   out.push(
-    ...((await codeHost!.setup.checks?.({ ...context([]), secrets: null })) ??
-      []),
+    ...under(
+      codeHost!.label,
+      (await codeHost!.setup.checks?.({ ...context([]), secrets: null })) ?? [],
+    ),
   );
 
   // A secret the organization shares with the repository counts as set.
@@ -166,6 +181,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       state: "fail",
       text: "The secrets can be listed",
       fix: message(e),
+      group: runner!.label,
     });
   }
   const secrets = own === null ? null : [...own, ...shared];
@@ -185,15 +201,25 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
           fix: INIT,
         };
   };
+  // One line per secret, naming every part that reads it.
+  const reads = new Map<string, { anyOf: string[]; fors: string[] }>();
+  const reading = (anyOf: string[], forWhat: string) => {
+    // Parts can accept different names for one secret: the one set is the
+    // line, or the names asked for when none is.
+    const key = anyOf.find((n) => secrets!.includes(n)) ?? anyOf.join(" or ");
+    const entry = reads.get(key) ?? { anyOf, fors: [] };
+    if (!entry.fors.includes(forWhat)) entry.fors.push(forWhat);
+    reads.set(key, entry);
+  };
   for (const part of PARTS) {
     if (!on.has(part)) {
-      out.push({ state: "off", text: `${PART_TEXT[part].name}: off` });
+      out.push({ state: "off", text: PART_TEXT[part].name, group: OFF });
       continue;
     }
     if (secrets === null) continue;
     const forPart = PART_TEXT[part].name.replace(/^./, (c) => c.toLowerCase());
     for (const need of needed.filter((n) => n.part === part))
-      out.push(secretLine(need.anyOf, forPart));
+      reading(need.anyOf, forPart);
   }
   // A gate is no part and fails no check: it is shown as off, since a
   // build cannot finish without one.
@@ -201,26 +227,52 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     out.push({
       state: "off",
       text: "commands.gate is not set: a build cannot finish until it is",
+      group: SETTINGS,
     });
   if (secrets !== null)
     for (const need of needed.filter((n) => n.part === null))
-      out.push(secretLine(need.anyOf, need.tool));
+      reading(need.anyOf, need.tool);
+  for (const { anyOf, fors } of reads.values())
+    out.push({ ...secretLine(anyOf, listed(fors)), group: runner!.label });
 
-  out.push(...(await npmChecks(d.root, opened, isOrganization, own, shared)));
+  out.push(
+    ...under(
+      runner!.label,
+      await npmChecks(d.root, opened, isOrganization, own, shared),
+    ),
+  );
 
   for (const tool of [tickets, runner, agent])
     out.push(
-      ...((await tool!.setup.checks?.({ ...context(on), secrets })) ?? []),
+      ...under(
+        tool!.label,
+        (await tool!.setup.checks?.({ ...context(on), secrets })) ?? [],
+      ),
     );
   out.push(
-    ...(await fieldChecks(
-      opened.tickets,
-      s.tickets.ticketFields,
-      s.repository,
+    ...under(
       tickets!.label,
-    )),
+      await fieldChecks(
+        opened.tickets,
+        s.tickets.ticketFields,
+        s.repository,
+        tickets!.label,
+      ),
+    ),
   );
-  return out;
+  const order = [
+    SETTINGS,
+    codeHost!.label,
+    runner!.label,
+    tickets!.label,
+    agent!.label,
+    OFF,
+  ];
+  const rank = (c: Check) => order.indexOf(c.group ?? SETTINGS);
+  return out
+    .map((c, i) => [c, i] as const)
+    .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
+    .map(([c]) => c);
 }
 
 const DEPENDABOT = ".github/dependabot.yml";
@@ -372,9 +424,30 @@ export function line(c: Check, paint: Paint = plain): string {
   return `${paint("red", "✗")} ${c.text}${!fix ? "" : /^Run /.test(fix) ? `. ${fix}` : `: ${fix}`}`;
 }
 
+/** The checks under their headings, each group apart from the next, the
+ * whole indented by `indent` spaces. */
+export function printChecks(
+  found: Check[],
+  paint: Paint = plain,
+  indent = 0,
+): string[] {
+  const at = " ".repeat(indent);
+  const out: string[] = [];
+  let heading: string | undefined;
+  for (const c of found) {
+    if (c.group !== heading || out.length === 0) {
+      if (out.length) out.push("");
+      heading = c.group;
+      if (heading) out.push(`${at}${heading}`);
+    }
+    out.push(`${at}${heading ? "  " : ""}${line(c, paint)}`);
+  }
+  return out;
+}
+
 export async function main(_argv: string[], d: DoctorDeps): Promise<number> {
   const found = await checks(d);
-  for (const c of found) d.out(line(c, d.paint));
+  for (const l of printChecks(found, d.paint)) d.out(l);
   return found.some((c) => c.state === "fail") ? 1 : 0;
 }
 

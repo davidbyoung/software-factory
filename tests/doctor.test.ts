@@ -81,7 +81,10 @@ function doctor(o: {
   ticketGroups?: Group[];
   ticketsFail?: NonNullable<Parameters<typeof memoryTickets>[1]>["fail"];
 }) {
+  /** Each check's line, without its heading's indent; `printed` is the
+   * output as printed, headings included. */
   const out: string[] = [];
+  const printed: string[] = [];
   const tickets = memoryTickets([], {
     ticketFields: o.ticketFields,
     groups: o.ticketGroups,
@@ -129,11 +132,24 @@ function doctor(o: {
     root: checkout(o.files),
     hasCommand: (name) => name !== "claude" || o.claude !== false,
     tools,
-    out: (line) => out.push(line),
+    out: (line) => {
+      printed.push(line);
+      if (line.startsWith("  ")) out.push(line.slice(2));
+    },
     paint: o.paint,
   };
-  return { run: () => main([], d), out };
+  return { run: () => main([], d), out, printed };
 }
+
+/** The checks printed under `heading`, without their indent. */
+const section = (printed: string[], heading: string) => {
+  const at = printed.indexOf(heading);
+  if (at < 0) return [];
+  const end = printed.indexOf("", at);
+  return printed
+    .slice(at + 1, end < 0 ? undefined : end)
+    .map((l) => l.slice(2));
+};
 
 const SIX = [
   "Backlog",
@@ -145,29 +161,36 @@ const SIX = [
 ];
 
 describe("factory doctor", () => {
-  it("passes a repository with only the basics, listing every part as off", async () => {
-    const { run, out } = doctor({});
+  it("passes a repository with only the basics, listing every part as off, under headings", async () => {
+    const { run, printed } = doctor({});
     expect(await run()).toBe(0);
-    expect(out).toEqual([
-      "✓ The settings are valid",
-      "✓ The factory's files match the settings",
-      "✓ Version 0.2.0 is installed, as the repository records",
-      "✓ Signed in to the code host as dave",
-      "- An automated review of every pull request: off",
-      "- A board: off",
-      "- Builds in the cloud: off",
-      "- Builds that start when you move a card to Ready: off",
-      "- Pull requests that merge themselves: off",
-      "- Signed commits from cloud builds: off",
-      "- commands.gate is not set: a build cannot finish until it is",
-      "✓ Claude Code: CLAUDE.md imports the factory's rules",
-      "✓ Claude Code: .claude/settings.json has the factory's hooks",
-      "✓ Claude Code: the claude command is installed",
+    expect(printed).toEqual([
+      "Settings and files",
+      "  ✓ The settings are valid",
+      "  ✓ The factory's files match the settings",
+      "  ✓ Version 0.2.0 is installed, as the repository records",
+      "  - commands.gate is not set: a build cannot finish until it is",
+      "",
+      "GitHub",
+      "  ✓ Signed in as dave",
+      "",
+      "Claude Code",
+      "  ✓ CLAUDE.md imports the factory's rules",
+      "  ✓ .claude/settings.json has the factory's hooks",
+      "  ✓ The claude command is installed",
+      "",
+      "Parts that are off",
+      "  - An automated review of every pull request",
+      "  - A board",
+      "  - Builds in the cloud",
+      "  - Builds that start when you move a card to Ready",
+      "  - Pull requests that merge themselves",
+      "  - Signed commits from cloud builds",
     ]);
   });
 
-  it("prints the same lines, word for word, with every part on", async () => {
-    const { run, out } = doctor({
+  it("prints each secret once, naming every part that reads it, under the runner's name", async () => {
+    const { run, printed } = doctor({
       raw: {
         "pr-review": null,
         tickets: { board: 3 },
@@ -184,25 +207,29 @@ describe("factory doctor", () => {
       columns: SIX,
     });
     expect(await run()).toBe(0);
-    expect(out).toMatchInlineSnapshot(`
-      [
-        "✓ The settings are valid",
-        "✓ The factory's files match the settings",
-        "✓ Version 0.2.0 is installed, as the repository records",
-        "✓ Signed in to the code host as dave",
-        "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request",
-        "✓ FACTORY_BOARD_TOKEN is set, for a board",
-        "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for builds in the cloud",
-        "✓ FACTORY_BOARD_TOKEN is set, for builds in the cloud",
-        "✓ FACTORY_BOARD_TOKEN is set, for builds that start when you move a card to Ready",
-        "✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
-        "✓ FACTORY_SIGNING_KEY is set, for signed commits from cloud builds",
-        "✓ Board 3 has every column the settings name",
-        "✓ Claude Code: CLAUDE.md imports the factory's rules",
-        "✓ Claude Code: .claude/settings.json has the factory's hooks",
-        "✓ Claude Code: the claude command is installed",
-      ]
-    `);
+    expect(printed).toEqual([
+      "Settings and files",
+      "  ✓ The settings are valid",
+      "  ✓ The factory's files match the settings",
+      "  ✓ Version 0.2.0 is installed, as the repository records",
+      "",
+      "GitHub",
+      "  ✓ Signed in as dave",
+      "",
+      "GitHub Actions",
+      "  ✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request and builds in the cloud",
+      "  ✓ FACTORY_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
+      "  ✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
+      "  ✓ FACTORY_SIGNING_KEY is set, for signed commits from cloud builds",
+      "",
+      "GitHub Issues",
+      "  ✓ Board 3 has every column the settings name",
+      "",
+      "Claude Code",
+      "  ✓ CLAUDE.md imports the factory's rules",
+      "  ✓ .claude/settings.json has the factory's hooks",
+      "  ✓ The claude command is installed",
+    ]);
   });
 
   describe("the gate", () => {
@@ -250,7 +277,7 @@ describe("factory doctor", () => {
     const { run, out } = doctor({ outOfStep: ["a", "b"] });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ The factory's files match the settings: 2 differ. Run npx --no-install factory sync",
+      "✗ The factory's files match the settings: 2 differ. Run factory sync",
     );
   });
 
@@ -274,7 +301,7 @@ describe("factory doctor", () => {
     const { run, out } = doctor({ installed: "0.3.0", locked: "0.2.0" });
     expect(await run()).toBe(1);
     expect(out[2]).toBe(
-      "✗ Version 0.3.0 is installed, but the repository records 0.2.0. Run npx --no-install factory sync",
+      "✗ Version 0.3.0 is installed, but the repository records 0.2.0. Run factory sync",
     );
   });
 
@@ -299,7 +326,7 @@ describe("factory doctor", () => {
       "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request",
     );
     expect(out).toContain(
-      "✗ FACTORY_AUTOMERGE_TOKEN is not set, for pull requests that merge themselves. Run npx --no-install factory init",
+      "✗ FACTORY_AUTOMERGE_TOKEN is not set, for pull requests that merge themselves. Run factory init",
     );
   });
 
@@ -321,7 +348,7 @@ describe("factory doctor", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out.find((l) => l.startsWith("✗ Board"))).toMatch(
-      /^✗ Board 3: the Status field lacks In refinement .*\. Run npx --no-install factory init$/,
+      /^✗ Board 3: the Status field lacks In refinement .*\. Run factory init$/,
     );
   });
 
@@ -340,7 +367,7 @@ describe("factory doctor", () => {
     const lacking = board(SIX);
     expect(await lacking.run()).toBe(1);
     expect(lacking.out.find((l) => l.startsWith("✗ Board"))).toBe(
-      "✗ Board 3: the Status field lacks QA (tickets.columns.review). Run npx --no-install factory init",
+      "✗ Board 3: the Status field lacks QA (tickets.columns.review). Run factory init",
     );
   });
 
@@ -354,7 +381,7 @@ describe("factory doctor", () => {
       const r = doctor({ raw: FAKE, tools: fake });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        `✗ ${FAKE_TOKEN} is not set, for Fake Tickets. Run npx --no-install factory init`,
+        `✗ ${FAKE_TOKEN} is not set, for Fake Tickets. Run factory init`,
       );
     });
 
@@ -375,10 +402,10 @@ describe("factory doctor", () => {
     it("passes Claude Code's three pieces when each is there", async () => {
       const r = doctor({});
       expect(await r.run()).toBe(0);
-      expect(r.out.slice(-3)).toEqual([
-        "✓ Claude Code: CLAUDE.md imports the factory's rules",
-        "✓ Claude Code: .claude/settings.json has the factory's hooks",
-        "✓ Claude Code: the claude command is installed",
+      expect(section(r.printed, "Claude Code")).toEqual([
+        "✓ CLAUDE.md imports the factory's rules",
+        "✓ .claude/settings.json has the factory's hooks",
+        "✓ The claude command is installed",
       ]);
     });
 
@@ -386,7 +413,7 @@ describe("factory doctor", () => {
       const r = doctor({ files: { "CLAUDE.md": "# Ours\n" } });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        "✗ Claude Code: CLAUDE.md imports the factory's rules. Run npx --no-install factory sync",
+        "✗ CLAUDE.md imports the factory's rules. Run factory sync",
       );
     });
 
@@ -403,7 +430,7 @@ describe("factory doctor", () => {
       });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        "✗ Claude Code: .claude/settings.json has the factory's hooks. Run npx --no-install factory sync",
+        "✗ .claude/settings.json has the factory's hooks. Run factory sync",
       );
     });
 
@@ -411,16 +438,16 @@ describe("factory doctor", () => {
       const r = doctor({ claude: false });
       expect(await r.run()).toBe(1);
       expect(r.out).toContain(
-        "✗ Claude Code: the claude command is installed: Install Claude Code, then sign in",
+        "✗ The claude command is installed: Install Claude Code, then sign in",
       );
     });
 
     it("fails on another agent's missing configuration in its words", async () => {
       const r = doctor({ tools: (b) => withFakeAgent(b) });
       expect(await r.run()).toBe(1);
-      expect(r.out.at(-1)).toBe(
-        `✗ Fake Agent: ${FAKE_AGENT_FILE} is there. Run fake-agent init`,
-      );
+      expect(section(r.printed, "Fake Agent")).toEqual([
+        `✗ ${FAKE_AGENT_FILE} is there. Run fake-agent init`,
+      ]);
       expect(r.out.join("\n")).not.toContain("Claude Code");
     });
   });
@@ -465,8 +492,8 @@ describe("factory doctor", () => {
       expect(out).toEqual(without.out);
     });
 
-    it("passes a token set for Actions and for Dependabot, and a registry Dependabot uses, after the secrets and before the tools' checks", async () => {
-      const { run, out } = doctor({
+    it("passes a token set for Actions and for Dependabot, and a registry Dependabot uses, under the runner's name", async () => {
+      const { run, printed } = doctor({
         files: {
           ".npmrc": NPMRC,
           ".github/dependabot.yml": DEPENDABOT(JFROG, "    registries: [acme]"),
@@ -475,23 +502,19 @@ describe("factory doctor", () => {
         dependabotSecrets: { NPM_TOKEN: "x" },
       });
       expect(await run()).toBe(0);
-      const at = out.indexOf(
-        "- commands.gate is not set: a build cannot finish until it is",
-      );
-      expect(out.slice(at + 1, at + 4)).toEqual([
+      expect(section(printed, "GitHub Actions")).toEqual([
         SET,
         SET_DEPENDABOT,
         `✓ .github/dependabot.yml uses ${JFROG} for its npm updates`,
       ]);
-      expect(out[at + 4]).toMatch(/^✓ Claude Code:/);
     });
 
     it("fails a token not set, for Actions and for Dependabot, naming init", async () => {
       const { run, out } = doctor({ files: { ".npmrc": NPMRC } });
       expect(await run()).toBe(1);
       expect(npmLines(out)).toEqual([
-        "✗ NPM_TOKEN is not set, for installing what .npmrc names. Run npx --no-install factory init",
-        "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run npx --no-install factory init",
+        "✗ NPM_TOKEN is not set, for installing what .npmrc names. Run factory init",
+        "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run factory init",
       ]);
     });
 
@@ -633,7 +656,7 @@ describe("factory doctor", () => {
         });
         expect(await run()).toBe(1);
         expect(npmLines(out).at(-1)).toBe(
-          "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run npx --no-install factory init",
+          "✗ NPM_TOKEN is not set for Dependabot, for installing on Dependabot's pull requests. Run factory init",
         );
       });
     });
@@ -784,6 +807,6 @@ describe("factory doctor, in color", () => {
     const { run, out } = doctor({ paint });
     await run();
     expect(out[0]).toBe(`${paint("green", "✓")} The settings are valid`);
-    expect(out).toContain(`${paint("dim", "-")} A board: off`);
+    expect(out).toContain(`${paint("dim", "-")} A board`);
   });
 });

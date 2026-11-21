@@ -20,6 +20,9 @@ export type Check = {
   text: string;
   /** What to do about a failure. */
   fix?: string;
+  /** The heading `doctor` prints it under: a tool's name, or one of its
+   * own. */
+  group?: string;
 };
 
 /** A secret is needed for a part that is on, or always when `part` is

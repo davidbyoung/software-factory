@@ -5,7 +5,7 @@ import { fieldNamesOf } from "../config.mts";
 import { listed } from "../lib/listed.mts";
 import type { ToolSetup } from "../setup.mts";
 
-const INIT = "Run npx --no-install factory init";
+const INIT = "Run factory init";
 
 export const githubTicketsSetup: ToolSetup = {
   checks: async (c) => {

@@ -39,7 +39,7 @@ import {
   type Settings,
 } from "./config.mts";
 import { colorOn, painter, type Paint } from "./lib/color.mts";
-import { checks as doctorChecks, doctorDeps, line } from "./doctor.mts";
+import { checks as doctorChecks, doctorDeps, printChecks } from "./doctor.mts";
 import {
   branchDeps,
   needDefaultBranch,
@@ -885,7 +885,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   d.out("");
   d.out("Checks");
   const found2 = await d.checks();
-  for (const c of found2) d.out(`  ${line(c, d.paint)}`);
+  for (const l of printChecks(found2, d.paint, 2)) d.out(l);
   return found2.some((c) => c.state === "fail") ? 1 : 0;
 }
 
