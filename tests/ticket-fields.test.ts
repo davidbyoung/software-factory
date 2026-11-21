@@ -79,6 +79,26 @@ describe("split", () => {
     });
   });
 
+  it("reads a longer fence as closed only by one at least as long", () => {
+    const doc =
+      "Intro\n\n## Spec\n\n1. a\n\n````md\n```\n## Mockups\n```\nstill code\n````\n\nmore spec\n";
+    expect(split(doc, { spec: "Spec F" })).toEqual({
+      description: "Intro\n",
+      values: {
+        "Spec F":
+          "1. a\n\n````md\n```\n## Mockups\n```\nstill code\n````\n\nmore spec",
+      },
+    });
+  });
+
+  it("ends a section at a heading of the repository's own kept in the description", () => {
+    const doc = "Intro\n\n## A\n\naa\n\n## B\n\nbee\n";
+    expect(split(doc, { a: "A", b: null })).toEqual({
+      description: "Intro\n\n## B\n\nbee\n",
+      values: { A: "aa" },
+    });
+  });
+
   it("matches a heading of the repository's own by its key, ignoring capitals", () => {
     const doc =
       "Ask.\n\n## Proposed Docs\n\nThe page.\n\n## Decisions\n\n- One.\n";

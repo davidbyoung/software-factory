@@ -62,11 +62,11 @@ function headings(lines: string[]): (string | null)[] {
   return lines.map((line) => {
     const mark = /^\s*(```+|~~~+)/.exec(line)?.[1];
     if (fence === null && mark) {
-      fence = mark[0]!;
+      fence = mark;
       return null;
     }
     if (fence !== null) {
-      if (mark?.[0] === fence) fence = null;
+      if (mark?.[0] === fence[0] && mark.length >= fence.length) fence = null;
       return null;
     }
     const h = /^## (.+?)\s*$/.exec(line);
@@ -113,7 +113,7 @@ export function split(
   const enders = new Set([
     ...FACTORY_FIELDS.map((f) => f.key as string),
     MOCKUPS,
-    ...fieldOf.keys(),
+    ...Object.keys(mapping),
   ]);
 
   const kept: string[][] = [[]];
