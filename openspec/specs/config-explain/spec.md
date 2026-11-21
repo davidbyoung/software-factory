@@ -131,3 +131,12 @@ The factory SHALL behave as this line says: `factory config explain` prints the 
 
 - **WHEN** `factory config explain` runs, with or without `tickets.board`
 - **THEN** `factory config explain` prints the four ticket-side keys under `tickets.fields`, each as its ticket field or `none`, and any key of the repository's own heading as written, whether or not `tickets.board` is set. `tickets.columns`, and `tickets.fields`' `session`, `runs-in`, and `cost`, print only when `tickets.board` is set, as today.
+
+### Requirement: Explain prints the branch name
+
+The factory SHALL behave as this line says: When `factory config explain` runs, it prints `code-host` as a block with `type` and `branch-name`, never on one line, with `branch-name` in double quotes, unmarked when the file sets it and marked with the preset's name when a preset does.
+
+#### Scenario: Explain prints the branch name
+
+- **WHEN** `factory config explain` runs
+- **THEN** it prints `code-host` as a block with `type` and `branch-name`, never on one line, with `branch-name` in double quotes, unmarked when the file sets it and marked with the preset's name when a preset does.
