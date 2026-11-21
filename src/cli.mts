@@ -382,8 +382,7 @@ export function usage(): string {
   }
   lines.push(
     "",
-    "The commands skills, hooks, and workflows run are listed in",
-    "https://github.com/davidbyoung/software-factory/blob/main/docs/cli.md#run-for-you",
+    'The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.',
   );
   return lines.join("\n");
 }

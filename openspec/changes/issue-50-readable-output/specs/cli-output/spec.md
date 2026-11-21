@@ -11,7 +11,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Usage with no command
 
 - **WHEN** `factory` runs with no command
-- **THEN** it prints, on standard error, `Usage: factory COMMAND`, then the groups `Setting up`, `Every day`, `Now and then`, `Presets`, and `Your repository's commands`, each command indented two spaces and padded to 21 characters before its one-line description, or alone on its line with the description on the next, indented 23 spaces, when the command is longer than 20 characters, as Proposed docs shows, then `The commands skills, hooks, and workflows run are listed in` and `https://github.com/davidbyoung/software-factory/blob/main/docs/cli.md#run-for-you` on the next line, and exits 2.
+- **THEN** it prints, on standard error, `Usage: factory COMMAND`, then the groups `Setting up`, `Every day`, `Now and then`, `Presets`, and `Your repository's commands`, each command indented two spaces and padded to 21 characters before its one-line description, or alone on its line with the description on the next, indented 23 spaces, when the command is longer than 20 characters, as Proposed docs shows, then `The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.`, and exits 2.
 
 ### Requirement: Usage for a command it does not have
 

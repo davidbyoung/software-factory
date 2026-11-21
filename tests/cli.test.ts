@@ -97,10 +97,9 @@ describe("factory's usage", () => {
     expect(r.stderr).toContain(
       "  preset choose KEY PRESET\n                       Record one of those choices without questions",
     );
-    expect(r.stderr.trimEnd().split("\n").slice(-2)).toEqual([
-      "The commands skills, hooks, and workflows run are listed in",
-      "https://github.com/davidbyoung/software-factory/blob/main/docs/cli.md#run-for-you",
-    ]);
+    expect(r.stderr.trimEnd().split("\n").at(-1)).toBe(
+      'The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.',
+    );
   });
 
   it("lists exactly the commands the docs list under a person's headings", () => {

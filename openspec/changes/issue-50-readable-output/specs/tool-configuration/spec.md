@@ -2,12 +2,12 @@
 
 ### Requirement: Claude Code's configuration lines
 
-The factory SHALL behave as this line says: `factory doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports the factory's rules`, `.claude/settings.json has the factory's hooks`, and `the claude command is installed`.
+The factory SHALL behave as this line says: `factory doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports the factory's rules`, `.claude/settings.json has the factory's hooks`, and `The claude command is installed`.
 
 #### Scenario: Claude Code's configuration lines
 
 - **WHEN** `factory doctor` runs with Claude Code
-- **THEN** `factory doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports the factory's rules`, `.claude/settings.json has the factory's hooks`, and `the claude command is installed`.
+- **THEN** `factory doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports the factory's rules`, `.claude/settings.json has the factory's hooks`, and `The claude command is installed`.
 
 ### Requirement: Claude Code's files are missing
 
