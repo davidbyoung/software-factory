@@ -29,8 +29,15 @@ In your repository, with the package
 factory init
 ```
 
-It shows what it found, then asks which parts you want. Each is optional
-and stands alone:
+It shows what it found, then asks what to name the branch a session
+pushes when it builds a ticket, offering `{ticket}`, the ticket's
+number, so ticket 12 is built on a branch named `12`. Press Enter to
+keep it, or type your team's pattern, such as `feature/{user}/{ticket}`,
+where `{user}` is your GitHub account;
+[`code-host`](../configuration.md#code-host) lists what a pattern can
+hold. When a [preset](../presets.md) you follow already sets it, init
+doesn't ask. Then it asks which parts you want. Each is optional and
+stands alone:
 
 | Part                                            | What you get                                                                   |
 | ----------------------------------------------- | ------------------------------------------------------------------------------ |

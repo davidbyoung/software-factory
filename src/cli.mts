@@ -372,6 +372,7 @@ const USAGE: [string, [string, string][]][] = [
       ["test-one FILE [NAME]", "Run one test file, or one test in it"],
       ["end-to-end FILE", "Run one end-to-end spec"],
       ["specs check", "Check your written specs"],
+      ["specs change-name N", "Print the name of ticket N's spec change"],
       ["default-branch", "Print the default branch's name"],
     ],
   ],

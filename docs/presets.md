@@ -18,9 +18,11 @@ It has two readers:
 Without a preset, every repository's
 [`.claude/factory.yaml`](configuration.md) repeats the same lines, such as
 the board's number in [`tickets.board`](configuration.md#tickets), the
-size limit in [`rules.small-change-lines`](configuration.md#rules), and
-the same [reviewer plugins](plugins.md#reviewer), your own agents that
-read every change. Changing one of them means a pull request in every
+size limit in [`rules.small-change-lines`](configuration.md#rules), the
+way your team names branches in
+[`code-host.branch-name`](configuration.md#code-host), and the same
+[reviewer plugins](plugins.md#reviewer), your own agents that read every
+change. Changing one of them means a pull request in every
 repository, and nothing shows which ones have fallen behind.
 
 With a preset, a repository names it under
@@ -305,6 +307,9 @@ maintains the preset.
        building: In progress
        review: In review
        done: Done
+   code-host:
+     type: github
+     branch-name: "feature/{user}/{ticket}"
    rules:
      small-change-lines: 40
    plugins:
