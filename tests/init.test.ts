@@ -1461,7 +1461,7 @@ describe("factory init, the branch name", () => {
     );
   });
 
-  it("writes a pattern of the person's own", async () => {
+  it("writes a pattern of the person's own, quoted", async () => {
     const r = quick({
       answers: {
         checkbox: [[]],
@@ -1470,10 +1470,9 @@ describe("factory init, the branch name", () => {
       },
     });
     await r.run();
-    expect(r.yaml()["code-host"]).toEqual({
-      type: "github",
-      "branch-name": "feature/{user}/{ticket}",
-    });
+    expect(r.read(".claude/factory.yaml")).toContain(
+      'code-host:\n  type: github\n  branch-name: "feature/{user}/{ticket}"\n',
+    );
   });
 
   it("says why it refuses a pattern, and asks again", async () => {
