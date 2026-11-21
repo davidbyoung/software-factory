@@ -8,6 +8,7 @@ import {
   TRIGGERS,
   parseSettings,
 } from "../src/config.mts";
+import { FACTORY_COLUMNS } from "./factory-columns";
 
 type Block = { properties: Record<string, unknown>; enum?: string[] };
 const schema = JSON.parse(
@@ -64,6 +65,21 @@ const yamlBlocks = (md: string) =>
 const complete = yamlBlocks(read("../docs/configuration.md")).filter((b) =>
   b.includes("repository:"),
 );
+
+describe("tickets.columns in the schema", () => {
+  const columns = schema.definitions["tickets.columns"] as Block & {
+    description: string;
+    properties: Record<string, { description: string }>;
+  };
+
+  it("gives no state a default, and says a board needs all six", () => {
+    for (const state of Object.values(columns.properties))
+      expect(state.description).not.toMatch(/Default/);
+    expect(columns.description).toMatch(
+      /With a board, all six states are required/,
+    );
+  });
+});
 
 describe("the schema and parseSettings agree on whole files", () => {
   it("finds the three complete files and the shortest", () => {
@@ -125,7 +141,11 @@ describe("the schema and parseSettings agree on whole files", () => {
       ...base,
       tickets: {
         board: 3,
-        columns: { backlog: "Todo", review: ["Code review", "QA"] },
+        columns: {
+          ...FACTORY_COLUMNS,
+          backlog: "Todo",
+          review: ["Code review", "QA"],
+        },
       },
     };
     expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);

@@ -13,6 +13,7 @@ import {
 } from "../src/config.mts";
 import { main, PACKAGE, withNpmEnv } from "../src/sync.mts";
 import { own, put, read, repo } from "./preset-fixture.ts";
+import { FACTORY_COLUMNS_YAML } from "./factory-columns";
 
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -44,6 +45,7 @@ function everyPart(npmrc: string | null) {
       [
         "tickets:",
         "  board: 7",
+        FACTORY_COLUMNS_YAML,
         "builds:",
         "  trigger: github-action",
         "auto-merge:",

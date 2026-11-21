@@ -21,6 +21,7 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
+import { FACTORY_COLUMNS_YAML } from "./factory-columns";
 
 const LAUNCHER = "node_modules/@davidbyoung/software-factory/bin/factory.js";
 const SETTINGS = [
@@ -28,6 +29,7 @@ const SETTINGS = [
   "repository: acme/site",
   "tickets:",
   "  board: 3",
+  FACTORY_COLUMNS_YAML,
   "pr-review:",
   "  commands: []",
   "",

@@ -31,6 +31,7 @@ import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import type { Ticket } from "../src/tickets/types.mts";
 import saved from "./fixtures/sync/repo.json";
 import boardPages from "./fixtures/sync/board.json";
+import { FACTORY_COLUMNS } from "./factory-columns";
 
 /** The sync fixture's tickets and cards in the in-memory adapter, and its
  * open pull requests. `fail` makes the tickets' list fail. */
@@ -897,7 +898,11 @@ describe("main with a mapped board", () => {
         repository: "acme/widgets",
         tickets: {
           board: 1,
-          columns: { backlog: "Todo", ready: "Ready for dev" },
+          columns: {
+            ...FACTORY_COLUMNS,
+            backlog: "Todo",
+            ready: "Ready for dev",
+          },
         },
       },
       () => true,
