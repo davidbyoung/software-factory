@@ -48,3 +48,13 @@ describe("ci.yml", () => {
     );
   });
 });
+
+describe("Codecov's settings", () => {
+  const codecov = load(
+    readFileSync(new URL("../codecov.yml", import.meta.url), "utf8"),
+  ) as { comment: { require_changes: unknown } };
+
+  it("comments on a pull request only when coverage drops", () => {
+    expect(codecov.comment.require_changes).toBe("coverage_drop");
+  });
+});
