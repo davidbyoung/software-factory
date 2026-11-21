@@ -1,5 +1,7 @@
 # Software factory
 
+[![Coverage](https://codecov.io/gh/davidbyoung/software-factory/graph/badge.svg)](https://codecov.io/gh/davidbyoung/software-factory)
+
 > **Early, and not yet for general use.** This is below 1.0: it changes
 > weekly, and any minor version may break what the one before it did,
 > without notice. Pin an exact version if you try it.

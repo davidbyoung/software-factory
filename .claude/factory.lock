@@ -2,7 +2,7 @@
 # settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
 presets: []
-settings-hash: sha256:23a6fe6171893e2c1b821588fe6ca7fea473ba5e45a5e974a7441cf18aeacf8d
+settings-hash: sha256:534d5ae0894ce4174c4167978cb24eaef0fd137230321f7e4b0a85cffadd0598
 npmrc-variables: []
 settings:
   version: 2
@@ -42,7 +42,9 @@ settings:
       - npm run check
     test-one: npx vitest run $FILE -t "$NAME"
     # end-to-end: none (default)
-    # coverage: none (default)
+    coverage:
+      run: npm run coverage
+      report: coverage/lcov.info
     relock: npm install                                                        # default
   plugins:
     refine:

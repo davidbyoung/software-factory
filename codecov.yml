@@ -1,0 +1,10 @@
+# The coverage floors in vitest.config.ts are what block a merge, so
+# Codecov's own checks only report.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true

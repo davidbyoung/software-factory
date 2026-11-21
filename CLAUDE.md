@@ -24,7 +24,8 @@ npx --no-install factory gate   # commands.gate in .claude/factory.yaml
 ```
 
 The gate here is `npm run check`: format, types, specs, the factory's
-files and settings, and the unit tests.
+files and settings, and the unit tests with coverage, which fail under
+the coverage floors set in `vitest.config.ts`.
 
 A hook runs the `commands.before-commit` commands in `.claude/factory.yaml`
 before every `git commit` and blocks the commit if one fails.
@@ -39,7 +40,8 @@ npm run site-check                              # the site comparison against th
 ```
 
 CI runs the same checks on every pull request, in `ci.yml` (format, types,
-specs, unit tests, `pack-check`, and `site-check`) and the synced
+specs, unit tests under the same coverage floors, `pack-check`, and
+`site-check`, and uploads the coverage to Codecov) and the synced
 `factory-check.yml` (the factory's files and settings). There is no
 end-to-end suite.
 

@@ -449,7 +449,7 @@ one file.
 
 | Check                  | What it proves                                                                                                                                                             |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The tool's unit tests  | Each command does what it says. A new test is seen failing before it is trusted                                                                                            |
+| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`. A new test is seen failing before it is trusted                                |
 | `factory sync --check` | The copies match the source                                                                                                                                                |
 | Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host             |
 | `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                         |
