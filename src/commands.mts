@@ -11,6 +11,7 @@
 // environment, `end-to-end` FILE, and the spec check DO_NOT_TRACK=1. An
 // argument a command does not know prints its usage and exits 2.
 import { spawnSync } from "node:child_process";
+import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   defaultDeps,
   loadSettings,
@@ -29,6 +30,7 @@ export type Deps = {
   exec: (command: string, cwd: string, env: Record<string, string>) => number;
   out: (line: string) => void;
   err: (line: string) => void;
+  paint?: Paint;
 };
 
 const USAGE = {
@@ -81,6 +83,13 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     d.err(e.message);
     return 1;
   }
+  const paint = d.paint ?? plain;
+  /** The command's own closing line, after the output passed through. */
+  const ended = (status: number, passed: string, failed: string) => {
+    if (status === 0) d.out(`${paint("green", "✓")} ${passed}`);
+    else d.err(`${paint("red", "✗")} ${failed}`);
+    return status;
+  };
   const notSet = (key: string) => {
     d.err(`commands.${key} is not set`);
     return 1;
@@ -95,35 +104,43 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     }
     for (const command of s.commands.gate) {
       d.out(`$ ${command}`);
-      if (d.exec(command, d.root, {}) !== 0) {
-        d.err(`gate failed on: ${command}`);
-        return 1;
-      }
+      if (d.exec(command, d.root, {}) !== 0)
+        return ended(1, "", `The gate failed on: ${command}`);
     }
-    return 0;
+    return ended(0, "Every gate command passed.", "");
   }
   if (name === "test-one") {
     if (s.commands.testOne === null) return notSet("test-one");
     const [file, test = ""] = args;
-    return d.exec(s.commands.testOne, d.root, { FILE: file, NAME: test });
+    return ended(
+      d.exec(s.commands.testOne, d.root, { FILE: file, NAME: test }),
+      "The test passed.",
+      "The test failed.",
+    );
   }
   if (name === "end-to-end") {
     const { file, times } = e2e!;
     const command = s.commands.endToEnd;
     if (command === null) return notSet("end-to-end");
-    if (times === null) return d.exec(command, d.root, { FILE: file });
+    const test = (status: number) =>
+      ended(status, "The test passed.", "The test failed.");
+    if (times === null) return test(d.exec(command, d.root, { FILE: file }));
     for (let run = 1; run <= times; run++)
       if (d.exec(command, d.root, { FILE: file }) !== 0) {
         d.err(`failed on run ${run} of ${times}`);
-        return 1;
+        return test(1);
       }
-    return 0;
+    return test(0);
   }
   if (s.specCheck === null) {
     d.out("specs are off");
     return 0;
   }
-  return d.exec(s.specCheck, d.root, { DO_NOT_TRACK: "1" });
+  return ended(
+    d.exec(s.specCheck, d.root, { DO_NOT_TRACK: "1" }),
+    "The specs check passed.",
+    "The specs check failed.",
+  );
 }
 
 /** `factory gate`, `factory test-one`, `factory end-to-end`, and
@@ -136,10 +153,12 @@ export async function run(argv: string[]): Promise<number> {
     exec: (command, cwd, env) =>
       spawnSync("bash", ["-c", command], {
         cwd,
-        env: { ...process.env, ...env },
+        // npm 11 prints a notice line for every script and npx it runs.
+        env: { npm_config_loglevel: "warn", ...process.env, ...env },
         stdio: ["ignore", "inherit", "inherit"],
       }).status ?? 1,
     out: (line) => console.log(line),
     err: (line) => console.error(line),
+    paint: painter(colorOn()),
   });
 }

@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { writeSettings } from "./locked.ts";
 import { main, type Deps } from "../src/commands.mts";
 import { parseSettings, SettingsError } from "../src/config.mts";
+import { painter } from "../src/lib/color.mts";
 
 const ROOT = "/repo";
 
@@ -57,6 +58,7 @@ describe("factory gate", () => {
       "(ran npm run lint)",
       "$ npm test",
       "(ran npm test)",
+      "✓ Every gate command passed.",
     ]);
     expect(err).toEqual([]);
   });
@@ -69,7 +71,7 @@ describe("factory gate", () => {
 
     expect(await main(["gate"], d)).toBe(1);
     expect(ran.map((r) => r.command)).toEqual(["one", "two"]);
-    expect(err).toEqual(["gate failed on: two"]);
+    expect(err).toEqual(["✗ The gate failed on: two"]);
   });
 
   it("fails, saying no gate is set, when commands.gate is empty", async () => {
@@ -106,6 +108,14 @@ describe("factory test-one", () => {
         env: { FILE: "tests/a.test.ts", NAME: "adds two" },
       },
     ]);
+    expect(err).toEqual(["✗ The test failed."]);
+  });
+
+  it("ends with a line saying the test passed", async () => {
+    const { d, out, err } = deps(TEST_ONE);
+
+    expect(await main(["test-one", "tests/a.test.ts"], d)).toBe(0);
+    expect(out.at(-1)).toBe("✓ The test passed.");
     expect(err).toEqual([]);
   });
 
@@ -151,11 +161,11 @@ describe("factory end-to-end", () => {
         env: { FILE: "e2e/home.spec.ts" },
       },
     ]);
-    expect(err).toEqual([]);
+    expect(err).toEqual(["✗ The test failed."]);
   });
 
   it("runs the command K times in a row with --times K, and exits 0 when every run passes", async () => {
-    const { d, ran, err } = deps(E2E);
+    const { d, ran, out, err } = deps(E2E);
 
     expect(
       await main(["end-to-end", "e2e/home.spec.ts", "--times", "3"], d),
@@ -165,6 +175,10 @@ describe("factory end-to-end", () => {
       { FILE: "e2e/home.spec.ts" },
       { FILE: "e2e/home.spec.ts" },
     ]);
+    expect(out.filter((l) => l.startsWith("✓"))).toEqual([
+      "✓ The test passed.",
+    ]);
+    expect(out.at(-1)).toBe("✓ The test passed.");
     expect(err).toEqual([]);
   });
 
@@ -175,7 +189,7 @@ describe("factory end-to-end", () => {
       await main(["end-to-end", "e2e/home.spec.ts", "--times", "5"], d),
     ).toBe(1);
     expect(ran).toHaveLength(2);
-    expect(err).toEqual(["failed on run 2 of 5"]);
+    expect(err).toEqual(["failed on run 2 of 5", "✗ The test failed."]);
   });
 
   it("fails, saying so, when commands.end-to-end is not set", async () => {
@@ -206,7 +220,7 @@ describe("factory end-to-end", () => {
 
 describe("factory specs check", () => {
   it("runs specs.check from the root with DO_NOT_TRACK=1, and exits with its status", async () => {
-    const { d, ran, out } = deps(
+    const { d, ran, out, err } = deps(
       { specs: { type: "openspec", check: "check-the-specs --all" } },
       [5],
     );
@@ -220,6 +234,28 @@ describe("factory specs check", () => {
       },
     ]);
     expect(out).toEqual(["(ran check-the-specs --all)"]);
+    expect(err).toEqual(["✗ The specs check failed."]);
+  });
+
+  it("ends with a line saying the check passed", async () => {
+    const { d, out } = deps({ specs: { type: "openspec", check: "check" } });
+
+    expect(await main(["specs-check"], d)).toBe(0);
+    expect(out).toEqual(["(ran check)", "✓ The specs check passed."]);
+  });
+
+  it("colors the closing line's mark alone when it paints", async () => {
+    const paint = painter(true);
+    const passing = deps(GATE);
+    await main(["gate"], { ...passing.d, paint });
+    expect(passing.out.at(-1)).toBe(
+      `${paint("green", "✓")} Every gate command passed.`,
+    );
+    const failing = deps(GATE, [1]);
+    await main(["gate"], { ...failing.d, paint });
+    expect(failing.err).toEqual([
+      `${paint("red", "✗")} The gate failed on: npm run lint`,
+    ]);
   });
 
   it("prints `specs are off` and exits 0 when specs.type is none", async () => {
@@ -260,7 +296,12 @@ describe("the commands' own runner", () => {
   const CLI = new URL("../src/cli.mts", import.meta.url).pathname;
   let repo: string;
 
-  function factory(settings: string, args: string[], from = "") {
+  function factory(
+    settings: string,
+    args: string[],
+    from = "",
+    extra: Record<string, string | undefined> = {},
+  ) {
     repo = mkdtempSync(join(tmpdir(), "factory-commands-"));
     execFileSync("git", ["init", "-q", repo]);
     mkdirSync(join(repo, "src/deep"), { recursive: true });
@@ -269,7 +310,14 @@ describe("the commands' own runner", () => {
       cwd: join(repo, from),
       encoding: "utf8",
       input: "TYPED-IN\n",
-      env: { ...process.env, FILE: "", NAME: "", DO_NOT_TRACK: "" },
+      env: {
+        ...process.env,
+        FILE: "",
+        NAME: "",
+        DO_NOT_TRACK: "",
+        npm_config_loglevel: undefined,
+        ...extra,
+      },
     });
   }
 
@@ -286,14 +334,18 @@ describe("the commands' own runner", () => {
     expect(r.stdout).toBe(
       `$ pwd\n${realpathSync(repo)}\n$ echo TO-ERR >&2; exit 3\n`,
     );
-    expect(r.stderr).toBe("TO-ERR\ngate failed on: echo TO-ERR >&2; exit 3\n");
+    expect(r.stderr).toBe(
+      "TO-ERR\n✗ The gate failed on: echo TO-ERR >&2; exit 3\n",
+    );
   });
 
   it("gives a command no standard input", () => {
     const r = factory('commands:\n  gate: ["cat", "echo after"]\n', ["gate"]);
 
     expect(r.status).toBe(0);
-    expect(r.stdout).toBe("$ cat\n$ echo after\nafter\n");
+    expect(r.stdout).toBe(
+      "$ cat\n$ echo after\nafter\n✓ Every gate command passed.\n",
+    );
   });
 
   it("puts FILE and NAME in test-one's environment", () => {
@@ -315,8 +367,19 @@ describe("the commands' own runner", () => {
       "2",
     ]);
 
-    expect(r.stdout).toBe("e2e/home.spec.ts\ne2e/home.spec.ts\n");
+    expect(r.stdout).toBe(
+      "e2e/home.spec.ts\ne2e/home.spec.ts\n✓ The test passed.\n",
+    );
     expect(r.status).toBe(0);
+  });
+
+  it("quiets npm's notices for a settings command, unless the caller set npm's log level", () => {
+    const gate = "commands:\n  gate: ['echo \"level=$npm_config_loglevel\"']\n";
+
+    expect(factory(gate, ["gate"]).stdout).toContain("level=warn\n");
+    expect(
+      factory(gate, ["gate"], "", { npm_config_loglevel: "info" }).stdout,
+    ).toContain("level=info\n");
   });
 
   it("puts DO_NOT_TRACK=1 in the spec check's environment", () => {
@@ -325,7 +388,7 @@ describe("the commands' own runner", () => {
       ["specs", "check"],
     );
 
-    expect(r.stdout).toBe("track=1\n");
+    expect(r.stdout).toBe("track=1\n✓ The specs check passed.\n");
     expect(r.status).toBe(0);
   });
 });
