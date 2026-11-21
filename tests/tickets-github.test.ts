@@ -642,6 +642,101 @@ describe("GitHub adapter: blockers and label history", () => {
   });
 });
 
+describe("GitHub adapter: fields", () => {
+  const fieldsAnswer = {
+    data: {
+      repository: {
+        issueFields: {
+          nodes: [
+            {
+              __typename: "IssueFieldSingleSelect",
+              id: "IF_pri",
+              name: "Priority",
+              description: null,
+            },
+            {
+              __typename: "IssueFieldText",
+              id: "IF_ac",
+              name: "Acceptance criteria",
+              description: "What must be true for this to be done",
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  it("lists the repository's issue fields, saying which hold text", async () => {
+    const { t } = tickets([[/IssueFields\(/, fieldsAnswer]]);
+    expect(await t.fields!.list()).toEqual([
+      { name: "Priority", description: null, text: false },
+      {
+        name: "Acceptance criteria",
+        description: "What must be true for this to be done",
+        text: true,
+      },
+    ]);
+    expect(t.fields!.plainText).toBe(true);
+  });
+
+  it("reads a ticket's text field values by field name", async () => {
+    const { t } = tickets([
+      [
+        /IssueFieldValues\(/,
+        {
+          data: {
+            repository: {
+              issue: {
+                issueFieldValues: {
+                  nodes: [
+                    {
+                      value: "1. When it runs, it works.",
+                      field: { name: "Acceptance criteria" },
+                    },
+                    {},
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ],
+    ]);
+    expect(await t.fields!.read(7)).toEqual({
+      "Acceptance criteria": "1. When it runs, it works.",
+    });
+  });
+
+  it("sets a field by its ID on the issue's node, and clears one", async () => {
+    const { t, calls } = tickets([
+      [/IssueFields\(/, fieldsAnswer],
+      [/^api repos\/acme\/widgets\/issues\/7$/, restIssue(7)],
+      [/mutation/, { data: {} }],
+    ]);
+    await t.fields!.write(7, {
+      "Acceptance criteria": "Done when",
+      Priority: null,
+    });
+    const mutations = calls.filter((c) => c.includes("mutation"));
+    expect(mutations).toHaveLength(2);
+    expect(mutations[0]).toMatch(/SetIssueField.*field=IF_ac/s);
+    expect(mutations[0]).toContain("text=Done when");
+    expect(mutations[0]).toContain("issue=I_7");
+    expect(mutations[1]).toMatch(/ClearIssueField.*field=IF_pri/s);
+    expect(mutations[1]).toContain("delete: true");
+  });
+
+  it("refuses to write a field the repository doesn't have", async () => {
+    const { t } = tickets([
+      [/IssueFields\(/, fieldsAnswer],
+      [/^api repos\/acme\/widgets\/issues\/7$/, restIssue(7)],
+    ]);
+    await expect(t.fields!.write(7, { Notes: "x" })).rejects.toThrow(
+      "No issue field called Notes.",
+    );
+  });
+});
+
 describe("GitHub adapter: attachments", () => {
   it("has attachments with the CLI, and comments through gh", async () => {
     const { t, calls } = tickets(

@@ -352,6 +352,38 @@ export function commentIdFromUrl(url: string): number {
   return Number(match[1]);
 }
 
+const ISSUE_FIELDS = `query IssueFields($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    issueFields(first: 100) {
+      nodes {
+        __typename
+        ... on IssueFieldText { id name description }
+        ... on IssueFieldSingleSelect { id name description }
+        ... on IssueFieldNumber { id name description }
+        ... on IssueFieldDate { id name description }
+      }
+    }
+  }
+}`;
+
+const FIELD_VALUES = `query IssueFieldValues($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $number) {
+      issueFieldValues(first: 50) {
+        nodes { ... on IssueFieldTextValue { value field { ... on IssueFieldText { name } } } }
+      }
+    }
+  }
+}`;
+
+const SET_ISSUE_FIELD = `mutation SetIssueField($issue: ID!, $field: ID!, $text: String!) {
+  setIssueFieldValue(input: { issueId: $issue, issueFields: [{ fieldId: $field, textValue: $text }] }) { clientMutationId }
+}`;
+
+const CLEAR_ISSUE_FIELD = `mutation ClearIssueField($issue: ID!, $field: ID!) {
+  setIssueFieldValue(input: { issueId: $issue, issueFields: [{ fieldId: $field, delete: true }] }) { clientMutationId }
+}`;
+
 export function githubTickets(o: GithubOptions): Tickets {
   const API = `repos/${o.repository}`;
   const [repoOwner, repoName] = o.repository.split("/");
@@ -373,6 +405,27 @@ export function githubTickets(o: GithubOptions): Tickets {
       };
     }>(STATUS_FIELD, { owner: o.boardOwner ?? repoOwner, number });
     return answer.data.owner?.projectV2?.field ?? null;
+  };
+
+  /** The repository's issue fields, each with its type. */
+  const issueFields = async () => {
+    const answer = await t.graphql<{
+      data: {
+        repository: {
+          issueFields: {
+            nodes: ({
+              __typename: string;
+              id: string;
+              name: string;
+              description?: string | null;
+            } | null)[];
+          };
+        };
+      };
+    }>(ISSUE_FIELDS, { owner: repoOwner, name: repoName });
+    return answer.data.repository.issueFields.nodes.filter(
+      (f): f is NonNullable<typeof f> => f !== null,
+    );
   };
 
   const readBoard = async (): Promise<Board> => {
@@ -614,6 +667,56 @@ export function githubTickets(o: GithubOptions): Tickets {
         for (const f of missing)
           await t.graphql(addFieldMutation(project.id, f));
         return missing.map((f) => f.name);
+      },
+    },
+
+    fields: {
+      plainText: true,
+      async list() {
+        return (await issueFields()).map((f) => ({
+          name: f.name,
+          description: f.description ?? null,
+          text: f.__typename === "IssueFieldText",
+        }));
+      },
+      async holds() {
+        return { max: null };
+      },
+      async read(n) {
+        const answer = await t.graphql<{
+          data: {
+            repository: {
+              issue: {
+                issueFieldValues: {
+                  nodes: ({
+                    value?: string;
+                    field?: { name?: string };
+                  } | null)[];
+                };
+              } | null;
+            };
+          };
+        }>(FIELD_VALUES, { owner: repoOwner, name: repoName, number: n });
+        const found = answer.data.repository.issue;
+        if (!found) throw new NotFoundError(`#${n}`);
+        const values: Record<string, string> = {};
+        for (const v of found.issueFieldValues.nodes)
+          if (v?.field?.name) values[v.field.name] = v.value ?? "";
+        return values;
+      },
+      async write(n, values) {
+        const fields = await issueFields();
+        const { node_id } = await issue(n);
+        for (const [name, value] of Object.entries(values)) {
+          const field = fields.find((f) => f.name === name);
+          if (!field) throw new Error(`No issue field called ${name}.`);
+          await t.graphql(
+            value === null ? CLEAR_ISSUE_FIELD : SET_ISSUE_FIELD,
+            value === null
+              ? { issue: node_id, field: field.id }
+              : { issue: node_id, field: field.id, text: value },
+          );
+        }
       },
     },
 

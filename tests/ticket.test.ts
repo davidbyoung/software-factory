@@ -1337,7 +1337,7 @@ describe("the ticket commands", () => {
     expect(memory.blockers.get(7)).toEqual([]);
   });
 
-  it.each(["board", "blockers", "label-history", "attachments"])(
+  it.each(["board", "blockers", "label-history", "attachments", "fields"])(
     "supports %s prints yes when the adapter has it",
     async (group) => {
       const { d, out } = deps([SEVEN]);
@@ -1347,7 +1347,7 @@ describe("the ticket commands", () => {
     },
   );
 
-  it.each(["board", "blockers", "label-history", "attachments"])(
+  it.each(["board", "blockers", "label-history", "attachments", "fields"])(
     "supports %s prints no, and exits 0, when the adapter lacks it",
     async (group) => {
       const { d, out } = deps([SEVEN], { groups: [] });

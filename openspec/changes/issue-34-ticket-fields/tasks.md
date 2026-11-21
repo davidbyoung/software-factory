@@ -2,9 +2,9 @@
 
 ## 1. The ticket system's fields
 
-- [ ] 1.1 Add `FieldOps` and the `fields` group in `src/tickets/types.mts`, and `supports fields`. Test `factory ticket supports fields` prints `yes` for GitHub and `no` for a memory adapter without the group (line 24).
-- [ ] 1.2 Implement it in `src/tickets/github.mts`; test `list`, `read`, `write`, and clearing in `tests/tickets-github.test.ts` against recorded responses, including a single select returned with `text: false`.
-- [ ] 1.3 Give `tests/memory-tickets.ts` a `fields` group.
+- [x] 1.1 Add `FieldOps` and the `fields` group in `src/tickets/types.mts`, and `supports fields`. Test `factory ticket supports fields` prints `yes` for GitHub and `no` for a memory adapter without the group (line 24).
+- [x] 1.2 Implement it in `src/tickets/github.mts`; test `list`, `read`, `write`, and clearing in `tests/tickets-github.test.ts` against recorded responses, including a single select returned with `text: false`.
+- [x] 1.3 Give `tests/memory-tickets.ts` a `fields` group.
 
 ## 2. Splitting and joining
 

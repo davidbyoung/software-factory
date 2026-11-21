@@ -116,11 +116,37 @@ export type AttachmentOps = {
   writeBody(ticket: number, body: string, files: string[]): Promise<void>;
 };
 
+/** A field tickets can have, set on the ticket itself. */
+export type TicketField = {
+  name: string;
+  /** The field's own description, for the coding agent; null with none. */
+  description: string | null;
+  /** Whether it holds text, so it can hold a factory field. */
+  text: boolean;
+};
+
+export type FieldOps = {
+  /** Whether a field shows its text as typed, without formatting. */
+  plainText: boolean;
+  /** The fields tickets can have, in the system's order. */
+  list(): Promise<TicketField[]>;
+  /** Whether the ticket can hold the field, and how many characters. */
+  holds(
+    ticket: number,
+    field: string,
+  ): Promise<{ max: number | null } | { reason: string }>;
+  /** The ticket's text field values, by field name. */
+  read(ticket: number): Promise<Record<string, string>>;
+  /** Sets each field by name; null clears it. */
+  write(ticket: number, values: Record<string, string | null>): Promise<void>;
+};
+
 export const GROUPS = [
   "board",
   "blockers",
   "label-history",
   "attachments",
+  "fields",
 ] as const;
 export type Group = (typeof GROUPS)[number];
 
@@ -156,6 +182,7 @@ export type Tickets = {
   blockers?: BlockerOps;
   labelHistory?: LabelHistoryOps;
   attachments?: AttachmentOps;
+  fields?: FieldOps;
 };
 
 /** A ticket or comment that does not exist, told apart from any other
@@ -188,6 +215,8 @@ export function supports(tickets: Tickets, group: Group): boolean {
       return tickets.labelHistory !== undefined;
     case "attachments":
       return tickets.attachments !== undefined;
+    case "fields":
+      return tickets.fields !== undefined;
   }
 }
 
@@ -207,6 +236,7 @@ const GROUP_KEYS = {
   blockers: "blockers",
   "label-history": "labelHistory",
   attachments: "attachments",
+  fields: "fields",
 } as const;
 type GroupKey<G extends Group> = (typeof GROUP_KEYS)[G];
 
