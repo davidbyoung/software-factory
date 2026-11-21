@@ -2108,6 +2108,28 @@ describe("factory init, a block that leaves states out", () => {
     expect(r.columns()).toMatchObject({ review: "none", backlog: "Todo" });
   });
 
+  it("on Change some, refuses a column a written state lists, not only its first", async () => {
+    const r = rerun(
+      [
+        "backlog: Todo",
+        "refining: none",
+        "ready: none",
+        "review: [Code review, QA]",
+        "done: Done",
+      ],
+      {
+        board: ["Todo", "Doing", "Code review", "QA", "Done"],
+        select: ["column:Doing", "change", "column:QA", "column:Doing", "yes"],
+        checkbox: [["building"], ["building"]],
+      },
+    );
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "QA already shows review. Pick another column for building.",
+    );
+    expect(r.columns()).toMatchObject({ building: "Doing" });
+  });
+
   it("asks again when the column picked for a state left out shows another state", async () => {
     const r = rerun(
       [

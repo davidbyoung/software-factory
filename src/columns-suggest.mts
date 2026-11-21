@@ -245,14 +245,22 @@ const choiceOf = (v: string): Choice =>
   v === NONE ? "none" : v === ADD ? "add" : { column: v.slice(7) };
 
 /** "Change some": the states you pick, of `keys`, then a column for each,
- * until no two states share one. */
+ * until no two states share one. `written` holds the states the settings
+ * already give, by their whole lists, which the mapping shows joined. */
 async function changeSome(
   d: Pick<SuggestDeps, "ask" | "out">,
   mapping: Mapping,
   columns: readonly string[],
   fromBoard: boolean,
   keys: readonly StateKey[] = KEYS,
+  written: Partial<Record<StateKey, readonly string[] | null>> = {},
 ): Promise<Mapping> {
+  const shownBy = (m: Mapping): Columns => {
+    const out = toColumns(m);
+    for (const [k, list] of Object.entries(written))
+      out[STATE_KEYS[k as StateKey]] = list;
+    return out;
+  };
   const m = { ...mapping };
   let picked: string[] = [];
   for (;;) {
@@ -271,7 +279,7 @@ async function changeSome(
         await pickColumn(d, key, columns, valueOf(m[key]), noColumn),
       );
       const name = nameOf(key, choice);
-      const other = name === null ? null : showing(name, key, toColumns(m));
+      const other = name === null ? null : showing(name, key, shownBy(m));
       if (other) {
         d.out(
           `${name} already shows ${other}. Pick another column for ${key}.`,
@@ -465,6 +473,6 @@ export async function fillColumns(
       "yes",
     );
     if (use === "yes") return lines(m);
-    m = await changeSome(d, m, o.columns, o.fromBoard, missing);
+    m = await changeSome(d, m, o.columns, o.fromBoard, missing, o.written);
   }
 }
