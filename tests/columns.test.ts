@@ -711,11 +711,6 @@ describe("the poller", () => {
     expect(selectToStart(snap, board("ready for dev"), columns)).toEqual([1]);
     expect(selectToStart(snap, board("Ready"), columns)).toEqual([]);
   });
-
-  it("defaults to Ready", () => {
-    expect(columnsFrom({}).Ready).toEqual(["Ready"]);
-    expect(selectToStart(snap, board("Ready"), columnsFrom({}))).toEqual([1]);
-  });
 });
 
 describe("factory ticket ready", () => {
@@ -970,6 +965,16 @@ describe("factory board check", () => {
     );
     expect(rowOf(report(yaml("own-server"), fullBoard(SIX)), "ready")).toBe(
       "  ✗ ready      Ready for dev: no such column on the board",
+    );
+  });
+
+  it("reminds an own-server poller of a ready column called Ready too", () => {
+    const yaml = {
+      builds: { trigger: "own-server" },
+      tickets: { board: 7, columns: FACTORY_COLUMNS },
+    };
+    expect(rowOf(report(yaml, fullBoard(SIX)), "ready")).toBe(
+      '  ? ready      Ready: the poller needs FACTORY_READY_COLUMN set to "Ready"',
     );
   });
 

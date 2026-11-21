@@ -285,11 +285,7 @@ export function boardRows(
           key,
           text: `${joined}: no such column on the board${names.length > 1 ? `: ${missing.join(", ")}` : ""}`,
         };
-      if (
-        key === "ready" &&
-        ready !== DEFAULT_COLUMNS.Ready![0] &&
-        settings.builds.trigger === "own-server"
-      )
+      if (key === "ready" && settings.builds.trigger === "own-server")
         return {
           state: "unknown",
           key,

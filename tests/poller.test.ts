@@ -27,12 +27,14 @@ import saved from "./fixtures/sync/repo.json";
 // The same repository as GitHub's GraphQL answers it, for the fake fetch.
 import repoPages from "./fixtures/sync/repo-graphql.json";
 import boardPages from "./fixtures/sync/board.json";
+import { FACTORY_COLUMNS } from "./factory-columns";
 
 const NOW = Date.parse("2026-11-09T10:00:00Z");
 const ENV = {
   FACTORY_BOARD_OWNER: "acme",
   FACTORY_BOARD_NUMBER: "1",
   FACTORY_BOARD_TOKEN: "ghp_secret_github",
+  FACTORY_READY_COLUMN: "Ready",
 };
 const DISPATCH =
   "https://api.github.com/repos/acme/widgets/actions/workflows/factory-build.yml/dispatches";
@@ -159,8 +161,23 @@ describe("nextDelay", () => {
 describe("readConfig", () => {
   it("names every missing variable", () => {
     expect(readConfig({ FACTORY_BOARD_OWNER: "x" })).toEqual({
-      missing: ["FACTORY_BOARD_NUMBER", "FACTORY_BOARD_TOKEN"],
+      missing: [
+        "FACTORY_BOARD_NUMBER",
+        "FACTORY_BOARD_TOKEN",
+        "FACTORY_READY_COLUMN",
+      ],
     });
+  });
+
+  it("counts a ready column of only spaces as missing", () => {
+    expect(
+      readConfig({
+        FACTORY_BOARD_OWNER: "x",
+        FACTORY_BOARD_NUMBER: "1",
+        FACTORY_BOARD_TOKEN: "t",
+        FACTORY_READY_COLUMN: "  ",
+      }),
+    ).toEqual({ missing: ["FACTORY_READY_COLUMN"] });
   });
 
   it("needs neither trigger variable", () => {
@@ -169,6 +186,7 @@ describe("readConfig", () => {
         FACTORY_BOARD_OWNER: "x",
         FACTORY_BOARD_NUMBER: "1",
         FACTORY_BOARD_TOKEN: "t",
+        FACTORY_READY_COLUMN: "Ready",
       }),
     ).toMatchObject({ owner: "x", number: 1 });
   });
@@ -538,7 +556,7 @@ describe("tick", () => {
 
     expect(calls).toEqual([]);
     expect(logs[0]).toMatch(
-      /^not polling: FACTORY_BOARD_NUMBER, FACTORY_BOARD_TOKEN/,
+      /^not polling: FACTORY_BOARD_NUMBER, FACTORY_BOARD_TOKEN, FACTORY_READY_COLUMN not set/,
     );
   });
 
@@ -573,7 +591,7 @@ describe("onceSettings", () => {
     );
 
   it("takes the board and the Ready column from the settings", () => {
-    expect(read({ tickets: { board: 7 } })).toEqual({
+    expect(read({ tickets: { board: 7, columns: FACTORY_COLUMNS } })).toEqual({
       board: 7,
       ready: "Ready",
     });
@@ -581,7 +599,12 @@ describe("onceSettings", () => {
 
   it("takes a Ready column the settings rename", () => {
     expect(
-      read({ tickets: { board: 7, columns: { ready: "Ready for dev" } } }),
+      read({
+        tickets: {
+          board: 7,
+          columns: { ...FACTORY_COLUMNS, ready: "Ready for dev" },
+        },
+      }),
     ).toEqual({ board: 7, ready: "Ready for dev" });
   });
 
@@ -592,7 +615,7 @@ describe("onceSettings", () => {
   it("has no Ready column when the settings set it to none", () => {
     expect(
       read({
-        tickets: { board: 7, columns: { ready: "none" } },
+        tickets: { board: 7, columns: { ...FACTORY_COLUMNS, ready: "none" } },
         builds: { trigger: "manual" },
       }).ready,
     ).toBeNull();
