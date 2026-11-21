@@ -1374,8 +1374,9 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     if (s.site && !s.plugins.some((p) => p.role === "mockups"))
       if (!d.exists(DESIGN_SKILL))
         d.err(
-          `warning: ${DESIGN_SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`,
+          `warning: ${DESIGN_SKILL} is missing: run \`factory sync\` to give the site its design skill`,
         );
+    d.out(`${(d.paint ?? plain)("green", "✓")} The settings are valid.`);
     return 0;
   }
   if (command === "explain") {
@@ -1389,7 +1390,16 @@ export async function main(argv: string[], d: Deps): Promise<number> {
             markerOf(resolved!.resolution),
             resolved!.exists,
           );
-    for (const line of paintExplainLines(lines, d.paint ?? plain)) d.out(line);
+    // Printed only: the lock holds the settings, not how to read them.
+    const header = [
+      '# The settings in effect. "# default" marks the factory\'s own value,',
+      "# a preset's name marks that preset's, and an unmarked line is yours.",
+    ];
+    for (const line of paintExplainLines(
+      [...header, ...lines],
+      d.paint ?? plain,
+    ))
+      d.out(line);
     return 0;
   }
   if (command === "plugins") {

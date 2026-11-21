@@ -20,7 +20,7 @@ import {
 
 export const LABEL = "Claude Code";
 const COMMAND = "claude";
-const SYNC = "Run npx --no-install factory sync";
+const SYNC = "Run factory sync";
 const READS: Part[] = ["review", "cloud"];
 
 const read = (root: string, path: string) =>
@@ -51,28 +51,28 @@ export const claudeCodeSetup: ToolSetup = {
     hasImport(read(c.root, CLAUDE_MD))
       ? {
           state: "pass",
-          text: `${LABEL}: ${CLAUDE_MD} imports the factory's rules`,
+          text: `${CLAUDE_MD} imports the factory's rules`,
         }
       : {
           state: "fail",
-          text: `${LABEL}: ${CLAUDE_MD} imports the factory's rules`,
+          text: `${CLAUDE_MD} imports the factory's rules`,
           fix: SYNC,
         },
     hasFactoryHooks(read(c.root, SETTINGS_JSON))
       ? {
           state: "pass",
-          text: `${LABEL}: ${SETTINGS_JSON} has the factory's hooks`,
+          text: `${SETTINGS_JSON} has the factory's hooks`,
         }
       : {
           state: "fail",
-          text: `${LABEL}: ${SETTINGS_JSON} has the factory's hooks`,
+          text: `${SETTINGS_JSON} has the factory's hooks`,
           fix: SYNC,
         },
     c.hasCommand(COMMAND)
-      ? { state: "pass", text: `${LABEL}: the ${COMMAND} command is installed` }
+      ? { state: "pass", text: `The ${COMMAND} command is installed` }
       : {
           state: "fail",
-          text: `${LABEL}: the ${COMMAND} command is installed`,
+          text: `The ${COMMAND} command is installed`,
           fix: "Install Claude Code, then sign in",
         },
   ],

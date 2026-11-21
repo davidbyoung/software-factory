@@ -443,12 +443,20 @@ async function compare(argv: string[]): Promise<number> {
   }
 }
 
+/** What `factory site stop` says: a kept comparison is always two sites,
+ * this branch's and the base's. */
+export function stopMessage(stopped: boolean): string {
+  return stopped
+    ? "Stopped the 2 sites site compare --keep left running."
+    : "No sites were left running.";
+}
+
 export async function run(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   try {
     if (command === "compare") return await compare(rest);
     if (command === "stop") {
-      stopKept(repoRoot());
+      console.log(stopMessage(stopKept(repoRoot())));
       return 0;
     }
     console.error("Usage: factory site compare | site stop");

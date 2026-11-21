@@ -3,7 +3,12 @@ import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { givenUrls, runChecks, viewsAtOnce } from "../src/site.mts";
+import {
+  givenUrls,
+  runChecks,
+  stopMessage,
+  viewsAtOnce,
+} from "../src/site.mts";
 import { branchDeps } from "../src/lib/default-branch.mts";
 import {
   addWorktree,
@@ -278,5 +283,17 @@ describe("runChecks", () => {
     const [ok, bad] = runChecks(tmpdir(), ["echo one", "echo two; exit 9"], {});
     expect(ok.findings).toEqual(["one"]);
     expect(bad.findings).toEqual(["two"]);
+  });
+});
+
+describe("factory site stop's message", () => {
+  it("says it stopped the two sites compare --keep left running", () => {
+    expect(stopMessage(true)).toBe(
+      "Stopped the 2 sites site compare --keep left running.",
+    );
+  });
+
+  it("says none were running when it stopped nothing", () => {
+    expect(stopMessage(false)).toBe("No sites were left running.");
   });
 });

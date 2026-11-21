@@ -8,17 +8,12 @@ What `factory init`, `factory doctor`, and `factory config check` ask of each to
 
 ### Requirement: Init is unchanged with today's tools
 
-`factory init` SHALL print the same lines and ask the same questions, in
-the same order, as before this change when it runs with GitHub, GitHub
-Issues, GitHub Actions, and Claude Code, except where the requirements for
-builds from the board, the settings' `version`, the gate's "Left to do"
-line, the column-suggestion step, the field-suggestion step, and the
-npm-registry-secrets requirements say otherwise.
+The factory SHALL behave as this line says: `factory init` prints the same lines and asks the same questions as before this change with today's tools, except its closing checks, as line 26 says, and its fixes, as line 25 says.
 
 #### Scenario: Init is unchanged with today's tools
 
 - **WHEN** `factory init` runs with GitHub, GitHub Issues, GitHub Actions, and Claude Code
-- **THEN** it prints the same lines and asks the same questions, in the same order, as before this change. This holds for a first run with every part chosen, a re-run with every part on and every secret set, and each case the existing tests in `tests/init.test.ts` cover, except the one edge under Decisions. An existing test of the old behavior there takes 1.3's expectation. The `Checks` that `init` ends with also show line 25's configuration lines. The part "Builds that start when you move a card to Ready" is the exception: its question, its interval, its description, and its step in "Left to do" are as the requirements added with issue 12 say. A new settings file gets `version: 2`, and "Left to do" gains the gate's line when `commands.gate` is empty, as the requirements added with issue 24 say. The column step is the exception the column-suggestion requirements describe; with a board that has the factory's six columns, init asks nothing more. Where `.npmrc` takes a name, or the organization shares a secret the factory reads, init's lines are as the npm-registry-secrets requirements and the organization-secret requirements added with issue 31 say. The field-suggestion step is the exception the field-suggestion requirements describe; with tickets that have no text field, init asks nothing more. With Claude Code not installed, init stops as the requirement "Init requires the coding agent" says, so the `Coding agent` row under `Found` always shows its label, never "which is not installed: sessions and its token need it", and the agent's secret is always got by running its command, never asked for as `ANTHROPIC_API_KEY` alone.
+- **THEN** `factory init` prints the same lines and asks the same questions as before this change with today's tools, except its closing checks, as line 26 says, and its fixes, as line 25 says.
 
 ### Requirement: A ticket system's value
 
@@ -61,12 +56,12 @@ again.
 
 ### Requirement: A secret left for later
 
-`init` SHALL store nothing when nothing is pasted for a tool's secret.
+The factory SHALL behave as this line says: When nothing is pasted for a tool's secret, `init` prints the tool's line for that, followed by `Run factory init again to add it.`
 
 #### Scenario: A secret left for later
 
 - **WHEN** nothing is pasted for a tool's secret
-- **THEN** `init` stores nothing and prints the tool's line for that, followed by `Run npx --no-install factory init again to add it.`
+- **THEN** `init` prints the tool's line for that, followed by `Run factory init again to add it.`
 
 ### Requirement: A secret already set
 
@@ -100,22 +95,21 @@ none of them.
 
 ### Requirement: Doctor is unchanged with today's tools
 
-`factory doctor` SHALL print the same lines as before this change with
-today's tools, plus the configuration lines, plus the gate's line when `commands.gate` is empty, and plus the npm lines when `.npmrc` takes a name.
+The factory SHALL behave as this line says: `factory doctor` prints the same checks as before this change with today's tools, sorted and worded as lines 20 to 25 and 33 say.
 
 #### Scenario: Doctor is unchanged with today's tools
 
 - **WHEN** `factory doctor` runs with today's tools
-- **THEN** its lines are the same as before this change, plus line 25's configuration lines, and one more line shown as off when `commands.gate` is empty, as the requirement added with issue 24 says. Where `.npmrc` takes a name, the lines of the npm-registry-secrets requirements 16 to 21 added with issue 31 are added, and a secret the organization shares reads as the organization-secret requirements say.
+- **THEN** `factory doctor` prints the same checks as before this change with today's tools, sorted and worded as lines 20 to 25 and 33 say.
 
 ### Requirement: A tool's secret not set
 
-`doctor` SHALL fail on a secret a tool needs that is not set.
+The factory SHALL behave as this line says: When a secret a tool needs is not set, `doctor` fails `NAME is not set, for PARTS` with the fix `Run factory init`.
 
 #### Scenario: A tool's secret not set
 
-- **WHEN** a secret a tool always needs, or needs for a part that is on, is not set
-- **THEN** `doctor` fails with `NAME is not set, for <the part, or the tool's name>` and the fix `Run npx --no-install factory init`.
+- **WHEN** a secret a tool needs is not set
+- **THEN** `doctor` fails `NAME is not set, for PARTS` with the fix `Run factory init`.
 
 ### Requirement: A tool's own check
 

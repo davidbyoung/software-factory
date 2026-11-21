@@ -14,6 +14,7 @@
 // the rules' numbers, and the default branch's name in the push triggers.
 // Edit the source in the package, never the copy. A file the lock lists that the package no longer has is
 // deleted. Nothing else is.
+import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   existsSync,
   mkdirSync,
@@ -747,9 +748,14 @@ export async function main(
     defaultBranch: (s: Settings) => Promise<string | null>;
     out: (line: string) => void;
     err: (line: string) => void;
+    paint?: Paint;
+    /** Whether a person ran it, so a sync that changes nothing says so;
+     * `init` and the preset commands run it inside their own output. */
+    announce?: boolean;
   },
 ): Promise<number> {
   const check = argv.includes("--check");
+  const paint = d.paint ?? plain;
   let r: Resolved;
   try {
     if (check) {
@@ -779,10 +785,16 @@ export async function main(
   const p = await plan(d.pkg, d.root, r, branch);
   const differ = differences(d.root, p);
   if (check) {
-    if (differ.length === 0) return 0;
-    d.err("the factory's files are out of sync:");
+    if (differ.length === 0) {
+      d.out(`${paint("green", "✓")} The factory's files match the settings.`);
+      return 0;
+    }
+    const n = differ.length;
+    d.err(
+      `${paint("red", "✗")} ${n} of the factory's files ${n === 1 ? "doesn't" : "don't"} match the settings:`,
+    );
     for (const path of differ) d.err(`  ${path}`);
-    d.err("Run `npx --no-install factory sync` and commit the result.");
+    d.err("Run factory sync and commit what it writes.");
     return 1;
   }
   for (const line of [...p.kept, ...p.dropped]) d.out(line);
@@ -798,6 +810,8 @@ export async function main(
       d.out(`wrote ${path}`);
     }
   }
+  if (differ.length === 0 && d.announce)
+    d.out("The factory's files already match the settings. Nothing changed.");
   return 0;
 }
 
@@ -813,6 +827,11 @@ export const syncDeps = (root: string) => ({
   err: (line: string) => console.error(line),
 });
 
-export async function run(argv: string[]): Promise<number> {
-  return main(argv, syncDeps(repoRoot()));
+/** `announce` is false when `init` runs the sync inside its own output. */
+export async function run(argv: string[], announce = true): Promise<number> {
+  return main(argv, {
+    ...syncDeps(repoRoot()),
+    paint: painter(colorOn()),
+    announce,
+  });
 }

@@ -48,7 +48,8 @@ end-to-end suite.
 ## Rules by area
 
 - `docs/developing.md`: how the package is laid out, how to run it from
-  source, how to change a skill or add a ticket system, and how to release.
+  source, how to change a skill or add a ticket system, how a command's
+  output reads, and how to release.
 - `README.md` and `docs/`: "Writing for the factory" in
   `docs/developing.md`, read before changing a page.
 - Tests follow "Small changes" and "Branching, pushing, and review" in

@@ -144,8 +144,8 @@ describe("the table", () => {
     expect(table(mapping({}))).toEqual([
       "  State      Column",
       "  backlog    Todo",
-      "  refining   no column, shows in Todo",
-      "  ready      no column: builds start only when you ask",
+      "  refining   none, shows in Todo",
+      "  ready      none",
       "  building   In Progress",
       "  review     Code review",
       "  done       Done",
@@ -158,7 +158,7 @@ describe("the table", () => {
     );
     expect(lines[2]).toBe("  refining   In refinement, which init adds");
     expect(lines[3]).toBe("  ready      Ready, which init adds");
-    expect(lines[4]).toBe("  building   no column, shows in In refinement");
+    expect(lines[4]).toBe("  building   none, shows in In refinement");
   });
 });
 

@@ -159,8 +159,8 @@ What else to expect on a board you already use:
 
 To see what the factory will do with your board at any time, run
 `factory board check`. It lists each state's column, as the table above
-does, and ends with any problem, such as a column your settings name that
-the board lacks.
+does, and each field the sync fills in, and marks a problem with ✗ on its
+row, such as a column your settings name that the board lacks.
 
 ## Your tickets already have fields
 

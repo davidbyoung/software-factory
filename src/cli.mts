@@ -4,7 +4,7 @@
 //
 //   factory COMMAND [ARGS]
 //
-// An unknown command, or none, prints the usage and exits 2.
+// An unknown command, or none, prints the commands a person runs and exits 2.
 
 type Run = (argv: string[]) => Promise<number | void>;
 
@@ -308,18 +308,83 @@ export const COMMANDS: Command[] = [
   },
 ];
 
+/** The commands a person runs, in the groups and words of docs/cli.md. */
+const USAGE: [string, [string, string][]][] = [
+  [
+    "Setting up",
+    [
+      ["init", "Set a repository up, or turn a part on or off"],
+      [
+        "sync [--check]",
+        "Write the factory's files from your settings, or check they match",
+      ],
+      ["config check", "Check your settings"],
+      ["board check", "See how the factory reads your board"],
+      ["doctor", "Check everything, when something seems off"],
+    ],
+  ],
+  [
+    "Every day",
+    [
+      ["status [--watch]", "Each ticket's state and which session is on it"],
+      ["build N", "Build ticket N in the cloud"],
+      ["pr watch N", "Wait until pull request N needs you"],
+    ],
+  ],
+  [
+    "Now and then",
+    [
+      ["config get KEY", "Print one setting in effect"],
+      ["config explain", "Print every setting in effect, defaults included"],
+      ["plugins [ROLE]", "List the plugins the factory uses, by role"],
+      ["site compare", "Picture a website's pages before and after a change"],
+      ["site stop", "End the sites compare --keep left running"],
+      ["remove", "Take the factory out of this repository"],
+    ],
+  ],
+  [
+    "Presets",
+    [
+      ["preset add NAME", "Follow a preset"],
+      ["preset remove NAME", "Stop following one"],
+      ["preset choices", "See where two presets disagree, and choose"],
+      [
+        "preset choose KEY PRESET",
+        "Record one of those choices without questions",
+      ],
+      ["preset check", "Check a preset's own package before publishing it"],
+      ["preset changes REF", "See what a preset update changed since REF"],
+    ],
+  ],
+  [
+    "Your repository's commands",
+    [
+      ["gate", "Run the commands under commands.gate"],
+      ["test-one FILE [NAME]", "Run one test file, or one test in it"],
+      ["end-to-end FILE", "Run one end-to-end spec"],
+      ["specs check", "Check your written specs"],
+      ["default-branch", "Print the default branch's name"],
+    ],
+  ],
+];
+const NAME_WIDTH = 21;
+
 export function usage(): string {
-  const width = Math.max(
-    ...COMMANDS.map((c) => c.words.join(" ").length + 1 + c.args.length),
-  );
-  return [
-    "Usage: factory COMMAND [ARGS]",
+  const lines = ["Usage: factory COMMAND"];
+  for (const [group, commands] of USAGE) {
+    lines.push("", group);
+    for (const [name, summary] of commands)
+      lines.push(
+        ...(name.length < NAME_WIDTH
+          ? [`  ${name.padEnd(NAME_WIDTH)}${summary}`]
+          : [`  ${name}`, `  ${" ".repeat(NAME_WIDTH)}${summary}`]),
+      );
+  }
+  lines.push(
     "",
-    "Commands:",
-    ...COMMANDS.map(
-      (c) => `  factory ${`${c.words.join(" ")} ${c.args}`.padEnd(width)}`,
-    ).map((line) => line.trimEnd()),
-  ].join("\n");
+    'The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.',
+  );
+  return lines.join("\n");
 }
 
 /** The command `argv` names, the longest match first, with the arguments
@@ -341,7 +406,12 @@ export async function main(argv: string[]): Promise<number> {
   // `guard` alone runs both guards, but `guard WORD` with a word that is
   // not a guard is a mistake, not a request for both.
   if (!found || (found.command.words.join(" ") === "guard" && found.rest[0])) {
-    console.error(usage());
+    const asked = argv.length > 0 && argv[0] !== "--help" && argv[0] !== "-h";
+    console.error(
+      asked
+        ? `factory has no command "${argv.join(" ")}".\n\n${usage()}`
+        : usage(),
+    );
     return 2;
   }
   return (await found.command.run(found.rest)) ?? 0;

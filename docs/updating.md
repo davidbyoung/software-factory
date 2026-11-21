@@ -91,8 +91,8 @@ and its checks fail until the file is moved. On the pull request's branch:
 4. Run `factory config check`, then `factory sync`, and commit what
    changed.
 
-**It worked when** `factory config check` prints nothing, and
-`factory sync --check` passes.
+**It worked when** `factory config check` prints
+`✓ The settings are valid.`, and `factory sync --check` passes.
 
 ### Each key that moved or changed shape
 
@@ -231,7 +231,7 @@ not match `package-lock.json`.
 
 | What you see                                                                          | What happened                                                         | What to do                                                                 |
 | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| CI fails with "the factory's files are out of sync"                                   | A factory file was edited by hand, or settings changed without a sync | Run `factory sync` and commit the result                                   |
+| CI fails with "of the factory's files don't match the settings"                       | A factory file was edited by hand, or settings changed without a sync | Run `factory sync` and commit the result                                   |
 | `factory doctor` says your installed version is older than the repository's           | You pulled an update and have not installed it                        | Run `npm ci`                                                               |
 | A command stops with `version: must be 2`                                             | The update changed the shape of the settings file                     | [Move the file](#moving-to-settings-version-2)                             |
 | A command stops with `.claude/factory.lock is from an earlier version of the factory` | The update's sync has not run on this checkout                        | Run `factory sync` and commit the result                                   |

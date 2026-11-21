@@ -945,7 +945,9 @@ describe("factory config explain", () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
     expect(r.out.join("\n")).toMatchInlineSnapshot(`
-      "version: 2
+      "# The settings in effect. \"# default\" marks the factory's own value,
+      # a preset's name marks that preset's, and an unmarked line is yours.
+      version: 2
       repository: owner/name
       tickets:
         type: github                                                               # default
@@ -1601,7 +1603,7 @@ describe("main", () => {
 
   describe("the design skill as a website's mockups plugin", () => {
     const SKILL = ".claude/skills/factory-design/SKILL.md";
-    const WARNING = `warning: ${SKILL} is missing: run \`npx --no-install factory sync\` to give the site its design skill`;
+    const WARNING = `warning: ${SKILL} is missing: run \`factory sync\` to give the site its design skill`;
     const settings = (plugins: string[]) =>
       [
         "version: 2",
@@ -1689,18 +1691,20 @@ describe("main", () => {
     });
   });
 
-  it("checks a sound file silently", async () => {
+  it("says a sound file is valid", async () => {
     const { d, out, err } = deps();
     expect(await main(["check"], d)).toBe(0);
-    expect([...out, ...err]).toEqual([]);
+    expect(out).toEqual(["✓ The settings are valid."]);
+    expect(err).toEqual([]);
   });
 
   it("warns without failing when a pattern matches nothing", async () => {
-    const { d, err } = deps({ listFiles: () => ["src/a.ts"] });
+    const { d, out, err } = deps({ listFiles: () => ["src/a.ts"] });
     expect(await main(["check"], d)).toBe(0);
     expect(err).toEqual([
       "warning: plugins.build.reviewers[0].files: public/** matches no file",
     ]);
+    expect(out).toEqual(["✓ The settings are valid."]);
   });
 
   it("fails, naming the key, on an unsound file", async () => {
@@ -1964,6 +1968,16 @@ describe("factory config explain, in color", () => {
     expect(r.out).toContainEqual(
       expect.stringMatching(/^\x1B\[2m {2}type: github +# default\x1B\[22m$/),
     );
-    expect(r.out[0]).toBe("version: 2");
+    expect(r.out.slice(0, 3)).toEqual([
+      paint(
+        "dim",
+        '# The settings in effect. "# default" marks the factory\'s own value,',
+      ),
+      paint(
+        "dim",
+        "# a preset's name marks that preset's, and an unmarked line is yours.",
+      ),
+      "version: 2",
+    ]);
   });
 });

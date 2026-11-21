@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { main, parseRemote, type Ask, type InitDeps } from "../src/init.mts";
 import { painter, type Paint } from "../src/lib/color.mts";
+import type { Check } from "../src/setup.mts";
 import type { Part } from "../src/parts.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
@@ -134,6 +135,7 @@ type Setup = {
   runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
   codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
   paint?: Paint;
+  checks?: Check[];
 };
 
 const roots: string[] = [];
@@ -233,7 +235,8 @@ function init(setup: Setup) {
       privateKey: PRIVATE_KEY,
       publicKey: "ssh-ed25519 PUBLIC",
     }),
-    checks: async () => [{ state: "pass", text: "Every check passed" }],
+    checks: async () =>
+      setup.checks ?? [{ state: "pass", text: "Every check passed" }],
     packageName: "@davidbyoung/software-factory",
     packageVersion: "0.2.0",
     paint: setup.paint,
@@ -290,18 +293,17 @@ function printsNoSecret(out: string[]) {
 }
 
 describe("factory init, a first run with every part", () => {
-  const first = (paint?: Paint) =>
-    init({
-      paint,
-      packageJson: false,
-      answers: {
-        checkbox: [EVERY],
-        select: ["new", "own-server"],
-        input: ["docs/**, **/*.md"],
-        confirm: [true],
-        secret: [AGENT, GOOD],
-      },
-    });
+  const firstSetup = (): Setup => ({
+    packageJson: false,
+    answers: {
+      checkbox: [EVERY],
+      select: ["new", "own-server"],
+      input: ["docs/**, **/*.md"],
+      confirm: [true],
+      secret: [AGENT, GOOD],
+    },
+  });
+  const first = (paint?: Paint) => init({ ...firstSetup(), paint });
 
   it("prints what it found before asking anything", async () => {
     const r = first();
@@ -432,6 +434,36 @@ describe("factory init, a first run with every part", () => {
       `  ${paint("green", "✓")} Every check passed`,
     ]);
     expect(r.out.slice(0, at).join("\n")).not.toContain("\x1B");
+  });
+
+  it("prints its closing checks under doctor's headings, indented beneath Checks", async () => {
+    const r = init({
+      ...firstSetup(),
+      checks: [
+        {
+          state: "pass",
+          text: "The settings are valid",
+          group: "Settings and files",
+        },
+        {
+          state: "pass",
+          text: "CLAUDE.md imports the factory's rules",
+          group: "Claude Code",
+        },
+        { state: "off", text: "A board", group: "Parts that are off" },
+      ],
+    });
+    await r.run();
+    expect(r.out.slice(r.out.indexOf("Checks") + 1)).toEqual([
+      "  Settings and files",
+      "    ✓ The settings are valid",
+      "",
+      "  Claude Code",
+      "    ✓ CLAUDE.md imports the factory's rules",
+      "",
+      "  Parts that are off",
+      "    - A board",
+    ]);
   });
 
   it("shows the plan, naming secrets but not their values, before changing anything", async () => {
@@ -737,7 +769,7 @@ describe("factory init, the access token", () => {
     await r.run();
     expect(r.runner.secrets.has("FACTORY_BUILD_TOKEN")).toBe(false);
     expect(r.out.join("\n")).toContain(
-      "No token stored. Run npx --no-install factory init again to add it.",
+      "No token stored. Run factory init again to add it.",
     );
   });
 
@@ -861,7 +893,7 @@ describe("factory init, the board", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out.join("\n")).toContain(
-      "No board to use instead: create one on the code host, then run npx --no-install factory init again.",
+      "No board to use instead: create one on the code host, then run factory init again.",
     );
     expect(r.yaml()).toEqual({ version: 2, repository: "acme/site" });
   });
@@ -1285,7 +1317,7 @@ describe("factory init, a tool's own setup", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
-      "No Fake Tickets token stored. Run npx --no-install factory init again to add it.",
+      "No Fake Tickets token stored. Run factory init again to add it.",
     );
     expect(r.runner.secrets.has(FAKE_TOKEN)).toBe(false);
   });
@@ -1469,8 +1501,8 @@ describe("factory init, the column step", () => {
     "",
     "  State      Column",
     "  backlog    Todo",
-    "  refining   no column, shows in Todo",
-    "  ready      no column: builds start only when you ask",
+    "  refining   none, shows in Todo",
+    "  ready      none",
     "  building   In Progress",
     "  review     Code review",
     "  done       Done",
@@ -1530,8 +1562,8 @@ describe("factory init, the column step", () => {
     expect(r.checkboxes.at(-1)).toEqual({
       names: [
         "backlog: Todo",
-        "refining: no column, shows in Todo",
-        "ready: no column: builds start only when you ask",
+        "refining: none, shows in Todo",
+        "ready: none",
         "building: In Progress",
         "review: Code review",
         "done: Done",
@@ -1938,7 +1970,7 @@ describe("the tokens .npmrc reads", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "No NPM_TOKEN stored. The factory's workflows fail at npm ci until it is. Run npx --no-install factory init again to add it.",
+      "No NPM_TOKEN stored. The factory's workflows fail at npm ci until it is. Run factory init again to add it.",
     );
     expect(r.runner.secrets.has("NPM_TOKEN")).toBe(false);
     expect(r.runner.dependabotSecrets.has("NPM_TOKEN")).toBe(false);

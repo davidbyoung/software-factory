@@ -42,9 +42,37 @@ slash command, such as `/factory-refine 12`. [Skills](skills.md) lists them.
 | `factory doctor`       | When something seems off. It checks the settings, files, version, secrets, board, and each tool's own setup |
 
 `init` asks its questions in the terminal, and reads each token in a
-masked prompt. `doctor` exits 1 when a check fails. GitHub never lets a
-secret be read back, so `doctor` checks only that each secret your parts
-read is set.
+masked prompt.
+
+`sync --check` ends with `✓ The factory's files match the settings.`,
+and `config check` with `✓ The settings are valid.`, when there is
+nothing to fix.
+
+`doctor` prints its checks under headings: `Settings and files`, then
+each tool's name, such as `GitHub` or `Claude Code`, then the parts you
+left off. Each check starts with a mark: ✓ works, ✗ needs fixing, ?
+can't be told from here, and - off on purpose. `doctor` exits 1 when a
+check fails. GitHub never lets a secret be read back, so `doctor` checks
+only that each secret your parts read is set.
+
+`board check` prints two blocks, each headed by the setting it shows.
+Under [`tickets.columns`](configuration.md#ticketscolumns) is a row for
+each of a ticket's states, such as `backlog` or `review`, with the
+[board](glossary.md) column it sits in. Under
+[`tickets.fields`](configuration.md#ticketsfields) is a row for each
+field the [board sync](glossary.md) fills in on a card. A row is a mark,
+the state or the field, and what the factory makes of it, such as
+`✗ review     In review: no such column on the board`. When every row is
+✓ or -, the factory reads your board as your settings say. A ✗ makes the
+command exit 1.
+
+| Mark | Words after the state or field     | What to do                                                                                                  |
+| ---- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| ✓    | the column's name, or `synced`     | Nothing                                                                                                     |
+| -    | `none, shows in Backlog`, or `off` | Nothing: the settings set it to `none`, so the ticket shows in the column named, or the field is left empty |
+| ?    | `skipped: no such field`           | Add the field to the board, or set it to `none` under `tickets.fields`, if you want it gone from this list  |
+| ?    | `no state: left alone`             | Name the column under `tickets.columns` if the factory should move cards there; otherwise nothing           |
+| ✗    | `no such column on the board`      | Add the column to the board, or change its name under `tickets.columns` to one the board has                |
 
 ## Every day
 
@@ -189,13 +217,13 @@ runner or a linter: each runs what your settings list under
 [`specs`](configuration.md#specs), with bash, from the repository's root.
 You can run them too.
 
-| Command                               | What it does                                                                                                                                                                                                                                                                          |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory gate`                        | Runs each [`commands.gate`](configuration.md#commandsgate) command in order, printing `$` and the command before each. Stops at the first that fails, with `gate failed on:` and the command. Exits 0 when every command passes, and 1 at the first that fails or when no gate is set |
-| `factory test-one FILE [NAME]`        | Runs [`commands.test-one`](configuration.md#commandstest-one), one test file alone or the one test NAME in it, and exits with its status                                                                                                                                              |
-| `factory end-to-end FILE [--times K]` | Runs [`commands.end-to-end`](configuration.md#commandsend-to-end), one end-to-end spec alone, and exits with its status. With `--times K`, K times in a row, stopping at the first run that fails                                                                                     |
-| `factory specs check`                 | Runs [`specs.check`](configuration.md#specscheck), the check of your written specs, and exits with its status. Prints `specs are off` when `specs` is `none`                                                                                                                          |
-| `factory default-branch`              | Prints the name of your repository's default branch, which nothing in the factory assumes is `main`                                                                                                                                                                                   |
+| Command                               | What it does                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory gate`                        | Runs each [`commands.gate`](configuration.md#commandsgate) command in order, printing `$` and the command before each. Stops at the first that fails, with `✗ The gate failed on:` and the command. Ends with `✓ Every gate command passed.` and exits 0 when every command passes, and exits 1 at the first that fails or when no gate is set |
+| `factory test-one FILE [NAME]`        | Runs [`commands.test-one`](configuration.md#commandstest-one), one test file alone or the one test NAME in it, and exits with its status                                                                                                                                                                                                       |
+| `factory end-to-end FILE [--times K]` | Runs [`commands.end-to-end`](configuration.md#commandsend-to-end), one end-to-end spec alone, and exits with its status. With `--times K`, K times in a row, stopping at the first run that fails. Ends with `✓ The test passed.` or `✗ The test failed.`                                                                                      |
+| `factory specs check`                 | Runs [`specs.check`](configuration.md#specscheck), the check of your written specs, and exits with its status, ending with `✓ The specs check passed.` or `✗ The specs check failed.`. Prints `specs are off` when `specs` is `none`                                                                                                           |
+| `factory default-branch`              | Prints the name of your repository's default branch, which nothing in the factory assumes is `main`                                                                                                                                                                                                                                            |
 
 `factory default-branch` asks, in turn, the event of the workflow run it
 is in, `origin/HEAD` in your checkout, and the code host, whose answer it

@@ -430,7 +430,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
   }
   const ownText = d.read(SETTINGS_FILE);
   if (ownText === null) {
-    d.err(`${SETTINGS_FILE} is missing. Run: npx --no-install factory init`);
+    d.err(`${SETTINGS_FILE} is missing. Run: factory init`);
     return 1;
   }
   const own = (await loadYaml(ownText)) as Obj | null;

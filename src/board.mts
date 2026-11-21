@@ -237,17 +237,134 @@ export function checkFields(
   return { status: found.status!, ...found.fields };
 }
 
-const fieldColor = (text: string): StyleFormat =>
-  text === "written"
-    ? "green"
-    : text === "missing"
-      ? "red"
-      : text.startsWith("skipped")
-        ? "yellow"
-        : "dim";
+/** A row of `factory board check`: a state, a column no state names, or a
+ * field the sync writes. `none` is a state whose column cannot be told,
+ * when the board has no Status field to read. */
+export type BoardRow = {
+  state: "pass" | "fail" | "unknown" | "off" | "none";
+  key: string;
+  text: string;
+};
 
-/** The report `factory board check` prints: each state's column, each
- * field, then the notes and problems. */
+const KIND_WORDS: Record<string, string> = {
+  TEXT: "text field",
+  SINGLE_SELECT: "single select field",
+  NUMBER: "number field",
+};
+
+/** What `factory board check` says of each state and each field. */
+export function boardRows(
+  fields: BoardField[],
+  cfg: BoardConfig,
+  settings: Pick<Settings, "builds">,
+): { columns: BoardRow[]; fields: BoardRow[] } {
+  const find = (name: string) => fields.find((f) => sameName(f.name, name));
+  const status = find("Status") ?? null;
+  const readable = status?.dataType === "SINGLE_SELECT";
+  const options = readable ? (status.options ?? []).map((o) => o.name) : [];
+  const ready = cfg.columns.Ready?.[0] ?? null;
+
+  const columns: BoardRow[] = (Object.keys(STATE_KEYS) as StateKey[]).map(
+    (key) => {
+      const names = cfg.columns[STATE_KEYS[key]];
+      if (names === null)
+        return {
+          state: "off",
+          key,
+          text:
+            key === "ready"
+              ? "none"
+              : `none, shows in ${columnFor(STATE_KEYS[key], cfg.columns)}`,
+        };
+      const joined = names.join(", ");
+      if (!readable) return { state: "none", key, text: joined };
+      const missing = names.filter((n) => !options.some((o) => sameName(o, n)));
+      if (missing.length)
+        return {
+          state: "fail",
+          key,
+          text: `${joined}: no such column on the board${names.length > 1 ? `: ${missing.join(", ")}` : ""}`,
+        };
+      if (
+        key === "ready" &&
+        ready !== DEFAULT_COLUMNS.Ready![0] &&
+        settings.builds.trigger === "own-server"
+      )
+        return {
+          state: "unknown",
+          key,
+          text: `${joined}: the poller needs FACTORY_READY_COLUMN set to "${ready}"`,
+        };
+      return { state: "pass", key, text: joined };
+    },
+  );
+  for (const name of options)
+    if (statusOfColumn(name, cfg.columns) === null)
+      columns.push({
+        state: "unknown",
+        key: name,
+        text: "no state: left alone",
+      });
+
+  const rows: BoardRow[] = [
+    status === null
+      ? { state: "fail", key: "Status", text: "no such field" }
+      : readable
+        ? { state: "pass", key: "Status", text: "synced" }
+        : { state: "fail", key: "Status", text: "not a single select" },
+  ];
+  for (const kind of FIELD_KINDS) {
+    const name = cfg.fields[kind.key];
+    const key = kind.label;
+    if (name === null) {
+      rows.push({ state: "off", key, text: "off" });
+      continue;
+    }
+    const named = !sameName(name, DEFAULT_FIELDS[kind.key]!);
+    const setting = `tickets.fields.${kind.setting}`;
+    const field = find(name);
+    if (!field) {
+      rows.push(
+        named
+          ? { state: "fail", key, text: `no such field: ${name}` }
+          : { state: "unknown", key, text: "skipped: no such field" },
+      );
+      continue;
+    }
+    const wrong =
+      field.dataType !== kind.type
+        ? `not a ${KIND_WORDS[kind.type]}`
+        : (() => {
+            const lacking = kind.options.filter(
+              (o) => !(field.options ?? []).some((x) => sameName(x.name, o)),
+            );
+            return lacking.length ? `lacks ${lacking.join(", ")}` : null;
+          })();
+    rows.push(
+      wrong === null
+        ? { state: "pass", key, text: "synced" }
+        : {
+            state: "fail",
+            key,
+            text: named
+              ? `${name}: ${wrong}`
+              : `${wrong}: name another field in ${setting}, or set it to none`,
+          },
+    );
+  }
+  return { columns, fields: rows };
+}
+
+const MARKS: Record<BoardRow["state"], [string, StyleFormat | null]> = {
+  pass: ["✓", "green"],
+  fail: ["✗", "red"],
+  unknown: ["?", "yellow"],
+  off: ["-", "dim"],
+  none: [" ", null],
+};
+
+/** The report `factory board check` prints: each state's column, then each
+ * field, under the setting each comes from. */
 export function boardReport(
   number: number,
   board: Board,
@@ -255,44 +372,20 @@ export function boardReport(
   settings: Pick<Settings, "builds">,
   paint: Paint = plain,
 ): string[] {
-  const found = inspectBoard(board.fields, cfg);
-  const pad = (label: string) => `  ${label.padEnd(10)} `;
-  const out = [
+  const rows = boardRows(board.fields, cfg, settings);
+  const row = (r: BoardRow) => {
+    const [mark, color] = MARKS[r.state];
+    return `  ${color ? paint(color, mark) : mark} ${r.key.padEnd(10)} ${r.text}`;
+  };
+  return [
     board.title ? `Board ${number}, "${board.title}"` : `Board ${number}`,
     "",
+    "tickets.columns",
+    ...rows.columns.map(row),
+    "",
+    "tickets.fields",
+    ...rows.fields.map(row),
   ];
-  for (const key of Object.keys(STATE_KEYS) as StateKey[]) {
-    const status = STATE_KEYS[key];
-    const column = cfg.columns[status];
-    out.push(
-      pad(key) +
-        (column !== null
-          ? column.join(", ")
-          : paint(
-              "dim",
-              key === "ready"
-                ? "no column: builds start only when you ask"
-                : `no column, shows in ${columnFor(status, cfg.columns)}`,
-            )),
-    );
-  }
-  out.push("");
-  for (const line of found.lines)
-    out.push(pad(line.label) + paint(fieldColor(line.text), line.text));
-  const ready = cfg.columns.Ready?.[0] ?? null;
-  const extra = [
-    ...found.notes.map((n) => `${paint("yellow", "Note:")} ${n}`),
-    ...(ready !== null &&
-    ready !== DEFAULT_COLUMNS.Ready![0] &&
-    settings.builds.trigger === "own-server"
-      ? [
-          `${paint("yellow", "Note:")} The poller needs FACTORY_READY_COLUMN set to "${ready}".`,
-        ]
-      : []),
-    ...found.problems.map((p) => `${paint("red", "Problem:")} ${p}.`),
-  ];
-  if (extra.length) out.push("", ...extra);
-  return out;
 }
 
 export type Plan = {
@@ -684,7 +777,10 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       const number = await projectNumber(deps);
       for (const line of boardReport(number, found, config, settings, d.paint))
         d.out(line);
-      return inspectBoard(found.fields, config).problems.length ? 1 : 0;
+      const rows = boardRows(found.fields, config, settings);
+      return [...rows.columns, ...rows.fields].some((r) => r.state === "fail")
+        ? 1
+        : 0;
     }
     if (argv[0] === "apply") {
       const input = option(argv, "--in");

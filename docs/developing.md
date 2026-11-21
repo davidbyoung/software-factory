@@ -550,3 +550,23 @@ this repository's own reviewer, reads a changed page as that person.
   "Without one", and reads on its own: not a pronoun or a clipped phrase,
   such as "It" or "Left out", that makes sense only once a cell is read
   into it.
+
+### A command's output
+
+A person reads it in a terminal, often while doing something else.
+
+- **Precise and short.** A label and a value, or a mark and a few words,
+  not a sentence explaining them. What a mark or a state word means is
+  said once, in `docs/cli.md`.
+- **A block is headed by the setting it shows,** such as
+  [`tickets.fields`](configuration.md#ticketsfields), so the reader knows
+  what to edit.
+- **The marks mean one thing everywhere:** ✓ works, ✗ needs fixing,
+  ? worth a look, - off on purpose.
+- **A fault sits on the line it is about,** with the fix after it.
+- **Success prints one line.** Silence reads as nothing happened.
+- **A command is named as `factory X`,** as the docs write it.
+- **Piped output is the same text,** without color. Lines a skill reads
+  keep their format.
+- **Another tool's output passes through unchanged.** The factory adds
+  its own line after it, never rewrites it.

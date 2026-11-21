@@ -65,24 +65,81 @@ describe("the commands the router knows", () => {
 });
 
 describe("factory's usage", () => {
-  it("prints the usage and exits non-zero for a command it does not know", () => {
-    const r = factory(["nonesuch"]);
+  /** The commands docs/cli.md lists under a heading, by their words. */
+  const documented = (heading: string) => {
+    const lines = readFileSync(join(PACKAGE, "docs/cli.md"), "utf8").split(
+      "\n",
+    );
+    const start = lines.findIndex((l) => l === heading);
+    const end = lines.findIndex((l, i) => i > start && /^#{2,3} /.test(l));
+    return lines
+      .slice(start, end)
+      .filter((l) => /^\| `factory /.test(l))
+      .map((l) => /`factory ([^`]*)`/.exec(l)![1])
+      .map((c) =>
+        c
+          .split(" ")
+          .filter((w) => /^[a-z][a-z-]*$/.test(w))
+          .join(" "),
+      );
+  };
 
-    expect(r.status).toBe(2);
-    expect(r.stderr).toContain("Usage: factory COMMAND [ARGS]");
-    expect(r.stderr).toContain("factory ticket claim N");
-    expect(r.stderr).toContain("factory sync [--check]");
-  });
-
-  it("prints the usage and exits non-zero with no command", () => {
+  it("lists a person's commands in the docs' groups, each with what it does", () => {
     const r = factory([]);
 
     expect(r.status).toBe(2);
-    expect(r.stderr).toContain("Usage: factory COMMAND [ARGS]");
+    expect(r.stderr.split("\n").slice(0, 4)).toEqual([
+      "Usage: factory COMMAND",
+      "",
+      "Setting up",
+      "  init                 Set a repository up, or turn a part on or off",
+    ]);
+    expect(r.stderr).toContain(
+      "  preset choose KEY PRESET\n                       Record one of those choices without questions",
+    );
+    expect(r.stderr.trimEnd().split("\n").at(-1)).toBe(
+      'The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.',
+    );
   });
 
-  it("lists pr uncovered with both of its optional arguments", () => {
-    expect(factory([]).stderr).toContain("factory pr uncovered [BASE] [LCOV]");
+  it("lists exactly the commands the docs list under a person's headings", () => {
+    const usage = factory([]).stderr.split("\n");
+    const listed = usage
+      .filter((l) => /^ {2}[a-z]/.test(l))
+      .map((l) => l.slice(2, 23).trim())
+      .map((c) =>
+        c
+          .split(" ")
+          .filter((w) => /^[a-z][a-z-]*$/.test(w))
+          .join(" "),
+      );
+    const docs = [
+      "## Setting up",
+      "## Every day",
+      "## Now and then",
+      "## Presets",
+      "### Your repository's commands",
+    ].flatMap(documented);
+
+    expect(new Set(listed)).toEqual(new Set(docs));
+  });
+
+  it("says a command it does not have is not there, before the usage", () => {
+    const r = factory(["ticket", "nonesuch"]);
+
+    expect(r.status).toBe(2);
+    expect(r.stderr.split("\n").slice(0, 3)).toEqual([
+      'factory has no command "ticket nonesuch".',
+      "",
+      "Usage: factory COMMAND",
+    ]);
+  });
+
+  it("prints the usage alone for --help", () => {
+    const r = factory(["--help"]);
+
+    expect(r.status).toBe(2);
+    expect(r.stderr.split("\n")[0]).toBe("Usage: factory COMMAND");
   });
 });
 
