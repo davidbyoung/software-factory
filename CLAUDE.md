@@ -149,6 +149,18 @@ is the owner saying to save, so `dx-first` saves the draft and refinement
 carries on to its own end. The owner then approves the refined ticket as
 usual.
 
+## Issues that wait on another: this repository
+
+**A new ticket gets its blockers checked.** A session the owner steers
+that opens issues, by any command, runs the `ticket-order` skill on them
+once before finishing, as `/ticket-order N M ...`, so the links in both
+directions are proposed in one question while the owner is there to
+approve them. The follow-ups issue is not one of them: its lines are
+built as one pull request, not ordered. A run in GitHub Actions skips it,
+since nobody can answer its question.
+Refinement's own check of the build order is unchanged. The owner runs
+`/ticket-order` for the order of every open ticket.
+
 ## Changing the process: this repository
 
 The source of every factory file is in this repository: `skills/`,
@@ -157,8 +169,9 @@ the source, run `node bin/factory.js sync`, and commit both; CI's
 `Factory files in step` fails when a copy differs from its source. Never
 edit the copy under `.claude/` or `.github/`.
 `.claude/agents/docs-reader.md`, this repository's own reviewer, and
-`.claude/skills/dx-first/`, its own skill, are not copies: they have no
-source elsewhere and are edited where they are.
+`.claude/skills/dx-first/` and `.claude/skills/ticket-order/`, its own
+skills, are not copies: they have no source elsewhere and are edited
+where they are.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
