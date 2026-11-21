@@ -8,13 +8,13 @@
 
 ## 2. Splitting and joining
 
-- [ ] 2.1 `src/ticket-fields.mts`'s `split` and `join`: unit tests in `tests/ticket-fields.test.ts` (new) for lines 13, 14, and 15, including the insertion order, a section ended by `## Mockups`, a shared field written from one section and not cleared, a fenced `## Spec`, the shared Spec and Acceptance criteria field under each label, an empty section clearing its field, and a heading of the repository's own.
-- [ ] 2.2 `withTicketFields` in `src/tickets/index.mts`. In `tests/ticket.test.ts`, against the memory adapter: `view` and `view --field body` print the joined document (13); `edit` writes fields and description (15), with `## Mockups` ending a section and a hand-written `mockups` key; `refined --check` prints `sound` for a ticket whose Decisions and Spec are in fields (16); a `follow-up` ticket stays whole (17); a missing field (18), a non-text field (19), an adapter without `fields` (25), a failing field write that leaves the description as it was (26), and both Spec and Acceptance criteria in one shared field (27) each exit 1 with nothing written.
+- [x] 2.1 `src/ticket-fields.mts`'s `split` and `join`: unit tests in `tests/ticket-fields.test.ts` (new) for lines 13, 14, and 15, including the insertion order, a section ended by `## Mockups`, a shared field written from one section and not cleared, a fenced `## Spec`, the shared Spec and Acceptance criteria field under each label, an empty section clearing its field, and a heading of the repository's own.
+- [x] 2.2 `withTicketFields` in `src/tickets/index.mts`. In `tests/ticket.test.ts`, against the memory adapter: `view` and `view --field body` print the joined document (13); `edit` writes fields and description (15), with `## Mockups` ending a section and a hand-written `mockups` key; `refined --check` prints `sound` for a ticket whose Decisions and Spec are in fields (16); a `follow-up` ticket stays whole (17); a missing field (18), a non-text field (19), an adapter without `fields` (25), a failing field write that leaves the description as it was (26), and both Spec and Acceptance criteria in one shared field (27) each exit 1 with nothing written.
 
 ## 3. Settings
 
-- [ ] 3.1 `src/config.mts` and `settings.schema.json`: in `tests/config.test.ts`, line 20's message exact, the Spec and Acceptance criteria exception, line 21 both ways, and line 22's message.
-- [ ] 3.2 `src/explain.mts`: line 30 in the config explain tests, with and without a board.
+- [x] 3.1 `src/config.mts` and `settings.schema.json`: in `tests/config.test.ts`, line 20's message exact, the Spec and Acceptance criteria exception, line 21 both ways, and line 22's message.
+- [x] 3.2 `src/explain.mts`: line 30 in the config explain tests, with and without a board.
 
 ## 4. Init
 

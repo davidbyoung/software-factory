@@ -7,7 +7,13 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { DEFAULT_CODE_HOST } from "./code-host/index.mts";
-import { ROLE_SHAPE, ROLES, SETTINGS_FILE, SETTINGS_KEYS } from "./config.mts";
+import {
+  OWN_HEADING,
+  ROLE_SHAPE,
+  ROLES,
+  SETTINGS_FILE,
+  SETTINGS_KEYS,
+} from "./config.mts";
 import { BUILT } from "./tool-names.mts";
 import { NPMRC, refusal } from "./npmrc.mts";
 
@@ -160,7 +166,8 @@ export function unknownKey(raw: unknown): string | null {
     for (const [k, value] of Object.entries(v)) {
       const at = path ? `${path}.${k}` : k;
       const show = shown ? `${shown}.${k}` : k;
-      if (!allowed.includes(k) && !extra.includes(k))
+      const own = path === "tickets.fields" && OWN_HEADING.test(k);
+      if (!allowed.includes(k) && !extra.includes(k) && !own)
         return `${show}: unknown key`;
       const inner =
         SETTINGS_KEYS[`${at}[]`] && Array.isArray(value)

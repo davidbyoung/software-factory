@@ -105,6 +105,9 @@ export async function explainLines(
     for (const [k, v] of Object.entries(s.tickets.fields))
       put(["tickets", "fields", k], v ?? "none");
   }
+  if (s.tickets.board === null) block(["tickets", "fields"]);
+  for (const [k, v] of Object.entries(s.tickets.ticketFields))
+    put(["tickets", "fields", k], v ?? "none");
 
   put(["code-host"], s.codeHost.type);
   block(["builds"]);

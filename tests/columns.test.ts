@@ -154,9 +154,14 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       "tickets.columns.blocked: unknown key",
     ],
     [
-      "an unknown field",
-      { fields: { notes: "X" } },
-      "tickets.fields.notes: unknown key",
+      "a key that is not a heading in lowercase",
+      { fields: { Notes: "X" } },
+      "tickets.fields.Notes: must be a heading in lowercase, with hyphens for spaces",
+    ],
+    [
+      "two factory fields in one ticket field",
+      { fields: { decisions: "Notes", "for-the-builder": "notes" } },
+      "tickets.fields.for-the-builder: names the same field as decisions",
     ],
     [
       "backlog none",
@@ -184,6 +189,26 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     expect(() =>
       parse({ ...base, tickets: { fields: { cost: "none" } } }),
     ).toThrow("tickets.fields: needs tickets.board");
+  });
+
+  it("reads the ticket-side fields with no board, Spec and Acceptance criteria sharing one", () => {
+    const s = parse({
+      ...base,
+      tickets: {
+        fields: {
+          spec: "Acceptance criteria",
+          "acceptance-criteria": "Acceptance criteria",
+          "proposed-docs": "Docs draft",
+        },
+      },
+    });
+    expect(s.tickets.ticketFields).toEqual({
+      decisions: null,
+      spec: "Acceptance criteria",
+      "acceptance-criteria": "Acceptance criteria",
+      "for-the-builder": null,
+      "proposed-docs": "Docs draft",
+    });
   });
 
   it("rejects ready: none unless builds.trigger is manual, with the words the issue gives", () => {

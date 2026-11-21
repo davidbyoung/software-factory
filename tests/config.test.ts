@@ -39,6 +39,12 @@ describe("parseSettings", () => {
           done: ["Done"],
         },
         fields: { session: "Session", "runs-in": "Runs in", cost: "Cost" },
+        ticketFields: {
+          decisions: null,
+          spec: null,
+          "acceptance-criteria": null,
+          "for-the-builder": null,
+        },
       },
       codeHost: { type: "github" },
       builds: { trigger: "manual", runner: "github-actions", pollMinutes: 5 },
@@ -953,6 +959,10 @@ describe("factory config explain", () => {
           session: Session                                                         # default
           runs-in: Runs in                                                         # default
           cost: Cost                                                               # default
+          decisions: none                                                          # default
+          spec: none                                                               # default
+          acceptance-criteria: none                                                # default
+          for-the-builder: none                                                    # default
       code-host: github                                                            # default
       builds:
         trigger: manual                                                            # default
@@ -1055,9 +1065,20 @@ describe("factory config explain", () => {
     expect(r.out).toContain("  # pages: found by the factory (default)");
   });
 
-  it("prints no columns or fields without a board", async () => {
-    const r = await explain(["version: 2", "repository: owner/name"]);
-    expect(r.out.join("\n")).not.toMatch(/columns:|fields:/);
+  it("prints the ticket-side fields without a board, and no columns or board fields", async () => {
+    const r = await explain([
+      "version: 2",
+      "repository: owner/name",
+      "tickets:",
+      "  fields:",
+      "    spec: Acceptance criteria",
+      "    proposed-docs: Docs draft",
+    ]);
+    const text = r.out.join("\n");
+    expect(text).not.toMatch(/columns:|session:|runs-in:|cost:/);
+    expect(text).toMatch(/^    decisions: none +# default$/m);
+    expect(text).toMatch(/^    spec: Acceptance criteria$/m);
+    expect(text).toMatch(/^    proposed-docs: Docs draft$/m);
   });
 
   const RICH = [
