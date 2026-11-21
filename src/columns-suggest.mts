@@ -157,16 +157,21 @@ export function table(mapping: Mapping): string[] {
   ];
 }
 
-/** What `Yes` writes under `tickets.columns`: each state whose column is
- * not the factory's own name. */
+/** What `Yes` writes under `tickets.columns`: every state, a column init
+ * adds by its factory name. */
 export function written(mapping: Mapping): [StateKey, string][] {
-  return KEYS.flatMap((k): [StateKey, string][] => {
+  return KEYS.map((k) => {
     const c = mapping[k];
-    if (c === "add") return [];
-    if (c === "none") return [[k, "none"]];
-    return sameName(c.column, STATE_KEYS[k]) ? [] : [[k, c.column]];
+    return [k, c === "none" ? "none" : c === "add" ? STATE_KEYS[k] : c.column];
   });
 }
+
+/** Every state written with the factory's own name: a board init creates,
+ * one with no columns, and the answer No. */
+export const FACTORY_LINES: [StateKey, string][] = KEYS.map((k) => [
+  k,
+  STATE_KEYS[k],
+]);
 
 export type SuggestDeps = {
   ask: Ask;
@@ -198,9 +203,21 @@ function showing(
   );
 }
 
+/** The "No column" choice for `key`, saying where its tickets show with
+ * `columns` and no column of its own, or null where it has none. */
+function noColumnFor(
+  key: StateKey,
+  columns: Columns,
+  fromBoard: boolean,
+): string | null {
+  if (key === "backlog" || (key === "ready" && fromBoard)) return null;
+  const others = { ...columns, [STATE_KEYS[key]]: null };
+  return NO_COLUMN[key]!(columnFor(STATE_KEYS[key], others));
+}
+
 /** Asks which column shows `key`, with `current` selected. */
 async function pickColumn(
-  d: SuggestDeps,
+  d: Pick<SuggestDeps, "ask">,
   key: StateKey,
   columns: readonly string[],
   current: string,
@@ -227,32 +244,29 @@ const valueOf = (c: Choice) =>
 const choiceOf = (v: string): Choice =>
   v === NONE ? "none" : v === ADD ? "add" : { column: v.slice(7) };
 
-/** "Change some": the states you pick, then a column for each, until no
- * two states share one. */
+/** "Change some": the states you pick, of `keys`, then a column for each,
+ * until no two states share one. */
 async function changeSome(
-  d: SuggestDeps,
+  d: Pick<SuggestDeps, "ask" | "out">,
   mapping: Mapping,
   columns: readonly string[],
   fromBoard: boolean,
+  keys: readonly StateKey[] = KEYS,
 ): Promise<Mapping> {
   const m = { ...mapping };
   let picked: string[] = [];
   for (;;) {
     picked = await d.ask.checkbox(
       "Which states do you want to change?",
-      KEYS.map((k) => ({
+      keys.map((k) => ({
         name: `${k}: ${shown(k, m)}`,
         value: k,
         checked: picked.includes(k),
       })),
     );
     let clash = false;
-    for (const key of KEYS.filter((k) => picked.includes(k))) {
-      const others = { ...m, [key]: "none" } as Mapping;
-      const noColumn =
-        key === "backlog" || (key === "ready" && fromBoard)
-          ? null
-          : NO_COLUMN[key]!(columnFor(STATE_KEYS[key], toColumns(others)));
+    for (const key of keys.filter((k) => picked.includes(k))) {
+      const noColumn = noColumnFor(key, toColumns(m), fromBoard);
       const choice = choiceOf(
         await pickColumn(d, key, columns, valueOf(m[key]), noColumn),
       );
@@ -271,12 +285,12 @@ async function changeSome(
   }
 }
 
-/** The column step: the mapping's `tickets.columns` lines to write, none
- * for the factory's own columns, or 1 when init stops. */
+/** The column step: the mapping's `tickets.columns` lines to write, or 1
+ * when init stops. */
 export async function suggestColumns(
   d: SuggestDeps,
   o: { board: number; columns: readonly string[]; fromBoard: boolean },
-): Promise<[StateKey, string][] | "default" | 1> {
+): Promise<[StateKey, string][] | 1> {
   d.out("");
   d.out(boardLine(o.board, o.columns));
   d.out(
@@ -319,7 +333,7 @@ export async function suggestColumns(
       "yes",
     );
     if (use === "yes") return written(mapping);
-    if (use === "no") return "default";
+    if (use === "no") return FACTORY_LINES;
     mapping = await changeSome(d, mapping, o.columns, o.fromBoard);
   }
 }
@@ -345,5 +359,112 @@ export async function askReady(
     const other = showing(name, "ready", o.current);
     if (!other) return name;
     d.out(`${name} already shows ${other}. Pick another column for ready.`);
+  }
+}
+
+/** A board with a column of each of the factory's names: init says so,
+ * shows them as the board spells them, and writes them. */
+export function everyColumn(
+  d: Pick<SuggestDeps, "out">,
+  o: { board: number; columns: readonly string[] },
+): [StateKey, string][] {
+  const mapping = Object.fromEntries(
+    KEYS.map((k) => [k, { column: onBoard(STATE_KEYS[k], o.columns)! }]),
+  ) as Mapping;
+  d.out("");
+  d.out(`Board ${o.board} has a column for each of the factory's six states:`);
+  d.out("");
+  for (const line of table(mapping)) d.out(line);
+  return written(mapping);
+}
+
+/** A re-run's column step for a block that leaves states out. Each state
+ * left out takes the board's column of its factory name, when the board
+ * has one no written state names, since that is the column the factory
+ * read for it; any other is asked for. The lines to write for the states
+ * left out. */
+export async function fillColumns(
+  d: Pick<SuggestDeps, "ask" | "out">,
+  o: {
+    board: number;
+    columns: readonly string[];
+    written: Partial<Record<StateKey, readonly string[] | null>>;
+    fromBoard: boolean;
+  },
+): Promise<[StateKey, string][]> {
+  const missing = KEYS.filter((k) => !(k in o.written));
+  const lists: Partial<Record<StateKey, readonly string[] | null>> = {
+    ...o.written,
+  };
+  const now = (): Columns =>
+    Object.fromEntries(
+      KEYS.map((k) => [STATE_KEYS[k], lists[k] ?? null]),
+    ) as Columns;
+  const mapping = {} as Mapping;
+  for (const k of KEYS)
+    if (k in o.written)
+      mapping[k] =
+        o.written[k] === null ? "none" : { column: o.written[k]!.join(", ") };
+  const asks: [StateKey, string][] = [];
+  for (const k of missing) {
+    const name = onBoard(STATE_KEYS[k], o.columns);
+    const other = name === null ? null : showing(name, k, now());
+    if (name !== null && other === null) {
+      mapping[k] = { column: name };
+      lists[k] = [name];
+    } else
+      asks.push([
+        k,
+        name === null
+          ? `board ${o.board} has no ${STATE_KEYS[k]} column`
+          : `${name} already shows ${other}`,
+      ]);
+  }
+  const lines = (m: Mapping) => written(m).filter(([k]) => missing.includes(k));
+  d.out("");
+  if (!asks.length) {
+    d.out(`Your settings give no column to ${listed(missing, "or")}.`);
+    d.out(`Board ${o.board} has a column of the factory's name for each:`);
+    d.out("");
+    for (const line of table(mapping)) d.out(line);
+    return lines(mapping);
+  }
+  for (const [k, why] of asks) {
+    d.out(`Your settings give no column to ${k}, and ${why}.`);
+    for (;;) {
+      const choice = choiceOf(
+        await pickColumn(
+          d,
+          k,
+          o.columns,
+          ADD,
+          noColumnFor(k, now(), o.fromBoard),
+        ),
+      );
+      const name = nameOf(k, choice);
+      const other = name === null ? null : showing(name, k, now());
+      if (other === null) {
+        mapping[k] = choice;
+        lists[k] = name === null ? null : [name];
+        break;
+      }
+      d.out(`${name} already shows ${other}. Pick another column for ${k}.`);
+    }
+  }
+  let m = mapping;
+  for (;;) {
+    d.out("");
+    for (const line of table(m)) d.out(line);
+    d.out("");
+    const use = await d.ask.select(
+      "Use these columns?",
+      [
+        { name: "Yes", value: "yes" },
+        { name: "Change some", value: "change" },
+      ],
+      "yes",
+    );
+    if (use === "yes") return lines(m);
+    m = await changeSome(d, m, o.columns, o.fromBoard, missing);
   }
 }

@@ -35,6 +35,7 @@ import { ADD, NONE } from "../src/columns-suggest.mts";
 import type { Registry } from "../src/tools.mts";
 import type { Agent } from "../src/agent/types.mts";
 import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
+import { FACTORY_COLUMNS, FACTORY_COLUMNS_YAML } from "./factory-columns";
 
 const GOOD = "tok_good";
 const NARROW = "tok_narrow";
@@ -262,6 +263,13 @@ function init(setup: Setup) {
     read,
     yaml: () =>
       load(read(".claude/factory.yaml") ?? "") as Record<string, unknown>,
+    /** `tickets.columns` as the settings file stands. */
+    columns: () =>
+      (
+        load(read(".claude/factory.yaml") ?? "") as {
+          tickets?: { columns?: unknown };
+        }
+      ).tickets?.columns,
     host,
     runner,
     tickets,
@@ -326,7 +334,7 @@ describe("factory init, a first run with every part", () => {
     expect(r.yaml()).toEqual({
       version: 2,
       repository: "acme/site",
-      tickets: { board: 1 },
+      tickets: { board: 1, columns: FACTORY_COLUMNS },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**", "**/*.md"] },
       "pr-review": { commands: [] },
@@ -359,6 +367,7 @@ describe("factory init, a first run with every part", () => {
         fields: ["Session", "Runs in", "Cost"],
       },
     ]);
+    expect(r.columns()).toEqual(FACTORY_COLUMNS);
   });
 
   it("stores the agent's token, the one access token under each name, and the signing key", async () => {
@@ -851,7 +860,7 @@ describe("factory init, the board", () => {
     });
     await r.run();
     printsNoSecret(r.out);
-    expect(r.yaml().tickets).toEqual({ board: 4 });
+    expect(r.yaml().tickets).toEqual({ board: 4, columns: FACTORY_COLUMNS });
     expect(r.tickets.boards[0].columns.slice(0, 6)).toEqual([
       "Backlog",
       "In refinement",
@@ -878,7 +887,7 @@ describe("factory init, the board", () => {
     expect(r.out.join("\n")).toContain(
       "Could not create a board: Projects are turned off for this organization",
     );
-    expect(r.yaml().tickets).toEqual({ board: 4 });
+    expect(r.yaml().tickets).toEqual({ board: 4, columns: FACTORY_COLUMNS });
   });
 
   it("goes on without a board when it cannot make one and there is no other", async () => {
@@ -912,7 +921,7 @@ describe("factory init, the board", () => {
     expect(r.out).toContain(
       "Builds that start from the board need a board, so that is on too.",
     );
-    expect(r.yaml().tickets).toEqual({ board: 1 });
+    expect(r.yaml().tickets).toEqual({ board: 1, columns: FACTORY_COLUMNS });
   });
 });
 
@@ -1003,7 +1012,7 @@ describe("factory init, where the poller runs", () => {
     expect(r.out.join("\n")).not.toMatch(/poller/i);
   });
 
-  it("names the poller's image and its four settings for a server you host", async () => {
+  it("names the poller's image and its five settings for a server you host", async () => {
     const r = chosen("own-server");
     await r.run();
 
@@ -1014,6 +1023,7 @@ describe("factory init, where the poller runs", () => {
         "       FACTORY_BOARD_OWNER=acme",
         "       FACTORY_BOARD_NUMBER=1",
         "       FACTORY_BOARD_TOKEN=the access token you just made",
+        "       FACTORY_READY_COLUMN=Ready",
       ].join("\n"),
     );
   });
@@ -1145,7 +1155,8 @@ describe("factory init, word for word", () => {
              FACTORY_REPOSITORY=acme/site
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=1
-             FACTORY_BOARD_TOKEN=the access token you just made",
+             FACTORY_BOARD_TOKEN=the access token you just made
+             FACTORY_READY_COLUMN=Ready",
         "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
         "  4. Commit this on a branch, open a pull request, and merge it.",
         "",
@@ -1162,6 +1173,7 @@ describe("factory init, word for word", () => {
         "repository: acme/site",
         "tickets:",
         "  board: 3",
+        FACTORY_COLUMNS_YAML,
         "builds:",
         "  trigger: own-server",
         "auto-merge:",
@@ -1212,7 +1224,8 @@ describe("factory init, word for word", () => {
              FACTORY_REPOSITORY=acme/site
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=3
-             FACTORY_BOARD_TOKEN=the access token you just made",
+             FACTORY_BOARD_TOKEN=the access token you just made
+             FACTORY_READY_COLUMN=Ready",
         "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
         "  4. Commit this on a branch, open a pull request, and merge it.",
         "",
@@ -1534,7 +1547,7 @@ describe("factory init, the column step", () => {
     for (const c of SHOP_COLUMNS) expect(r.agent.asked[0]!.prompt).toContain(c);
   });
 
-  it("on Yes writes only the states that differ, and adds only the fields", async () => {
+  it("on Yes writes all six states, and adds only the fields", async () => {
     const r = shop({ select: ["yes"] });
     await r.run();
     expect(r.read(".claude/factory.yaml")).toContain(
@@ -1545,7 +1558,9 @@ describe("factory init, the column step", () => {
         "    backlog: Todo",
         "    refining: none",
         "    ready: none",
+        "    building: In Progress",
         "    review: Code review",
+        "    done: Done",
         "",
       ].join("\n"),
     );
@@ -1581,7 +1596,14 @@ describe("factory init, the column step", () => {
     expect(r.out).toContain("  refining   In refinement, which init adds");
     expect(r.yaml().tickets).toEqual({
       board: 3,
-      columns: { backlog: "Todo", ready: "none", review: "Code review" },
+      columns: {
+        backlog: "Todo",
+        refining: "In refinement",
+        ready: "none",
+        building: "In Progress",
+        review: "Code review",
+        done: "Done",
+      },
     });
     expect(r.out).toContain(
       "Added to board 3: In refinement, Session, Runs in, Cost.",
@@ -1633,10 +1655,10 @@ describe("factory init, the column step", () => {
     });
   });
 
-  it("adds the factory's columns it lacks and writes no columns on No", async () => {
+  it("adds the factory's columns it lacks and writes the factory's six on No", async () => {
     const r = shop({ select: ["no"] });
     expect(await r.run()).toBe(0);
-    expect(r.yaml().tickets).toEqual({ board: 3 });
+    expect(r.yaml().tickets).toEqual({ board: 3, columns: FACTORY_COLUMNS });
     expect(r.out).toContain(
       "Added to board 3: Backlog, In refinement, Ready, In review, Session, Runs in, Cost.",
     );
@@ -1690,34 +1712,77 @@ describe("factory init, the column step", () => {
       "a board with the factory's six columns",
       { boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }] },
       ["3"],
+      FACTORY_COLUMNS,
     ],
-    ["a new board", { boards: SHOP() }, ["new"]],
+    ["a new board", { boards: SHOP() }, ["new"], FACTORY_COLUMNS],
     [
       "a board with no columns",
       { boards: [{ number: 3, title: "Roadmap", columns: [] }] },
       ["3"],
+      FACTORY_COLUMNS,
     ],
     [
-      "settings that name the columns",
+      "settings that name every column",
       {
         boards: SHOP(),
-        settings:
-          "version: 2\nrepository: acme/site\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n",
+        settings: [
+          "version: 2",
+          "repository: acme/site",
+          "tickets:",
+          "  board: 3",
+          FACTORY_COLUMNS_YAML.replace("Backlog", "Todo"),
+          "",
+        ].join("\n"),
       },
       [],
+      { ...FACTORY_COLUMNS, backlog: "Todo" },
     ],
-  ])("asks nothing about columns with %s", async (_n, setup, select) => {
-    const agent = scriptedAgent();
+  ])(
+    "asks nothing about columns with %s, and writes all six",
+    async (_n, setup, select, written) => {
+      const agent = scriptedAgent();
+      const r = init({
+        ...setup,
+        secrets: ALL_SET,
+        agent,
+        answers: { checkbox: [["board"]], select, confirm: [false, true] },
+      });
+      expect(await r.run()).toBe(0);
+      expect(agent.asked).toEqual([]);
+      expect(r.out.join("\n")).not.toContain("has the columns");
+      expect(r.asked.join("\n")).not.toContain("columns");
+      expect(r.columns()).toEqual(written);
+    },
+  );
+
+  it("says a board has the factory's six columns, and saves them as the board spells them", async () => {
+    const spelled = SIX_COLUMNS.map((c) =>
+      c === "In progress" ? "In Progress" : c,
+    );
     const r = init({
-      ...setup,
+      boards: [{ number: 3, title: "Roadmap", columns: spelled }],
       secrets: ALL_SET,
-      agent,
-      answers: { checkbox: [["board"]], select, confirm: [false, true] },
+      agent: scriptedAgent(),
+      answers: { checkbox: [["board"]], select: ["3"], confirm: [false, true] },
     });
     expect(await r.run()).toBe(0);
-    expect(agent.asked).toEqual([]);
-    expect(r.out.join("\n")).not.toContain("has the columns");
-    expect(r.asked.join("\n")).not.toContain("columns");
+    const at = r.transcript.indexOf("? select: Which board?");
+    expect(r.transcript.slice(at + 1, at + 11)).toEqual([
+      "",
+      "Board 3 has a column for each of the factory's six states:",
+      "",
+      "  State      Column",
+      "  backlog    Backlog",
+      "  refining   In refinement",
+      "  ready      Ready",
+      "  building   In Progress",
+      "  review     In review",
+      "  done       Done",
+    ]);
+    expect(r.columns()).toEqual({
+      ...FACTORY_COLUMNS,
+      building: "In Progress",
+    });
   });
 
   describe("with builds from the board", () => {
@@ -1756,7 +1821,11 @@ describe("factory init, the column step", () => {
       "  board: 3",
       "  columns:",
       "    backlog: Todo",
+      "    refining: In refinement",
       "    ready: none",
+      "    building: In progress",
+      "    review: none",
+      "    done: none",
       "",
     ].join("\n");
     const rerun = (select: string[]) => {
@@ -1799,9 +1868,9 @@ describe("factory init, the column step", () => {
         'Add a column called "Ready"',
       ]);
       expect(r.agent.asked).toEqual([]);
-      expect(r.yaml().tickets).toEqual({
-        board: 3,
-        columns: { backlog: "Todo" },
+      expect(r.columns()).toMatchObject({
+        backlog: "Todo",
+        ready: "Ready",
       });
       expect(r.tickets.boards[0].columns).toContain("Ready");
     });
@@ -1813,9 +1882,9 @@ describe("factory init, the column step", () => {
         "Todo already shows backlog. Pick another column for ready.",
       );
       expect(r.asked.filter((a) => a.includes("shows ready"))).toHaveLength(2);
-      expect(r.yaml().tickets).toEqual({
-        board: 3,
-        columns: { backlog: "Todo", ready: "Approved" },
+      expect(r.columns()).toMatchObject({
+        backlog: "Todo",
+        ready: "Approved",
       });
       expect(r.tickets.boards[0].columns).not.toContain("Ready");
     });
@@ -1839,6 +1908,230 @@ describe("factory init, the column step", () => {
     expect(missing.out).toContain(
       "The factory runs in a coding agent, and Fake Agent is not installed.",
     );
+  });
+});
+
+describe("factory init, a block that leaves states out", () => {
+  const ALL_SET = {
+    FACTORY_BOARD_TOKEN: "x",
+    FACTORY_BUILD_TOKEN: "x",
+    CLAUDE_CODE_OAUTH_TOKEN: "x",
+  };
+  const SHOP_COLUMNS = ["Todo", "In Progress", "Code review", "Done"];
+  const settings = (columns: string[]) =>
+    [
+      "version: 2",
+      "repository: acme/site",
+      "tickets:",
+      "  board: 3",
+      ...(columns.length
+        ? ["  columns:", ...columns.map((c) => `    ${c}`)]
+        : []),
+      "",
+    ].join("\n");
+  const rerun = (
+    columns: string[],
+    o: {
+      board?: string[];
+      parts?: string[];
+      select?: string[];
+      answer?: unknown;
+    } = {},
+  ) => {
+    const agent = scriptedAgent(o.answer ? [{ answer: o.answer }] : []);
+    const r = init({
+      settings: settings(columns),
+      boards: [
+        { number: 3, title: "Shop board", columns: o.board ?? SHOP_COLUMNS },
+      ],
+      secrets: ALL_SET,
+      agent,
+      answers: {
+        checkbox: [o.parts ?? ["board"]],
+        select: o.select ?? [],
+        confirm: [false, true],
+      },
+    });
+    return { ...r, agent };
+  };
+  /** The choices of the select that asked `question`. */
+  const selectOf = (
+    r: { asked: string[]; selects: { names: string[]; fallback?: string }[] },
+    question: string,
+  ) =>
+    r.selects[
+      r.asked
+        .filter((a) => a.startsWith("select: "))
+        .indexOf(`select: ${question}`)
+    ]!;
+  const SHOP_PARTIAL = [
+    "backlog: Todo",
+    "refining: none",
+    "ready: none",
+    "review: Code review",
+  ];
+
+  it("fills in each state left out from the board's column of the factory's name, asking nothing", async () => {
+    const r = rerun(SHOP_PARTIAL);
+    expect(await r.run()).toBe(0);
+    const at = r.transcript.indexOf(
+      "Your settings give no column to building or done.",
+    );
+    expect(r.transcript.slice(at, at + 10)).toEqual([
+      "Your settings give no column to building or done.",
+      "Board 3 has a column of the factory's name for each:",
+      "",
+      "  State      Column",
+      "  backlog    Todo",
+      "  refining   none, shows in Todo",
+      "  ready      none",
+      "  building   In Progress",
+      "  review     Code review",
+      "  done       Done",
+    ]);
+    expect(r.transcript.at(at - 1)).toBe("");
+    expect(r.agent.asked).toEqual([]);
+    expect(r.asked.join("\n")).not.toContain("columns");
+    expect(r.columns()).toEqual({
+      backlog: "Todo",
+      refining: "none",
+      ready: "none",
+      building: "In Progress",
+      review: "Code review",
+      done: "Done",
+    });
+  });
+
+  it("asks for a state left out whose column the board lacks, saying so, then shows the table", async () => {
+    const r = rerun(
+      [
+        "backlog: Todo",
+        "refining: none",
+        "ready: none",
+        "building: In Progress",
+        "done: Done",
+      ],
+      { select: ["column:Code review", "yes"] },
+    );
+    expect(await r.run()).toBe(0);
+    const at = r.transcript.indexOf(
+      "Your settings give no column to review, and board 3 has no In review column.",
+    );
+    expect(at).toBeGreaterThan(0);
+    expect(r.transcript[at + 1]).toBe("? select: Which column shows review?");
+    expect(selectOf(r, "Which column shows review?").names).toEqual([
+      ...SHOP_COLUMNS,
+      "No column: a ticket in review shows in In Progress",
+      'Add a column called "In review"',
+    ]);
+    expect(r.transcript).toContain("? select: Use these columns?");
+    expect(r.out).toContain("  review     Code review");
+    expect(r.columns()).toMatchObject({ review: "Code review" });
+    expect(r.agent.asked).toEqual([]);
+  });
+
+  it("asks for a state left out whose factory column another state names, and fills the rest", async () => {
+    const r = rerun(
+      ["backlog: Todo", "refining: none", "ready: none", "review: In Progress"],
+      { select: [NONE, "yes"] },
+    );
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "Your settings give no column to building, and In Progress already shows review.",
+    );
+    expect(selectOf(r, "Which column shows building?").names).toEqual([
+      ...SHOP_COLUMNS,
+      "No column: a ticket being built shows in Todo",
+    ]);
+    expect(r.out.join("\n")).not.toContain("no column to done");
+    expect(r.columns()).toEqual({
+      backlog: "Todo",
+      refining: "none",
+      ready: "none",
+      building: "none",
+      review: "In Progress",
+      done: "Done",
+    });
+  });
+
+  it("asks again when the column picked for a state left out shows another state", async () => {
+    const r = rerun(
+      [
+        "backlog: Todo",
+        "refining: none",
+        "ready: none",
+        "building: In Progress",
+        "done: Done",
+      ],
+      { select: ["column:Todo", "column:Code review", "yes"] },
+    );
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "Todo already shows backlog. Pick another column for review.",
+    );
+    expect(r.columns()).toMatchObject({ review: "Code review" });
+  });
+
+  it("offers no No column for a ready left out when builds start from the board, and doesn't ask the ready-none question", async () => {
+    const r = rerun(
+      [
+        "backlog: Todo",
+        "refining: none",
+        "building: In Progress",
+        "review: Code review",
+        "done: Done",
+      ],
+      {
+        parts: ["board", "cloud", "from-board"],
+        select: ["github-action", ADD, "yes"],
+      },
+    );
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "Your settings give no column to ready, and board 3 has no Ready column.",
+    );
+    expect(r.out).not.toContain("and your settings give ready no column.");
+    expect(selectOf(r, "Which column shows ready?").names).toEqual([
+      ...SHOP_COLUMNS,
+      'Add a column called "Ready"',
+    ]);
+    expect(r.columns()).toMatchObject({ ready: "Ready" });
+  });
+
+  it("suggests columns through the agent when the settings name a board and no columns", async () => {
+    const r = rerun([], {
+      answer: {
+        backlog: "Todo",
+        refining: NONE,
+        ready: NONE,
+        building: "In Progress",
+        review: "Code review",
+        done: "Done",
+      },
+      select: ["yes"],
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.agent.asked).toHaveLength(1);
+    expect(r.out).toContain(
+      "Board 3 has the columns Todo, In Progress, Code review, and Done.",
+    );
+    expect(r.columns()).toEqual({
+      backlog: "Todo",
+      refining: "none",
+      ready: "none",
+      building: "In Progress",
+      review: "Code review",
+      done: "Done",
+    });
+  });
+
+  it("still stops on settings with another fault", async () => {
+    const r = init({
+      settings: settings(["backlog: none"]),
+      answers: { checkbox: [["board"]] },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toContain("Fix it, then run init again.");
   });
 });
 
