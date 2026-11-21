@@ -11,9 +11,13 @@ import {
 import { secretSteps, TOOLS } from "../src/tools.mts";
 import { memoryContext } from "./memory-tools";
 import { FACTORY_COLUMNS } from "./factory-columns";
+import { CODE_HOST } from "./settings-fixture";
 
 const settings = (raw: Record<string, unknown> = {}) =>
-  parseSettings({ version: 2, repository: "acme/site", ...raw }, () => true);
+  parseSettings(
+    { version: 2, repository: "acme/site", "code-host": CODE_HOST, ...raw },
+    () => true,
+  );
 const set = (...parts: Part[]) => new Set<Part>(parts);
 /** What today's tools read for cloud builds. */
 const cloud = secretSteps(TOOLS, memoryContext(["cloud"])).flatMap((x) =>

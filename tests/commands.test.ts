@@ -13,6 +13,7 @@ import { writeSettings } from "./locked.ts";
 import { main, type Deps } from "../src/commands.mts";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { painter } from "../src/lib/color.mts";
+import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 
 const ROOT = "/repo";
 
@@ -29,7 +30,10 @@ function deps(raw: Record<string, unknown> = {}, statuses: number[] = []) {
   const d: Deps = {
     root: ROOT,
     settings: async () =>
-      parseSettings({ version: 2, repository: "o/r", ...raw }, () => true),
+      parseSettings(
+        { version: 2, repository: "o/r", "code-host": CODE_HOST, ...raw },
+        () => true,
+      ),
     exec: (command, cwd, env) => {
       // The `$ COMMAND` line is printed before the command runs.
       out.push(`(ran ${command})`);
@@ -309,7 +313,10 @@ describe("the commands' own runner", () => {
     repo = mkdtempSync(join(tmpdir(), "factory-commands-"));
     execFileSync("git", ["init", "-q", repo]);
     mkdirSync(join(repo, "src/deep"), { recursive: true });
-    writeSettings(repo, `version: 2\nrepository: o/r\n${settings}`);
+    writeSettings(
+      repo,
+      `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n${settings}`,
+    );
     return spawnSync("node", [CLI, ...args], {
       cwd: join(repo, from),
       encoding: "utf8",

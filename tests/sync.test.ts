@@ -20,6 +20,7 @@ import {
   withDefaultBranch,
 } from "../src/sync.mts";
 import { FACTORY_COLUMNS } from "./factory-columns";
+import { CODE_HOST } from "./settings-fixture";
 
 // A made-up package and an empty repository beside it.
 let dir: string;
@@ -36,6 +37,7 @@ const read = (path: string) =>
 const settings = (raw: Record<string, unknown> = {}) => ({
   version: 2,
   repository: "o/r",
+  "code-host": CODE_HOST,
   ...raw,
 });
 

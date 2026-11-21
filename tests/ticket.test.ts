@@ -17,6 +17,7 @@ import type { FieldMapping } from "../src/ticket-fields.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets, type Seed } from "./memory-tickets";
+import { CODE_HOST } from "./settings-fixture";
 
 const AGENT = "<!-- agent -->";
 const marked = (
@@ -1498,6 +1499,7 @@ describe("a ticket system other than GitHub", () => {
         {
           version: 2,
           repository: "acme/widgets",
+          "code-host": CODE_HOST,
           tickets: { type: "jira" },
         },
         () => true,

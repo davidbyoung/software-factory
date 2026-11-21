@@ -85,6 +85,9 @@ The [glossary](glossary.md) has the rest.
 ```yaml
 version: 2
 repository: your-name/your-repo
+code-host:
+  type: github
+  branch-name: "{ticket}"
 ```
 
 With only this, the factory refines a ticket when you run `/factory-refine N` in a session,
@@ -1133,6 +1136,10 @@ tickets:
     review: In review
     done: Done
 
+code-host:
+  type: github
+  branch-name: "{ticket}"
+
 builds:
   trigger: own-server
 
@@ -1209,6 +1216,10 @@ tickets:
     review: In review
     done: Done
 
+code-host:
+  type: github
+  branch-name: "{ticket}"
+
 commands:
   before-commit:
     - npm run lint
@@ -1238,6 +1249,10 @@ tickets:
     building: In progress
     review: In review
     done: Done
+
+code-host:
+  type: github
+  branch-name: "{ticket}"
 
 commands:
   build-setup:

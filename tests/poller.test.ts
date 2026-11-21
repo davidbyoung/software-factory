@@ -28,6 +28,7 @@ import saved from "./fixtures/sync/repo.json";
 import repoPages from "./fixtures/sync/repo-graphql.json";
 import boardPages from "./fixtures/sync/board.json";
 import { FACTORY_COLUMNS } from "./factory-columns";
+import { CODE_HOST } from "./settings-fixture";
 
 const NOW = Date.parse("2026-11-09T10:00:00Z");
 const ENV = {
@@ -585,7 +586,12 @@ describe("onceSettings", () => {
   const read = (raw: Record<string, unknown>) =>
     onceSettings(
       parseSettings(
-        { version: 2, repository: "acme/widgets", ...raw },
+        {
+          version: 2,
+          repository: "acme/widgets",
+          "code-host": CODE_HOST,
+          ...raw,
+        },
         () => true,
       ),
     );

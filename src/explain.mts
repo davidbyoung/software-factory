@@ -110,7 +110,13 @@ export async function explainLines(
   for (const [k, v] of Object.entries(s.tickets.ticketFields))
     put(["tickets", "fields", k], v ?? "none");
 
-  put(["code-host"], s.codeHost.type);
+  block(["code-host"]);
+  put(["code-host", "type"], s.codeHost.type);
+  // Quoted always: YAML reads a pattern that starts with `{` as a map.
+  lines.push({
+    text: `${pad(1)}branch-name: ${JSON.stringify(s.codeHost.branchName)}`,
+    mark: marks.value(["code-host", "branch-name"]),
+  });
   block(["builds"]);
   put(["builds", "trigger"], s.builds.trigger);
   put(["builds", "runner"], s.builds.runner);

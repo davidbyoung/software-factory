@@ -14,6 +14,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { writeSettings } from "./locked.ts";
 import { checkCommit, ownLauncher } from "../src/guard-commit.mts";
 import { CANNOT_TELL, type Sources } from "../src/lib/default-branch.mts";
+import { CODE_HOST_YAML } from "./settings-fixture";
 
 const LAUNCHER = new URL("../bin/factory.js", import.meta.url).pathname;
 const MAIN_BLOCK = "main is checked out";
@@ -211,7 +212,7 @@ describe("factory guard commit", () => {
         mkdirSync(join(repo, ".claude"));
         writeFileSync(
           join(repo, ".claude/factory.yaml"),
-          "version: 2\nrepository: o/r\n",
+          `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`,
         );
       }
       const asked: [string, Sources][] = [];
@@ -363,7 +364,7 @@ describe("factory guard commit", () => {
         ? readFileSync(join(repo, LOG), "utf8").trim().split("\n")
         : [];
     const prints = (...commands: string[]) =>
-      `version: 2\nrepository: o/r\ncommands:\n  before-commit: ${JSON.stringify(commands)}\n`;
+      `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\ncommands:\n  before-commit: ${JSON.stringify(commands)}\n`;
 
     afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
@@ -439,7 +440,7 @@ describe("factory guard commit", () => {
 
     it("blocks the commit on settings that still have before-commit at the top level, saying where it moved", () => {
       withLoader(
-        `version: 2\nrepository: o/r\nbefore-commit: ["echo old >> ${LOG}"]\n`,
+        `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\nbefore-commit: ["echo old >> ${LOG}"]\n`,
       );
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
@@ -461,7 +462,9 @@ describe("factory guard commit", () => {
        * branch that adds one has, and a copy of the factory, where this one
        * sits in its checkout, that records the call and exits with `status`. */
       function withOwnCopy(status: number) {
-        withLoader("version: 2\nrepository: o/r\nadded-on-this-branch: 1\n");
+        withLoader(
+          `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\nadded-on-this-branch: 1\n`,
+        );
         const bin = join(repo, relative(CHECKOUT, PACKAGE), "bin");
         mkdirSync(bin, { recursive: true });
         writeFileSync(

@@ -17,7 +17,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { isMap, parseDocument, type Document } from "yaml";
+import { isMap, parseDocument, Scalar, type Document } from "yaml";
 import {
   builtOf,
   secretSteps,
@@ -27,6 +27,7 @@ import {
 } from "./tools.mts";
 import { NeedsScopeError } from "./code-host/types.mts";
 import {
+  branchPatternFault,
   columnsOf,
   fieldNamesOf,
   filesDeps,
@@ -134,6 +135,9 @@ export type InitDeps = {
   checks: () => Promise<Check[]>;
   packageName: string;
   packageVersion: string;
+  /** The branch name a preset in effect supplies to settings that read
+   * as `settingsText`, or null for none. */
+  presetBranchName: (settingsText: string) => Promise<string | null>;
 };
 
 const SIGNING_TITLE = "software factory builds";
@@ -159,6 +163,20 @@ function writtenColumnsOf(
         v === "none" ? null : Array.isArray(v) ? v.map(String) : [String(v)],
       ]),
   );
+}
+
+const BRANCH_QUESTION =
+  "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
+
+/** The pattern a build names its branch by, asked until the answer is one
+ * the settings check takes. */
+async function askBranchName(d: InitDeps): Promise<string> {
+  for (;;) {
+    const answer = (await d.ask.input(BRANCH_QUESTION, "{ticket}")).trim();
+    const fault = branchPatternFault(answer);
+    if (!fault) return answer;
+    d.out(fault);
+  }
 }
 
 /** The columns and fields the board sync uses: the settings' names where
@@ -243,7 +261,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         doc.toJS(),
         (p) => existsSync(at(p)),
         builtOf(d.tools),
-        { partialColumns: true },
+        { partial: true },
       );
     } catch (e) {
       d.out(`${SETTINGS_FILE}: ${message(e)}`);
@@ -347,6 +365,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     runner: await pick("runner", "Where do cloud builds run?"),
     agent: agentName,
   };
+  const branchName =
+    doc.hasIn(["code-host", "branch-name"]) ||
+    (await d.presetBranchName(String(doc))) !== null
+      ? null
+      : await askBranchName(d);
 
   const codeHost = d.tools.codeHost[chosen.codeHost]!.open(repository);
   const runner = d.tools.runner[chosen.runner]!.open(repository);
@@ -586,6 +609,14 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     for (const key of ["board", "columns"]) remove(doc, ["tickets", key]);
     for (const key of ["session", "runs-in", "cost"])
       remove(doc, ["tickets", "fields", key]);
+  }
+  if (branchName !== null) {
+    if (!isMap(doc.get("code-host")))
+      doc.set("code-host", doc.createNode({ type: chosen.codeHost }));
+    // Quoted: YAML reads a pattern that starts with `{` as a map.
+    const quoted = new Scalar(branchName);
+    quoted.type = Scalar.QUOTE_DOUBLE;
+    doc.setIn(["code-host", "branch-name"], quoted);
   }
   if (parts.has("from-board")) doc.setIn(["builds", "trigger"], trigger);
   else if (before.has("from-board")) remove(doc, ["builds", "trigger"]);
@@ -991,6 +1022,19 @@ export async function run(argv: string[]): Promise<number> {
       });
       const branch = await needDefaultBranch({ ...branchDeps(root), host });
       return differences(root, await syncPlan(PACKAGE, root, r, branch));
+    },
+    // Settings a preset can't be read for get the question: the check
+    // that follows says what is wrong with the preset.
+    presetBranchName: async (text) => {
+      try {
+        const r = await resolveFiles(
+          { ...filesDeps(root), readFile: () => text },
+          { partial: true },
+        );
+        return r.settings.codeHost.branchName;
+      } catch {
+        return null;
+      }
     },
     interactive: async (argv2) =>
       spawnSync(argv2[0], argv2.slice(1), { stdio: "inherit" }).status ?? 1,

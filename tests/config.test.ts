@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
@@ -18,8 +19,13 @@ import { paintExplainLines } from "../src/explain.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { builtOf, TOOLS } from "../src/tools.mts";
 import { FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 
-const MINIMAL = { version: 2, repository: "owner/name" };
+const MINIMAL = {
+  version: 2,
+  repository: "owner/name",
+  "code-host": CODE_HOST,
+};
 
 const parse = (raw: unknown, exists: (p: string) => boolean = () => true) =>
   parseSettings(raw, exists);
@@ -49,7 +55,7 @@ describe("parseSettings", () => {
           "for-the-builder": null,
         },
       },
-      codeHost: { type: "github" },
+      codeHost: { type: "github", branchName: "{ticket}" },
       builds: { trigger: "manual", runner: "github-actions", pollMinutes: 5 },
       specs: "none",
       specCheck: null,
@@ -277,7 +283,7 @@ describe("parseSettings", () => {
       const s = parseSettings(
         {
           ...MINIMAL,
-          "code-host": "elsewhere",
+          "code-host": { type: "elsewhere", "branch-name": "{ticket}" },
           builds: { runner: "fake-runner" },
         },
         () => true,
@@ -296,11 +302,142 @@ describe("parseSettings", () => {
     });
   });
 
-  it("takes the code host written as a block or as one word", () => {
-    for (const written of ["github", { type: "github" }])
-      expect(parse({ ...MINIMAL, "code-host": written }).codeHost).toEqual({
+  it("takes the code host's type from its block", () => {
+    expect(parse({ ...MINIMAL, "code-host": CODE_HOST }).codeHost.type).toBe(
+      "github",
+    );
+  });
+
+  describe("code-host.branch-name", () => {
+    const named = (branchName: unknown) => ({
+      ...MINIMAL,
+      "code-host": { type: "github", "branch-name": branchName },
+    });
+    const refusal = (branchName: unknown) => {
+      try {
+        parse(named(branchName));
+      } catch (e) {
+        return (e as Error).message;
+      }
+      return "accepted";
+    };
+    const REQUIRED =
+      '.claude/factory.yaml: code-host.branch-name: is required. Run factory init to set it, or add it, such as branch-name: "{ticket}"';
+
+    it("is required", () => {
+      expect(() => parse({ ...MINIMAL, "code-host": undefined })).toThrow(
+        REQUIRED,
+      );
+    });
+
+    it("is required of a code host written on one line", () => {
+      expect(() => parse({ ...MINIMAL, "code-host": "github" })).toThrow(
+        REQUIRED,
+      );
+    });
+
+    it("is left out only for init, which asks for it", () => {
+      const s = parseSettings(
+        { ...MINIMAL, "code-host": "github" },
+        () => true,
+        BUILT,
+        { partial: true },
+      );
+      expect(s.codeHost).toEqual({ type: "github", branchName: null });
+    });
+
+    it("takes a pattern with the ticket and the user", () => {
+      expect(parse(named("feature/{user}/{ticket}")).codeHost).toEqual({
         type: "github",
+        branchName: "feature/{user}/{ticket}",
       });
+    });
+
+    it("says to quote a pattern YAML read as a map", () => {
+      expect(refusal(load("{ticket}"))).toBe(
+        '.claude/factory.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"',
+      );
+    });
+
+    it.each([[12], [["{ticket}"]], [true]])(
+      "refuses %j, which is not text",
+      (value) => {
+        expect(refusal(value)).toBe(
+          '.claude/factory.yaml: code-host.branch-name: must be a pattern, such as branch-name: "{ticket}"',
+        );
+      },
+    );
+
+    it("names the first placeholder it doesn't know", () => {
+      expect(refusal("{slug}/{ticket}-{type}")).toBe(
+        ".claude/factory.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
+      );
+    });
+
+    it.each([[""], ["feature/{user}"], ["{ticket"]])(
+      "refuses %j, which has no {ticket}",
+      (value) => {
+        expect(refusal(value)).toBe(
+          ".claude/factory.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
+        );
+      },
+    );
+
+    it.each([
+      ["a b/{ticket}", "it has a space"],
+      ["a\tb/{ticket}", "it has a control character"],
+      ["a\u007fb/{ticket}", "it has a control character"],
+      ["a..b/{ticket}", "it has .."],
+      ["feature//{ticket}", "it has //"],
+      ["a@{b/{ticket}", "it has @{"],
+      ["a~b/{ticket}", "it has ~"],
+      ["a^b/{ticket}", "it has ^"],
+      ["a:b/{ticket}", "it has :"],
+      ["a?b/{ticket}", "it has ?"],
+      ["a*b/{ticket}", "it has *"],
+      ["a[b/{ticket}", "it has ["],
+      ["a\\b/{ticket}", "it has \\"],
+      ["-{ticket}", "it starts with -"],
+      ["/{ticket}", "it starts with /"],
+      ["{ticket}/", "it ends with /"],
+      ["{ticket}.lock", "it ends with .lock"],
+      ["{ticket}.", "it ends with ."],
+      [".a/{ticket}", "a part starts with ."],
+      ["a.lock/{ticket}", "a part ends with .lock"],
+    ])("refuses %j, which git refuses: %s", (pattern, reason) => {
+      expect(refusal(pattern)).toBe(
+        `.claude/factory.yaml: code-host.branch-name: ${pattern} can't be a git branch name: ${reason}`,
+      );
+      const filled = pattern.replace("{ticket}", "1");
+      expect(
+        spawnSync("git", ["check-ref-format", "--branch", filled]).status,
+      ).not.toBe(0);
+    });
+
+    it("names the first of several faults: an unknown placeholder before git's rules", () => {
+      expect(refusal("a b/{slug}")).toBe(
+        ".claude/factory.yaml: code-host.branch-name: {slug} is not a placeholder. The placeholders are {ticket} and {user}",
+      );
+    });
+
+    it("names a missing {ticket} before git's rules", () => {
+      expect(refusal("a b")).toBe(
+        ".claude/factory.yaml: code-host.branch-name: needs {ticket}, or every build gets the same branch",
+      );
+    });
+
+    it.each([
+      ["{ticket}"],
+      ["issue-{ticket}"],
+      ["feature/{user}/{ticket}"],
+      ["{}{ticket}"],
+    ])("accepts %j, as git does", (pattern) => {
+      expect(refusal(pattern)).toBe("accepted");
+      const filled = pattern.replace("{ticket}", "1").replace("{user}", "u");
+      expect(
+        spawnSync("git", ["check-ref-format", "--branch", filled]).status,
+      ).toBe(0);
+    });
   });
 
   it("fails on a code host other than GitHub, naming the one supported", () => {
@@ -870,6 +1007,7 @@ function deps(over: Partial<Deps> = {}) {
       [
         "version: 2",
         "repository: owner/name",
+        CODE_HOST_YAML,
         "tickets:",
         "  board: 3",
         FACTORY_COLUMNS_YAML,
@@ -909,6 +1047,7 @@ describe("factory config explain", () => {
   const SMALL = [
     "version: 2",
     "repository: owner/name",
+    CODE_HOST_YAML,
     "tickets:",
     "  board: 3",
     "  columns:",
@@ -932,6 +1071,7 @@ describe("factory config explain", () => {
     const r = await explain([
       "version: 2",
       "repository: owner/name",
+      CODE_HOST_YAML,
       "tickets:",
       "  board: 3",
       "  columns:",
@@ -978,7 +1118,9 @@ describe("factory config explain", () => {
           spec: none                                                               # default
           acceptance-criteria: none                                                # default
           for-the-builder: none                                                    # default
-      code-host: github                                                            # default
+      code-host:
+        type: github
+        branch-name: "{ticket}"
       builds:
         trigger: manual                                                            # default
         runner: github-actions                                                     # default
@@ -1033,6 +1175,7 @@ describe("factory config explain", () => {
     const r = await explain([
       "version: 2",
       "repository: owner/name",
+      CODE_HOST_YAML,
       "session-minutes:",
       "  build: 230",
       "rules:",
@@ -1052,15 +1195,19 @@ describe("factory config explain", () => {
     const r = await explain([
       "version: 2",
       "repository: owner/name",
+      CODE_HOST_YAML,
       "tickets: github",
-      "code-host: github",
     ]);
+    expect(r.out).toContain("tickets:");
     expect(r.out).toContain("  type: github");
-    expect(r.out).toContain("code-host: github");
   });
 
   it("prints a part that is off, and a default that is no value, as a comment", async () => {
-    const r = await explain(["version: 2", "repository: owner/name"]);
+    const r = await explain([
+      "version: 2",
+      "repository: owner/name",
+      CODE_HOST_YAML,
+    ]);
     expect(r.out).toContain("# pr-review: off");
     expect(r.out).toContain("# site: off");
     expect(r.out).toContainEqual(
@@ -1072,6 +1219,7 @@ describe("factory config explain", () => {
     const r = await explain([
       "version: 2",
       "repository: owner/name",
+      CODE_HOST_YAML,
       "site:",
       "  start: npm start",
       "  url: http://localhost:$PORT",
@@ -1084,6 +1232,7 @@ describe("factory config explain", () => {
     const r = await explain([
       "version: 2",
       "repository: owner/name",
+      CODE_HOST_YAML,
       "tickets:",
       "  fields:",
       "    spec: Acceptance criteria",
@@ -1099,6 +1248,7 @@ describe("factory config explain", () => {
   const RICH = [
     "version: 2",
     "repository: owner/name",
+    CODE_HOST_YAML,
     "specs:",
     "  type: openspec",
     "  check: make specs",
@@ -1142,7 +1292,10 @@ describe("factory config explain", () => {
 
   it.each([
     ["a small file", SMALL],
-    ["the shortest file", ["version: 2", "repository: owner/name"]],
+    [
+      "the shortest file",
+      ["version: 2", "repository: owner/name", CODE_HOST_YAML],
+    ],
     ["plugins, lists, and a site", RICH],
   ])("prints %s so it reads as the same settings", async (_, file) => {
     const r = await explain(file);
@@ -1161,7 +1314,11 @@ describe("factory config explain", () => {
 
   describe("the commands", () => {
     it("prints the block, with a comment for each command that is not set", async () => {
-      const r = await explain(["version: 2", "repository: owner/name"]);
+      const r = await explain([
+        "version: 2",
+        "repository: owner/name",
+        CODE_HOST_YAML,
+      ]);
       const at = r.out.indexOf("commands:");
       expect(
         r.out
@@ -1210,6 +1367,7 @@ describe("factory config explain", () => {
       const r = await explain([
         "version: 2",
         "repository: owner/name",
+        CODE_HOST_YAML,
         "specs: openspec",
       ]);
       expect(after(r.out, "specs:", 3)).toEqual([
@@ -1229,7 +1387,11 @@ describe("factory config explain", () => {
     });
 
     it("prints one word when there are no specs", async () => {
-      const r = await explain(["version: 2", "repository: owner/name"]);
+      const r = await explain([
+        "version: 2",
+        "repository: owner/name",
+        CODE_HOST_YAML,
+      ]);
       expect(r.out).toContainEqual(
         expect.stringMatching(/^specs: none +# default$/),
       );
@@ -1244,7 +1406,11 @@ describe("factory config explain", () => {
         .map((l) => l.replace(/ +# default$/, " # default"));
 
     it("prints them by phase, the factory's own marked as defaults and the empty lists written out", async () => {
-      const r = await explain(["version: 2", "repository: owner/name"]);
+      const r = await explain([
+        "version: 2",
+        "repository: owner/name",
+        CODE_HOST_YAML,
+      ]);
       expect(plugins(r.out)).toEqual([
         "plugins:",
         "  refine:",
@@ -1303,6 +1469,7 @@ describe("factory config explain", () => {
       const file = [
         "version: 2",
         "repository: owner/name",
+        CODE_HOST_YAML,
         "site:",
         "  start: npm start",
         "  url: http://localhost:$PORT",
@@ -1322,6 +1489,7 @@ describe("factory config explain", () => {
       const r = await explain([
         "version: 2",
         "repository: owner/name",
+        CODE_HOST_YAML,
         "plugins:",
         "  test:",
         "    reviewers: []",
@@ -1392,11 +1560,11 @@ describe("main", () => {
 
   it.each([
     [
-      "code-host: gitlab",
+      'code-host:\n  type: gitlab\n  branch-name: "{ticket}"',
       '.claude/factory.yaml: code-host.type "gitlab" is not supported. "github" is the only code host built.',
     ],
     [
-      "builds:\n  runner: buildkite",
+      `${CODE_HOST_YAML}\nbuilds:\n  runner: buildkite`,
       '.claude/factory.yaml: builds.runner "buildkite" is not supported. "github-actions" is the only runner built.',
     ],
   ])("fails the check on %s", async (written, message) => {
@@ -1408,7 +1576,7 @@ describe("main", () => {
   });
 
   describe("config get, for the commands and the spec check", () => {
-    const BARE = "version: 2\nrepository: a/b\n";
+    const BARE = `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\n`;
     const get = async (file: string, key: string) => {
       const r = deps({ readFile: () => file });
       const code = await main([key], r.d);
@@ -1417,6 +1585,7 @@ describe("main", () => {
     const FULL = [
       "version: 2",
       "repository: a/b",
+      CODE_HOST_YAML,
       "specs:",
       "  type: openspec",
       "  check: make specs",
@@ -1512,7 +1681,7 @@ describe("main", () => {
   it("fails the check, naming the key, when a command list is not a list of text", async () => {
     const { d, err } = deps({
       readFile: () =>
-        "version: 2\nrepository: a/b\ncommands:\n  build-setup: make tools\n",
+        `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\ncommands:\n  build-setup: make tools\n`,
     });
     expect(await main(["check"], d)).toBe(1);
     expect(err).toEqual([
@@ -1521,7 +1690,7 @@ describe("main", () => {
   });
 
   describe("factory plugins", () => {
-    const BARE = "version: 2\nrepository: owner/name\n";
+    const BARE = `version: 2\nrepository: owner/name\n${CODE_HOST_YAML}\n`;
     const run = async (argv: string[], file?: string) => {
       const r = deps(file === undefined ? {} : { readFile: () => file });
       const code = await main(["plugins", ...argv], r.d);
@@ -1624,6 +1793,7 @@ describe("main", () => {
       [
         "version: 2",
         "repository: owner/name",
+        CODE_HOST_YAML,
         "site:",
         "  start: npm start",
         "  url: http://localhost:$PORT",
@@ -1668,7 +1838,8 @@ describe("main", () => {
 
     it("is no plugin where there is no site", async () => {
       const { d, out } = deps({
-        readFile: () => "version: 2\nrepository: owner/name\n",
+        readFile: () =>
+          `version: 2\nrepository: owner/name\n${CODE_HOST_YAML}\n`,
         exists: synced,
       });
 
@@ -1730,7 +1901,9 @@ describe("main", () => {
   });
 
   it("accepts version 2", async () => {
-    const { d, err } = deps({ readFile: () => "version: 2\nrepository: a/b" });
+    const { d, err } = deps({
+      readFile: () => `version: 2\nrepository: a/b\n${CODE_HOST_YAML}`,
+    });
     expect(await main(["check"], d)).toBe(0);
     expect(err).toEqual([]);
   });
@@ -1788,7 +1961,7 @@ describe("site settings", () => {
 
   const site = { start: "npm start", url: "http://localhost:$PORT" };
   const withSite = (extra: object = {}) =>
-    `version: 2\nrepository: a/b\nsite: ${JSON.stringify({ ...site, ...extra })}\n`;
+    `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\nsite: ${JSON.stringify({ ...site, ...extra })}\n`;
 
   it("fills the defaults", () => {
     expect(parse({ ...MINIMAL, site }).site).toEqual({
@@ -1977,7 +2150,7 @@ describe("factory config explain, in color", () => {
 
   it("prints its lines painted when it is given paint", async () => {
     const r = deps({
-      readFile: () => "version: 2\nrepository: owner/name\n",
+      readFile: () => `version: 2\nrepository: owner/name\n${CODE_HOST_YAML}\n`,
       paint,
     });
     expect(await main(["explain"], r.d)).toBe(0);

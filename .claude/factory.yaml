@@ -18,6 +18,11 @@ tickets:
     review: In review
     done: Done
 
+# A build of ticket 12 pushes a branch named 12.
+code-host:
+  type: github
+  branch-name: "{ticket}"
+
 # Builds start when a session is told to work a ticket. Moving a card to
 # Ready starts nothing here.
 builds:

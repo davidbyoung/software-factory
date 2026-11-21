@@ -36,7 +36,7 @@
       ]
     },
     "code-host": {
-      "description": "Where pull requests are.",
+      "description": "Where pull requests are, and what a build names its branch.",
       "anyOf": [
         {
           "$ref": "#/definitions/code-host/properties/type"
@@ -260,12 +260,17 @@
     },
     "code-host": {
       "type": "object",
-      "description": "Where pull requests are.",
+      "description": "Where pull requests are, and what a build names its branch. branch-name is required, here or from a preset.",
       "additionalProperties": false,
       "properties": {
         "type": {
           "enum": ["github"],
           "description": "The code host. Default: github."
+        },
+        "branch-name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The pattern a build names its branch by: {ticket}, the ticket's number, which it must have, and {user}, the code host account the build runs as. Quote it, as \"{ticket}\" or \"feature/{user}/{ticket}\". No default: factory init asks for it."
         }
       }
     },

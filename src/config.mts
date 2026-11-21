@@ -160,8 +160,10 @@ export type Settings = {
      * field that holds it, or null for the description. */
     ticketFields: FieldMapping;
   };
-  /** Where pull requests are. */
-  codeHost: { type: string };
+  /** Where pull requests are, and the pattern a build's branch is named
+   * by. The pattern is null only when init reads settings without it, to
+   * ask for it. */
+  codeHost: { type: string; branchName: string | null };
   builds: {
     /** What notices a card moved to Ready and starts its build. */
     trigger: (typeof TRIGGERS)[number];
@@ -288,7 +290,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     ...Object.keys(FIELD_DEFAULTS),
     ...FACTORY_FIELDS.map((f) => f.key),
   ],
-  "code-host": ["type"],
+  "code-host": ["type", "branch-name"],
   builds: ["trigger", "runner", "poll-minutes"],
   specs: ["type", "check"],
   commands: [
@@ -585,6 +587,62 @@ function columnNames(
   return { columns: out, missing };
 }
 
+export const BRANCH_PLACEHOLDERS = ["ticket", "user"] as const;
+const QUOTED_EXAMPLE = 'branch-name: "{ticket}"';
+
+/** The pattern a build's branch is named by, or null when it is left out
+ * and `partial` lets it be, for init to ask for. */
+function branchNameOf(v: unknown, partial: boolean): string | null {
+  const key = "code-host.branch-name";
+  if (v === undefined || v === null) {
+    if (partial) return null;
+    return fail(
+      key,
+      `is required. Run factory init to set it, or add it, such as ${QUOTED_EXAMPLE}`,
+    );
+  }
+  if (isObj(v))
+    return fail(key, `is a map, not a pattern. Quote it: ${QUOTED_EXAMPLE}`);
+  if (typeof v !== "string")
+    return fail(key, `must be a pattern, such as ${QUOTED_EXAMPLE}`);
+  const fault = branchPatternFault(v);
+  return fault ? fail(key, fault) : v;
+}
+
+/** Why a branch name pattern can't be used, in the words the settings
+ * check prints after its key, or null when it can. The placeholders are
+ * filled before git's rules are applied, so only the pattern's own text
+ * can break them. */
+export function branchPatternFault(pattern: string): string | null {
+  for (const [, name] of pattern.matchAll(/\{([A-Za-z0-9-]+)\}/g))
+    if (!(BRANCH_PLACEHOLDERS as readonly string[]).includes(name!))
+      return `{${name}} is not a placeholder. The placeholders are ${listed(BRANCH_PLACEHOLDERS.map((p) => `{${p}}`))}`;
+  if (!pattern.includes("{ticket}"))
+    return "needs {ticket}, or every build gets the same branch";
+  const reason = gitBranchFault(
+    pattern.replaceAll("{ticket}", "1").replaceAll("{user}", "u"),
+  );
+  return reason && `${pattern} can't be a git branch name: ${reason}`;
+}
+
+/** The first of git's rules for a branch name (`git check-ref-format
+ * --branch`) that `name` breaks, or null. */
+function gitBranchFault(name: string): string | null {
+  if (name.includes(" ")) return "it has a space";
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(name)) return "it has a control character";
+  for (const s of ["..", "//", "@{", "~", "^", ":", "?", "*", "[", "\\"])
+    if (name.includes(s)) return `it has ${s}`;
+  for (const s of ["-", "/"])
+    if (name.startsWith(s)) return `it starts with ${s}`;
+  for (const s of ["/", ".lock", "."])
+    if (name.endsWith(s)) return `it ends with ${s}`;
+  const parts = name.split("/");
+  if (parts.some((p) => p.startsWith("."))) return "a part starts with .";
+  if (parts.some((p) => p.endsWith(".lock"))) return "a part ends with .lock";
+  return null;
+}
+
 /** A part you can swap, written as a block with a `type` or as one word. */
 function typed(v: unknown, key: string, extra?: readonly string[]): Obj {
   if (typeof v === "string") return { type: v };
@@ -703,7 +761,7 @@ export function parseSettings(
   raw: unknown,
   exists: (path: string) => boolean,
   built: Built = BUILT,
-  { partialColumns = false }: { partialColumns?: boolean } = {},
+  { partial = false }: { partial?: boolean } = {},
 ): Settings {
   const written = raw ?? {};
   // The version comes before any other key, so a file in the older shape is
@@ -756,12 +814,13 @@ export function parseSettings(
   )
     fail("tickets.board", "must be a whole number above zero, or none");
 
-  const codeHost =
-    typed(top["code-host"], "code-host").type ?? DEFAULT_CODE_HOST;
+  const codeHostBlock = typed(top["code-host"], "code-host");
+  const codeHost = codeHostBlock.type ?? DEFAULT_CODE_HOST;
   if (typeof codeHost !== "string" || !built.codeHost.includes(codeHost))
     throw new SettingsError(
       `${SETTINGS_FILE}: ${unsupportedCodeHost(String(codeHost), built.codeHost)}`,
     );
+  const branchName = branchNameOf(codeHostBlock["branch-name"], partial);
 
   const builds = object(top.builds, "builds");
   const trigger = oneOf(builds.trigger, "builds.trigger", TRIGGERS, "manual");
@@ -796,7 +855,7 @@ export function parseSettings(
   const { columns, missing } = columnNames(
     tickets.columns,
     hasBoard ? (board as number) : null,
-    partialColumns,
+    partial,
   );
   if (columns.backlog === null && !missing.includes("backlog"))
     fail(
@@ -878,7 +937,7 @@ export function parseSettings(
       fields: fieldNames,
       ticketFields,
     },
-    codeHost: { type: codeHost },
+    codeHost: { type: codeHost, branchName },
     builds: { trigger, runner, pollMinutes },
     specs,
     specCheck,
@@ -1031,9 +1090,14 @@ export function parseChoices(
  * kept back: the factory's own, and the repository's own. */
 export async function resolveFiles(
   d: Deps,
-  keep: {
+  {
+    partial = false,
+    ...keep
+  }: {
     factoryFile?: (path: string) => boolean;
     ownFile?: (path: string) => boolean;
+    /** Read settings init fills in, as `parseSettings` takes it. */
+    partial?: boolean;
   } = {},
 ): Promise<Resolved> {
   const load = await yamlOf(d);
@@ -1090,7 +1154,9 @@ export async function resolveFiles(
   const exists = (path: string) => d.exists(path) || resolution.files.has(path);
   let settings: Settings;
   try {
-    settings = parseSettings(isObj(own) ? resolution.raw : own, exists);
+    settings = parseSettings(isObj(own) ? resolution.raw : own, exists, BUILT, {
+      partial,
+    });
   } catch (e) {
     throw e instanceof SettingsError ? fromPreset(e, resolution) : e;
   }
