@@ -11,6 +11,12 @@ keeps its own version; in a repository with none, it says how to install
 one and exits 1. `factory` with no command, or one it does not have, prints
 the list of commands it has and exits non-zero.
 
+Commands you read yourself, such as `doctor`, `status`, and
+`config explain`, use color when they print to a terminal: a green ✓, a
+red ✗, and dim text for what needs no attention. The marks and words
+are the same without it. Set `NO_COLOR` to turn color off, or
+`FORCE_COLOR=1` to keep it when you pipe the output, as to `less -R`.
+
 > **Without the global install, type `npx --no-install factory`.** Another
 > package on npm is called `factory`. Where this one is not installed, `npx`
 > without `--no-install` offers to download and run that one instead; with
