@@ -748,6 +748,7 @@ describe("factory ticket ready", () => {
     const code = await ticketMain(["ready", "10"], {
       open: async () => ({ tickets: memory.tickets }),
       openPulls: async () => [],
+      signedInAs: async () => "dave",
       runner: () => ({ thisRun: () => null }),
       settings: async () => settings,
       env: { CLAUDE_CODE_SESSION_ID: "s" },

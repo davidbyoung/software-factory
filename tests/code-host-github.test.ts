@@ -4,6 +4,8 @@ import {
   type LinkingPage,
   type RawPull,
 } from "../src/code-host/github.mts";
+import { NotSignedInError } from "../src/code-host/types.mts";
+import { GhError } from "../src/lib/gh.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
 import { fetchTransport, ghTransport } from "../src/tickets/transport.mts";
 import { fakeGh } from "./fake-gh";
@@ -694,5 +696,32 @@ describe("the open pull requests and those linking to tickets", () => {
       repository: REPO,
     });
     expect((await p.open()).map((x) => x.closes)).toEqual([[261]]);
+  });
+});
+
+describe("who the CLI is signed in as", () => {
+  it("is the account GitHub names", async () => {
+    const { p } = pulls([[/^api user$/, { login: "dave" }]]);
+    expect(await p.signedInAs()).toBe("dave");
+  });
+
+  it.each([
+    [
+      "the CLI signed in as nobody",
+      new GhError("gh api user: gh auth login", 4),
+    ],
+    [
+      "a sign-in GitHub refuses",
+      new Error("gh api user: Bad credentials (HTTP 401)"),
+    ],
+  ])("is not signed in for %s", async (_, error) => {
+    const { p } = pulls([[/^api user$/, error]]);
+    await expect(p.signedInAs()).rejects.toBeInstanceOf(NotSignedInError);
+  });
+
+  it("passes any other failure through as it came", async () => {
+    const failure = new GhError("gh api user: connection refused", 1);
+    const { p } = pulls([[/^api user$/, failure]]);
+    await expect(p.signedInAs()).rejects.toBe(failure);
   });
 });

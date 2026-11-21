@@ -85,6 +85,7 @@ import {
   type Ticket,
   type Tickets,
 } from "./tickets/types.mts";
+import { NotSignedInError } from "./code-host/types.mts";
 
 /** The ticket system this session reaches. */
 export type Opened = { tickets: Tickets };
@@ -120,6 +121,9 @@ export type Deps = {
   };
   /** What the session spent since `since`, or since it started. */
   measure: (session: string, since: string | null) => Measured;
+  /** Who the code host's CLI is signed in as, for a branch name's
+   * `{user}`. */
+  signedInAs: (repository: string, codeHost: string) => Promise<string>;
 };
 
 /** The dependencies, with the repository, board, and ticket system. */
@@ -127,6 +131,8 @@ type Ctx = Deps & {
   config: BoardConfig;
   /** The code host the settings name. */
   codeHost: string;
+  /** `code-host.branch-name`, which commands always have. */
+  branchName: string;
   repository: string;
   board: number | null;
   tickets: Tickets;
@@ -394,11 +400,30 @@ const READS_AND_WRITES = new Set([
   "open",
   "label",
   "link",
+  "branch",
   "blockers",
   "block",
   "unblock",
   "supports",
 ]);
+
+/** The branch a build of `ticket` pushes, from `code-host.branch-name`. */
+async function branchOf(ticket: number, d: Ctx): Promise<string> {
+  let user = "";
+  if (d.branchName.includes("{user}"))
+    try {
+      user = await d.signedInAs(d.repository, d.codeHost);
+    } catch (e) {
+      if (!(e instanceof NotSignedInError)) throw e;
+      throw new Error(
+        "code-host.branch-name uses {user}, and gh is not signed in: run gh auth login",
+        { cause: e },
+      );
+    }
+  return d.branchName
+    .replaceAll("{ticket}", String(ticket))
+    .replaceAll("{user}", user);
+}
 
 /** The commands that read or write a ticket for a skill. Null when
  * `command` is not one of them. */
@@ -509,6 +534,11 @@ async function ticketCommand(
     case "link":
       d.out(t.linkText(numbered()));
       return 0;
+    case "branch": {
+      const ticket = await t.read(numbered());
+      d.out(await branchOf(ticket.number, d));
+      return 0;
+    }
     case "blockers": {
       const list = await need(t, "blockers").list(numbered());
       for (const b of list) d.out(`#${b.number} ${b.state}`);
@@ -531,7 +561,7 @@ async function ticketCommand(
 }
 
 const USAGE =
-  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|view|list|edit|comment|open|label|link|blockers|block|unblock|supports|follow-up ...";
+  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|view|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
 
 export async function main(argv: string[], deps: Deps): Promise<number> {
   const [command, first, ...rest] = argv;
@@ -545,6 +575,8 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       ...deps,
       config: boardConfigOf(settings),
       codeHost: settings.codeHost.type,
+      // Null only when init reads the settings to ask for it.
+      branchName: settings.codeHost.branchName!,
       repository,
       board,
       ...opened,
@@ -664,6 +696,8 @@ export async function run(argv: string[]): Promise<number> {
     open: (settings, target) => openTickets(settings, target),
     openPulls: (repository, codeHost) =>
       openCodeHost(repository, codeHost).open(),
+    signedInAs: (repository, codeHost) =>
+      openCodeHost(repository, codeHost).signedInAs(),
     runner: (repository, name) => openRunner(repository, name),
     settings: () => loadSettings(),
     env: process.env,

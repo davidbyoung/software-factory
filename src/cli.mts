@@ -32,6 +32,7 @@ const TICKET_STEPS = [
   "open",
   "label",
   "link",
+  "branch",
   "blockers",
   "block",
   "unblock",

@@ -180,7 +180,8 @@ export type CodeHost = {
   /** The address of a pull request's page. */
   address(pull: number): string;
 
-  /** Who the code host's command-line tool is signed in as. */
+  /** Who the code host's command-line tool is signed in as. Rejects with
+   * NotSignedInError when it is signed in as nobody, or refused. */
   signedInAs(): Promise<string>;
   /** The account a token belongs to, and its scopes: null when the code
    * host does not say, as for a token with fine-grained permissions.
@@ -208,6 +209,15 @@ export type CodeHost = {
 /** What a token for the factory's jobs may need to do: push a branch,
  * change a workflow's file, and write the board. */
 export type TokenNeed = "push" | "workflows" | "board";
+
+/** The code host's CLI is signed in as nobody, or its sign-in is
+ * refused. */
+export class NotSignedInError extends Error {
+  constructor() {
+    super("The code host's command-line tool is not signed in.");
+    this.name = "NotSignedInError";
+  }
+}
 
 /** A call the signed-in account's sign-in lacks the permission for. `fix`
  * is the command that asks for it. */

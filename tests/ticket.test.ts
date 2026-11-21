@@ -18,6 +18,7 @@ import { fakeSettings } from "./fake-gh";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets, type Seed } from "./memory-tickets";
 import { CODE_HOST } from "./settings-fixture";
+import { NotSignedInError } from "../src/code-host/types.mts";
 
 const AGENT = "<!-- agent -->";
 const marked = (
@@ -54,6 +55,10 @@ function deps(
     pulls?: Partial<PullRequest>[];
     /** The tickets' own fields, and which factory field each holds. */
     ticketFields?: { fields: TicketField[]; mapping: FieldMapping };
+    /** `code-host.branch-name`, when not the fixture's. */
+    branchName?: string;
+    /** Who the code host's CLI is signed in as. */
+    signedInAs?: () => Promise<string>;
   } = {},
 ) {
   const memory = memoryTickets(seed, {
@@ -94,7 +99,17 @@ function deps(
         ...p,
       })),
     runner: () => RUNNER,
-    settings: fakeSettings,
+    settings: async () => {
+      const s = await fakeSettings();
+      return options.branchName === undefined
+        ? s
+        : { ...s, codeHost: { ...s.codeHost, branchName: options.branchName } };
+    },
+    signedInAs:
+      options.signedInAs ??
+      (async () => {
+        throw new Error("unexpected signedInAs");
+      }),
     env: options.actions
       ? { GITHUB_ACTIONS: "true", GITHUB_RUN_ID: "555" }
       : { CLAUDE_CODE_SESSION_ID: SESSION },
@@ -1322,6 +1337,70 @@ describe("the ticket commands", () => {
 
     expect(await main(["link", "7"], d)).toBe(0);
     expect(out).toEqual(["Closes #7"]);
+  });
+
+  describe("branch", () => {
+    it("prints the branch a build of the ticket pushes", async () => {
+      const { d, out } = deps([SEVEN]);
+
+      expect(await main(["branch", "7"], d)).toBe(0);
+      expect(out).toEqual(["7"]);
+    });
+
+    it("fills each placeholder, the user from the code host's sign-in", async () => {
+      const { d, out } = deps([SEVEN], {
+        branchName: "feature/{user}/{ticket}-{ticket}",
+        signedInAs: async () => "dave",
+      });
+
+      expect(await main(["branch", "7"], d)).toBe(0);
+      expect(out).toEqual(["feature/dave/7-7"]);
+    });
+
+    it("asks nobody who is signed in when the pattern has no {user}", async () => {
+      const { d, out } = deps([SEVEN], { branchName: "issue-{ticket}" });
+
+      expect(await main(["branch", "7"], d)).toBe(0);
+      expect(out).toEqual(["issue-7"]);
+    });
+
+    it("names a ticket that does not exist, and prints no branch", async () => {
+      quiet();
+      const { d, out } = deps([SEVEN]);
+
+      expect(await main(["branch", "404"], d)).toBe(1);
+      expect(out).toEqual([]);
+      expect(errors).toEqual(["#404 was not found"]);
+    });
+
+    it("says to sign in when the pattern has {user} and nobody is", async () => {
+      quiet();
+      const { d, out } = deps([SEVEN], {
+        branchName: "{user}/{ticket}",
+        signedInAs: async () => {
+          throw new NotSignedInError();
+        },
+      });
+
+      expect(await main(["branch", "7"], d)).toBe(1);
+      expect(out).toEqual([]);
+      expect(errors).toEqual([
+        "code-host.branch-name uses {user}, and gh is not signed in: run gh auth login",
+      ]);
+    });
+
+    it("prints the code host's own error for any other failure to read the account", async () => {
+      quiet();
+      const { d } = deps([SEVEN], {
+        branchName: "{user}/{ticket}",
+        signedInAs: async () => {
+          throw new Error("gh api user: connection refused");
+        },
+      });
+
+      expect(await main(["branch", "7"], d)).toBe(1);
+      expect(errors).toEqual(["gh api user: connection refused"]);
+    });
   });
 
   it("blockers prints one line per ticket it waits on, with whether it is open", async () => {
