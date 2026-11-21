@@ -244,13 +244,17 @@ describe("factory specs check", () => {
     expect(out).toEqual(["(ran check)", "✓ The specs check passed."]);
   });
 
-  it("colors the closing line's mark alone when it paints", async () => {
+  it("colors a passing closing line's mark alone when it paints", async () => {
     const paint = painter(true);
     const passing = deps(GATE);
     await main(["gate"], { ...passing.d, paint });
     expect(passing.out.at(-1)).toBe(
       `${paint("green", "✓")} Every gate command passed.`,
     );
+  });
+
+  it("colors a failing closing line's mark alone when it paints", async () => {
+    const paint = painter(true);
     const failing = deps(GATE, [1]);
     await main(["gate"], { ...failing.d, paint });
     expect(failing.err).toEqual([

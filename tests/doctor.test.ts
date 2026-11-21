@@ -448,7 +448,7 @@ describe("factory doctor", () => {
       expect(section(r.printed, "Fake Agent")).toEqual([
         `✗ ${FAKE_AGENT_FILE} is there. Run fake-agent init`,
       ]);
-      expect(r.out.join("\n")).not.toContain("Claude Code");
+      expect(r.printed).not.toContain("Claude Code");
     });
   });
 

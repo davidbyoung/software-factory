@@ -797,7 +797,7 @@ describe("factory sync --check", () => {
     );
   });
 
-  it("says nothing of it when init or a preset command runs the sync", async () => {
+  it("says nothing of it unless asked to, as init and the preset commands run it", async () => {
     await sync();
 
     expect((await sync()).out).not.toContain(
