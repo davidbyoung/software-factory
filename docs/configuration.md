@@ -115,8 +115,8 @@ factory config check
 factory sync
 ```
 
-`factory config check` prints nothing when the file is valid, and names
-the setting when it is not. `factory sync` then rewrites the lock and the
+`factory config check` prints `✓ The settings are valid.` when the file
+is valid, and names the setting when it is not. `factory sync` then rewrites the lock and the
 copied files that depend on what you changed, and lists each file it
 wrote. Every change needs it, one under `plugins` included, as
 [How the file works](#how-the-file-works) says.
@@ -611,8 +611,8 @@ There is no default. Without a gate, `factory gate` fails with
 `commands.gate is not set`, and a build stops there, because an empty gate
 would pass every change. `factory init` lists it under "Left to do".
 
-When a command fails, `factory gate` prints `gate failed on:` and the
-command, and runs none after it. The session fixes the cause and runs the
+When a command fails, `factory gate` prints `✗ The gate failed on:` and
+the command, and runs none after it. The session fixes the cause and runs the
 gate again.
 
 **Check your gate yourself** before a session relies on it: run
