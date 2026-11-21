@@ -8,6 +8,7 @@
 //   factory config check       # prints nothing when sound
 //
 // A list prints one item per line. A failure names the key and exits 1.
+import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -906,6 +907,7 @@ export type Deps = {
   loadYaml: () => Promise<YamlLoad>;
   out: (line: string) => void;
   err: (line: string) => void;
+  paint?: Paint;
   /** Where the settings come from when every command reads the lock:
    * `check` stops on a stale one. Unset, they are resolved from the files
    * the lock is made from. */
@@ -1231,6 +1233,7 @@ export const defaultDeps = (
   loadYaml: async () => (await import("js-yaml")).load,
   out: (line) => console.log(line),
   err: (line) => console.error(line),
+  paint: painter(colorOn()),
 });
 
 /** The column each state shows in on the board, null for none. */
@@ -1376,17 +1379,17 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     return 0;
   }
   if (command === "explain") {
-    if (lockText !== null) {
-      for (const line of lockSettingsLines(lockText)) d.out(line);
-      return 0;
-    }
-    const { explainLines, markerOf } = await import("./explain.mts");
-    for (const line of await explainLines(
-      s,
-      markerOf(resolved!.resolution),
-      resolved!.exists,
-    ))
-      d.out(line);
+    const { explainLines, markerOf, paintExplainLines } =
+      await import("./explain.mts");
+    const lines =
+      lockText !== null
+        ? lockSettingsLines(lockText)
+        : await explainLines(
+            s,
+            markerOf(resolved!.resolution),
+            resolved!.exists,
+          );
+    for (const line of paintExplainLines(lines, d.paint ?? plain)) d.out(line);
     return 0;
   }
   if (command === "plugins") {

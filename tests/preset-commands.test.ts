@@ -3,7 +3,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { painter } from "../src/lib/color.mts";
 import {
   defaultDeps,
@@ -331,6 +331,17 @@ describe("factory preset add", () => {
       "",
       "  writes .claude/agents/node-deps-reviewer.md",
     ]);
+  });
+
+  it("writes the lock without color, even where FORCE_COLOR asks for it", async () => {
+    vi.stubEnv("FORCE_COLOR", "1");
+    try {
+      await setUp([ACME, NODE]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(read(root, ".claude/factory.lock")).toContain("# default");
+    expect(read(root, ".claude/factory.lock")).not.toContain("\x1B");
   });
 
   it("refuses a preset already listed", async () => {

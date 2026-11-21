@@ -13,6 +13,8 @@ import {
   type Deps,
 } from "../src/config.mts";
 import { matchesGlob } from "../src/lib/glob.mts";
+import { painter } from "../src/lib/color.mts";
+import { paintExplainLines } from "../src/explain.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { builtOf, TOOLS } from "../src/tools.mts";
 
@@ -1898,5 +1900,70 @@ describe("reachOf", () => {
       codeHost: "github",
       runner: "github-actions",
     });
+  });
+});
+
+describe("factory config explain, in color", () => {
+  const paint = painter(true);
+  const dim = (t: string) => paint("dim", t);
+  const at = (text: string, mark: string) => `${text.padEnd(26)}# ${mark}`;
+
+  it("dims a default's whole line and a comment line, and only a preset's mark", () => {
+    const lines = [
+      "version: 2",
+      "tickets:",
+      "  columns:",
+      at("    backlog: Todo", "default"),
+      "    building: Doing",
+      "  # coverage: none (default)",
+      "rules:",
+      at("  review-rounds: 3", "@acme/factory-preset/node"),
+    ];
+    expect(paintExplainLines(lines, paint)).toEqual([
+      "version: 2",
+      "tickets:",
+      "  columns:",
+      dim(at("    backlog: Todo", "default")),
+      "    building: Doing",
+      dim("  # coverage: none (default)"),
+      "rules:",
+      `${"  review-rounds: 3".padEnd(26)}${dim("# @acme/factory-preset/node")}`,
+    ]);
+  });
+
+  it("leaves a quoted value holding a comment's spacing alone", () => {
+    const lines = [
+      at("  board: 3", "default"),
+      at("  poll-minutes: 5", "default"),
+      '  gate: "npm run x  # note"',
+    ];
+    expect(paintExplainLines(lines, paint)[2]).toBe(
+      '  gate: "npm run x  # note"',
+    );
+  });
+
+  it("finds the marks where comment lines outnumber them", () => {
+    const lines = [
+      "commands:",
+      "  # test-one: none (default)",
+      "  # end-to-end: none (default)",
+      "  # coverage: none (default)",
+      at("  gate: npm test", "default"),
+    ];
+    expect(paintExplainLines(lines, paint)[4]).toBe(
+      dim(at("  gate: npm test", "default")),
+    );
+  });
+
+  it("prints its lines painted when it is given paint", async () => {
+    const r = deps({
+      readFile: () => "version: 2\nrepository: owner/name\n",
+      paint,
+    });
+    expect(await main(["explain"], r.d)).toBe(0);
+    expect(r.out).toContainEqual(
+      expect.stringMatching(/^\x1B\[2m {2}type: github +# default\x1B\[22m$/),
+    );
+    expect(r.out[0]).toBe("version: 2");
   });
 });
