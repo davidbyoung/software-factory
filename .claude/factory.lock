@@ -21,6 +21,10 @@ settings:
       session: Session                                                         # default
       runs-in: Runs in                                                         # default
       cost: Cost                                                               # default
+      decisions: none                                                          # default
+      spec: none                                                               # default
+      acceptance-criteria: none                                                # default
+      for-the-builder: none                                                    # default
   code-host: github                                                            # default
   builds:
     trigger: manual

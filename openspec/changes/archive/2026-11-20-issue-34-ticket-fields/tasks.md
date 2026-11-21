@@ -30,6 +30,6 @@
 
 ## 6. Verify
 
-- [ ] 6.1 Map every Spec line, 1 to 30, to its test in the pull request body, and write a test for any line without one.
-- [ ] 6.2 Side by side: run init against the memory adapter, or a scratch issue field on GitHub, and put its output next to Proposed docs' transcripts under "Mockup and result".
-- [ ] 6.3 `npx --no-install factory gate` and `npm run pack-check`. There are no end-to-end specs here.
+- [x] 6.1 Map every Spec line, 1 to 30, to its test in the pull request body, and write a test for any line without one.
+- [x] 6.2 Side by side: run init against the memory adapter, or a scratch issue field on GitHub, and put its output next to Proposed docs' transcripts under "Mockup and result".
+- [x] 6.3 `npx --no-install factory gate` and `npm run pack-check`. There are no end-to-end specs here.

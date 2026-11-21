@@ -45,18 +45,6 @@ The factory SHALL behave as this line says: When the agent's answer is usable, i
   - `<factory name>, which init adds`;
   - for no column, what `factory board check` prints: `no column, shows in <column>`, or for ready, `no column: builds start only when you ask`.
 
-### Requirement: The agent is not installed
-
-The factory SHALL behave as this line says: When the agent's command is not installed, init prints three lines and exits 1, having written nothing and left the board unchanged: `Matching them to the factory's six states needs <label>, which is not installed.`, `Install it and run factory init again, or write tickets.columns in .claude/factory.yaml yourself.`, and `Nothing changed.`
-
-#### Scenario: The agent is not installed
-
-- **WHEN** the agent's command is not installed
-- **THEN** init prints three lines and exits 1, having written nothing and left the board unchanged:
-  - `Matching them to the factory's six states needs <label>, which is not installed.`
-  - `Install it and run factory init again, or write tickets.columns in .claude/factory.yaml yourself.`
-  - `Nothing changed.`
-
 ### Requirement: An answer that can't be used
 
 The factory SHALL behave as this line says: When the answer can't be used, init prints three lines and exits 1, having written nothing and left the board unchanged: `<label>'s answer could not be used: <reason>.`, `Run factory init again, or write tickets.columns in .claude/factory.yaml yourself.`, and `Nothing changed.`
