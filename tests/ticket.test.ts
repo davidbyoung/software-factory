@@ -1684,6 +1684,20 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     ]);
   });
 
+  it("view stops with the ticket system's error when the fields can't be read", async () => {
+    quiet();
+    const memory = memoryTickets([{ number: 7, labels: ["spec"] }], {
+      ticketFields: FIELDS,
+      fail: { fields: new Error("Server Error (HTTP 500)") },
+    });
+    const { d } = deps();
+    d.open = async () => ({
+      tickets: withTicketFields(memory.tickets, MAPPING, "acme/shop"),
+    });
+    expect(await main(["view", "7"], d)).toBe(1);
+    expect(errors).toEqual(["Server Error (HTTP 500)"]);
+  });
+
   it("leaves the description as it was when writing a field fails", async () => {
     quiet();
     const memory = memoryTickets(

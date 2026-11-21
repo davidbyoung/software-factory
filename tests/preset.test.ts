@@ -277,6 +277,19 @@ describe("what a preset can't do", () => {
     );
   });
 
+  it("takes a preset that names a ticket field for a heading of the repository's own", async () => {
+    root = repo(own([ACME]));
+    install(root, ACME, "1.0.0", {
+      "": {
+        settings:
+          "version: 2\ntickets:\n  fields:\n    proposed-docs: Docs draft\n",
+      },
+    });
+    const r = deps(root);
+    expect(await config(["check"], r.d)).toBe(0);
+    expect(r.err).toEqual([]);
+  });
+
   it("refuses a preset whose version is not 2", async () => {
     await refused("version: 1\n", `${ACME}: version: must be 2`);
   });

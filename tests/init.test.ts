@@ -2247,6 +2247,24 @@ describe("factory init, the field step", () => {
     expect(r.out.join("\n")).not.toContain("already holds");
   });
 
+  it.each([
+    [{ timedOut: true }, "it took longer than 60 seconds"],
+    [
+      { failed: { code: 1, error: "Invalid API key" } },
+      "it failed: Invalid API key",
+    ],
+    [{ failed: { code: 2, error: null } }, "it failed with exit code 2"],
+  ] as const)(
+    "words a failed or slow agent as the column step does",
+    async (got, reason) => {
+      const r = fielded({ agent: scriptedAgent([got]) });
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        `Claude Code's answer could not be used: ${reason}.`,
+      );
+    },
+  );
+
   it("stops before the plan, changing nothing, when the answer can't be used", async () => {
     const r = fielded({
       answer: { ...SUGGESTION, decisions: "Design notes" },
