@@ -871,6 +871,16 @@ describe("factory doctor, a credential kept on the machine", () => {
     );
   });
 
+  it("says to replace refused variables where they are set", async () => {
+    const r = await run(null, {
+      env: { ...PAIR, FAKE_TICKETS_TOKEN: REFUSED },
+    });
+    expect(r.code).toBe(1);
+    expect(r.lines).toEqual([
+      "✗ The credential in FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN is refused (401 Unauthorized). They may have expired: replace them where they are set",
+    ]);
+  });
+
   it.each([
     [
       "missing",

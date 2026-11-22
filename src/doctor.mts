@@ -321,11 +321,16 @@ function machineCheck(m: MachineState, names: string[], site: string): Check {
         fix: INIT,
       };
     case "refused":
-      return {
-        state: "fail",
-        text: `The credential on this machine is refused (${m.reason}). It may have expired`,
-        fix: INIT,
-      };
+      return m.source === "env"
+        ? {
+            state: "fail",
+            text: `The credential in ${listed(names)} is refused (${m.reason}). They may have expired: replace them where they are set`,
+          }
+        : {
+            state: "fail",
+            text: `The credential on this machine is refused (${m.reason}). It may have expired`,
+            fix: INIT,
+          };
     case "unchecked":
       return {
         state: "fail",

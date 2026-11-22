@@ -3407,6 +3407,22 @@ describe("factory init, a credential kept on the machine", () => {
       expect(stored(r.env)).toMatchObject({ values: GOOD_PAIR });
     });
 
+    it("says to replace refused variables, asking for nothing and writing no file, since they would still win", async () => {
+      const r = again({
+        env: { [FAKE_EMAIL]: EMAIL, [FAKE_TOKEN]: REFUSED },
+        answers: { checkbox: [[]], confirm: [false, true] },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain(
+        "Fake Tickets refused FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN for acme.example (401 Unauthorized). They may have expired. Run factory init, and replace them.",
+      );
+      expect(r.asked).not.toContain(TOKEN_Q);
+      expect(r.asked).not.toContain("confirm: Change which parts are on?");
+      expect(stored({ XDG_CONFIG_HOME: r.env.XDG_CONFIG_HOME })).toEqual({
+        state: "missing",
+      });
+    });
+
     it("asks nothing for an accepted one, and carries on as before", async () => {
       const r = again({
         machine: { [SITE]: GOOD_PAIR },

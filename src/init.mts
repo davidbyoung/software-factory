@@ -64,6 +64,7 @@ import {
   fileProblem,
   machineState,
   refusalReason,
+  refusedEnvLine,
   shownPath,
   writeCredential,
   type MachineState,
@@ -436,6 +437,20 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     d.out(machine.line);
     return 1;
   }
+  // Variables the system refuses still win over the file, so what fixes
+  // them is replacing them where they are set.
+  if (machine?.state === "refused" && machine.source === "env") {
+    d.out(
+      refusedEnvLine(
+        settingsTool!.label,
+        machineStep!.parts.map((p) => p.name),
+        machineSite,
+        machine.reason,
+        env,
+      ),
+    );
+    d.out("");
+  }
   const refused = firstRefusal(npmrc);
   if (refused) {
     d.out(refused);
@@ -487,7 +502,8 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   if (
     settings &&
     machineStep &&
-    (machine?.state === "missing" || machine?.state === "refused")
+    (machine?.state === "missing" ||
+      (machine?.state === "refused" && machine.source === "file"))
   ) {
     const got = await askCredential(machineStep, machineSite);
     if (got) {
