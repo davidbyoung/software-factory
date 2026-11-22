@@ -86,6 +86,6 @@ A high or medium finding outside the change under review, such as an
 existing test that cannot fail, is also written as one follow-up line, in
 the format under "Follow-ups" in `.claude/factory/rules.md`, led by the test's file, so
 the author can append it as it stands to the follow-ups issue, rather than
-open an issue. Write `#N` for the build number; the author fills it in.
+open an issue. Write `TICKET` for the ticket being built; the author fills it in.
 
 End with exactly one line: `Verdict: pass` when there is no high or medium finding, or `Verdict: fail, N findings to fix` with N the number of high and medium findings ("1 finding" when there is one). A low finding does not count. Nothing after that line.

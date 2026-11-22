@@ -34,7 +34,6 @@ import {
   isStale,
   isStuck,
   actionsRunLink,
-  buildsPartOf,
   markedComments,
   parseRuns,
   toSnapshot,
@@ -45,7 +44,8 @@ import {
   type RepoSnapshot,
   type ReviewerRun,
 } from "./lib/work-status.mts";
-import { boardOf, readAll, type Tickets } from "./tickets/types.mts";
+import { boardOf, readAll, type Key, type Tickets } from "./tickets/types.mts";
+import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 import { openTickets } from "./tickets/index.mts";
 import { openCodeHost, type CodeHost } from "./code-host/index.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
@@ -57,7 +57,11 @@ const HOOK_LIMIT_MS = 20_000;
 const HOUR = 3600_000;
 
 export type Row = {
-  number: number;
+  /** A ticket's key, or a pull request's number. */
+  key: string;
+  /** How it is written: the ticket system's form, or `#N` for a pull
+   * request. */
+  name: string;
   kind: "issue" | "pull";
   title: string;
   derived: Derived | null;
@@ -116,20 +120,27 @@ export function isWatching(body: string, now: Date): boolean {
 export function toRows(
   snapshot: RepoSnapshot,
   board: Board,
-  blockers: Map<number, number[]>,
+  blockers: Map<Key, Key[]>,
   now: Date,
-  /** What starts builds from the board, so that a card left in Ready is
-   * worth flagging; null when builds.trigger is manual. */
-  watch: Watch | null = watchOf("own-server", 5),
-  columns: Columns = DEFAULT_COLUMNS,
+  options: {
+    /** What starts builds from the board, so that a card left in Ready is
+     * worth flagging; null when builds.trigger is manual. */
+    watch?: Watch | null;
+    columns?: Columns;
+    /** How the ticket system writes a ticket. */
+    ref: (key: Key) => string;
+  },
 ): { rows: Row[]; closed: Row[] } {
+  const watch =
+    options.watch === undefined ? watchOf("own-server", 5) : options.watch;
+  const columns = options.columns ?? DEFAULT_COLUMNS;
   const rows: Row[] = [];
   const closed: Row[] = [];
   const claimed = new Set<number>();
   for (const issue of snapshot.issues) {
     const derived = derive(
       issue,
-      cardOf(board, issue.number, columns),
+      cardOf(board, issue.key, columns),
       snapshot.pulls,
       columns,
     );
@@ -141,42 +152,38 @@ export function toRows(
     if (isStale(derived, now)) flags.push("stale");
     if (
       watch &&
-      isNotStarted(
-        derived,
-        blockers.get(issue.number) ?? [],
-        now,
-        watch.minutes,
-      )
+      isNotStarted(derived, blockers.get(issue.key) ?? [], now, watch.minutes)
     )
       flags.push(watch.flag);
     const row: Row = {
-      number: issue.number,
+      key: issue.key,
+      name: options.ref(issue.key),
       kind: "issue",
       title: issue.title,
       derived,
       pulls,
       runs: cardRuns(issue, derived),
       flags,
-      cost: board.items.get(issue.number)?.cost ?? null,
+      cost: board.items.get(issue.key)?.cost ?? null,
     };
     (derived.status === "Done" ? closed : rows).push(row);
   }
   for (const pull of snapshot.pulls) {
     if (claimed.has(pull.number)) continue;
     const followUps = snapshot.issues.filter(
-      (i) =>
-        i.labels.includes("follow-up") && buildsPartOf(pull.body, i.number),
+      (i) => i.labels.includes("follow-up") && pull.partOf.includes(i.key),
     );
     if (pull.closes.length > 0 || followUps.length > 0) continue;
     rows.push({
-      number: pull.number,
+      key: String(pull.number),
+      name: `#${pull.number}`,
       kind: "pull",
       title: `pull request by ${pull.author}`,
       derived: null,
       pulls: [pull],
       runs: [],
       flags: [],
-      cost: board.items.get(pull.number)?.cost ?? null,
+      cost: null,
     });
   }
   return { rows, closed };
@@ -185,7 +192,7 @@ export function toRows(
 /** Where a ticket's number, a pull request's number, and an Actions run's
  * ID each lead. */
 export type Links = {
-  ticket: (n: number) => string;
+  ticket: (key: Key) => string;
   pull: (n: number) => string;
   run: (id: string) => string;
 };
@@ -237,8 +244,10 @@ const HEADER = ["#", "Title", "Time in status", "Cost", "Session"];
 /** A run of text, linked when it has a url. */
 type Seg = { text: string; url?: string };
 
-const linkTo = (kind: "ticket" | "pull", style: Style, n: number) =>
-  style.links?.[kind](n);
+const linkTo = (row: Pick<Row, "kind" | "key">, style: Style) =>
+  row.kind === "issue"
+    ? style.links?.ticket(row.key)
+    : style.links?.pull(Number(row.key));
 const width = (segs: Seg[]) => segs.reduce((n, s) => n + [...s.text].length, 0);
 
 function paint(text: string, style: Style, ...codes: Sgr[]): string {
@@ -302,7 +311,10 @@ function pullLine(
   return named
     ? [
         { text: "↳ Pull request " },
-        { text: `#${pull.number}`, url: linkTo("pull", style, pull.number) },
+        {
+          text: `#${pull.number}`,
+          url: linkTo({ kind: "pull", key: String(pull.number) }, style),
+        },
         { text: ` · ${rest}` },
       ]
     : [{ text: `↳ ${rest}` }];
@@ -386,14 +398,10 @@ export function formatRows(
   if (rows.length === 0) lines.push("Nothing open.");
   else {
     const cells = rows.map((row) => {
-      const url = linkTo(
-        row.kind === "issue" ? "ticket" : "pull",
-        style,
-        row.number,
-      );
+      const url = linkTo(row, style);
       return {
         row,
-        number: `#${row.number}`,
+        number: row.name,
         url,
         time: age(row.derived?.since ?? null, now),
         // Read from the board, never summed here, so it matches the card.
@@ -556,8 +564,8 @@ export function formatRows(
             render(
               [
                 {
-                  text: `#${r.number}`,
-                  url: linkTo("ticket", style, r.number),
+                  text: r.name,
+                  url: linkTo(r, style),
                 },
               ],
               style,
@@ -587,6 +595,8 @@ export type Source = {
   tickets: Tickets;
   pulls: Pick<CodeHost, "open" | "address">;
   runner: Pick<Runner, "runPage">;
+  /** Whether the code host's own links count (`lib/pull-tickets.mts`). */
+  own: boolean;
 };
 
 async function snapshotLines(
@@ -605,28 +615,36 @@ async function snapshotLines(
     readAll(source.tickets, { board: target.board !== null }),
     source.pulls.open({ checks: true }),
   ]);
-  const snapshot = toSnapshot(tickets, pulls, now);
+  const snapshot = toSnapshot(
+    tickets,
+    linkPulls(pulls, source.tickets, source.own),
+    now,
+  );
   const board = boardOf(tickets);
-  const blockers = new Map<number, number[]>();
+  const blockers = new Map<Key, Key[]>();
   for (const issue of snapshot.issues) {
     if (
       !source.tickets.blockers ||
       derive(
         issue,
-        cardOf(board, issue.number, target.columns),
+        cardOf(board, issue.key, target.columns),
         snapshot.pulls,
         target.columns,
       ).status !== "Ready"
     )
       continue;
-    const list = await source.tickets.blockers.list(issue.number);
+    const list = await source.tickets.blockers.list(issue.key);
     blockers.set(
-      issue.number,
-      list.filter((b) => b.state === "open").map((b) => b.number),
+      issue.key,
+      list.filter((b) => b.state === "open").map((b) => b.key),
     );
   }
   return formatRows(
-    toRows(snapshot, board, blockers, now, target.watch, target.columns),
+    toRows(snapshot, board, blockers, now, {
+      watch: target.watch,
+      columns: target.columns,
+      ref: (k) => source.tickets.ref(k),
+    }),
     now,
     !hook,
     { ...style, links, columns: target.columns },
@@ -742,6 +760,7 @@ export async function run(argv: string[]): Promise<number> {
         tickets,
         pulls: openCodeHost(target.repository, settings.codeHost.type),
         runner: openRunner(target.repository, settings.builds.runner),
+        own: ownLinks(settings),
       };
     },
     now: () => new Date(),

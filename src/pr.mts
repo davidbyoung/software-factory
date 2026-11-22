@@ -6,7 +6,8 @@
 //   npx --no-install factory pr reply N COMMENT_ID --body-file FILE
 //   npx --no-install factory pr resolve N COMMENT_ID
 //   npx --no-install factory pr ready N              # refuses an unverified commit when git signs
-//   npx --no-install factory pr closes N             # issues the pull request closes
+//   npx --no-install factory pr closes N             # the tickets the pull request closes, by key
+//   npx --no-install factory pr cost N               # notes this session's cost on the pull request
 //   npx --no-install factory pr wait-checks N        # every check on HEAD
 //   npx --no-install factory pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
 //   npx --no-install factory pr conflicts            # the pull requests the conflict sweep takes
@@ -24,8 +25,12 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
-import { reachOf } from "./config.mts";
-import { AGENT_MARK } from "./lib/work-status.mts";
+import { loadSettings, reachOf } from "./config.mts";
+import { openTickets } from "./tickets/index.mts";
+import { ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
+import { readClock, writeClock } from "./lib/clock.mts";
+import { measureSession, projectsDir } from "./lib/usage.mts";
+import { AGENT_MARK, commentBody } from "./lib/work-status.mts";
 import { changedLines, parseLcov, uncovered } from "./patch-coverage.mts";
 import { toChecks, type Check } from "./pr-watch.mts";
 import {
@@ -38,6 +43,9 @@ import {
 } from "./code-host/index.mts";
 import { openRunner, type Run, type Runner } from "./runner/index.mts";
 import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
+
+import type { Tickets } from "./tickets/types.mts";
+import { takeCost, type CostDeps } from "./ticket.mts";
 
 export type Deps = {
   /** The repository, as owner/name, from the factory's settings. */
@@ -52,7 +60,27 @@ export type Deps = {
   now?: () => number;
   /** For GITHUB_ACTIONS, which says GraphQL is open without asking. */
   env?: Record<string, string | undefined>;
+  /** The settings' ticket system, and whether the code host's own links
+   * count (`lib/pull-tickets.mts`), for `closes`. */
+  tickets?: () => Promise<{ tickets: Tickets; own: boolean }>;
+  /** The session's cost clock, for `cost`. */
+  cost?: CostDeps;
 };
+
+/** The tickets a pull request builds, as the factory counts them. */
+export async function pullTickets(d: Deps, pr: number) {
+  if (!d.tickets) throw new Error("No ticket system to read links with.");
+  const { tickets, own } = await d.tickets();
+  const pull = await d.codeHost.get(pr);
+  return {
+    tickets,
+    links: ticketsOf(
+      { body: pull.body, closes: own ? await d.codeHost.closes(pr) : [] },
+      tickets,
+      own,
+    ),
+  };
+}
 
 export function withAgentMark(body: string): string {
   return body.includes(AGENT_MARK)
@@ -303,7 +331,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
+const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -493,7 +521,17 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       case "closes": {
         const [pr] = numbers;
         if (!pr) throw new Error(USAGE);
-        d.out((await p.closes(pr)).join(" "));
+        d.out((await pullTickets(d, pr)).links.closes.join(" "));
+        return 0;
+      }
+      case "cost": {
+        const [pr] = numbers;
+        if (!pr || !d.cost) throw new Error(USAGE);
+        // Read first: a number that is no pull request leaves the clock.
+        await p.get(pr);
+        const note = takeCost(`#${pr}`, d.cost);
+        await p.comment(pr, commentBody({ kind: "cost", cost: note }));
+        d.out("posted");
         return 0;
       }
       case "wait-checks": {
@@ -713,7 +751,17 @@ export async function main(argv: string[], d: Deps): Promise<number> {
 /** `factory pr ...`. */
 export async function run(argv: string[]): Promise<number> {
   const { repository, codeHost, runner } = await reachOf(process.env);
-  return main(argv, {
+  return main(argv, prDeps(repository, codeHost, runner));
+}
+
+/** What `run` gives `main`, for the repository and the code host and
+ * runner named. */
+export function prDeps(
+  repository: string,
+  codeHost: string,
+  runner: string,
+): Deps {
+  return {
     repository,
     codeHost: openCodeHost(repository, codeHost),
     runner: openRunner(repository, runner),
@@ -729,5 +777,20 @@ export async function run(argv: string[]): Promise<number> {
         stdio: ["ignore", "pipe", "pipe"],
       }),
     env: process.env,
-  });
+    tickets: async () => {
+      const settings = await loadSettings();
+      const { tickets } = await openTickets(settings, {
+        repository,
+        board: null,
+      });
+      return { tickets, own: ownLinks(settings) };
+    },
+    cost: {
+      env: process.env,
+      now: () => new Date(),
+      clock: { read: readClock, write: writeClock },
+      measure: (session, since) =>
+        measureSession(projectsDir(process.env), session, since),
+    },
+  };
 }

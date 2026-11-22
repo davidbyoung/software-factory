@@ -207,3 +207,87 @@ describe("the CI review workflow", () => {
     ).toBe("allowed=base settings\n");
   });
 });
+
+describe("the tickets the review reads", () => {
+  const named = (name: string) => steps.find((s) => s.name === name)!;
+  const install = named("Install the base commit's factory");
+  const read = named("Read the tickets the pull request builds");
+  const review = steps.find((s) => s.id === "review")!;
+  const BASE_DIR = "${{ steps.base.outputs.dir || github.workspace }}";
+
+  it("installs the base commit beside the checkout, before the steps that run the factory", () => {
+    expect(install.id).toBe("base");
+    expect(install.run).toContain(
+      'git worktree add --detach "$RUNNER_TEMP/base" "$BASE"',
+    );
+    expect(install.run).toContain("npm ci");
+    expect(steps.indexOf(install)).toBeLessThan(steps.indexOf(tools!));
+  });
+
+  it("lists the tools and reads the tickets with the base commit's factory, or the head's when it could not install", () => {
+    expect(
+      (tools as Step & { "working-directory"?: string })["working-directory"],
+    ).toBe(BASE_DIR);
+    expect(
+      (read as Step & { "working-directory"?: string })["working-directory"],
+    ).toBe(BASE_DIR);
+    expect(read.run).toContain('npx --no-install factory review tickets "$PR"');
+  });
+
+  it("hands the review the file and lets it read there", () => {
+    expect(review.with!.prompt).toContain(
+      "TICKETS: ${{ runner.temp }}/tickets.md",
+    );
+    expect(review.with!.claude_args).toContain(
+      '--add-dir "${{ runner.temp }}"',
+    );
+  });
+
+  /** Runs the step with a stand-in factory that prints `printed` and exits
+   * `code`, and returns the file it leaves. */
+  const readTickets = (baseDir: string, code: number, printed: string) => {
+    temp = mkdtempSync(join(tmpdir(), "claude-review-tickets-"));
+    repo = temp;
+    const script = read.run!.replace(
+      'npx --no-install factory review tickets "$PR"',
+      `(printf '%s\\n' ${JSON.stringify(printed)}; exit ${code})`,
+    );
+    const result = spawnSync("bash", ["-eo", "pipefail", "-c", script], {
+      cwd: temp,
+      env: { ...process.env, BASE_DIR: baseDir, PR: "64", RUNNER_TEMP: temp },
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    return readFileSync(join(temp, "tickets.md"), "utf8");
+  };
+
+  it("leaves what the base commit's factory printed", () => {
+    expect(readTickets("/base", 0, "## #12 A ticket")).toBe(
+      "## #12 A ticket\n",
+    );
+  });
+
+  it("notes that the tickets could not be read, and passes, when the base could not install", () => {
+    expect(readTickets("", 0, "unused")).toBe(
+      "The tickets could not be read: the base commit's factory could not be installed\n",
+    );
+  });
+
+  it("notes the error's last line, and passes, when the read fails", () => {
+    const script = read.run!.replace(
+      'npx --no-install factory review tickets "$PR"',
+      "(echo 'first' >&2; echo 'Unknown command: review tickets' >&2; exit 1)",
+    );
+    temp = mkdtempSync(join(tmpdir(), "claude-review-tickets-"));
+    repo = temp;
+    const result = spawnSync("bash", ["-eo", "pipefail", "-c", script], {
+      cwd: temp,
+      env: { ...process.env, BASE_DIR: "/base", PR: "64", RUNNER_TEMP: temp },
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(temp, "tickets.md"), "utf8")).toBe(
+      "The tickets could not be read: Unknown command: review tickets\n",
+    );
+  });
+});

@@ -47,7 +47,6 @@ import {
   type StateKey,
   commentBody,
   derive,
-  buildsPartOf,
   issueCost,
   toClear,
   toSnapshot,
@@ -63,10 +62,13 @@ import { subscriptionDollars } from "./lib/pricing.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
 import { toBoard, type BoardPage } from "./tickets/github.mts";
-import { openTickets } from "./tickets/index.mts";
+import { openTickets, refOf } from "./tickets/index.mts";
+import { linkPulls, ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
 import {
   need,
   readAll,
+  type Key,
+  type Links,
   type Ticket,
   type Tickets,
   type Write,
@@ -385,7 +387,7 @@ export function boardReport(
 }
 
 export type Plan = {
-  number: number;
+  key: Key;
   itemId: string | null;
   derived: Derived;
   /** The cost markers' sum as subscription dollars, or null when there are
@@ -411,7 +413,7 @@ export function planSync(
   return snapshot.issues.map((issue) => {
     const derived = derive(
       issue,
-      cardOf(board, issue.number, cfg.columns),
+      cardOf(board, issue.key, cfg.columns),
       snapshot.pulls,
       cfg.columns,
     );
@@ -420,9 +422,9 @@ export function planSync(
       listPrice === null
         ? null
         : Math.round(subscriptionDollars(listPrice) * 100) / 100;
-    const item = board.items.get(issue.number);
+    const item = board.items.get(issue.key);
     const base = {
-      number: issue.number,
+      key: issue.key,
       itemId: item?.itemId ?? null,
       derived,
       cost,
@@ -476,18 +478,19 @@ export function planSync(
   });
 }
 
-export function logLine(plan: Plan): string {
+export function logLine(plan: Plan, ref: (key: Key) => string): string {
   const d = plan.derived;
+  const name = ref(plan.key);
   if (plan.unmapped !== undefined)
-    return `#${plan.number} card is in "${plan.unmapped}", which no state names (left alone)`;
+    return `${name} card is in "${plan.unmapped}", which no state names (left alone)`;
   const cost = plan.cost === null ? "(empty)" : plan.cost.toFixed(2);
   const values = `Status=${d.status}, Session=${d.session || "(empty)"}, Runs in=${d.runsIn || "(empty)"}, Cost=${cost}`;
-  if (plan.writes.length === 0) return `#${plan.number} ${values} (unchanged)`;
+  if (plan.writes.length === 0) return `${name} ${values} (unchanged)`;
   const added = plan.itemId ? "" : "added to the board; ";
-  return `#${plan.number} ${values} (${added}set ${plan.writes.map((w) => w.field).join(", ")})`;
+  return `${name} ${values} (${added}set ${plan.writes.map((w) => w.field).join(", ")})`;
 }
 
-export type Comment = { issue: number; body: string };
+export type Comment = { issue: Key; body: string };
 
 type PullEvent = {
   action: string;
@@ -499,15 +502,17 @@ type PullEvent = {
  * built part of without closing. */
 export function closedPullComments(
   event: PullEvent,
-  closes: number[],
-  openFollowUps: number[],
-  columns: Columns = DEFAULT_COLUMNS,
+  links: Links,
+  openFollowUps: Key[],
+  columns: Columns,
+  ref: (key: Key) => string,
 ): Comment[] {
   if (event.action !== "closed") return [];
   const pull = event.pull_request;
-  const closedKind = (issue: number): CommentKind => ({
+  const { closes } = links;
+  const closedKind = (issue: Key): CommentKind => ({
     kind: "pull-closed",
-    issue,
+    issue: { key: issue, ref: ref(issue) },
     pull: pull.number,
   });
   const comments: Comment[] = [];
@@ -515,7 +520,7 @@ export function closedPullComments(
     for (const issue of closes)
       comments.push({ issue, body: commentBody(closedKind(issue), columns) });
   for (const followUps of openFollowUps) {
-    if (closes.includes(followUps) || !buildsPartOf(pull.body ?? "", followUps))
+    if (closes.includes(followUps) || !links.partOf.includes(followUps))
       continue;
     comments.push({
       issue: followUps,
@@ -535,22 +540,20 @@ export function closedPullComments(
 export function nightlyComments(
   snapshot: RepoSnapshot,
   now: Date,
-  columns: Columns = DEFAULT_COLUMNS,
+  columns: Columns,
+  ref: (key: Key) => string,
 ): Comment[] {
   return snapshot.issues.flatMap((issue) => {
     const clear = toClear(issue, snapshot.pulls, now);
     if (!clear) return [];
+    const named = { key: issue.key, ref: ref(issue.key) };
     return [
       {
-        issue: issue.number,
+        issue: issue.key,
         body: commentBody(
           clear.kind === "claim"
-            ? { kind: "cleared-claim", issue: issue.number, since: clear.since }
-            : {
-                kind: "cleared-start",
-                issue: issue.number,
-                since: clear.since,
-              },
+            ? { kind: "cleared-claim", issue: named, since: clear.since }
+            : { kind: "cleared-start", issue: named, since: clear.since },
           columns,
         ),
       },
@@ -570,7 +573,7 @@ export type Saved = {
 export type PullSource = {
   open(options: { costs: boolean }): Promise<PullRequest[]>;
   linking(skip: number[]): Promise<PullRequest[]>;
-  closes(pull: number): Promise<number[]>;
+  closes(pull: number): Promise<Key[]>;
 };
 
 export type Deps = {
@@ -602,26 +605,37 @@ type Ctx = Deps & {
   runPage: (id: string) => string;
   tickets: Tickets;
   pulls: PullSource;
+  /** Whether the code host's own links count (`lib/pull-tickets.mts`). */
+  own: boolean;
 };
 
 async function postAll(comments: Comment[], d: Ctx, dryRun: boolean) {
   for (const c of comments) {
     const first = c.body.split("\n")[0];
     if (dryRun) {
-      d.out(`would comment on #${c.issue}: ${first}`);
+      d.out(`would comment on ${d.tickets.ref(c.issue)}: ${first}`);
       continue;
     }
     await d.tickets.comment(c.issue, c.body);
-    d.out(`commented on #${c.issue}: ${first}`);
+    d.out(`commented on ${d.tickets.ref(c.issue)}: ${first}`);
   }
 }
 
 async function read(d: Ctx): Promise<Saved> {
-  const [tickets, pulls] = await Promise.all([
+  const [tickets, open] = await Promise.all([
     readAll(d.tickets),
     d.pulls.open({ costs: true }),
   ]);
-  const donePulls = await d.pulls.linking(pulls.map((p) => p.number));
+  const pulls = linkPulls(open, d.tickets, d.own);
+  // Only the code host's own links say which closed pull requests built a
+  // ticket.
+  const donePulls = d.own
+    ? linkPulls(
+        await d.pulls.linking(pulls.map((p) => p.number)),
+        d.tickets,
+        d.own,
+      )
+    : [];
   return { tickets, pulls, donePulls };
 }
 
@@ -645,12 +659,21 @@ async function collect(
     if (event.action === "closed") {
       const followUps = snapshot.issues
         .filter((i) => i.state === "open" && i.labels.includes("follow-up"))
-        .map((i) => i.number);
+        .map((i) => i.key);
+      const links = ticketsOf(
+        {
+          body: event.pull_request.body ?? "",
+          closes: d.own ? await d.pulls.closes(event.pull_request.number) : [],
+        },
+        d.tickets,
+        d.own,
+      );
       const comments = closedPullComments(
         event,
-        await d.pulls.closes(event.pull_request.number),
+        links,
         followUps,
         d.config.columns,
+        (k) => d.tickets.ref(k),
       );
       await postAll(comments, d, opts.dryRun);
       if (comments.length && !opts.dryRun) {
@@ -661,7 +684,9 @@ async function collect(
   }
 
   if (opts.nightly) {
-    const comments = nightlyComments(snapshot, d.now(), d.config.columns);
+    const comments = nightlyComments(snapshot, d.now(), d.config.columns, (k) =>
+      d.tickets.ref(k),
+    );
     await postAll(comments, d, opts.dryRun);
     if (comments.length && !opts.dryRun) saved = await read(d);
   }
@@ -677,6 +702,7 @@ async function apply(
     repository: string;
     config: BoardConfig;
     runPage: (id: string) => string;
+    ref: (key: Key) => string;
   },
   write: Tickets["board"] | null,
 ) {
@@ -692,9 +718,9 @@ async function apply(
     d.config,
   );
   for (const plan of plans) {
-    d.out(logLine(plan));
+    d.out(logLine(plan, d.ref));
     if (!write || plan.writes.length === 0) continue;
-    const itemId = plan.itemId ?? (await write.add(plan.number));
+    const itemId = plan.itemId ?? (await write.add(plan.key));
     await write.set(itemId, plan.writes);
   }
 }
@@ -726,6 +752,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
     const repository = deps.env.GITHUB_REPOSITORY || settings.repository;
     const runner = deps.runner(repository, settings.builds.runner);
     const runPage = (id: string) => runner.runPage(id);
+    const ref = refOf(settings.tickets.type);
     const fixture = option(argv, "--fixture");
     if (
       argv[0] !== "collect" &&
@@ -744,14 +771,21 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       await apply(
         saved,
         toBoard(boardPages, repository),
-        { ...deps, repository, config, runPage },
+        { ...deps, repository, config, runPage, ref },
         null,
       );
       return 0;
     }
     const board = argv[0] === "collect" ? null : await projectNumber(deps);
     const opened = await deps.open(settings, { repository, board });
-    const d: Ctx = { ...deps, config, repository, runPage, ...opened };
+    const d: Ctx = {
+      ...deps,
+      config,
+      repository,
+      runPage,
+      ...opened,
+      own: ownLinks(settings),
+    };
     if (argv[0] === "collect") {
       const out = option(argv, "--out");
       if (!out) throw new Error("collect needs --out FILE.");
@@ -782,13 +816,13 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       await apply(
         JSON.parse(d.readFile(input)),
         await boardOps.read(),
-        d,
+        { ...d, ref },
         dryRun ? null : boardOps,
       );
       return 0;
     }
     const saved = await collect(d, { nightly: false, dryRun: true });
-    await apply(saved, await boardOps.read(), d, null);
+    await apply(saved, await boardOps.read(), { ...d, ref }, null);
     return 0;
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

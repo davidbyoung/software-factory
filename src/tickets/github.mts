@@ -8,6 +8,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Gh } from "../lib/gh.mts";
 import {
+  KeyError,
+  type Key,
+  type LinkKind,
+  type Links,
   NotFoundError,
   type Board,
   type BoardField,
@@ -62,7 +66,7 @@ type RestComment = {
 };
 
 const toComment = (raw: RestComment): TicketComment => ({
-  id: raw.id,
+  id: String(raw.id),
   createdAt: raw.created_at,
   body: raw.body ?? "",
   author: raw.user?.login ?? "ghost",
@@ -137,7 +141,7 @@ export type IssuesPage = {
 
 export const toComments = (raw: RawComments | undefined): TicketComment[] =>
   (raw?.nodes ?? []).map((c) => ({
-    id: c.databaseId,
+    id: String(c.databaseId),
     createdAt: c.createdAt,
     body: c.body,
     author: c.author?.login ?? "ghost",
@@ -145,7 +149,7 @@ export const toComments = (raw: RawComments | undefined): TicketComment[] =>
 
 export function fromRawIssue(raw: RawIssue): Ticket {
   return {
-    number: raw.number,
+    key: String(raw.number),
     title: raw.title,
     state: raw.state === "OPEN" ? "open" : "closed",
     closedAt: raw.closedAt,
@@ -232,7 +236,7 @@ export type BoardPage = {
 export function toBoard(pages: BoardPage[], repository: string): Board {
   const project = pages[0].data.owner?.projectV2;
   if (!project) throw new Error("The Project could not be read.");
-  const items = new Map<number, BoardItem>();
+  const items = new Map<Key, BoardItem>();
   for (const page of pages) {
     for (const raw of page.data.owner!.projectV2!.items.nodes) {
       const number = raw.content?.number;
@@ -241,9 +245,9 @@ export function toBoard(pages: BoardPage[], repository: string): Board {
         raw.content?.repository?.nameWithOwner !== repository
       )
         continue;
-      items.set(number, {
+      items.set(String(number), {
         itemId: raw.id,
-        number,
+        key: String(number),
         status: raw.status?.name ?? null,
         updatedAt: raw.status?.updatedAt ?? null,
         session: raw.session?.text ?? "",
@@ -347,10 +351,40 @@ export function setColumnsMutation(field: string, options: StatusOption[]) {
 }
 
 /** The id in the URL `gh issue comment` prints. */
-export function commentIdFromUrl(url: string): number {
+export function commentIdFromUrl(url: string): string {
   const match = /#issuecomment-(\d+)/.exec(url);
   if (!match) throw new Error(`gh printed no comment address: ${url.trim()}`);
-  return Number(match[1]);
+  return match[1];
+}
+
+/** A key typed for GitHub: an issue's number. */
+export function githubKey(typed: string): Key {
+  if (/^[1-9]\d*$/.test(typed)) return typed;
+  if (/^[\w.-]+\/[\w.-]+#\d+$/.test(typed))
+    throw new KeyError(
+      `${typed} is in another repository: the factory reads only its state as a blocker`,
+    );
+  throw new KeyError(
+    `${typed} is not a ticket here: a GitHub ticket is its number, such as 12`,
+  );
+}
+
+/** How GitHub writes a ticket: `#12`, or `owner/repo#4` for one in another
+ * repository, whose key is already written that way. */
+export const githubRef = (key: Key): string =>
+  key.includes("/") ? key : `#${key}`;
+
+export const githubLinkText = (key: Key, kind: LinkKind): string =>
+  `${kind === "closes" ? "Closes" : "Part of"} ${githubRef(key)}`;
+
+/** The `Closes #N` and `Part of #N` lines in a pull request's body. */
+export function githubLinksIn(body: string): Links {
+  const links: Links = { closes: [], partOf: [] };
+  for (const m of body.matchAll(/\b(closes|part of) #(\d+)(?!\d)/gi)) {
+    const list = m[1].toLowerCase() === "closes" ? links.closes : links.partOf;
+    if (!list.includes(m[2])) list.push(m[2]);
+  }
+  return links;
 }
 
 const ISSUE_FIELDS = `query IssueFields($owner: String!, $name: String!) {
@@ -391,8 +425,19 @@ export function githubTickets(o: GithubOptions): Tickets {
   const t = o.transport;
   let lastBoard: Board | null = null;
 
-  const issue = (n: number) =>
+  const issue = (n: Key) =>
     found(`#${n}`, t.rest<RestIssue>("GET", `${API}/issues/${n}`));
+
+  // GitHub numbers issues and pull requests from one sequence, and its
+  // issues API writes to either, so a write first checks that the number
+  // is an issue.
+  const issues = new Set<Key>();
+  const anIssue = async (n: Key) => {
+    if (issues.has(n)) return;
+    const raw = await issue(n);
+    if (raw.pull_request) throw new NotFoundError(`#${n}`);
+    issues.add(n);
+  };
 
   /** Board `number`'s Status field, or null when it has none. */
   const statusField = async (number: number) => {
@@ -454,16 +499,19 @@ export function githubTickets(o: GithubOptions): Tickets {
   };
 
   const tickets: Tickets = {
+    key: githubKey,
+    ref: githubRef,
     async read(n) {
       const raw = await issue(n);
       if (raw.pull_request) throw new NotFoundError(`#${n}`);
+      issues.add(n);
       const comments = await t.rest<RestComment[]>(
         "GET",
         `${API}/issues/${n}/comments?per_page=100`,
         { paginate: true },
       );
       return {
-        number: raw.number,
+        key: String(raw.number),
         title: raw.title,
         state: raw.state === "closed" ? "closed" : "open",
         closedAt: raw.closed_at,
@@ -478,34 +526,37 @@ export function githubTickets(o: GithubOptions): Tickets {
         `${API}/issues?state=open&per_page=100`,
         { paginate: true },
       );
-      return all
-        .filter((i) => !i.pull_request)
-        .map((i) => ({
-          number: i.number,
-          title: i.title,
-          labels: i.labels.map(labelName),
-        }));
+      const open = all.filter((i) => !i.pull_request);
+      for (const i of open) issues.add(String(i.number));
+      return open.map((i) => ({
+        key: String(i.number),
+        title: i.title,
+        labels: i.labels.map(labelName),
+      }));
     },
     async writeBody(n, body) {
+      await anIssue(n);
       await found(
         `#${n}`,
         t.rest("PATCH", `${API}/issues/${n}`, { fields: { body } }),
       );
     },
     async writeTitle(n, title) {
+      await anIssue(n);
       await found(
         `#${n}`,
         t.rest("PATCH", `${API}/issues/${n}`, { fields: { title } }),
       );
     },
     async comment(n, body) {
+      await anIssue(n);
       const made = await found(
         `#${n}`,
         t.rest<{ id: number }>("POST", `${API}/issues/${n}/comments`, {
           fields: { body },
         }),
       );
-      return made.id;
+      return String(made.id);
     },
     async editComment(id, body) {
       await found(
@@ -525,9 +576,10 @@ export function githubTickets(o: GithubOptions): Tickets {
       const made = await t.rest<{ number: number }>("POST", `${API}/issues`, {
         fields,
       });
-      return made.number;
+      return String(made.number);
     },
     async addLabel(n, label) {
+      await anIssue(n);
       await found(
         `#${n}`,
         t.rest("POST", `${API}/issues/${n}/labels`, {
@@ -536,6 +588,7 @@ export function githubTickets(o: GithubOptions): Tickets {
       );
     },
     async removeLabel(n, label) {
+      await anIssue(n);
       try {
         await t.rest(
           "DELETE",
@@ -549,7 +602,8 @@ export function githubTickets(o: GithubOptions): Tickets {
       }
     },
     mayDecide: (author) => writeAccess(t, o.repository, author),
-    linkText: (n) => `Closes #${n}`,
+    linkText: githubLinkText,
+    linksIn: githubLinksIn,
     address: (n) => `https://github.com/${o.repository}/issues/${n}`,
 
     board: {
@@ -558,6 +612,7 @@ export function githubTickets(o: GithubOptions): Tickets {
         const board = lastBoard ?? (await readBoard());
         if (o.board === null) throw new Error("The settings name no board.");
         const raw = await issue(n);
+        if (raw.pull_request) throw new NotFoundError(`#${n}`);
         const added = await t.graphql<{
           data: { addProjectV2ItemById: { item: { id: string } } };
         }>(ADD_CARD, { project: board.projectId, content: raw.node_id });
@@ -708,6 +763,7 @@ export function githubTickets(o: GithubOptions): Tickets {
       },
       async write(n, values) {
         const fields = await issueFields();
+        await anIssue(n);
         const { node_id } = await issue(n);
         for (const [name, value] of Object.entries(values)) {
           const field = fields.find((f) => f.name === name);
@@ -726,18 +782,24 @@ export function githubTickets(o: GithubOptions): Tickets {
       async list(n) {
         const list = await found(
           `#${n}`,
-          t.rest<{ number: number; state: string }[]>(
+          t.rest<{ number: number; state: string; repository_url?: string }[]>(
             "GET",
             `${API}/issues/${n}/dependencies/blocked_by`,
             { paginate: true },
           ),
         );
-        return list.map((b) => ({
-          number: b.number,
-          state: b.state === "open" ? "open" : "closed",
-        }));
+        return list.map((b) => {
+          const repo = b.repository_url?.replace(/^.*\/repos\//, "");
+          const elsewhere =
+            repo && repo.toLowerCase() !== o.repository.toLowerCase();
+          return {
+            key: elsewhere ? `${repo}#${b.number}` : String(b.number),
+            state: b.state === "open" ? "open" : "closed",
+          };
+        });
       },
       async add(n, by) {
+        await anIssue(n);
         const blocker = await issue(by);
         await found(
           `#${n}`,
@@ -789,11 +851,12 @@ export function githubTickets(o: GithubOptions): Tickets {
       after = info.hasNextPage ? info.endCursor : null;
     } while (after);
     const read = fromIssuesPages(pages);
+    for (const x of read) issues.add(x.key);
     if (!options.board) return read;
     const board = await readBoard();
     return read.map((x) => ({
       ...x,
-      card: board.items.get(x.number) ?? null,
+      card: board.items.get(x.key) ?? null,
     }));
   };
 

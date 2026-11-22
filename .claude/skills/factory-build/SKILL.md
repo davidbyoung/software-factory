@@ -1,6 +1,6 @@
 ---
 name: factory-build
-description: Build a ticket: take an approved GitHub issue to a reviewed pull request: claim it, branch, build it to its spec with the area's reviewers, run the gate, open a draft with Closes #N, and work the review. Use when asked to build, work, pick up, take, or fix a ticket by number, and as the run `factory build N` starts in GitHub Actions.
+description: Build a ticket: take an approved ticket to a reviewed pull request: claim it, branch, build it to its spec with the area's reviewers, run the gate, open a draft that links the ticket, and work the review. Use when asked to build, work, pick up, take, or fix a ticket by its number or key, and as the run `factory build N` starts in GitHub Actions.
 ---
 
 # Working an issue
@@ -18,16 +18,19 @@ Every command a build runs is the settings' own: the gate, one test, an
 end-to-end spec, and the spec check each have a `factory` command below
 that runs what `.claude/factory.yaml` lists under `commands` and `specs`.
 The default branch's name is what `npx --no-install factory default-branch`
-prints, and the commands below write it as DEFAULT.
+prints, and the commands below write it as DEFAULT. N is the ticket's key,
+as the ticket system gives it, such as `12` or `PROJ-12`, and TICKET is how
+the ticket system writes it in prose, such as `#12`, which
+`npx --no-install factory ticket view N --field ref` prints.
 
 ## How a build starts
 
-- **Local:** the owner tells a session to work an issue by number. The
+- **Local:** the owner tells a session to work an issue by its key. The
   card stays where it is until the claim moves it.
 
 - **GitHub Actions:** the owner moves the issue's card to Ready on the
   board, and the poller posts a start comment and dispatches
-  "Factory build" with the issue's number; or a person runs
+  "Factory build" with the issue's key; or a person runs
   `npx --no-install factory build N`, or "Run workflow" on the Actions
   tab. The two are the same run. The run's prompt says so. There is no
   start check, since only someone with write access can dispatch a
@@ -54,11 +57,12 @@ the comments back, and prints one line:
 - **`claimed`:** go on.
 - **`held by SESSION`:** another session holds the issue. Stop and post
   nothing; the script has already deleted this session's claim.
-- **`blocked by: #M`:** stop. In a run in GitHub Actions the script has posted the
+- **`blocked by: M`,** each blocker M as the ticket system writes it: stop.
+  In a run in GitHub Actions the script has posted the
   stopped comment, which leaves the card In progress, waiting on you.
   The report is:
 
-  > **Waiting on #M, so I did not start this.** #M is still open and has
+  > **Waiting on M, so I did not start this.** M is still open and has
   > to merge first. To build it anyway, remove the relationship from this
   > issue's sidebar, then move its card to Ready again or ask a session to
   > work it.
@@ -119,7 +123,7 @@ as that section
 says.
 
 ```bash
-npx --no-install factory follow-up FILE "What is wrong. Found by WHO while building #N. The rule it breaks."
+npx --no-install factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
 ```
 
 FILE is the file or page the follow-up is about, and leads its line. The
@@ -144,11 +148,12 @@ gets it added, and stays unchecked the same way. Step 3's reviewers run
 once, on the whole branch, sized as "Small changes" in
 `.claude/factory/rules.md` sizes
 a follow-ups build. The pull request lists each line with its commit. It
-starts with `Closes #N` only when every line is checked; otherwise it
-starts with `Part of #N`, and the unchecked lines wait there for the next
-build. The sync reads `Part of #N` as a partial build of the follow-ups,
-so a pull request that only links a line it added there names the issue
-any other way.
+starts with the line `npx --no-install factory ticket link N` prints only
+when every line is checked; otherwise it starts with the line
+`npx --no-install factory ticket link N --part` prints, and the unchecked
+lines wait there for the next build. The sync reads that line as a
+partial build of the follow-ups, so a pull request that only links a line
+it added there names the issue any other way.
 
 ## 0. Read the issue
 
@@ -190,7 +195,7 @@ Otherwise, claim it now ("The claim"), then read on.
   Approval means the round's defaults stand, along with the owner's
   replies. After the claim, first invoke the refiner, the skill
   `npx --no-install factory plugins refiner` prints, with the Skill tool,
-  giving it the issue's number and the words "approved while
+  giving it the issue's key and the words "approved while
   waiting: fold the owner's replies into the body, post no marker". For
   `factory-refine` that is its steps 4 and 5: it folds the replies in and
   reads the result for readiness. Then check that the body is one a build
@@ -385,7 +390,7 @@ run them the way the repository's `CLAUDE.md` says, or say there is no
 end-to-end suite. CI runs the full suite on the draft (step 6).
 Commit and push as "Branching, pushing, and review" in
 `.claude/factory/rules.md` describes: one commit per coherent change,
-describing the defect or the feature, not the issue number alone.
+describing the defect or the feature, not the ticket's key alone.
 
 ## 6. Open the pull request
 
@@ -401,8 +406,8 @@ It opens a draft from the current branch into the default branch and
 prints the pull request's number.
 
 Start the body with the link text
-`npx --no-install factory ticket link N` prints (`Closes #N` on GitHub),
-then what changed and how it was
+`npx --no-install factory ticket link N` prints, which closes the ticket
+when the pull request merges, then what changed and how it was
 verified, including each new test's red run or mutation check, and what
 each reviewer found and what was done about it.
 On the `spec` track, or with a Spec section, include the Spec-line-to-test
@@ -424,13 +429,13 @@ section that the images are missing; the build does not stop for them.
 npx --no-install factory pr closes PR
 ```
 
-That has to print N. If it does not, GitHub did not register the link; fix
-the body.
+That has to print N. If it does not, the link did not register; fix the
+body.
 
 Then note what the build cost, on the pull request:
 
 ```bash
-npx --no-install factory ticket cost PR
+npx --no-install factory pr cost PR
 ```
 
 The claim started the session's cost clock; this posts what the session

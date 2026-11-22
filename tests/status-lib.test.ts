@@ -3,6 +3,7 @@ import {
   commentBody,
   derive,
   issueCost,
+  DEFAULT_COLUMNS,
   isNotStarted,
   isStale,
   parseCosts,
@@ -29,18 +30,23 @@ import {
   type RawPull,
 } from "../src/code-host/github.mts";
 
+import { memoryTickets } from "./memory-tickets";
+
 const AGENT = "<!-- agent -->";
 const at = (minute: number) =>
   new Date(Date.UTC(2026, 10, 9, 12, minute)).toISOString();
 let nextId = 100;
 const said = (minute: number, marker: string, id = nextId++): IssueComment => ({
-  id,
+  id: String(id),
   createdAt: at(minute),
   author: "acme",
   body: `Text.\n\n<!-- work-status: ${marker} -->\n${AGENT}`,
 });
+const LINKS_IN = memoryTickets().tickets.linksIn;
+/** Ticket 7 as a comment names it. */
+const SEVEN = { key: "7", ref: "#7" };
 const issue = (over: Partial<Issue> = {}): Issue => ({
-  number: 7,
+  key: "7",
   title: "An issue",
   state: "open",
   closedAt: null,
@@ -52,12 +58,14 @@ const pull = (over: Partial<PullRequest> = {}): PullRequest => ({
   number: 50,
   createdAt: at(30),
   body: "Closes #7",
-  closes: [7],
+  closes: ["7"],
   isDraft: true,
   checks: null,
   openThreads: 0,
   author: "acme",
   ...over,
+  // The links as `linkPulls` reads them from the body.
+  partOf: over.partOf ?? LINKS_IN(over.body ?? "Closes #7").partOf,
 });
 const ready = (minute: number) => ({ status: "Ready", updatedAt: at(minute) });
 
@@ -146,21 +154,21 @@ describe("workState", () => {
     const older = said(1, "claim local aaa", 9);
     const newer = said(2, "claim local bbb", 3);
 
-    expect(workState([newer, older]).live?.id).toBe(9);
+    expect(workState([newer, older]).live?.id).toBe("9");
   });
 
   it("makes the oldest claim live when none was", () => {
     const first = said(1, "claim local aaa", 2);
     const second = said(1, "claim local bbb", 3);
 
-    expect(workState([second, first]).live?.id).toBe(2);
+    expect(workState([first, second]).live?.id).toBe("2");
   });
 
-  it("orders claims posted in the same second by comment ID", () => {
+  it("orders claims posted in the same second as the ticket system returned them, never by their IDs", () => {
     expect(
       workState([said(1, "claim local b", 9), said(1, "claim local a", 8)]).live
         ?.id,
-    ).toBe(8);
+    ).toBe("9");
   });
 
   it("never counts a claim posted while another was live, even after a release", () => {
@@ -171,7 +179,7 @@ describe("workState", () => {
     ]);
 
     expect(state.live).toBeNull();
-    expect(state.lastLive?.id).toBe(1);
+    expect(state.lastLive?.id).toBe("1");
   });
 
   it("keeps the newest claim that was ever live after a rebuild", () => {
@@ -181,11 +189,11 @@ describe("workState", () => {
       said(3, "claim local bbb", 3),
     ]);
 
-    expect(state.lastLive?.id).toBe(3);
+    expect(state.lastLive?.id).toBe("3");
   });
 
   it("lets a claim that never counted turn live once the live one is deleted", () => {
-    expect(workState([said(2, "claim local bbb", 2)]).live?.id).toBe(2);
+    expect(workState([said(2, "claim local bbb", 2)]).live?.id).toBe("2");
   });
 
   it.each(["released", "cleared"])("ends the live claim on %s", (end) => {
@@ -202,7 +210,7 @@ describe("workState", () => {
   );
 
   it("keeps a start that nothing followed", () => {
-    expect(workState([said(1, "started actions st_1", 5)]).start?.id).toBe(5);
+    expect(workState([said(1, "started actions st_1", 5)]).start?.id).toBe("5");
   });
 });
 
@@ -259,7 +267,7 @@ describe("derive", () => {
   it("leaves the follow-ups issue alone when a pull request only links a line to it", () => {
     const followUps = issue({ labels: ["follow-up"] });
     const linking = pull({
-      closes: [3],
+      closes: ["3"],
       body: "Closes #3. A finding is on #7.",
     });
 
@@ -428,7 +436,7 @@ describe("derive: a card moves only forward on its own", () => {
   });
   /** A comment as the session, sync, or poller posts it. */
   const posted = (minute: number, kind: CommentKind): IssueComment => ({
-    id: nextId++,
+    id: String(nextId++),
     createdAt: at(minute),
     author: "acme",
     body: commentBody(kind),
@@ -439,29 +447,29 @@ describe("derive: a card moves only forward on its own", () => {
     [
       "stopped",
       "claim actions 123",
-      { kind: "stopped", where: "actions", issue: 7, reason: "r" },
+      { kind: "stopped", where: "actions", issue: SEVEN, reason: "r" },
     ],
     [
       "cleared-claim",
       "claim actions 123",
-      { kind: "cleared-claim", issue: 7, since: at(1) },
+      { kind: "cleared-claim", issue: SEVEN, since: at(1) },
     ],
     [
       "cleared-start",
       "started actions st_1",
-      { kind: "cleared-start", issue: 7, since: at(1) },
+      { kind: "cleared-start", issue: SEVEN, since: at(1) },
     ],
     [
       "pull-closed",
       "claim actions 123",
-      { kind: "pull-closed", issue: 7, pull: 9 },
+      { kind: "pull-closed", issue: SEVEN, pull: 9 },
     ],
     [
       "fire-failed",
       "started actions st_1",
       {
         kind: "dispatch-failed",
-        issue: 7,
+        issue: SEVEN,
         status: "401",
         reason: "Unauthorized",
       },
@@ -640,7 +648,7 @@ describe("flags", () => {
 
     expect(isNotStarted(readyFor(6), [], NOW)).toBe(true);
     expect(isNotStarted(readyFor(4), [], NOW)).toBe(false);
-    expect(isNotStarted(readyFor(6), [12], NOW)).toBe(false);
+    expect(isNotStarted(readyFor(6), ["12"], NOW)).toBe(false);
   });
 });
 
@@ -714,7 +722,7 @@ describe("commentBody", () => {
       "waiting",
     ],
     [
-      { kind: "refined", issue: 7 },
+      { kind: "refined", issue: SEVEN },
       "Refinement is done. The card stays In refinement until it moves to Ready, which starts a build in GitHub Actions: move it there, or ask this session to. To build it on your machine instead, tell a local session to work #7.",
       "refined",
     ],
@@ -724,27 +732,42 @@ describe("commentBody", () => {
       "started actions st_ab",
     ],
     [
-      { kind: "dispatch-failed", issue: 7, status: "403", reason: "Forbidden" },
+      {
+        kind: "dispatch-failed",
+        issue: SEVEN,
+        status: "403",
+        reason: "Forbidden",
+      },
       "Could not start a build in GitHub Actions: GitHub answered 403 (Forbidden). The card stays In progress, waiting on you. Move it to Ready to try again.",
       "released",
     ],
     [
-      { kind: "stopped", where: "actions", issue: 7, reason: "blocked by #3" },
+      {
+        kind: "stopped",
+        where: "actions",
+        issue: SEVEN,
+        reason: "blocked by #3",
+      },
       "Stopped without a pull request: blocked by #3. The card stays In progress, waiting on you. Run `factory build 7` to try again, or move it to Ready.",
       "released",
     ],
     [
-      { kind: "stopped", where: "local", issue: 7, reason: "blocked by #3" },
+      {
+        kind: "stopped",
+        where: "local",
+        issue: SEVEN,
+        reason: "blocked by #3",
+      },
       "Stopped without a pull request: blocked by #3. The card stays In progress, waiting on you. Tell a session to work #7 again, or move it to Ready to build it in GitHub Actions.",
       "released",
     ],
     [
-      { kind: "cleared-claim", issue: 7, since: at(5) },
+      { kind: "cleared-claim", issue: SEVEN, since: at(5) },
       "Cleared the claim from 2026-11-09 12:05 UTC: no pull request after 24 hours, so that session has stopped. The card stays In progress, waiting on you. Move it to Ready to try again.",
       "cleared",
     ],
     [
-      { kind: "cleared-start", issue: 7, since: at(5) },
+      { kind: "cleared-start", issue: SEVEN, since: at(5) },
       "Cleared the build started 2026-11-09 12:05 UTC: no claim or pull request after 24 hours. The card stays In progress, waiting on you. Move it to Ready to try again.",
       "cleared",
     ],
@@ -754,7 +777,7 @@ describe("commentBody", () => {
       "partial",
     ],
     [
-      { kind: "pull-closed", issue: 7, pull: 9 },
+      { kind: "pull-closed", issue: SEVEN, pull: 9 },
       "Pull request #9 was closed without merging. The card stays In progress, waiting on you. Move it to Ready to rebuild it, or ask a session to refine it first.",
       "released",
     ],
@@ -764,11 +787,34 @@ describe("commentBody", () => {
     );
   });
 
+  it("names a ticket by its key in a command and by its written form in prose", () => {
+    // A written form unlike the key, so a command given the written form
+    // shows.
+    const key = { key: "web-7", ref: "WEB 7" };
+    expect(
+      commentBody({
+        kind: "stopped",
+        where: "actions",
+        issue: key,
+        reason: "x",
+      }),
+    ).toContain("Run `factory build web-7` to try again");
+    expect(
+      commentBody({ kind: "stopped", where: "local", issue: key, reason: "x" }),
+    ).toContain("Tell a session to work WEB 7 again");
+    expect(
+      commentBody(
+        { kind: "pull-closed", issue: key, pull: 9 },
+        { ...DEFAULT_COLUMNS, Ready: null },
+      ),
+    ).toContain("Tell a session to build WEB 7, or run `factory build web-7`");
+  });
+
   it("puts a closing comment's own text before the refined sentence", () => {
     expect(
       commentBody({
         kind: "refined",
-        issue: 7,
+        issue: SEVEN,
         before: "Nothing to decide.\n",
       }),
     ).toMatch(/^Nothing to decide\.\n\nRefinement is done\./);
@@ -778,22 +824,27 @@ describe("commentBody", () => {
     const kinds: CommentKind[] = [
       { kind: "refining", who: local },
       { kind: "waiting" },
-      { kind: "refined", issue: 7 },
+      { kind: "refined", issue: SEVEN },
       { kind: "started", marker: "st_ab" },
-      { kind: "dispatch-failed", issue: 7, status: "403", reason: "Forbidden" },
       {
         kind: "dispatch-failed",
-        issue: 7,
+        issue: SEVEN,
+        status: "403",
+        reason: "Forbidden",
+      },
+      {
+        kind: "dispatch-failed",
+        issue: SEVEN,
         status: "401",
         reason: "Unauthorized",
       },
       { kind: "claim", who: local },
-      { kind: "stopped", where: "actions", issue: 7, reason: "r" },
-      { kind: "stopped", where: "local", issue: 7, reason: "r" },
-      { kind: "cleared-claim", issue: 7, since: at(5) },
-      { kind: "cleared-start", issue: 7, since: at(5) },
+      { kind: "stopped", where: "actions", issue: SEVEN, reason: "r" },
+      { kind: "stopped", where: "local", issue: SEVEN, reason: "r" },
+      { kind: "cleared-claim", issue: SEVEN, since: at(5) },
+      { kind: "cleared-start", issue: SEVEN, since: at(5) },
       { kind: "follow-ups-merged", pull: 9 },
-      { kind: "pull-closed", issue: 7, pull: 9 },
+      { kind: "pull-closed", issue: SEVEN, pull: 9 },
     ];
 
     expect(
@@ -864,12 +915,12 @@ describe("toSnapshot", () => {
     toSnapshot(fromIssuesPages(pages), [toPull(rawPull, REPO)], NOW);
 
   it("keeps open issues and those closed in the last day", () => {
-    expect(snapshotOf([page()]).issues.map((i) => i.number)).toEqual([1, 2]);
+    expect(snapshotOf([page()]).issues.map((i) => i.key)).toEqual(["1", "2"]);
   });
 
   it("keeps this repository's closing references only, and counts open threads", () => {
     expect(snapshotOf([page()]).pulls[0]).toMatchObject({
-      closes: [1],
+      closes: ["1"],
       openThreads: 1,
       checks: "SUCCESS",
     });
@@ -883,8 +934,10 @@ describe("toSnapshot", () => {
       },
     });
 
-    expect(snapshotOf([page(), second]).issues.map((i) => i.number)).toEqual([
-      1, 4, 2,
+    expect(snapshotOf([page(), second]).issues.map((i) => i.key)).toEqual([
+      "1",
+      "4",
+      "2",
     ]);
   });
 
@@ -982,7 +1035,7 @@ describe("toBoard", () => {
 
     expect([
       ...toBoard([onePage(1), onePage(2)], "acme/widgets").items.keys(),
-    ]).toEqual([1, 2]);
+    ]).toEqual(["1", "2"]);
   });
 
   it("keeps this repository's issues, with Status and its time", () => {
@@ -1030,7 +1083,7 @@ describe("toBoard", () => {
     expect([...board.items.values()]).toEqual([
       {
         itemId: "IT1",
-        number: 7,
+        key: "7",
         status: "Ready",
         updatedAt: at(3),
         session: "a",
@@ -1068,13 +1121,13 @@ describe("toBoard", () => {
       "acme/widgets",
     );
 
-    expect(board.items.get(7)?.cost).toBe(4);
+    expect(board.items.get("7")?.cost).toBe(4);
   });
 });
 
 describe("parseCosts", () => {
   const comment = (body: string, author = "acme"): IssueComment => ({
-    id: 1,
+    id: "1",
     createdAt: at(1),
     author,
     body,
@@ -1126,7 +1179,7 @@ describe("parseCosts", () => {
 
 describe("issueCost", () => {
   const cost = (n: string, author = "acme"): IssueComment => ({
-    id: nextId++,
+    id: String(nextId++),
     createdAt: at(1),
     author,
     body: `<!-- cost: ${n} session=s -->\n${AGENT}`,
@@ -1134,7 +1187,7 @@ describe("issueCost", () => {
 
   it("sums the issue's markers and those of every pull request that builds it, to the cent", () => {
     const pulls = [
-      pull({ number: 50, closes: [7], comments: [cost("1.01")] }),
+      pull({ number: 50, closes: ["7"], comments: [cost("1.01")] }),
       pull({
         number: 51,
         body: "Part of #7",
@@ -1144,7 +1197,7 @@ describe("issueCost", () => {
       pull({
         number: 52,
         body: "closes #7",
-        closes: [],
+        closes: ["7"],
         comments: [cost("1")],
       }),
       pull({
@@ -1171,7 +1224,7 @@ describe("parseRuns", () => {
     result: "passed",
   };
   const comment = (body: string): IssueComment => ({
-    id: 1,
+    id: "1",
     createdAt: at(1),
     author: "acme",
     body,

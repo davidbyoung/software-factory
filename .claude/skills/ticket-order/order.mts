@@ -15,12 +15,13 @@ export type Run = (
   args: string[],
 ) => Promise<{ code: number; stdout: string; stderr: string }>;
 
+/** Each ticket is named as its ticket system writes it, such as `#12`. */
 export type Order = {
-  startNow: { number: number; title: string; unblocks: number[] }[];
-  waiting: { number: number; title: string; waitsOn: number[] }[];
+  startNow: { ticket: string; title: string; unblocks: string[] }[];
+  waiting: { ticket: string; title: string; waitsOn: string[] }[];
   problems: (
-    | { kind: "cycle"; tickets: number[] }
-    | { kind: "outside"; ticket: number; blocker: number }
+    | { kind: "cycle"; tickets: string[] }
+    | { kind: "outside"; ticket: string; blocker: string }
   )[];
 };
 
@@ -33,42 +34,50 @@ async function ticket(run: Run, args: string[]): Promise<string> {
   return stdout;
 }
 
+/** The order tickets are listed in: by name, letters first, then the number
+ * as a number. */
+const byName = (a: string, b: string) =>
+  a.localeCompare(b, "en", { numeric: true });
+
 export async function readOrder(run: Run = factoryTicket): Promise<Order> {
-  const open = JSON.parse(await ticket(run, ["list", "--json"])) as {
-    number: number;
-    title: string;
-  }[];
-  const numbers = new Set(open.map((t) => t.number));
-  const waitsOn = new Map<number, number[]>();
+  const open = (
+    JSON.parse(await ticket(run, ["list", "--json"])) as {
+      key: string;
+      ref: string;
+      title: string;
+    }[]
+  ).map((t) => ({ ...t, name: t.ref }));
+  const names = new Set(open.map((t) => t.name));
+  const waitsOn = new Map<string, string[]>();
   await Promise.all(
     open.map(async (t) => {
-      const lines = (await ticket(run, ["blockers", String(t.number)]))
+      const lines = (await ticket(run, ["blockers", t.key]))
         .split("\n")
         .filter((l) => l.trim() !== "");
       const blockers = lines.map((line) => {
-        const match = /^#(\d+) (open|closed)$/.exec(line.trim());
+        const match = /^(\S+) (open|closed)$/.exec(line.trim());
         if (!match)
-          throw new Error(`unexpected blockers line for #${t.number}: ${line}`);
-        return { number: Number(match[1]), open: match[2] === "open" };
+          throw new Error(`unexpected blockers line for ${t.name}: ${line}`);
+        return { name: match[1], open: match[2] === "open" };
       });
       waitsOn.set(
-        t.number,
+        t.name,
         blockers
           .filter((b) => b.open)
-          .map((b) => b.number)
-          .sort((a, b) => a - b),
+          .map((b) => b.name)
+          .sort(byName),
       );
     }),
   );
 
   // What each ticket blocks directly, among the open tickets here.
-  const blocks = new Map<number, number[]>(open.map((t) => [t.number, []]));
+  const blocks = new Map<string, string[]>(open.map((t) => [t.name, []]));
   for (const [n, list] of waitsOn)
-    for (const m of list) if (numbers.has(m)) blocks.get(m)!.push(n);
-  for (const list of blocks.values()) list.sort((a, b) => a - b);
+    for (const m of list) if (names.has(m)) blocks.get(m)!.push(n);
+  for (const list of blocks.values()) list.sort(byName);
 
-  const reach = (from: number): Set<number> => {
-    const seen = new Set<number>();
+  const reach = (from: string): Set<string> => {
+    const seen = new Set<string>();
     const queue = [...blocks.get(from)!];
     while (queue.length > 0) {
       const n = queue.shift()!;
@@ -78,54 +87,55 @@ export async function readOrder(run: Run = factoryTicket): Promise<Order> {
     }
     return seen;
   };
-  const reaches = new Map(open.map((t) => [t.number, reach(t.number)]));
+  const reaches = new Map(open.map((t) => [t.name, reach(t.name)]));
 
   const startNow = open
-    .filter((t) => waitsOn.get(t.number)!.length === 0)
+    .filter((t) => waitsOn.get(t.name)!.length === 0)
     .map((t) => ({
-      number: t.number,
+      ticket: t.name,
       title: t.title,
-      unblocks: [...reaches.get(t.number)!]
-        .filter((n) => n !== t.number)
-        .sort((a, b) => a - b),
+      unblocks: [...reaches.get(t.name)!]
+        .filter((n) => n !== t.name)
+        .sort(byName),
     }))
     .sort(
-      (a, b) => b.unblocks.length - a.unblocks.length || a.number - b.number,
+      (a, b) =>
+        b.unblocks.length - a.unblocks.length || byName(a.ticket, b.ticket),
     );
   const waiting = open
-    .filter((t) => waitsOn.get(t.number)!.length > 0)
+    .filter((t) => waitsOn.get(t.name)!.length > 0)
     .map((t) => ({
-      number: t.number,
+      ticket: t.name,
       title: t.title,
-      waitsOn: waitsOn.get(t.number)!,
+      waitsOn: waitsOn.get(t.name)!,
     }))
-    .sort((a, b) => a.number - b.number);
+    .sort((a, b) => byName(a.ticket, b.ticket));
 
   // A cycle is listed once per group of tickets that all reach each other,
-  // as the shortest path from the group's lowest number back to itself.
+  // as the shortest path from the group's first ticket back to itself.
   const problems: Order["problems"] = [];
-  const inCycle = new Set<number>();
-  for (const n of [...numbers].sort((a, b) => a - b)) {
+  const inCycle = new Set<string>();
+  for (const n of [...names].sort(byName)) {
     if (inCycle.has(n) || !reaches.get(n)!.has(n)) continue;
     for (const m of reaches.get(n)!) if (reaches.get(m)!.has(n)) inCycle.add(m);
     problems.push({ kind: "cycle", tickets: shortestCycle(n, blocks) });
   }
   for (const t of waiting)
     for (const m of t.waitsOn)
-      if (!numbers.has(m))
-        problems.push({ kind: "outside", ticket: t.number, blocker: m });
+      if (!names.has(m))
+        problems.push({ kind: "outside", ticket: t.ticket, blocker: m });
 
   return { startNow, waiting, problems };
 }
 
-function shortestCycle(start: number, blocks: Map<number, number[]>): number[] {
-  const previous = new Map<number, number>();
+function shortestCycle(start: string, blocks: Map<string, string[]>): string[] {
+  const previous = new Map<string, string>();
   const queue = [start];
   while (queue.length > 0) {
     const n = queue.shift()!;
     for (const m of blocks.get(n)!) {
       if (m === start) {
-        const path: number[] = [];
+        const path: string[] = [];
         for (let at = n; at !== start; at = previous.get(at)!) path.unshift(at);
         return [start, ...path, start];
       }
@@ -141,14 +151,14 @@ function shortestCycle(start: number, blocks: Map<number, number[]>): number[] {
 export function formatOrder(order: Order): string[] {
   const { startNow, waiting, problems } = order;
   if (startNow.length + waiting.length === 0) return ["No open tickets."];
-  const list = (ns: number[]) => ns.map((n) => `#${n}`).join(", ");
+  const list = (ns: string[]) => ns.join(", ");
   const sections: string[][] = [];
   if (startNow.length > 0)
     sections.push([
       "Start now",
       ...startNow.map(
         (t) =>
-          `  #${t.number}  ${t.title}  unblocks ${t.unblocks.length}` +
+          `  ${t.ticket}  ${t.title}  unblocks ${t.unblocks.length}` +
           (t.unblocks.length > 0 ? ` (${list(t.unblocks)})` : ""),
       ),
     ]);
@@ -156,7 +166,7 @@ export function formatOrder(order: Order): string[] {
     sections.push([
       "Waiting",
       ...waiting.map(
-        (t) => `  #${t.number}  ${t.title}  waits on ${list(t.waitsOn)}`,
+        (t) => `  ${t.ticket}  ${t.title}  waits on ${list(t.waitsOn)}`,
       ),
     ]);
   if (problems.length > 0)
@@ -164,8 +174,8 @@ export function formatOrder(order: Order): string[] {
       "Problems",
       ...problems.map((p) =>
         p.kind === "cycle"
-          ? `  cycle: ${p.tickets.map((n) => `#${n}`).join(" -> ")}`
-          : `  #${p.ticket} waits on #${p.blocker}, which is not an open ticket here`,
+          ? `  cycle: ${p.tickets.join(" -> ")}`
+          : `  ${p.ticket} waits on ${p.blocker}, which is not an open ticket here`,
       ),
     ]);
   return sections.flatMap((s, i) => (i === 0 ? s : ["", ...s]));

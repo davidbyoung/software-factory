@@ -289,7 +289,7 @@ export type LinkingPage = {
 
 const toComments = (raw: RawComments | undefined): IssueComment[] =>
   (raw?.nodes ?? []).map((c) => ({
-    id: c.databaseId,
+    id: String(c.databaseId),
     createdAt: c.createdAt,
     body: c.body,
     author: c.author?.login ?? "ghost",
@@ -304,7 +304,8 @@ export function toPull(raw: RawPull, repository: string): PullRequest {
     author: raw.author?.login ?? "ghost",
     closes: raw.closingIssuesReferences.nodes
       .filter((ref) => ref.repository.nameWithOwner === repository)
-      .map((ref) => ref.number),
+      .map((ref) => String(ref.number)),
+    partOf: [],
     openThreads: (raw.reviewThreads?.nodes ?? []).filter((t) => !t.isResolved)
       .length,
     checks: raw.commits?.nodes[0]?.commit.statusCheckRollup?.state ?? null,
@@ -341,7 +342,7 @@ const CLOSING_QUERY = `
 query ClosingIssues($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      closingIssuesReferences(first: 25) { nodes { number } }
+      closingIssuesReferences(first: 25) { nodes { number repository { nameWithOwner } } }
     }
   }
 }`;
@@ -618,14 +619,24 @@ export function githubCodeHost(o: {
         data: {
           repository: {
             pullRequest: {
-              closingIssuesReferences: { nodes: { number: number }[] };
+              closingIssuesReferences: {
+                nodes: {
+                  number: number;
+                  repository?: { nameWithOwner: string };
+                }[];
+              };
             };
           };
         };
       }>(CLOSING_QUERY, { owner, name, number: n });
-      return result.data.repository.pullRequest.closingIssuesReferences.nodes.map(
-        (x) => x.number,
-      );
+      return result.data.repository.pullRequest.closingIssuesReferences.nodes
+        .filter(
+          (x) =>
+            !x.repository ||
+            x.repository.nameWithOwner.toLowerCase() ===
+              o.repository.toLowerCase(),
+        )
+        .map((x) => String(x.number));
     },
     async open(options = {}) {
       const page = await t.graphql<OpenPullsPage>(OPEN_PULLS_QUERY, {

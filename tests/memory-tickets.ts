@@ -1,11 +1,17 @@
 // A second adapter, kept in memory, that every command's tests run against.
 // It implements the same interface as the GitHub one (`src/tickets/`), so a
 // command that works here works on any adapter that keeps the interface.
+// Its keys are numbers, written `#12`, as GitHub's are; with `strict` they
+// are keys like `PROJ-12`, written as they are, and comment IDs and authors
+// are opaque text, as Jira and Linear give them.
 // A test that needs `fake-gh` for a ticket is a sign the command went
 // around the interface.
 import {
   GROUPS,
+  KeyError,
   NotFoundError,
+  type Key,
+  type Links,
   type Blocker,
   type Board,
   type BoardField,
@@ -18,7 +24,13 @@ import {
   type Write,
 } from "../src/tickets/types.mts";
 
-export type Seed = Partial<Ticket> & { number: number };
+/** A ticket to start with, by its key; a number is its key as text. */
+export type Seed = Partial<Ticket> & ({ key: Key } | { number: number });
+
+const keyOfSeed = (t: Seed): Key =>
+  "key" in t && t.key !== undefined
+    ? t.key
+    : String((t as { number: number }).number);
 
 type Op =
   | "read"
@@ -70,6 +82,9 @@ export type MemoryOptions = {
   fail?: Partial<Record<Op, Error>>;
   /** Comments are numbered from here. */
   firstCommentId?: number;
+  /** Keys like Jira's and Linear's, `PROJ-12`, and opaque comment IDs and
+   * authors, in place of GitHub's numbers. */
+  strict?: boolean;
   /** When a comment is posted, for its createdAt. */
   now?: () => string;
   owner?: string;
@@ -96,26 +111,39 @@ export type MemoryOptions = {
 export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
   const groups = new Set(options.groups ?? GROUPS);
   const fail = options.fail ?? {};
-  const owner = options.owner ?? "acme";
+  const strict = options.strict ?? false;
+  const owner = options.owner ?? (strict ? "557058:9a1b-acme" : "acme");
   const now = options.now ?? (() => "2026-11-09T12:59:00Z");
   let nextComment = options.firstCommentId ?? 1000;
-  const tickets = new Map<number, Ticket>();
-  for (const t of seed)
-    tickets.set(t.number, {
-      title: `Ticket ${t.number}`,
+  const commentId = (n: number) =>
+    strict ? `c-${n.toString(36)}z` : String(n);
+  const tickets = new Map<Key, Ticket>();
+  for (const t of seed) {
+    const key = keyOfSeed(t);
+    const { number: _, ...rest } = t as Partial<Ticket> & { number?: number };
+    tickets.set(key, {
+      title: `Ticket ${key}`,
       state: "open",
       closedAt: null,
       body: "",
-      ...t,
+      ...rest,
+      key,
       // Copied, so one test's writes never reach a seed another test shares.
       labels: [...(t.labels ?? [])],
-      comments: (t.comments ?? []).map((c) => ({ ...c })),
+      comments: (t.comments ?? []).map((c) => ({ ...c, id: String(c.id) })),
     });
-  const board = new Map<number, BoardItem>();
-  const blockers = new Map<number, number[]>();
-  const removedLabels = new Map<number, string[]>();
-  const attached: { ticket: number; files: string[] }[] = [];
-  const fieldValues = new Map<number, Record<string, string>>();
+  }
+  const board = new Map<Key, BoardItem>();
+  const blockers = new Map<Key, Key[]>();
+  const removedLabels = new Map<Key, string[]>();
+  const attached: { ticket: Key; files: string[] }[] = [];
+  const fieldValues = new Map<Key, Record<string, string>>();
+
+  const ref = (key: Key) => (strict || key.includes("/") ? key : `#${key}`);
+  const keyPattern = strict ? /^[A-Z][A-Z0-9]*-[1-9]\d*$/ : /^[1-9]\d*$/;
+  const linkPattern = strict
+    ? /\b(closes|part of) ([A-Z][A-Z0-9]*-[1-9]\d*)(?![\d])/gi
+    : /\b(closes|part of) #(\d+)(?!\d)/gi;
   const writes: { itemId: string; writes: Write[] }[] = [];
   const boards = (options.boards ?? []).map((b) => ({
     ...b,
@@ -126,12 +154,12 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
     const error = fail[op];
     if (error) throw error;
   };
-  const get = (n: number) => {
+  const get = (n: Key) => {
     const t = tickets.get(n);
-    if (!t) throw new NotFoundError(`#${n}`);
+    if (!t) throw new NotFoundError(ref(n));
     return t;
   };
-  const findComment = (id: number): [Ticket, number] => {
+  const findComment = (id: string): [Ticket, number] => {
     for (const t of tickets.values()) {
       const at = t.comments.findIndex((c) => c.id === id);
       if (at !== -1) return [t, at];
@@ -143,15 +171,28 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
     labels: [...t.labels],
     comments: t.comments.map((c) => ({ ...c })),
   });
-  const addComment = (n: number, body: string): number => {
+  const addComment = (n: Key, body: string): string => {
     const t = get(n);
-    const id = nextComment++;
+    const id = commentId(nextComment++);
     const c: TicketComment = { id, author: owner, createdAt: now(), body };
     t.comments.push(c);
     return id;
   };
 
   const adapter: Tickets = {
+    key(typed) {
+      if (keyPattern.test(typed)) return typed;
+      if (!strict && /^[\w.-]+\/[\w.-]+#\d+$/.test(typed))
+        throw new KeyError(
+          `${typed} is in another repository: the factory reads only its state as a blocker`,
+        );
+      throw new KeyError(
+        strict
+          ? `${typed} is not a ticket here: a key is a project and a number, such as PROJ-12`
+          : `${typed} is not a ticket here: a GitHub ticket is its number, such as 12`,
+      );
+    },
+    ref,
     async read(n) {
       check("read");
       return copy(get(n));
@@ -161,7 +202,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
       return [...tickets.values()]
         .filter((t) => t.state === "open")
         .map((t) => ({
-          number: t.number,
+          key: t.key,
           title: t.title,
           labels: [...t.labels],
         }));
@@ -190,9 +231,14 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
     },
     async open({ title, body, labels }) {
       check("open");
-      const number = Math.max(0, ...tickets.keys()) + 1;
-      tickets.set(number, {
-        number,
+      const number =
+        Math.max(
+          0,
+          ...[...tickets.keys()].map((k) => Number(/\d+$/.exec(k)?.[0] ?? 0)),
+        ) + 1;
+      const key = strict ? `PROJ-${number}` : String(number);
+      tickets.set(key, {
+        key,
         title,
         body,
         labels: [...labels],
@@ -200,7 +246,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         closedAt: null,
         comments: [],
       });
-      return number;
+      return key;
     },
     async addLabel(n, label) {
       check("addLabel");
@@ -219,7 +265,17 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
       const deciders = options.deciders ?? [owner];
       return deciders.some((d) => d.toLowerCase() === author.toLowerCase());
     },
-    linkText: (n) => `Closes #${n}`,
+    linkText: (n, kind) =>
+      `${kind === "closes" ? "Closes" : "Part of"} ${ref(n)}`,
+    linksIn(body) {
+      const links: Links = { closes: [], partOf: [] };
+      for (const m of body.matchAll(linkPattern)) {
+        const list =
+          m[1].toLowerCase() === "closes" ? links.closes : links.partOf;
+        if (!list.includes(m[2])) list.push(m[2]);
+      }
+      return links;
+    },
     address: (n) => `https://tickets.example/${n}`,
   };
 
@@ -240,7 +296,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         const itemId = `I_${n}`;
         board.set(n, {
           itemId,
-          number: n,
+          key: n,
           status: null,
           updatedAt: null,
           session: "",
@@ -325,7 +381,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         check("blockers");
         get(n);
         return (blockers.get(n) ?? []).map((b) => ({
-          number: b,
+          key: b,
           state: tickets.get(b)?.state ?? "open",
         }));
       },
@@ -339,7 +395,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         check("blockers");
         const list = blockers.get(n) ?? [];
         if (!list.includes(by))
-          throw new NotFoundError(`#${n} waiting on #${by}`);
+          throw new NotFoundError(`${ref(n)} waiting on ${ref(by)}`);
         blockers.set(
           n,
           list.filter((b) => b !== by),
@@ -412,10 +468,11 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
     /** Each ticket's field values, by field name, as they stand. */
     fieldValues,
     /** Puts a card on the board, as the owner would. */
-    card(n: number, item: Partial<BoardItem> = {}) {
-      board.set(n, {
-        itemId: `I_${n}`,
-        number: n,
+    card(n: Key | number, item: Partial<BoardItem> = {}) {
+      const key = String(n);
+      board.set(key, {
+        itemId: `I_${key}`,
+        key,
         status: null,
         updatedAt: null,
         session: "",
@@ -425,6 +482,6 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
       });
     },
     /** Every comment posted on ticket N, oldest first. */
-    comments: (n: number) => tickets.get(n)?.comments ?? [],
+    comments: (n: Key | number) => tickets.get(String(n))?.comments ?? [],
   };
 }

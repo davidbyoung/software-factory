@@ -3,13 +3,15 @@ import { main, type Deps } from "../src/build.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
+import { memoryTickets } from "./memory-tickets";
 
 const STARTED = Date.parse("2026-11-14T22:00:00.400Z");
 
 /** `factory build` against the in-memory code host and runner, on a clock
  * each sleep moves. */
-function build(options: MemoryRunnerOptions = {}) {
+function build(options: MemoryRunnerOptions & { strict?: boolean } = {}) {
   let clock = STARTED;
+  const { tickets } = memoryTickets([], { strict: options.strict });
   const host = memoryCodeHost([], { defaultBranch: "trunk" });
   const runner = memoryRunner({ now: () => clock, ...options });
   const out: string[] = [];
@@ -32,6 +34,8 @@ function build(options: MemoryRunnerOptions = {}) {
       slept.push(ms);
       clock += ms;
     },
+    keyOf: () => (typed) => tickets.key(typed),
+    refOf: () => (key) => tickets.ref(key),
     out: (line) => out.push(line),
     err: (line) => err.push(line),
   };
@@ -44,7 +48,7 @@ describe("factory build", () => {
 
     expect(await main(["12"], d)).toBe(0);
     expect(runner.builds).toEqual([
-      { id: 1, ticket: 12, branch: "trunk", at: STARTED },
+      { id: 1, ticket: "12", branch: "trunk", at: STARTED },
     ]);
     expect(out).toEqual([
       "Started a build of #12 in GitHub Actions:",
@@ -71,9 +75,9 @@ describe("factory build", () => {
       "Started a build of #12 in GitHub Actions:",
       "https://runner.example/runs/1",
     ]);
-    expect(runner.log.filter((call) => call === "findBuild 12")).toHaveLength(
-      3,
-    );
+    expect(
+      runner.log.filter((call) => call === "findBuild Build #12"),
+    ).toHaveLength(3);
   });
 
   it("prints the page that lists builds when no run has appeared after 15 seconds", async () => {
@@ -101,7 +105,7 @@ describe("factory build", () => {
     expect(err.join("\n")).toContain("HTTP 422");
   });
 
-  it.each([[[]], [["twelve"]], [["0"]]])(
+  it.each([[[]], [["12", "13"]]])(
     "prints the usage and starts nothing for %j",
     async (argv) => {
       const { d, err, host, runner } = build();
@@ -111,4 +115,34 @@ describe("factory build", () => {
       expect([...host.log, ...runner.log]).toEqual([]);
     },
   );
+
+  it.each(["twelve", "0", "PROJ-12"])(
+    "says what a key looks like and starts nothing for %s",
+    async (typed) => {
+      const { d, err, host, runner } = build();
+
+      expect(await main([typed], d)).toBe(1);
+      expect(err).toEqual([
+        `${typed} is not a ticket here: a GitHub ticket is its number, such as 12`,
+      ]);
+      expect([...host.log, ...runner.log]).toEqual([]);
+    },
+  );
+
+  it("starts a build of a ticket with a key, and finds its run by the name the workflow gives it", async () => {
+    const { d, out, runner } = build({
+      strict: true,
+      runName: (key) => `Build ${key}`,
+    });
+
+    expect(await main(["PROJ-12"], d)).toBe(0);
+    expect(runner.builds).toEqual([
+      { id: 1, ticket: "PROJ-12", branch: "trunk", at: STARTED },
+    ]);
+    expect(runner.log).toContain("findBuild Build PROJ-12");
+    expect(out).toEqual([
+      "Started a build of PROJ-12 in GitHub Actions:",
+      "https://runner.example/runs/1",
+    ]);
+  });
 });

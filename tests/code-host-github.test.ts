@@ -512,7 +512,7 @@ describe("threads, resolve, ready, and closes", () => {
         },
       ],
     ]);
-    expect(await p.closes(5)).toEqual([261]);
+    expect(await p.closes(5)).toEqual(["261"]);
   });
 });
 
@@ -637,7 +637,7 @@ describe("the open pull requests and those linking to tickets", () => {
     const [pull] = await p.open({ checks: true });
     expect(pull).toMatchObject({
       number: 361,
-      closes: [261],
+      closes: ["261"],
       openThreads: 1,
       checks: "SUCCESS",
       author: "ghost",
@@ -695,7 +695,7 @@ describe("the open pull requests and those linking to tickets", () => {
       transport: fetchTransport({ token: "t", fetch: f }),
       repository: REPO,
     });
-    expect((await p.open()).map((x) => x.closes)).toEqual([[261]]);
+    expect((await p.open()).map((x) => x.closes)).toEqual([["261"]]);
   });
 });
 

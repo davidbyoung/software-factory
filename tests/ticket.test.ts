@@ -27,7 +27,7 @@ const marked = (
   marker: string,
   author = "acme",
 ) => ({
-  id,
+  id: String(id),
   createdAt: `2026-11-09T12:${String(minute).padStart(2, "0")}:00Z`,
   author,
   body: `Text.\n\n<!-- work-status: ${marker} -->\n${AGENT}`,
@@ -50,7 +50,7 @@ function deps(
   seed: Seed[] = [{ number: 7 }],
   options: {
     actions?: boolean;
-    stored?: number | null;
+    stored?: number | string | null;
     groups?: Group[];
     pulls?: Partial<PullRequest>[];
     /** The tickets' own fields, and which factory field each holds. */
@@ -69,7 +69,7 @@ function deps(
     ticketFields: options.ticketFields?.fields,
   });
   const out: string[] = [];
-  const written: [number, number][] = [];
+  const written: [string, string][] = [];
   const clocks = new Map<string, Clock>();
   const measured: (string | null)[] = [];
   const files = new Map<string, string>([
@@ -95,6 +95,7 @@ function deps(
         createdAt: "2026-11-09T12:30:00Z",
         body: "",
         closes: [],
+        partOf: [],
         isDraft: false,
         checks: null,
         openThreads: 0,
@@ -124,7 +125,7 @@ function deps(
       return text;
     },
     claimStore: {
-      read: () => options.stored ?? null,
+      read: () => (options.stored == null ? null : String(options.stored)),
       write: (issue, id) => written.push([issue, id]),
     },
     now: () => NOW,
@@ -181,12 +182,12 @@ describe("claim", () => {
       { number: 7 },
       { number: 3, state: "closed" },
     ]);
-    memory.blockers.set(7, [3]);
+    memory.blockers.set("7", ["3"]);
 
     expect(await main(["claim", "7"], d)).toBe(0);
     expect(out).toEqual(["claimed"]);
     const mine = memory.comments(7).at(-1)!;
-    expect(written).toEqual([[7, mine.id]]);
+    expect(written).toEqual([["7", mine.id]]);
     expect(mine.body).toContain(
       "Building this in a local session, 359bd84e.\n\n<!-- work-status: claim local 359bd84e -->",
     );
@@ -230,14 +231,14 @@ describe("claim", () => {
 
     expect(out).toEqual(["held by other9"]);
     expect(written).toEqual([]);
-    expect(memory.comments(7).map((c) => c.id)).toEqual([49]);
+    expect(memory.comments(7).map((c) => c.id)).toEqual(["49"]);
   });
 
   it("stops an Actions run on an open blocker with the stopped comment, and claims nothing", async () => {
     const { d, out, memory } = deps([{ number: 7 }, { number: 3 }], {
       actions: true,
     });
-    memory.blockers.set(7, [3]);
+    memory.blockers.set("7", ["3"]);
 
     await main(["claim", "7"], d);
 
@@ -255,7 +256,7 @@ describe("claim", () => {
 
   it("posts nothing on an open blocker in a local session", async () => {
     const { d, out, memory } = deps([{ number: 7 }, { number: 3 }]);
-    memory.blockers.set(7, [3]);
+    memory.blockers.set("7", ["3"]);
 
     await main(["claim", "7"], d);
 
@@ -328,7 +329,7 @@ describe("end", () => {
   });
 
   it("keeps the claim when a pull request closes the ticket", async () => {
-    const { d, out, memory } = actions(claimed, [{ closes: [7] }]);
+    const { d, out, memory } = actions(claimed, [{ closes: ["7"] }]);
 
     expect(await main(["end", "7"], d)).toBe(0);
     expect(out).toEqual(["kept"]);
@@ -737,7 +738,7 @@ describe("ready", () => {
     expect(memory.writes).toEqual([
       { itemId: "I_10", writes: [{ field: "Status", optionName: "Ready" }] },
     ]);
-    expect(memory.board.get(10)?.status).toBe("Ready");
+    expect(memory.board.get("10")?.status).toBe("Ready");
   });
 
   it("changes nothing on a card already in Ready", async () => {
@@ -802,7 +803,7 @@ describe("follow-up", () => {
     await main(["follow-up", "src/pr.mts", LINE], d);
 
     expect(out).toEqual(["added to #201"]);
-    expect(memory.state.get(201)?.body).toBe(
+    expect(memory.state.get("201")?.body).toBe(
       `- [ ] a\n- [ ] src/pr.mts: ${LINE}\n`,
     );
   });
@@ -815,7 +816,7 @@ describe("follow-up", () => {
     await main(["follow-up", "src/pr.mts", LINE], d);
 
     expect(out).toEqual(["opened #210"]);
-    const opened = memory.state.get(210)!;
+    const opened = memory.state.get("210")!;
     expect(opened.title).toBe("Follow-ups");
     expect(opened.labels).toEqual(["follow-up"]);
     expect(opened.body).toContain('"Follow-ups" in `.claude/factory/rules.md`');
@@ -831,8 +832,8 @@ describe("follow-up", () => {
     await main(["follow-up", "src/pr.mts", LINE], d);
 
     expect(out).toEqual(["added to #201"]);
-    expect(memory.state.get(201)?.body).toContain(LINE);
-    expect(memory.state.get(230)?.body).toBe("");
+    expect(memory.state.get("201")?.body).toContain(LINE);
+    expect(memory.state.get("230")?.body).toBe("");
   });
 
   it("posts nothing when the file is missing", async () => {
@@ -864,7 +865,7 @@ describe("follow-up", () => {
 
 describe("claimOutcome", () => {
   it("names unknown when nothing is live", () => {
-    expect(claimOutcome([], 5)).toBe("held by unknown");
+    expect(claimOutcome([], "5")).toBe("held by unknown");
   });
 });
 
@@ -943,7 +944,7 @@ describe("the cost clock", () => {
 
     expect(await main(["claim", "7"], d)).toBe(0);
     expect(clocks.get(SESSION)).toEqual({
-      issue: 7,
+      issue: "7",
       start: NOW.toISOString(),
     });
     expect(last(memory, 7)).not.toContain("cost");
@@ -964,7 +965,7 @@ describe("the cost clock", () => {
 
     await main(["refining", "9"], d);
     expect(clocks.get(SESSION)).toEqual({
-      issue: 9,
+      issue: "9",
       start: NOW.toISOString(),
     });
     expect(measured).toEqual([]);
@@ -973,7 +974,7 @@ describe("the cost clock", () => {
 
   it("notes the spend since the clock started on waiting, then restarts it", async () => {
     const { d, clocks, measured, memory } = deps([{ number: 9 }]);
-    clocks.set(SESSION, { issue: 9, start: "2026-11-09T12:00:00Z" });
+    clocks.set(SESSION, { issue: "9", start: "2026-11-09T12:00:00Z" });
 
     await main(["waiting", "9"], d);
 
@@ -982,7 +983,7 @@ describe("the cost clock", () => {
       `This session used $0.10 of the subscription ($3.41 at API list prices) on #9 since its last note.\n\n<!-- cost: 3.41 session=${SESSION} -->`,
     );
     expect(clocks.get(SESSION)).toEqual({
-      issue: 9,
+      issue: "9",
       start: NOW.toISOString(),
     });
   });
@@ -1024,11 +1025,11 @@ describe("the cost clock", () => {
 
   it("keeps the clock on its issue when the note goes to a pull request", async () => {
     const { d, clocks } = deps([{ number: 230 }]);
-    clocks.set(SESSION, { issue: 7, start: "2026-11-09T12:00:00Z" });
+    clocks.set(SESSION, { issue: "7", start: "2026-11-09T12:00:00Z" });
 
     await main(["cost", "230"], d);
     expect(clocks.get(SESSION)).toEqual({
-      issue: 7,
+      issue: "7",
       start: NOW.toISOString(),
     });
   });
@@ -1067,7 +1068,7 @@ describe("the cost clock", () => {
 
   it("leaves the clock alone when a stop posts nothing", async () => {
     const { d, clocks } = deps([{ number: 7 }], { stored: 50 });
-    const clock = { issue: 7, start: "2026-11-09T12:00:00Z" };
+    const clock = { issue: "7", start: "2026-11-09T12:00:00Z" };
     clocks.set(SESSION, clock);
 
     await main(["stop", "7", "x"], d);
@@ -1085,7 +1086,7 @@ describe("the ticket commands", () => {
     body: "## Acceptance criteria\n\n1. It works.\n",
     comments: [
       {
-        id: 41,
+        id: "41",
         author: "acme",
         createdAt: "2026-11-09T12:01:00Z",
         body: "Refinement is done.",
@@ -1134,11 +1135,14 @@ describe("the ticket commands", () => {
     expect(out).toEqual([]);
   });
 
-  it("view --json prints what the adapter returned, as one JSON value", async () => {
+  it("view --json prints what the adapter returned, with the ticket's written form", async () => {
     const { d, out, memory } = deps([SEVEN]);
 
     expect(await main(["view", "7", "--json"], d)).toBe(0);
-    expect(JSON.parse(out.join("\n"))).toEqual(await memory.tickets.read(7));
+    const printed = JSON.parse(out.join("\n"));
+    expect(printed).toEqual({ ref: "#7", ...(await memory.tickets.read("7")) });
+    expect(Object.keys(printed).slice(0, 2)).toEqual(["key", "ref"]);
+    expect(printed).not.toHaveProperty("number");
   });
 
   it("list prints each open ticket's number, title, and labels", async () => {
@@ -1184,11 +1188,16 @@ describe("the ticket commands", () => {
     expect(out).toHaveLength(150);
   });
 
-  it("list --json prints what the adapter returned, as one JSON value", async () => {
+  it("list --json prints what the adapter returned, with each ticket's written form", async () => {
     const { d, out, memory } = deps([SEVEN]);
 
     await main(["list", "--json"], d);
-    expect(JSON.parse(out.join("\n"))).toEqual(await memory.tickets.listOpen());
+    expect(JSON.parse(out.join("\n"))).toEqual(
+      (await memory.tickets.listOpen()).map((t) => ({
+        ref: `#${t.key}`,
+        ...t,
+      })),
+    );
   });
 
   it("edit replaces the body from the file", async () => {
@@ -1197,17 +1206,17 @@ describe("the ticket commands", () => {
 
     expect(await main(["edit", "7", "--body-file", "body.md"], d)).toBe(0);
     expect(out).toEqual(["edited"]);
-    expect(memory.state.get(7)?.body).toBe("## Spec\n\nNew.\n");
+    expect(memory.state.get("7")?.body).toBe("## Spec\n\nNew.\n");
   });
 
   it("edit --title retitles the ticket and leaves its body", async () => {
     const { d, out, memory } = deps([SEVEN]);
-    const body = memory.state.get(7)?.body;
+    const body = memory.state.get("7")?.body;
 
     expect(await main(["edit", "7", "--title", "A new title"], d)).toBe(0);
     expect(out).toEqual(["edited"]);
-    expect(memory.state.get(7)?.title).toBe("A new title");
-    expect(memory.state.get(7)?.body).toBe(body);
+    expect(memory.state.get("7")?.title).toBe("A new title");
+    expect(memory.state.get("7")?.body).toBe(body);
   });
 
   it("edit --title with --body-file changes both", async () => {
@@ -1215,8 +1224,8 @@ describe("the ticket commands", () => {
     files.set("body.md", "New.\n");
 
     await main(["edit", "7", "--title", "T", "--body-file", "body.md"], d);
-    expect(memory.state.get(7)?.title).toBe("T");
-    expect(memory.state.get(7)?.body).toBe("New.\n");
+    expect(memory.state.get("7")?.title).toBe("T");
+    expect(memory.state.get("7")?.body).toBe("New.\n");
   });
 
   it("edit with neither --title nor --body-file is a usage error", async () => {
@@ -1233,8 +1242,8 @@ describe("the ticket commands", () => {
     files.set("body.md", "With a mockup.");
 
     await main(["edit", "7", "--body-file", "body.md", "--attach", "a.png"], d);
-    expect(memory.attached).toEqual([{ ticket: 7, files: ["a.png"] }]);
-    expect(memory.state.get(7)?.body).toBe("With a mockup.");
+    expect(memory.attached).toEqual([{ ticket: "7", files: ["a.png"] }]);
+    expect(memory.state.get("7")?.body).toBe("With a mockup.");
   });
 
   it("comment posts the file and prints the comment's ID, its hidden markers unchanged", async () => {
@@ -1268,7 +1277,9 @@ describe("the ticket commands", () => {
       ],
       d,
     );
-    expect(memory.attached).toEqual([{ ticket: 7, files: ["a.png", "b.png"] }]);
+    expect(memory.attached).toEqual([
+      { ticket: "7", files: ["a.png", "b.png"] },
+    ]);
     expect(out).toEqual([String(memory.comments(7).at(-1)!.id)]);
   });
 
@@ -1293,7 +1304,7 @@ describe("the ticket commands", () => {
       ),
     ).toBe(0);
     expect(out).toEqual(["8"]);
-    expect(memory.state.get(8)).toMatchObject({
+    expect(memory.state.get("8")).toMatchObject({
       title: "Conflict on #12",
       body: "A conflict needs you.",
       labels: ["conflict", "factory"],
@@ -1305,7 +1316,7 @@ describe("the ticket commands", () => {
 
     expect(await main(["label", "7", "--add", "ready"], d)).toBe(0);
     expect(out).toEqual(["added"]);
-    expect(memory.state.get(7)?.labels).toContain("ready");
+    expect(memory.state.get("7")?.labels).toContain("ready");
   });
 
   it("label --remove takes the label off", async () => {
@@ -1313,12 +1324,12 @@ describe("the ticket commands", () => {
 
     expect(await main(["label", "7", "--remove", "spec"], d)).toBe(0);
     expect(out).toEqual(["removed"]);
-    expect(memory.state.get(7)?.labels).toEqual(["enhancement"]);
+    expect(memory.state.get("7")?.labels).toEqual(["enhancement"]);
   });
 
   it("label --was-removed prints yes for a label once taken off, and no otherwise", async () => {
     const { d, out, memory } = deps([SEVEN]);
-    memory.removedLabels.set(7, ["spec"]);
+    memory.removedLabels.set("7", ["spec"]);
 
     await main(["label", "7", "--was-removed", "spec"], d);
     await main(["label", "7", "--was-removed", "enhancement"], d);
@@ -1332,7 +1343,7 @@ describe("the ticket commands", () => {
     expect(await main(["label", "7", "--add", "a", "--remove", "b"], d)).toBe(
       1,
     );
-    expect(memory.state.get(7)?.labels).toEqual(["enhancement", "spec"]);
+    expect(memory.state.get("7")?.labels).toEqual(["enhancement", "spec"]);
   });
 
   it("link prints what makes a merged pull request close the ticket", async () => {
@@ -1412,7 +1423,7 @@ describe("the ticket commands", () => {
       { number: 3 },
       { number: 4, state: "closed" },
     ]);
-    memory.blockers.set(7, [3, 4]);
+    memory.blockers.set("7", ["3", "4"]);
 
     expect(await main(["blockers", "7"], d)).toBe(0);
     expect(out).toEqual(["#3 open", "#4 closed"]);
@@ -1423,16 +1434,16 @@ describe("the ticket commands", () => {
 
     expect(await main(["block", "7", "--by", "3"], d)).toBe(0);
     expect(out).toEqual(["blocked"]);
-    expect(memory.blockers.get(7)).toEqual([3]);
+    expect(memory.blockers.get("7")).toEqual(["3"]);
   });
 
   it("unblock removes that record", async () => {
     const { d, out, memory } = deps([SEVEN, { number: 3 }]);
-    memory.blockers.set(7, [3]);
+    memory.blockers.set("7", ["3"]);
 
     expect(await main(["unblock", "7", "--by", "3"], d)).toBe(0);
     expect(out).toEqual(["unblocked"]);
-    expect(memory.blockers.get(7)).toEqual([]);
+    expect(memory.blockers.get("7")).toEqual([]);
   });
 
   it.each(["board", "blockers", "label-history", "attachments", "fields"])(
@@ -1503,9 +1514,9 @@ describe("a ticket command whose adapter lacks the group it needs", () => {
       expect(errors.join("\n")).toContain(`does not support ${group}`);
       // Nothing reached the ticket, its blockers, or its labels.
       expect(memory.comments(7)).toEqual([]);
-      expect(memory.state.get(7)?.body).toBe("Before.");
-      expect(memory.blockers.get(7)).toBeUndefined();
-      expect(memory.state.get(7)?.labels).toEqual([]);
+      expect(memory.state.get("7")?.body).toBe("Before.");
+      expect(memory.blockers.get("7")).toBeUndefined();
+      expect(memory.state.get("7")?.labels).toEqual([]);
     },
   );
 });
@@ -1567,7 +1578,7 @@ describe("a ticket command given a body with a bare tag", () => {
       expect(out).toEqual([]);
       expect(errors.join("\n")).toContain("<slug>");
       expect(memory.comments(7)).toEqual([]);
-      expect(memory.state.get(7)?.body).toBe("Before.");
+      expect(memory.state.get("7")?.body).toBe("Before.");
       expect(memory.state.size).toBe(1);
     },
   );
@@ -1606,7 +1617,7 @@ describe("the owner's override label", () => {
 
       expect(await main(["label", "7", "--add", label], d)).toBe(1);
       expect(out).toEqual([]);
-      expect(memory.state.get(7)?.labels).toEqual([]);
+      expect(memory.state.get("7")?.labels).toEqual([]);
       expect(errors.join("\n")).toContain("an agent never adds");
     },
   );
@@ -1658,8 +1669,10 @@ describe("tickets whose factory fields sit in ticket fields", () => {
 
     expect(await main(["edit", "7", "--body-file", "body.md"], d)).toBe(0);
     expect(out).toEqual(["edited"]);
-    expect(memory.state.get(7)?.body).toBe("Ask.\n\n## Decisions\n\n- One.\n");
-    expect(memory.fieldValues.get(7)).toEqual({
+    expect(memory.state.get("7")?.body).toBe(
+      "Ask.\n\n## Decisions\n\n- One.\n",
+    );
+    expect(memory.fieldValues.get("7")).toEqual({
       "Acceptance criteria": "### cart (new)\n\n1. When saved, kept.",
       "Design notes":
         "<details>\n\n### Design\n\n### Tasks\n\n## 1. Save\n\n- [ ] 1.1 Save.\n\n</details>",
@@ -1671,7 +1684,7 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     const r = withFields([
       { number: 7, labels: ["spec"], body: "Ask.\n\n## Decisions\n\n- One.\n" },
     ]);
-    r.memory.fieldValues.set(7, {
+    r.memory.fieldValues.set("7", {
       "Acceptance criteria": "### cart (new)\n\n1. When saved, kept.",
       "Design notes":
         "<details>\n\n### Design\n\n### Tasks\n\n## 1. Save\n\n- [ ] 1.1 Save.\n\n</details>",
@@ -1704,8 +1717,8 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     files.set("body.md", BODY);
 
     expect(await main(["edit", "4", "--body-file", "body.md"], d)).toBe(0);
-    expect(memory.state.get(4)?.body).toBe(BODY);
-    expect(memory.fieldValues.get(4)).toBeUndefined();
+    expect(memory.state.get("4")?.body).toBe(BODY);
+    expect(memory.fieldValues.get("4")).toBeUndefined();
   });
 
   it.each([
@@ -1739,8 +1752,8 @@ describe("tickets whose factory fields sit in ticket fields", () => {
 
       expect(await main(["edit", "7", "--body-file", "body.md"], d)).toBe(1);
       expect(errors).toEqual([message]);
-      expect(memory.state.get(7)?.body).toBe("Before.\n");
-      expect(memory.fieldValues.get(7)).toBeUndefined();
+      expect(memory.state.get("7")?.body).toBe("Before.\n");
+      expect(memory.fieldValues.get("7")).toBeUndefined();
     },
   );
 
@@ -1757,7 +1770,7 @@ describe("tickets whose factory fields sit in ticket fields", () => {
         d,
       ),
     ).toBe(1);
-    expect(memory.state.get(7)?.title).toBe("Before");
+    expect(memory.state.get("7")?.title).toBe("Before");
   });
 
   it("edit stops on Spec and Acceptance criteria both in their shared field, writing nothing", async () => {
@@ -1773,7 +1786,7 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     expect(errors).toEqual([
       "Spec and Acceptance criteria both go in Acceptance criteria, and the file has both: keep one.",
     ]);
-    expect(memory.state.get(7)?.body).toBe("Before.\n");
+    expect(memory.state.get("7")?.body).toBe("Before.\n");
   });
 
   it("view stops on a ticket system without fields", async () => {
@@ -1817,16 +1830,16 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     };
     const t = withTicketFields(failing, MAPPING, "acme/shop");
 
-    await expect(t.writeBody(7, BODY)).rejects.toThrow(
+    await expect(t.writeBody("7", BODY)).rejects.toThrow(
       "Server Error (HTTP 500)",
     );
-    expect(memory.state.get(7)?.body).toBe("Before.\n");
+    expect(memory.state.get("7")?.body).toBe("Before.\n");
   });
 });
 
 describe("answers", () => {
   const said = (id: number, author: string, body: string, minute: number) => ({
-    id,
+    id: String(id),
     author,
     createdAt: `2026-11-22T16:${String(minute).padStart(2, "0")}:00Z`,
     body,
@@ -1930,5 +1943,140 @@ describe("answers", () => {
     expect(await main(["answers", "28"], answers.d)).toBe(1);
     expect(answers.out).toEqual(view.out);
     expect(errors).toEqual(viewErrors);
+  });
+});
+
+describe("tickets named by a key", () => {
+  /** The commands over the strict in-memory adapter, whose keys are
+   * `PROJ-12` and whose comment IDs and authors are opaque. */
+  function keyed(seed: Seed[]) {
+    const memory = memoryTickets(seed, { strict: true });
+    const r = deps(seed);
+    r.d.open = async () => ({ tickets: memory.tickets });
+    return { ...r, memory };
+  }
+
+  it("takes the key as the ticket system writes it, and prints its written form", async () => {
+    const { d, out } = keyed([{ key: "PROJ-12" }]);
+
+    expect(await main(["view", "PROJ-12", "--field", "ref"], d)).toBe(0);
+    expect(out).toEqual(["PROJ-12"]);
+  });
+
+  it("prints a GitHub ticket's written form", async () => {
+    const { d, out } = deps([{ number: 7 }]);
+
+    expect(await main(["view", "7", "--field", "ref"], d)).toBe(0);
+    expect(out).toEqual(["#7"]);
+  });
+
+  it.each([
+    ["view", "PROJ-12"],
+    ["comment", "PROJ-12", "--body-file", "c.md"],
+    ["claim", "PROJ-12"],
+  ])(
+    "refuses a key the ticket system does not use, reading and writing nothing: %s",
+    async (...argv) => {
+      quiet();
+      const { d, memory, out } = deps([{ number: 12 }]);
+      const log: string[] = [];
+      logged(memory.tickets, log);
+
+      expect(await main(argv, d)).toBe(1);
+      expect(errors).toEqual([
+        "PROJ-12 is not a ticket here: a GitHub ticket is its number, such as 12",
+      ]);
+      expect(log).toEqual([]);
+      expect(out.filter((l) => l !== "could not read")).toEqual([]);
+    },
+  );
+
+  it("refuses another repository's ticket, reading and writing nothing", async () => {
+    quiet();
+    const { d, memory } = deps([{ number: 4 }]);
+    const log: string[] = [];
+    logged(memory.tickets, log);
+
+    expect(await main(["view", "octo/web#4"], d)).toBe(1);
+    expect(errors).toEqual([
+      "octo/web#4 is in another repository: the factory reads only its state as a blocker",
+    ]);
+    expect(log).toEqual([]);
+  });
+
+  it("lists tickets by key, letters first and then the number as a number", async () => {
+    const { d, out } = keyed([
+      { key: "PROJ-12", title: "Twelve" },
+      { key: "PROJ-9", title: "Nine" },
+      { key: "OPS-3", title: "Three" },
+    ]);
+
+    expect(await main(["list"], d)).toBe(0);
+    expect(out).toEqual([
+      "OPS-3\tThree\t",
+      "PROJ-9\tNine\t",
+      "PROJ-12\tTwelve\t",
+    ]);
+  });
+
+  it("prints a comment's ID as the ticket system gives it", async () => {
+    const { d, out, memory } = keyed([{ key: "PROJ-12" }]);
+
+    expect(await main(["comment", "PROJ-12", "--body-file", "c.md"], d)).toBe(
+      0,
+    );
+    expect(out).toEqual([memory.comments("PROJ-12")[0].id]);
+    expect(out[0]).toMatch(/^c-/);
+  });
+
+  it("prints the link lines in the ticket system's words", async () => {
+    const closes = keyed([{ key: "PROJ-12" }]);
+    const part = keyed([{ key: "PROJ-4" }]);
+
+    expect(await main(["link", "PROJ-12"], closes.d)).toBe(0);
+    expect(await main(["link", "PROJ-4", "--part"], part.d)).toBe(0);
+    expect(closes.out).toEqual(["Closes PROJ-12"]);
+    expect(part.out).toEqual(["Part of PROJ-4"]);
+  });
+
+  it("prints a GitHub ticket's part-of line", async () => {
+    const { d, out } = deps([{ number: 4 }]);
+
+    expect(await main(["link", "4", "--part"], d)).toBe(0);
+    expect(out).toEqual(["Part of #4"]);
+  });
+
+  it("names a blocker in another repository as its system writes it", async () => {
+    const { d, out, memory } = deps([{ number: 12 }]);
+    memory.blockers.set("12", ["octo/web#4"]);
+
+    expect(await main(["blockers", "12"], d)).toBe(0);
+    expect(out).toEqual(["octo/web#4 open"]);
+  });
+
+  it("refuses a claim on an open blocker in another repository, naming it", async () => {
+    const { d, out, memory } = deps([{ number: 12 }]);
+    memory.blockers.set("12", ["octo/web#4"]);
+
+    expect(await main(["claim", "12"], d)).toBe(0);
+    expect(out).toEqual(["blocked by: octo/web#4"]);
+    expect(memory.comments(12)).toEqual([]);
+  });
+
+  it("names a build's branch by the ticket's key", async () => {
+    const { d, out } = keyed([{ key: "PROJ-12" }]);
+
+    expect(await main(["branch", "PROJ-12"], d)).toBe(0);
+    expect(out).toEqual(["PROJ-12"]);
+  });
+
+  it("claims, and posts the follow-ups line, naming tickets by their written form", async () => {
+    const { d, out, memory } = keyed([
+      { key: "PROJ-4", labels: ["follow-up"], body: "- [ ] a: b\n" },
+    ]);
+
+    expect(await main(["follow-up", "x.ts", "Wrong."], d)).toBe(0);
+    expect(out).toEqual(["added to PROJ-4"]);
+    expect(memory.state.get("PROJ-4")?.body).toContain("- [ ] x.ts: Wrong.");
   });
 });

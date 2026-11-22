@@ -147,7 +147,7 @@ describe("costNote", () => {
   });
 
   it("gives the line and the hidden marker, to the cent", () => {
-    expect(costNote({ ok: true, spend: spend({}) }, 224, "abc")).toBe(
+    expect(costNote({ ok: true, spend: spend({}) }, "#224", "abc")).toBe(
       "This session used $0.10 of the subscription ($3.41 at API list prices) on #224 since its last note.\n\n<!-- cost: 3.41 session=abc -->",
     );
   });
@@ -159,7 +159,7 @@ describe("costNote", () => {
           ok: true,
           spend: spend({ unpriced: new Map([["claude-fable-5-1", 120_000]]) }),
         },
-        224,
+        "#224",
         "abc",
       ),
     ).toBe(
@@ -177,7 +177,7 @@ describe("costNote", () => {
           unpriced: new Map([["claude-fable-5-1", 5]]),
         }),
       },
-      224,
+      "#224",
       "abc",
     );
     expect(note).toMatch(/^This session's cost could not be measured: /);
@@ -188,7 +188,7 @@ describe("costNote", () => {
     expect(
       costNote(
         { ok: true, spend: spend({ dollars: 0, priced: 0 }) },
-        224,
+        "#224",
         "abc",
       ),
     ).toBe(

@@ -28,7 +28,7 @@ import { join } from "node:path";
 import { loadSettings } from "./config.mts";
 import { targetOf } from "./config.mts";
 import { openTickets } from "./tickets/index.mts";
-import { NotFoundError, type Tickets } from "./tickets/types.mts";
+import { NotFoundError, type Key, type Tickets } from "./tickets/types.mts";
 import { commonDir, readClock, type Clock } from "./lib/clock.mts";
 import { subscriptionDollars } from "./lib/pricing.mts";
 import { dollars, spendIn } from "./lib/usage.mts";
@@ -51,7 +51,7 @@ export type HookInput = {
 
 /** What the hook remembers between its runs: the comment it posted, and the
  * rows it shows. */
-export type State = { commentId: number | null; runs: ReviewerRun[] };
+export type State = { commentId: string | null; runs: ReviewerRun[] };
 
 export type Deps = {
   /** The ticket system the settings name, opened only when there is a run
@@ -62,8 +62,8 @@ export type Deps = {
   /** The text of a file, or null when it cannot be read. */
   readFile: (path: string) => string | null;
   state: {
-    read: (session: string, issue: number) => State;
-    write: (session: string, issue: number, state: State) => void;
+    read: (session: string, issue: Key) => State;
+    write: (session: string, issue: Key, state: State) => void;
   };
   /** Runs `work` while no other hook of this session edits the comment. */
   locked: <T>(session: string, work: () => Promise<T>) => Promise<T>;
@@ -217,11 +217,11 @@ export function commentFor(
 }
 
 async function publish(
-  issue: number,
+  issue: Key,
   session: string,
   state: State,
   d: Deps,
-): Promise<number> {
+): Promise<string> {
   const body = commentFor(session, state.runs, d.now());
   const tickets = await d.tickets();
   if (state.commentId !== null) {
@@ -250,12 +250,12 @@ export async function main(
   // Explore, has no file there.
   const definition = d.readFile(join(agentsDir, `${reviewer}.md`));
   if (definition === null) return 0;
-  let issue: number | null = null;
+  let issue: Key | null = null;
   try {
     const clock = d.clock(session);
     if (!clock || clock.issue === null) return 0;
     issue = clock.issue;
-    const on: number = clock.issue;
+    const on: Key = clock.issue;
     await d.locked(session, async () => {
       const state = d.state.read(session, on);
       const now = d.now().toISOString();
@@ -303,14 +303,14 @@ export async function main(
     const why = error instanceof Error ? error.message : String(error);
     d.out(
       JSON.stringify({
-        systemMessage: `The ${reviewer} run was not recorded${issue === null ? "" : ` on #${issue}`}: ${why.split("\n")[0].slice(0, 200)}`,
+        systemMessage: `The ${reviewer} run was not recorded${issue === null ? "" : ` on ticket ${issue}`}: ${why.split("\n")[0].slice(0, 200)}`,
       }),
     );
   }
   return 0;
 }
 
-const statePath = (session: string, issue: number) =>
+const statePath = (session: string, issue: Key) =>
   join(commonDir(), `reviewer-runs-${session}-${issue}.json`);
 
 /** A lock directory beside the state, since reviewers run in parallel. One
@@ -365,9 +365,16 @@ export async function run(argv: string[]): Promise<number> {
       read: (session, issue) => {
         const text = read(statePath(session, issue));
         try {
-          return text
-            ? (JSON.parse(text) as State)
-            : { commentId: null, runs: [] };
+          if (!text) return { commentId: null, runs: [] };
+          const state = JSON.parse(text) as Omit<State, "commentId"> & {
+            commentId: string | number | null;
+          };
+          // State written before comment IDs were text holds a number.
+          return {
+            ...state,
+            commentId:
+              state.commentId === null ? null : String(state.commentId),
+          };
         } catch {
           return { commentId: null, runs: [] };
         }

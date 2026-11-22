@@ -84,12 +84,28 @@ jobs:
             fi
           done
 
+      # The factory as the base commit installs it, beside the checkout, so
+      # the commands below are not the code under review. A base it cannot
+      # install leaves the steps below to fall back.
+      - name: Install the base commit's factory
+        id: base
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git worktree add --detach "$RUNNER_TEMP/base" "$BASE" &&
+            (cd "$RUNNER_TEMP/base" && npm ci); then
+            echo "dir=$RUNNER_TEMP/base" >> "$GITHUB_OUTPUT"
+          else
+            echo "The base commit's factory could not be installed; the steps below fall back."
+          fi
       # From the base commit too, so a change to the settings alone cannot
       # widen the commands its own review may run. Its lock holds them, from
       # a preset as well; a lock written before presets holds no settings,
-      # and then the base commit's settings file does.
+      # and then the base commit's settings file does. The base commit's
+      # factory lists them, or the head's when the base could not install.
       - name: List the tools the review may use
         id: tools
+        working-directory: ${{ steps.base.outputs.dir || github.workspace }}
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           FACTORY_SETTINGS: ${{ runner.temp }}/factory.yaml
@@ -103,6 +119,23 @@ jobs:
             cp .claude/factory.yaml "$FACTORY_SETTINGS"
           fi
           echo "allowed=$(npx --no-install factory review tools)" >> "$GITHUB_OUTPUT"
+      # What the pull request was asked to do, read through the factory, so
+      # the review needs no ticket system's own tool. A failed read leaves a
+      # note in the file, and the review goes on from the pull request's body.
+      - name: Read the tickets the pull request builds
+        working-directory: ${{ steps.base.outputs.dir || github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_DIR: ${{ steps.base.outputs.dir }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          out="$RUNNER_TEMP/tickets.md"
+          if [ -z "$BASE_DIR" ]; then
+            echo "The tickets could not be read: the base commit's factory could not be installed" > "$out"
+          elif ! npx --no-install factory review tickets "$PR" > "$out" 2> "$RUNNER_TEMP/tickets.err"; then
+            echo "The tickets could not be read: $(tail -n 1 "$RUNNER_TEMP/tickets.err")" > "$out"
+          fi
+          cat "$out"
 
       - name: Review
         id: review
@@ -118,11 +151,13 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number }}
             BASE SHA: ${{ github.event.pull_request.base.sha }}
             HEAD SHA: ${{ steps.head.outputs.sha }}
+            TICKETS: ${{ runner.temp }}/tickets.md
 
             Follow the review instructions in .github/factory-review.md.
           claude_args: |
             ${{ vars.FACTORY_BUILD_MODEL && format('--model {0}', vars.FACTORY_BUILD_MODEL) || '' }}
             --max-turns 40
+            --add-dir "${{ runner.temp }}"
             --allowedTools "${{ steps.tools.outputs.allowed }}"
 
       # Adds what the review cost at API list prices to its summary comment,

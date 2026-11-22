@@ -75,22 +75,20 @@ export function githubActionsRunner(o: {
       await t.rest(
         "POST",
         `${API}/actions/workflows/${BUILD_WORKFLOW}/dispatches`,
-        { fields: { ref: branch, inputs: { ticket: String(ticket) } } },
+        { fields: { ref: branch, inputs: { ticket } } },
       );
     },
-    // GitHub answers a dispatch with no run. The build workflow names each
-    // run `Build #N`, and GitHub's times are whole seconds, so `since` is
-    // rounded down to one.
-    async findBuild(ticket, since) {
+    // GitHub answers a dispatch with no run, so the run is found by the
+    // name the build workflow gives it. GitHub's times are whole seconds, so
+    // `since` is rounded down to one.
+    async findBuild(runName, since) {
       const from = Math.floor(since / 1000) * 1000;
       const answer = await t.rest<{ workflow_runs: DispatchedRun[] }>(
         "GET",
         `${API}/actions/workflows/${BUILD_WORKFLOW}/runs?event=workflow_dispatch&per_page=30`,
       );
       const found = answer.workflow_runs.find(
-        (r) =>
-          r.display_title === `Build #${ticket}` &&
-          Date.parse(r.created_at) >= from,
+        (r) => r.display_title === runName && Date.parse(r.created_at) >= from,
       );
       return found?.html_url ?? null;
     },

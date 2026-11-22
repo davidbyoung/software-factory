@@ -18,6 +18,7 @@ import {
   PACKAGE,
   plan,
   withDefaultBranch,
+  withRunName,
 } from "../src/sync.mts";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
@@ -96,7 +97,7 @@ beforeEach(() => {
   put(pkg, "workflows/factory-merge-policy.yml", "merge\n");
   put(pkg, "workflows/factory-check.yml", CHECK);
   put(pkg, "workflows/factory-claude-review.yml", "ci review\n");
-  put(pkg, "workflows/factory-build.yml", workflow(1));
+  put(pkg, "workflows/factory-build.yml", build(1));
   put(pkg, "actions/factory-agent/action.yml", "agent\n");
   for (const name of ["review", "deps"])
     put(pkg, `workflows/factory-${name}.yml`, workflow(1));
@@ -125,6 +126,11 @@ const workflow = (minutes: number) =>
     `          minutes: ${minutes}`,
     "",
   ].join("\n");
+
+/** The build workflow: a session workflow whose run is named for its
+ * ticket. */
+const RUN_NAME = 'run-name: "Build #${{ inputs.ticket }}"';
+const build = (minutes: number) => `${RUN_NAME}\n${workflow(minutes)}`;
 
 /** A push trigger as the package's two workflows that have one write it:
  * the source names main, and the sync writes the default branch's name. */
@@ -198,7 +204,7 @@ describe("factory sync", () => {
   it("writes the build workflow and the agent action, always, and locks both", async () => {
     expect((await sync([], settings())).code).toBe(0);
 
-    expect(read(".github/workflows/factory-build.yml")).toBe(workflow(230));
+    expect(read(".github/workflows/factory-build.yml")).toBe(build(230));
     expect(read(".github/actions/factory-agent/action.yml")).toBe("agent\n");
     const lock = read(".claude/factory.lock")!;
     expect(lock).toContain("  - .github/workflows/factory-build.yml");
@@ -534,7 +540,11 @@ describe("factory sync: how long each session may run", () => {
     async (file, kind, minutes) => {
       await sync([], settings());
       expect(read(`.github/workflows/${file}`)).toBe(
-        kind === "conflicts" ? conflicts(minutes) : workflow(minutes),
+        kind === "conflicts"
+          ? conflicts(minutes)
+          : kind === "build"
+            ? build(minutes)
+            : workflow(minutes),
       );
     },
   );
@@ -544,7 +554,11 @@ describe("factory sync: how long each session may run", () => {
     async (file, kind) => {
       await sync([], settings({ "session-minutes": { [kind]: 400 } }));
       expect(read(`.github/workflows/${file}`)).toBe(
-        kind === "conflicts" ? conflicts(400) : workflow(400),
+        kind === "conflicts"
+          ? conflicts(400)
+          : kind === "build"
+            ? build(400)
+            : workflow(400),
       );
     },
   );
@@ -743,6 +757,25 @@ describe("factory sync: the default branch in the push triggers", () => {
     );
   });
 
+  it("names the build's run as GitHub writes a ticket", async () => {
+    await sync([], settings());
+    expect(read(".github/workflows/factory-build.yml")).toContain(
+      'run-name: "Build #${{ inputs.ticket }}"\n',
+    );
+  });
+
+  it("names the build's run without # for a ticket system that writes a key as it is", () => {
+    expect(withRunName(build(1), (key) => key, "w.yml")).toBe(
+      `run-name: "Build \${{ inputs.ticket }}"\n${workflow(1)}`,
+    );
+  });
+
+  it("stops when the build workflow has no run-name line", () => {
+    expect(() => withRunName(workflow(1), (key) => key, "w.yml")).toThrow(
+      "w.yml: expected one run-name line, to name the build",
+    );
+  });
+
   it("stops when a workflow has more than one branches line", () => {
     expect(() =>
       withDefaultBranch(pushTo("main") + pushTo("main"), "develop", "w.yml"),
@@ -764,7 +797,7 @@ describe("factory sync: the default branch in the push triggers", () => {
   it("leaves the other workflows as the package has them", async () => {
     await sync([], settings(), "develop");
 
-    expect(read(".github/workflows/factory-build.yml")).toBe(workflow(230));
+    expect(read(".github/workflows/factory-build.yml")).toBe(build(230));
   });
 });
 

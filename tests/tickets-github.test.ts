@@ -45,6 +45,12 @@ const restIssue = (n: number, extra: Record<string, unknown> = {}) => ({
   labels: [{ name: "enhancement" }],
   ...extra,
 });
+/** The read a write makes first, to check the number is an issue. */
+const ISSUE_7: [RegExp, unknown] = [
+  /^api repos\/acme\/widgets\/issues\/7$/,
+  restIssue(7),
+];
+const GET_7 = "api repos/acme/widgets/issues/7";
 const restComment = (id: number) => ({
   id,
   created_at: "2026-11-09T12:00:00Z",
@@ -202,9 +208,9 @@ describe("GitHub adapter: read", () => {
         [[restComment(1)], [restComment(2)]],
       ],
     ]);
-    const ticket = await t.read(7);
+    const ticket = await t.read("7");
     expect(ticket).toEqual({
-      number: 7,
+      key: "7",
       title: "Ticket 7",
       state: "open",
       closedAt: null,
@@ -212,13 +218,13 @@ describe("GitHub adapter: read", () => {
       body: "Body 7",
       comments: [
         {
-          id: 1,
+          id: "1",
           createdAt: "2026-11-09T12:00:00Z",
           body: "Comment 1",
           author: "acme",
         },
         {
-          id: 2,
+          id: "2",
           createdAt: "2026-11-09T12:00:00Z",
           body: "Comment 2",
           author: "acme",
@@ -236,24 +242,24 @@ describe("GitHub adapter: read", () => {
       ],
       [/comments/, [[]]],
     ]);
-    const ticket = await t.read(8);
+    const ticket = await t.read("8");
     expect(ticket.state).toBe("closed");
     expect(ticket.closedAt).toBe("2026-11-09T10:00:00Z");
   });
 
   it("fails as not found for a ticket that does not exist", async () => {
     const { t } = tickets([[/issues\/404$/, notFound()]]);
-    await expect(t.read(404)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(t.read("404")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("fails as not found for a pull request's number", async () => {
     const { t } = tickets([[/issues\/9$/, restIssue(9, { pull_request: {} })]]);
-    await expect(t.read(9)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(t.read("9")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("fails with the error itself, not as not found, on any other failure", async () => {
     const { t } = tickets([[/issues\/7$/, serverError()]]);
-    const error = await t.read(7).catch((e) => e);
+    const error = await t.read("7").catch((e) => e);
     expect(error).not.toBeInstanceOf(NotFoundError);
     expect(String(error)).toMatch(/HTTP 500/);
   });
@@ -275,9 +281,9 @@ describe("GitHub adapter: listOpen", () => {
     ]);
     const open = await t.listOpen();
     expect(open).toHaveLength(102);
-    expect(open.map((x) => x.number)).not.toContain(102);
+    expect(open.map((x) => x.key)).not.toContain("102");
     expect(open.at(-1)).toEqual({
-      number: 103,
+      key: "103",
       title: "Ticket 103",
       labels: ["bug"],
     });
@@ -294,11 +300,11 @@ describe("GitHub adapter: readAll", () => {
     let page = 0;
     const { t, calls } = tickets([[/Tickets\(/, () => pages[page++]]]);
     const read = await t.readAll!();
-    expect(read.map((x) => [x.number, x.state])).toEqual([
-      [1, "open"],
-      [2, "open"],
-      [3, "open"],
-      [5, "closed"],
+    expect(read.map((x) => [x.key, x.state])).toEqual([
+      ["1", "open"],
+      ["2", "open"],
+      ["3", "open"],
+      ["5", "closed"],
     ]);
     expect(read[1].comments[0].author).toBe("ghost");
     expect(read[0].body).toBe("Body 1");
@@ -338,9 +344,9 @@ describe("the default readAll", () => {
     const read = await readAll(m.tickets);
     const expected: Ticket[] = [];
     for (const s of await m.tickets.listOpen())
-      expected.push(await m.tickets.read(s.number));
+      expected.push(await m.tickets.read(s.key));
     expect(read).toEqual(expected);
-    expect(read.map((x) => x.number)).toEqual([1, 2]);
+    expect(read.map((x) => x.key)).toEqual(["1", "2"]);
   });
 
   it("carries each ticket's card with the board, null off it", async () => {
@@ -361,26 +367,29 @@ describe("the default readAll", () => {
 
 describe("GitHub adapter: writes", () => {
   it("writes a ticket's title", async () => {
-    const { t, calls } = tickets([[/-X PATCH/, {}]]);
-    await t.writeTitle(7, "New title");
+    const { t, calls } = tickets([[/-X PATCH/, {}], ISSUE_7]);
+    await t.writeTitle("7", "New title");
     expect(calls).toEqual([
+      GET_7,
       "api -X PATCH repos/acme/widgets/issues/7 -f title=New title",
     ]);
   });
 
   it("writes a ticket's body", async () => {
-    const { t, calls } = tickets([[/-X PATCH/, {}]]);
-    await t.writeBody(7, "New body");
+    const { t, calls } = tickets([[/-X PATCH/, {}], ISSUE_7]);
+    await t.writeBody("7", "New body");
     expect(calls).toEqual([
+      GET_7,
       "api -X PATCH repos/acme/widgets/issues/7 -f body=New body",
     ]);
   });
 
   it("comments, passing hidden markers through, and returns the comment's ID", async () => {
-    const { t, calls } = tickets([[/-X POST/, { id: 55 }]]);
+    const { t, calls } = tickets([[/-X POST/, { id: 55 }], ISSUE_7]);
     const body = "Text.\n\n<!-- work-status: refined -->\n<!-- agent -->";
-    expect(await t.comment(7, body)).toBe(55);
+    expect(await t.comment("7", body)).toBe("55");
     expect(calls).toEqual([
+      GET_7,
       `api -X POST repos/acme/widgets/issues/7/comments -f body=${body}`,
     ]);
   });
@@ -390,8 +399,8 @@ describe("GitHub adapter: writes", () => {
       [/-X PATCH/, {}],
       [/-X DELETE/, ""],
     ]);
-    await t.editComment(55, "Edited");
-    await t.deleteComment(55);
+    await t.editComment("55", "Edited");
+    await t.deleteComment("55");
     expect(calls).toEqual([
       "api -X PATCH repos/acme/widgets/issues/comments/55 -f body=Edited",
       "api -X DELETE repos/acme/widgets/issues/comments/55",
@@ -403,13 +412,15 @@ describe("GitHub adapter: writes", () => {
   // deleted"); this is the translation of GitHub's 404 it relies on.
   it("fails as not found when editing or deleting a comment that is gone, which the reviewer-run record reposts on", async () => {
     const { t } = tickets([[/comments\/55/, notFound()]]);
-    await expect(t.editComment(55, "x")).rejects.toBeInstanceOf(NotFoundError);
-    await expect(t.deleteComment(55)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(t.editComment("55", "x")).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await expect(t.deleteComment("55")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("fails with the error, not as not found, when an edit fails otherwise", async () => {
     const { t } = tickets([[/comments\/55/, serverError()]]);
-    const error = await t.editComment(55, "x").catch((e) => e);
+    const error = await t.editComment("55", "x").catch((e) => e);
     expect(error).not.toBeInstanceOf(NotFoundError);
     expect(String(error)).toMatch(/HTTP 500/);
   });
@@ -418,7 +429,7 @@ describe("GitHub adapter: writes", () => {
     const { t, calls } = tickets([[/-X POST/, { number: 300 }]]);
     expect(
       await t.open({ title: "Follow-ups", body: "B", labels: ["follow-up"] }),
-    ).toBe(300);
+    ).toBe("300");
     expect(calls).toEqual([
       "api -X POST repos/acme/widgets/issues -f title=Follow-ups -f body=B -f labels[]=follow-up",
     ]);
@@ -431,17 +442,19 @@ describe("GitHub adapter: writes", () => {
   });
 
   it("adds a label", async () => {
-    const { t, calls } = tickets([[/-X POST/, [{ name: "spec" }]]]);
-    await t.addLabel(7, "spec");
+    const { t, calls } = tickets([[/-X POST/, [{ name: "spec" }]], ISSUE_7]);
+    await t.addLabel("7", "spec");
     expect(calls).toEqual([
+      GET_7,
       "api -X POST repos/acme/widgets/issues/7/labels -f labels[]=spec",
     ]);
   });
 
   it("removes a label, escaping its name", async () => {
-    const { t, calls } = tickets([[/-X DELETE/, []]]);
-    await t.removeLabel(7, "merge: manual");
+    const { t, calls } = tickets([[/-X DELETE/, []], ISSUE_7]);
+    await t.removeLabel("7", "merge: manual");
     expect(calls).toEqual([
+      GET_7,
       "api -X DELETE repos/acme/widgets/issues/7/labels/merge%3A%20manual",
     ]);
   });
@@ -451,7 +464,7 @@ describe("GitHub adapter: writes", () => {
       [/-X DELETE/, notFound()],
       [/^api repos\/acme\/widgets\/issues\/7$/, restIssue(7)],
     ]);
-    await expect(t.removeLabel(7, "spec")).resolves.toBeUndefined();
+    await expect(t.removeLabel("7", "spec")).resolves.toBeUndefined();
   });
 
   it("fails as not found when removing a label from a ticket that does not exist", async () => {
@@ -459,19 +472,62 @@ describe("GitHub adapter: writes", () => {
       [/-X DELETE/, notFound()],
       [/^api repos\/acme\/widgets\/issues\/404$/, notFound()],
     ]);
-    await expect(t.removeLabel(404, "spec")).rejects.toBeInstanceOf(
+    await expect(t.removeLabel("404", "spec")).rejects.toBeInstanceOf(
       NotFoundError,
     );
   });
 
-  it("gives the link text that closes a ticket on merge", () => {
+  it("gives the link text that closes a ticket on merge, and that builds part of one", () => {
     const { t } = tickets([]);
-    expect(t.linkText(12)).toBe("Closes #12");
+    expect(t.linkText("12", "closes")).toBe("Closes #12");
+    expect(t.linkText("4", "part")).toBe("Part of #4");
+  });
+
+  it("reads the tickets a body closes and builds part of, each once, in the body's order", () => {
+    const { t } = tickets([]);
+    expect(
+      t.linksIn(
+        "Part of #4. closes #12, Closes #9 and Closes #12. A finding is on #3; #120 is not #12.",
+      ),
+    ).toEqual({ closes: ["12", "9"], partOf: ["4"] });
+  });
+
+  it("writes a ticket as #N, and another repository's as its key", () => {
+    const { t } = tickets([]);
+    expect(t.ref("12")).toBe("#12");
+    expect(t.ref("octo/web#4")).toBe("octo/web#4");
+  });
+
+  it("takes a number as a key, and refuses another system's key or another repository's ticket", () => {
+    const { t } = tickets([]);
+    expect(t.key("12")).toBe("12");
+    expect(() => t.key("PROJ-12")).toThrow(
+      "PROJ-12 is not a ticket here: a GitHub ticket is its number, such as 12",
+    );
+    expect(() => t.key("#12")).toThrow("#12 is not a ticket here");
+    expect(() => t.key("octo/web#4")).toThrow(
+      "octo/web#4 is in another repository: the factory reads only its state as a blocker",
+    );
+  });
+
+  it("refuses to write to a pull request's number, which GitHub's issues API would accept", async () => {
+    const { t, calls } = tickets([
+      [
+        /^api repos\/acme\/widgets\/issues\/64$/,
+        restIssue(64, { pull_request: {} }),
+      ],
+    ]);
+    await expect(t.comment("64", "x")).rejects.toThrow("#64 was not found");
+    await expect(t.addLabel("64", "spec")).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await expect(t.read("64")).rejects.toBeInstanceOf(NotFoundError);
+    expect(calls.filter((c) => c.includes("-X"))).toEqual([]);
   });
 
   it("gives the address of a ticket's page", () => {
     const { t } = tickets([]);
-    expect(t.address(12)).toBe("https://github.com/acme/widgets/issues/12");
+    expect(t.address("12")).toBe("https://github.com/acme/widgets/issues/12");
   });
 });
 
@@ -485,8 +541,8 @@ describe("GitHub adapter: board", () => {
     const { t, calls } = tickets([[/Board\(/, () => pages[page++]]]);
     const board = await t.board!.read();
     expect(board.projectId).toBe("PVT_1");
-    expect([...board.items.keys()]).toEqual([1, 2]);
-    expect(board.items.get(2)?.status).toBe("Backlog");
+    expect([...board.items.keys()]).toEqual(["1", "2"]);
+    expect(board.items.get("2")?.status).toBe("Backlog");
     expect(calls[0]).toContain("owner=acme");
     expect(calls[0]).toContain("number=1");
     expect(calls[1]).toContain("after=b1");
@@ -543,7 +599,7 @@ describe("GitHub adapter: board", () => {
         { data: { addProjectV2ItemById: { item: { id: "PVTI_7" } } } },
       ],
     ]);
-    expect(await t.board!.add(7)).toBe("PVTI_7");
+    expect(await t.board!.add("7")).toBe("PVTI_7");
     const add = calls.find((c) => c.includes("AddCard"))!;
     expect(add).toContain("project=PVT_1");
     expect(add).toContain("content=I_7");
@@ -589,7 +645,7 @@ describe("GitHub adapter: board", () => {
   it("refuses to write with no board", async () => {
     const { t } = tickets([], { board: null });
     await expect(t.board!.set("x", [])).rejects.toThrow("no board");
-    await expect(t.board!.add(1)).rejects.toThrow("no board");
+    await expect(t.board!.add("1")).rejects.toThrow("no board");
   });
 });
 
@@ -606,20 +662,47 @@ describe("GitHub adapter: blockers and label history", () => {
         ],
       ],
     ]);
-    expect(await t.blockers!.list(7)).toEqual([
-      { number: 3, state: "open" },
-      { number: 4, state: "closed" },
+    expect(await t.blockers!.list("7")).toEqual([
+      { key: "3", state: "open" },
+      { key: "4", state: "closed" },
+    ]);
+  });
+
+  it("names a blocker in another repository by that repository", async () => {
+    const { t } = tickets([
+      [
+        /dependencies\/blocked_by/,
+        [
+          [
+            {
+              number: 9,
+              state: "open",
+              repository_url: "https://api.github.com/repos/acme/widgets",
+            },
+            {
+              number: 4,
+              state: "open",
+              repository_url: "https://api.github.com/repos/octo/web",
+            },
+          ],
+        ],
+      ],
+    ]);
+    expect(await t.blockers!.list("12")).toEqual([
+      { key: "9", state: "open" },
+      { key: "octo/web#4", state: "open" },
     ]);
   });
 
   it("records and removes a blocker by the blocker's REST ID", async () => {
     const { t, calls } = tickets([
       [/^api repos\/acme\/widgets\/issues\/3$/, restIssue(3)],
+      ISSUE_7,
       [/-X POST/, {}],
       [/-X DELETE/, ""],
     ]);
-    await t.blockers!.add(7, 3);
-    await t.blockers!.remove(7, 3);
+    await t.blockers!.add("7", "3");
+    await t.blockers!.remove("7", "3");
     expect(calls).toContain(
       "api -X POST repos/acme/widgets/issues/7/dependencies/blocked_by -F issue_id=9003",
     );
@@ -637,8 +720,8 @@ describe("GitHub adapter: blockers and label history", () => {
       ],
     ];
     const { t } = tickets([[/events/, events]]);
-    expect(await t.labelHistory!.wasRemoved(7, "spec")).toBe(true);
-    expect(await t.labelHistory!.wasRemoved(7, "enhancement")).toBe(false);
+    expect(await t.labelHistory!.wasRemoved("7", "spec")).toBe(true);
+    expect(await t.labelHistory!.wasRemoved("7", "enhancement")).toBe(false);
   });
 });
 
@@ -702,7 +785,7 @@ describe("GitHub adapter: fields", () => {
         },
       ],
     ]);
-    expect(await t.fields!.read(7)).toEqual({
+    expect(await t.fields!.read("7")).toEqual({
       "Acceptance criteria": "1. When it runs, it works.",
     });
   });
@@ -717,7 +800,7 @@ describe("GitHub adapter: fields", () => {
 
   it("sets a field by its ID on the issue's node", async () => {
     const { t, calls } = writing();
-    await t.fields!.write(7, { "Acceptance criteria": "Done when" });
+    await t.fields!.write("7", { "Acceptance criteria": "Done when" });
     const [set] = calls.filter((c) => c.includes("mutation"));
     expect(operation(set!)).toBe("SetIssueField");
     expect(set).toContain("-f issue=I_7 -f field=IF_ac -f text=Done when");
@@ -725,7 +808,7 @@ describe("GitHub adapter: fields", () => {
 
   it("clears a field given null, by its ID", async () => {
     const { t, calls } = writing();
-    await t.fields!.write(7, { Priority: null });
+    await t.fields!.write("7", { Priority: null });
     const [clear] = calls.filter((c) => c.includes("mutation"));
     expect(operation(clear!)).toBe("ClearIssueField");
     expect(clear).toContain("-f issue=I_7 -f field=IF_pri");
@@ -736,7 +819,7 @@ describe("GitHub adapter: fields", () => {
       [/IssueFields\(/, fieldsAnswer],
       [/^api repos\/acme\/widgets\/issues\/7$/, restIssue(7)],
     ]);
-    await expect(t.fields!.write(7, { Notes: "x" })).rejects.toThrow(
+    await expect(t.fields!.write("7", { Notes: "x" })).rejects.toThrow(
       "No issue field called Notes.",
     );
   });
@@ -754,8 +837,8 @@ describe("GitHub adapter: attachments", () => {
       { cli: true },
     );
     expect(supports(t, "attachments")).toBe(true);
-    expect(await t.attachments!.comment(7, "Body", ["a.png", "b.png"])).toBe(
-      777,
+    expect(await t.attachments!.comment("7", "Body", ["a.png", "b.png"])).toBe(
+      "777",
     );
     expect(calls[0]).toMatch(
       /^issue comment 7 --repo acme\/widgets --body-file \S+ --attach a\.png --attach b\.png$/,
@@ -779,7 +862,7 @@ describe("GitHub adapter: attachments", () => {
     const dir = mkdtempSync(join(tmpdir(), "attach-"));
     let calls0 = () => "";
     calls0 = () => readdirSync(dir).join(",");
-    await t.attachments!.comment(7, "![a](./a.png)", [join(dir, "a.png")]);
+    await t.attachments!.comment("7", "![a](./a.png)", [join(dir, "a.png")]);
     expect(seen).toMatch(/^\.factory-body-\S+\.md$/);
     expect(readdirSync(dir)).toEqual([]);
     rmSync(dir, { recursive: true });
@@ -787,7 +870,7 @@ describe("GitHub adapter: attachments", () => {
 
   it("edits a body with images through gh", async () => {
     const { t, calls } = tickets([[/^issue edit 7/, ""]], { cli: true });
-    await t.attachments!.writeBody(7, "Body", ["a.png"]);
+    await t.attachments!.writeBody("7", "Body", ["a.png"]);
     expect(calls[0]).toMatch(/^issue edit 7 .* --attach a\.png$/);
   });
 
@@ -804,7 +887,7 @@ describe("GitHub adapter: attachments", () => {
   it("reads the comment ID from the address gh prints, and fails without one", () => {
     expect(
       commentIdFromUrl("https://github.com/o/r/issues/1#issuecomment-42"),
-    ).toBe(42);
+    ).toBe("42");
     expect(() => commentIdFromUrl("done")).toThrow("no comment address");
   });
 });
@@ -876,11 +959,13 @@ describe("the poller's operations over both transports", () => {
         boardOwner: "acme",
       });
       const read = await t.readAll!({ board: true });
-      expect(read.map((x) => [x.number, x.card?.status])).toEqual([
-        [1, "Ready"],
+      expect(read.map((x) => [x.key, x.card?.status])).toEqual([
+        ["1", "Ready"],
       ]);
-      expect(await t.blockers!.list(1)).toEqual([{ number: 3, state: "open" }]);
-      expect(await t.comment(1, "Starting.")).toBe(61);
+      expect(await t.blockers!.list("1")).toEqual([
+        { key: "3", state: "open" },
+      ]);
+      expect(await t.comment("1", "Starting.")).toBe("61");
     });
   }
 });
@@ -900,7 +985,7 @@ describe("the fetch transport", () => {
       repository: REPO,
       board: null,
     });
-    expect((await t.blockers!.list(7)).map((b) => b.number)).toEqual([1, 2]);
+    expect((await t.blockers!.list("7")).map((b) => b.key)).toEqual(["1", "2"]);
     expect(calls).toHaveLength(2);
     expect(calls[0].url).toBe(
       `https://api.github.com/repos/${REPO}/issues/7/dependencies/blocked_by`,
@@ -975,7 +1060,7 @@ describe("the fetch transport", () => {
       repository: REPO,
       board: null,
     });
-    await expect(t.deleteComment(5)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(t.deleteComment("5")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("fails on a 500 with the status, never an empty answer", async () => {
@@ -1020,7 +1105,7 @@ describe("GitHub adapter: a recorded GraphQL answer", () => {
     const { t } = tickets([[/query Tickets/, recordedPages[0]]]);
     const read = await t.readAll!();
     const strip = (x: Ticket) => ({
-      number: x.number,
+      key: x.key,
       title: x.title,
       state: x.state,
       closedAt: x.closedAt,
@@ -1049,21 +1134,23 @@ describe.each([
   ],
 ])("the ticket interface's contract, %s", (_name, make) => {
   it("fails as not found reading a ticket that does not exist", async () => {
-    await expect(make().read(404)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(make().read("404")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("fails as not found editing or deleting a comment that does not exist", async () => {
     const t = make();
-    await expect(t.editComment(404, "x")).rejects.toBeInstanceOf(NotFoundError);
-    await expect(t.deleteComment(404)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(t.editComment("404", "x")).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await expect(t.deleteComment("404")).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("treats removing a label the ticket lacks as done", async () => {
-    await expect(make().removeLabel(7, "absent")).resolves.toBeUndefined();
+    await expect(make().removeLabel("7", "absent")).resolves.toBeUndefined();
   });
 
   it("fails as not found removing a blocker that was never recorded", async () => {
-    await expect(make().blockers!.remove(7, 3)).rejects.toBeInstanceOf(
+    await expect(make().blockers!.remove("7", "3")).rejects.toBeInstanceOf(
       NotFoundError,
     );
   });

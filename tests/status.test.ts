@@ -47,21 +47,25 @@ function fixtureSource(fail?: Error): {
     boardPages as BoardPage[],
     "acme/widgets",
   ).items.values())
-    mem.card(item.number, item);
+    mem.card(item.key, item);
   const open = vi.fn(async () => saved.pulls as PullRequest[]);
   return {
     source: async () => ({
       tickets: mem.tickets,
       pulls: { open, address: LINKS.pull },
       runner: { runPage: LINKS.run },
+      own: true,
     }),
     open,
   };
 }
 
 const NOW = new Date("2026-11-09T12:00:00Z");
+/** How GitHub, and the in-memory adapter, write a ticket. */
+const REF = (key: string) => `#${key}`;
+const LINKS_IN = memoryTickets().tickets.linksIn;
 const issue = (number: number, over: Partial<Issue> = {}): Issue => ({
-  number,
+  key: String(number),
   title: `Issue ${number}`,
   state: "open",
   closedAt: null,
@@ -82,16 +86,18 @@ const pull = (
   openThreads: 2,
   author: "acme",
   ...over,
+  // The links as `linkPulls` reads them from the body.
+  partOf: over.partOf ?? LINKS_IN(over.body ?? "").partOf,
 });
 const board = (cards: [number, string, string][] = []): Board => ({
   projectId: "P",
   fields: [],
   items: new Map(
     cards.map(([number, status, updatedAt]) => [
-      number,
+      String(number),
       {
         itemId: `I${number}`,
-        number,
+        key: String(number),
         status,
         updatedAt,
         session: "",
@@ -104,15 +110,19 @@ const board = (cards: [number, string, string][] = []): Board => ({
 describe("toRows", () => {
   it("shares an issue's row with the pull request that closes it, in both rows when it closes two", () => {
     const { rows } = toRows(
-      { issues: [issue(1), issue(2)], pulls: [pull(9, { closes: [1, 2] })] },
+      {
+        issues: [issue(1), issue(2)],
+        pulls: [pull(9, { closes: ["1", "2"] })],
+      },
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     );
 
-    expect(rows.map((r) => [r.number, r.pulls.map((p) => p.number)])).toEqual([
-      [1, [9]],
-      [2, [9]],
+    expect(rows.map((r) => [r.key, r.pulls.map((p) => p.number)])).toEqual([
+      ["1", [9]],
+      ["2", [9]],
     ]);
   });
 
@@ -122,9 +132,12 @@ describe("toRows", () => {
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     );
 
-    expect(rows).toMatchObject([{ number: 9, kind: "pull", derived: null }]);
+    expect(rows).toMatchObject([
+      { key: "9", name: "#9", kind: "pull", derived: null },
+    ]);
   });
 
   it("keeps a partial follow-ups pull request in its issue's row only", () => {
@@ -136,9 +149,10 @@ describe("toRows", () => {
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     );
 
-    expect(rows.map((r) => r.number)).toEqual([201]);
+    expect(rows.map((r) => r.key)).toEqual(["201"]);
   });
 
   it("gives no row of its own to a pull request whose issue is already closed", () => {
@@ -147,11 +161,12 @@ describe("toRows", () => {
         issues: [
           issue(3, { state: "closed", closedAt: "2026-11-09T10:00:00Z" }),
         ],
-        pulls: [pull(9, { closes: [3] })],
+        pulls: [pull(9, { closes: ["3"] })],
       },
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     );
 
     expect(rows).toEqual([]);
@@ -168,10 +183,11 @@ describe("toRows", () => {
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     );
 
     expect(rows).toEqual([]);
-    expect(closed.map((r) => r.number)).toEqual([3]);
+    expect(closed.map((r) => r.key)).toEqual(["3"]);
   });
 
   it("flags a Ready card unstarted, but not one with an open blocker", () => {
@@ -181,8 +197,9 @@ describe("toRows", () => {
         [1, "Ready", "2026-11-09T11:00:00Z"],
         [2, "Ready", "2026-11-09T11:00:00Z"],
       ]),
-      new Map([[2, [5]]]),
+      new Map([["2", ["5"]]]),
       NOW,
+      { ref: REF },
     );
 
     expect(rows.map((r) => r.flags)).toEqual([
@@ -196,7 +213,7 @@ describe("toRows", () => {
       board([[1, "Ready", "2026-11-09T11:00:00Z"]]),
       new Map(),
       NOW,
-      watchOf("manual", 5),
+      { watch: watchOf("manual", 5), ref: REF },
     );
 
     expect(rows[0].flags).toEqual([]);
@@ -216,7 +233,7 @@ describe("toRows", () => {
         ]),
         new Map(),
         NOW,
-        watchOf("github-action", minutes),
+        { watch: watchOf("github-action", minutes), ref: REF },
       );
 
       expect(rows.map((r) => r.flags)).toEqual([
@@ -235,7 +252,7 @@ describe("toRows", () => {
       ]),
       new Map(),
       NOW,
-      watchOf("own-server", 5),
+      { watch: watchOf("own-server", 5), ref: REF },
     );
 
     expect(rows.map((r) => r.flags)).toEqual([
@@ -248,7 +265,7 @@ describe("toRows", () => {
 const ESC = "\x1B";
 const SITE = "https://github.com/acme/widgets";
 const LINKS = {
-  ticket: (n: number) => `${SITE}/issues/${n}`,
+  ticket: (key: string) => `${SITE}/issues/${key}`,
   pull: (n: number) => `${SITE}/pull/${n}`,
   run: (id: string) => `${SITE}/actions/runs/${id}`,
 };
@@ -264,7 +281,7 @@ const issueLink = (n: number, text: string) =>
 const pullLink = (n: number, text: string) =>
   `${ESC}]8;;https://github.com/acme/widgets/pull/${n}${ESC}\\${text}${ESC}]8;;${ESC}\\`;
 const claimed = (where: "local" | "cloud" | "actions", id: string) => ({
-  id: 1,
+  id: "1",
   author: "acme",
   createdAt: "2026-11-09T11:00:00Z",
   body: `<!-- work-status: claim ${where} ${id} -->\n<!-- agent -->`,
@@ -275,7 +292,11 @@ const plainLines = (
   issues: Issue[],
   pulls: PullRequest[],
   cards: [number, string, string][] = [],
-) => formatRows(toRows({ issues, pulls }, board(cards), new Map(), NOW), NOW);
+) =>
+  formatRows(
+    toRows({ issues, pulls }, board(cards), new Map(), NOW, { ref: REF }),
+    NOW,
+  );
 
 describe("formatRows", () => {
   it("prints one header row of the five columns", () => {
@@ -289,7 +310,7 @@ describe("formatRows", () => {
       [1, "In progress", "2026-11-09T11:00:00Z"],
       [2, "In progress", "2026-11-09T11:00:00Z"],
     ]);
-    cards.items.get(1)!.cost = 1.15;
+    cards.items.get("1")!.cost = 1.15;
     const lines = formatRows(
       toRows(
         {
@@ -302,6 +323,7 @@ describe("formatRows", () => {
         cards,
         new Map(),
         NOW,
+        { ref: REF },
       ),
       NOW,
     );
@@ -350,7 +372,7 @@ describe("formatRows", () => {
         issue(2, {
           comments: [
             {
-              id: 2,
+              id: "2",
               author: "acme",
               createdAt: "2026-11-09T11:00:00Z",
               body: "<!-- work-status: started actions st_0123456789ab -->\n<!-- agent -->",
@@ -402,7 +424,10 @@ describe("formatRows", () => {
   ] as [Partial<PullRequest>, string][])(
     "prints the pull request %o on its own line under its issue",
     (over, expected) => {
-      const lines = plainLines([issue(1)], [pull(9, { closes: [1], ...over })]);
+      const lines = plainLines(
+        [issue(1)],
+        [pull(9, { closes: ["1"], ...over })],
+      );
 
       const row = lines.findIndex((l) => /^ +#1 /.test(l));
       expect(lines[row + 1].trim()).toBe(`↳ ${expected}`);
@@ -445,11 +470,12 @@ describe("formatRows", () => {
             ...toRows(
               {
                 issues: [issue(1)],
-                pulls: [pull(9, { closes: [1] })],
+                pulls: [pull(9, { closes: ["1"] })],
               },
               board(),
               new Map(),
               NOW,
+              { ref: REF },
             ).rows[0],
             flags: ["stale", "not started, is the poller running?"],
           },
@@ -480,6 +506,7 @@ describe("formatRows", () => {
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     );
 
     expect(formatRows(closedOnly, NOW, false)).toEqual(["Nothing open."]);
@@ -495,7 +522,10 @@ describe("formatRows", () => {
 
   it("prints no escape codes and full titles without a terminal", () => {
     const title = "A".repeat(200);
-    const lines = plainLines([issue(1, { title })], [pull(9, { closes: [1] })]);
+    const lines = plainLines(
+      [issue(1, { title })],
+      [pull(9, { closes: ["1"] })],
+    );
 
     expect(lines.join("\n")).not.toContain(ESC);
     expect(lines.join("\n")).toContain(title);
@@ -510,7 +540,7 @@ describe("formatRows in a terminal", () => {
     style: Style = TTY,
   ) =>
     formatRows(
-      toRows({ issues, pulls }, board(cards), new Map(), NOW),
+      toRows({ issues, pulls }, board(cards), new Map(), NOW, { ref: REF }),
       NOW,
       true,
       { links: LINKS, ...style },
@@ -541,7 +571,7 @@ describe("formatRows in a terminal", () => {
   });
 
   it("links the issue's number and title to the issue, and the pull request's number to it", () => {
-    const text = styled([issue(1)], [pull(9, { closes: [1] })]).join("\n");
+    const text = styled([issue(1)], [pull(9, { closes: ["1"] })]).join("\n");
 
     expect(text).toContain(issueLink(1, "#1"));
     expect(text).toContain(issueLink(1, "Issue 1"));
@@ -569,7 +599,7 @@ describe("formatRows in a terminal", () => {
         issue(2, {
           comments: [
             {
-              id: 4,
+              id: "4",
               author: "acme",
               createdAt: "2026-11-09T11:00:00Z",
               body: "<!-- work-status: refining local 3a5d42f4 -->\n<!-- agent -->",
@@ -579,7 +609,7 @@ describe("formatRows in a terminal", () => {
         issue(4),
         issue(5),
       ],
-      [pull(9, { closes: [5] }), pull(203)],
+      [pull(9, { closes: ["5"] }), pull(203)],
       [
         [1, "Backlog", "2026-11-09T11:00:00Z"],
         [2, "In refinement", "2026-11-09T11:00:00Z"],
@@ -612,7 +642,7 @@ describe("formatRows in a terminal", () => {
         issue(1, {
           comments: [
             {
-              id: 3,
+              id: "3",
               author: "acme",
               createdAt: "2026-11-09T11:00:00Z",
               body: "<!-- work-status: waiting -->\n<!-- agent -->",
@@ -674,7 +704,7 @@ describe("formatRows in a terminal", () => {
     [
       "an Actions run that is starting",
       {
-        id: 2,
+        id: "2",
         author: "acme",
         createdAt: "2026-11-09T11:00:00Z",
         body: "<!-- work-status: started actions st_0123456789ab -->\n<!-- agent -->",
@@ -684,7 +714,7 @@ describe("formatRows in a terminal", () => {
     [
       "Waiting on you",
       {
-        id: 3,
+        id: "3",
         author: "acme",
         createdAt: "2026-11-09T11:00:00Z",
         body: "<!-- work-status: waiting -->\n<!-- agent -->",
@@ -724,7 +754,7 @@ describe("formatRows in a terminal", () => {
   });
 
   it("prints the pull request line dim", () => {
-    expect(styled([issue(1)], [pull(9, { closes: [1] })])).toContainEqual(
+    expect(styled([issue(1)], [pull(9, { closes: ["1"] })])).toContainEqual(
       expect.stringMatching(
         new RegExp(
           `^ +${re(ends("dim")[0]!)}↳ Pull request .*${re(ends("dim")[1]!)}$`,
@@ -739,6 +769,7 @@ describe("formatRows in a terminal", () => {
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     ).rows;
 
     expect(
@@ -758,7 +789,7 @@ describe("formatRows in a terminal", () => {
     const at = (width: number) =>
       styled(
         [issue(1, { title, comments: [claimed("local", "3a5d42f4")] })],
-        [pull(9, { closes: [1] })],
+        [pull(9, { closes: ["1"] })],
         [],
         { color: true, width },
       ).map((l) => l.replace(/\x1B\[[\d;]*m|\x1B\]8;;[^\x1B]*\x1B\\/g, ""));
@@ -870,10 +901,11 @@ describe("main in a terminal", () => {
       source: async () => ({
         tickets: mem.tickets,
         pulls: {
-          open: async () => [pull(9, { closes: [1] })],
+          open: async () => [pull(9, { closes: ["1"] })],
           address: (n) => `https://code.example/pull/${n}`,
         },
         runner: { runPage: (id) => `https://runs.example/${id}` },
+        own: true,
       }),
       settings: fakeSettings,
       env: {},
@@ -1121,13 +1153,13 @@ describe("reviewer rows", () => {
   const minutesAgo = (n: number) =>
     new Date(NOW.getTime() - n * 60_000).toISOString();
   const marker = (minute: number, text: string) => ({
-    id: 1,
+    id: "1",
     author: "acme",
     createdAt: minutesAgo(minute),
     body: `<!-- work-status: ${text} -->\n<!-- agent -->`,
   });
   const runs = (list: Partial<ReviewerRun>[]) => ({
-    id: 2,
+    id: "2",
     author: "acme",
     createdAt: minutesAgo(1),
     body: [
@@ -1231,6 +1263,7 @@ describe("reviewer rows", () => {
         board(),
         new Map(),
         NOW,
+        { ref: REF },
       ),
       NOW,
     ).filter((l) => /^ +[…✓✗?] /.test(l));
@@ -1250,10 +1283,11 @@ describe("reviewer rows", () => {
     const [, building] = mockup();
     const lines = formatRows(
       toRows(
-        { issues: [building], pulls: [pull(230, { closes: [224] })] },
+        { issues: [building], pulls: [pull(230, { closes: ["224"] })] },
         board(),
         new Map(),
         NOW,
+        { ref: REF },
       ),
       NOW,
     );
@@ -1302,6 +1336,7 @@ describe("reviewer rows", () => {
       board(),
       new Map(),
       NOW,
+      { ref: REF },
     );
 
     expect(rows[0].runs.map((r) => [r.reviewer, r.result])).toEqual([
@@ -1328,6 +1363,7 @@ describe("reviewer rows", () => {
       board([[5, "Backlog", ago(10)]]),
       new Map(),
       NOW,
+      { ref: REF },
     );
     expect(rows[0].derived?.status).toBe("Backlog");
     expect(rows[0].runs).toEqual([]);

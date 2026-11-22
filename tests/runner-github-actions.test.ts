@@ -33,7 +33,7 @@ describe("starting a build", () => {
   it("dispatches the build workflow on the branch with the ticket's number", async () => {
     const { r, calls } = runner([[DISPATCH, ""]]);
 
-    await r.startBuild(12, "main");
+    await r.startBuild("12", "main");
 
     expect(calls).toEqual([
       "api -X POST repos/acme/widgets/actions/workflows/factory-build.yml/dispatches -f ref=main -f inputs[ticket]=12",
@@ -44,7 +44,7 @@ describe("starting a build", () => {
     const refused = new HttpError(403, "x", "Resource not accessible");
     const { r } = runner([[DISPATCH, refused]]);
 
-    await expect(r.startBuild(12, "main")).rejects.toBe(refused);
+    await expect(r.startBuild("12", "main")).rejects.toBe(refused);
   });
 });
 
@@ -65,7 +65,9 @@ describe("finding the run a start made", () => {
       ],
     ]);
 
-    expect(await r.findBuild(12, SINCE)).toBe(`${SITE}/actions/runs/2`);
+    expect(await r.findBuild("Build #12", SINCE)).toBe(
+      `${SITE}/actions/runs/2`,
+    );
   });
 
   it("is null while only an older run of the ticket and a run of another show", async () => {
@@ -81,7 +83,7 @@ describe("finding the run a start made", () => {
       ],
     ]);
 
-    expect(await r.findBuild(12, SINCE)).toBeNull();
+    expect(await r.findBuild("Build #12", SINCE)).toBeNull();
   });
 });
 

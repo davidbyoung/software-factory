@@ -46,6 +46,7 @@ const PR_STEPS = [
   "resolve",
   "ready",
   "closes",
+  "cost",
   "for-branch",
   "comments",
   "comment",
@@ -76,7 +77,8 @@ const pr = (sub: string, args: string): Command => ({
 const TICKET_ARGS: Record<string, string> = {
   refined: "N [--check] [--before-file FILE]",
   stop: 'N "reason"',
-  view: "N [--field title|state|labels|body] [--json]",
+  view: "N [--field title|state|labels|body|ref] [--json]",
+  link: "N [--part]",
   list: '[--label LABEL] [--title "TITLE"] [--json]',
   edit: "N --body-file FILE [--attach FILE]",
   comment: "N --body-file FILE [--attach FILE]",
@@ -297,6 +299,11 @@ export const COMMANDS: Command[] = [
     words: ["review", "tools"],
     args: "",
     run: async () => (await import("./review-tools.mts")).run(),
+  },
+  {
+    words: ["review", "tickets"],
+    args: "N",
+    run: async (argv) => (await import("./review-tickets.mts")).run(argv),
   },
   {
     words: ["reviewers", "start"],

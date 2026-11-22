@@ -124,7 +124,8 @@ function unpricedClause(spend: Spend): string {
  * why the cost could not be measured. */
 export function costNote(
   measured: Measured,
-  issue: number,
+  /** Where the note is posted, as written in prose, such as `#12`. */
+  on: string,
   session: string,
 ): string {
   const failed = (reason: string) =>
@@ -138,7 +139,7 @@ export function costNote(
         : `no token in it is on a model with a list price${unpricedClause(spend).replace(/^, plus/, ":")}`,
     );
   const amount = spend.dollars.toFixed(2);
-  return `This session used ${bothPrices(spend.dollars)} on #${issue} since its last note${unpricedClause(spend)}.\n\n<!-- cost: ${amount} session=${session} -->`;
+  return `This session used ${bothPrices(spend.dollars)} on ${on} since its last note${unpricedClause(spend)}.\n\n<!-- cost: ${amount} session=${session} -->`;
 }
 
 /** Where Claude Code keeps its transcripts. */

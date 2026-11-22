@@ -44,32 +44,38 @@ import {
 import type { Runner } from "./runner/types.mts";
 import { githubTickets } from "./tickets/github.mts";
 import { HttpError, fetchTransport, statusOf } from "./tickets/transport.mts";
-import { boardOf, type Tickets } from "./tickets/types.mts";
+import {
+  boardOf,
+  compareKeys,
+  type Key,
+  type Tickets,
+} from "./tickets/types.mts";
+import { linkPulls } from "./lib/pull-tickets.mts";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 export const FIRE_LIMIT = 20;
 const FIRE_TIMEOUT_MS = 30_000;
 
-/** The open issues the shared derivation puts in Ready, oldest number first. */
+/** The open issues the shared derivation puts in Ready, in key order. */
 export function selectToStart(
   snapshot: RepoSnapshot,
   board: Board,
   columns: Columns = DEFAULT_COLUMNS,
-): number[] {
+): Key[] {
   return snapshot.issues
     .filter(
       (issue) =>
         issue.state === "open" &&
         derive(
           issue,
-          cardOf(board, issue.number, columns),
+          cardOf(board, issue.key, columns),
           snapshot.pulls,
           columns,
         ).status === "Ready",
     )
-    .map((issue) => issue.number)
-    .sort((a, b) => a - b);
+    .map((issue) => issue.key)
+    .sort(compareKeys);
 }
 
 export function startMarker(): string {
@@ -194,8 +200,14 @@ async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
     tickets.readAll!({ board: true }),
     codeHost.open(),
   ]);
+  // The poller reaches GitHub alone, so the code host's links are the
+  // tickets' own.
   return {
-    snapshot: toSnapshot(read, open, new Date(d.now())),
+    snapshot: toSnapshot(
+      read,
+      linkPulls(open, tickets, true),
+      new Date(d.now()),
+    ),
     board: boardOf(read),
   };
 }
@@ -204,7 +216,7 @@ async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
 async function dispatch(
   runner: Runner,
   branch: string,
-  issue: number,
+  issue: Key,
 ): Promise<{ ok: true } | { ok: false; status: string; reason: string }> {
   try {
     await runner.startBuild(issue, branch);
@@ -256,23 +268,24 @@ export async function tick(d: Deps, state: State): Promise<void> {
   }
 
   for (const issue of ready) {
+    const ref = tickets.ref(issue);
     try {
       const blockers = await tickets.blockers!.list(issue);
       const open = blockers.filter((b) => b.state === "open");
       if (open.length) {
         d.log(
-          `#${issue} waits on ${open.map((b) => `#${b.number}`).join(", ")}`,
+          `${ref} waits on ${open.map((b) => tickets.ref(b.key)).join(", ")}`,
         );
         continue;
       }
     } catch (error) {
       d.log(
-        `#${issue} skipped: its blockers could not be read (${String(error)})`,
+        `${ref} skipped: its blockers could not be read (${String(error)})`,
       );
       continue;
     }
     if (!capAllows(fired, d.now())) {
-      d.log(`#${issue} waits: ${FIRE_LIMIT} builds started in the last hour`);
+      d.log(`${ref} waits: ${FIRE_LIMIT} builds started in the last hour`);
       continue;
     }
 
@@ -283,25 +296,23 @@ export async function tick(d: Deps, state: State): Promise<void> {
         commentBody({ kind: "started", marker }, columns),
       );
     } catch (error) {
-      d.log(
-        `#${issue} not started: the start comment failed (${String(error)})`,
-      );
+      d.log(`${ref} not started: the start comment failed (${String(error)})`);
       continue;
     }
     fired.push(d.now());
     const outcome = await dispatch(runner, d.defaultBranch, issue);
     if (outcome.ok) {
-      d.log(`#${issue} started ${marker}: dispatched ${BUILD_WORKFLOW}`);
+      d.log(`${ref} started ${marker}: dispatched ${BUILD_WORKFLOW}`);
       continue;
     }
-    d.log(`#${issue} dispatch failed: ${outcome.status} (${outcome.reason})`);
+    d.log(`${ref} dispatch failed: ${outcome.status} (${outcome.reason})`);
     try {
       await tickets.comment(
         issue,
         commentBody(
           {
             kind: "dispatch-failed",
-            issue,
+            issue: { key: issue, ref },
             status: outcome.status,
             reason: outcome.reason,
           },
@@ -309,7 +320,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
         ),
       );
     } catch (error) {
-      d.log(`#${issue} dispatch-failure comment failed (${String(error)})`);
+      d.log(`${ref} dispatch-failure comment failed (${String(error)})`);
     }
   }
 }

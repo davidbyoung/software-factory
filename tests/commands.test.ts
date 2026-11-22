@@ -562,11 +562,38 @@ describe("factory specs finish", () => {
   });
 });
 
+describe("the OpenSpec change's folder", () => {
+  it("is named by the ticket's key in lowercase", () => {
+    const tool = openspec(() => 0);
+    expect(tool.folder("12")).toBe("openspec/changes/issue-12/");
+    expect(tool.folder("PROJ-12")).toBe("openspec/changes/issue-proj-12/");
+  });
+});
+
+describe("the spec commands' ticket", () => {
+  let at: ReturnType<typeof openspecAt>;
+  afterEach(() => rmSync(at.root, { recursive: true, force: true }));
+
+  it.each([["specs-new"], ["specs-finish"]])(
+    "%s refuses a key the ticket system does not use, and exits 1",
+    async (name) => {
+      at = openspecAt();
+      const { d, out, err } = specDeps(at);
+
+      expect(await main([name, "PROJ-12"], d)).toBe(1);
+      expect(out).toEqual([]);
+      expect(err).toEqual([
+        "PROJ-12 is not a ticket here: a GitHub ticket is its number, such as 12",
+      ]);
+      expect(at.runs).toEqual([]);
+    },
+  );
+});
+
 describe("the spec commands' arguments", () => {
   it.each([
     ["specs-new", [], "Usage: factory specs new N"],
-    ["specs-new", ["x"], "Usage: factory specs new N"],
-    ["specs-new", ["0"], "Usage: factory specs new N"],
+    ["specs-new", ["--all"], "Usage: factory specs new N"],
     ["specs-finish", ["37", "38"], "Usage: factory specs finish N"],
     ["specs-list", ["--all"], "Usage: factory specs list"],
   ])(
