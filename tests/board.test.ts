@@ -9,6 +9,7 @@ import {
   main,
   nightlyComments,
   planSync,
+  DEFAULT_BOARD,
   type Deps,
   type PullSource,
   type Saved,
@@ -788,5 +789,91 @@ describe("tickets without the factory label", () => {
         [],
       ),
     ).toEqual([]);
+  });
+});
+
+describe("a merged pull request", () => {
+  const merged = (mem = seeded(), dryRun = false) => {
+    const { pulls } = fakePulls({ 40: ["16"] });
+    const r = deps(mem, {}, pulls);
+    r.files["event.json"] = JSON.stringify({
+      action: "closed",
+      pull_request: { number: 40, merged: true, body: "Closes #16" },
+    });
+    const argv = [
+      "collect",
+      "--out",
+      "o.json",
+      "--event",
+      "event.json",
+      "--event-name",
+      "pull_request_target",
+      ...(dryRun ? ["--dry-run"] : []),
+    ];
+    return { ...r, run: () => main(argv, r.d) };
+  };
+
+  it("finishes the labeled ticket it closes, and saves it as done", async () => {
+    const r = merged();
+
+    expect(await r.run()).toBe(0);
+    expect(r.mem.state.get("16")!.finishedAt).not.toBeNull();
+    const saved = JSON.parse(r.written["o.json"]) as Saved;
+    const plan = planSync(
+      toSnapshot(saved.tickets, saved.pulls, NOW, saved.donePulls),
+      BOARD(),
+      RUN_PAGE,
+    ).find((p) => p.key === "16")!;
+    expect(plan.derived.status).toBe("Done");
+    expect(plan.column).toBe("Done");
+  });
+
+  it("posts nothing on GitHub, which shows the merge itself", async () => {
+    const r = merged();
+    const before = r.mem.comments(16).length;
+
+    await r.run();
+    expect(r.mem.comments(16)).toHaveLength(before);
+  });
+
+  it("changes nothing with --dry-run, and says what it would do", async () => {
+    const r = merged(seeded(), true);
+
+    await r.run();
+    expect(r.mem.state.get("16")!.finishedAt).toBeNull();
+    expect(r.out).toContain("would finish #16: pull request #40 merged");
+  });
+
+  it("leaves a ticket without the label alone", async () => {
+    const mem = seeded();
+    const t = mem.state.get("16")!;
+    t.labels = t.labels.filter((l) => l !== "factory");
+    const r = merged(mem);
+
+    await r.run();
+    expect(r.mem.state.get("16")!.finishedAt).toBeNull();
+  });
+});
+
+describe("a card in a done column", () => {
+  it("is left in any column tickets.columns.done lists, whatever the ticket's state", () => {
+    const board = BOARD();
+    board.fields
+      .find((f) => f.name === "Status")!
+      .options!.push({ id: "O_Released", name: "Released" });
+    board.items.get("12")!.status = "Released";
+    const cfg = {
+      ...DEFAULT_BOARD,
+      columns: { ...DEFAULT_BOARD.columns, Done: ["Done", "Released"] },
+    };
+    const plan = planSync(
+      toSnapshot(SAVED.tickets, SAVED.pulls, NOW, SAVED.donePulls),
+      board,
+      RUN_PAGE,
+      cfg,
+    ).find((p) => p.key === "12")!;
+
+    expect(plan.derived.status).toBe("Done");
+    expect(plan.column).toBeNull();
   });
 });

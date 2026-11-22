@@ -39,6 +39,7 @@ describe("parseSettings", () => {
         type: "github",
         options: {},
         board: null,
+        statuses: false,
         columns: {
           backlog: ["Backlog"],
           refining: ["In refinement"],
@@ -669,6 +670,53 @@ describe("parseSettings", () => {
           ".claude/factory.yaml: tickets.labels.spec: Fake Tickets doesn't allow a space in a label",
         );
       });
+    });
+  });
+
+  describe("a ticket system with statuses of its own", () => {
+    const built = {
+      ...BUILT,
+      tickets: { ...BUILT.tickets, fake: [] },
+      statuses: ["fake"],
+    };
+    const parseWith = (raw: unknown) => parseSettings(raw, () => true, built);
+    const COLUMNS = {
+      backlog: "To Do",
+      refining: "none",
+      ready: "Selected",
+      building: "In Progress",
+      review: "none",
+      done: ["Done", "Released"],
+    };
+
+    it("needs tickets.columns with no board", () => {
+      expect(() =>
+        parseWith({ ...MINIMAL, tickets: { type: "fake" } }),
+      ).toThrow(
+        ".claude/factory.yaml: tickets.columns: is required with tickets.type: fake: run factory init to choose which status shows each state",
+      );
+    });
+
+    it("takes tickets.columns with no board", () => {
+      const s = parseWith({
+        ...MINIMAL,
+        tickets: { type: "fake", columns: COLUMNS },
+      });
+      expect(s.tickets.statuses).toBe(true);
+      expect(s.tickets.columns.done).toEqual(["Done", "Released"]);
+    });
+
+    it("names each state left out, as with a board", () => {
+      expect(() =>
+        parseWith({
+          ...MINIMAL,
+          tickets: { type: "fake", columns: { ...COLUMNS, done: undefined } },
+        }),
+      ).toThrow("tickets.columns: done has no column");
+    });
+
+    it("leaves GitHub Issues without statuses, so no board needs no columns", () => {
+      expect(parse(MINIMAL).tickets.statuses).toBe(false);
     });
   });
 

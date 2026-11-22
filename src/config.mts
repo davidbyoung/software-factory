@@ -156,6 +156,9 @@ export type Settings = {
     /** The keys the ticket system adds under `tickets`, by name. */
     options: Record<string, string>;
     board: number | null;
+    /** Whether the ticket system has statuses of its own, which
+     * `columns` maps whether or not there is a board. */
+    statuses: boolean;
     /** The board's column for each state, null for none. */
     /** Each state's columns, the first the one a ticket moves to, or
      * null for none. */
@@ -599,12 +602,14 @@ function columnNames(
   v: unknown,
   board: number | null,
   partial: boolean,
+  /** The ticket system, when it has statuses of its own. */
+  statusesOf: string | null = null,
 ): {
   columns: Record<StateKey, readonly string[] | null>;
   missing: StateKey[];
 } {
   const states = Object.entries(STATE_KEYS) as [StateKey, Status][];
-  if (board === null)
+  if (board === null && statusesOf === null)
     return {
       columns: Object.fromEntries(
         states.map(([k, status]) => [k, DEFAULT_COLUMNS[status]]),
@@ -616,7 +621,9 @@ function columnNames(
   if (empty && !partial)
     fail(
       "tickets.columns",
-      `is required with tickets.board: run factory init to choose which of board ${board}'s columns shows each state`,
+      board === null
+        ? `is required with tickets.type: ${statusesOf}: run factory init to choose which status shows each state`
+        : `is required with tickets.board: run factory init to choose which of board ${board}'s columns shows each state`,
     );
   const o = empty ? {} : object(v, "tickets.columns");
   const missing = states.map(([k]) => k).filter((k) => o[k] === undefined);
@@ -927,7 +934,8 @@ export function parseSettings(
       `${SETTINGS_FILE}: ${unsupportedRunner(String(runner), built.runner)}`,
     );
   const hasBoard = typeof board === "number";
-  if (tickets.columns !== undefined && !hasBoard)
+  const statuses = built.statuses.includes(ticketType);
+  if (tickets.columns !== undefined && !hasBoard && !statuses)
     fail("tickets.columns", "needs tickets.board");
   const rawFields = isObj(tickets.fields) ? tickets.fields : {};
   const boardFields = Object.fromEntries(
@@ -939,6 +947,7 @@ export function parseSettings(
     tickets.columns,
     hasBoard ? (board as number) : null,
     partial,
+    statuses ? ticketType : null,
   );
   if (columns.backlog === null && !missing.includes("backlog"))
     fail(
@@ -1021,6 +1030,7 @@ export function parseSettings(
       type: ticketType,
       options,
       board: typeof board === "number" ? board : null,
+      statuses,
       columns,
       fields: fieldNames,
       ticketFields,

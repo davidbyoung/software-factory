@@ -229,6 +229,8 @@ async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
       read,
       linkPulls(open, tickets, (d.ticketSystem ?? HOSTED).own),
       new Date(d.now()),
+      [],
+      columnsFrom(d.env),
     ),
     board: boardOf(read),
   };

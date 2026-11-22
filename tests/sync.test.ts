@@ -1,3 +1,4 @@
+import type { Settings } from "../src/config.mts";
 import {
   existsSync,
   mkdirSync,
@@ -16,6 +17,7 @@ import {
   launcherPath,
   main,
   PACKAGE,
+  NEEDS,
   plan,
   withDefaultBranch,
   withRunName,
@@ -1074,5 +1076,17 @@ describe("factory sync: the ticket system's secrets in the workflows", () => {
     expect(
       (await settingsJson()).hooks.PreToolUse!.map((g) => g.matcher),
     ).toEqual(["Bash"]);
+  });
+});
+
+describe("the board sync's workflow", () => {
+  const needs = NEEDS["workflows/factory-board-sync.yml"]!;
+  const with_ = (board: number | null, statuses: boolean) =>
+    ({ tickets: { board, statuses } }) as unknown as Settings;
+
+  it("is written with a board, or with a ticket system that has statuses of its own", () => {
+    expect(needs(with_(1, false), () => false)).toBe(true);
+    expect(needs(with_(null, true), () => false)).toBe(true);
+    expect(needs(with_(null, false), () => false)).toBe(false);
   });
 });

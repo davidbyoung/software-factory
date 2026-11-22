@@ -569,7 +569,7 @@ export function formatRows(
   if (withClosed && closed.length > 0)
     lines.push(
       "",
-      `${paint("Closed in the last 24 hours:", style, "dim")} ${closed
+      `${paint("Done in the last 24 hours:", style, "dim")} ${closed
         .map((r) =>
           paint(
             render(
@@ -634,6 +634,8 @@ async function snapshotLines(
     tickets,
     linkPulls(pulls, source.tickets, source.own),
     now,
+    [],
+    target.columns,
   );
   const board = boardOf(tickets);
   const blockers = new Map<Key, Key[]>();

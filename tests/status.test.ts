@@ -544,7 +544,7 @@ describe("formatRows", () => {
   it("prints the closed list after the groups", () => {
     const lines = plainLines([issue(1), closedIssue(3)], []);
 
-    expect(lines.at(-1)).toBe("Closed in the last 24 hours: #3");
+    expect(lines.at(-1)).toBe("Done in the last 24 hours: #3");
   });
 
   it("leaves the closed list out of the hook's form", () => {
@@ -563,7 +563,7 @@ describe("formatRows", () => {
     expect(plainLines([closedIssue(3)], [])).toEqual([
       "Nothing open.",
       "",
-      "Closed in the last 24 hours: #3",
+      "Done in the last 24 hours: #3",
     ]);
   });
 
@@ -613,7 +613,7 @@ describe("formatRows in a terminal", () => {
     expect(lines.join("\n")).toContain(p("blueBright", issueLink(1, "#1")));
     expect(lines).toContainEqual(expect.stringContaining(p("dim", "1h")));
     expect(lines.at(-1)).toBe(
-      `${p("dim", "Closed in the last 24 hours:")} ${p("blueBright", issueLink(3, "#3"))}`,
+      `${p("dim", "Done in the last 24 hours:")} ${p("blueBright", issueLink(3, "#3"))}`,
     );
   });
 
@@ -1089,7 +1089,7 @@ describe("main --hook", () => {
     expect(out[0]).toBe("## Work in progress");
     expect(open).toHaveBeenCalledWith({ checks: true });
     expect(out.join("\n")).toContain("#16");
-    expect(out.join("\n")).not.toContain("Closed in the last 24 hours");
+    expect(out.join("\n")).not.toContain("Done in the last 24 hours");
     expect(out.join("\n")).not.toContain("\x1B");
     expect(out.join("\n")).toContain("A local build opened its pull request");
   });

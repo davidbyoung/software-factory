@@ -47,6 +47,7 @@ import {
   type Columns,
   type StateKey,
   commentBody,
+  entryFor,
   derive,
   issueCost,
   toClear,
@@ -457,16 +458,11 @@ export function planSync(
     const column = columnFor(derived.status, cfg.columns);
     const option = fields.status.options?.find((o) => sameName(o.name, column));
     const writes: Write[] = [];
-    // A card in any done column is done, and stays where it is.
-    const inDone =
-      item?.status != null &&
-      statusOfColumn(item.status, cfg.columns) === "Done";
     const move =
-      !inDone &&
-      (item?.status == null ||
-        !columnsFor(derived.status, cfg.columns).some((c) =>
-          sameName(item.status!, c),
-        ))
+      item?.status == null ||
+      !columnsFor(derived.status, cfg.columns).some((c) =>
+        sameName(item.status!, c),
+      )
         ? (option?.name ?? column)
         : null;
     if (fields.session && (item?.session ?? "") !== session)
@@ -602,6 +598,8 @@ export type PullSource = {
   open(options: { costs: boolean }): Promise<PullRequest[]>;
   linking(skip: number[]): Promise<PullRequest[]>;
   closes(pull: number): Promise<Key[]>;
+  /** The address of a pull request's page, for the merge's note. */
+  address?(pull: number): string;
 };
 
 export type Deps = {
@@ -646,6 +644,26 @@ async function postAll(comments: Comment[], d: Ctx, dryRun: boolean) {
     }
     await d.tickets.comment(c.issue, c.body);
     d.out(`commented on ${d.tickets.ref(c.issue)}: ${first}`);
+  }
+}
+
+/** Each ticket a merged pull request closed: its merge recorded, and the
+ * ticket finished in its ticket system, so the sync then moves it to the
+ * first done column. */
+async function finishAll(keys: Key[], pull: number, d: Ctx, dryRun: boolean) {
+  for (const key of keys) {
+    const line = `${d.tickets.ref(key)}: pull request #${pull} merged`;
+    if (dryRun) {
+      d.out(`would finish ${line}`);
+      continue;
+    }
+    const link = d.pulls.address?.(pull) ?? `#${pull}`;
+    await d.tickets.record.add(
+      key,
+      entryFor({ kind: "merged", pull, link }, d.config.columns),
+    );
+    await d.tickets.finish(key);
+    d.out(`finished ${line}`);
   }
 }
 
@@ -697,6 +715,7 @@ async function collect(
   if (opts.eventName === "pull_request_target" && opts.event) {
     const event = JSON.parse(d.readFile(opts.event)) as PullEvent;
     if (event.action === "closed") {
+      const labeled = snapshot.issues.map((i) => i.key);
       const followUps = snapshot.issues
         .filter(
           (i) => i.finishedAt === null && i.labels.includes(d.config.followUp),
@@ -716,10 +735,14 @@ async function collect(
         followUps,
         d.config.columns,
         (k) => d.tickets.ref(k),
-        snapshot.issues.map((i) => i.key),
+        labeled,
       );
       await postAll(comments, d, opts.dryRun);
-      if (comments.length && !opts.dryRun) {
+      const done = event.pull_request.merged
+        ? links.closes.filter((k) => labeled.includes(k))
+        : [];
+      await finishAll(done, event.pull_request.number, d, opts.dryRun);
+      if ((comments.length || done.length) && !opts.dryRun) {
         saved = await read(d);
         snapshot = snapshotOf(saved, d.now(), d.config);
       }

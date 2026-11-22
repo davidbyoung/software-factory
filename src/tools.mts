@@ -58,6 +58,8 @@ export type Registry = {
     Tool & {
       /** The keys it adds under `tickets`. */
       keys: readonly string[];
+      /** Whether it has statuses of its own, as Jira does. */
+      statuses?: boolean;
       /** The adapter alone: `openTickets` (`tickets/index.mts`) adds the
        * credential and the ticket fields a command reads it with. */
       open(
@@ -128,6 +130,9 @@ export function builtOf(r: Registry): Built {
       tickets: faultsOf(r.tickets),
       codeHost: faultsOf(r.codeHost),
     },
+    statuses: Object.entries(r.tickets)
+      .filter(([, t]) => t.statuses)
+      .map(([name]) => name),
   };
 }
 

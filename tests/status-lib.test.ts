@@ -17,6 +17,7 @@ import {
   parseRuns,
   toClear,
   toSnapshot,
+  doneAt,
   workState,
   type CommentKind,
   type Issue,
@@ -1287,5 +1288,43 @@ describe("parseRuns", () => {
     expect(
       parseRuns(comment(`<!-- reviewer-runs session=s -->\n${row}`)),
     ).toEqual([]);
+  });
+});
+
+describe("when a ticket became done", () => {
+  const COLUMNS = {
+    ...DEFAULT_COLUMNS,
+    Done: ["Done", "Released"] as const,
+  };
+  const inColumn = (status: string, updatedAt: string) =>
+    ({
+      ...issue(),
+      card: {
+        itemId: "I_7",
+        key: "7",
+        status,
+        updatedAt,
+        session: "",
+        runsIn: "",
+      },
+    }) as Issue;
+
+  it("keeps a ticket moved to any done column in the last day, by its card's time", () => {
+    const now = new Date(at(60));
+    expect(
+      toSnapshot([inColumn("Released", at(30))], [], now, [], COLUMNS).issues,
+    ).toHaveLength(1);
+  });
+
+  it("drops one moved there over a day ago", () => {
+    const now = new Date(Date.parse(at(30)) + 25 * 60 * 60 * 1000);
+    expect(
+      toSnapshot([inColumn("Released", at(30))], [], now, [], COLUMNS).issues,
+    ).toEqual([]);
+  });
+
+  it("takes a merge the factory recorded over the card's time", () => {
+    const merged = issue({ comments: [said(50, "merged")] });
+    expect(doneAt(merged, { status: "Done", updatedAt: at(1) })).toBe(at(50));
   });
 });
