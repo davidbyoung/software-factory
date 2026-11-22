@@ -47,7 +47,6 @@ import {
   statusOfColumn,
   type Columns,
   type StateKey,
-  commentBody,
   entryFor,
   derive,
   issueCost,
@@ -66,11 +65,13 @@ import { openCodeHost } from "./code-host/index.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
 import { fixtureBoard, openTickets, refOf } from "./tickets/index.mts";
 import { linkPulls, ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
+import { renderEntry } from "./tickets/record-comments.mts";
 import {
   need,
   readAll,
   type Key,
   type Links,
+  type NewEntry,
   type Ticket,
   type Tickets,
   type Write,
@@ -537,7 +538,13 @@ export function logLine(plan: Plan, ref: (key: Key) => string): string {
   return `${name} ${values} (${added}set ${set.join(", ")})`;
 }
 
-export type Comment = { issue: Key; body: string };
+/** A note the sync records on a ticket, and how GitHub shows it. */
+export type Comment = { issue: Key; entry: NewEntry; body: string };
+
+const note = (issue: Key, c: CommentKind, columns: Columns): Comment => {
+  const entry = entryFor(c, columns);
+  return { issue, entry, body: renderEntry(entry) };
+};
 
 type PullEvent = {
   action: string;
@@ -567,19 +574,19 @@ export function closedPullComments(
   const comments: Comment[] = [];
   if (!pull.merged)
     for (const issue of closes)
-      comments.push({ issue, body: commentBody(closedKind(issue), columns) });
+      comments.push(note(issue, closedKind(issue), columns));
   for (const followUps of openFollowUps) {
     if (closes.includes(followUps) || !links.partOf.includes(followUps))
       continue;
-    comments.push({
-      issue: followUps,
-      body: commentBody(
+    comments.push(
+      note(
+        followUps,
         pull.merged
           ? { kind: "follow-ups-merged", pull: pull.number }
           : closedKind(followUps),
         columns,
       ),
-    });
+    );
   }
   return comments;
 }
@@ -598,15 +605,13 @@ export function nightlyComments(
     if (!clear) return [];
     const named = { key: issue.key, ref: ref(issue.key) };
     return [
-      {
-        issue: issue.key,
-        body: commentBody(
-          clear.kind === "claim"
-            ? { kind: "cleared-claim", issue: named, since: clear.since }
-            : { kind: "cleared-start", issue: named, since: clear.since },
-          columns,
-        ),
-      },
+      note(
+        issue.key,
+        clear.kind === "claim"
+          ? { kind: "cleared-claim", issue: named, since: clear.since }
+          : { kind: "cleared-start", issue: named, since: clear.since },
+        columns,
+      ),
     ];
   });
 }
@@ -668,7 +673,7 @@ async function postAll(comments: Comment[], d: Ctx, dryRun: boolean) {
       d.out(`would comment on ${d.tickets.ref(c.issue)}: ${first}`);
       continue;
     }
-    await d.tickets.comment(c.issue, c.body);
+    await d.tickets.record.add(c.issue, c.entry);
     d.out(`commented on ${d.tickets.ref(c.issue)}: ${first}`);
   }
 }

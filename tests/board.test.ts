@@ -203,6 +203,7 @@ describe("closedPullComments", () => {
     expect(closed(event(false), [16], [])).toEqual([
       {
         issue: "16",
+        entry: expect.objectContaining({ tellsPerson: true }),
         body: expect.stringMatching(
           /^Pull request #40 was closed without merging\. The card stays In progress, waiting on you\.[\s\S]*work-status: released/,
         ),
@@ -883,5 +884,41 @@ describe("a card in a done column", () => {
 
     expect(plan.derived.status).toBe("Done");
     expect(plan.column).toBeNull();
+  });
+});
+
+describe("the sync's own notes", () => {
+  it("records a nightly clear through the ticket system, with no hidden text in its comment", async () => {
+    const mem = memoryTickets(
+      [
+        {
+          key: "PROJ-1",
+          labels: ["factory"],
+          record: [
+            {
+              id: "e-1",
+              at: "2026-11-07T09:00:00Z",
+              author: "acme",
+              text: "Building this in a local session, s.",
+              markers: ["<!-- work-status: claim local s -->"],
+            },
+          ],
+        },
+      ],
+      { strict: true },
+    );
+    const { d } = deps(mem);
+
+    expect(
+      await main(["collect", "--out", "o.json", "--event-name", "schedule"], d),
+    ).toBe(0);
+    const [comment] = mem.comments("PROJ-1");
+    expect(comment.body).toMatch(
+      /^Cleared the claim from 2026-11-07 09:00 UTC/,
+    );
+    expect(comment.body).not.toContain("<!--");
+    expect(mem.state.get("PROJ-1")!.record.at(-1)!.markers).toEqual([
+      "<!-- work-status: cleared -->",
+    ]);
   });
 });
