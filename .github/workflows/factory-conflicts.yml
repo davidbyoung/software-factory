@@ -64,6 +64,6 @@ jobs:
 
             How: read `.claude/skills/factory-resolve-conflicts/SKILL.md` from this checkout and follow its section "The conflict sweep" exactly, reading `.claude/skills/factory-address-review/SKILL.md` from this checkout where that section sends you to it. Run `export DO_NOT_TRACK=1`, and `git fetch --unshallow origin` if `git rev-parse --is-shallow-repository` prints `true`, since a shallow clone cannot merge. Read `CLAUDE.md`, and `AGENTS.md` where there is one, before changing code. This is a run nobody can wake later, so where a skill waits for a review, wait with `npx --no-install factory pr state PR --wait`.
 
-            Git: push only to the pull request's own branch, never to the default branch. Never force push or rebase. Never merge, approve, enable auto-merge, mark a draft ready, or add the `verdict: override` label. Open an issue only as the skill says.
+            Git: push only to the pull request's own branch, never to the default branch. Never force push or rebase. Never merge, approve, enable auto-merge, mark a draft ready, or add the `verdict-override` label. Open an issue only as the skill says.
 
             End with the skill's report as your final message. Say in it that this run was in GitHub Actions and that nothing watches the pull requests once it ends. Do not send a notification. Use American English and the Oxford comma.

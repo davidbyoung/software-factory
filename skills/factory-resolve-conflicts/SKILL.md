@@ -125,7 +125,7 @@ another branch would not fix it.
 
 This run merges the default branch into the branch. It never rebases, never force
 pushes, never merges the pull request, approves it, turns on auto-merge,
-marks a draft ready, or adds the `verdict: override` label. Its push
+marks a draft ready, or adds the `verdict-override` label. Its push
 removes an existing override, as any push does.
 
 **First, the stop marker.** If the pull request carries a stop comment

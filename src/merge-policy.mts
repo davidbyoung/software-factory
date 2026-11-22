@@ -3,10 +3,10 @@
 //
 //   npx --no-install factory merge-policy PR_NUMBER    # prints the labels to set
 //
-// "merge: automatic" only when no changed file is one of the factory's own,
+// "merge-automatic" only when no changed file is one of the factory's own,
 // none matches auto-merge.deny in .claude/factory.yaml, every one matches
 // auto-merge.allow, and every command under auto-merge.commands exits 0;
-// "merge: manual" otherwise. The merge-policy workflow runs this from main's copy,
+// "merge-manual" otherwise. The merge-policy workflow runs this from main's copy,
 // with main's settings, so a pull request cannot change how it is judged.
 import { spawnSync } from "node:child_process";
 import { loadSettings } from "./config.mts";

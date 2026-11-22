@@ -70,6 +70,6 @@ jobs:
 
             How: use the Skill tool to invoke `factory-address-review` with "the owner's review ${{ github.event.review.id || inputs.review }} on #${{ github.event.pull_request.number || inputs.pr }}". If the Skill tool is unavailable, read `.claude/skills/factory-address-review/SKILL.md` and follow its section "A run started by the owner's review" exactly. Read `CLAUDE.md`, and `AGENTS.md` where there is one, before changing code. Most runs are started by the skill's own thread replies and stop at that section's step 3 without changing anything; that is expected. This is a run nobody can wake later, so where the skill waits for a review, wait with `npx --no-install factory pr state PR --wait`.
 
-            Git: push only to the pull request's own branch, never to the default branch. Never force push. Never merge, approve, enable auto-merge, mark a draft ready, or add the `verdict: override` label. Do not open pull requests. Open an issue only as the skill says.
+            Git: push only to the pull request's own branch, never to the default branch. Never force push. Never merge, approve, enable auto-merge, mark a draft ready, or add the `verdict-override` label. Do not open pull requests. Open an issue only as the skill says.
 
             End with the skill's report as your final message. Say in it that this run was in GitHub Actions and that nothing watches the pull request once it ends. Do not send a notification; the thread replies are the record. Use American English and the Oxford comma.
