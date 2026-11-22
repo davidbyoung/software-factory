@@ -682,6 +682,42 @@ const rows = (text: string) =>
 
 // What the docs say about settings version 2: its commands, its spec check,
 // its plugins by phase, and the commands that came with it.
+describe("the docs on label names", () => {
+  it("name no pull request label by its old name", () => {
+    const old = /merge: automatic|merge: manual|verdict: override/;
+    const found = pages().filter((page) => old.test(read(page)));
+    expect(found).toEqual([]);
+  });
+
+  it("give tickets.labels and code-host.labels an entry each", () => {
+    expect([...anchorsOf(read("docs/configuration.md"))]).toEqual(
+      expect.arrayContaining(["ticketslabels", "code-hostlabels"]),
+    );
+  });
+
+  it("show every required setting in the shortest file, a board's among them", () => {
+    const text = read("docs/configuration.md");
+    const shortest = text.slice(
+      text.indexOf("## The shortest file"),
+      text.indexOf("## The settings most repositories change"),
+    );
+    for (const key of [
+      "version: 2",
+      "repository:",
+      'branch-name: "{ticket}"',
+      "gate:",
+      "board:",
+      "backlog:",
+      "refining:",
+      "ready:",
+      "building:",
+      "review:",
+      "done:",
+    ])
+      expect(shortest).toContain(key);
+  });
+});
+
 describe("the docs, for settings version 2", () => {
   const configuration = read(CONFIGURATION);
   const entries = settingsEntries(configuration);

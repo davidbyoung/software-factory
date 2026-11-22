@@ -38,7 +38,7 @@ marked working below exist only in these docs.
 | Builds that run in GitHub Actions, started by a command                                                          | Working                                             |
 | Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                 | Working                                             |
 | Who merges, and the review's verdict                                                                             | Working                                             |
-| The labels `merge: manual` and `verdict: override`                                                               | Working                                             |
+| The labels `merge-manual` and `verdict-override`                                                                 | Working                                             |
 | These docs                                                                                                       | Working                                             |
 | `.claude/factory.yaml`, and the factory's files kept apart from the host's                                       | Working                                             |
 | The follow-ups ticket as one checklist                                                                           | Working                                             |
