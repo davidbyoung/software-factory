@@ -33,10 +33,10 @@ export const inGithubNames = (
     status,
   }));
 
-/** The two merge labels. The merge-policy workflow applies one and removes the
- * other; only "merge: automatic" turns auto-merge on. */
-export const AUTOMATIC = "merge: automatic";
-export const MANUAL = "merge: manual";
+/** The keys of the two merge labels. The merge-policy workflow applies one
+ * and removes the other; only the automatic one turns auto-merge on. */
+export const AUTOMATIC = "merge-automatic";
+export const MANUAL = "merge-manual";
 
 export type Risk = {
   risk: typeof AUTOMATIC | typeof MANUAL;
@@ -145,13 +145,18 @@ export function statusLine({ risk, reasons }: Risk): string {
   return line.length > 140 ? `${line.slice(0, 139)}…` : line;
 }
 
-/** What the merge-policy workflow needs: the label to set, the one to remove,
- * whether auto-merge goes on, and the status line. */
-export function workflowOutput(result: Risk) {
+/** What the merge-policy workflow needs: the label to set and the one to
+ * remove, each by the name `names` gives it, whether auto-merge goes on,
+ * and the status line. */
+export function workflowOutput(
+  result: Risk,
+  names: Readonly<Record<typeof AUTOMATIC | typeof MANUAL, string>>,
+) {
   const automatic = result.risk === AUTOMATIC;
   return {
     ...result,
-    other: automatic ? MANUAL : AUTOMATIC,
+    label: names[result.risk],
+    other: names[automatic ? MANUAL : AUTOMATIC],
     automatic,
     status: statusLine(result),
   };
@@ -189,7 +194,7 @@ async function main(argv: string[]) {
   // sent just after a push can carry the previous commit and draft state.
   console.log(
     JSON.stringify({
-      ...workflowOutput(decide(paths, holds)),
+      ...workflowOutput(decide(paths, holds), settings.codeHost.labels),
       sha: pull.head.sha,
       draft: pull.isDraft,
     }),

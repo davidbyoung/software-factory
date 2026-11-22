@@ -85,7 +85,7 @@ describe("decide, on the pull request's own events", () => {
     expect(
       pr({
         action: "labeled",
-        label: "verdict: override",
+        label: "verdict-override",
         senderIsApprover: true,
       }),
     ).toEqual({
@@ -109,7 +109,7 @@ describe("decide, on the pull request's own events", () => {
     expect(
       pr({
         action: "labeled",
-        label: "verdict: override",
+        label: "verdict-override",
         senderIsApprover: false,
         verdict: "changes",
       }),
@@ -125,7 +125,7 @@ describe("decide, on the pull request's own events", () => {
     expect(
       pr({
         action: "labeled",
-        label: "verdict: override",
+        label: "verdict-override",
         senderIsApprover: false,
         senderUnchecked: true,
       }),
@@ -146,14 +146,14 @@ describe("decide, on the pull request's own events", () => {
     expect(
       pr({
         action: "unlabeled",
-        label: "verdict: override",
+        label: "verdict-override",
         verdict: "changes",
       })?.state,
     ).toBe("failure");
     expect(
       pr({
         action: "unlabeled",
-        label: "verdict: override",
+        label: "verdict-override",
         verdict: null,
       })?.state,
     ).toBe("pending");
@@ -269,7 +269,8 @@ describe("apply", () => {
   };
   const setUp = (
     options: MemoryCodeHostOptions = {},
-    labels = ["verdict: override"],
+    labels = ["verdict-override"],
+    override?: string,
   ) => {
     const host = memoryCodeHost(
       [
@@ -289,13 +290,14 @@ describe("apply", () => {
         eventName: "pull_request_target",
         event: {
           action,
-          label: { name: "verdict: override" },
+          label: { name: override ?? "verdict-override" },
           sender: { login: sender },
           repository: { owner: { login: "acme" } },
           pull_request: { number: 31 },
         },
         pulls: host.codeHost,
         log: (line) => void log.push(line),
+        override,
       });
     return { host, log, go };
   };
@@ -312,7 +314,7 @@ describe("apply", () => {
     expect(log).toContain(
       `Review verdict on ${HEAD}: success, Overridden by an approver`,
     );
-    expect(host.pull(31).labels).toEqual(["verdict: override"]);
+    expect(host.pull(31).labels).toEqual(["verdict-override"]);
     expect(comments(host)).toEqual([
       "`Review verdict` overridden by @alice at 4c1d2ab. 0 review thread(s) still open; each must be resolved before this can merge. A new push removes the override.",
     ]);
@@ -324,7 +326,7 @@ describe("apply", () => {
     await go("labeled", "alice");
     await go("synchronize", "acme-builds");
     expect(host.pull(31).labels).toEqual([]);
-    host.change(31, { labels: ["verdict: override"] });
+    host.change(31, { labels: ["verdict-override"] });
     await go("labeled", "dana");
     expect(log.at(-1)).toBe(
       `Review verdict on ${HEAD}: success, Overridden by an approver`,
@@ -343,7 +345,7 @@ describe("apply", () => {
     );
     expect(host.pull(31).labels).toEqual([]);
     expect(comments(host)).toEqual([
-      "Removed `verdict: override`: @bob cannot write to this repository, and only an account that can may pass the verdict.",
+      "Removed `verdict-override`: @bob cannot write to this repository, and only an account that can may pass the verdict.",
     ]);
   });
 
@@ -360,8 +362,42 @@ describe("apply", () => {
     );
     expect(host.pull(31).labels).toEqual([]);
     expect(comments(host)).toEqual([
-      "Removed `verdict: override`: could not check whether @bob can write to this repository. Add the label again to retry.",
+      "Removed `verdict-override`: could not check whether @bob can write to this repository. Add the label again to retry.",
     ]);
+  });
+
+  describe("with the override renamed by the settings", () => {
+    it("passes the verdict for an approver who adds the configured name", async () => {
+      const { log, go } = setUp({}, ["owner-pass"], "owner-pass");
+
+      await go("labeled", "alice");
+      expect(log).toContain(
+        `Review verdict on ${HEAD}: success, Overridden by an approver`,
+      );
+    });
+
+    it("removes the configured name from an account that cannot write, naming it", async () => {
+      const { host, go } = setUp({}, ["owner-pass"], "owner-pass");
+
+      await go("labeled", "bob");
+      expect(host.pull(31).labels).toEqual([]);
+      expect(comments(host)).toEqual([
+        "Removed `owner-pass`: @bob cannot write to this repository, and only an account that can may pass the verdict.",
+      ]);
+    });
+
+    it("names the configured label when it cannot check who added it", async () => {
+      const { host, go } = setUp(
+        { fail: { canWrite: new Error("gh: Server Error (HTTP 500)") } },
+        ["owner-pass"],
+        "owner-pass",
+      );
+
+      await expect(go("labeled", "bob")).rejects.toThrow("HTTP 500");
+      expect(comments(host)).toEqual([
+        "Removed `owner-pass`: could not check whether @bob can write to this repository. Add the label again to retry.",
+      ]);
+    });
   });
 
   it("asks who can write only for the override label", async () => {
@@ -378,6 +414,6 @@ describe("apply", () => {
     expect(log).toContain(
       `Review verdict on ${HEAD}: success, Overridden by an approver`,
     );
-    expect(host.pull(31).labels).toEqual(["verdict: override"]);
+    expect(host.pull(31).labels).toEqual(["verdict-override"]);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { PR_LABELS } from "../src/labels.mts";
 import { load } from "js-yaml";
 import { readFileSync } from "node:fs";
 import {
@@ -40,19 +41,19 @@ describe("classify", () => {
   it("lets a change merge itself when every path is in allow and none in deny", () => {
     expect(
       classify([{ filename: "docs/a.md" }, { filename: "site/b.ts" }], POLICY),
-    ).toEqual({ risk: "merge: automatic", reasons: [] });
+    ).toEqual({ risk: "merge-automatic", reasons: [] });
   });
 
   it("lets deny win over allow", () => {
     expect(classify([{ filename: "site/checkout/pay.ts" }], POLICY)).toEqual({
-      risk: "merge: manual",
+      risk: "merge-manual",
       reasons: ["site/checkout/pay.ts: held by auto-merge.deny"],
     });
   });
 
   it("holds a path outside allow", () => {
     expect(classify([{ filename: "build/x.sh" }], POLICY)).toEqual({
-      risk: "merge: manual",
+      risk: "merge-manual",
       reasons: ["build/x.sh: not in auto-merge.allow"],
     });
   });
@@ -70,14 +71,14 @@ describe("classify", () => {
         POLICY,
       ),
     ).toEqual({
-      risk: "merge: manual",
+      risk: "merge-manual",
       reasons: ["site/checkout/old.md: held by auto-merge.deny"],
     });
   });
 
   it("holds a pull request with no changed files", () => {
     expect(classify([], POLICY)).toEqual({
-      risk: "merge: manual",
+      risk: "merge-manual",
       reasons: ["no changed files"],
     });
   });
@@ -108,14 +109,14 @@ describe("decide", () => {
   it("lets the merge through when every command exits 0", () => {
     const results = [runCommand(`node -e "process.exit(0)"`, input)];
     expect(decide(allowed, commandReasons(results)).risk).toBe(
-      "merge: automatic",
+      "merge-automatic",
     );
   });
 
   it("holds the merge when a command exits non-zero, though every path is allowed", () => {
     const results = [runCommand(`node -e "process.exit(1)"`, input)];
     expect(decide(allowed, commandReasons(results))).toEqual({
-      risk: "merge: manual",
+      risk: "merge-manual",
       reasons: [`held by node -e "process.exit(1)"`],
     });
   });
@@ -156,7 +157,7 @@ describe("commands", () => {
 
 describe("statusLine", () => {
   it("says an automatic pull request merges itself", () => {
-    expect(statusLine({ risk: "merge: automatic", reasons: [] })).toBe(
+    expect(statusLine({ risk: "merge-automatic", reasons: [] })).toBe(
       "Merges itself once every gate passes: every file is on the allowlist",
     );
   });
@@ -164,7 +165,7 @@ describe("statusLine", () => {
   it("names the first reason and counts the rest", () => {
     expect(
       statusLine({
-        risk: "merge: manual",
+        risk: "merge-manual",
         reasons: ["CLAUDE.md: the agents' guardrails", "a", "b"],
       }),
     ).toBe(
@@ -184,7 +185,7 @@ describe("statusLine", () => {
 
   it("stays within GitHub's 140-character limit", () => {
     const line = statusLine({
-      risk: "merge: manual",
+      risk: "merge-manual",
       reasons: [`${"content/questions/x".repeat(10)}.md: study-guide content`],
     });
     expect(line).toHaveLength(140);
@@ -195,11 +196,33 @@ describe("statusLine", () => {
 describe("workflowOutput", () => {
   it("sets one merge label, removes the other, and says whether auto-merge goes on", () => {
     expect(
-      workflowOutput({ risk: "merge: automatic", reasons: [] }),
-    ).toMatchObject({ other: "merge: manual", automatic: true });
+      workflowOutput({ risk: "merge-automatic", reasons: [] }, PR_LABELS),
+    ).toMatchObject({
+      label: "merge-automatic",
+      other: "merge-manual",
+      automatic: true,
+    });
     expect(
-      workflowOutput({ risk: "merge: manual", reasons: ["CLAUDE.md: x"] }),
-    ).toMatchObject({ other: "merge: automatic", automatic: false });
+      workflowOutput(
+        { risk: "merge-manual", reasons: ["CLAUDE.md: x"] },
+        PR_LABELS,
+      ),
+    ).toMatchObject({
+      label: "merge-manual",
+      other: "merge-automatic",
+      automatic: false,
+    });
+  });
+
+  it("names each label as the settings rename it", () => {
+    const names = {
+      ...PR_LABELS,
+      "merge-automatic": "auto-merge",
+      "merge-manual": "needs owner",
+    };
+    expect(
+      workflowOutput({ risk: "merge-manual", reasons: ["x"] }, names),
+    ).toMatchObject({ label: "needs owner", other: "auto-merge" });
   });
 });
 

@@ -25,9 +25,16 @@ settings:
       spec: none                                                               # default
       acceptance-criteria: none                                                # default
       for-the-builder: none                                                    # default
+    labels:
+      spec: spec                                                               # default
+      follow-up: follow-up                                                     # default
   code-host:
     type: github
     branch-name: "{ticket}"
+    labels:
+      merge-automatic: merge-automatic                                         # default
+      merge-manual: merge-manual                                               # default
+      verdict-override: verdict-override                                       # default
   builds:
     trigger: manual
     runner: github-actions                                                     # default

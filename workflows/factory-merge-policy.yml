@@ -1,10 +1,11 @@
 name: Factory merge policy
 
-# Labels each pull request "merge: automatic" or "merge: manual" from the
-# files it changes, posts the reason as the non-blocking "Who merges" status, and
-# turns auto-merge on only for "merge: automatic" ones that are not drafts.
-# `factory merge-policy` holds the label names and the factory's own
-# files, and reads the auto-merge lists from .claude/factory.yaml. It reads
+# Labels each pull request merge-automatic or merge-manual, by the names
+# code-host.labels gives them, from the files it changes, posts the reason as
+# the non-blocking "Who merges" status, and turns auto-merge on only for
+# merge-automatic ones that are not drafts. `factory merge-policy` holds the
+# factory's own files, and reads the label names and the auto-merge lists
+# from the settings. It reads
 # the pull request as it is now, and the steps use its commit and draft
 # state: an event sent just after a push can carry the previous commit.
 #
@@ -62,7 +63,7 @@ jobs:
         run: |
           result=$(npx --no-install factory merge-policy "$PR")
           {
-            echo "label=$(jq -r .risk <<<"$result")"
+            echo "label=$(jq -r .label <<<"$result")"
             echo "other=$(jq -r .other <<<"$result")"
             echo "automatic=$(jq -r .automatic <<<"$result")"
             echo "status=$(jq -r .status <<<"$result")"
@@ -70,7 +71,7 @@ jobs:
             echo "draft=$(jq -r .draft <<<"$result")"
           } >> "$GITHUB_OUTPUT"
           {
-            echo "### $(jq -r .risk <<<"$result")"
+            echo "### $(jq -r .label <<<"$result")"
             jq -r '.reasons[] | "- \(.)"' <<<"$result"
           } >> "$GITHUB_STEP_SUMMARY"
 
