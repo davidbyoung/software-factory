@@ -54,8 +54,17 @@ describe("parseSettings", () => {
           "acceptance-criteria": null,
           "for-the-builder": null,
         },
+        labels: { spec: "spec", "follow-up": "follow-up" },
       },
-      codeHost: { type: "github", branchName: "{ticket}" },
+      codeHost: {
+        type: "github",
+        branchName: "{ticket}",
+        labels: {
+          "merge-automatic": "merge-automatic",
+          "merge-manual": "merge-manual",
+          "verdict-override": "verdict-override",
+        },
+      },
       builds: { trigger: "manual", runner: "github-actions", pollMinutes: 5 },
       specs: "none",
       specCheck: null,
@@ -337,14 +346,13 @@ describe("parseSettings", () => {
         BUILT,
         { partial: true },
       );
-      expect(s.codeHost).toEqual({ type: "github", branchName: null });
+      expect(s.codeHost.branchName).toBeNull();
     });
 
     it("takes a pattern with the ticket and the user", () => {
-      expect(parse(named("feature/{user}/{ticket}")).codeHost).toEqual({
-        type: "github",
-        branchName: "feature/{user}/{ticket}",
-      });
+      expect(parse(named("feature/{user}/{ticket}")).codeHost.branchName).toBe(
+        "feature/{user}/{ticket}",
+      );
     });
 
     it("says to quote a pattern YAML read as a map", () => {
@@ -526,6 +534,122 @@ describe("parseSettings", () => {
         colour: "red",
       }),
     ).toThrow("version: must be 2: this file is version 1");
+  });
+
+  describe("label names", () => {
+    const labeled = (tickets: unknown, codeHost: unknown = undefined) => ({
+      ...MINIMAL,
+      ...(tickets === undefined ? {} : { tickets: { labels: tickets } }),
+      "code-host": { ...CODE_HOST, labels: codeHost },
+    });
+
+    it("uses each key as its name when nothing is set", () => {
+      const s = parse(MINIMAL);
+      expect(s.tickets.labels).toEqual({
+        spec: "spec",
+        "follow-up": "follow-up",
+      });
+      expect(s.codeHost.labels).toEqual({
+        "merge-automatic": "merge-automatic",
+        "merge-manual": "merge-manual",
+        "verdict-override": "verdict-override",
+      });
+    });
+
+    it("takes a name for some keys and keeps the default for the rest", () => {
+      const s = parse(
+        labeled({ spec: "needs-spec" }, { "merge-manual": "needs owner" }),
+      );
+      expect(s.tickets.labels).toEqual({
+        spec: "needs-spec",
+        "follow-up": "follow-up",
+      });
+      expect(s.codeHost.labels["merge-manual"]).toBe("needs owner");
+      expect(s.codeHost.labels["merge-automatic"]).toBe("merge-automatic");
+    });
+
+    it.each([
+      [
+        labeled({ factory: "x" }),
+        ".claude/factory.yaml: tickets.labels.factory: unknown key",
+      ],
+      [
+        labeled(undefined, { spec: "x" }),
+        ".claude/factory.yaml: code-host.labels.spec: unknown key",
+      ],
+    ])("refuses a key that is not one of its side's", (raw, message) => {
+      expect(() => parse(raw)).toThrow(message);
+    });
+
+    it.each(["", "   "])("refuses an empty name, %j", (name) => {
+      expect(() => parse(labeled({ "follow-up": name }))).toThrow(
+        ".claude/factory.yaml: tickets.labels.follow-up: must not be empty",
+      );
+    });
+
+    it("refuses two names equal but for capitals, on the key the file sets", () => {
+      expect(() =>
+        parse(labeled({ spec: "Spec" }, { "merge-manual": "spec" })),
+      ).toThrow(
+        '.claude/factory.yaml: code-host.labels.merge-manual: "spec" is already tickets.labels.spec. Give each label its own name',
+      );
+    });
+
+    it("counts a default name, and names the key the file sets", () => {
+      expect(() => parse(labeled({ spec: "follow-up" }))).toThrow(
+        '.claude/factory.yaml: tickets.labels.spec: "follow-up" is already tickets.labels.follow-up. Give each label its own name',
+      );
+    });
+
+    it("names the later of two keys the file sets", () => {
+      expect(() =>
+        parse(labeled({ spec: "kind", "follow-up": "Kind" })),
+      ).toThrow(
+        '.claude/factory.yaml: tickets.labels.follow-up: "Kind" is already tickets.labels.spec. Give each label its own name',
+      );
+    });
+
+    describe("with tickets and pull requests in different tools", () => {
+      const built = {
+        ...BUILT,
+        tickets: { ...BUILT.tickets, fake: [] },
+        labelFaults: {
+          tickets: {
+            fake: (name: string) =>
+              name.includes(" ")
+                ? "Fake Tickets doesn't allow a space in a label"
+                : null,
+          },
+          codeHost: {},
+        },
+      };
+      const parseWith = (raw: unknown) => parseSettings(raw, () => true, built);
+      const fake = (labels: unknown, codeHost: unknown = undefined) => ({
+        ...MINIMAL,
+        tickets: { type: "fake", labels },
+        "code-host": { ...CODE_HOST, labels: codeHost },
+      });
+
+      it("lets a ticket label and a pull request label share a name", () => {
+        const s = parseWith(
+          fake({ spec: "review" }, { "merge-manual": "review" }),
+        );
+        expect(s.tickets.labels.spec).toBe("review");
+        expect(s.codeHost.labels["merge-manual"]).toBe("review");
+      });
+
+      it("still refuses two ticket labels with one name", () => {
+        expect(() => parseWith(fake({ spec: "x", "follow-up": "x" }))).toThrow(
+          'tickets.labels.follow-up: "x" is already tickets.labels.spec',
+        );
+      });
+
+      it("gives the ticket system's reason for a name it refuses", () => {
+        expect(() => parseWith(fake({ spec: "needs spec" }))).toThrow(
+          ".claude/factory.yaml: tickets.labels.spec: Fake Tickets doesn't allow a space in a label",
+        );
+      });
+    });
   });
 
   describe("a file in the older shape", () => {
@@ -1086,6 +1210,21 @@ describe("factory config explain", () => {
     expect(r.out.map((l) => l.trimEnd())).toContain("    backlog: Todo");
   });
 
+  it("prints a renamed label unmarked, in YAML the lock reads back", async () => {
+    const r = await explain(
+      SMALL.map((l) =>
+        l === CODE_HOST_YAML
+          ? `${l}\n  labels:\n    verdict-override: "owner: pass"`
+          : l,
+      ),
+    );
+    expect(r.code).toBe(0);
+    const line = r.out.find((l) => l.includes("verdict-override:"))!;
+    expect(line.trimEnd()).toBe('    verdict-override: "owner: pass"');
+    const read = parse(load(r.out.join("\n")));
+    expect(read.codeHost.labels["verdict-override"]).toBe("owner: pass");
+  });
+
   it("prints every setting in the file's order, defaults filled in and their marks lined up", async () => {
     const r = await explain(SMALL);
     expect(r.code).toBe(0);
@@ -1112,9 +1251,16 @@ describe("factory config explain", () => {
           spec: none                                                               # default
           acceptance-criteria: none                                                # default
           for-the-builder: none                                                    # default
+        labels:
+          spec: spec                                                               # default
+          follow-up: follow-up                                                     # default
       code-host:
         type: github
         branch-name: "{ticket}"
+        labels:
+          merge-automatic: merge-automatic                                         # default
+          merge-manual: merge-manual                                               # default
+          verdict-override: verdict-override                                       # default
       builds:
         trigger: manual                                                            # default
         runner: github-actions                                                     # default

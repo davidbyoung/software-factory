@@ -18,7 +18,13 @@ import { matchesAny } from "./lib/glob.mts";
 import { listed } from "./lib/listed.mts";
 import { DEFAULT_RUNNER, unsupportedRunner } from "./runner/index.mts";
 import { FACTORY_FIELDS, type FieldMapping } from "./ticket-fields.mts";
-import { BUILT, unsupported, type Built } from "./tool-names.mts";
+import { PR_LABELS, sameLabel, TICKET_LABELS, type Labels } from "./labels.mts";
+import {
+  BUILT,
+  unsupported,
+  type Built,
+  type LabelFault,
+} from "./tool-names.mts";
 import {
   DEFAULT_COLUMNS,
   STATE_KEYS,
@@ -160,11 +166,18 @@ export type Settings = {
      * first and then any heading of the repository's own, with the ticket
      * field that holds it, or null for the description. */
     ticketFields: FieldMapping;
+    /** The name of each label the factory puts on tickets. */
+    labels: Labels["tickets"];
   };
   /** Where pull requests are, and the pattern a build's branch is named
    * by. The pattern is null only when init reads settings without it, to
    * ask for it. */
-  codeHost: { type: string; branchName: string | null };
+  codeHost: {
+    type: string;
+    branchName: string | null;
+    /** The name of each label the factory puts on pull requests. */
+    labels: Labels["codeHost"];
+  };
   builds: {
     /** What notices a card moved to Ready and starts its build. */
     trigger: (typeof TRIGGERS)[number];
@@ -282,13 +295,15 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     "session-minutes",
     "rules",
   ],
-  tickets: ["type", "board", "columns", "fields"],
+  tickets: ["type", "board", "columns", "fields", "labels"],
+  "tickets.labels": Object.keys(TICKET_LABELS),
   "tickets.columns": Object.keys(STATE_KEYS),
   "tickets.fields": [
     ...Object.keys(FIELD_DEFAULTS),
     ...FACTORY_FIELDS.map((f) => f.key),
   ],
-  "code-host": ["type", "branch-name"],
+  "code-host": ["type", "branch-name", "labels"],
+  "code-host.labels": Object.keys(PR_LABELS),
   builds: ["trigger", "runner", "poll-minutes"],
   specs: ["type", "check"],
   commands: [
@@ -485,6 +500,57 @@ function names(
       return [k, value.trim()];
     }),
   );
+}
+
+/** One side's label names: each key the file sets, checked by the tool
+ * that shows it, and the rest at their defaults. */
+function labelsOf<K extends string>(
+  v: unknown,
+  key: string,
+  defaults: Record<K, string>,
+  fault: LabelFault | undefined,
+): { names: Record<K, string>; set: K[] } {
+  const o = object(v, key);
+  const set = (Object.keys(defaults) as K[]).filter((k) => o[k] !== undefined);
+  const names = { ...defaults };
+  for (const k of set) {
+    const value = o[k];
+    if (typeof value !== "string") fail(`${key}.${k}`, "must be text");
+    const name = (value as string).trim();
+    if (!name) fail(`${key}.${k}`, "must not be empty");
+    const why = fault?.(name);
+    if (why) fail(`${key}.${k}`, why);
+    names[k] = name;
+  }
+  return { names, set };
+}
+
+/** Fails on two labels with one name, ignoring capitals, naming a key the
+ * file sets: of two it sets, the later. Ticket and pull request labels are
+ * compared only when one tool holds both. */
+function sameNames(
+  sides: { key: string; names: Record<string, string>; set: string[] }[],
+  oneTool: boolean,
+) {
+  const groups = oneTool ? [sides] : sides.map((side) => [side]);
+  for (const group of groups) {
+    const all = group.flatMap((side) =>
+      Object.entries(side.names).map(([k, name]) => ({
+        at: `${side.key}.${k}`,
+        name,
+        set: side.set.includes(k),
+      })),
+    );
+    for (const [i, b] of all.entries())
+      for (const a of all.slice(0, i)) {
+        if (!sameLabel(a.name, b.name)) continue;
+        const [blamed, other] = b.set ? [b, a] : [a, b];
+        fail(
+          blamed.at,
+          `"${blamed.name}" is already ${other.at}. Give each label its own name`,
+        );
+      }
+  }
 }
 
 /** A key under `tickets.fields` naming a heading of the repository's own. */
@@ -819,6 +885,25 @@ export function parseSettings(
       `${SETTINGS_FILE}: ${unsupportedCodeHost(String(codeHost), built.codeHost)}`,
     );
   const branchName = branchNameOf(codeHostBlock["branch-name"], partial);
+  const ticketLabels = labelsOf(
+    tickets.labels,
+    "tickets.labels",
+    TICKET_LABELS,
+    built.labelFaults.tickets[ticketType],
+  );
+  const prLabels = labelsOf(
+    codeHostBlock.labels,
+    "code-host.labels",
+    PR_LABELS,
+    built.labelFaults.codeHost[codeHost],
+  );
+  sameNames(
+    [
+      { key: "tickets.labels", ...ticketLabels },
+      { key: "code-host.labels", ...prLabels },
+    ],
+    ticketType === codeHost,
+  );
 
   const builds = object(top.builds, "builds");
   const trigger = oneOf(builds.trigger, "builds.trigger", TRIGGERS, "manual");
@@ -939,8 +1024,9 @@ export function parseSettings(
       columns,
       fields: fieldNames,
       ticketFields,
+      labels: ticketLabels.names,
     },
-    codeHost: { type: codeHost, branchName },
+    codeHost: { type: codeHost, branchName, labels: prLabels.names },
     builds: { trigger, runner, pollMinutes },
     specs,
     specCheck,

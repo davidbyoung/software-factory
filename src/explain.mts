@@ -109,6 +109,9 @@ export async function explainLines(
   if (s.tickets.board === null) block(["tickets", "fields"]);
   for (const [k, v] of Object.entries(s.tickets.ticketFields))
     put(["tickets", "fields", k], v ?? "none");
+  block(["tickets", "labels"]);
+  for (const [k, v] of Object.entries(s.tickets.labels))
+    put(["tickets", "labels", k], v);
 
   block(["code-host"]);
   put(["code-host", "type"], s.codeHost.type);
@@ -117,6 +120,9 @@ export async function explainLines(
     text: `${pad(1)}branch-name: ${JSON.stringify(s.codeHost.branchName)}`,
     mark: marks.value(["code-host", "branch-name"]),
   });
+  block(["code-host", "labels"]);
+  for (const [k, v] of Object.entries(s.codeHost.labels))
+    put(["code-host", "labels", k], v);
   block(["builds"]);
   put(["builds", "trigger"], s.builds.trigger);
   put(["builds", "runner"], s.builds.runner);
