@@ -226,19 +226,22 @@ the work to that type's adapter.** An adapter is one module in
 
 | Operation               | In `Tickets`              | What it returns or does                                                                                                                                                                             |
 | ----------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read a ticket           | `read`                    | Its number, title, state (`open` or `closed`), when it closed, labels, body, and comments, each with its ID, author, time, and body                                                                 |
-| List open tickets       | `listOpen`                | Number, title, and labels, for every open ticket however many there are                                                                                                                             |
+| Parse a key             | `key`                     | The key a person typed, or `KeyError` saying what a key looks like in this system. GitHub's are numbers, such as `12`                                                                               |
+| Write a ticket          | `ref`                     | How the ticket is written in prose and output, such as `#12`                                                                                                                                        |
+| Read a ticket           | `read`                    | Its key, title, state (`open` or `closed`), when it closed, labels, body, and comments, each with its ID, author, time, and body                                                                    |
+| List open tickets       | `listOpen`                | Key, title, and labels, for every open ticket however many there are                                                                                                                                |
 | Read everything at once | `readAll`                 | Every open ticket and the 30 closed ones most recently updated, as `read` returns each; with the board group, each carries its card. Optional: see below                                            |
 | Write a ticket's body   | `writeBody`               |                                                                                                                                                                                                     |
 | Comment                 | `comment`                 | Returns the comment's ID. Hidden markers pass through unchanged                                                                                                                                     |
 | Edit a comment          | `editComment`             | By its ID                                                                                                                                                                                           |
 | Delete a comment        | `deleteComment`           | By its ID                                                                                                                                                                                           |
 | Not found               | `NotFoundError`           | Reading a ticket that does not exist, or editing or deleting a comment that is gone, throws this, so a caller can tell it from any other failure                                                    |
-| Open a ticket           | `open`                    | With a title, a body, and labels. Returns its number                                                                                                                                                |
+| Open a ticket           | `open`                    | With a title, a body, and labels. Returns its key                                                                                                                                                   |
 | Add or remove a label   | `addLabel`, `removeLabel` |                                                                                                                                                                                                     |
 | Who may decide          | `mayDecide`               | Whether a comment's author may decide on a ticket, so `factory ticket answers` takes their comment as an answer. GitHub's asks whether they can write to the repository. Rejects when it cannot say |
-| Link text               | `linkText`                | What makes a merged pull request close the ticket, such as "Closes #12"                                                                                                                             |
-| The address of a ticket | `address`                 | Its page, which the views link a ticket's number to                                                                                                                                                 |
+| Link text               | `linkText`                | What makes a merged pull request close the ticket, such as "Closes #12", and what says it builds part of one, "Part of #4"                                                                          |
+| Links in a body         | `linksIn`                 | The tickets a pull request's body closes, and those it builds part of, each in the body's order                                                                                                     |
+| The address of a ticket | `address`                 | Its page, which the views link a ticket to                                                                                                                                                          |
 
 "Read everything at once" has a default, `readAll` in
 `src/tickets/types.mts`, built from `listOpen` and `read`, so a new adapter
@@ -281,13 +284,18 @@ package.
 What stays above the interface: working out a ticket's state from its
 marker comments, costs, and the formatting of every view, in
 `src/lib/work-status.mts` and the commands. They are the factory's own
-logic, the same for any system.
+logic, the same for any system. Nothing there writes `#` or reads a link
+from a pull request's body itself: it asks the adapter. The code host's
+own links, such as GitHub's closing references, count only when the
+tickets are the code host's own (`src/lib/pull-tickets.mts`).
 
 A second adapter exists from the start: an in-memory one,
 `tests/memory-tickets.ts`, that every command's tests run against. It
 keeps the interface honest, since anything the tests need has to go
-through it. The GitHub adapter has its own tests against recorded
-responses.
+through it. Its keys are numbers, as GitHub's are; with `strict` they are
+keys like `PROJ-12`, and comment IDs and authors are opaque text, as Jira
+and Linear give them, so a command that treats either as a number fails
+there. The GitHub adapter has its own tests against recorded responses.
 
 What an adapter does not cover: pull requests, reviews, and checks, which
 are the code host's, and where an unattended build runs, which is the

@@ -87,7 +87,7 @@ anything to do, and stops there when there is not.
 | `factory-poller.yml`          | Every `builds.poll-minutes` minutes, or by hand                 | Runs one pass of the poller, starting a build for each Ready ticket. Written once `builds.trigger` is `github-action`                                 |
 
 **Starting a build by hand.** The Actions tab, "Factory build", "Run
-workflow", and the ticket's number. The board's "Runs in" field then shows
+workflow", and the ticket's key, such as `12`. The board's "Runs in" field then shows
 "Actions", and "Session" the run's link. The run's log also shows each
 tool call the session was denied, with the reason.
 
