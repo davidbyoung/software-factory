@@ -74,12 +74,12 @@ The factory SHALL behave as this line says: No factory command puts a credential
 
 ### Requirement: The guard refuses the credentials file
 
-The factory SHALL behave as this line says: When any text value in the input of a session's `Bash`, `Read`, `Grep`, or `Glob` call, such as its command, path, pattern, or glob, contains `software-factory/credentials`, the guard hook refuses it, with the reason `The factory's credentials file is not for sessions to read. Its commands read it themselves: run the factory command you need, such as factory ticket view.`
+The factory SHALL refuse a session's call that reads the credentials file, with the reason `The factory's credentials file is not for sessions to read. Its commands read it themselves: run the factory command you need, such as factory ticket view.`, and let through one that only mentions it.
 
 #### Scenario: The guard refuses the credentials file
 
-- **WHEN** any text value in the input of a session's `Bash`, `Read`, `Grep`, or `Glob` call, such as its command, path, pattern, or glob, contains `software-factory/credentials`
-- **THEN** the guard hook refuses it, with the reason `The factory's credentials file is not for sessions to read. Its commands read it themselves: run the factory command you need, such as factory ticket view.`
+- **WHEN** a session's `Bash` command has the file's path as an argument, written after a folder (`~/.config/software-factory/credentials...`, `$XDG_CONFIG_HOME/software-factory/credentials...`, or a full path) or as `software-factory/credentials.yaml`, outside a heredoc body and outside a quoted string with a space in it; or a `Read` or `Grep` call's `file_path` or `path`, or a `Glob` call's `pattern` or `path`, names it the same way
+- **THEN** the guard hook refuses it with that reason; a commit message, a comment body, a heredoc, a search for the words, or Grep's pattern that only mentions the path goes through
 
 ### Requirement: The workflows read the ticket system's secrets
 
