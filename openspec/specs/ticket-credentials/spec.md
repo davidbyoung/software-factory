@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD - created by archiving change issue-62. Update Purpose after archive.
+Where a ticket system that is not GitHub keeps its credential, in the repository's secrets for the workflows and in a file only its owner can read for the sessions on a machine, and how every command reads it, words its failures, and keeps a session from reading it.
 
 ## Requirements
 
