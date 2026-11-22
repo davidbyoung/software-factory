@@ -516,7 +516,7 @@ The factory SHALL behave as this line says: When line 18's row reads missing or 
 
 #### Scenario: Init asks for this machine's credential
 
-- **WHEN** line 18's row reads missing or refused
+- **WHEN** line 18's row reads missing, or refused for a credential read from the file (one read from the environment is refused with line 6's message, and nothing is asked, since the variables would still win)
 - **THEN** `init` asks for the credential right after `Found`, before it lists the repository's secrets, stores it in the file only, prints `It belongs to ACCOUNT. Stored on this machine.`, then asks `Change which parts are on?`, defaulting to no. When a part is left empty, it prints the tool's line for that and `Run factory init again to add it.` in place of the stored line, and still asks.
 
 ### Requirement: No change to the parts
@@ -562,7 +562,7 @@ The factory SHALL print, when the ticket system in use keeps a credential on the
 #### Scenario: Doctor checks this machine's credential
 
 - **WHEN** the ticket system in use keeps a credential on the machine
-- **THEN** `factory doctor` prints one line about it under the ticket system's heading: `✓ The credential on this machine is accepted, for ACCOUNT`; `✓ The credential in NAME and NAME is accepted, for ACCOUNT` when it came from the environment; or the failure of lines 3 to 6 and 19, worded `No credential on this machine for SITE` with the fix `Run: factory init`, `The credential on this machine is refused (REASON)` with the fix `It may have expired. Run: factory init`, `PATH can be read by others` with the fix `Run: chmod 600 PATH`, or `PATH is not valid YAML` with the fix `Fix or delete it, then run: factory init`. `doctor` makes this check itself for any such ticket system; the tool's own `checks` do not.
+- **THEN** `factory doctor` prints one line about it under the ticket system's heading: `✓ The credential on this machine is accepted, for ACCOUNT`; `✓ The credential in NAMES is accepted, for ACCOUNT` when it came from the environment; or `✗` and the failure, with its fix after it as every `doctor` line has one: `No credential on this machine for SITE. Run factory init`; `The credential on this machine is refused (REASON). It may have expired. Run factory init`; `The credential in NAMES is refused (REASON). They may have expired: replace them where they are set` when it came from the environment; `The credential on this machine could not be checked (REASON). Check that SITE can be reached. Run factory doctor`; `PATH can be read by others. Run chmod 600 PATH`; or `PATH is not valid YAML. Fix or delete it. Run factory init`. `doctor` makes this check itself for any such ticket system; the tool's own `checks` do not, and are skipped when the credential is not accepted.
 
 ### Requirement: The ticket system opened through the registry
 
