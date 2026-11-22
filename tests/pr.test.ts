@@ -4,7 +4,7 @@ import {
   formatReport,
   isSettled,
   main,
-  ownerReviewsToWork,
+  approverReviewsToWork,
   reviewExpected,
   withAgentMark,
   type Deps,
@@ -404,7 +404,7 @@ const report = (over: Partial<Report> = {}): Report => ({
       repository: "acme/widgets",
     },
   },
-  ownerLogin: "acme",
+  approvers: ["acme"],
   reviewRun: { status: "completed", conclusion: "success" },
   summary: {
     id: 1,
@@ -419,7 +419,7 @@ const report = (over: Partial<Report> = {}): Report => ({
   ...over,
 });
 
-describe("ownerReviewsToWork", () => {
+describe("approverReviewsToWork", () => {
   const review = (id: number, at: string, body = "Rename it.") => ({
     id,
     author: "acme",
@@ -433,7 +433,7 @@ describe("ownerReviewsToWork", () => {
     createdAt: at,
   });
 
-  it("keeps the owner's review bodies after the last agent comment", () => {
+  it("keeps an approver's review bodies after the last agent comment", () => {
     const r = report({
       reviews: [
         review(1, "2026-11-09T09:00:00Z"),
@@ -442,7 +442,7 @@ describe("ownerReviewsToWork", () => {
       conversation: [agentSaid("2026-11-09T10:00:00Z")],
     });
 
-    expect(ownerReviewsToWork(r).map((x) => x.id)).toEqual([2]);
+    expect(approverReviewsToWork(r).map((x) => x.id)).toEqual([2]);
   });
 
   it("does not let a conflict sweep's comment count as the answer", () => {
@@ -453,15 +453,15 @@ describe("ownerReviewsToWork", () => {
       ],
     });
 
-    expect(ownerReviewsToWork(r)).toHaveLength(1);
+    expect(approverReviewsToWork(r)).toHaveLength(1);
   });
 
-  it("skips another reviewer's review body", () => {
+  it("skips the review body of someone who is not an approver", () => {
     const r = report({
       reviews: [{ ...review(1, "2026-11-09T09:00:00Z"), author: "someone" }],
     });
 
-    expect(ownerReviewsToWork(r)).toEqual([]);
+    expect(approverReviewsToWork(r)).toEqual([]);
   });
 
   it("skips empty bodies and the session's own thread replies", () => {
@@ -472,7 +472,7 @@ describe("ownerReviewsToWork", () => {
       ],
     });
 
-    expect(ownerReviewsToWork(r)).toEqual([]);
+    expect(approverReviewsToWork(r)).toEqual([]);
   });
 });
 
@@ -513,7 +513,7 @@ describe("waiting for the review", () => {
 });
 
 describe("formatReport", () => {
-  it("names the verdict, the owner's turn on a thread, and each check", () => {
+  it("names the verdict, an approver's turn on a thread, and each check", () => {
     const lines = formatReport(
       report({
         threads: [
@@ -531,7 +531,7 @@ describe("formatReport", () => {
 
     expect(lines).toContain("summary: comment 1, verdict ready");
     expect(lines).toContain(
-      "  - 7 on a.ts:3 (outdated) by acme, owner's turn: Why this?",
+      "  - 7 on a.ts:3 (outdated) by acme, approver's turn: Why this?",
     );
     expect(lines).toContain("  - Tests: passed");
   });
@@ -757,12 +757,12 @@ describe("review-pending", () => {
     expect(out[0]).toMatch(why);
   });
 
-  it("exits 1 for a review by someone else", async () => {
+  it("exits 1 for a review by someone who cannot write", async () => {
     const { code, out } = await run({
       reviews: [review("Fix this.", "mallory")],
     });
     expect(code).toBe(1);
-    expect(out[0]).toMatch(/someone else's/);
+    expect(out[0]).toBe("nothing to do: review 5 is not an approver's");
   });
 
   it("exits 1 for the factory's reply: an empty body and one comment with the marker", async () => {
@@ -783,12 +783,12 @@ describe("review-pending", () => {
     error.mockRestore();
   });
 
-  it("exits 0 for an owner's review with only a body", async () => {
+  it("exits 0 for an approver's review with only a body", async () => {
     const { code } = await run({ reviews: [review("Please change this.")] });
     expect(code).toBe(0);
   });
 
-  it("exits 0 for an owner's review with only comments", async () => {
+  it("exits 0 for an approver's review with only comments", async () => {
     const { code } = await run({
       reviews: [review("", "acme", ["Rename this."])],
     });
@@ -1386,6 +1386,218 @@ describe("what the skills run in place of the code host's and the runner's own t
       expect(await main(["review-again", "12"], d)).toBe(1);
       expect(out).toEqual(["no review has run on head12"]);
       expect(runner.reviewsAsked).toEqual([]);
+    });
+  });
+});
+
+// An organization's repository: its name before the slash is nobody's
+// login, and the approvers are whoever the code host says can write.
+describe("approvers", () => {
+  const ORG = "acme/x";
+  const at = (minute: number) =>
+    `2026-11-22T15:${String(minute).padStart(2, "0")}:00Z`;
+  const comment = (id: number, author: string, body: string, minute = 0) => ({
+    id,
+    author,
+    body,
+    createdAt: at(minute),
+  });
+  const review = (
+    id: number,
+    author: string,
+    body: string,
+    comments: string[] = [],
+  ) => ({
+    id,
+    author,
+    body,
+    submittedAt: at(10),
+    comments: comments.map((text, i) => comment(id * 10 + i, author, text)),
+  });
+  const org = (
+    seed: Partial<PullSeed>,
+    options: MemoryCodeHostOptions = {},
+  ) => {
+    const made = pr([{ number: 31, author: "acme-builds", ...seed }], {
+      writers: ["alice", "dana", "acme-builds"],
+      ...options,
+    });
+    return { ...made, d: { ...made.d, repository: ORG } };
+  };
+  let errors: string[] = [];
+  const quiet = () =>
+    vi
+      .spyOn(console, "error")
+      .mockImplementation((line: unknown) => void errors.push(String(line)));
+  afterEach(() => {
+    errors = [];
+  });
+
+  describe("review-pending", () => {
+    it("is pending for an approver's review in an organization's repository", async () => {
+      const { d, out } = org({ reviews: [review(5, "alice", "Fix this.")] });
+      expect(await main(["review-pending", "31", "5"], d)).toBe(0);
+      expect(out).toEqual(["pending"]);
+    });
+
+    it("is pending for an approver's review with only a line comment", async () => {
+      const { d, out } = org({
+        reviews: [review(5, "dana", "", ["Rename this."])],
+      });
+      expect(await main(["review-pending", "31", "5"], d)).toBe(0);
+      expect(out).toEqual(["pending"]);
+    });
+
+    it("says a review by an account that cannot write is not an approver's", async () => {
+      const { d, out } = org({ reviews: [review(5, "mallory", "Fix this.")] });
+      expect(await main(["review-pending", "31", "5"], d)).toBe(1);
+      expect(out).toEqual(["nothing to do: review 5 is not an approver's"]);
+    });
+
+    it("says an approver's review that is all the factory's own is its own reply", async () => {
+      const { d, out } = org({
+        reviews: [review(5, "alice", "", [`Fixed.\n\n${AGENT}`])],
+      });
+      expect(await main(["review-pending", "31", "5"], d)).toBe(1);
+      expect(out).toEqual([
+        "nothing to do: review 5 is the factory's own reply: nothing of an approver's in it",
+      ]);
+    });
+
+    it("exits 2 when the code host cannot say who can write", async () => {
+      quiet();
+      const { d, out } = org(
+        { reviews: [review(5, "alice", "Fix this.")] },
+        { fail: { canWrite: new Error("gh: Server Error (HTTP 500)") } },
+      );
+      expect(await main(["review-pending", "31", "5"], d)).toBe(2);
+      expect(out).toEqual([]);
+      expect(errors).toEqual(["gh: Server Error (HTTP 500)"]);
+    });
+  });
+
+  describe("state", () => {
+    const seed: Partial<PullSeed> = {
+      comments: [comment(1, "acme-builds", `Done.\n\n${AGENT}`, 5)],
+      reviews: [
+        review(51, "alice", "The empty state needs a link back to the list."),
+        review(52, "mallory", "Make it purple."),
+        review(53, "github-actions[bot]", "Looks fine."),
+      ],
+      threads: [
+        thread(21, {
+          comments: [
+            { id: 21, author: "alice", body: "Why a new helper here?" },
+            { id: 22, author: "acme-builds", body: `Reuse.\n\n${AGENT}` },
+            { id: 23, author: "dana", body: "Still unsure." },
+          ],
+        }),
+        thread(24, {
+          comments: [{ id: 24, author: "mallory", body: "Rename it." }],
+        }),
+        thread(25, {
+          comments: [
+            {
+              id: 25,
+              author: "github-actions[bot]",
+              body: "`rows` can be empty.",
+            },
+          ],
+        }),
+      ],
+    };
+
+    it("lists only an approver's review bodies, and marks an approver's turn whoever opened the thread", async () => {
+      const { d, out } = org(seed);
+      expect(await main(["state", "31"], d)).toBe(0);
+      const from = out.indexOf("approver review bodies to answer: 1");
+      expect(out.slice(from, from + 6)).toEqual([
+        "approver review bodies to answer: 1",
+        "  - review 51 at 2026-11-22T15:10:00Z: The empty state needs a link back to the list.",
+        "unresolved threads: 3",
+        "  - 21 on a.ts:3 by alice, approver's turn: Why a new helper here?",
+        "  - 24 on a.ts:3 by mallory: Rename it.",
+        "  - 25 on a.ts:3 by github-actions[bot]: `rows` can be empty.",
+      ]);
+    });
+
+    it("asks once for each distinct author", async () => {
+      const { d, log } = org(seed);
+      await main(["state", "31"], d);
+      expect(log.filter((l) => l.startsWith("canWrite")).sort()).toEqual([
+        "canWrite alice",
+        "canWrite dana",
+        "canWrite github-actions[bot]",
+        "canWrite mallory",
+      ]);
+    });
+
+    it("prints no report and exits 1 when the code host cannot say who can write", async () => {
+      quiet();
+      const { d, out } = org(seed, {
+        fail: { canWrite: new Error("gh: Server Error (HTTP 500)") },
+      });
+      expect(await main(["state", "31"], d)).toBe(1);
+      expect(out).toEqual([]);
+      expect(errors).toEqual(["gh: Server Error (HTTP 500)"]);
+    });
+  });
+
+  describe("comments --from-approvers", () => {
+    const seed: Partial<PullSeed> = {
+      comments: [
+        comment(4, "alice", "Can this wait for the API change in #27?", 10),
+        comment(5, "mallory", "Ship it now.", 12),
+        comment(
+          7,
+          "acme-builds",
+          `Merged main: the conflict was in package-lock.json.\n<!-- conflict-stop head=abc -->\n${AGENT}`,
+          31,
+        ),
+      ],
+    };
+
+    it("keeps the comments whose author can write, the factory's own included", async () => {
+      const { d, out } = org(seed);
+      expect(await main(["comments", "31", "--from-approvers"], d)).toBe(0);
+      expect(out).toEqual([
+        "4 alice 2026-11-22T15:10:00Z Can this wait for the API change in #27?",
+        "7 acme-builds 2026-11-22T15:31:00Z Merged main: the conflict was in package-lock.json.",
+      ]);
+    });
+
+    it("with --contains as well, keeps a comment only when it passes both", async () => {
+      const { d, out } = org(seed);
+      await main(
+        [
+          "comments",
+          "31",
+          "--from-approvers",
+          "--contains",
+          "conflict-stop head=abc",
+        ],
+        d,
+      );
+      expect(out.map((l) => l.split(" ")[0])).toEqual(["7"]);
+    });
+
+    it("with --author as well, keeps a comment only when it passes both", async () => {
+      const { d, out } = org(seed);
+      await main(
+        ["comments", "31", "--from-approvers", "--author", "mallory"],
+        d,
+      );
+      expect(out).toEqual([]);
+    });
+
+    it("prints no comments and exits 1 when the code host cannot say who can write", async () => {
+      quiet();
+      const { d, out } = org(seed, {
+        fail: { canWrite: new Error("gh: Server Error (HTTP 500)") },
+      });
+      expect(await main(["comments", "31", "--from-approvers"], d)).toBe(1);
+      expect(out).toEqual([]);
+      expect(errors).toEqual(["gh: Server Error (HTTP 500)"]);
     });
   });
 });
