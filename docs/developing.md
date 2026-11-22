@@ -30,51 +30,50 @@ completes with the files the version writes ([Updating](updating.md)).
 The factory is the npm package `@davidbyoung/software-factory`. Parts not
 marked working below exist only in these docs.
 
-| Part                                                                                                             | State                                                                     |
-| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Refining, building, and working a pull request's review                                                          | Working                                                                   |
-| The board, its sync, and `status`                                                                                | Working                                                                   |
-| Builds from the board, with a poller you host                                                                    | Working                                                                   |
-| Builds that run in GitHub Actions, started by a command                                                          | Working                                                                   |
-| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                 | Working                                                                   |
-| Who merges, and the review's verdict                                                                             | Working                                                                   |
-| The labels `merge: manual` and `verdict: override`                                                               | Working                                                                   |
-| These docs                                                                                                       | Working                                                                   |
-| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                       | Working                                                                   |
-| The follow-ups ticket as one checklist                                                                           | Working                                                                   |
-| The `factory` tool, `sync`, and the package folder                                                               | Working                                                                   |
-| A global `factory` command that runs each repository's own copy                                                  | Working                                                                   |
-| The automated review as one of the factory's workflows, and [`pr-review`](configuration.md#pr-review)            | Working                                                                   |
-| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                                                                   |
-| The `factory-` names and the `FACTORY_` secrets                                                                  | Working                                                                   |
-| Ticket commands that go through one interface                                                                    | Working                                                                   |
-| The code host and the runner, each behind one interface                                                          | Working                                                                   |
-| A published package                                                                                              | Working                                                                   |
-| Updates through Dependabot, which `factory-deps` completes with `factory sync`                                   | Working                                                                   |
-| `factory board --dry-run`                                                                                        | Working                                                                   |
-| Your own column names on a board                                                                                 | Working                                                                   |
-| `init` suggesting a board's columns through the coding agent                                                     | Working                                                                   |
-| Refinement's factory fields in your ticket fields, suggested by `init`                                           | Working                                                                   |
-| A UI reviewer for any website                                                                                    | Working                                                                   |
-| Built-in measurements for any website                                                                            | Working                                                                   |
-| A design skill for any website                                                                                   | Working                                                                   |
-| `init`, which can be re-run, and `doctor`                                                                        | Working                                                                   |
-| A second repository set up and removed from the quick start alone                                                | Working                                                                   |
-| `factory remove`                                                                                                 | Working                                                                   |
-| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                                                   |
-| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                                                                   |
-| Settings version 2: commands, a spec check, and plugins grouped by phase                                         | Working                                                                   |
-| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                                                                   |
-| The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                                                                   |
-| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                                                                   |
-| `factory ticket refined` refusing a ticket a build could not read                                                | Working                                                                   |
-| No skill, agent, rule, or review instruction names a stack, checked by a test                                    | Working                                                                   |
-| `approvers` in the settings                                                                                      | Planned, [#14](https://github.com/davidbyoung/software-factory/issues/14) |
-| Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                                       |
-| A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                                       |
-| Another code host or runner                                                                                      | Not planned. The design leaves room                                       |
-| Each tool's setup, checks, and removal declared by the tool                                                      | Working                                                                   |
-| Sharing plugins between repositories                                                                             | Not planned                                                               |
+| Part                                                                                                             | State                               |
+| ---------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Refining, building, and working a pull request's review                                                          | Working                             |
+| The board, its sync, and `status`                                                                                | Working                             |
+| Builds from the board, with a poller you host                                                                    | Working                             |
+| Builds that run in GitHub Actions, started by a command                                                          | Working                             |
+| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                 | Working                             |
+| Who merges, and the review's verdict                                                                             | Working                             |
+| The labels `merge: manual` and `verdict: override`                                                               | Working                             |
+| These docs                                                                                                       | Working                             |
+| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                       | Working                             |
+| The follow-ups ticket as one checklist                                                                           | Working                             |
+| The `factory` tool, `sync`, and the package folder                                                               | Working                             |
+| A global `factory` command that runs each repository's own copy                                                  | Working                             |
+| The automated review as one of the factory's workflows, and [`pr-review`](configuration.md#pr-review)            | Working                             |
+| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                             |
+| The `factory-` names and the `FACTORY_` secrets                                                                  | Working                             |
+| Ticket commands that go through one interface                                                                    | Working                             |
+| The code host and the runner, each behind one interface                                                          | Working                             |
+| A published package                                                                                              | Working                             |
+| Updates through Dependabot, which `factory-deps` completes with `factory sync`                                   | Working                             |
+| `factory board --dry-run`                                                                                        | Working                             |
+| Your own column names on a board                                                                                 | Working                             |
+| `init` suggesting a board's columns through the coding agent                                                     | Working                             |
+| Refinement's factory fields in your ticket fields, suggested by `init`                                           | Working                             |
+| A UI reviewer for any website                                                                                    | Working                             |
+| Built-in measurements for any website                                                                            | Working                             |
+| A design skill for any website                                                                                   | Working                             |
+| `init`, which can be re-run, and `doctor`                                                                        | Working                             |
+| A second repository set up and removed from the quick start alone                                                | Working                             |
+| `factory remove`                                                                                                 | Working                             |
+| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                             |
+| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                             |
+| Settings version 2: commands, a spec check, and plugins grouped by phase                                         | Working                             |
+| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                             |
+| The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                             |
+| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                             |
+| `factory ticket refined` refusing a ticket a build could not read                                                | Working                             |
+| No skill, agent, rule, or review instruction names a stack, checked by a test                                    | Working                             |
+| Another ticket system, such as Jira                                                                              | Not planned. The design leaves room |
+| A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room |
+| Another code host or runner                                                                                      | Not planned. The design leaves room |
+| Each tool's setup, checks, and removal declared by the tool                                                      | Working                             |
+| Sharing plugins between repositories                                                                             | Not planned                         |
 
 When a part is built, its pull request updates this table, and corrects any
 page the build had to differ from. [The CLI](cli.md) marks each command
@@ -224,20 +223,21 @@ the work to that type's adapter.** An adapter is one module in
 `factory config check` and every ticket command with
 `tickets.type "X" is not supported. "github" is the only ticket system built.`
 
-| Operation               | In `Tickets`              | What it returns or does                                                                                                                                  |
-| ----------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read a ticket           | `read`                    | Its number, title, state (`open` or `closed`), when it closed, labels, body, and comments, each with its ID, author, time, and body                      |
-| List open tickets       | `listOpen`                | Number, title, and labels, for every open ticket however many there are                                                                                  |
-| Read everything at once | `readAll`                 | Every open ticket and the 30 closed ones most recently updated, as `read` returns each; with the board group, each carries its card. Optional: see below |
-| Write a ticket's body   | `writeBody`               |                                                                                                                                                          |
-| Comment                 | `comment`                 | Returns the comment's ID. Hidden markers pass through unchanged                                                                                          |
-| Edit a comment          | `editComment`             | By its ID                                                                                                                                                |
-| Delete a comment        | `deleteComment`           | By its ID                                                                                                                                                |
-| Not found               | `NotFoundError`           | Reading a ticket that does not exist, or editing or deleting a comment that is gone, throws this, so a caller can tell it from any other failure         |
-| Open a ticket           | `open`                    | With a title, a body, and labels. Returns its number                                                                                                     |
-| Add or remove a label   | `addLabel`, `removeLabel` |                                                                                                                                                          |
-| Link text               | `linkText`                | What makes a merged pull request close the ticket, such as "Closes #12"                                                                                  |
-| The address of a ticket | `address`                 | Its page, which the views link a ticket's number to                                                                                                      |
+| Operation               | In `Tickets`              | What it returns or does                                                                                                                                                                             |
+| ----------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read a ticket           | `read`                    | Its number, title, state (`open` or `closed`), when it closed, labels, body, and comments, each with its ID, author, time, and body                                                                 |
+| List open tickets       | `listOpen`                | Number, title, and labels, for every open ticket however many there are                                                                                                                             |
+| Read everything at once | `readAll`                 | Every open ticket and the 30 closed ones most recently updated, as `read` returns each; with the board group, each carries its card. Optional: see below                                            |
+| Write a ticket's body   | `writeBody`               |                                                                                                                                                                                                     |
+| Comment                 | `comment`                 | Returns the comment's ID. Hidden markers pass through unchanged                                                                                                                                     |
+| Edit a comment          | `editComment`             | By its ID                                                                                                                                                                                           |
+| Delete a comment        | `deleteComment`           | By its ID                                                                                                                                                                                           |
+| Not found               | `NotFoundError`           | Reading a ticket that does not exist, or editing or deleting a comment that is gone, throws this, so a caller can tell it from any other failure                                                    |
+| Open a ticket           | `open`                    | With a title, a body, and labels. Returns its number                                                                                                                                                |
+| Add or remove a label   | `addLabel`, `removeLabel` |                                                                                                                                                                                                     |
+| Who may decide          | `mayDecide`               | Whether a comment's author may decide on a ticket, so `factory ticket answers` takes their comment as an answer. GitHub's asks whether they can write to the repository. Rejects when it cannot say |
+| Link text               | `linkText`                | What makes a merged pull request close the ticket, such as "Closes #12"                                                                                                                             |
+| The address of a ticket | `address`                 | Its page, which the views link a ticket's number to                                                                                                                                                 |
 
 "Read everything at once" has a default, `readAll` in
 `src/tickets/types.mts`, built from `listOpen` and `read`, so a new adapter

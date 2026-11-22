@@ -33,9 +33,9 @@ written so each item can be checked. Refining a ticket produces it.
 something and report back. It changes nothing. The factory brings four,
 and you can add your own.
 
-**Approver.** A person whose comments a session treats as instructions,
-and who can approve a ticket for building. By default, the repository's
-owner.
+**Approver.** A person whose words a session treats as instructions:
+anyone whose account can write to the repository. Who can approve a
+ticket for building is whoever your board lets move it to Ready.
 
 **Automated review.** A review of every pull request by the coding agent,
 run in CI once the pull request is marked ready. It comments on what it

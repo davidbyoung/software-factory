@@ -1140,26 +1140,6 @@ pr-review:
   removes the workflow.
 - `factory review tools` prints everything the reviewer may use.
 
-### `approvers`
-
-_[Planned](developing.md#what-is-built)_: `factory config check` refuses
-this setting until it is built.
-
-The people whose comments a session takes as instructions, and whose move
-of a ticket to Ready counts as approving it. Everyone else's comments are
-read as information.
-
-```yaml
-approvers:
-  - your-name
-  - a-teammate
-```
-
-- **Default:** the repository's owner, so a repository with one person
-  leaves it out.
-- **If a name is wrong,** that person's comments are treated as
-  information, and a ticket they approve is not built.
-
 ### `rules`
 
 Two numbers the factory's rules use, for a repository that wants

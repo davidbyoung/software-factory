@@ -27,9 +27,11 @@ as a code host's billing or what its workflows can see, are in
   there. A change to those settings is a person's to make.
 - **One ticket, one repository.** A change that spans repositories is two
   tickets.
-- **It is written for one approver.** `approvers` lets a team list several
-  people (_[Planned](developing.md#what-is-built)_), but review by teams, required reviewers per folder, and monorepos
-  with several owners are not designed.
+- **Review by teams is your code host's to enforce.** A session obeys
+  anyone who can write to the repository. Required reviewers for a
+  folder, and a number of approvals before a merge, are rules you set on
+  the code host, and the factory's pull requests are held by them like
+  any other.
 - **The order of the workflow is fixed.** A [plugin](plugins.md) of
   yours can replace how a ticket is refined, how a ticket with one of your
   labels is built, how a test is proved able to fail, which agents review
@@ -127,8 +129,9 @@ as a code host's billing or what its workflows can see, are in
 - **It amplifies the checks it is given.** A repository with weak tests gets
   confident, wrong pull requests faster.
 - **Ticket text, review comments, and changelogs are read by sessions.**
-  Only an approver's comments are treated as instructions, and that rests on
-  one account's login.
+  Only an approver's words are treated as instructions, and that rests on
+  who your code host says can write to the repository. Give write access
+  as carefully as you would give a session its orders.
 - **An update delivers instructions that run with your tokens.** Read update
   pull requests as carefully as code.
 - **It sits on tools that change.** Several parts work around how today's

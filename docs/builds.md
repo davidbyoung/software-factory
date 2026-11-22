@@ -64,7 +64,10 @@ stores it.
 commits name your coding agent as their author and that account as their
 committer, and its pull request and comments are that account's. When the token is yours, that is you. A team that wants an
 agent account makes one on the code host, gives it write access, and stores
-its token instead. Nothing else changes.
+its token instead. Nothing else changes. An agent account can write to the
+repository, so it counts as an approver, but every comment it posts
+carries the factory's mark, and a session never takes a marked comment as
+an instruction.
 
 **Signed commits.** With a signing key stored as a secret, the build signs
 each commit, and the code host shows it as verified when the key belongs to
