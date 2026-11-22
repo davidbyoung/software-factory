@@ -35,9 +35,26 @@ number, so ticket 12 is built on a branch named `12`. Press Enter to
 keep it, or type your team's pattern, such as `feature/{user}/{ticket}`,
 where `{user}` is your GitHub account;
 [`code-host`](../configuration.md#code-host) lists what a pattern can
-hold. When a [preset](../presets.md) you follow already sets it, init
-doesn't ask. Then it asks which parts you want. Each is optional and
-stands alone:
+hold.
+
+Next it asks which spec tool you use:
+
+```text
+? Which spec tool do you use?
+❯ None: each ticket holds its own spec
+  OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/
+```
+
+Choose **None** unless you want a folder in your repository that always
+describes what your project does, readable without opening a ticket:
+that is what OpenSpec adds. Choose **OpenSpec** and init installs it for
+you, printing `Installed @fission-ai/openspec.` once it has. Your answer is written to `.claude/factory.yaml` as
+[`specs`](../configuration.md#specs).
+
+Init skips the branch-name question when your `.claude/factory.yaml`, or
+a [preset](../presets.md) you follow, sets `code-host.branch-name`, and
+the spec tool question when they set `specs`. Then it asks
+which parts you want. Each is optional and stands alone:
 
 | Part                                            | What you get                                                                   |
 | ----------------------------------------------- | ------------------------------------------------------------------------------ |

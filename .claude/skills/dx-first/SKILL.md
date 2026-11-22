@@ -50,8 +50,8 @@ npx --no-install factory ticket view N
 
 Then read:
 
-- the code the ticket touches and the spec under `openspec/specs/` for
-  each capability it touches;
+- the code the ticket touches and the spec `npx --no-install factory specs list`
+  prints for each capability it touches;
 - the docs pages next to the one the draft will change, and the page it
   changes, if there is one;
 - "Writing for the factory" in `docs/developing.md`.

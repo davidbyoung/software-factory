@@ -21,7 +21,7 @@ Whichever skill refined the issue, `factory-refine` or the repository's own
 refiner, read what it left against the same list, what refinement
 delivers: the `spec` label decided, each build order recorded as a
 blocked-by relationship, and a body with the sections `factory-build`
-reads, in the shape it copies into an OpenSpec change. "What to look for"
+reads, in the shape a spec tool takes when there is one. "What to look for"
 says how each is checked.
 
 **Read-only.** Never comment on, edit, or label the issue, and never change a
@@ -45,9 +45,11 @@ unverified, for the builder to check.
    the notes name.
 4. Every file the notes name, to check that it exists and works the way the
    notes say.
-5. On the `spec` track, `openspec/specs/<capability>/spec.md` for every
-   capability the Spec names, to check that a "modified" line changes what
-   the spec says today and a "No longer" line names a requirement it has.
+5. On the `spec` track, the file `npx --no-install factory specs list`
+   prints for every capability the Spec names, to check that a "modified"
+   line changes what the spec says today and a "No longer" line names a
+   requirement it has. With no spec tool it lists none: check those lines
+   against the code instead.
 
 ## The question you are answering
 
@@ -80,13 +82,16 @@ anything?
   `.claude/factory/rules.md`
   and needs the relationship, or the sentence comes out. A prerequisite
   that is already closed is not a finding.
-- **A missing track or shape.** When `npx --no-install factory config get specs`
-  prints `openspec`, a change a user would see needs the `spec` label. On the `spec` track the body needs "Decisions", "Spec" grouped by
-  capability, and "For the builder" with "Design" and "Tasks", which
-  `factory-build` copies into an OpenSpec change; also a Spec line that could
-  not stand as one WHEN/THEN scenario on its own, a capability named unlike
-  `openspec/specs/`, or a "modified" line that restates the current spec
-  instead of changing it. Without the label the body needs "Decisions" and
+- **A missing track or shape.** A change a user would see, and that is not
+  small, needs the `spec` label, whatever the spec tool. On the `spec`
+  track the body needs "Decisions", "Spec" grouped by capability, and "For
+  the builder" with "Design" and "Tasks", which `factory-build` builds
+  from and, with a spec tool, writes into the repository's specs; also a
+  Spec line that could not stand as one WHEN/THEN scenario on its own, a
+  capability named unlike those `factory specs list` prints (with no
+  spec tool, which lists none, one not in lowercase words joined by
+  hyphens), or a
+  "modified" line that restates the current spec instead of changing it. Without the label the body needs "Decisions" and
   "Acceptance criteria", and a missing "For the builder" is not a finding:
   ask only what the criteria and the area's rules leave open.
 

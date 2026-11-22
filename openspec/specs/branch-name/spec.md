@@ -114,24 +114,6 @@ The factory SHALL behave as this line says: When the pattern has `{user}` and th
 - **WHEN** the pattern has `{user}` and the code host has no sign-in or refuses it (`gh` exits 4, its "authentication required" status, or GitHub answers 401)
 - **THEN** `factory ticket branch N` prints `code-host.branch-name uses {user}, and gh is not signed in: run gh auth login` and exits 1. Any other failure to read the account prints the code host's own error and exits 1.
 
-### Requirement: The spec change's name
-
-The factory SHALL behave as this line says: When `specs` is `openspec`, `factory specs change-name N` prints `issue-` followed by N as the ticket system writes it, in lowercase, and exits 0, whatever `code-host.branch-name` says.
-
-#### Scenario: The spec change's name
-
-- **WHEN** `specs` is `openspec`
-- **THEN** `factory specs change-name N` prints `issue-` followed by N as the ticket system writes it, in lowercase, and exits 0, whatever `code-host.branch-name` says.
-
-### Requirement: The spec change's name with specs off
-
-The factory SHALL behave as this line says: When `specs` is `none`, `factory specs change-name N` prints `specs are off: there is no spec change to name` and exits 1.
-
-#### Scenario: The spec change's name with specs off
-
-- **WHEN** `specs` is `none`
-- **THEN** `factory specs change-name N` prints `specs are off: there is no spec change to name` and exits 1.
-
 ### Requirement: The newest pull request from a branch
 
 The factory SHALL behave as this line says: When `factory pr for-branch BRANCH` runs and pull requests have been opened from BRANCH, it prints the newest one as `#N open`, `#N merged`, or `#N closed`, closed meaning closed without merging, and exits 0.
@@ -158,3 +140,12 @@ The factory SHALL behave as this line says: When `factory config check` meets a 
 
 - **WHEN** `factory config check` meets a pattern with several faults
 - **THEN** it reports the first by the order of lines 4 to 8: the value's type, then an unknown placeholder, then a missing `{ticket}`, then git's rules. Braces that do not hold a name of letters, digits, or hyphens, such as `{}` or an unclosed `{ticket`, are plain text to line 6, and git's rules judge them.
+
+### Requirement: The spec change's folder
+
+The factory SHALL behave as this line says: When `specs` is `openspec`, the change `factory specs new N` creates is `openspec/changes/issue-N/`, with N as the ticket system writes it, in lowercase, whatever `code-host.branch-name` says.
+
+#### Scenario: The spec change's folder
+
+- **WHEN** `specs` is `openspec`
+- **THEN** The change `factory specs new N` creates is `openspec/changes/issue-N/`, with N as the ticket system writes it, in lowercase, whatever `code-host.branch-name` says.

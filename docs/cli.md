@@ -224,9 +224,23 @@ You can run them too.
 | `factory gate`                        | Runs each [`commands.gate`](configuration.md#commandsgate) command in order, printing `$` and the command before each. Stops at the first that fails, with `✗ The gate failed on:` and the command. Ends with `✓ Every gate command passed.` and exits 0 when every command passes, and exits 1 at the first that fails or when no gate is set |
 | `factory test-one FILE [NAME]`        | Runs [`commands.test-one`](configuration.md#commandstest-one), one test file alone or the one test NAME in it, and exits with its status                                                                                                                                                                                                       |
 | `factory end-to-end FILE [--times K]` | Runs [`commands.end-to-end`](configuration.md#commandsend-to-end), one end-to-end spec alone, and exits with its status. With `--times K`, K times in a row, stopping at the first run that fails. Ends with `✓ The test passed.` or `✗ The test failed.`                                                                                      |
-| `factory specs check`                 | Runs [`specs.check`](configuration.md#specscheck), the check of your written specs, and exits with its status, ending with `✓ The specs check passed.` or `✗ The specs check failed.`. Prints `specs are off` when `specs` is `none`                                                                                                           |
-| `factory specs change-name N`         | Prints the name of the OpenSpec change a build of N writes, always `issue-N` whatever [`code-host.branch-name`](configuration.md#code-host) says. Exits 1 with `specs are off: there is no spec change to name` when [`specs`](configuration.md#specs) is `none`                                                                               |
+| `factory specs list`                  | Prints each spec your spec tool keeps, one per line with its file, or `none yet`                                                                                                                                                                                                                                                               |
+| `factory specs new N`                 | Starts ticket N's spec: with OpenSpec, it creates `openspec/changes/issue-N/`. Then it prints each file to write or update there, which part of the ticket goes in it, and, last, the command to run once they are written. It writes none of them itself, and run again, it prints them again                                                 |
+| `factory specs check`                 | Runs [`specs.check`](configuration.md#specscheck), the check of your written specs, ending with `✓ The specs check passed.` or `✗ The specs check failed.`                                                                                                                                                                                     |
+| `factory specs finish N`              | With OpenSpec, folds ticket N's spec into `openspec/specs/`, ending with `✓ Folded ticket N's spec into openspec/specs/.` It changes files and commits nothing                                                                                                                                                                                 |
 | `factory default-branch`              | Prints the name of your repository's default branch, which nothing in the factory assumes is `main`                                                                                                                                                                                                                                            |
+
+With [`specs: none`](configuration.md#specs), each of the four
+`factory specs` commands prints
+`- No spec tool (specs: none): each ticket holds its own spec.` and
+exits 0. Otherwise each exits 0 when it worked and 1 when it didn't, and
+says why on its last line: `new` when your spec tool isn't installed, which
+`factory init` fixes, and `finish` when ticket N has no spec started,
+which `factory specs new N` fixes.
+
+A build runs `new` before it writes any code, and `finish` just before
+its last commit, so you rarely run those two yourself. `list` is the one
+to know: it names the spec to read before you change what it describes.
 
 `factory default-branch` asks, in turn, the event of the workflow run it
 is in, `origin/HEAD` in your checkout, and the code host, whose answer it

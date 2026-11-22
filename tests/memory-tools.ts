@@ -7,6 +7,8 @@ import type { Settings } from "../src/config.mts";
 import type { Part } from "../src/parts.mts";
 import type { SetupContext } from "../src/setup.mts";
 import type { Runner } from "../src/runner/types.mts";
+import type { SpecTools } from "../src/specs/index.mts";
+import type { SpecTool } from "../src/specs/types.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import { TOOLS, type Registry } from "../src/tools.mts";
 import { scriptedAgent } from "./fake-tools";
@@ -20,6 +22,8 @@ export function memoryTools(o: {
   tickets: Tickets;
   /** Claude Code's answers, which never run claude. */
   agent?: Agent;
+  /** The spec tools, in place of the built ones. */
+  specs?: SpecTools;
 }): Registry {
   return {
     codeHost: { github: { ...TOOLS.codeHost.github!, open: () => o.codeHost } },
@@ -36,6 +40,7 @@ export function memoryTools(o: {
         agent: o.agent ?? scriptedAgent(),
       },
     },
+    specs: o.specs ?? TOOLS.specs,
   };
 }
 
@@ -61,5 +66,40 @@ export function memoryContext(
       runner: memoryRunner().runner,
       tickets: memoryTickets([]).tickets,
     },
+  };
+}
+
+/** A spec tool that is not OpenSpec: it keeps a ticket's spec in one page
+ * that later tickets update, folds nothing in, installs with pip, and ends
+ * with a skill, so nothing outside \`src/specs/\` can assume OpenSpec. */
+export function pagesSpecTool(o: { installed?: boolean } = {}): SpecTool {
+  return {
+    name: "Pages",
+    label: "Pages: each ticket's spec is a page in pages/",
+    install: {
+      package: "pages-cli",
+      via: "pip install",
+      installed: () => o.installed ?? false,
+    },
+    defaultCheck: "pages check",
+    env: {},
+    processFiles: ["pages/config.yaml"],
+    runs: () => true,
+    list: () => [{ name: "search", path: "pages/search.md" }],
+    folder: () => "pages/",
+    started: () => false,
+    start: () => 0,
+    files: (id) => [
+      {
+        kind: "update",
+        path: "pages/SITEMAP.md",
+        what: `A line for ticket ${id}`,
+      },
+      { kind: "new", path: `pages/${id}.md`, what: "The Spec" },
+    ],
+    then: "/pages-review",
+    finished: () => false,
+    finish: () => 0,
+    foldsInto: "pages/",
   };
 }

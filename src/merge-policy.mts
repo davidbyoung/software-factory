@@ -13,6 +13,7 @@ import { loadSettings } from "./config.mts";
 import { openCodeHost } from "./code-host/index.mts";
 
 import { matchesAny } from "./lib/glob.mts";
+import { processFiles } from "./specs/index.mts";
 
 /** A changed file under GitHub's own field names, which the commands under
  * `auto-merge.commands` have always been handed. */
@@ -43,14 +44,17 @@ export type Risk = {
 };
 
 /** The factory's own files, held whatever the settings allow: a pull request
- * must not be able to change how pull requests are judged. */
-const FACTORY_FILES =
-  /^(\.github|\.claude)\/|(^|\/)(CLAUDE|AGENTS)\.md$|^openspec\/config\.yaml$/;
+ * must not be able to change how pull requests are judged. Every spec tool's
+ * process files are among them, whichever the settings name, since a pull
+ * request could change that setting too. */
+const FACTORY_FILES = /^(\.github|\.claude)\/|(^|\/)(CLAUDE|AGENTS)\.md$/;
+const SPEC_TOOL_FILES = new Set(processFiles());
 
 export type Policy = { allow: readonly string[]; deny: readonly string[] };
 
 function classifyPath(path: string, policy: Policy): string | null {
-  if (FACTORY_FILES.test(path)) return "the factory's own files";
+  if (FACTORY_FILES.test(path) || SPEC_TOOL_FILES.has(path))
+    return "the factory's own files";
   if (matchesAny(path, policy.deny)) return "held by auto-merge.deny";
   return matchesAny(path, policy.allow) ? null : "not in auto-merge.allow";
 }

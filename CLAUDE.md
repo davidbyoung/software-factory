@@ -181,7 +181,8 @@ covers, is everything under `src/` that a workflow, a hook, or a skill's
 gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
 `review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
-`lib/default-branch.mts`, `lib/refined-check.mts`, and `config.mts`'s
+`lib/default-branch.mts`, `lib/refined-check.mts`, `specs/`, whose
+adapters name the files the merge policy holds, and `config.mts`'s
 `pluginsOf`.
 
 A change here reaches every repository that uses the factory, through its

@@ -138,6 +138,11 @@ export type InitDeps = {
   /** The branch name a preset in effect supplies to settings that read
    * as `settingsText`, or null for none. */
   presetBranchName: (settingsText: string) => Promise<string | null>;
+  /** The spec tool a preset in effect names for settings that read as
+   * `settingsText`, \`none\` included, or null when none names one. */
+  presetSpecs: (settingsText: string) => Promise<string | null>;
+  /** Runs an install from the root; its status and standard error. */
+  install: (argv: string[]) => Promise<{ status: number; stderr: string }>;
 };
 
 const SIGNING_TITLE = "software factory builds";
@@ -182,6 +187,24 @@ export const presetBranchNameAt =
       return null;
     }
   };
+
+/** The spec tool a preset in effect names, as `presetBranchNameAt` finds
+ * a branch name. */
+export const presetSpecsAt =
+  (root: string) =>
+  async (text: string): Promise<string | null> => {
+    try {
+      const r = await resolveFiles(
+        { ...filesDeps(root), readFile: () => text },
+        { partial: true },
+      );
+      return "specs" in r.resolution.raw ? r.settings.specs : null;
+    } catch {
+      return null;
+    }
+  };
+
+const NO_SPEC_TOOL = "None: each ticket holds its own spec";
 
 const BRANCH_QUESTION =
   "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
@@ -388,6 +411,29 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     (await d.presetBranchName(String(doc))) !== null
       ? null
       : await askBranchName(d);
+  const ownSpecs = doc.get("specs");
+  const writtenSpecs = isMap(ownSpecs)
+    ? String(ownSpecs.get("type") ?? "none")
+    : ownSpecs === undefined
+      ? await d.presetSpecs(String(doc))
+      : String(ownSpecs);
+  const specsAnswer =
+    writtenSpecs === null
+      ? await d.ask.select(
+          "Which spec tool do you use?",
+          [
+            { name: NO_SPEC_TOOL, value: "none" },
+            ...Object.entries(d.tools.specs).map(([value, t]) => ({
+              name: t.label,
+              value,
+            })),
+          ],
+          "none",
+        )
+      : null;
+  const specTool = d.tools.specs[specsAnswer ?? writtenSpecs ?? "none"];
+  const installing =
+    specTool && !specTool.install.installed(d.root) ? specTool : null;
 
   const codeHost = d.tools.codeHost[chosen.codeHost]!.open(repository);
   const runner = d.tools.runner[chosen.runner]!.open(repository);
@@ -636,6 +682,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     quoted.type = Scalar.QUOTE_DOUBLE;
     doc.setIn(["code-host", "branch-name"], quoted);
   }
+  if (specsAnswer !== null) doc.set("specs", specsAnswer);
   if (parts.has("from-board")) doc.setIn(["builds", "trigger"], trigger);
   else if (before.has("from-board")) remove(doc, ["builds", "trigger"]);
   if (pollMinutes !== null && pollMinutes !== 5)
@@ -770,6 +817,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       "Rules",
       `Require "${REVIEW_VERDICT}" before a merge to the default branch, as the rule "${RULE}"`,
     );
+  if (installing)
+    planRow(
+      "Install",
+      `${installing.install.package}, with ${installing.install.via}`,
+    );
   for (const part of removed) planRow("Turn off", PART_TEXT[part].name);
   if (!(await d.ask.confirm("Go ahead?", true))) {
     d.out("Nothing changed.");
@@ -829,6 +881,17 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       `${ignore ?? ""}${ignore && !ignore.endsWith("\n") ? "\n" : ""}node_modules/\n`,
     );
   write(SETTINGS_FILE, String(doc));
+  let installFailed: string | null = null;
+  if (installing) {
+    const { package: pkg, via } = installing.install;
+    const r = await d.install([...via.split(" "), pkg]);
+    if (r.status === 0) d.out(`Installed ${pkg}.`);
+    else {
+      d.out(`Could not install ${pkg}:`);
+      for (const l of r.stderr.trimEnd().split("\n").slice(-5)) d.out(`  ${l}`);
+      installFailed = `Install ${installing.name}, which a build writes specs with: ${via} ${pkg}`;
+    }
+  }
   const synced = await d.sync();
   if (synced !== 0) d.out("The sync failed, as above.");
 
@@ -947,7 +1010,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   d.out("");
   if (deletable.length)
     d.out(`You can now delete these secrets: ${deletable.join(", ")}`);
-  const left: string[] = [];
+  const left: string[] = installFailed ? [installFailed] : [];
   const app = codeHost.reviewAppPage();
   if (parts.has("review") && app)
     left.push(`Install the app the review posts through: ${app}`);
@@ -1042,6 +1105,15 @@ export async function run(argv: string[]): Promise<number> {
       return differences(root, await syncPlan(PACKAGE, root, r, branch));
     },
     presetBranchName: presetBranchNameAt(root),
+    presetSpecs: presetSpecsAt(root),
+    install: async (argv2) => {
+      const r = spawnSync(argv2[0]!, argv2.slice(1), {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+      return { status: r.status ?? 1, stderr: r.stderr ?? "" };
+    },
     interactive: async (argv2) =>
       spawnSync(argv2[0], argv2.slice(1), { stdio: "inherit" }).status ?? 1,
     hasCommand,

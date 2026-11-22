@@ -6,10 +6,17 @@
 //   factory end-to-end FILE [--times K]   # commands.end-to-end, K times in a row
 //   factory specs check                   # specs.check
 //
+// and the commands that reach the spec tool `specs` names:
+//
+//   factory specs list                    # each spec it keeps
+//   factory specs new N                   # start ticket N's spec
+//   factory specs finish N                # fold ticket N's spec in
+//
 // Each command runs with bash from the repository's root, with its output
 // passed through and no standard input. `test-one` gets FILE and NAME in its
-// environment, `end-to-end` FILE, and the spec check DO_NOT_TRACK=1. An
-// argument a command does not know prints its usage and exits 2.
+// environment, `end-to-end` FILE, and the spec check the spec tool's
+// environment. An argument a command does not know prints its usage and
+// exits 2.
 import { spawnSync } from "node:child_process";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
@@ -20,6 +27,8 @@ import {
   SettingsError,
   type Settings,
 } from "./config.mts";
+import { specTools, type SpecTools } from "./specs/index.mts";
+import { openTickets } from "./tickets/index.mts";
 
 export type Deps = {
   /** The repository's root, where every command runs. */
@@ -31,6 +40,9 @@ export type Deps = {
   out: (line: string) => void;
   err: (line: string) => void;
   paint?: Paint;
+  specTools: SpecTools;
+  /** Ticket `id`'s labels; throws when it can't be read. */
+  labels: (settings: Settings, id: number) => Promise<string[]>;
 };
 
 const USAGE = {
@@ -38,7 +50,9 @@ const USAGE = {
   "test-one": "Usage: factory test-one FILE [NAME]",
   "end-to-end": "Usage: factory end-to-end FILE [--times K]",
   "specs-check": "Usage: factory specs check",
-  "specs-change-name": "Usage: factory specs change-name N",
+  "specs-list": "Usage: factory specs list",
+  "specs-new": "Usage: factory specs new N",
+  "specs-finish": "Usage: factory specs finish N",
 } as const;
 
 type Name = keyof typeof USAGE;
@@ -69,9 +83,11 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     return 2;
   };
   const e2e = name === "end-to-end" ? endToEndArgs(args) : null;
-  if (name === "gate" || name === "specs-check") {
+  if (name === "gate" || name === "specs-check" || name === "specs-list") {
     if (args.length > 0) return usage();
-  } else if (name === "specs-change-name") {
+  } else if (name === "specs-new" || name === "specs-finish") {
+    // A ticket as the ticket system writes it: GitHub's, the only one
+    // built, are whole numbers.
     if (args.length !== 1 || !/^[1-9]\d*$/.test(args[0]!)) return usage();
   } else if (name === "test-one") {
     if (args.length < 1 || args.length > 2) return usage();
@@ -135,28 +151,86 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       }
     return test(0);
   }
-  if (name === "specs-change-name") {
-    if (s.specs === "none") {
-      d.err("specs are off: there is no spec change to name");
-      return 1;
+  const tool = d.specTools[s.specs];
+  if (s.specs === "none" || !tool) {
+    d.out(`${paint("dim", "-")} ${NO_SPEC_TOOL}`);
+    return 0;
+  }
+  if (name === "specs-check")
+    return ended(
+      d.exec(s.specCheck!, d.root, tool.env),
+      "The specs check passed.",
+      "The specs check failed.",
+    );
+  if (name === "specs-list") {
+    const specs = tool.list(d.root);
+    d.out(`specs: ${s.specs}`);
+    if (specs.length === 0) d.out("  none yet");
+    const width = Math.max(0, ...specs.map((x) => x.name.length));
+    for (const x of specs) d.out(`  ${x.name.padEnd(width)}  ${x.path}`);
+    return 0;
+  }
+  const id = args[0]!;
+  const failed = (line: string) => {
+    d.err(`${paint("red", "✗")} ${line}`);
+    return 1;
+  };
+  if (name === "specs-finish") {
+    if (!tool.started(d.root, id)) {
+      if (tool.finished(d.root, id)) {
+        d.out(
+          `${paint("green", "✓")} Ticket ${id}'s spec is already folded into ${tool.foldsInto}.`,
+        );
+        return 0;
+      }
+      return failed(
+        `Ticket ${id} has no spec started: run factory specs new ${id} first.`,
+      );
     }
-    d.out(`issue-${args[0]}`);
+    if (tool.finish(d.root, id) !== 0)
+      return failed(
+        `Could not fold ticket ${id}'s spec into ${tool.foldsInto}.`,
+      );
+    d.out(
+      `${paint("green", "✓")} Folded ticket ${id}'s spec into ${tool.foldsInto}.`,
+    );
     return 0;
   }
-  if (s.specCheck === null) {
-    d.out("specs are off");
-    return 0;
+  let labels: string[];
+  try {
+    labels = await d.labels(s, Number(id));
+  } catch (e) {
+    d.err(e instanceof Error ? e.message : String(e));
+    return 1;
   }
-  return ended(
-    d.exec(s.specCheck, d.root, { DO_NOT_TRACK: "1" }),
-    "The specs check passed.",
-    "The specs check failed.",
-  );
+  if (!tool.runs(d.root))
+    return failed(
+      `${tool.name} is not installed: run factory init, which installs it.`,
+    );
+  const folder = tool.folder(id);
+  if (tool.started(d.root, id))
+    d.out(`Ticket ${id}'s spec is already started in ${folder}`);
+  else {
+    if (tool.start(d.root, id) !== 0)
+      return failed(`Could not start ticket ${id}'s spec in ${folder}`);
+    d.out(`Started ticket ${id}'s spec in ${folder}`);
+  }
+  const files = tool.files(id, labels.includes("spec"));
+  const width = Math.max(...files.map((f) => f.path.length)) + 2;
+  const kinds = Math.max(...files.map((f) => f.kind.length));
+  d.out(`Write each file from ticket ${id}'s body:`);
+  for (const f of files)
+    d.out(`  ${f.kind.padEnd(kinds)}  ${f.path.padEnd(width)}${f.what}`);
+  d.out(`Then: ${tool.then}`);
+  return 0;
 }
 
+export const NO_SPEC_TOOL =
+  "No spec tool (specs: none): each ticket holds its own spec.";
+
 /** `factory gate`, `factory test-one`, `factory end-to-end`,
- * `factory specs check`, and `factory specs change-name`, the last two as
- * `specs-check` and `specs-change-name`. */
+ * and `factory specs check`, `list`, `new`, and `finish`, as `specs-check`
+ * and the rest. */
 export async function run(argv: string[]): Promise<number> {
   const root = repoRoot();
   return main(argv, {
@@ -172,5 +246,13 @@ export async function run(argv: string[]): Promise<number> {
     out: (line) => console.log(line),
     err: (line) => console.error(line),
     paint: painter(colorOn()),
+    specTools: specTools(),
+    labels: async (settings, id) => {
+      const { tickets } = await openTickets(settings, {
+        repository: settings.repository,
+        board: null,
+      });
+      return (await tickets.read(id)).labels;
+    },
   });
 }

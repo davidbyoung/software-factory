@@ -118,9 +118,10 @@ your machine or in the cloud.
 for the factory's own. You call one by typing its name as a slash command,
 such as `/factory-refine 12`.
 
-**Spec.** A written statement of what a change must do. For most tickets
-that is the acceptance criteria. With OpenSpec turned on, a change your
-users will see also gets its behavior recorded in the repository.
+**Spec.** A written statement of what a change must do. A change your
+users will see gets a Spec section of "When this, then that" lines in
+its ticket; every other ticket has acceptance criteria. With OpenSpec
+turned on, the Spec is also kept in the repository.
 
 **Ticket.** One item in the ticket system: a piece of work, with what,
 why, and when it is done.

@@ -229,10 +229,22 @@ export const COMMANDS: Command[] = [
       (await import("./commands.mts")).run(["specs-check", ...argv]),
   },
   {
-    words: ["specs", "change-name"],
+    words: ["specs", "list"],
+    args: "",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["specs-list", ...argv]),
+  },
+  {
+    words: ["specs", "new"],
     args: "N",
     run: async (argv) =>
-      (await import("./commands.mts")).run(["specs-change-name", ...argv]),
+      (await import("./commands.mts")).run(["specs-new", ...argv]),
+  },
+  {
+    words: ["specs", "finish"],
+    args: "N",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["specs-finish", ...argv]),
   },
   {
     words: ["default-branch"],
@@ -371,8 +383,10 @@ const USAGE: [string, [string, string][]][] = [
       ["gate", "Run the commands under commands.gate"],
       ["test-one FILE [NAME]", "Run one test file, or one test in it"],
       ["end-to-end FILE", "Run one end-to-end spec"],
+      ["specs list", "List the specs your spec tool keeps"],
+      ["specs new N", "Start ticket N's spec"],
       ["specs check", "Check your written specs"],
-      ["specs change-name N", "Print the name of ticket N's spec change"],
+      ["specs finish N", "Fold ticket N's spec into your specs"],
       ["default-branch", "Print the default branch's name"],
     ],
   ],

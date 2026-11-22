@@ -114,7 +114,8 @@ finding left for the owner, a defect outside the issue's scope, and a
 check deferred to later are each a line. A line that needs a decision
 from the owner says "Needs a decision:" with the question and stays a
 line. A follow-up gets its own issue only when it would need the `spec`
-label or would make a line of `openspec/specs/` false, as that section
+label or would make a line of a spec `factory specs list` prints false,
+as that section
 says.
 
 ```bash
@@ -208,12 +209,11 @@ Otherwise, claim it now ("The claim"), then read on.
 - **Already done, or no longer true:** say so with the evidence, release
   the claim, and leave the issue open for the owner to close.
 
-The spec track applies only when `npx --no-install factory config get specs`
-prints `openspec`; otherwise skip steps 2 and 4. When it does, the `spec`
-label decides the track, per "Spec track" in `.claude/factory/rules.md`.
-Never change it. Without it, skip steps 2 and 4, unless the issue has a
-"Spec" section: a small change that makes a spec line false. That one runs
-step 2 with the proposal and spec delta only, and step 4.
+The `spec` label decides the track, whatever the spec tool, per "Spec
+track" in `.claude/factory/rules.md`. Never change it. Without it, skip
+steps 2 and 4, unless the issue has a "Spec" section: a small change that
+makes a spec line false. That one runs steps 2 and 4 too, and step 2's
+command lists fewer files for it.
 
 ## 1. Branch
 
@@ -264,43 +264,32 @@ git switch -c BRANCH origin/DEFAULT
 If the branch you left has commits not on `origin/DEFAULT`, name it in the
 report, so that work is not lost.
 
-## 2. Create the change from the issue (`spec`, or a Spec section)
+## 2. Start the spec from the issue (`spec`, or a Spec section)
 
-The change is the issue's body in OpenSpec's shape, as the branch's first
-commit. Nothing in it is new; the thinking was done at refinement.
+The spec tool's copy of the issue, as the branch's first commit. Nothing
+in it is new; the thinking was done at refinement.
 
 ```bash
-export DO_NOT_TRACK=1
-npx --no-install factory specs change-name N      # prints NAME
-npx --no-install openspec new change NAME
-npx --no-install openspec status --change NAME
+npx --no-install factory specs new N
 ```
 
-Read NAME once, here, and use it through step 4's archive, whatever
-the branch is called. For each artifact `status` lists, run
-`npx --no-install openspec instructions <artifact> --change NAME` and
-fill it from the issue. An issue without
-the `spec` label fills `proposal.md` and the spec delta only; OpenSpec
-validates and archives a change without `design.md` or `tasks.md`.
+With no spec tool it prints `- No spec tool (specs: none): each ticket
+holds its own spec.`: the issue is the only copy, so this step ends there.
+Otherwise it starts the issue's spec, in the folder it names, and lists
+each file to write (`new`) or update (`update`) from the issue, with what
+part of the issue goes in it, then a "Then:" line. Write each file as it
+says, in the spec tool's own words for a requirement; the Spec lines,
+Decisions, Design, and Tasks are the issue's, unchanged in substance. Run
+the "Then:" line, and fix what it reports.
 
-- `proposal.md` from §1, the owner's request, and "Decisions", linking the
-  issue.
-- `specs/<capability>/spec.md`, one per capability heading under "Spec":
-  `## ADDED Requirements` for a new capability, `## MODIFIED Requirements`
-  for a modified one, and `## REMOVED Requirements` for each "No longer"
-  line. Each numbered Spec line becomes one requirement, named after it,
-  whose SHALL sentence restates it, with one scenario in the line's own
-  words: its "When" clause is the WHEN and the rest is the THEN. A
-  MODIFIED requirement copies the current spec's requirement and changes
-  only what the line changes.
-- `design.md` from "Design".
-- `tasks.md` from "Tasks".
+Then check that every Spec line is exactly one scenario, or requirement
+where the tool has no scenarios, and every one is a Spec line. If one does
+not map, stop and comment on the issue with the line and why, rather than
+rewording it to fit. Commit the files on their own.
 
-Then check that every Spec line is exactly one scenario and every
-scenario is a Spec line. If one does not map, stop and comment on the
-issue with the line and why, rather than rewording it to fit. Run the
-spec check, `npx --no-install factory specs check`, and commit the
-change on its own.
+`factory specs new N` exits 1 when the spec tool is not installed, and
+says to run `factory init`, which installs it; stop and say so in the
+report.
 
 ## 3. Build it
 
@@ -327,9 +316,10 @@ content follows that path.
 
 **Code:**
 
-- On the `spec` track, work through the change's `tasks.md` and tick each
-  task as it lands. If the code makes the design wrong, update `design.md`
-  and say why in the pull request.
+- On the `spec` track, work through the issue's Tasks, and with a spec
+  tool tick each in its tasks file as it lands. If the code makes the
+  design wrong, update the design (the spec tool's design file, when it has
+  one) and say why in the pull request.
 - Write the test first, where there is a defect to reproduce or a behavior
   to add, and watch it fail before making the change, as the area's rules
   for tests say ("Rules by area" in `CLAUDE.md`). One test runs alone with
@@ -357,21 +347,23 @@ content follows that path.
   acceptance criteria may not name every style the mockup shows, so the
   comparison is the check, and step 6 puts it in the pull request.
 
-## 4. Verify and archive the change (`spec`, or a Spec section)
+## 4. Verify and finish the spec (`spec`, or a Spec section)
 
-Verify before archiving: for every scenario in the change's specs, name
-the test that exercises it, in which file, and run it. A scenario with no
-test gets one now; a scenario whose test cannot fail (its red run before
-the change shows, or the prover) is not verified. Record the mapping in the pull request.
+Verify first: for every Spec line, name the test that exercises it, in
+which file, and run it. A line with no test gets one now; a line whose
+test cannot fail (its red run before the change shows, or the prover) is
+not verified. Record the mapping in the pull request, with or without a
+spec tool.
 
-Then fold the change into the specs, as the last commit before the pull
-request:
+Then fold the spec in, as the last commit before the pull request:
 
 ```bash
-DO_NOT_TRACK=1 npx --no-install openspec archive NAME --yes
+npx --no-install factory specs finish N
+npx --no-install factory specs check
 ```
 
-Then run the spec check, `npx --no-install factory specs check`.
+With no spec tool, both print the `- No spec tool` line, and there is
+nothing to commit.
 
 ## 5. Gate, commit, push
 
@@ -413,8 +405,9 @@ Start the body with the link text
 then what changed and how it was
 verified, including each new test's red run or mutation check, and what
 each reviewer found and what was done about it.
-On the `spec` track, or with a Spec section, name the spec it changed under `openspec/specs/` and
-include the scenario-to-test mapping from step 4.
+On the `spec` track, or with a Spec section, include the Spec-line-to-test
+mapping from step 4, and, when `factory specs finish N` folded a spec in,
+name each spec it changed, as `factory specs list` prints them.
 
 When the issue has a mockup, the body has a "Mockup and result" section:
 a table with the mockup beside the result for each state, then each
