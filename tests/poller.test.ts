@@ -631,7 +631,20 @@ describe("onceSettings", () => {
     expect(read({ tickets: { board: 7, columns: FACTORY_COLUMNS } })).toEqual({
       board: 7,
       ready: "Ready",
+      followUp: "follow-up",
     });
+  });
+
+  it("takes the follow-ups label the settings rename", () => {
+    expect(
+      read({
+        tickets: {
+          board: 7,
+          columns: FACTORY_COLUMNS,
+          labels: { "follow-up": "follow-ups" },
+        },
+      }).followUp,
+    ).toBe("follow-ups");
   });
 
   it("takes a Ready column the settings rename", () => {
@@ -642,7 +655,7 @@ describe("onceSettings", () => {
           columns: { ...FACTORY_COLUMNS, ready: "Ready for dev" },
         },
       }),
-    ).toEqual({ board: 7, ready: "Ready for dev" });
+    ).toEqual({ board: 7, ready: "Ready for dev", followUp: "follow-up" });
   });
 
   it("has no board when the settings name none", () => {
@@ -661,7 +674,7 @@ describe("onceSettings", () => {
 
 describe("once", () => {
   const TOKEN = { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN };
-  const settings = { board: 1, ready: "Ready" };
+  const settings = { board: 1, ready: "Ready", followUp: "follow-up" };
 
   it("starts each Ready ticket and returns 0", async () => {
     const { d, dispatches } = setup({}, TOKEN);
@@ -673,7 +686,7 @@ describe("once", () => {
   it("reads the board its settings name, owned by the repository's owner", async () => {
     const { d, calls } = setup({}, TOKEN);
 
-    await once({ board: 7, ready: "Ready" }, d);
+    await once({ ...settings, board: 7 }, d);
 
     const board = calls
       .filter((c) => c.url.endsWith("/graphql"))
@@ -685,7 +698,7 @@ describe("once", () => {
   it("starts no card outside the Ready column its settings name", async () => {
     const { d, dispatches } = setup({}, TOKEN);
 
-    await once({ board: 1, ready: "Ready for dev" }, d);
+    await once({ ...settings, ready: "Ready for dev" }, d);
 
     expect(dispatches()).toEqual([]);
   });
@@ -718,7 +731,7 @@ describe("once", () => {
     async (given, said) => {
       const { d, calls, logs } = setup({}, TOKEN);
 
-      expect(await once(given, d)).toBe(1);
+      expect(await once({ ...given, followUp: "follow-up" }, d)).toBe(1);
       expect(calls).toEqual([]);
       expect(logs).toEqual([said]);
     },

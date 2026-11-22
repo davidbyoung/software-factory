@@ -20,6 +20,7 @@
 //
 // Tickets and the board go through the ticket interface (`tickets/`); the
 // pull requests through `code-host/`.
+import { TICKET_LABELS } from "./labels.mts";
 import {
   colorOn,
   painter,
@@ -86,7 +87,12 @@ export type FieldNames = {
 
 /** What the settings say about the board: the column each state shows in
  * and the fields written. */
-export type BoardConfig = { columns: Columns; fields: FieldNames };
+export type BoardConfig = {
+  columns: Columns;
+  fields: FieldNames;
+  /** The name of the follow-ups ticket's label. */
+  followUp: string;
+};
 
 export const DEFAULT_FIELDS: FieldNames = {
   session: "Session",
@@ -96,11 +102,16 @@ export const DEFAULT_FIELDS: FieldNames = {
 export const DEFAULT_BOARD: BoardConfig = {
   columns: DEFAULT_COLUMNS,
   fields: DEFAULT_FIELDS,
+  followUp: TICKET_LABELS["follow-up"],
 };
 
 /** The columns and fields the settings name. */
 export function boardConfigOf(s: Settings): BoardConfig {
-  return { columns: columnsOf(s), fields: fieldNamesOf(s) };
+  return {
+    columns: columnsOf(s),
+    fields: fieldNamesOf(s),
+    followUp: s.tickets.labels["follow-up"],
+  };
 }
 
 export type Fields = {
@@ -416,6 +427,7 @@ export function planSync(
       cardOf(board, issue.key, cfg.columns),
       snapshot.pulls,
       cfg.columns,
+      cfg.followUp,
     );
     const listPrice = issueCost(issue, everyPull);
     const cost =
@@ -542,9 +554,10 @@ export function nightlyComments(
   now: Date,
   columns: Columns,
   ref: (key: Key) => string,
+  followUp: string,
 ): Comment[] {
   return snapshot.issues.flatMap((issue) => {
-    const clear = toClear(issue, snapshot.pulls, now);
+    const clear = toClear(issue, snapshot.pulls, now, followUp);
     if (!clear) return [];
     const named = { key: issue.key, ref: ref(issue.key) };
     return [
@@ -658,7 +671,9 @@ async function collect(
     const event = JSON.parse(d.readFile(opts.event)) as PullEvent;
     if (event.action === "closed") {
       const followUps = snapshot.issues
-        .filter((i) => i.state === "open" && i.labels.includes("follow-up"))
+        .filter(
+          (i) => i.state === "open" && i.labels.includes(d.config.followUp),
+        )
         .map((i) => i.key);
       const links = ticketsOf(
         {
@@ -684,8 +699,12 @@ async function collect(
   }
 
   if (opts.nightly) {
-    const comments = nightlyComments(snapshot, d.now(), d.config.columns, (k) =>
-      d.tickets.ref(k),
+    const comments = nightlyComments(
+      snapshot,
+      d.now(),
+      d.config.columns,
+      (k) => d.tickets.ref(k),
+      d.config.followUp,
     );
     await postAll(comments, d, opts.dryRun);
     if (comments.length && !opts.dryRun) saved = await read(d);

@@ -1,6 +1,7 @@
 // Which adapter the settings' `tickets.type` picks, built for a command in a
 // session or CI. `github` is the only one; the settings refuse any other
 // value before this runs (`config.mts`).
+import { TICKET_LABELS, type Labels } from "../labels.mts";
 import { gh, type Gh } from "../lib/gh.mts";
 import { fieldNamesOf, type Settings } from "../config.mts";
 import { githubKey, githubRef, githubTickets } from "./github.mts";
@@ -56,7 +57,12 @@ export async function openTickets(
   const mapping = settings.tickets.ticketFields;
   return {
     tickets: Object.values(mapping).some((v) => v !== null)
-      ? withTicketFields(tickets, mapping, target.repository)
+      ? withTicketFields(
+          tickets,
+          mapping,
+          target.repository,
+          settings.tickets.labels,
+        )
       : tickets,
   };
 }
@@ -70,9 +76,11 @@ export function withTicketFields(
   inner: Tickets,
   mapping: FieldMapping,
   repository: string,
+  names: Labels["tickets"] = TICKET_LABELS,
 ): Tickets {
   const fields = () => need(inner, "fields");
-  const whole = (labels: readonly string[]) => labels.includes("follow-up");
+  const whole = (labels: readonly string[]) =>
+    labels.includes(names["follow-up"]);
 
   /** The description to write, once every named field is checked and
    * written. */
@@ -107,7 +115,7 @@ export function withTicketFields(
       const values = await fields().read(n);
       return {
         ...ticket,
-        body: join(ticket.body, values, mapping, ticket.labels),
+        body: join(ticket.body, values, mapping, ticket.labels, names.spec),
       };
     },
     async writeBody(n, body) {

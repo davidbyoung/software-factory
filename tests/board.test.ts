@@ -267,6 +267,7 @@ describe("nightlyComments", () => {
       later,
       DEFAULT_COLUMNS,
       (key) => `#${key}`,
+      "follow-up",
     );
 
     expect(comments.map((c) => [c.issue, c.body.split(":")[0]])).toEqual([
@@ -328,6 +329,44 @@ describe("collect", () => {
         d,
       ),
     ).toBe(0);
+    expect(mem.comments(18).map((c) => c.body)).toEqual([
+      expect.stringMatching(
+        /^Pull request #40 merged part of these follow-ups\./,
+      ),
+    ]);
+  });
+
+  it("finds the follow-ups ticket by the label name the settings give it", async () => {
+    const mem = seeded();
+    mem.state.get("18")!.labels.push("follow-ups");
+    const { d, files } = deps(mem, {}, fakePulls().pulls);
+    d.settings = async () => {
+      const s = await fakeSettings();
+      return {
+        ...s,
+        tickets: {
+          ...s.tickets,
+          labels: { ...s.tickets.labels, "follow-up": "follow-ups" },
+        },
+      };
+    };
+    files["event.json"] = JSON.stringify({
+      action: "closed",
+      pull_request: { number: 40, merged: true, body: "Part of #18: a line." },
+    });
+
+    await main(
+      [
+        "collect",
+        "--out",
+        "o.json",
+        "--event",
+        "event.json",
+        "--event-name",
+        "pull_request_target",
+      ],
+      d,
+    );
     expect(mem.comments(18).map((c) => c.body)).toEqual([
       expect.stringMatching(
         /^Pull request #40 merged part of these follow-ups\./,

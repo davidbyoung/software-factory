@@ -222,7 +222,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       return failed(`Could not start ticket ${id}'s spec in ${folder}`);
     d.out(`Started ticket ${id}'s spec in ${folder}`);
   }
-  const files = tool.files(id, labels.includes("spec"));
+  const files = tool.files(id, labels.includes(s.tickets.labels.spec));
   const width = Math.max(...files.map((f) => f.path.length)) + 2;
   const kinds = Math.max(...files.map((f) => f.kind.length));
   d.out(`Write each file from ticket ${id}'s body:`);

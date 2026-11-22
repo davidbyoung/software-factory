@@ -311,7 +311,8 @@ async function end(
     d.tickets,
     d.own,
   );
-  if (reviewingPulls(ticket, pulls).length > 0) return "kept";
+  if (reviewingPulls(ticket, pulls, d.labels.tickets["follow-up"]).length > 0)
+    return "kept";
   await post(d, issue, { kind: "ended", issue: named(d, issue) });
   return "released";
 }
@@ -768,7 +769,11 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       case "refined": {
         // A body the build could not read gets no marker, whoever wrote it.
         const ticket = await d.tickets.read(issue);
-        const missing = missingParts(ticket.body, ticket.labels);
+        const missing = missingParts(
+          ticket.body,
+          ticket.labels,
+          d.labels.tickets,
+        );
         if (missing.length > 0) {
           for (const line of missing) console.error(line);
           return 1;

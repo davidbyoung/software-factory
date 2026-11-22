@@ -1663,6 +1663,8 @@ export type Target = {
   watch: Watch | null;
   /** The column each state shows in on the board. */
   columns: Columns;
+  /** The name of the follow-ups ticket's label. */
+  followUp: string;
 };
 
 /** The settings' answer, with GITHUB_REPOSITORY and FACTORY_BOARD_NUMBER
@@ -1678,6 +1680,7 @@ export function targetOf(
       : s.tickets.board,
     watch: watchOf(s.builds.trigger, s.builds.pollMinutes),
     columns: columnsOf(s),
+    followUp: s.tickets.labels["follow-up"],
   };
 }
 

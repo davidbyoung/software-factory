@@ -325,8 +325,9 @@ function openspecAt(o: { installed?: boolean; archive?: number } = {}) {
 function specDeps(
   at: ReturnType<typeof openspecAt>,
   labels: string[] | null = ["spec"],
+  settings: Record<string, unknown> = {},
 ) {
-  const { d, out, err } = deps({ specs: "openspec" });
+  const { d, out, err } = deps({ specs: "openspec", ...settings });
   d.root = at.root;
   d.specTools = at.tools;
   d.labels = async (_s, id) => {
@@ -425,6 +426,15 @@ describe("factory specs new", () => {
       "  new  proposal.md               The owner's text and Decisions, linking ticket 37",
       SPEC_FILES[1],
     ]);
+  });
+
+  it("lists the four files for a ticket with the spec label's configured name", async () => {
+    at = openspecAt();
+    const renamed = { tickets: { labels: { spec: "needs-spec" } } };
+    const { d, out } = specDeps(at, ["needs-spec"], renamed);
+
+    expect(await main(["specs-new", "37"], d)).toBe(0);
+    expect(out.slice(2, -1)).toEqual(SPEC_FILES);
   });
 
   it("says a change already started is started, lists the files again, and starts nothing", async () => {

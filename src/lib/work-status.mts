@@ -4,6 +4,7 @@
 // poller (`factory poller`) all decide from this one module, so they
 // cannot disagree. It reads tickets as the ticket interface returns them
 // (`tickets/types.mts`) and never calls a ticket system itself.
+import { TICKET_LABELS } from "../labels.mts";
 import type {
   Board,
   BoardItem,
@@ -356,12 +357,18 @@ export type Derived = {
   pulls: number[];
 };
 
-/** The pull requests that put this issue In review. */
-export function reviewingPulls(issue: Issue, pulls: PullRequest[]) {
+/** The pull requests that put this issue In review: those that close it,
+ * and on the follow-ups ticket, labeled `followUp`, those that build part
+ * of it. */
+export function reviewingPulls(
+  issue: Issue,
+  pulls: PullRequest[],
+  followUp: string = TICKET_LABELS["follow-up"],
+) {
   return pulls.filter(
     (pull) =>
       pull.closes.includes(issue.key) ||
-      (issue.labels.includes("follow-up") && pull.partOf.includes(issue.key)),
+      (issue.labels.includes(followUp) && pull.partOf.includes(issue.key)),
   );
 }
 
@@ -416,6 +423,7 @@ export function derive(
   card: BoardCard | null,
   pulls: PullRequest[],
   columns: Columns = DEFAULT_COLUMNS,
+  followUp: string = TICKET_LABELS["follow-up"],
 ): Derived {
   const work = workState(issue.comments);
   const marked = markedComments(issue.comments);
@@ -429,7 +437,7 @@ export function derive(
     };
   }
 
-  const reviewing = reviewingPulls(issue, pulls);
+  const reviewing = reviewingPulls(issue, pulls, followUp);
   if (reviewing.length > 0) {
     const first = [...reviewing].sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt),
@@ -596,11 +604,15 @@ export function toClear(
   issue: Issue,
   pulls: PullRequest[],
   now: Date,
+  followUp: string = TICKET_LABELS["follow-up"],
 ): {
   kind: "claim" | "start";
   since: string;
 } | null {
-  if (issue.state !== "open" || reviewingPulls(issue, pulls).length > 0)
+  if (
+    issue.state !== "open" ||
+    reviewingPulls(issue, pulls, followUp).length > 0
+  )
     return null;
   const work = workState(issue.comments);
   const old = (m: Marked | null) =>

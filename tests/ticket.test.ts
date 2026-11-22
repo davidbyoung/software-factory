@@ -92,6 +92,11 @@ function deps(
               memory.tickets,
               options.ticketFields.mapping,
               "acme/shop",
+              {
+                spec: "spec",
+                "follow-up": "follow-up",
+                ...options.labels?.tickets,
+              },
             )
           : memory.tickets,
       };
@@ -565,6 +570,29 @@ describe("the refined check", () => {
     const r = await refined(PLAIN_BODY, []);
 
     expect(r.clocks.size).toBe(0);
+  });
+
+  describe("with labels the settings rename", () => {
+    const labels = {
+      tickets: { spec: "needs-spec", "follow-up": "follow-ups" },
+    };
+    const check = async (body: string, on: string[]) => {
+      quiet();
+      const { d, out } = deps([{ number: 7, body, labels: on }], { labels });
+      const code = await main(["refined", "7", "--check"], d);
+      return { code, out, errors };
+    };
+
+    it("takes the follow-ups ticket by its configured name as sound", async () => {
+      expect((await check("", ["follow-ups"])).out).toEqual(["sound"]);
+    });
+
+    it("holds a ticket with the configured spec name to the spec track", async () => {
+      const r = await check(PLAIN_BODY, ["needs-spec"]);
+
+      expect(r.code).toBe(1);
+      expect(r.errors).toContain("missing: ## Spec");
+    });
   });
 
   describe("a ticket without the spec label", () => {
@@ -1856,6 +1884,40 @@ describe("tickets whose factory fields sit in ticket fields", () => {
     const { d, out } = seeded();
     expect(await main(["refined", "7", "--check"], d)).toBe(0);
     expect(out).toEqual(["sound"]);
+  });
+
+  describe("with labels the settings rename", () => {
+    const labels = {
+      tickets: { spec: "needs-spec", "follow-up": "follow-ups" },
+    };
+
+    it("keeps the follow-ups ticket whole by its configured name", async () => {
+      quiet();
+      const { d, memory, files } = deps(
+        [{ number: 4, labels: ["follow-ups"] }],
+        {
+          ticketFields: { fields: FIELDS, mapping: MAPPING },
+          labels,
+        },
+      );
+      files.set("body.md", BODY);
+
+      await main(["edit", "4", "--body-file", "body.md"], d);
+      expect(memory.state.get("4")?.body).toBe(BODY);
+      expect(memory.fieldValues.get("4")).toBeUndefined();
+    });
+
+    it("reads a shared field as the Spec on a ticket with the configured spec name", async () => {
+      quiet();
+      const { d, out, memory } = deps(
+        [{ number: 7, labels: ["needs-spec"], body: "Ask.\n" }],
+        { ticketFields: { fields: FIELDS, mapping: MAPPING }, labels },
+      );
+      memory.fieldValues.set("7", { "Acceptance criteria": "1. It works." });
+
+      await main(["view", "7", "--field", "body"], d);
+      expect(out.join("\n")).toBe("Ask.\n\n## Spec\n\n1. It works.\n");
+    });
   });
 
   it("keeps the follow-ups ticket whole in its description", async () => {

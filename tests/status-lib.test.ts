@@ -264,6 +264,24 @@ describe("derive", () => {
     expect(derive(issue(), null, [partial]).status).toBe("Backlog");
   });
 
+  it("finds the follow-ups issue by the label name the settings give it", () => {
+    const followUps = issue({ labels: ["follow-ups"] });
+    const partial = pull({ closes: [], body: "Part of #7: its first line." });
+
+    expect(
+      derive(followUps, null, [partial], DEFAULT_COLUMNS, "follow-ups").status,
+    ).toBe("In review");
+    expect(
+      derive(
+        issue({ labels: ["follow-up"] }),
+        null,
+        [partial],
+        DEFAULT_COLUMNS,
+        "follow-ups",
+      ).status,
+    ).toBe("Backlog");
+  });
+
   it("leaves the follow-ups issue alone when a pull request only links a line to it", () => {
     const followUps = issue({ labels: ["follow-up"] });
     const linking = pull({

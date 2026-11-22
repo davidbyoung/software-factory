@@ -155,6 +155,43 @@ describe("toRows", () => {
     expect(rows.map((r) => r.key)).toEqual(["201"]);
   });
 
+  it("keeps a partial pull request in the row of the follow-ups ticket the settings name", () => {
+    const { rows } = toRows(
+      {
+        issues: [issue(201, { labels: ["follow-ups"] })],
+        pulls: [pull(9, { body: "Part of #201: its first line." })],
+      },
+      board(),
+      new Map(),
+      NOW,
+      { ref: REF, followUp: "follow-ups" },
+    );
+
+    expect(rows.map((r) => r.key)).toEqual(["201"]);
+    expect(rows[0]!.derived!.status).toBe("In review");
+  });
+
+  it("gives no row to a partial pull request of a closed follow-ups ticket the settings name", () => {
+    const { rows } = toRows(
+      {
+        issues: [
+          issue(201, {
+            labels: ["follow-ups"],
+            state: "closed",
+            closedAt: "2026-11-09T10:00:00Z",
+          }),
+        ],
+        pulls: [pull(9, { body: "Part of #201: its first line." })],
+      },
+      board(),
+      new Map(),
+      NOW,
+      { ref: REF, followUp: "follow-ups" },
+    );
+
+    expect(rows.map((r) => r.key)).toEqual([]);
+  });
+
   it("gives no row of its own to a pull request whose issue is already closed", () => {
     const { rows } = toRows(
       {
