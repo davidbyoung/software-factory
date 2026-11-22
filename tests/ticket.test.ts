@@ -68,7 +68,7 @@ function deps(
     ticketFields?: { fields: TicketField[]; mapping: FieldMapping };
     /** Label names the settings set, beside the defaults. */
     labels?: {
-      tickets?: Partial<Record<"spec" | "follow-up", string>>;
+      tickets?: Partial<Record<"spec" | "follow-up" | "factory", string>>;
       codeHost?: Partial<
         Record<"merge-automatic" | "merge-manual" | "verdict-override", string>
       >;
@@ -81,8 +81,13 @@ function deps(
     deciders?: string[];
     /** The in-memory adapter's own options, such as `strict`. */
     memory?: MemoryOptions;
+    /** Whether a ticket seeded with no labels gets the factory label, as
+     * every ticket the factory works on has; true unless given. */
+    labeled?: boolean;
   } = {},
 ) {
+  if (options.labeled !== false)
+    seed = seed.map((t) => (t.labels ? t : { ...t, labels: ["factory"] }));
   const memory = memoryTickets(seed, {
     groups: options.groups,
     deciders: options.deciders,
@@ -215,7 +220,7 @@ describe("claim", () => {
 
     await main(["claim", "7"], d);
 
-    expect(log).toEqual(["post", "sleep", "read"]);
+    expect(log.slice(0, 3)).toEqual(["post", "sleep", "read"]);
   });
 
   it("claims when its own comment is the live one, and remembers it", async () => {
@@ -882,7 +887,7 @@ describe("follow-up", () => {
     expect(out).toEqual(["opened #210"]);
     const opened = memory.state.get("210")!;
     expect(opened.title).toBe("Follow-ups");
-    expect(opened.labels).toEqual(["follow-up"]);
+    expect(opened.labels).toEqual(["follow-up", "factory"]);
     expect(opened.body).toContain('"Follow-ups" in `.claude/factory/rules.md`');
     expect(opened.body).toContain(`- [ ] src/pr.mts: ${LINE}`);
   });
@@ -1245,11 +1250,14 @@ describe("the ticket commands", () => {
   });
 
   it("list --title keeps the tickets whose title is exactly that", async () => {
-    const { d, out } = deps([
-      SEVEN,
-      { number: 3, title: "Follow-ups" },
-      { number: 4, title: "Follow-ups, the second" },
-    ]);
+    const { d, out } = deps(
+      [
+        SEVEN,
+        { number: 3, title: "Follow-ups" },
+        { number: 4, title: "Follow-ups, the second" },
+      ],
+      { labeled: false },
+    );
 
     await main(["list", "--title", "Follow-ups"], d);
     expect(out).toEqual(["3\tFollow-ups\t"]);
@@ -1494,7 +1502,10 @@ describe("the ticket commands", () => {
         ["open", "--title", "Next", "--body-file", "o.md", "--label", "spec"],
         d,
       );
-      expect(memory.state.get(out[0]!)?.labels).toEqual(["needs-spec"]);
+      expect(memory.state.get(out[0]!)?.labels).toEqual([
+        "needs-spec",
+        "factory",
+      ]);
     });
 
     it("view shows a renamed label's key beside it", async () => {
@@ -1553,7 +1564,7 @@ describe("the ticket commands", () => {
       const opened = [...memory.state.values()].find(
         (t) => t.title === "Follow-ups",
       );
-      expect(opened?.labels).toEqual(["follow-ups"]);
+      expect(opened?.labels).toEqual(["follow-ups", "factory"]);
     });
   });
 
@@ -1717,7 +1728,7 @@ describe("a ticket command whose adapter lacks the group it needs", () => {
       quiet();
       const { d, out, memory } = deps(
         [{ number: 7, body: "Before." }, { number: 3 }],
-        { groups: [] },
+        { groups: [], labeled: false },
       );
 
       expect(await main(argv, d)).toBe(1);
@@ -1824,7 +1835,7 @@ describe("the owner's override label", () => {
     "label --add %s is refused and adds nothing",
     async (label) => {
       quiet();
-      const { d, out, memory } = deps([{ number: 7 }]);
+      const { d, out, memory } = deps([{ number: 7 }], { labeled: false });
 
       expect(await main(["label", "7", "--add", label], d)).toBe(1);
       expect(out).toEqual([]);
@@ -2510,5 +2521,154 @@ describe("a ticket system that keeps the record apart", () => {
     expect(memory.state.get("PROJ-7")!.record.at(-1)!.markers).toEqual([
       `<!-- cost-total: 3.41 session=${SESSION} -->`,
     ]);
+  });
+});
+
+describe("the factory label", () => {
+  const strict = (seed: Seed[], labels?: { factory?: string }) =>
+    deps(seed, {
+      memory: { strict: true },
+      labels: { tickets: labels },
+      labeled: false,
+    });
+
+  it.each([["refining"], ["claim"], ["ready"]])(
+    "%s adds the label to a ticket without it, creating it first, and says so before its own line",
+    async (command) => {
+      const { d, out, memory } = strict([{ key: "PROJ-7" }]);
+      if (command === "ready") {
+        memory.card("PROJ-7", { status: "Backlog" });
+        d.settings = async () => ({
+          ...(await fakeSettings()),
+          tickets: {
+            ...(await fakeSettings()).tickets,
+            board: 7,
+          },
+        });
+      }
+
+      await main([command, "PROJ-7"], d);
+      expect(memory.state.get("PROJ-7")!.labels).toEqual(["factory"]);
+      expect(out[0]).toBe(
+        "PROJ-7 had no factory label: added it, so the factory now tracks PROJ-7",
+      );
+    },
+  );
+
+  it("adds nothing and says nothing for a ticket that has it", async () => {
+    const { d, out } = strict([{ key: "PROJ-7", labels: ["factory"] }]);
+
+    await main(["refining", "PROJ-7"], d);
+    expect(out).toEqual(["posted"]);
+  });
+
+  it("adds the name tickets.labels.factory gives", async () => {
+    const { d, memory } = strict([{ key: "PROJ-7" }], {
+      factory: "built-by-factory",
+    });
+
+    await main(["refining", "PROJ-7"], d);
+    expect(memory.state.get("PROJ-7")!.labels).toEqual(["built-by-factory"]);
+  });
+
+  it("puts the label on a ticket factory ticket open opens, beside the ones asked for", async () => {
+    const { d, memory, files } = strict([]);
+    files.set("b.md", "Body.");
+
+    await main(
+      ["open", "--title", "T", "--body-file", "b.md", "--label", "spec"],
+      d,
+    );
+    expect(memory.state.get("PROJ-1")!.labels).toEqual(["spec", "factory"]);
+  });
+
+  it("puts the label on the follow-ups ticket it opens", async () => {
+    const { d, memory } = strict([]);
+
+    await main(["follow-up", "a.ts", "Wrong."], d);
+    expect(memory.state.get("PROJ-1")!.labels).toEqual([
+      "follow-up",
+      "factory",
+    ]);
+  });
+
+  it("takes the key factory in factory ticket label", async () => {
+    const { d, memory } = strict([{ key: "PROJ-7" }], { factory: "built" });
+
+    expect(await main(["label", "PROJ-7", "--add", "factory"], d)).toBe(0);
+    expect(memory.state.get("PROJ-7")!.labels).toEqual(["built"]);
+  });
+});
+
+describe("factory ticket adopt", () => {
+  const tickets: Seed[] = [
+    { number: 1, labels: ["factory"] },
+    { number: 2 },
+    { number: 3, labels: ["bug"] },
+    { number: 4, state: "closed", closedAt: "2026-11-01T00:00:00Z" },
+  ];
+
+  it("labels each ticket named that lacks the label", async () => {
+    const { d, out, memory } = deps(tickets, { labeled: false });
+
+    expect(await main(["adopt", "1", "2"], d)).toBe(0);
+    expect(out).toEqual(["labeled #2", "✓ 2 tickets carry factory"]);
+    expect(memory.state.get("2")!.labels).toEqual(["factory"]);
+  });
+
+  it("labels every ticket not finished, whatever its labels", async () => {
+    const { d, out, memory } = deps(tickets, { labeled: false });
+
+    expect(await main(["adopt", "--all-open"], d)).toBe(0);
+    expect(out).toEqual(["labeled #2, #3", "✓ 3 open tickets carry factory"]);
+    expect(memory.state.get("3")!.labels).toEqual(["bug", "factory"]);
+    expect(memory.state.get("4")!.labels).toEqual([]);
+  });
+
+  it("says none needed it when every open ticket has it", async () => {
+    const { d, out } = deps([{ number: 1, labels: ["factory"] }]);
+
+    expect(await main(["adopt", "--all-open"], d)).toBe(0);
+    expect(out).toEqual(["✓ 1 open ticket carries factory; none needed it"]);
+  });
+
+  it("prints its usage and exits 2 given neither a key nor --all-open", async () => {
+    quiet();
+    const { d } = deps(tickets, { labeled: false });
+
+    expect(await main(["adopt"], d)).toBe(2);
+    expect(errors.join("\n")).toContain("factory ticket adopt");
+  });
+
+  it("labels nothing when the lock an update replaces already has the label's setting", async () => {
+    const { d, out, memory, files } = deps(tickets, { labeled: false });
+    files.set(
+      "old.lock",
+      "settings:\n  tickets:\n    labels:\n      factory: factory  # default\n",
+    );
+
+    expect(
+      await main(["adopt", "--all-open", "--since-lock", "old.lock"], d),
+    ).toBe(0);
+    expect(out).toEqual([
+      "✓ nothing to label: old.lock already has tickets.labels.factory",
+    ]);
+    expect(memory.state.get("2")!.labels).toEqual([]);
+  });
+
+  it.each([
+    [
+      "lacks the setting",
+      "settings:\n  tickets:\n    labels:\n      spec: spec\n",
+    ],
+    ["is missing", undefined],
+  ])("labels as --all-open does when the old lock %s", async (_c, text) => {
+    const { d, out, files } = deps(tickets, { labeled: false });
+    if (text !== undefined) files.set("old.lock", text);
+
+    expect(
+      await main(["adopt", "--all-open", "--since-lock", "old.lock"], d),
+    ).toBe(0);
+    expect(out).toEqual(["labeled #2, #3", "✓ 3 open tickets carry factory"]);
   });
 });

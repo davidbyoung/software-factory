@@ -56,6 +56,7 @@
 // printed.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { load as parseYaml } from "js-yaml";
 import { setTimeout as sleep } from "node:timers/promises";
 import { sessionIdentity } from "./lib/gh.mts";
 import { openCodeHost } from "./code-host/index.mts";
@@ -306,6 +307,7 @@ async function claim(issue: Key, who: Identity, d: Ctx) {
   if (outcome === "claimed") {
     d.claimStore.write(issue, mine);
     startClock(issue, d);
+    await adoptNamed(d, issue);
   } else await remove(d, mine);
   return outcome;
 }
@@ -366,12 +368,91 @@ async function followUp(file: string, text: string, d: Ctx) {
     'Small problems noticed while doing other work, one line each, built together once the owner approves this issue. See "Follow-ups" in `.claude/factory/rules.md`.\n',
     line,
   );
+  const factory = d.labels.tickets.factory;
+  for (const l of [label, factory]) await d.tickets.ensureLabel(l);
   const made = await d.tickets.open({
     title: "Follow-ups",
-    labels: [label],
+    labels: [label, factory],
     body,
   });
   return `opened ${d.tickets.ref(made)}`;
+}
+
+/** Adds the factory label to the ticket, creating the label first where
+ * the ticket system needs that. */
+async function labelFactory(c: Ctx, issue: Key) {
+  const name = c.labels.tickets.factory;
+  await c.tickets.ensureLabel(name);
+  await c.tickets.addLabel(issue, name);
+}
+
+/** A ticket named to a session becomes the factory's: it gets the label,
+ * and the session says so. */
+async function adoptNamed(c: Ctx, issue: Key) {
+  const ticket = await c.tickets.read(issue);
+  if (ticket.labels.includes(c.labels.tickets.factory)) return;
+  await labelFactory(c, issue);
+  const ref = c.tickets.ref(issue);
+  c.out(
+    `${ref} had no factory label: added it, so the factory now tracks ${ref}`,
+  );
+}
+
+const ADOPT_USAGE =
+  "Usage: factory ticket adopt N... | factory ticket adopt --all-open [--since-lock FILE]";
+
+/** Whether the lock an update replaces already has the factory label's
+ * setting, which every version before the label lacks. */
+function lockHasLabel(text: string): boolean {
+  const lock = parseYaml(text) as {
+    settings?: { tickets?: { labels?: Record<string, unknown> } };
+  } | null;
+  return lock?.settings?.tickets?.labels?.factory !== undefined;
+}
+
+/** `factory ticket adopt`: labels the tickets named, or every one not
+ * finished, and prints those it labeled and how many carry the label. */
+async function adopt(args: string[], c: Ctx): Promise<number> {
+  const all = args.includes("--all-open");
+  const lock = option(args, "--since-lock");
+  const keys = args.filter(
+    (a, i) => !a.startsWith("--") && args[i - 1] !== "--since-lock",
+  );
+  if (!all && keys.length === 0) {
+    console.error(ADOPT_USAGE);
+    return 2;
+  }
+  const name = c.labels.tickets.factory;
+  if (all && lock !== undefined) {
+    let text: string | null = null;
+    try {
+      text = c.readFile(lock);
+    } catch {
+      text = null;
+    }
+    if (text !== null && lockHasLabel(text)) {
+      c.out(`✓ nothing to label: ${lock} already has tickets.labels.factory`);
+      return 0;
+    }
+  }
+  const tickets = all
+    ? (await c.tickets.listUnfinished())
+        .map((t) => ({ key: t.key, labels: t.labels }))
+        .sort((a, b) => compareKeys(a.key, b.key))
+    : await Promise.all(
+        keys.map(async (k) => {
+          const t = await c.tickets.read(c.tickets.key(k));
+          return { key: t.key, labels: t.labels };
+        }),
+      );
+  const lacking = tickets.filter((t) => !t.labels.includes(name));
+  for (const t of lacking) await labelFactory(c, t.key);
+  if (lacking.length)
+    c.out(`labeled ${lacking.map((t) => c.tickets.ref(t.key)).join(", ")}`);
+  const count = tickets.length;
+  const what = `${count}${all ? " open" : ""} ticket${count === 1 ? "" : "s"} ${count === 1 ? "carries" : "carry"} ${name}`;
+  c.out(`✓ ${what}${lacking.length === 0 ? "; none needed it" : ""}`);
+  return 0;
 }
 
 /** Set the card's Status to Ready, as the owner would. */
@@ -619,15 +700,14 @@ async function ticketCommand(
       const body = d.readFile(file);
       refuseBareTags(title);
       refuseBareTags(body);
-      d.out(
-        String(
-          await t.open({
-            title,
-            body,
-            labels: options(args, "--label").map((l) => labelOf(names, l)),
-          }),
-        ),
-      );
+      const labels = [
+        ...new Set([
+          ...options(args, "--label").map((l) => labelOf(names, l)),
+          names.factory,
+        ]),
+      ];
+      for (const l of labels) await t.ensureLabel(l);
+      d.out(String(await t.open({ title, body, labels })));
       return 0;
     }
     case "label": {
@@ -642,6 +722,7 @@ async function ticketCommand(
         d.out((await history.wasRemoved(ticket, named(was))) ? "yes" : "no");
       } else if (add !== undefined) {
         refuseOverride(add, d.labels.codeHost["verdict-override"]);
+        await t.ensureLabel(labelOf(names, add));
         await t.addLabel(ticket, labelOf(names, add));
         d.out("added");
       } else {
@@ -694,7 +775,7 @@ const STEPS = new Set([
 ]);
 
 const USAGE =
-  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
+  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
 
 export async function main(argv: string[], deps: Deps): Promise<number> {
   const [command, first, ...rest] = argv;
@@ -726,6 +807,8 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       d.out(supports(d.tickets, first as Group) ? "yes" : "no");
       return 0;
     }
+    if (command === "adopt")
+      return await adopt(first === undefined ? rest : [first, ...rest], d);
     if (command === "follow-up") {
       if (!first || !rest[0]) throw new Error(USAGE);
       d.out(await followUp(first, rest[0], d));
@@ -778,10 +861,12 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         d.out(await end(issue, who, d));
         return 0;
       case "ready":
+        await adoptNamed(d, issue);
         await moveToReady(issue, d);
         d.out("ready");
         return 0;
       case "refining":
+        await adoptNamed(d, issue);
         await post(d, issue, { kind: "refining", who });
         startClock(issue, d);
         break;
