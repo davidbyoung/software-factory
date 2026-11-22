@@ -195,7 +195,9 @@ its ticket, after your own text:
 
 - **Spec:** what the change must do, as numbered "When this, then that"
   lines, such as "3. When a visitor sends the form with no email, the
-  form still sends." To change one, reply with its number.
+  form still sends." To change one, name it by its number where
+  refinement asks you, in the session or in a comment on the ticket,
+  such as "3: and when the email is not valid, it says so."
 - **Design:** where the change goes and the cases it must handle.
 - **Tasks:** the steps to build it, each naming the test that checks it.
 

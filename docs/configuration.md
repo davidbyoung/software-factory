@@ -570,9 +570,12 @@ tool do you use?" when `.claude/factory.yaml` has no `specs` line and no
 [preset](presets.md) sets one. With `openspec`, init installs OpenSpec as
 a development dependency, `npm install --save-dev @fission-ai/openspec`,
 whenever your `package.json` doesn't list it, and prints
-`Installed @fission-ai/openspec.` So to turn OpenSpec on later, write
-`specs: openspec` and run `factory init` again; it asks nothing it has
-an answer for.
+`Installed @fission-ai/openspec.` It worked when that line prints and
+`package.json` lists the package. So to turn OpenSpec on later, write
+`specs: openspec` and run `factory init` again. A re-run is safe: it
+keeps every setting you have, asks again only which parts you want,
+with yours already checked, and shows everything it will do before it
+does it.
 
 **Without OpenSpec installed,** a build stops at its first spec step and
 says to run `factory init`.
@@ -586,7 +589,9 @@ says what each prints.
 #### `specs.check`
 
 The command that checks your written specs are well formed, such as
-that every requirement has a scenario.
+that every requirement has a scenario. To set it, write `specs` as a
+block: its `type` is the tool the one-line form names, so
+`specs: openspec` and the block below make the same choice.
 `factory specs check` runs it, and so does a build each time it writes a
 spec. It belongs only with `type: openspec`.
 

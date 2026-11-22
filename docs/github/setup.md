@@ -48,11 +48,12 @@ Next it asks which spec tool you use:
 Choose **None** unless you want a folder in your repository that always
 describes what your project does, readable without opening a ticket:
 that is what OpenSpec adds. Choose **OpenSpec** and init installs it for
-you. Your answer is written to `.claude/factory.yaml` as
+you, printing `Installed @fission-ai/openspec.` once it has. Your answer is written to `.claude/factory.yaml` as
 [`specs`](../configuration.md#specs).
 
-Init skips either question when your `.claude/factory.yaml`, or a
-[preset](../presets.md) you follow, already answers it. Then it asks
+Init skips the branch-name question when your `.claude/factory.yaml`, or
+a [preset](../presets.md) you follow, sets `code-host.branch-name`, and
+the spec tool question when they set `specs`. Then it asks
 which parts you want. Each is optional and stands alone:
 
 | Part                                            | What you get                                                                   |
