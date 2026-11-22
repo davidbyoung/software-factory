@@ -137,9 +137,9 @@ Follow-ups
 - [ ] tests/search.spec.ts: This test passes even when search returns nothing.
 ```
 
-There is one per repository, it carries the `follow-up` label, or the
-name you give it under [`tickets.labels`](configuration.md#ticketslabels), and there is
-nothing to configure. When you approve it, a session fixes every unchecked
+There is one per repository, and it needs no setup. Its label is
+`follow-up`, unless you rename it under
+[`tickets.labels`](configuration.md#ticketslabels). When you approve it, a session fixes every unchecked
 line on one branch, one commit per line, in one pull request.
 
 **Why a checklist and not a ticket each.** Every ticket costs the same
