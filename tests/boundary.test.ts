@@ -41,6 +41,21 @@ export function ticketCallsIn(text: string): string[] {
   return found;
 }
 
+/** Each place a skill, agent, rule, or workflow runs a spec tool itself
+ * rather than through `factory specs`: OpenSpec's command, run with npx or
+ * on its own with a subcommand. A path such as `openspec/specs/` is not a
+ * run. */
+export function specToolCallsIn(text: string): string[] {
+  return joinContinuations(text)
+    .split("\n")
+    .filter(
+      (line) =>
+        /\bnpx\b[^\n]*\bopenspec\b/.test(line) ||
+        /(^|[\s`$(;&|])openspec\s+[a-z-]+/.test(line),
+    )
+    .map((line) => line.trim());
+}
+
 /** Each line that names GitHub's CLI, as a command or in a sentence, or
  * GitHub's own name for whether a pull request can merge. */
 export function hostToolIn(text: string): string[] {
@@ -174,6 +189,30 @@ describe("ticketCallsIn", () => {
     expect(ticketCallsIn("npx --no-install factory ticket view N")).toEqual([]);
     expect(ticketCallsIn("gh api repos/REPO/pulls/N/files")).toEqual([]);
     expect(ticketCallsIn("See the issues list on GitHub.")).toEqual([]);
+  });
+});
+
+describe("specToolCallsIn", () => {
+  it("finds OpenSpec run with npx, with its environment, and on its own", () => {
+    expect(
+      specToolCallsIn("DO_NOT_TRACK=1 npx --no-install openspec list --specs"),
+    ).toHaveLength(1);
+    expect(specToolCallsIn("npx openspec archive NAME --yes")).toHaveLength(1);
+    expect(
+      specToolCallsIn("Run `openspec validate --all` first."),
+    ).toHaveLength(1);
+    expect(
+      specToolCallsIn("      run: |\n        openspec new change x"),
+    ).toHaveLength(1);
+  });
+
+  it("lets through the factory's commands, OpenSpec's folders, and its name", () => {
+    expect(specToolCallsIn("npx --no-install factory specs new N")).toEqual([]);
+    expect(specToolCallsIn("a line of `openspec/specs/` false")).toEqual([]);
+    expect(specToolCallsIn("when `openspec/config.yaml` changed")).toEqual([]);
+    expect(specToolCallsIn("With OpenSpec, the build folds it in.")).toEqual(
+      [],
+    );
   });
 });
 
@@ -564,6 +603,16 @@ describe("the boundaries", () => {
   it("no skill, agent, rule, review, or workflow in the package calls GitHub's issues or projects", () => {
     const found = instructionFiles().flatMap((path) =>
       ticketCallsIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("no skill, agent, rule, review, workflow, or action in the package runs a spec tool itself", () => {
+    const found = [
+      ...instructionFiles(),
+      ...filesUnder(join(PACKAGE, "actions")),
+    ].flatMap((path) =>
+      specToolCallsIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
     );
     expect(found).toEqual([]);
   });
