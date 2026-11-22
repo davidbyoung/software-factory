@@ -34,6 +34,7 @@ import {
   columnsOf,
   fieldNamesOf,
   loadSettings,
+  MAX_PER_HOUR,
   type Settings,
 } from "./config.mts";
 import {
@@ -390,6 +391,30 @@ export function boardReport(
     const [mark, color] = MARKS[r.state];
     return `  ${color ? paint(color, mark) : mark} ${r.key.padEnd(10)} ${r.text}`;
   };
+  // A poller you host has no settings file, so it is told what differs
+  // from the defaults, as it is told the ready column.
+  const hosted = settings.builds.trigger === "own-server";
+  const poller: string[] = [];
+  if (hosted && cfg.factory !== TICKET_LABELS.factory)
+    poller.push(
+      "",
+      "tickets.labels",
+      row({
+        state: "unknown",
+        key: "label",
+        text: `${cfg.factory}: the poller needs FACTORY_LABEL set to "${cfg.factory}"`,
+      }),
+    );
+  if (hosted && settings.builds.maxPerHour !== MAX_PER_HOUR)
+    poller.push(
+      "",
+      "builds",
+      row({
+        state: "unknown",
+        key: "builds",
+        text: `${settings.builds.maxPerHour} an hour: the poller needs FACTORY_MAX_PER_HOUR set to ${settings.builds.maxPerHour}`,
+      }),
+    );
   return [
     board.title ? `Board ${number}, "${board.title}"` : `Board ${number}`,
     "",
@@ -398,6 +423,7 @@ export function boardReport(
     "",
     "tickets.fields",
     ...rows.fields.map(row),
+    ...poller,
   ];
 }
 

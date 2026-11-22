@@ -340,6 +340,11 @@
         "poll-minutes": {
           "enum": [5, 10, 15, 30, 60],
           "description": "How often the scheduled poller checks the board, in minutes, with builds.trigger: github-action. Default: 5."
+        },
+        "max-per-hour": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many builds the poller starts in any one hour. Default: 20."
         }
       }
     },

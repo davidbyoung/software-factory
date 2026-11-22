@@ -527,7 +527,9 @@ describe("tick", () => {
     await tick(d, state);
 
     expect(comments()).toEqual([]);
-    expect(logs).toContain("#12 waits: 20 builds started in the last hour");
+    expect(logs).toContain(
+      "#12 waits: 20 builds started in the last hour (builds.max-per-hour)",
+    );
   });
 
   it("counts the start comments on tickets still open", async () => {
@@ -639,6 +641,7 @@ describe("onceSettings", () => {
       ready: "Ready",
       followUp: "follow-up",
       factory: "factory",
+      maxPerHour: 20,
       ticketSystem: { type: "github", options: {}, own: true },
     });
   });
@@ -709,7 +712,12 @@ describe("onceSettings", () => {
 });
 
 describe("the ticket system the poller opens", () => {
-  const CONFIG = { owner: "acme", number: 7, githubToken: "ghp_x" };
+  const CONFIG = {
+    owner: "acme",
+    number: 7,
+    githubToken: "ghp_x",
+    maxPerHour: 20,
+  };
   const fake = (opened: (Record<string, string> | undefined)[]) =>
     withFakeTickets(TOOLS, memoryTickets([]).tickets, false, {
       credential: true,
@@ -962,5 +970,105 @@ describe("tickets without the factory label", () => {
     await tick(d, state);
 
     expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+  });
+});
+
+describe("the hourly cap's setting", () => {
+  it("starts no more than FACTORY_MAX_PER_HOUR says", async () => {
+    const { d, state, dispatches, logs } = setup(
+      withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
+      { ...ENV, FACTORY_MAX_PER_HOUR: "2" },
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).toHaveLength(2);
+    expect(
+      logs.some((l) =>
+        l.endsWith(
+          "waits: 2 builds started in the last hour (builds.max-per-hour)",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it.each(["0", "two", "1.5"])(
+    "polls nothing with FACTORY_MAX_PER_HOUR %s, and says why",
+    async (max) => {
+      const { d, state, calls, logs } = setup(
+        {},
+        {
+          ...ENV,
+          FACTORY_MAX_PER_HOUR: max,
+        },
+      );
+
+      await tick(d, state);
+
+      expect(calls).toEqual([]);
+      expect(logs).toEqual([
+        "not polling: FACTORY_MAX_PER_HOUR must be a whole number, 1 or more",
+      ]);
+    },
+  );
+
+  it("passes builds.max-per-hour to a scheduled pass", async () => {
+    const { d, dispatches } = setup(
+      withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
+      { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN },
+    );
+
+    await once(
+      {
+        board: 1,
+        ready: "Ready",
+        followUp: "follow-up",
+        factory: "factory",
+        maxPerHour: 3,
+      },
+      d,
+    );
+    expect(dispatches()).toHaveLength(3);
+  });
+});
+
+describe("the board's order", () => {
+  it("starts Ready tickets by their cards' rank, then by key", () => {
+    const ready = (key: string) =>
+      asIssue({
+        key,
+        title: key,
+        state: "open" as const,
+        closedAt: null,
+        labels: [],
+        comments: [],
+      });
+    const card = (key: string, rank: number): [string, BoardItem] => [
+      key,
+      {
+        itemId: `I_${key}`,
+        key,
+        status: "Ready",
+        updatedAt: "2026-11-09T12:00:00Z",
+        session: "",
+        runsIn: "",
+        rank,
+      },
+    ];
+    const keys = ["5", "9", "12", "30"];
+    const board: Board = {
+      projectId: "P",
+      fields: [],
+      items: new Map([
+        card("5", 2),
+        card("9", 0),
+        card("12", 1),
+        card("30", 1),
+      ]),
+    };
+
+    expect(
+      selectToStart({ issues: keys.map(ready), pulls: [] }, board),
+    ).toEqual(["9", "12", "30", "5"]);
   });
 });

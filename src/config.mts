@@ -188,6 +188,8 @@ export type Settings = {
     runner: string;
     /** How often the scheduled poller checks the board. */
     pollMinutes: (typeof POLL_MINUTES)[number];
+    /** How many builds either poller starts in any one hour. */
+    maxPerHour: number;
   };
   specs: string;
   /** The command that checks the specs, or null when `specs` is none. */
@@ -307,7 +309,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   ],
   "code-host": ["type", "branch-name", "labels"],
   "code-host.labels": Object.keys(PR_LABELS),
-  builds: ["trigger", "runner", "poll-minutes"],
+  builds: ["trigger", "runner", "poll-minutes", "max-per-hour"],
   specs: ["type", "check"],
   commands: [
     "build-setup",
@@ -928,6 +930,13 @@ export function parseSettings(
             "builds.poll-minutes",
             `must be one of ${POLL_MINUTES.join(", ")}`,
           );
+  const max = builds["max-per-hour"];
+  const maxPerHour =
+    max === undefined
+      ? MAX_PER_HOUR
+      : typeof max === "number" && Number.isInteger(max) && max >= 1
+        ? max
+        : fail("builds.max-per-hour", "must be a whole number, 1 or more");
   const runner = builds.runner ?? DEFAULT_RUNNER;
   if (typeof runner !== "string" || !built.runner.includes(runner))
     throw new SettingsError(
@@ -1037,7 +1046,7 @@ export function parseSettings(
       labels: ticketLabels.names,
     },
     codeHost: { type: codeHost, branchName, labels: prLabels.names },
-    builds: { trigger, runner, pollMinutes },
+    builds: { trigger, runner, pollMinutes, maxPerHour },
     specs,
     specCheck,
     commands,
@@ -1458,6 +1467,10 @@ export const defaultDeps = (
 });
 
 /** The column each state shows in on the board, null for none. */
+/** How many builds the poller starts in an hour unless
+ * `builds.max-per-hour` says otherwise. */
+export const MAX_PER_HOUR = 20;
+
 export function columnsOf(s: Settings): Columns {
   return Object.fromEntries(
     Object.entries(STATE_KEYS).map(([key, status]) => [

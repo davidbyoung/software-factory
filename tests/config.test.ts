@@ -66,7 +66,12 @@ describe("parseSettings", () => {
           "verdict-override": "verdict-override",
         },
       },
-      builds: { trigger: "manual", runner: "github-actions", pollMinutes: 5 },
+      builds: {
+        trigger: "manual",
+        runner: "github-actions",
+        pollMinutes: 5,
+        maxPerHour: 20,
+      },
       specs: "none",
       specCheck: null,
       commands: {
@@ -456,7 +461,12 @@ describe("parseSettings", () => {
         ...MINIMAL,
         builds: { trigger: "manual", runner: "github-actions" },
       }).builds,
-    ).toEqual({ trigger: "manual", runner: "github-actions", pollMinutes: 5 });
+    ).toEqual({
+      trigger: "manual",
+      runner: "github-actions",
+      pollMinutes: 5,
+      maxPerHour: 20,
+    });
   });
 
   it("fails on a runner other than GitHub Actions, naming the one supported", () => {
@@ -472,6 +482,28 @@ describe("parseSettings", () => {
       parse({ ...MINIMAL, builds: { trigger: "github-action" } }).builds
         .trigger,
     ).toBe("github-action");
+  });
+
+  it("caps builds at 20 an hour when builds.max-per-hour is not set", () => {
+    expect(parse(MINIMAL).builds.maxPerHour).toBe(20);
+  });
+
+  it.each(["manual", "own-server", "github-action"])(
+    "takes builds.max-per-hour with the %s trigger",
+    (trigger) => {
+      expect(
+        parse({ ...MINIMAL, builds: { trigger, "max-per-hour": 5 } }).builds
+          .maxPerHour,
+      ).toBe(5);
+    },
+  );
+
+  it.each([0, -1, 2.5, "20"])("fails on builds.max-per-hour %s", (max) => {
+    expect(() =>
+      parse({ ...MINIMAL, builds: { "max-per-hour": max } }),
+    ).toThrow(
+      ".claude/factory.yaml: builds.max-per-hour: must be a whole number, 1 or more",
+    );
   });
 
   it("checks the board every 5 minutes when builds.poll-minutes is not set", () => {
@@ -1334,6 +1366,7 @@ describe("factory config explain", () => {
         trigger: manual                                                            # default
         runner: github-actions                                                     # default
         # poll-minutes: only with trigger github-action
+        max-per-hour: 20                                                           # default
       specs:
         type: openspec
         check: npx --no-install openspec validate --all --strict --no-interactive  # default

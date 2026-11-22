@@ -1079,6 +1079,53 @@ describe("factory board check", () => {
     );
   });
 
+  it("names the poller's label and cap where the settings differ from the defaults", () => {
+    const lines = report(
+      {
+        builds: { trigger: "own-server", "max-per-hour": 40 },
+        tickets: {
+          board: 7,
+          columns: FACTORY_COLUMNS,
+          labels: { factory: "built-by-factory" },
+        },
+      },
+      fullBoard(SIX),
+    );
+    expect(lines.slice(-6)).toEqual([
+      "",
+      "tickets.labels",
+      '  ? label      built-by-factory: the poller needs FACTORY_LABEL set to "built-by-factory"',
+      "",
+      "builds",
+      "  ? builds     40 an hour: the poller needs FACTORY_MAX_PER_HOUR set to 40",
+    ]);
+  });
+
+  it("names neither at their defaults, nor without a poller to host", () => {
+    const own = report(
+      {
+        builds: { trigger: "own-server" },
+        tickets: { board: 7, columns: FACTORY_COLUMNS },
+      },
+      fullBoard(SIX),
+    );
+    const scheduled = report(
+      {
+        builds: { trigger: "github-action", "max-per-hour": 40 },
+        tickets: {
+          board: 7,
+          columns: FACTORY_COLUMNS,
+          labels: { factory: "x" },
+        },
+      },
+      fullBoard(SIX),
+    );
+    for (const lines of [own, scheduled]) {
+      expect(lines).not.toContain("tickets.labels");
+      expect(lines).not.toContain("builds");
+    }
+  });
+
   it("fails a missing Status field, prints the states without a mark, and no extra column", async () => {
     const board = stockBoard();
     board.fields = board.fields.filter((f) => f.name !== "Status");
