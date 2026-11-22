@@ -11,7 +11,7 @@ import { join } from "node:path";
 /** `issue` is null for a clock a cost note started in a session that never
  * claimed or refined an issue: its spend is counted once, but its reviewer
  * runs belong to no issue. */
-export type Clock = { issue: number | null; start: string };
+export type Clock = { issue: string | null; start: string };
 
 /** The repository's shared git directory, so a session that moves to
  * another worktree of the same clone keeps its claims and its clock. */
@@ -27,12 +27,19 @@ export const clockPath = (session: string) =>
 /** The clock, or null when none was started or it cannot be read. */
 export function readClock(session: string): Clock | null {
   const path = clockPath(session);
-  if (!existsSync(path)) return null;
+  return existsSync(path) ? parseClock(readFileSync(path, "utf8")) : null;
+}
+
+/** A clock file's text as the clock, or null when it is not one. */
+export function parseClock(text: string): Clock | null {
   try {
-    const clock = JSON.parse(readFileSync(path, "utf8")) as Clock;
-    return (clock.issue === null || Number.isInteger(clock.issue)) &&
-      !Number.isNaN(Date.parse(clock.start))
-      ? clock
+    const clock = JSON.parse(text) as { issue: unknown; start: string };
+    if (Number.isNaN(Date.parse(clock.start))) return null;
+    // A clock written before tickets had keys holds the issue's number.
+    if (typeof clock.issue === "number" && Number.isInteger(clock.issue))
+      return { issue: String(clock.issue), start: clock.start };
+    return clock.issue === null || typeof clock.issue === "string"
+      ? { issue: clock.issue, start: clock.start }
       : null;
   } catch {
     return null;

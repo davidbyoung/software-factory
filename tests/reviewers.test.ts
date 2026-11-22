@@ -4,6 +4,7 @@ import {
   lastAssistantText,
   main,
   modelName,
+  parseState,
   verdictOf,
   type Deps,
   type State,
@@ -40,7 +41,7 @@ function system(fail: MemoryOptions["fail"] = {}, firstCommentId = 77) {
 
 function deps(
   open: Deps["tickets"],
-  clock: Deps["clock"] = () => ({ issue: 224, start: START.toISOString() }),
+  clock: Deps["clock"] = () => ({ issue: "224", start: START.toISOString() }),
 ) {
   const states = new Map<string, State>();
   const out: string[] = [];
@@ -78,7 +79,7 @@ const input = (over: object = {}) => ({
   ...over,
 });
 const runsIn = (body: string) =>
-  parseRuns({ id: 1, createdAt: "", author: "x", body });
+  parseRuns({ id: "1", createdAt: "", author: "x", body });
 
 describe("reviewer runs", () => {
   it("posts a running row on the clock's issue when a reviewer starts", async () => {
@@ -101,7 +102,7 @@ describe("reviewer runs", () => {
         result: "running",
       },
     ]);
-    expect(states.get(`${SESSION}/224`)?.commentId).toBe(77);
+    expect(states.get(`${SESSION}/224`)?.commentId).toBe("77");
     expect(out).toEqual([]);
   });
 
@@ -122,7 +123,7 @@ describe("reviewer runs", () => {
     );
 
     const comments = t.mem.comments(224);
-    expect(comments.map((c) => c.id)).toEqual([77]);
+    expect(comments.map((c) => c.id)).toEqual(["77"]);
     expect(comments[0].body).toContain(
       "| factory-test-reviewer | Sonnet | 2026-11-11 19:40 UTC | passed | 3 min | $0.03 ($0.84) |",
     );
@@ -202,11 +203,11 @@ describe("reviewer runs", () => {
     const { d, states } = deps(t.open);
 
     await main("start", input(), "agents", d);
-    await t.mem.tickets.deleteComment(71);
+    await t.mem.tickets.deleteComment("71");
     await main("stop", input({ last_assistant_message: "x" }), "agents", d);
 
-    expect(states.get(`${SESSION}/224`)?.commentId).toBe(72);
-    expect(t.mem.comments(224).map((c) => c.id)).toEqual([72]);
+    expect(states.get(`${SESSION}/224`)?.commentId).toBe("72");
+    expect(t.mem.comments(224).map((c) => c.id)).toEqual(["72"]);
   });
 
   it("warns rather than posting a second comment when the edit fails for another reason", async () => {
@@ -283,7 +284,7 @@ describe("reviewer runs", () => {
     expect(out.map((line) => JSON.parse(line))).toEqual([
       {
         systemMessage:
-          "The factory-test-reviewer run was not recorded on #224: gh api -X POST: connection refused",
+          "The factory-test-reviewer run was not recorded on ticket 224: gh api -X POST: connection refused",
       },
     ]);
   });
@@ -371,5 +372,32 @@ describe("commentFor", () => {
       START,
     );
     expect(body).toContain("| finished, no verdict | 19 min | $0.15 ($5.02) |");
+  });
+});
+
+describe("the reviewer runs' state file", () => {
+  const RUN = {
+    agent: "a1",
+    reviewer: "factory-test-reviewer",
+    model: "sonnet",
+    start: "2026-11-22T12:00:00Z",
+    result: "running",
+  };
+
+  it("reads the comment's ID as text", () => {
+    expect(
+      parseState(JSON.stringify({ commentId: "77", runs: [RUN] })),
+    ).toEqual({ commentId: "77", runs: [RUN] });
+  });
+
+  it("reads state written before comment IDs were text, its number as the ID", () => {
+    expect(parseState(JSON.stringify({ commentId: 77, runs: [] }))).toEqual({
+      commentId: "77",
+      runs: [],
+    });
+  });
+
+  it.each([[null], [""], ["{"]])("starts empty from %j", (text) => {
+    expect(parseState(text)).toEqual({ commentId: null, runs: [] });
   });
 });

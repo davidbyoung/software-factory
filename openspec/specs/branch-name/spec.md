@@ -89,12 +89,12 @@ The factory SHALL behave as this line says: When the pattern has `{ticket}`, onl
 
 ### Requirement: The branch for a ticket
 
-The factory SHALL behave as this line says: When `factory ticket branch N` runs for a ticket that exists, it prints one line, the pattern with each `{ticket}` replaced by N as the ticket system writes it, without `#`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
+The factory SHALL behave as this line says: When `factory ticket branch N` runs for a ticket that exists, it prints one line, the pattern with each `{ticket}` replaced by the ticket's key, such as `12` or `PROJ-12`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
 
 #### Scenario: The branch for a ticket
 
 - **WHEN** `factory ticket branch N` runs for a ticket that exists
-- **THEN** it prints one line, the pattern with each `{ticket}` replaced by N as the ticket system writes it, without `#`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
+- **THEN** it prints one line, the pattern with each `{ticket}` replaced by the ticket's key, such as `12` or `PROJ-12`, and each `{user}` by the account the code host's CLI is signed in as, and exits 0.
 
 ### Requirement: The branch for a missing ticket
 
@@ -143,9 +143,9 @@ The factory SHALL behave as this line says: When `factory config check` meets a 
 
 ### Requirement: The spec change's folder
 
-The factory SHALL behave as this line says: When `specs` is `openspec`, the change `factory specs new N` creates is `openspec/changes/issue-N/`, with N as the ticket system writes it, in lowercase, whatever `code-host.branch-name` says.
+The factory SHALL behave as this line says: When `specs` is `openspec`, the change `factory specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.
 
 #### Scenario: The spec change's folder
 
 - **WHEN** `specs` is `openspec`
-- **THEN** The change `factory specs new N` creates is `openspec/changes/issue-N/`, with N as the ticket system writes it, in lowercase, whatever `code-host.branch-name` says.
+- **THEN** the change `factory specs new N` creates is `openspec/changes/issue-N/`, with N's key in lowercase, such as `issue-12` or `issue-proj-12`, whatever `code-host.branch-name` says.

@@ -144,9 +144,10 @@ git log --merge --format='%h %s' -- FILE
 ```
 
 Each `(#N)` in that log names a pull request on the default branch's side. Before
-editing, read it and the issue it closes, and read the pull request being
-fixed and the issue it closes, so the resolution keeps what each set out
-to do. Read the rules for the area a conflicted file is in ("Rules by
+editing, read it and the ticket it closes, and read the pull request being
+fixed and the ticket it closes, so the resolution keeps what each set out
+to do: `npx --no-install factory pr closes PR` prints each ticket's key,
+and `npx --no-install factory ticket view KEY` reads it. Read the rules for the area a conflicted file is in ("Rules by
 area" in `CLAUDE.md`).
 
 - **Keep both sides.** Tests from both stay. A reworded or reformatted

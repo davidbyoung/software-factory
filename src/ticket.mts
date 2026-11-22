@@ -16,14 +16,14 @@
 // And the reads and writes the skills make, through the ticket interface
 // (`tickets/`), so no skill calls a ticket system itself:
 //
-//   factory ticket view N [--field title|state|labels|body] [--json]
+//   factory ticket view N [--field title|state|labels|body|ref] [--json]
 //   factory ticket answers N   # the comments that count as answers
 //   factory ticket list [--label LABEL] [--title "TITLE"] [--json]
 //   factory ticket edit N [--title TITLE] [--body-file FILE [--attach FILE]...]
 //   factory ticket comment N --body-file FILE [--attach FILE]...
 //   factory ticket open --title TITLE --body-file FILE [--label LABEL]...
 //   factory ticket label N --add LABEL | --remove LABEL | --was-removed LABEL
-//   factory ticket link N
+//   factory ticket link N [--part]
 //   factory ticket blockers N
 //   factory ticket block N --by M
 //   factory ticket unblock N --by M
@@ -33,8 +33,9 @@
 // `waiting`, `refined`, `stop`, and `cost` post what the session and its
 // subagents spent, as a share of the subscription and at API list prices,
 // since the clock started, or since the
-// session started when it has none, then restart it. `cost` posts to issue
-// or pull request N. The clock is keyed by CLAUDE_CODE_SESSION_ID, the ID the
+// session started when it has none, then restart it. `cost` posts to ticket
+// N; `factory pr cost` posts to a pull request. The clock is keyed by
+// CLAUDE_CODE_SESSION_ID, the ID the
 // hooks receive and the transcript's file name.
 //
 // `refined` posts its marker only on a ticket whose body a build can read
@@ -81,13 +82,16 @@ import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
 import { openTickets } from "./tickets/index.mts";
 import {
   GROUPS,
+  compareKeys,
   need,
   supports,
   type Group,
+  type Key,
   type Ticket,
   type TicketComment,
   type Tickets,
 } from "./tickets/types.mts";
+import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 import { NotSignedInError } from "./code-host/types.mts";
 
 /** The ticket system this session reaches. */
@@ -112,8 +116,8 @@ export type Deps = {
   out: (line: string) => void;
   /** Where this checkout remembers the claim it posted on each issue. */
   claimStore: {
-    read: (issue: number) => number | null;
-    write: (issue: number, commentId: number) => void;
+    read: (issue: Key) => string | null;
+    write: (issue: Key, commentId: string) => void;
   };
   readFile: (path: string) => string;
   now: () => Date;
@@ -139,41 +143,44 @@ type Ctx = Deps & {
   repository: string;
   board: number | null;
   tickets: Tickets;
+  /** Whether the code host's own links say which tickets a pull request
+   * closes (`lib/pull-tickets.mts`). */
+  own: boolean;
 };
 
 export type { Clock };
 
 export async function readComments(
   c: { tickets: Tickets },
-  issue: number,
+  issue: Key,
 ): Promise<IssueComment[]> {
   return (await c.tickets.read(issue)).comments;
 }
 
+/** What a cost note needs: the session's clock and what it spent. */
+export type CostDeps = Pick<Deps, "env" | "clock" | "now" | "measure">;
+
 /** The cost note for what this session spent since its clock started, and
- * the clock restarted from now. */
-function takeCost(issue: number, d: Deps): string {
+ * the clock restarted from now. `on` is where the note is posted, as
+ * written in prose. */
+export function takeCost(on: string, d: CostDeps): string {
   const session = d.env.CLAUDE_CODE_SESSION_ID ?? "";
   if (!session)
     return costNote(
       { ok: false, reason: "CLAUDE_CODE_SESSION_ID is not set" },
-      issue,
+      on,
       session,
     );
   const clock = d.clock.read(session);
   const now = d.now().toISOString();
-  const note = costNote(
-    measure(d, session, clock?.start ?? null),
-    issue,
-    session,
-  );
+  const note = costNote(measure(d, session, clock?.start ?? null), on, session);
   // Only claim and refining choose the issue: a note posted elsewhere, such
   // as on a pull request, keeps the clock's.
   d.clock.write(session, { issue: clock ? clock.issue : null, start: now });
   return note;
 }
 
-function measure(d: Deps, session: string, since: string | null): Measured {
+function measure(d: CostDeps, session: string, since: string | null): Measured {
   try {
     return d.measure(session, since);
   } catch (error) {
@@ -185,31 +192,40 @@ function measure(d: Deps, session: string, since: string | null): Measured {
   }
 }
 
-function startClock(issue: number, d: Deps) {
+function startClock(issue: Key, d: Deps) {
   const session = d.env.CLAUDE_CODE_SESSION_ID ?? "";
   if (session) d.clock.write(session, { issue, start: d.now().toISOString() });
 }
 
-async function post(c: Ctx, issue: number, kind: CommentKind) {
+async function post(c: Ctx, issue: Key, kind: CommentKind) {
   return c.tickets.comment(issue, commentBody(kind, c.config.columns));
 }
 
-async function remove(c: Ctx, commentId: number) {
+/** The ticket as a comment names it. */
+const named = (c: { tickets: Tickets }, key: Key) => ({
+  key,
+  ref: c.tickets.ref(key),
+});
+
+async function remove(c: Ctx, commentId: string) {
   await c.tickets.deleteComment(commentId);
 }
 
 /** What the ticket waits on that is still open; none when the ticket
  * system records no blockers. */
-export async function openBlockers(c: { tickets: Tickets }, issue: number) {
+export async function openBlockers(
+  c: { tickets: Tickets },
+  issue: Key,
+): Promise<Key[]> {
   if (!c.tickets.blockers) return [];
   const blockers = await c.tickets.blockers.list(issue);
-  return blockers.filter((b) => b.state === "open").map((b) => b.number);
+  return blockers.filter((b) => b.state === "open").map((b) => b.key);
 }
 
 /** The outcome of a claim, as `factory-build` reads it. */
 export function claimOutcome(
   comments: IssueComment[],
-  mine: number,
+  mine: string,
 ): "claimed" | `held by ${string}` {
   const { live } = workState(comments);
   if (live?.id === mine) return "claimed";
@@ -218,7 +234,7 @@ export function claimOutcome(
   return `held by ${holder}`;
 }
 
-async function claim(issue: number, who: Identity, d: Ctx) {
+async function claim(issue: Key, who: Identity, d: Ctx) {
   // A run nobody is watching posts the stopped comment, so the card does not
   // sit as "starting"; a session with a person at it just reports.
   const stopUnattended = async (reason: string) => {
@@ -226,12 +242,12 @@ async function claim(issue: number, who: Identity, d: Ctx) {
       await post(d, issue, {
         kind: "stopped",
         where: "actions",
-        issue,
+        issue: named(d, issue),
         reason,
       });
   };
 
-  let blockers: number[];
+  let blockers: Key[];
   try {
     blockers = await openBlockers(d, issue);
   } catch (error) {
@@ -241,7 +257,7 @@ async function claim(issue: number, who: Identity, d: Ctx) {
     throw error;
   }
   if (blockers.length > 0) {
-    const list = blockers.map((n) => `#${n}`).join(", ");
+    const list = blockers.map((k) => d.tickets.ref(k)).join(", ");
     await stopUnattended(`it waits on ${list}, which has to merge first`);
     return `blocked by: ${list}`;
   }
@@ -264,7 +280,7 @@ async function claim(issue: number, who: Identity, d: Ctx) {
   return outcome;
 }
 
-async function stillLive(issue: number, d: Ctx): Promise<boolean> {
+async function stillLive(issue: Key, d: Ctx): Promise<boolean> {
   const mine = d.claimStore.read(issue);
   if (mine === null) return false;
   return claimOutcome(await readComments(d, issue), mine) === "claimed";
@@ -274,7 +290,7 @@ async function stillLive(issue: number, d: Ctx): Promise<boolean> {
  * request links it: `released`, `kept`, or `not live`. This session's claim
  * is the one it stored, or the live one carrying its own place and ID. */
 async function end(
-  issue: number,
+  issue: Key,
   who: Identity,
   d: Ctx,
 ): Promise<"released" | "kept" | "not live"> {
@@ -287,9 +303,13 @@ async function end(
     (live.id === stored ||
       (live.marker.where === who.where && live.marker.id === who.id));
   if (!mine) return "not live";
-  const pulls = await d.openPulls(d.repository, d.codeHost);
+  const pulls = linkPulls(
+    await d.openPulls(d.repository, d.codeHost),
+    d.tickets,
+    d.own,
+  );
   if (reviewingPulls(ticket, pulls).length > 0) return "kept";
-  await post(d, issue, { kind: "ended", issue });
+  await post(d, issue, { kind: "ended", issue: named(d, issue) });
   return "released";
 }
 
@@ -304,11 +324,11 @@ async function followUp(file: string, text: string, d: Ctx) {
   const open = (await d.tickets.listOpen()).filter((t) =>
     t.labels.includes("follow-up"),
   );
-  const [first] = open.sort((a, b) => a.number - b.number);
+  const [first] = open.sort((a, b) => compareKeys(a.key, b.key));
   if (first) {
-    const issue = await d.tickets.read(first.number);
-    await d.tickets.writeBody(first.number, withLine(issue.body, line));
-    return `added to #${first.number}`;
+    const issue = await d.tickets.read(first.key);
+    await d.tickets.writeBody(first.key, withLine(issue.body, line));
+    return `added to ${d.tickets.ref(first.key)}`;
   }
   const body = withLine(
     'Small problems noticed while doing other work, one line each, built together once the owner approves this issue. See "Follow-ups" in `.claude/factory/rules.md`.\n',
@@ -319,23 +339,24 @@ async function followUp(file: string, text: string, d: Ctx) {
     labels: ["follow-up"],
     body,
   });
-  return `opened #${made}`;
+  return `opened ${d.tickets.ref(made)}`;
 }
 
 /** Set the card's Status to Ready, as the owner would. */
-async function moveToReady(issue: number, d: Ctx) {
+async function moveToReady(issue: Key, d: Ctx) {
+  const ref = d.tickets.ref(issue);
   const found = await d.tickets.read(issue);
-  if (found.state !== "open") throw new Error(`#${issue} is closed.`);
+  if (found.state !== "open") throw new Error(`${ref} is closed.`);
   if (d.board === null) throw new Error("The settings name no board.");
   const ready = d.config.columns.Ready?.[0] ?? null;
   if (ready === null)
     throw new Error(
-      `This board has no column for ready. Tell a session to build #${issue}, or run factory build ${issue}.`,
+      `This board has no column for ready. Tell a session to build ${ref}, or run factory build ${issue}.`,
     );
   const board = need(d.tickets, "board");
   const read = await board.read();
   const item = read.items.get(issue);
-  if (!item) throw new Error(`#${issue} is not on the board.`);
+  if (!item) throw new Error(`${ref} is not on the board.`);
   if (item.status !== null && sameName(item.status, ready)) return;
   const fields = checkFields(read.fields, d.config);
   const option = fields.status.options?.find((o) => sameName(o.name, ready));
@@ -376,9 +397,9 @@ function options(args: string[], name: string): string[] {
 
 /** A ticket for a reader: title, state, labels, body, and each comment with
  * its ID and author. */
-export function formatTicket(t: Ticket): string[] {
+export function formatTicket(t: Ticket, ref: string): string[] {
   const lines = [
-    `#${t.number} ${t.title}`,
+    `${ref} ${t.title}`,
     `state: ${t.state}`,
     `labels: ${t.labels.join(", ") || "(none)"}`,
     "",
@@ -409,7 +430,13 @@ async function answersOf(t: Tickets, ticket: Ticket): Promise<TicketComment[]> {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-const FIELDS = ["title", "state", "labels", "body"] as const;
+const FIELDS = ["title", "state", "labels", "body", "ref"] as const;
+
+/** A ticket as `--json` prints it: its key, then its written form. */
+const withRef = <T extends { key: Key }>(t: T, tickets: Tickets) => {
+  const { key, ...rest } = t;
+  return { key, ref: tickets.ref(key), ...rest };
+};
 
 const READS_AND_WRITES = new Set([
   "view",
@@ -428,7 +455,7 @@ const READS_AND_WRITES = new Set([
 ]);
 
 /** The branch a build of `ticket` pushes, from `code-host.branch-name`. */
-async function branchOf(ticket: number, d: Ctx): Promise<string> {
+async function branchOf(ticket: Key, d: Ctx): Promise<string> {
   let user = "";
   if (d.branchName.includes("{user}"))
     try {
@@ -440,9 +467,7 @@ async function branchOf(ticket: number, d: Ctx): Promise<string> {
         { cause: e },
       );
     }
-  return d.branchName
-    .replaceAll("{ticket}", String(ticket))
-    .replaceAll("{user}", user);
+  return d.branchName.replaceAll("{ticket}", ticket).replaceAll("{user}", user);
 }
 
 /** The commands that read or write a ticket for a skill. Null when
@@ -453,29 +478,30 @@ async function ticketCommand(
   d: Ctx,
 ): Promise<number | null> {
   const t = d.tickets;
-  const n = Number(args[0]);
-  const numbered = () => {
-    if (!Number.isInteger(n) || n <= 0) throw new Error(USAGE);
-    return n;
+  const keyed = () => {
+    if (!args[0] || args[0].startsWith("--")) throw new Error(USAGE);
+    return t.key(args[0]);
   };
   const json = args.includes("--json");
   switch (command) {
     case "view": {
-      const ticket = await t.read(numbered());
+      const ticket = await t.read(keyed());
       const field = option(args, "--field");
-      if (json) d.out(JSON.stringify(ticket, null, 2));
-      else if (field === undefined) formatTicket(ticket).forEach(d.out);
+      if (json) d.out(JSON.stringify(withRef(ticket, t), null, 2));
+      else if (field === undefined)
+        formatTicket(ticket, t.ref(ticket.key)).forEach(d.out);
       else if (!(FIELDS as readonly string[]).includes(field))
         throw new Error(`--field is one of ${FIELDS.join(", ")}.`);
       else if (field === "labels") ticket.labels.forEach(d.out);
+      else if (field === "ref") d.out(t.ref(ticket.key));
       else d.out(String(ticket[field as "title" | "state" | "body"]));
       return 0;
     }
     case "answers": {
-      const ticket = await t.read(numbered());
+      const ticket = await t.read(keyed());
       const answers = await answersOf(t, ticket);
       if (answers.length === 0)
-        d.out(`#${ticket.number} has no answers from an approver yet.`);
+        d.out(`${t.ref(ticket.key)} has no answers from an approver yet.`);
       answers.forEach((c, i) => {
         if (i > 0) d.out("");
         formatComment(c).forEach(d.out);
@@ -488,16 +514,23 @@ async function ticketCommand(
       const kept = (await t.listOpen())
         .filter((x) => label === undefined || x.labels.includes(label))
         .filter((x) => title === undefined || x.title === title)
-        .sort((a, b) => a.number - b.number);
-      if (json) d.out(JSON.stringify(kept, null, 2));
+        .sort((a, b) => compareKeys(a.key, b.key));
+      if (json)
+        d.out(
+          JSON.stringify(
+            kept.map((x) => withRef(x, t)),
+            null,
+            2,
+          ),
+        );
       else
         for (const x of kept)
-          d.out(`${x.number}\t${x.title}\t${x.labels.join(", ")}`);
+          d.out(`${x.key}\t${x.title}\t${x.labels.join(", ")}`);
       return 0;
     }
     case "edit":
     case "comment": {
-      const ticket = numbered();
+      const ticket = keyed();
       const file = option(args, "--body-file");
       const newTitle = command === "edit" ? option(args, "--title") : undefined;
       if (!file && newTitle === undefined) throw new Error(USAGE);
@@ -542,7 +575,7 @@ async function ticketCommand(
       return 0;
     }
     case "label": {
-      const ticket = numbered();
+      const ticket = keyed();
       const add = option(args, "--add");
       const removed = option(args, "--remove");
       const was = option(args, "--was-removed");
@@ -552,7 +585,6 @@ async function ticketCommand(
         const history = need(t, "label-history");
         d.out((await history.wasRemoved(ticket, was)) ? "yes" : "no");
       } else if (add !== undefined) {
-        // GitHub labels a pull request through its ticket API too.
         refuseOverride(add);
         await t.addLabel(ticket, add);
         d.out("added");
@@ -563,23 +595,24 @@ async function ticketCommand(
       return 0;
     }
     case "link":
-      d.out(t.linkText(numbered()));
+      d.out(t.linkText(keyed(), args.includes("--part") ? "part" : "closes"));
       return 0;
     case "branch": {
-      const ticket = await t.read(numbered());
-      d.out(await branchOf(ticket.number, d));
+      const ticket = await t.read(keyed());
+      d.out(await branchOf(ticket.key, d));
       return 0;
     }
     case "blockers": {
-      const list = await need(t, "blockers").list(numbered());
-      for (const b of list) d.out(`#${b.number} ${b.state}`);
+      const list = await need(t, "blockers").list(keyed());
+      for (const b of list) d.out(`${t.ref(b.key)} ${b.state}`);
       return 0;
     }
     case "block":
     case "unblock": {
-      const ticket = numbered();
-      const by = Number(option(args, "--by"));
-      if (!Number.isInteger(by) || by <= 0) throw new Error(USAGE);
+      const ticket = keyed();
+      const given = option(args, "--by");
+      if (given === undefined) throw new Error(USAGE);
+      const by = t.key(given);
       const blockers = need(t, "blockers");
       if (command === "block") await blockers.add(ticket, by);
       else await blockers.remove(ticket, by);
@@ -591,12 +624,24 @@ async function ticketCommand(
   }
 }
 
+/** The steps after the reads and writes, each on one ticket. */
+const STEPS = new Set([
+  "claim",
+  "still-live",
+  "stop",
+  "end",
+  "ready",
+  "refining",
+  "waiting",
+  "cost",
+  "refined",
+]);
+
 const USAGE =
   "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
 
 export async function main(argv: string[], deps: Deps): Promise<number> {
   const [command, first, ...rest] = argv;
-  const issue = Number(first);
   try {
     // `supports` answers before anything is read: it names the groups.
     const settings = await deps.settings();
@@ -611,6 +656,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       repository,
       board,
       ...opened,
+      own: ownLinks(settings),
     };
     if (command === "supports") {
       if (!first || !(GROUPS as readonly string[]).includes(first))
@@ -631,8 +677,9 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       d,
     );
     if (handled !== null) return handled;
-    if (!command || !Number.isInteger(issue) || issue <= 0)
+    if (!STEPS.has(command ?? "") || !first || first.startsWith("--"))
       throw new Error(USAGE);
+    const issue = d.tickets.key(first);
 
     if (command === "still-live") {
       const live = await stillLive(issue, d);
@@ -656,9 +703,9 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         await post(d, issue, {
           kind: "stopped",
           where: who.where,
-          issue,
+          issue: named(d, issue),
           reason: rest[0],
-          cost: takeCost(issue, d),
+          cost: takeCost(d.tickets.ref(issue), d),
         });
         d.out("released");
         return 0;
@@ -675,10 +722,18 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         startClock(issue, d);
         break;
       case "waiting":
-        await post(d, issue, { kind: "waiting", cost: takeCost(issue, d) });
+        await post(d, issue, {
+          kind: "waiting",
+          cost: takeCost(d.tickets.ref(issue), d),
+        });
         break;
       case "cost":
-        await post(d, issue, { kind: "cost", cost: takeCost(issue, d) });
+        // Read first: a number that is no ticket leaves the clock.
+        await d.tickets.read(issue);
+        await post(d, issue, {
+          kind: "cost",
+          cost: takeCost(d.tickets.ref(issue), d),
+        });
         break;
       case "refined": {
         // A body the build could not read gets no marker, whoever wrote it.
@@ -696,9 +751,9 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         const before = at === -1 ? undefined : d.readFile(rest[at + 1]);
         await post(d, issue, {
           kind: "refined",
-          issue,
+          issue: named(d, issue),
           before,
-          cost: takeCost(issue, d),
+          cost: takeCost(d.tickets.ref(issue), d),
         });
         break;
       }
@@ -717,7 +772,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
   }
 }
 
-function claimPath(issue: number) {
+function claimPath(issue: Key) {
   return join(commonDir(), `work-claim-${issue}`);
 }
 
@@ -742,7 +797,7 @@ export async function run(argv: string[]): Promise<number> {
     claimStore: {
       read: (issue) => {
         const path = claimPath(issue);
-        return existsSync(path) ? Number(readFileSync(path, "utf8")) : null;
+        return existsSync(path) ? readFileSync(path, "utf8").trim() : null;
       },
       write: (issue, id) => writeFileSync(claimPath(issue), String(id)),
     },

@@ -58,6 +58,14 @@ describe("workflows/factory-build.yml", () => {
     ]);
   });
 
+  it("takes the ticket's key as text, as the Run workflow form shows it", () => {
+    expect(workflow.on.workflow_dispatch.inputs.ticket).toEqual({
+      description: "The ticket's key, such as 12",
+      required: true,
+      type: "string",
+    });
+  });
+
   it("names each run Build # and the ticket", () => {
     expect(workflow["run-name"]).toBe("Build #${{ inputs.ticket }}");
   });
@@ -87,7 +95,9 @@ describe("workflows/factory-build.yml", () => {
   it("passes the action its seven inputs, the minutes among them", () => {
     expect(agent!.with).toEqual({
       minutes: 230,
-      prompt: expect.stringContaining("#${{ inputs.ticket }}"),
+      prompt: expect.stringContaining(
+        'invoke `factory-build` with "${{ inputs.ticket }}"',
+      ),
       "github-token": BUILD_TOKEN,
       "claude-oauth-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
       "anthropic-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",

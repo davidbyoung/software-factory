@@ -430,7 +430,7 @@ it out:
 
 | Placeholder | What it becomes                      | For ticket 12 |
 | ----------- | ------------------------------------ | ------------- |
-| `{ticket}`  | The ticket's number, without `#`     | `12`          |
+| `{ticket}`  | The ticket's key, without `#`        | `12`          |
 | `{user}`    | The GitHub account the build runs as | `octocat`     |
 
 In a session, `{user}` is the account the GitHub CLI, `gh`, is signed in

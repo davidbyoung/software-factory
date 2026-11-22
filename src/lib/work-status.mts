@@ -7,6 +7,7 @@
 import type {
   Board,
   BoardItem,
+  Key,
   Ticket,
   TicketComment,
 } from "../tickets/types.mts";
@@ -188,12 +189,6 @@ export function parseCosts(comment: IssueComment): number[] {
   });
 }
 
-/** Whether a pull request's body says it builds this issue, as "Closes #N"
- * or "Part of #N". */
-export function buildsIssue(body: string, number: number): boolean {
-  return new RegExp(`\\b(?:closes|part of) #${number}(?!\\d)`, "i").test(body);
-}
-
 /** The issue's Cost: every cost marker on it and on each pull request, open,
  * merged, or closed, that builds it, to the cent. Null when there are none. */
 export function issueCost(issue: Issue, pulls: PullRequest[]): number | null {
@@ -202,8 +197,7 @@ export function issueCost(issue: Issue, pulls: PullRequest[]): number | null {
     ...pulls
       .filter(
         (pull) =>
-          pull.closes.includes(issue.number) ||
-          buildsIssue(pull.body, issue.number),
+          pull.closes.includes(issue.key) || pull.partOf.includes(issue.key),
       )
       .flatMap((pull) => pull.comments ?? []),
   ];
@@ -269,10 +263,10 @@ export const isStuck = (run: ReviewerRun, now: Date) =>
   run.result === "running" &&
   now.getTime() - Date.parse(run.start) > STUCK_AFTER_MS;
 
+// Comments with the same time keep the order the ticket system returned
+// them in: the sort is stable, and their IDs are opaque.
 function byTime(a: IssueComment, b: IssueComment): number {
-  const at = Date.parse(a.createdAt);
-  const bt = Date.parse(b.createdAt);
-  return at !== bt ? at - bt : a.id - b.id;
+  return Date.parse(a.createdAt) - Date.parse(b.createdAt);
 }
 
 export function markedComments(comments: IssueComment[]): Marked[] {
@@ -334,8 +328,13 @@ export type PullRequest = {
   number: number;
   createdAt: string;
   body: string;
-  /** Issue numbers GitHub links as closed by this pull request. */
-  closes: number[];
+  /** The tickets it closes when it merges. The code host fills it with its
+   * own links, and `linkPulls` (`lib/pull-tickets.mts`) with what the
+   * factory counts. */
+  closes: Key[];
+  /** The tickets its body says it builds part of, once `linkPulls` has
+   * read it; empty before. */
+  partOf: Key[];
   isDraft: boolean;
   checks: string | null;
   openThreads: number;
@@ -357,20 +356,12 @@ export type Derived = {
   pulls: number[];
 };
 
-/** Whether a pull request's body says it builds part of the follow-ups
- * issue, as "Part of #N". A plain mention, such as a build linking the issue
- * it added a line to, does not count. */
-export function buildsPartOf(body: string, number: number): boolean {
-  return new RegExp(`\\bpart of #${number}(?!\\d)`, "i").test(body);
-}
-
 /** The pull requests that put this issue In review. */
 export function reviewingPulls(issue: Issue, pulls: PullRequest[]) {
   return pulls.filter(
     (pull) =>
-      pull.closes.includes(issue.number) ||
-      (issue.labels.includes("follow-up") &&
-        buildsPartOf(pull.body, issue.number)),
+      pull.closes.includes(issue.key) ||
+      (issue.labels.includes("follow-up") && pull.partOf.includes(issue.key)),
   );
 }
 
@@ -587,7 +578,7 @@ export function watchOf(
  * fired. */
 export function isNotStarted(
   derived: Derived,
-  openBlockers: number[],
+  openBlockers: Key[],
   now: Date,
   minutes = 5,
 ): boolean {
@@ -636,19 +627,23 @@ export type Identity = {
 
 /** The comments sessions, the poller, and the sync post: one visible
  * sentence, then its marker line and the agent mark. */
+/** A ticket as a comment names it: its key, for a command, and its written
+ * form, for prose. */
+export type Named = { key: Key; ref: string };
+
 export type CommentKind =
   | { kind: "refining"; who: Identity }
   | { kind: "waiting"; cost?: string }
   | {
       kind: "refined";
-      issue: number;
+      issue: Named;
       before?: string;
       cost?: string;
     }
   | { kind: "started"; marker: string }
   | {
       kind: "dispatch-failed";
-      issue: number;
+      issue: Named;
       status: string;
       reason: string;
     }
@@ -656,16 +651,16 @@ export type CommentKind =
   | {
       kind: "stopped";
       where: SessionKind;
-      issue: number;
+      issue: Named;
       reason: string;
       cost?: string;
     }
   | { kind: "cost"; cost: string }
-  | { kind: "ended"; issue: number }
-  | { kind: "cleared-claim"; issue: number; since: string }
-  | { kind: "cleared-start"; issue: number; since: string }
+  | { kind: "ended"; issue: Named }
+  | { kind: "cleared-claim"; issue: Named; since: string }
+  | { kind: "cleared-start"; issue: Named; since: string }
   | { kind: "follow-ups-merged"; pull: number }
-  | { kind: "pull-closed"; issue: number; pull: number };
+  | { kind: "pull-closed"; issue: Named; pull: number };
 
 function sessionPhrase(who: Identity): string {
   if (who.where === "actions") {
@@ -684,10 +679,10 @@ const waiting = (columns: Columns) =>
 
 /** Where a ticket can be sent to build again: the Ready column when the
  * board has one, and always a session. */
-const again = (issue: number, columns: Columns) => {
+const again = (issue: Named, columns: Columns) => {
   const ready = columns.Ready?.[0] ?? null;
   if (ready === null)
-    return `To try again, tell a session to build #${issue}, or run \`factory build ${issue}\`.`;
+    return `To try again, tell a session to build ${issue.ref}, or run \`factory build ${issue.key}\`.`;
   return `Move it to ${ready} to try again.`;
 };
 
@@ -721,8 +716,8 @@ export function commentBody(
     case "refined": {
       const sentence =
         ready === null
-          ? `Refinement is done. This board has no column for approving a build: tell a session to build #${c.issue}, or run \`factory build ${c.issue}\`.`
-          : `Refinement is done. The card stays ${cardAt("In refinement", columns)} until it moves to ${ready}, which starts a build in GitHub Actions: move it there, or ask this session to. To build it on your machine instead, tell a local session to work #${c.issue}.`;
+          ? `Refinement is done. This board has no column for approving a build: tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`.`
+          : `Refinement is done. The card stays ${cardAt("In refinement", columns)} until it moves to ${ready}, which starts a build in GitHub Actions: move it there, or ask this session to. To build it on your machine instead, tell a local session to work ${c.issue.ref}.`;
       const before = c.before?.trimEnd();
       const lead = [before, c.cost].filter(Boolean).join("\n\n");
       return mark("refined", lead ? `${lead}\n\n${sentence}` : sentence);
@@ -746,8 +741,8 @@ export function commentBody(
       const head = `Stopped without a pull request: ${c.reason}. ${WAITING}`;
       const tail =
         c.where === "actions"
-          ? `Run \`factory build ${c.issue}\` to try again${ready === null ? "." : `, or move it to ${ready}.`}`
-          : `Tell a session to work #${c.issue} again${ready === null ? "." : `, or move it to ${ready} to build it in GitHub Actions.`}`;
+          ? `Run \`factory build ${c.issue.key}\` to try again${ready === null ? "." : `, or move it to ${ready}.`}`
+          : `Tell a session to work ${c.issue.ref} again${ready === null ? "." : `, or move it to ${ready} to build it in GitHub Actions.`}`;
       return mark("released", withCost(`${head} ${tail}`, c.cost));
     }
     case "ended":
@@ -774,7 +769,7 @@ export function commentBody(
       return mark(
         "released",
         ready === null
-          ? `Pull request #${c.pull} was closed without merging. ${WAITING} Tell a session to build #${c.issue}, or run \`factory build ${c.issue}\`, to rebuild it, or ask a session to refine it first.`
+          ? `Pull request #${c.pull} was closed without merging. ${WAITING} Tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`, to rebuild it, or ask a session to refine it first.`
           : `Pull request #${c.pull} was closed without merging. ${WAITING} Move it to ${ready} to rebuild it, or ask a session to refine it first.`,
       );
   }
@@ -818,10 +813,10 @@ export function toSnapshot(
  * "Unmapped". */
 export const cardOf = (
   board: Board,
-  number: number,
+  key: Key,
   columns: Columns = DEFAULT_COLUMNS,
 ): BoardCard | null => {
-  const item: BoardItem | undefined = board.items.get(number);
+  const item: BoardItem | undefined = board.items.get(key);
   if (!item) return null;
   const status =
     item.status === null

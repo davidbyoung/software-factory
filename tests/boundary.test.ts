@@ -27,18 +27,30 @@ function joinContinuations(text: string): string {
 }
 
 /** Each place a skill, agent, rule, or workflow reaches a ticket system
- * around the commands: `gh issue`, `gh project`, or a `gh api` call to an
- * issues or projects path. */
+ * around the commands: `gh issue`, `gh project`, a `gh api` call to an
+ * issues or projects path, or another ticket system's host. */
 export function ticketCallsIn(text: string): string[] {
   const found: string[] = [];
   for (const line of joinContinuations(text).split("\n")) {
     if (/\bgh issue\b/.test(line)) found.push(line.trim());
     else if (/\bgh project\b/.test(line)) found.push(line.trim());
+    else if (/\batlassian\.net\b|\bapi\.linear\.app\b/.test(line))
+      found.push(line.trim());
     else
       for (const m of line.matchAll(/\bgh api\b(.*)/g))
         if (/\/(issues|projects)\b/.test(m[1])) found.push(line.trim());
   }
   return found;
+}
+
+/** Each line that writes a ticket the way only GitHub does: a `Closes #`
+ * or `Part of #` link, or "GitHub issue", where the factory's commands give
+ * the ticket system's own words. */
+export function githubTicketWordsIn(text: string): string[] {
+  return text
+    .split("\n")
+    .filter((line) => /\b(?:closes|part of) #|\bgithub issues?\b/i.test(line))
+    .map((line) => line.trim());
 }
 
 /** Each place a skill, agent, rule, or workflow runs a spec tool itself
@@ -172,6 +184,26 @@ const sourceFilesOutside = (folders: string[]) =>
 
 const INTERFACE_FOLDERS = ["tickets/", "code-host/", "runner/"];
 
+describe("githubTicketWordsIn", () => {
+  it("finds a GitHub link line and the words GitHub issue", () => {
+    expect(
+      githubTicketWordsIn("Start the body with `Closes #N`."),
+    ).toHaveLength(1);
+    expect(githubTicketWordsIn("It starts with Part of #4.")).toHaveLength(1);
+    expect(
+      githubTicketWordsIn("Turn a GitHub issue into a spec."),
+    ).toHaveLength(1);
+  });
+
+  it("lets through the factory's command for the link and a pull request's number", () => {
+    expect(
+      githubTicketWordsIn(
+        "Start the body with the line `factory ticket link N` prints. Each `(#N)` names a pull request.",
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("ticketCallsIn", () => {
   it("finds gh issue, gh project, and gh api calls to issues and projects paths", () => {
     expect(ticketCallsIn("Run `gh issue view 1` first.")).toHaveLength(1);
@@ -183,6 +215,17 @@ describe("ticketCallsIn", () => {
       ticketCallsIn("gh api -X POST \\\n  repos/REPO/issues/N"),
     ).toHaveLength(1);
     expect(ticketCallsIn("gh api users/me/projects/1")).toHaveLength(1);
+  });
+
+  it("finds a direct call to another ticket system's host", () => {
+    expect(
+      ticketCallsIn(
+        'curl -u "$JIRA" https://acme.atlassian.net/rest/api/3/issue/PROJ-12',
+      ),
+    ).toHaveLength(1);
+    expect(
+      ticketCallsIn("curl -X POST https://api.linear.app/graphql"),
+    ).toHaveLength(1);
   });
 
   it("lets through the factory's commands and gh api calls to other paths", () => {
@@ -606,6 +649,15 @@ describe("the boundaries", () => {
   it("no skill, agent, rule, review, or workflow in the package calls GitHub's issues or projects", () => {
     const found = instructionFiles().flatMap((path) =>
       ticketCallsIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("no skill, agent, rule, or review instruction writes a ticket as only GitHub does", () => {
+    const found = guideFiles().flatMap((file) =>
+      githubTicketWordsIn(readFileSync(join(PACKAGE, file), "utf8")).map(
+        (line) => `${file}: ${line}`,
+      ),
     );
     expect(found).toEqual([]);
   });

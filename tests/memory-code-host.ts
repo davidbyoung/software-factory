@@ -31,7 +31,8 @@ export type PullSeed = Partial<Pull> & {
   files?: ChangedFile[];
   /** What `unverifiedCommits` answers. */
   unverified?: string[];
-  closes?: number[];
+  /** The tickets the code host links it to closing, by key. */
+  closes?: string[];
   /** The state of its checks, as the views read it. */
   checks?: string | null;
 };
@@ -181,13 +182,14 @@ export function memoryCodeHost(
     createdAt: p.createdAt,
     body: p.body,
     closes: [...p.closes],
+    partOf: [],
     isDraft: p.isDraft,
     checks: p.checks,
     openThreads: p.threads.filter((t) => !t.isResolved).length,
     author: p.author,
     comments: withComments
       ? p.comments.map(({ id, author, createdAt, body }) => ({
-          id,
+          id: String(id),
           author,
           createdAt,
           body,

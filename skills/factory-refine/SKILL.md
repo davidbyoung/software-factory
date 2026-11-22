@@ -1,6 +1,6 @@
 ---
 name: factory-refine
-description: Turn a GitHub issue into a spec an agent can build without asking anything: settles the owner's decisions with defaults and mockups, in the session or in one issue comment, writes the spec into the issue body, and has factory-ticket-readiness read it cold. Use when asked to refine, groom, scope, or clarify an issue.
+description: Turn a ticket into a spec an agent can build without asking anything: settles the owner's decisions with defaults and mockups, in the session or in one issue comment, writes the spec into the issue body, and has factory-ticket-readiness read it cold. Use when asked to refine, groom, scope, or clarify an issue.
 model: fable
 ---
 

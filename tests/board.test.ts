@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   checkFields,
   closedPullComments,
+  logLine,
   main,
   nightlyComments,
   planSync,
@@ -12,6 +13,7 @@ import {
   type Saved,
 } from "../src/board.mts";
 import {
+  DEFAULT_COLUMNS,
   toSnapshot,
   type BoardField,
   type PullRequest,
@@ -36,7 +38,7 @@ function seeded(options: MemoryOptions = {}) {
     firstCommentId: 5000,
     ...options,
   });
-  for (const item of BOARD().items.values()) mem.card(item.number, item);
+  for (const item of BOARD().items.values()) mem.card(item.key, item);
   return mem;
 }
 
@@ -45,7 +47,7 @@ const RUN_PAGE = (id: string) =>
   `https://github.com/acme/widgets/actions/runs/${id}`;
 
 /** The fixture's pull requests, recording what each read asked for. */
-function fakePulls(closes: Record<number, number[]> = {}) {
+function fakePulls(closes: Record<number, string[]> = {}) {
   const asked: { costs: boolean }[] = [];
   const pulls: PullSource = {
     open: async (options) => (
@@ -103,6 +105,31 @@ describe("dry run on the recorded fixture", () => {
   });
 });
 
+describe("dry run on the live board", () => {
+  it("prints each ticket as its ticket system writes it, and writes nothing", async () => {
+    const { d, out, mem } = deps();
+
+    expect(await main(["--dry-run"], d)).toBe(0);
+    expect(out).toContain(
+      "#16 Status=In review, Session=359bd84e, Runs in=Local, Cost=(empty) (set Status)",
+    );
+    expect(mem.writes).toEqual([]);
+  });
+});
+
+describe("logLine", () => {
+  it("names a card in a column no state names, as the ticket system writes it", () => {
+    const [plan] = planSync(
+      toSnapshot(SAVED.tickets, SAVED.pulls, NOW, SAVED.donePulls),
+      BOARD(),
+      RUN_PAGE,
+    );
+    expect(
+      logLine({ ...plan, key: "PROJ-12", unmapped: "QA" }, (key) => key),
+    ).toBe('PROJ-12 card is in "QA", which no state names (left alone)');
+  });
+});
+
 describe("checkFields", () => {
   const fields = boardPages[0].data.owner.projectV2.fields
     .nodes as BoardField[];
@@ -151,11 +178,28 @@ describe("closedPullComments", () => {
     action: "closed",
     pull_request: { number: 40, merged, body },
   });
+  /** The comments for `ev`, its closing links `closes` as the code host
+   * gives them, and its body read for part of a ticket. */
+  const closed = (
+    ev: ReturnType<typeof event>,
+    closes: number[],
+    followUps: number[],
+  ) =>
+    closedPullComments(
+      ev,
+      {
+        closes: closes.map(String),
+        partOf: memoryTickets().tickets.linksIn(ev.pull_request.body).partOf,
+      },
+      followUps.map(String),
+      DEFAULT_COLUMNS,
+      (key) => `#${key}`,
+    );
 
   it("releases each issue a pull request closed without merging would have closed", () => {
-    expect(closedPullComments(event(false), [16], [])).toEqual([
+    expect(closed(event(false), [16], [])).toEqual([
       {
-        issue: 16,
+        issue: "16",
         body: expect.stringMatching(
           /^Pull request #40 was closed without merging\. The card stays In progress, waiting on you\.[\s\S]*work-status: released/,
         ),
@@ -164,28 +208,24 @@ describe("closedPullComments", () => {
   });
 
   it("posts nothing on an issue a merged pull request closed", () => {
-    expect(closedPullComments(event(true), [16], [])).toEqual([]);
+    expect(closed(event(true), [16], [])).toEqual([]);
   });
 
   it("releases the follow-ups issue a merged pull request built part of", () => {
-    const [comment] = closedPullComments(
+    const [comment] = closed(
       event(true, "Part of #201: its first line."),
       [],
       [201],
     );
 
-    expect(comment.issue).toBe(201);
+    expect(comment.issue).toBe("201");
     expect(comment.body).toMatch(
       /^Pull request #40 merged part of these follow-ups\./,
     );
   });
 
   it("gives the follow-ups issue a pull request built part of the closed-without-merging text", () => {
-    const [comment] = closedPullComments(
-      event(false, "Part of #201."),
-      [],
-      [201],
-    );
+    const [comment] = closed(event(false, "Part of #201."), [], [201]);
 
     expect(comment.body).toMatch(
       /^Pull request #40 was closed without merging/,
@@ -194,7 +234,7 @@ describe("closedPullComments", () => {
 
   it("leaves a follow-ups issue the pull request closes, and one it only mentions", () => {
     expect(
-      closedPullComments(
+      closed(
         event(true, "Closes #201. A finding went on #198."),
         [201],
         [201, 198],
@@ -204,7 +244,7 @@ describe("closedPullComments", () => {
 
   it("leaves a follow-ups issue its last batch closes, though the body also says part of it", () => {
     expect(
-      closedPullComments(
+      closed(
         event(true, "Part of #201, its last lines. Closes #201"),
         [201],
         [201],
@@ -213,9 +253,9 @@ describe("closedPullComments", () => {
   });
 
   it("ignores any action but closed", () => {
-    expect(
-      closedPullComments({ ...event(false), action: "reopened" }, [16], []),
-    ).toEqual([]);
+    expect(closed({ ...event(false), action: "reopened" }, [16], [])).toEqual(
+      [],
+    );
   });
 });
 
@@ -225,18 +265,78 @@ describe("nightlyComments", () => {
     const comments = nightlyComments(
       toSnapshot(SAVED.tickets, SAVED.pulls, NOW, SAVED.donePulls),
       later,
+      DEFAULT_COLUMNS,
+      (key) => `#${key}`,
     );
 
     expect(comments.map((c) => [c.issue, c.body.split(":")[0]])).toEqual([
-      [14, "Cleared the build started 2026-11-09 08"],
-      [15, "Cleared the claim from 2026-11-09 08"],
+      ["14", "Cleared the build started 2026-11-09 08"],
+      ["15", "Cleared the claim from 2026-11-09 08"],
     ]);
   });
 });
 
 describe("collect", () => {
+  it("with --dry-run, says which comment it would post, and posts none", async () => {
+    const { pulls } = fakePulls({ 40: ["16"] });
+    const { d, files, out, mem } = deps(seeded(), {}, pulls);
+    files["event.json"] = JSON.stringify({
+      action: "closed",
+      pull_request: { number: 40, merged: false, body: "Closes #16" },
+    });
+    const before = mem.comments(16).length;
+
+    await main(
+      [
+        "collect",
+        "--out",
+        "o.json",
+        "--event",
+        "event.json",
+        "--event-name",
+        "pull_request_target",
+        "--dry-run",
+      ],
+      d,
+    );
+    expect(out).toEqual([
+      "would comment on #16: Pull request #40 was closed without merging. The card stays In progress, waiting on you. Move it to Ready to rebuild it, or ask a session to refine it first.",
+    ]);
+    expect(mem.comments(16)).toHaveLength(before);
+  });
+
+  it("tells the follow-ups ticket a merged pull request built part of it", async () => {
+    const mem = seeded();
+    mem.state.get("18")!.labels.push("follow-up");
+    const { d, files } = deps(mem, {}, fakePulls().pulls);
+    files["event.json"] = JSON.stringify({
+      action: "closed",
+      pull_request: { number: 40, merged: true, body: "Part of #18: a line." },
+    });
+
+    expect(
+      await main(
+        [
+          "collect",
+          "--out",
+          "o.json",
+          "--event",
+          "event.json",
+          "--event-name",
+          "pull_request_target",
+        ],
+        d,
+      ),
+    ).toBe(0);
+    expect(mem.comments(18).map((c) => c.body)).toEqual([
+      expect.stringMatching(
+        /^Pull request #40 merged part of these follow-ups\./,
+      ),
+    ]);
+  });
+
   it("releases the issues of a pull request closed without merging, then reads again", async () => {
-    const { pulls } = fakePulls({ 40: [16] });
+    const { pulls } = fakePulls({ 40: ["16"] });
     const { d, files, written, mem } = deps(seeded(), {}, pulls);
     files["event.json"] = JSON.stringify({
       action: "closed",
@@ -384,7 +484,7 @@ describe("apply", () => {
     const to = (itemId: string) =>
       mem.writes.filter((w) => w.itemId === itemId).flatMap((w) => w.writes);
     // #18 was not on the board: its card is added, then written.
-    expect(mem.board.get(18)?.itemId).toBe("I_18");
+    expect(mem.board.get("18")?.itemId).toBe("I_18");
     expect(to("I_18")).toEqual([{ field: "Status", optionName: "Backlog" }]);
     // #15 changes only Session; #12 changes nothing.
     expect(to("PVTI_15")).toEqual([
@@ -410,7 +510,7 @@ describe("apply", () => {
 describe("Cost", () => {
   const board = BOARD();
   const marker = (n: string, author = "acme") => ({
-    id: 1,
+    id: "1",
     createdAt: "2026-11-09T09:00:00Z",
     author,
     body: `<!-- cost: ${n} session=s -->\n<!-- agent -->`,
@@ -421,26 +521,27 @@ describe("Cost", () => {
     );
   const costWrites = (s: RepoSnapshot, number: number) =>
     planSync(s, board, RUN_PAGE)
-      .find((p) => p.number === number)!
+      .find((p) => p.key === String(number))!
       .writes.filter((w) => w.field === "Cost");
 
   it("counts a cost an agent account posted, whoever owns the repository", () => {
     const s = snapshot();
     s.issues
-      .find((i) => i.number === 12)!
+      .find((i) => i.key === "12")!
       .comments.push(marker("5.96", "acme-builds"));
     expect(costWrites(s, 12)).toEqual([{ field: "Cost", number: 0.18 }]);
   });
 
   it("sets the subscription share of the markers on the issue and on a merged or closed pull request that builds it", () => {
     const s = snapshot();
-    s.issues.find((i) => i.number === 12)!.comments.push(marker("5.96"));
+    s.issues.find((i) => i.key === "12")!.comments.push(marker("5.96"));
     s.donePulls = [
       {
         number: 90,
         createdAt: "2026-11-09T09:00:00Z",
         body: "Closes #12",
-        closes: [],
+        closes: ["12"],
+        partOf: [],
         isDraft: false,
         checks: null,
         openThreads: 0,
@@ -463,7 +564,8 @@ describe("Cost", () => {
       number: 91,
       createdAt: "2026-11-09T09:00:00Z",
       body: "Closes #12",
-      closes: [12],
+      closes: ["12"],
+      partOf: [],
       isDraft: true,
       checks: null,
       openThreads: 0,
@@ -479,29 +581,29 @@ describe("Cost", () => {
 
   it("clears a Cost no marker supports", () => {
     const withCost = BOARD();
-    withCost.items.get(12)!.cost = 4;
+    withCost.items.get("12")!.cost = 4;
     const plan = planSync(snapshot(), withCost, RUN_PAGE).find(
-      (p) => p.number === 12,
+      (p) => p.key === "12",
     )!;
     expect(plan.writes).toEqual([{ field: "Cost", clear: true }]);
   });
 
   it("writes nothing when the card already holds the sum", () => {
     const s = snapshot();
-    s.issues.find((i) => i.number === 12)!.comments.push(marker("5.96"));
+    s.issues.find((i) => i.key === "12")!.comments.push(marker("5.96"));
     const withCost = BOARD();
-    withCost.items.get(12)!.cost = 0.18;
+    withCost.items.get("12")!.cost = 0.18;
     expect(
-      planSync(s, withCost, RUN_PAGE).find((p) => p.number === 12)!.writes,
+      planSync(s, withCost, RUN_PAGE).find((p) => p.key === "12")!.writes,
     ).toEqual([]);
   });
 
   it("writes the number to the Cost field", async () => {
     const saved: Saved = structuredClone(SAVED);
     saved.tickets
-      .find((t) => t.number === 12)!
+      .find((t) => t.key === "12")!
       .comments.push({
-        id: 999,
+        id: "999",
         createdAt: "2026-11-09T09:00:00Z",
         body: "<!-- cost: 250 session=s -->\n<!-- agent -->",
         author: "acme",
@@ -518,14 +620,14 @@ describe("Cost", () => {
 
 describe("a build in GitHub Actions", () => {
   const actionsClaim = {
-    id: 998,
+    id: "998",
     createdAt: "2026-11-09T09:00:00Z",
     body: "Building.\n\n<!-- work-status: claim actions 123456789 -->\n<!-- agent -->",
     author: "acme",
   };
   const withClaim = (): Saved => {
     const saved: Saved = structuredClone(SAVED);
-    saved.tickets.find((t) => t.number === 12)!.comments.push(actionsClaim);
+    saved.tickets.find((t) => t.key === "12")!.comments.push(actionsClaim);
     return saved;
   };
 
@@ -536,7 +638,7 @@ describe("a build in GitHub Actions", () => {
       toSnapshot(saved.tickets, saved.pulls, NOW, saved.donePulls),
       board,
       RUN_PAGE,
-    ).find((p) => p.number === 12)!;
+    ).find((p) => p.key === "12")!;
 
     expect(plan.writes).toEqual([
       { field: "Status", optionName: "In progress" },

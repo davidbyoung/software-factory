@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { load } from "js-yaml";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -205,5 +205,126 @@ describe("the CI review workflow", () => {
         { ".claude/factory.yaml": "head settings\n" },
       ),
     ).toBe("allowed=base settings\n");
+  });
+});
+
+describe("the tickets the review reads", () => {
+  const named = (name: string) => steps.find((s) => s.name === name)!;
+  const install = named("Install the base commit's factory");
+  const read = named("Read the tickets the pull request builds");
+  const review = steps.find((s) => s.id === "review")!;
+  const BASE_DIR = "${{ steps.base.outputs.dir || github.workspace }}";
+
+  it("installs the base commit beside the checkout, before the steps that run the factory", () => {
+    expect(install.id).toBe("base");
+    expect(install.run).toContain(
+      'git worktree add --detach "$RUNNER_TEMP/base" "$BASE"',
+    );
+    expect(install.run).toContain("npm ci");
+    expect(steps.indexOf(install)).toBeLessThan(steps.indexOf(tools!));
+  });
+
+  /** Runs the install step on a repository whose base commit holds
+   * `base`, with npm stood in for, and returns what it put in the step's
+   * output. */
+  const installOn = (base: Record<string, string>) => {
+    repo = mkdtempSync(join(tmpdir(), "claude-review-base-"));
+    temp = mkdtempSync(join(tmpdir(), "claude-review-temp-"));
+    git("init", "-q");
+    git("config", "user.email", "t@example.com");
+    git("config", "user.name", "Test");
+    const files = { "package-lock.json": "{}\n", ...base };
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(repo, path)), { recursive: true });
+      writeFileSync(join(repo, path), text);
+    }
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    const bin = join(temp, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const output = join(temp, "output");
+    writeFileSync(output, "");
+    const result = spawnSync("bash", ["-eo", "pipefail", "-c", install.run!], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        BASE: git("rev-parse", "HEAD"),
+        RUNNER_TEMP: temp,
+        GITHUB_OUTPUT: output,
+      },
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    return readFileSync(output, "utf8");
+  };
+
+  it("uses the base commit's install where the base has the factory", () => {
+    expect(installOn({ ".claude/factory.yaml": "version: 2\n" })).toBe(
+      `dir=${temp}/base\n`,
+    );
+  });
+
+  it("leaves the steps to fall back where the base has no factory yet, as before the pull request that adds it", () => {
+    expect(installOn({})).toBe("");
+  });
+
+  it("lists the tools and reads the tickets with the base commit's factory, or the head's when it could not install", () => {
+    expect(
+      (tools as Step & { "working-directory"?: string })["working-directory"],
+    ).toBe(BASE_DIR);
+    expect(
+      (read as Step & { "working-directory"?: string })["working-directory"],
+    ).toBe(BASE_DIR);
+    expect(read.run).toContain('npx --no-install factory review tickets "$PR"');
+  });
+
+  it("hands the review the file and lets it read there", () => {
+    expect(review.with!.prompt).toContain(
+      "TICKETS: ${{ runner.temp }}/tickets.md",
+    );
+    expect(review.with!.claude_args).toContain(
+      '--add-dir "${{ runner.temp }}"',
+    );
+  });
+
+  /** Runs the step with `factory` standing in for the factory's command,
+   * and returns the file it leaves. */
+  const readTickets = (baseDir: string, factory: string) => {
+    temp = mkdtempSync(join(tmpdir(), "claude-review-tickets-"));
+    repo = temp;
+    const script = read.run!.replace(
+      'npx --no-install factory review tickets "$PR"',
+      factory,
+    );
+    const result = spawnSync("bash", ["-eo", "pipefail", "-c", script], {
+      cwd: temp,
+      env: { ...process.env, BASE_DIR: baseDir, PR: "64", RUNNER_TEMP: temp },
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    return readFileSync(join(temp, "tickets.md"), "utf8");
+  };
+
+  it("leaves what the base commit's factory printed", () => {
+    expect(readTickets("/base", "echo '## #12 A ticket'")).toBe(
+      "## #12 A ticket\n",
+    );
+  });
+
+  it("notes that the tickets could not be read, and passes, when the base could not install", () => {
+    expect(readTickets("", "echo unused")).toBe(
+      "The tickets could not be read: the base commit has no factory, or it could not be installed\n",
+    );
+  });
+
+  it("notes the error's last line, and passes, when the read fails", () => {
+    expect(
+      readTickets(
+        "/base",
+        "(echo 'first' >&2; echo 'Unknown command: review tickets' >&2; exit 1)",
+      ),
+    ).toBe("The tickets could not be read: Unknown command: review tickets\n");
   });
 });

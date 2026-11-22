@@ -5,6 +5,7 @@
 // rewrite of the commands. Where a build runs is the runner's
 // (`runner/types.mts`).
 import type { PullRequest } from "../lib/work-status.mts";
+import type { Key } from "../tickets/types.mts";
 
 /** One end of a pull request: the commit, its branch, and the repository
  * the branch is in, as owner/name. */
@@ -177,8 +178,9 @@ export type CodeHost = {
   /** One line for each commit on the pull request the code host does not
    * show as signed: its short ID and the reason, such as `unsigned`. */
   unverifiedCommits(pull: number): Promise<string[]>;
-  /** The tickets the pull request closes when it merges. */
-  closes(pull: number): Promise<number[]>;
+  /** The tickets the pull request closes when it merges, by the code
+   * host's own links: only tickets the code host keeps itself. */
+  closes(pull: number): Promise<Key[]>;
 
   /** The open pull requests, as the views and the sync read them: with
    * their check state when `checks` is asked, and their comments, for the

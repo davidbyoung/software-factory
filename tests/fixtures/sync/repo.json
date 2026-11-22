@@ -1,7 +1,7 @@
 {
   "tickets": [
     {
-      "number": 10,
+      "key": "10",
       "title": "Refining in a local session",
       "state": "open",
       "closedAt": null,
@@ -9,7 +9,7 @@
       "body": "",
       "comments": [
         {
-          "id": 1000,
+          "id": "1000",
           "createdAt": "2026-11-09T08:00:00Z",
           "body": "Text.\n\n<!-- work-status: refining local 359bd84e -->\n<!-- agent -->",
           "author": "acme"
@@ -17,7 +17,7 @@
       ]
     },
     {
-      "number": 11,
+      "key": "11",
       "title": "A round waits on the owner",
       "state": "open",
       "closedAt": null,
@@ -25,13 +25,13 @@
       "body": "",
       "comments": [
         {
-          "id": 1001,
+          "id": "1001",
           "createdAt": "2026-11-09T08:00:00Z",
           "body": "Text.\n\n<!-- work-status: refining cloud cse_01Ab3x -->\n<!-- agent -->",
           "author": "acme"
         },
         {
-          "id": 1002,
+          "id": "1002",
           "createdAt": "2026-11-09T08:05:00Z",
           "body": "Text.\n\n<!-- work-status: waiting -->\n<!-- agent -->",
           "author": "acme"
@@ -39,7 +39,7 @@
       ]
     },
     {
-      "number": 12,
+      "key": "12",
       "title": "Moved to Ready after refinement",
       "state": "open",
       "closedAt": null,
@@ -47,13 +47,13 @@
       "body": "",
       "comments": [
         {
-          "id": 1003,
+          "id": "1003",
           "createdAt": "2026-11-09T08:00:00Z",
           "body": "Text.\n\n<!-- work-status: refining local 359bd84e -->\n<!-- agent -->",
           "author": "acme"
         },
         {
-          "id": 1004,
+          "id": "1004",
           "createdAt": "2026-11-09T08:10:00Z",
           "body": "Text.\n\n<!-- work-status: refined -->\n<!-- agent -->",
           "author": "acme"
@@ -61,7 +61,7 @@
       ]
     },
     {
-      "number": 13,
+      "key": "13",
       "title": "Ready from before a failed fire",
       "state": "open",
       "closedAt": null,
@@ -69,13 +69,13 @@
       "body": "",
       "comments": [
         {
-          "id": 1005,
+          "id": "1005",
           "createdAt": "2026-11-09T08:30:00Z",
           "body": "Text.\n\n<!-- work-status: started cloud st_0123456789ab -->\n<!-- agent -->",
           "author": "acme"
         },
         {
-          "id": 1006,
+          "id": "1006",
           "createdAt": "2026-11-09T08:31:00Z",
           "body": "Text.\n\n<!-- work-status: released -->\n<!-- agent -->",
           "author": "acme"
@@ -83,7 +83,7 @@
       ]
     },
     {
-      "number": 14,
+      "key": "14",
       "title": "The poller started a build",
       "state": "open",
       "closedAt": null,
@@ -91,7 +91,7 @@
       "body": "",
       "comments": [
         {
-          "id": 1007,
+          "id": "1007",
           "createdAt": "2026-11-09T08:40:00Z",
           "body": "Text.\n\n<!-- work-status: started cloud st_aaaaaaaaaaaa -->\n<!-- agent -->",
           "author": "acme"
@@ -99,7 +99,7 @@
       ]
     },
     {
-      "number": 15,
+      "key": "15",
       "title": "A cloud build claimed it",
       "state": "open",
       "closedAt": null,
@@ -107,13 +107,13 @@
       "body": "",
       "comments": [
         {
-          "id": 1008,
+          "id": "1008",
           "createdAt": "2026-11-09T08:40:00Z",
           "body": "Text.\n\n<!-- work-status: started cloud st_bbbbbbbbbbbb -->\n<!-- agent -->",
           "author": "acme"
         },
         {
-          "id": 1009,
+          "id": "1009",
           "createdAt": "2026-11-09T08:41:00Z",
           "body": "Text.\n\n<!-- work-status: claim cloud cse_01Ab3x -->\n<!-- agent -->",
           "author": "acme"
@@ -121,7 +121,7 @@
       ]
     },
     {
-      "number": 16,
+      "key": "16",
       "title": "A local build opened its pull request",
       "state": "open",
       "closedAt": null,
@@ -129,7 +129,7 @@
       "body": "",
       "comments": [
         {
-          "id": 1010,
+          "id": "1010",
           "createdAt": "2026-11-09T08:20:00Z",
           "body": "Text.\n\n<!-- work-status: claim local 359bd84e -->\n<!-- agent -->",
           "author": "acme"
@@ -137,7 +137,7 @@
       ]
     },
     {
-      "number": 18,
+      "key": "18",
       "title": "Not on the board yet",
       "state": "open",
       "closedAt": null,
@@ -146,7 +146,7 @@
       "comments": []
     },
     {
-      "number": 17,
+      "key": "17",
       "title": "Merged this morning",
       "state": "closed",
       "closedAt": "2026-11-09T09:30:00Z",
@@ -154,7 +154,7 @@
       "body": "",
       "comments": [
         {
-          "id": 1011,
+          "id": "1011",
           "createdAt": "2026-11-09T08:00:00Z",
           "body": "Text.\n\n<!-- work-status: claim cloud cse_01Zz9y -->\n<!-- agent -->",
           "author": "acme"
@@ -169,10 +169,11 @@
       "body": "Closes #16",
       "isDraft": true,
       "author": "acme",
-      "closes": [16],
+      "closes": ["16"],
       "openThreads": 0,
       "checks": "PENDING",
-      "comments": []
+      "comments": [],
+      "partOf": []
     },
     {
       "number": 41,
@@ -183,7 +184,8 @@
       "closes": [],
       "openThreads": 0,
       "checks": "SUCCESS",
-      "comments": []
+      "comments": [],
+      "partOf": []
     }
   ],
   "donePulls": []

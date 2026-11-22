@@ -10,6 +10,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { loadSettings, targetOf, type Settings } from "./config.mts";
 import { openCodeHost, type CodeHost } from "./code-host/index.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
+import { keyOf, refOf } from "./tickets/index.mts";
+import type { Key } from "./tickets/types.mts";
 
 const USAGE = "Usage: factory build N";
 /** How long to look for the run, and how often. */
@@ -23,6 +25,9 @@ export type Deps = {
   codeHost: (repository: string, type: string) => CodeHost;
   /** The runner of that name. */
   runner: (repository: string, name: string) => Runner;
+  /** How the settings' ticket system reads a key and writes a ticket. */
+  keyOf: (type: string) => (typed: string) => Key;
+  refOf: (type: string) => (key: Key) => string;
   now: () => Date;
   sleep: (ms: number) => Promise<unknown>;
   out: (line: string) => void;
@@ -30,13 +35,15 @@ export type Deps = {
 };
 
 export async function main(argv: string[], d: Deps): Promise<number> {
-  const ticket = Number(argv[0]);
-  if (argv.length !== 1 || !Number.isInteger(ticket) || ticket <= 0) {
+  if (argv.length !== 1 || !argv[0] || argv[0].startsWith("-")) {
     d.err(USAGE);
     return 2;
   }
   try {
     const settings = await d.settings();
+    const ticket = d.keyOf(settings.tickets.type)(argv[0]);
+    const ref = d.refOf(settings.tickets.type)(ticket);
+    const runName = `Build ${ref}`;
     const { repository } = targetOf(settings, d.env);
     const runner = d.runner(repository, settings.builds.runner);
     const branch = await d
@@ -46,11 +53,11 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     await runner.startBuild(ticket, branch);
     let link: string | null = null;
     for (;;) {
-      link = await runner.findBuild(ticket, since);
+      link = await runner.findBuild(runName, since);
       if (link || d.now().getTime() - since >= FIND_FOR_MS) break;
       await d.sleep(EVERY_MS);
     }
-    d.out(`Started a build of #${ticket} in GitHub Actions:`);
+    d.out(`Started a build of ${ref} in GitHub Actions:`);
     d.out(link ?? runner.buildsPage());
     return 0;
   } catch (error) {
@@ -66,6 +73,8 @@ export async function run(argv: string[]): Promise<number> {
     env: process.env,
     codeHost: (repository, type) => openCodeHost(repository, type),
     runner: (repository, name) => openRunner(repository, name),
+    keyOf,
+    refOf,
     now: () => new Date(),
     sleep,
     out: (line) => console.log(line),

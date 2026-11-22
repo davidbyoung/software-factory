@@ -28,7 +28,8 @@ import {
   type Settings,
 } from "./config.mts";
 import { specTools, type SpecTools } from "./specs/index.mts";
-import { openTickets } from "./tickets/index.mts";
+import { keyOf, openTickets } from "./tickets/index.mts";
+import { KeyError } from "./tickets/types.mts";
 
 export type Deps = {
   /** The repository's root, where every command runs. */
@@ -42,7 +43,7 @@ export type Deps = {
   paint?: Paint;
   specTools: SpecTools;
   /** Ticket `id`'s labels; throws when it can't be read. */
-  labels: (settings: Settings, id: number) => Promise<string[]>;
+  labels: (settings: Settings, id: string) => Promise<string[]>;
 };
 
 const USAGE = {
@@ -86,9 +87,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   if (name === "gate" || name === "specs-check" || name === "specs-list") {
     if (args.length > 0) return usage();
   } else if (name === "specs-new" || name === "specs-finish") {
-    // A ticket as the ticket system writes it: GitHub's, the only one
-    // built, are whole numbers.
-    if (args.length !== 1 || !/^[1-9]\d*$/.test(args[0]!)) return usage();
+    if (args.length !== 1 || args[0]!.startsWith("-")) return usage();
   } else if (name === "test-one") {
     if (args.length < 1 || args.length > 2) return usage();
     if (args.some((a) => a.startsWith("--"))) return usage();
@@ -102,6 +101,14 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     d.err(e.message);
     return 1;
   }
+  if (name === "specs-new" || name === "specs-finish")
+    try {
+      keyOf(s.tickets.type)(args[0]!);
+    } catch (e) {
+      if (!(e instanceof KeyError)) throw e;
+      d.err(e.message);
+      return 1;
+    }
   const paint = d.paint ?? plain;
   /** The command's own closing line, after the output passed through. */
   const ended = (status: number, passed: string, failed: string) => {
@@ -198,7 +205,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
   let labels: string[];
   try {
-    labels = await d.labels(s, Number(id));
+    labels = await d.labels(s, id);
   } catch (e) {
     d.err(e instanceof Error ? e.message : String(e));
     return 1;
@@ -252,7 +259,7 @@ export async function run(argv: string[]): Promise<number> {
         repository: settings.repository,
         board: null,
       });
-      return (await tickets.read(id)).labels;
+      return (await tickets.read(tickets.key(id))).labels;
     },
   });
 }

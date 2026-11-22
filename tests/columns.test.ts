@@ -52,8 +52,10 @@ const AGENT = "<!-- agent -->";
 const RUN_PAGE = (id: string) => `https://runs.example/${id}`;
 const at = (m: number) =>
   `2026-11-09T${String(10 + Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00Z`;
+/** How GitHub writes a ticket. */
+const REF = (key: string) => `#${key}`;
 const marked = (id: number, minute: number, marker: string) => ({
-  id,
+  id: String(id),
   author: "acme",
   createdAt: at(minute),
   body: `text\n\n<!-- work-status: ${marker} -->\n${AGENT}`,
@@ -63,7 +65,7 @@ const issue = (
   comments: Issue["comments"] = [],
   over: Partial<Issue> = {},
 ): Issue => ({
-  number,
+  key: String(number),
   title: `Issue ${number}`,
   state: "open",
   closedAt: null,
@@ -105,10 +107,10 @@ const withCards = (
   ...board,
   items: new Map(
     cards.map(([number, status, updatedAt]) => [
-      number,
+      String(number),
       {
         itemId: `I${number}`,
-        number,
+        key: String(number),
         status,
         updatedAt,
         session: "",
@@ -411,9 +413,9 @@ describe("the column a ticket shows in", () => {
       [2, null, at(5)],
       [3, "todo", at(5)],
     ]);
-    expect(cardOf(board, 1, STOCK_COLUMNS)?.status).toBe("Unmapped");
-    expect(cardOf(board, 2, STOCK_COLUMNS)?.status).toBeNull();
-    expect(cardOf(board, 3, STOCK_COLUMNS)?.status).toBe("Backlog");
+    expect(cardOf(board, "1", STOCK_COLUMNS)?.status).toBe("Unmapped");
+    expect(cardOf(board, "2", STOCK_COLUMNS)?.status).toBeNull();
+    expect(cardOf(board, "3", STOCK_COLUMNS)?.status).toBe("Backlog");
   });
 
   it("keeps a refined ticket refined after the sync wrote its card to Todo", () => {
@@ -468,7 +470,7 @@ describe("what the sync writes", () => {
     );
     const status = (n: number) =>
       plans
-        .find((p) => p.number === n)!
+        .find((p) => p.key === String(n))!
         .writes.find((w) => w.field === "Status");
     expect(status(1)).toBeUndefined();
     expect(status(2)).toEqual({ field: "Status", optionName: "In Progress" });
@@ -581,21 +583,31 @@ describe("the optional fields", () => {
 
 describe("the sentences that name a column", () => {
   const kinds: CommentKind[] = [
-    { kind: "refined", issue: 7 },
+    { kind: "refined", issue: { key: "7", ref: "#7" } },
     { kind: "started", marker: "st_1" },
     {
       kind: "dispatch-failed",
-      issue: 7,
+      issue: { key: "7", ref: "#7" },
       status: "401",
       reason: "Unauthorized",
     },
-    { kind: "stopped", where: "actions", issue: 7, reason: "r" },
-    { kind: "stopped", where: "local", issue: 7, reason: "r" },
-    { kind: "ended", issue: 7 },
-    { kind: "cleared-claim", issue: 7, since: at(0) },
-    { kind: "cleared-start", issue: 7, since: at(0) },
+    {
+      kind: "stopped",
+      where: "actions",
+      issue: { key: "7", ref: "#7" },
+      reason: "r",
+    },
+    {
+      kind: "stopped",
+      where: "local",
+      issue: { key: "7", ref: "#7" },
+      reason: "r",
+    },
+    { kind: "ended", issue: { key: "7", ref: "#7" } },
+    { kind: "cleared-claim", issue: { key: "7", ref: "#7" }, since: at(0) },
+    { kind: "cleared-start", issue: { key: "7", ref: "#7" }, since: at(0) },
     { kind: "follow-ups-merged", pull: 9 },
-    { kind: "pull-closed", issue: 7, pull: 9 },
+    { kind: "pull-closed", issue: { key: "7", ref: "#7" }, pull: 9 },
   ];
   const sentence = (body: string) => body.split("\n\n<!--")[0];
   const stockWithReady: Columns = {
@@ -615,10 +627,20 @@ describe("the sentences that name a column", () => {
 
   it("says where the card is when its state has no column, and names the ready column", () => {
     expect(
-      sentence(commentBody({ kind: "refined", issue: 7 }, stockWithReady)),
+      sentence(
+        commentBody(
+          { kind: "refined", issue: { key: "7", ref: "#7" } },
+          stockWithReady,
+        ),
+      ),
     ).toContain("The card stays in Todo until it moves to Ready for dev");
     expect(
-      sentence(commentBody({ kind: "ended", issue: 7 }, stockWithReady)),
+      sentence(
+        commentBody(
+          { kind: "ended", issue: { key: "7", ref: "#7" } },
+          stockWithReady,
+        ),
+      ),
     ).toBe(
       "The run ended without a pull request. The card stays In Progress, waiting on you. Move it to Ready for dev to try again.",
     );
@@ -626,16 +648,29 @@ describe("the sentences that name a column", () => {
 
   it("tells no one to move a card where there is no ready column", () => {
     const none = STOCK_COLUMNS;
-    expect(sentence(commentBody({ kind: "refined", issue: 7 }, none))).toBe(
+    expect(
+      sentence(
+        commentBody({ kind: "refined", issue: { key: "7", ref: "#7" } }, none),
+      ),
+    ).toBe(
       "Refinement is done. This board has no column for approving a build: tell a session to build #7, or run `factory build 7`.",
     );
-    expect(sentence(commentBody({ kind: "ended", issue: 7 }, none))).toBe(
+    expect(
+      sentence(
+        commentBody({ kind: "ended", issue: { key: "7", ref: "#7" } }, none),
+      ),
+    ).toBe(
       "The run ended without a pull request. The card stays In Progress, waiting on you. To try again, tell a session to build #7, or run `factory build 7`.",
     );
     expect(
       sentence(
         commentBody(
-          { kind: "stopped", where: "actions", issue: 7, reason: "r" },
+          {
+            kind: "stopped",
+            where: "actions",
+            issue: { key: "7", ref: "#7" },
+            reason: "r",
+          },
           none,
         ),
       ),
@@ -645,7 +680,12 @@ describe("the sentences that name a column", () => {
     expect(
       sentence(
         commentBody(
-          { kind: "stopped", where: "local", issue: 7, reason: "r" },
+          {
+            kind: "stopped",
+            where: "local",
+            issue: { key: "7", ref: "#7" },
+            reason: "r",
+          },
           none,
         ),
       ),
@@ -653,7 +693,12 @@ describe("the sentences that name a column", () => {
       "Stopped without a pull request: r. The card stays In Progress, waiting on you. Tell a session to work #7 again.",
     );
     expect(
-      sentence(commentBody({ kind: "pull-closed", issue: 7, pull: 9 }, none)),
+      sentence(
+        commentBody(
+          { kind: "pull-closed", issue: { key: "7", ref: "#7" }, pull: 9 },
+          none,
+        ),
+      ),
     ).toBe(
       "Pull request #9 was closed without merging. The card stays In Progress, waiting on you. Tell a session to build #7, or run `factory build 7`, to rebuild it, or ask a session to refine it first.",
     );
@@ -664,12 +709,18 @@ describe("the sentences that name a column", () => {
   });
 
   it("keeps the markers in the factory's words whatever the columns", () => {
-    expect(commentBody({ kind: "ended", issue: 7 }, STOCK_COLUMNS)).toContain(
-      "<!-- work-status: released -->",
-    );
-    expect(commentBody({ kind: "refined", issue: 7 }, STOCK_COLUMNS)).toContain(
-      "<!-- work-status: refined -->",
-    );
+    expect(
+      commentBody(
+        { kind: "ended", issue: { key: "7", ref: "#7" } },
+        STOCK_COLUMNS,
+      ),
+    ).toContain("<!-- work-status: released -->");
+    expect(
+      commentBody(
+        { kind: "refined", issue: { key: "7", ref: "#7" } },
+        STOCK_COLUMNS,
+      ),
+    ).toContain("<!-- work-status: refined -->");
   });
 
   it("names the stock mapping's columns in the closed pull request's and the nightly sync's comments", () => {
@@ -678,14 +729,15 @@ describe("the sentences that name a column", () => {
         action: "closed",
         pull_request: { number: 9, merged: false, body: null },
       },
-      [7],
+      { closes: ["7"], partOf: [] },
       [],
       STOCK_COLUMNS,
+      REF,
     );
     expect(closed.body).toContain("Tell a session to build #7");
     const claimed = issue(7, [
       {
-        id: 1,
+        id: "1",
         author: "acme",
         createdAt: "2026-11-01T00:00:00Z",
         body: `<!-- work-status: claim actions 1 -->\n${AGENT}`,
@@ -695,6 +747,7 @@ describe("the sentences that name a column", () => {
       toSnapshot([claimed], [], new Date("2026-11-09T00:00:00Z")),
       new Date("2026-11-09T00:00:00Z"),
       STOCK_COLUMNS,
+      REF,
     );
     expect(nightly.body).toContain(
       "The card stays In Progress, waiting on you. To try again, tell a session to build #7",
@@ -709,8 +762,8 @@ describe("the poller", () => {
 
   it("starts a build for a card in the column FACTORY_READY_COLUMN names, and no other", () => {
     const columns = columnsFrom({ FACTORY_READY_COLUMN: "Ready for dev" });
-    expect(selectToStart(snap, board("Ready for dev"), columns)).toEqual([1]);
-    expect(selectToStart(snap, board("ready for dev"), columns)).toEqual([1]);
+    expect(selectToStart(snap, board("Ready for dev"), columns)).toEqual(["1"]);
+    expect(selectToStart(snap, board("ready for dev"), columns)).toEqual(["1"]);
     expect(selectToStart(snap, board("Ready"), columns)).toEqual([]);
   });
 });
@@ -795,8 +848,11 @@ describe("factory status", () => {
         withCards(stockBoard(), [[1, "Todo", at(5)]]),
         new Map(),
         new Date(at(30)),
-        watchOf("own-server", 5),
-        columns ?? DEFAULT_COLUMNS,
+        {
+          watch: watchOf("own-server", 5),
+          columns: columns ?? DEFAULT_COLUMNS,
+          ref: REF,
+        },
       ),
       new Date(at(30)),
       false,
@@ -1165,10 +1221,10 @@ describe("a state with a list of columns", () => {
     fields: [statusField(...BOARD_NAMES)],
     items: new Map(
       cards.map(([number, status, updatedAt]) => [
-        number,
+        String(number),
         {
           itemId: `I${number}`,
-          number,
+          key: String(number),
           status,
           updatedAt,
           session: "",
@@ -1218,7 +1274,7 @@ describe("a state with a list of columns", () => {
     expect(statusOfColumn("QA", COLUMNS)).toBe("In review");
     expect(statusOfColumn("code review", COLUMNS)).toBe("In review");
     expect(statusOfColumn("Blocked", COLUMNS)).toBe("In progress");
-    expect(cardOf(listBoard([[1, "QA", at(0)]]), 1, COLUMNS)?.status).toBe(
+    expect(cardOf(listBoard([[1, "QA", at(0)]]), "1", COLUMNS)?.status).toBe(
       "In review",
     );
   });
@@ -1226,7 +1282,9 @@ describe("a state with a list of columns", () => {
   it("names a state's one column by the first name in its list", () => {
     expect(columnFor("In review", COLUMNS)).toBe("Code review");
     expect(
-      sentence(commentBody({ kind: "ended", issue: 7 }, COLUMNS)),
+      sentence(
+        commentBody({ kind: "ended", issue: { key: "7", ref: "#7" } }, COLUMNS),
+      ),
     ).toContain("The card stays In Progress, waiting on you.");
   });
 
@@ -1250,7 +1308,7 @@ describe("a state with a list of columns", () => {
     const plans = planSync(snap, board, RUN_PAGE, CONFIG);
     const status = (n: number) =>
       plans
-        .find((p) => p.number === n)!
+        .find((p) => p.key === String(n))!
         .writes.find((w) => w.field === "Status");
     expect(status(1)).toEqual({ field: "Status", optionName: "In Progress" });
     expect(status(2)).toBeUndefined();
@@ -1282,8 +1340,7 @@ describe("a state with a list of columns", () => {
         listBoard([[1, "QA", at(5)]]),
         new Map(),
         new Date(at(30)),
-        null,
-        COLUMNS,
+        { watch: null, columns: COLUMNS, ref: REF },
       ),
       new Date(at(30)),
       false,

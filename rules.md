@@ -109,8 +109,9 @@ discovering it at push time.
   `npx --no-install factory pr state N --wait`, and does not run it, since
   nothing can wake it once it stops.
 - **A pull request that resolves an issue closes it.** When asked to open
-  one, start the body with `Closes #N` for each issue the branch resolves,
-  so the merge closes them. Check that GitHub registered the link.
+  one, start the body with the line `npx --no-install factory ticket link N`
+  prints for each issue the branch resolves, so the merge closes them. Check that `npx --no-install factory pr closes PR`
+  prints each one.
 - **After pushing, check for review automatically.** The `Claude review`
   workflow reviews every push to a PR. If an open PR exists for the branch,
   wait for the review of that push, then work it with the `factory-address-review` skill
@@ -167,7 +168,7 @@ always the owner's.
 
 ## Spec track
 
-The GitHub issue is the spec: `factory-refine` writes it, the owner
+The ticket is the spec: `factory-refine` writes it, the owner
 approves it by moving its card to Ready or telling a session to build
 it, and `factory-build` builds it. A change that adds or alters behavior
 a user can see carries the `spec` label, which `factory-refine` adds,
@@ -217,8 +218,8 @@ npx --no-install factory ticket blockers N
 npx --no-install factory ticket unblock N --by M
 ```
 
-`blockers` prints one line per ticket N waits on, its number and whether
-it is open. A ticket system without blockers says so: check with
+`blockers` prints one line per ticket N waits on, as the ticket system
+writes it, and whether it is open. A ticket system without blockers says so: check with
 `npx --no-install factory ticket supports blockers`.
 
 ## Follow-ups
@@ -235,18 +236,20 @@ labeled `follow-up`, holding a checklist. A line leads with the file or
 page it is about:
 
 ```
-- [ ] <file or page>: <what is wrong, as a user or a maintainer sees it>. Found by <who> while building #N. <The rule it breaks, by its section in the guide that states it (an area's guide under "Rules by area" in CLAUDE.md, CLAUDE.md, or this file), or "Needs a decision: <the question>".>
+- [ ] <file or page>: <what is wrong, as a user or a maintainer sees it>. Found by <who> while building <ticket>. <The rule it breaks, by its section in the guide that states it (an area's guide under "Rules by area" in CLAUDE.md, CLAUDE.md, or this file), or "Needs a decision: <the question>".>
 ```
 
 It is added with the file and the rest of the line as two arguments, and
 the script opens the issue when none is open:
 
 ```bash
-npx --no-install factory follow-up FILE "What is wrong. Found by WHO while building #N. The rule it breaks."
+npx --no-install factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
 ```
 
-A reviewer that does not know the issue or pull request number writes
-`#N` as it stands, and whoever appends the line fills it in.
+TICKET is the ticket as its system writes it, which
+`npx --no-install factory ticket view N --field ref` prints, such as `#12`.
+A reviewer that does not know the ticket writes `TICKET` as it stands, and
+whoever appends the line fills it in.
 
 A placeholder or tag name in issue or comment text, such as `<slug>` or
 `<code>`, goes in backticks: GitHub drops an unknown tag and renders a
@@ -271,11 +274,12 @@ hook refuses the same in text sent to GitHub directly, as the
 
 The follow-ups issue builds as one branch and one pull request, one commit
 per line, once the owner approves it, by moving its card to Ready or
-telling a session to build it. The pull request closes it with `Closes #N`
-only when every line is checked; otherwise it starts with `Part of #N`,
-and the unchecked lines wait there. The sync reads `Part of #N` as a
-partial build, so any other link to the follow-ups issue words it
-differently. It has no spec tool change. `factory-build` appends a line and
+telling a session to build it. The pull request closes it with the line
+`npx --no-install factory ticket link N` prints only when every line is
+checked; otherwise it starts with the line
+`npx --no-install factory ticket link N --part` prints, and the unchecked
+lines wait there. The sync reads that line as a partial build, so any
+other link to the follow-ups issue words it differently. It has no spec tool change. `factory-build` appends a line and
 builds the issue; `factory-refine` refines it per line. Its lines can be
 about anything, so the one pull request waits for the owner when any line
 touches a file that does, and gets the fresh-agent trace ("Changing the

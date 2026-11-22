@@ -3,6 +3,8 @@
 // runs only through it. The job files a runner needs, such as GitHub
 // Actions' workflows, are its own and no part of this.
 
+import type { Key } from "../tickets/types.mts";
+
 /** One run of the repository's jobs for a commit. `status` is `completed`
  * once it has ended, and `conclusion` says how. */
 export type Run = {
@@ -31,12 +33,12 @@ export type ThisRun = {
 export type FailedJob = { name: string; log: string };
 
 export type Runner = {
-  /** Starts a build of the ticket on the branch. The runner may answer
-   * before the run exists, so `findBuild` finds it. */
-  startBuild(ticket: number, branch: string): Promise<void>;
-  /** The page of the ticket's build started at or after `since`, in
-   * milliseconds, or null when none shows yet. */
-  findBuild(ticket: number, since: number): Promise<string | null>;
+  /** Starts a build of the ticket, by its key, on the branch. The runner
+   * may answer before the run exists, so `findBuild` finds it. */
+  startBuild(ticket: Key, branch: string): Promise<void>;
+  /** The page of the build named `runName`, such as `Build #12`, started at
+   * or after `since`, in milliseconds, or null when none shows yet. */
+  findBuild(runName: string, since: number): Promise<string | null>;
   /** The page that lists builds. */
   buildsPage(): string;
   /** The page of a run, from its ID. */

@@ -56,21 +56,21 @@ defend.
    the facts; if you still disagree, say so once in the summary, with your
    evidence, rather than opening a new thread.
 
-4. Read what the pull request was asked to do. Its body, and the issues it
-   closes:
+4. Read what the pull request was asked to do: its body, and the tickets it
+   builds, which the workflow has read for you into the file TICKETS names.
+   Read that file with the Read tool. Each ticket there starts with a `## `
+   line naming it and its title. When the file says the tickets could not be
+   read, say so in the summary and go by the body.
 
    ```bash
-   gh pr view PR_NUMBER --json body,closingIssuesReferences
-   gh api graphql -F n=ISSUE_NUMBER -f query='query($n: Int!) { repository(owner: "OWNER", name: "NAME") { issue(number: $n) { body } } }' --jq .data.repository.issue.body
+   gh pr view PR_NUMBER --json body
    ```
 
-   OWNER and NAME are the two halves of REPO.
-
-   The issue's "Spec" and "Acceptance criteria" sections are what the
-   change must do, and its "Decisions" are settled. An issue with neither
+   The ticket's "Spec" and "Acceptance criteria" sections are what the
+   change must do, and its "Decisions" are settled. A ticket with neither
    is held only to what it plainly asks for: a fix it suggests is not a
-   criterion. The follow-ups issue, closed or only linked, is held to the lines the
-   body says this pull request built. A pull request that closes no issue,
+   criterion. The follow-ups ticket is held to the lines the
+   body says this pull request built. A pull request that builds no ticket,
    such as a source audit, has only its body to go by.
 
 ## What to look for
@@ -79,7 +79,7 @@ defend.
   that is silently dropped.
 - **What it was asked to do.** A Spec line or criterion from step 4 that
   the whole pull request, `git diff origin/DEFAULT...HEAD`, does not meet, or
-  meets only in part, is a finding, since the merge closes the issue as
+  meets only in part, is a finding, since the merge closes the ticket as
   done: High when a user would see the gap, Medium otherwise. Behavior
   no line asked for is Medium, unless the body or the owner's comments on
   the pull request explain it. Quote the line either way.

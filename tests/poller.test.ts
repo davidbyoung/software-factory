@@ -19,6 +19,7 @@ import {
   commentBody,
   toSnapshot,
   type Board,
+  type BoardItem,
 } from "../src/lib/work-status.mts";
 import { HttpError } from "../src/tickets/transport.mts";
 import { parseSettings } from "../src/config.mts";
@@ -41,6 +42,36 @@ const DISPATCH =
   "https://api.github.com/repos/acme/widgets/actions/workflows/factory-build.yml/dispatches";
 
 describe("selectToStart", () => {
+  it("starts Ready tickets in key order, letters first and then the number as a number", () => {
+    const ready = (key: string) => ({
+      key,
+      title: key,
+      state: "open" as const,
+      closedAt: null,
+      labels: [],
+      comments: [],
+    });
+    const card = (key: string): [string, BoardItem] => [
+      key,
+      {
+        itemId: `IT_${key}`,
+        key,
+        status: "Ready",
+        updatedAt: "2026-11-09T09:00:00Z",
+        session: "",
+        runsIn: "",
+      },
+    ];
+    const keys = ["PROJ-12", "PROJ-9", "OPS-3"];
+
+    expect(
+      selectToStart(
+        { issues: keys.map(ready), pulls: [] },
+        { projectId: "P", fields: [], items: new Map(keys.map(card)) },
+      ),
+    ).toEqual(["OPS-3", "PROJ-9", "PROJ-12"]);
+  });
+
   it("takes only the cards the derivation puts in Ready", () => {
     // #12 moved to Ready after its refinement; #13's Ready predates a failed
     // fire, and #14's start already counts.
@@ -49,18 +80,18 @@ describe("selectToStart", () => {
         toSnapshot(saved.tickets as never, saved.pulls, new Date(NOW)),
         toBoard(boardPages as never, "acme/widgets"),
       ),
-    ).toEqual([12]);
+    ).toEqual(["12"]);
   });
 
   it("does not start a card again after its start failed to fire, until the owner moves it", () => {
     const fireFailed = commentBody({
       kind: "dispatch-failed",
-      issue: 7,
+      issue: { key: "7", ref: "#7" },
       status: "401",
       reason: "Unauthorized",
     });
     const comment = (id: number, minute: number, body: string) => ({
-      id,
+      id: String(id),
       createdAt: `2026-11-09T09:0${minute}:00Z`,
       author: "acme",
       body,
@@ -68,7 +99,7 @@ describe("selectToStart", () => {
     const snapshot = {
       issues: [
         {
-          number: 30,
+          key: "30",
           title: "A failed start",
           state: "open" as const,
           closedAt: null,
@@ -86,10 +117,10 @@ describe("selectToStart", () => {
       fields: [],
       items: new Map([
         [
-          30,
+          "30",
           {
             itemId: "IT30",
-            number: 30,
+            key: "30",
             status: "Ready",
             updatedAt,
             session: "",
@@ -101,7 +132,7 @@ describe("selectToStart", () => {
 
     expect(selectToStart(snapshot, board("2026-11-09T09:01:00Z"))).toEqual([]);
     expect(selectToStart(snapshot, board("2026-11-09T09:04:00Z"))).toEqual([
-      30,
+      "30",
     ]);
   });
 });

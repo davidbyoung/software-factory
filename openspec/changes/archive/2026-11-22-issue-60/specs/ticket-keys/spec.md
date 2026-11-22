@@ -1,0 +1,271 @@
+## ADDED Requirements
+
+### Requirement: A command takes a key
+
+The factory SHALL behave as this line says: When a command takes a ticket, it takes the ticket's key as text: on GitHub the issue's number, such as `12`, and with the in-memory adapter's strict keys, a key such as `PROJ-12`.
+
+#### Scenario: A command takes a key
+
+- **WHEN** a command takes a ticket
+- **THEN** it takes the ticket's key as text: on GitHub the issue's number, such as `12`, and with the in-memory adapter's strict keys, a key such as `PROJ-12`.
+
+### Requirement: A key the system does not use
+
+The factory SHALL behave as this line says: When a command is given a key its ticket system does not use, such as `PROJ-12` on GitHub, it prints `PROJ-12 is not a ticket here: a GitHub ticket is its number, such as 12`, reads and writes nothing, and exits 1.
+
+#### Scenario: A key the system does not use
+
+- **WHEN** a command is given a key its ticket system does not use
+- **THEN** such as `PROJ-12` on GitHub, it prints `PROJ-12 is not a ticket here: a GitHub ticket is its number, such as 12`, reads and writes nothing, and exits 1.
+
+### Requirement: Another repository's ticket as input
+
+The factory SHALL behave as this line says: When a command on GitHub is given another repository's ticket, such as `octo/web#4`, it prints `octo/web#4 is in another repository: the factory reads only its state as a blocker`, reads and writes nothing, and exits 1.
+
+#### Scenario: Another repository's ticket as input
+
+- **WHEN** a command on GitHub is given another repository's ticket
+- **THEN** such as `octo/web#4`, it prints `octo/web#4 is in another repository: the factory reads only its state as a blocker`, reads and writes nothing, and exits 1.
+
+### Requirement: A pull request given as a ticket
+
+The factory SHALL behave as this line says: When any `factory ticket` command is given a pull request's number on GitHub, `comment`, `label`, and `cost` among them, it prints `#64 was not found`, writes nothing, and exits 1.
+
+#### Scenario: A pull request given as a ticket
+
+- **WHEN** any `factory ticket` command is given a pull request's number on GitHub
+- **THEN** `comment`, `label`, and `cost` among them, it prints `#64 was not found`, writes nothing, and exits 1.
+
+### Requirement: A ticket in output is its written form
+
+The factory SHALL behave as this line says: When a command's output, or a comment or pull request body the factory writes, names a ticket, it writes the ticket as its system writes it: `#12` on GitHub, `octo/web#4` for another GitHub repository's ticket, and `PROJ-12` with strict keys.
+
+#### Scenario: A ticket in output is its written form
+
+- **WHEN** a command's output
+- **THEN** or a comment or pull request body the factory writes, names a ticket, it writes the ticket as its system writes it: `#12` on GitHub, `octo/web#4` for another GitHub repository's ticket, and `PROJ-12` with strict keys.
+
+### Requirement: The written form field
+
+The factory SHALL behave as this line says: When `factory ticket view N --field ref` runs, it prints N's written form, `#12` on GitHub or `PROJ-12` with strict keys, and exits 0.
+
+#### Scenario: The written form field
+
+- **WHEN** `factory ticket view N --field ref` runs
+- **THEN** it prints N's written form, `#12` on GitHub or `PROJ-12` with strict keys, and exits 0.
+
+### Requirement: JSON carries key and ref
+
+The factory SHALL behave as this line says: When `factory ticket view N --json` or `factory ticket list --json` runs, each ticket carries `key`, as text, and `ref`, its written form, in place of `number`, and each comment's `id` is text.
+
+#### Scenario: JSON carries key and ref
+
+- **WHEN** `factory ticket view N --json` or `factory ticket list --json` runs
+- **THEN** each ticket carries `key`, as text, and `ref`, its written form, in place of `number`, and each comment's `id` is text.
+
+### Requirement: Tickets list by key
+
+The factory SHALL behave as this line says: When `factory ticket list` runs, it lists tickets by key, letters first and then the number as a number: `OPS-3`, `PROJ-9`, `PROJ-12`. On GitHub that is number order.
+
+#### Scenario: Tickets list by key
+
+- **WHEN** `factory ticket list` runs
+- **THEN** it lists tickets by key, letters first and then the number as a number: `OPS-3`, `PROJ-9`, `PROJ-12`. On GitHub that is number order.
+
+### Requirement: The poller starts in key order
+
+The factory SHALL behave as this line says: When the poller finds several tickets Ready, it starts them in line 8's order.
+
+#### Scenario: The poller starts in key order
+
+- **WHEN** the poller finds several tickets Ready
+- **THEN** it starts them in line 8's order.
+
+### Requirement: A comment ID is text
+
+The factory SHALL behave as this line says: When `factory ticket comment` posts, it prints the comment's ID as the ticket system gives it, as text.
+
+#### Scenario: A comment ID is text
+
+- **WHEN** `factory ticket comment` posts
+- **THEN** it prints the comment's ID as the ticket system gives it, as text.
+
+### Requirement: Marker comments with the same time
+
+The factory SHALL behave as this line says: When two marker comments on a ticket have the same time, the claim and the views take them in the order the ticket system returned them, and never compare their IDs.
+
+#### Scenario: Marker comments with the same time
+
+- **WHEN** two marker comments on a ticket have the same time
+- **THEN** the claim and the views take them in the order the ticket system returned them, and never compare their IDs.
+
+### Requirement: The closing link line
+
+The factory SHALL behave as this line says: When `factory ticket link N` runs, it prints `Closes #12` on GitHub and `Closes PROJ-12` with strict keys.
+
+#### Scenario: The closing link line
+
+- **WHEN** `factory ticket link N` runs
+- **THEN** it prints `Closes #12` on GitHub and `Closes PROJ-12` with strict keys.
+
+### Requirement: The part-of link line
+
+The factory SHALL behave as this line says: When `factory ticket link N --part` runs, it prints `Part of #4` on GitHub and `Part of PROJ-4` with strict keys.
+
+#### Scenario: The part-of link line
+
+- **WHEN** `factory ticket link N --part` runs
+- **THEN** it prints `Part of #4` on GitHub and `Part of PROJ-4` with strict keys.
+
+### Requirement: A body that closes a ticket the code host does not hold
+
+The factory SHALL behave as this line says: When the tickets are not the code host's own and a pull request's body has `Closes PROJ-12`, `factory pr closes N` prints `PROJ-12`, the sync shows PROJ-12 In review while the pull request is open, and the pull request's cost markers count toward PROJ-12's Cost.
+
+#### Scenario: A body that closes a ticket the code host does not hold
+
+- **WHEN** the tickets are not the code host's own and a pull request's body has `Closes PROJ-12`
+- **THEN** `factory pr closes N` prints `PROJ-12`, the sync shows PROJ-12 In review while the pull request is open, and the pull request's cost markers count toward PROJ-12's Cost.
+
+### Requirement: A body that builds part of a ticket the code host does not hold
+
+The factory SHALL behave as this line says: When the tickets are not the code host's own and a pull request's body has `Part of PROJ-4`, its cost markers count toward PROJ-4's Cost, and, when PROJ-4 has the `follow-up` label, the sync shows it In review while the pull request is open.
+
+#### Scenario: A body that builds part of a ticket the code host does not hold
+
+- **WHEN** the tickets are not the code host's own and a pull request's body has `Part of PROJ-4`
+- **THEN** its cost markers count toward PROJ-4's Cost, and, when PROJ-4 has the `follow-up` label, the sync shows it In review while the pull request is open.
+
+### Requirement: A plain mention links nothing
+
+The factory SHALL behave as this line says: When the tickets are not the code host's own, a mention of a ticket in a pull request's body without `Closes` or `Part of` links nothing.
+
+#### Scenario: A plain mention links nothing
+
+- **WHEN** the tickets are not the code host's own
+- **THEN** a mention of a ticket in a pull request's body without `Closes` or `Part of` links nothing.
+
+### Requirement: The code host's own closing list
+
+The factory SHALL behave as this line says: When the tickets are the code host's own, `factory pr closes N` prints the code host's list of the tickets N closes, as today.
+
+#### Scenario: The code host's own closing list
+
+- **WHEN** the tickets are the code host's own
+- **THEN** `factory pr closes N` prints the code host's list of the tickets N closes, as today.
+
+### Requirement: The closes output
+
+The factory SHALL behave as this line says: When `factory pr closes N` finds several tickets, it prints their keys with one space between them, and prints nothing when there are none.
+
+#### Scenario: The closes output
+
+- **WHEN** `factory pr closes N` finds several tickets
+- **THEN** it prints their keys with one space between them, and prints nothing when there are none.
+
+### Requirement: A blocker in another repository
+
+The factory SHALL behave as this line says: When `factory ticket blockers N` runs on GitHub and N waits on a ticket in another repository, it prints that blocker as `octo/web#4 open` or `octo/web#4 closed`, where today it prints `#4`.
+
+#### Scenario: A blocker in another repository
+
+- **WHEN** `factory ticket blockers N` runs on GitHub and N waits on a ticket in another repository
+- **THEN** it prints that blocker as `octo/web#4 open` or `octo/web#4 closed`, where today it prints `#4`.
+
+### Requirement: A claim blocked by another repository
+
+The factory SHALL behave as this line says: When `factory ticket claim N` refuses because N waits on another repository's open ticket, it prints `blocked by: octo/web#4`.
+
+#### Scenario: A claim blocked by another repository
+
+- **WHEN** `factory ticket claim N` refuses because N waits on another repository's open ticket
+- **THEN** it prints `blocked by: octo/web#4`.
+
+### Requirement: A pull request's cost
+
+The factory SHALL behave as this line says: When `factory pr cost N` runs, it posts on pull request N the cost note `factory ticket cost` posts on a ticket today, restarts the session's clock, prints `posted`, and exits 0. When N is not a pull request, it posts nothing, leaves the clock as it was, and exits 1.
+
+#### Scenario: A pull request's cost
+
+- **WHEN** `factory pr cost N` runs
+- **THEN** it posts on pull request N the cost note `factory ticket cost` posts on a ticket today, restarts the session's clock, prints `posted`, and exits 0. When N is not a pull request, it posts nothing, leaves the clock as it was, and exits 1.
+
+### Requirement: The tickets a review reads
+
+The factory SHALL behave as this line says: When `factory review tickets N` runs, it prints, a line `## ` followed by the ticket's written form and its title, a blank line, and the ticket's body, for each ticket `factory pr closes N` prints, in that order, and then for each ticket the body builds part of that is not among them, in the order the body links them, with a blank line between tickets, and exits 0.
+
+#### Scenario: The tickets a review reads
+
+- **WHEN** `factory review tickets N` runs
+- **THEN** it prints, a line `## ` followed by the ticket's written form and its title, a blank line, and the ticket's body, for each ticket `factory pr closes N` prints, in that order, and then for each ticket the body builds part of that is not among them, in the order the body links them, with a blank line between tickets, and exits 0.
+
+### Requirement: A pull request that links no ticket
+
+The factory SHALL behave as this line says: When pull request N links no ticket, `factory review tickets N` prints nothing and exits 0.
+
+#### Scenario: A pull request that links no ticket
+
+- **WHEN** pull request N links no ticket
+- **THEN** `factory review tickets N` prints nothing and exits 0.
+
+### Requirement: A linked ticket that does not exist
+
+The factory SHALL behave as this line says: When a ticket pull request N links does not exist, `factory review tickets N` prints `## #99` and the line `Not found.` in its place, prints the others, and exits 0.
+
+#### Scenario: A linked ticket that does not exist
+
+- **WHEN** a ticket pull request N links does not exist
+- **THEN** `factory review tickets N` prints `## #99` and the line `Not found.` in its place, prints the others, and exits 0.
+
+### Requirement: The review reads tickets from the base commit
+
+The factory SHALL behave as this line says: When the Claude review runs, a step runs `factory review tickets` and `factory review tools` from the factory the base commit installs, outside the pull request's checkout, and the review instructions read the tickets from that step's file and call no ticket system.
+
+#### Scenario: The review reads tickets from the base commit
+
+- **WHEN** the Claude review runs
+- **THEN** a step runs `factory review tickets` and `factory review tools` from the factory the base commit installs, outside the pull request's checkout, and the review instructions read the tickets from that step's file and call no ticket system.
+
+### Requirement: The review when tickets cannot be read
+
+The factory SHALL behave as this line says: When the review's step cannot read the tickets, as when the base commit's factory predates `factory review tickets` or its `npm ci` fails, the file holds `The tickets could not be read: ` and the last line of the error, the step passes, and the review goes on from the pull request's body.
+
+#### Scenario: The review when tickets cannot be read
+
+- **WHEN** the review's step cannot read the tickets
+- **THEN** as when the base commit's factory predates `factory review tickets` or its `npm ci` fails, the file holds `The tickets could not be read: ` and the last line of the error, the step passes, and the review goes on from the pull request's body.
+
+### Requirement: A build with a key
+
+The factory SHALL behave as this line says: When `factory build N` runs with strict keys, it prints `Started a build of PROJ-12 in GitHub Actions:` and the run's link, and the run is named `Build PROJ-12`. On GitHub both stay as today: `#12` and `Build #12`.
+
+#### Scenario: A build with a key
+
+- **WHEN** `factory build N` runs with strict keys
+- **THEN** it prints `Started a build of PROJ-12 in GitHub Actions:` and the run's link, and the run is named `Build PROJ-12`. On GitHub both stay as today: `#12` and `Build #12`.
+
+### Requirement: The build workflow's ticket field
+
+The factory SHALL behave as this line says: When a person opens the build workflow's "Run workflow" form, its `ticket` field takes text and is described "The ticket's key, such as 12".
+
+#### Scenario: The build workflow's ticket field
+
+- **WHEN** a person opens the build workflow's "Run workflow" form
+- **THEN** its `ticket` field takes text and is described "The ticket's key, such as 12".
+
+### Requirement: Another ticket system's host in a guide
+
+The factory SHALL behave as this line says: When a skill, an agent, a rule, the review instructions, or a workflow calls another ticket system's host directly, such as `atlassian.net` or `api.linear.app`, a test fails.
+
+#### Scenario: Another ticket system's host in a guide
+
+- **WHEN** a skill
+- **THEN** an agent, a rule, the review instructions, or a workflow calls another ticket system's host directly, such as `atlassian.net` or `api.linear.app`, a test fails.
+
+### Requirement: GitHub's link wording in a guide
+
+The factory SHALL behave as this line says: When a skill, an agent, a rule, or the review instructions write `Closes #`, `Part of #`, or "GitHub issue", a test fails.
+
+#### Scenario: GitHub's link wording in a guide
+
+- **WHEN** a skill
+- **THEN** an agent, a rule, or the review instructions write `Closes #`, `Part of #`, or "GitHub issue", a test fails.

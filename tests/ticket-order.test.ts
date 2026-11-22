@@ -4,7 +4,9 @@ import { main, type Run } from "../.claude/skills/ticket-order/order.mts";
 type Seed = {
   number: number;
   title?: string;
-  blockers?: [number, "open" | "closed"][];
+  /** Each blocker by its number here, or as written for another
+   * repository's ticket, such as `octo/web#4`. */
+  blockers?: [number | string, "open" | "closed"][];
 };
 
 /** A `factory ticket` runner over these open tickets. `failing` names a
@@ -15,16 +17,17 @@ function tickets(seeds: Seed[], failing?: string): Run {
       return { code: 1, stdout: "", stderr: `could not read ${failing}` };
     if (args[0] === "list" && args[1] === "--json") {
       const list = seeds.map((s) => ({
-        number: s.number,
+        key: String(s.number),
+        ref: `#${s.number}`,
         title: s.title ?? `Ticket ${s.number}`,
         labels: [],
       }));
       return { code: 0, stdout: JSON.stringify(list), stderr: "" };
     }
     if (args[0] === "blockers") {
-      const seed = seeds.find((s) => s.number === Number(args[1]));
+      const seed = seeds.find((s) => String(s.number) === args[1]);
       const lines = (seed?.blockers ?? []).map(
-        ([n, state]) => `#${n} ${state}`,
+        ([n, state]) => `${typeof n === "number" ? `#${n}` : n} ${state}`,
       );
       return {
         code: 0,
@@ -122,6 +125,16 @@ describe("ticket-order", () => {
     );
   });
 
+  it("names a blocker in another repository as its line wrote it, outside this one", async () => {
+    const { out } = await order([
+      { number: 12, blockers: [["octo/web#4", "open"]] },
+    ]);
+    expect(out).toContain("Waiting\n  #12  Ticket 12  waits on octo/web#4");
+    expect(out).toContain(
+      "Problems\n  #12 waits on octo/web#4, which is not an open ticket here",
+    );
+  });
+
   it("ignores a closed blocker", async () => {
     const { out } = await order([{ number: 8, blockers: [[2, "closed"]] }]);
     expect(out).toBe("Start now\n  #8  Ticket 8  unblocks 0");
@@ -162,16 +175,16 @@ describe("ticket-order", () => {
     );
     expect(code).toBe(0);
     expect(JSON.parse(out)).toEqual({
-      startNow: [{ number: 1, title: "Base", unblocks: [2] }],
+      startNow: [{ ticket: "#1", title: "Base", unblocks: ["#2"] }],
       waiting: [
-        { number: 2, title: "Ticket 2", waitsOn: [1] },
-        { number: 3, title: "Ticket 3", waitsOn: [4] },
-        { number: 4, title: "Ticket 4", waitsOn: [3] },
-        { number: 5, title: "Ticket 5", waitsOn: [99] },
+        { ticket: "#2", title: "Ticket 2", waitsOn: ["#1"] },
+        { ticket: "#3", title: "Ticket 3", waitsOn: ["#4"] },
+        { ticket: "#4", title: "Ticket 4", waitsOn: ["#3"] },
+        { ticket: "#5", title: "Ticket 5", waitsOn: ["#99"] },
       ],
       problems: [
-        { kind: "cycle", tickets: [3, 4, 3] },
-        { kind: "outside", ticket: 5, blocker: 99 },
+        { kind: "cycle", tickets: ["#3", "#4", "#3"] },
+        { kind: "outside", ticket: "#5", blocker: "#99" },
       ],
     });
   });

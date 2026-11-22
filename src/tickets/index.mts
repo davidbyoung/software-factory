@@ -3,9 +3,9 @@
 // value before this runs (`config.mts`).
 import { gh, type Gh } from "../lib/gh.mts";
 import { fieldNamesOf, type Settings } from "../config.mts";
-import { githubTickets } from "./github.mts";
+import { githubKey, githubRef, githubTickets } from "./github.mts";
 import { ghTransport } from "./transport.mts";
-import { need, type Tickets } from "./types.mts";
+import { need, type Key, type Tickets } from "./types.mts";
 import { join, split, type FieldMapping } from "../ticket-fields.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
@@ -21,6 +21,20 @@ export const unsupportedType = (type: string) =>
   );
 
 export type Opened = { tickets: Tickets };
+
+/** How a ticket system of this type writes a ticket, without opening its
+ * adapter, for text written ahead of time, such as a workflow's run name. */
+export function refOf(type: string): (key: Key) => string {
+  if (type !== "github") throw new Error(unsupportedType(type));
+  return githubRef;
+}
+
+/** How a ticket system of this type reads a typed key, as `Tickets.key`
+ * does, without opening its adapter. */
+export function keyOf(type: string): (typed: string) => Key {
+  if (type !== "github") throw new Error(unsupportedType(type));
+  return githubKey;
+}
 
 /** The settings' adapter, reaching its system through the GitHub CLI. The
  * repository and board are the caller's, since a workflow can name its own. */
@@ -62,7 +76,7 @@ export function withTicketFields(
 
   /** The description to write, once every named field is checked and
    * written. */
-  const written = async (n: number, body: string) => {
+  const written = async (n: Key, body: string) => {
     const { labels } = await inner.read(n);
     if (whole(labels)) return body;
     const ops = fields();

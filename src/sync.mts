@@ -28,6 +28,7 @@ import {
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { firstRefusal, npmrcAt } from "./npmrc.mts";
+import { refOf } from "./tickets/index.mts";
 import {
   filesDeps,
   repoRoot,
@@ -118,6 +119,25 @@ export function withDefaultBranch(text: string, name: string, file: string) {
     ? name
     : JSON.stringify(name);
   return text.replace(pattern, (_, lead) => `${lead}[${written}]`);
+}
+
+const BUILD_WORKFLOW = "workflows/factory-build.yml";
+
+/** The build workflow with its run named as the ticket system writes the
+ * ticket, such as `Build #12` on GitHub, which `factory build` finds the
+ * run by. */
+export function withRunName(
+  text: string,
+  ref: (key: string) => string,
+  file: string,
+) {
+  const pattern = /^run-name: .*$/gm;
+  if ((text.match(pattern) ?? []).length !== 1)
+    throw new Error(`${file}: expected one run-name line, to name the build`);
+  return text.replace(
+    pattern,
+    () => `run-name: ${JSON.stringify(`Build ${ref("${{ inputs.ticket }}")}`)}`,
+  );
 }
 
 /** The workflows that run a Claude session, by the kind of session each
@@ -639,7 +659,9 @@ export async function plan(
     const source = readFileSync(join(pkg, from), "utf8");
     const text = PUSH_WORKFLOWS.includes(from)
       ? withDefaultBranch(source, branch, from)
-      : source;
+      : from === BUILD_WORKFLOW
+        ? withRunName(source, refOf(s.tickets.type), from)
+        : source;
     const kind = SESSION_WORKFLOWS[from.replace(/^workflows\//, "")];
     const written =
       kind && from.startsWith("workflows/")

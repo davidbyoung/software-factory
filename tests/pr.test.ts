@@ -17,6 +17,7 @@ import {
   type PullSeed,
 } from "./memory-code-host";
 import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
+import { memoryTickets } from "./memory-tickets";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -26,7 +27,11 @@ const AGENT = "<!-- agent -->";
  * log of what was asked of them. */
 function pr(
   seed: PullSeed[] = [],
-  options: MemoryCodeHostOptions & { runner?: MemoryRunnerOptions } = {},
+  options: MemoryCodeHostOptions & {
+    runner?: MemoryRunnerOptions;
+    /** Tickets with keys, which are not the code host's own. */
+    strict?: boolean;
+  } = {},
 ) {
   const log: string[] = [];
   const host = memoryCodeHost(seed, { ...options, log });
@@ -43,6 +48,10 @@ function pr(
       if (args.join(" ") === "rev-parse HEAD") return "deadbeef\n";
       throw new Error(`git ${args.join(" ")} is not set`);
     },
+    tickets: async () => ({
+      tickets: memoryTickets([], { strict: options.strict }).tickets,
+      own: !options.strict,
+    }),
   } satisfies Deps;
   return { d, out, log, host, runner };
 }
@@ -708,10 +717,93 @@ describe("the pull-request commands", () => {
   });
 
   it("closes prints the tickets a pull request closes", async () => {
-    const { d, out } = twelve({ closes: [7, 8] });
+    const { d, out } = twelve({ closes: ["7", "8"] });
 
     expect(await main(["closes", "12"], d)).toBe(0);
     expect(out).toEqual(["7 8"]);
+  });
+
+  it("closes prints nothing for a pull request that closes no ticket", async () => {
+    const { d, out } = twelve({ closes: [] });
+
+    expect(await main(["closes", "12"], d)).toBe(0);
+    expect(out).toEqual([""]);
+  });
+
+  it("closes reads the body's links when the tickets are not the code host's own", async () => {
+    const { d, out } = pr(
+      [
+        {
+          number: 12,
+          body: "Closes PROJ-12\nCloses PROJ-3. A finding went on PROJ-9.\nPart of PROJ-4",
+          closes: ["99"],
+        },
+      ],
+      { strict: true },
+    );
+
+    expect(await main(["closes", "12"], d)).toBe(0);
+    expect(out).toEqual(["PROJ-12 PROJ-3"]);
+  });
+
+  it("closes keeps to the code host's own list when the tickets are its own", async () => {
+    const { d, out } = twelve({ body: "Closes #7. Closes #9.", closes: ["7"] });
+
+    expect(await main(["closes", "12"], d)).toBe(0);
+    expect(out).toEqual(["7"]);
+  });
+
+  describe("cost", () => {
+    const clocks = new Map<string, { issue: string | null; start: string }>();
+    const withCost = (seed: PullSeed[]) => {
+      clocks.clear();
+      clocks.set("s1", { issue: "7", start: "2026-11-14T11:00:00Z" });
+      const r = pr(seed);
+      const d: Deps = {
+        ...r.d,
+        cost: {
+          env: { CLAUDE_CODE_SESSION_ID: "s1" },
+          now: () => new Date("2026-11-14T12:00:00Z"),
+          clock: {
+            read: (session) => clocks.get(session) ?? null,
+            write: (session, clock) => void clocks.set(session, clock),
+          },
+          measure: () => ({
+            ok: true,
+            spend: { dollars: 3.414, priced: 4, unpriced: new Map() },
+          }),
+        },
+      };
+      return { ...r, d };
+    };
+
+    it("posts the session's cost note on the pull request and restarts the clock", async () => {
+      const { d, out, host } = withCost([{ number: 12 }]);
+
+      expect(await main(["cost", "12"], d)).toBe(0);
+      expect(out).toEqual(["posted"]);
+      const posted = (await host.codeHost.comments(12)).at(-1)!.body;
+      expect(posted).toMatch(
+        /^This session used \$0\.10 of the subscription \(\$3\.41 at API list prices\) on #12 since its last note\.\n\n<!-- cost: 3\.41 session=s1 -->\n<!-- agent -->$/,
+      );
+      expect(clocks.get("s1")).toEqual({
+        issue: "7",
+        start: "2026-11-14T12:00:00.000Z",
+      });
+    });
+
+    it("posts nothing, and leaves the clock, for a number that is no pull request", async () => {
+      quiet();
+      const { d, out, host } = withCost([{ number: 12 }]);
+
+      expect(await main(["cost", "13"], d)).toBe(1);
+      expect(out).toEqual([]);
+      expect(await host.codeHost.comments(12)).toEqual([]);
+      expect(clocks.get("s1")).toEqual({
+        issue: "7",
+        start: "2026-11-14T11:00:00Z",
+      });
+    });
   });
 
   it("label --add refuses the owner's override and adds nothing", async () => {

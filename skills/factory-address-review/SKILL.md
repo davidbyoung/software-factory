@@ -393,8 +393,9 @@ Never accept or reject from reading alone. Each finding gets evidence:
   there, say so rather than reasoning from memory.
 - **A claim about the codebase** gets a grep or a file read at the cited line.
 - **A finding that would reverse a choice** also gets the recorded reason:
-  read the commit message, the pull request's body, and the issue's Decisions
-  before accepting it. A session without the build context has only these. If
+  read the commit message, the pull request's body, and the Decisions of
+  each ticket `npx --no-install factory pr closes PR` prints, with
+  `npx --no-install factory ticket view N`, before accepting it. A session without the build context has only these. If
   the finding conflicts with a recorded decision and the evidence does not
   settle it, reply with both and leave the thread open for the owner.
 
@@ -551,7 +552,7 @@ again. Add whether the tests are good enough to make a swap verifiable.
 First, note what this round of work cost, on the pull request:
 
 ```bash
-npx --no-install factory ticket cost PR
+npx --no-install factory pr cost PR
 ```
 
 It posts what the session spent at API list prices since its last note, or

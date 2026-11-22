@@ -6,6 +6,9 @@ import type { FailedJob, Run, Runner, ThisRun } from "../src/runner/types.mts";
 type ReviewRun = { status: string; conclusion: string | null };
 
 export type MemoryRunnerOptions = {
+  /** What a build's run is named, as the build workflow names it; GitHub's
+   * `Build #12` unless given. */
+  runName?: (ticket: string) => string;
   /** The runs for each commit. */
   runs?: Record<string, Run[]>;
   /** The review's runs for each commit, newest first. */
@@ -43,8 +46,9 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
   const now = options.now ?? (() => 0);
   const runs = new Map(Object.entries(options.runs ?? {}));
   const reviewRuns = new Map(Object.entries(options.reviewRuns ?? {}));
-  const builds: { id: number; ticket: number; branch: string; at: number }[] =
+  const builds: { id: number; ticket: string; branch: string; at: number }[] =
     [];
+  const runName = options.runName ?? ((ticket: string) => `Build #${ticket}`);
   const reviewsAsked: string[] = [];
   const secrets = new Map(Object.entries(options.secrets ?? {}));
   const dependabotSecrets = new Map(
@@ -65,10 +69,12 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       called("startBuild", ticket, branch);
       builds.push({ id: builds.length + 1, ticket, branch, at: now() });
     },
-    async findBuild(ticket, since) {
-      called("findBuild", ticket);
+    async findBuild(name, since) {
+      called("findBuild", name);
       if (looked++ < (options.buildShowsAfter ?? 0)) return null;
-      const found = builds.find((b) => b.ticket === ticket && b.at >= since);
+      const found = builds.find(
+        (b) => runName(b.ticket) === name && b.at >= since,
+      );
       return found ? runPage(String(found.id)) : null;
     },
     buildsPage: () => "https://runner.example/builds",
