@@ -39,7 +39,7 @@ unverified, for the builder to check.
    the label. An issue without `spec` has no `For the builder`: the area's
    rules ("Rules by area" in `CLAUDE.md`) say how it is built.
 2. The latest refinement round in the comments, and any reply
-   `npx --no-install factory ticket answers N` prints after it. Until the owner replies, each proposed default
+   `npx --no-install factory ticket answers N` prints after it. Until it prints one, each proposed default
    stands.
 3. `CLAUDE.md`, the files it imports, and the `CLAUDE.md` for every area
    the notes name.

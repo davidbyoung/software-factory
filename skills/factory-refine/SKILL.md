@@ -330,7 +330,7 @@ A correction is a new round.
 
 From a comment round, first read the replies since the last one: those
 `npx --no-install factory ticket answers N` prints after the round.
-For each question, the owner's answer or the default stands. If an answer
+For each question, an answer or the default stands. If an answer
 raises a new decision, settle it: in the conversation if the owner is
 there, otherwise in one more round with only that. After two rounds, ask
 in the conversation instead of a third comment.
