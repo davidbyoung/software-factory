@@ -7,6 +7,7 @@ import type { Settings } from "../src/config.mts";
 import type { Part } from "../src/parts.mts";
 import type { SetupContext } from "../src/setup.mts";
 import type { Runner } from "../src/runner/types.mts";
+import type { SpecTools } from "../src/specs/index.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import { TOOLS, type Registry } from "../src/tools.mts";
 import { scriptedAgent } from "./fake-tools";
@@ -20,6 +21,8 @@ export function memoryTools(o: {
   tickets: Tickets;
   /** Claude Code's answers, which never run claude. */
   agent?: Agent;
+  /** The spec tools, in place of the built ones. */
+  specs?: SpecTools;
 }): Registry {
   return {
     codeHost: { github: { ...TOOLS.codeHost.github!, open: () => o.codeHost } },
@@ -36,6 +39,7 @@ export function memoryTools(o: {
         agent: o.agent ?? scriptedAgent(),
       },
     },
+    specs: o.specs ?? TOOLS.specs,
   };
 }
 

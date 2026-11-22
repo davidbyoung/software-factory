@@ -4,8 +4,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
+import { BUILT } from "../src/tool-names.mts";
 import {
-  OPENSPEC_CHECK,
   parseSettings,
   PHASES,
   SETTINGS_KEYS,
@@ -700,7 +700,7 @@ describe("the docs, for settings version 2", () => {
     const entry = sectionOf(configuration, "#### `specs.check`");
 
     expect(entry).toContain("**Default:**");
-    expect(entry).toContain(OPENSPEC_CHECK);
+    expect(entry).toContain(BUILT.specs.openspec!);
   });
 
   it.each(PHASES)(

@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   realpathSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -14,6 +15,10 @@ import { main, type Deps } from "../src/commands.mts";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { painter } from "../src/lib/color.mts";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
+import { specTools } from "../src/specs/index.mts";
+import { openspec } from "../src/specs/openspec.mts";
+import type { Run } from "../src/specs/types.mts";
+import { NotFoundError } from "../src/tickets/types.mts";
 
 const ROOT = "/repo";
 
@@ -42,6 +47,8 @@ function deps(raw: Record<string, unknown> = {}, statuses: number[] = []) {
     },
     out: (line) => out.push(line),
     err: (line) => err.push(line),
+    specTools: specTools(),
+    labels: async () => [],
   };
   return { d, ran, out, err };
 }
@@ -266,11 +273,11 @@ describe("factory specs check", () => {
     ]);
   });
 
-  it("prints `specs are off` and exits 0 when specs.type is none", async () => {
+  it("says there is no spec tool and exits 0 when specs.type is none", async () => {
     const { d, ran, out, err } = deps({ specs: "none" });
 
     expect(await main(["specs-check"], d)).toBe(0);
-    expect(out).toEqual(["specs are off"]);
+    expect(out).toEqual([NONE]);
     expect(err).toEqual([]);
     expect(ran).toEqual([]);
   });
@@ -284,34 +291,263 @@ describe("factory specs check", () => {
   });
 });
 
-describe("factory specs change-name", () => {
-  it("prints the spec change's name for the ticket, whatever the branch is called", async () => {
-    const { d, out, err, ran } = deps({
-      specs: "openspec",
-      "code-host": { type: "github", "branch-name": "feature/{user}/{ticket}" },
-    });
+const NONE = "- No spec tool (specs: none): each ticket holds its own spec.";
 
-    expect(await main(["specs-change-name", "54"], d)).toBe(0);
-    expect(out).toEqual(["issue-54"]);
+/** OpenSpec over a temporary root, with a runner that runs nothing: `new
+ * change` and `archive` make and move the change's folder as OpenSpec
+ * does, `--version` answers whether it is installed, and each run is
+ * recorded with what was added to its environment. */
+function openspecAt(o: { installed?: boolean; archive?: number } = {}) {
+  const root = mkdtempSync(join(tmpdir(), "factory-specs-"));
+  const runs: { argv: string[]; env: Record<string, string> }[] = [];
+  const run: Run = (argv, cwd, env) => {
+    runs.push({ argv: argv.slice(3), env });
+    const [verb, a, b] = argv.slice(3);
+    if (verb === "--version") return o.installed === false ? 1 : 0;
+    if (verb === "new")
+      mkdirSync(join(cwd, "openspec/changes", b!), { recursive: true });
+    if (verb === "archive") {
+      if (o.archive) return o.archive;
+      mkdirSync(join(cwd, "openspec/changes/archive"), { recursive: true });
+      renameSync(
+        join(cwd, "openspec/changes", a!),
+        join(cwd, "openspec/changes/archive", `2026-11-22-${a}`),
+      );
+    }
+    return 0;
+  };
+  return { root, runs, tools: { openspec: openspec(run) } };
+}
+
+/** The commands over `openspecAt`, with ticket 37 labeled `labels`. */
+function specDeps(
+  at: ReturnType<typeof openspecAt>,
+  labels: string[] | null = ["spec"],
+) {
+  const { d, out, err } = deps({ specs: "openspec" });
+  d.root = at.root;
+  d.specTools = at.tools;
+  d.labels = async (_s, id) => {
+    if (labels === null) throw new NotFoundError(`#${id}`);
+    return labels;
+  };
+  return { d, out, err };
+}
+
+const SPEC_FILES = [
+  "  new  proposal.md               The owner's text and Decisions, linking ticket 37",
+  `  new  specs/CAPABILITY/spec.md  One per heading under Spec: ADDED for (new), MODIFIED for (modified), REMOVED for each "No longer" line; each numbered line is one requirement whose SHALL sentence restates it, with one scenario whose WHEN is the line's "When" clause and whose THEN is the rest`,
+  "  new  design.md                 Design, under For the builder",
+  "  new  tasks.md                  Tasks, under For the builder",
+];
+
+describe("factory specs with no spec tool", () => {
+  it.each([[["specs-list"]], [["specs-new", "37"]], [["specs-finish", "37"]]])(
+    "%j says there is no spec tool and exits 0",
+    async (argv) => {
+      const { d, ran, out, err } = deps({ specs: "none" });
+
+      expect(await main(argv, d)).toBe(0);
+      expect(out).toEqual([NONE]);
+      expect(err).toEqual([]);
+      expect(ran).toEqual([]);
+    },
+  );
+
+  it("dims the mark when it paints", async () => {
+    const paint = painter(true);
+    const { d, out } = deps({ specs: "none" });
+    await main(["specs-list"], { ...d, paint });
+    expect(out).toEqual([`${paint("dim", "-")} ${NONE.slice(2)}`]);
+  });
+});
+
+describe("factory specs list", () => {
+  let at: ReturnType<typeof openspecAt>;
+  afterEach(() => rmSync(at.root, { recursive: true, force: true }));
+
+  it("lists each spec by name, sorted, with its file in one column", async () => {
+    at = openspecAt();
+    for (const name of ["settings", "cli-output", "docs"]) {
+      mkdirSync(join(at.root, "openspec/specs", name), { recursive: true });
+      writeFileSync(join(at.root, "openspec/specs", name, "spec.md"), "");
+    }
+    const { d, out } = specDeps(at);
+
+    expect(await main(["specs-list"], d)).toBe(0);
+    expect(out).toEqual([
+      "specs: openspec",
+      "  cli-output  openspec/specs/cli-output/spec.md",
+      "  docs        openspec/specs/docs/spec.md",
+      "  settings    openspec/specs/settings/spec.md",
+    ]);
+  });
+
+  it("says none yet when there is no spec", async () => {
+    at = openspecAt();
+    const { d, out } = specDeps(at);
+
+    expect(await main(["specs-list"], d)).toBe(0);
+    expect(out).toEqual(["specs: openspec", "  none yet"]);
+  });
+});
+
+describe("factory specs new", () => {
+  let at: ReturnType<typeof openspecAt>;
+  afterEach(() => rmSync(at.root, { recursive: true, force: true }));
+
+  it("starts the change and lists the four files of a spec ticket", async () => {
+    at = openspecAt();
+    const { d, out, err } = specDeps(at);
+
+    expect(await main(["specs-new", "37"], d)).toBe(0);
+    expect(out).toEqual([
+      "Started ticket 37's spec in openspec/changes/issue-37/",
+      "Write each file from ticket 37's body:",
+      ...SPEC_FILES,
+      "Then: factory specs check",
+    ]);
     expect(err).toEqual([]);
-    expect(ran).toEqual([]);
+    expect(at.runs.map((r) => r.argv)).toEqual([
+      ["--version"],
+      ["new", "change", "issue-37"],
+    ]);
   });
 
-  it("says there is no change to name when specs are off, and exits 1", async () => {
-    const { d, out, err } = deps({ specs: "none" });
+  it("lists only the proposal and the specs for a ticket without the spec label", async () => {
+    at = openspecAt();
+    const { d, out } = specDeps(at, []);
 
-    expect(await main(["specs-change-name", "54"], d)).toBe(1);
+    expect(await main(["specs-new", "37"], d)).toBe(0);
+    expect(out.slice(2, -1)).toEqual([
+      "  new  proposal.md               The owner's text and Decisions, linking ticket 37",
+      SPEC_FILES[1],
+    ]);
+  });
+
+  it("says a change already started is started, lists the files again, and starts nothing", async () => {
+    at = openspecAt();
+    mkdirSync(join(at.root, "openspec/changes/issue-37"), { recursive: true });
+    const { d, out } = specDeps(at);
+
+    expect(await main(["specs-new", "37"], d)).toBe(0);
+    expect(out[0]).toBe(
+      "Ticket 37's spec is already started in openspec/changes/issue-37/",
+    );
+    expect(out.slice(1)).toEqual([
+      "Write each file from ticket 37's body:",
+      ...SPEC_FILES,
+      "Then: factory specs check",
+    ]);
+    expect(at.runs.map((r) => r.argv)).toEqual([["--version"]]);
+  });
+
+  it("says OpenSpec is not installed, creates nothing, and exits 1", async () => {
+    at = openspecAt({ installed: false });
+    mkdirSync(join(at.root, "openspec/changes/issue-37"), { recursive: true });
+    const { d, out, err } = specDeps(at);
+
+    expect(await main(["specs-new", "37"], d)).toBe(1);
     expect(out).toEqual([]);
-    expect(err).toEqual(["specs are off: there is no spec change to name"]);
+    expect(err).toEqual([
+      "✗ OpenSpec is not installed: run factory init, which installs it.",
+    ]);
+    expect(at.runs.map((r) => r.argv)).toEqual([["--version"]]);
   });
 
-  it.each([[[]], [["x"]], [["0"]], [["54", "55"]]])(
-    "prints its usage and exits 2 for %j",
-    async (args) => {
-      const { d, err } = deps({ specs: "openspec" });
+  it("prints the ticket system's message for a missing ticket before it looks at OpenSpec", async () => {
+    at = openspecAt({ installed: false });
+    const { d, err } = specDeps(at, null);
 
-      expect(await main(["specs-change-name", ...args], d)).toBe(2);
-      expect(err).toEqual(["Usage: factory specs change-name N"]);
+    expect(await main(["specs-new", "37"], d)).toBe(1);
+    expect(err).toEqual(["#37 was not found"]);
+    expect(at.runs).toEqual([]);
+  });
+
+  it("runs OpenSpec with DO_NOT_TRACK=1", async () => {
+    at = openspecAt();
+    const { d } = specDeps(at);
+
+    await main(["specs-new", "37"], d);
+    expect(at.runs.map((r) => r.env)).toEqual([
+      { DO_NOT_TRACK: "1" },
+      { DO_NOT_TRACK: "1" },
+    ]);
+  });
+});
+
+describe("factory specs finish", () => {
+  let at: ReturnType<typeof openspecAt>;
+  afterEach(() => rmSync(at.root, { recursive: true, force: true }));
+
+  it("folds a started change into openspec/specs/ with DO_NOT_TRACK=1", async () => {
+    at = openspecAt();
+    mkdirSync(join(at.root, "openspec/changes/issue-37"), { recursive: true });
+    const { d, out, err } = specDeps(at);
+
+    expect(await main(["specs-finish", "37"], d)).toBe(0);
+    expect(out).toEqual(["✓ Folded ticket 37's spec into openspec/specs/."]);
+    expect(err).toEqual([]);
+    expect(at.runs).toEqual([
+      { argv: ["archive", "issue-37", "--yes"], env: { DO_NOT_TRACK: "1" } },
+    ]);
+  });
+
+  it("says a change already folded is folded, and exits 0", async () => {
+    at = openspecAt();
+    mkdirSync(join(at.root, "openspec/changes/archive/2026-11-21-issue-37"), {
+      recursive: true,
+    });
+    const { d, out } = specDeps(at);
+
+    expect(await main(["specs-finish", "37"], d)).toBe(0);
+    expect(out).toEqual([
+      "✓ Ticket 37's spec is already folded into openspec/specs/.",
+    ]);
+    expect(at.runs).toEqual([]);
+  });
+
+  it("says a ticket with no change has none started, and exits 1", async () => {
+    at = openspecAt();
+    mkdirSync(join(at.root, "openspec/changes/archive/2026-11-21-issue-370"), {
+      recursive: true,
+    });
+    const { d, err } = specDeps(at);
+
+    expect(await main(["specs-finish", "37"], d)).toBe(1);
+    expect(err).toEqual([
+      "✗ Ticket 37 has no spec started: run factory specs new 37 first.",
+    ]);
+  });
+
+  it("says the fold failed when OpenSpec's archive fails, and exits 1", async () => {
+    at = openspecAt({ archive: 1 });
+    mkdirSync(join(at.root, "openspec/changes/issue-37"), { recursive: true });
+    const { d, out, err } = specDeps(at);
+
+    expect(await main(["specs-finish", "37"], d)).toBe(1);
+    expect(out).toEqual([]);
+    expect(err).toEqual([
+      "✗ Could not fold ticket 37's spec into openspec/specs/.",
+    ]);
+  });
+});
+
+describe("the spec commands' arguments", () => {
+  it.each([
+    ["specs-new", [], "Usage: factory specs new N"],
+    ["specs-new", ["x"], "Usage: factory specs new N"],
+    ["specs-new", ["0"], "Usage: factory specs new N"],
+    ["specs-finish", ["37", "38"], "Usage: factory specs finish N"],
+    ["specs-list", ["--all"], "Usage: factory specs list"],
+  ])(
+    "%s %j prints its usage and exits 2, even with no spec tool",
+    async (name, args, usage) => {
+      const { d, out, err } = deps({ specs: "none" });
+
+      expect(await main([name, ...args], d)).toBe(2);
+      expect(out).toEqual([]);
+      expect(err).toEqual([usage]);
     },
   );
 });
