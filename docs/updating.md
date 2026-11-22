@@ -332,6 +332,24 @@ again, and you close the issue `factory-deps` opened.
 `✓ The settings are valid.`, and `factory ticket branch 12` prints the
 branch a build of ticket 12 would push.
 
+## A spec for every visible change
+
+From this release, a change your users will see, and that isn't small,
+gets the `spec` label and a [Spec, a design, and a list of
+tasks](workflow.md#a-change-your-users-will-see) in its ticket, whatever
+[`specs`](configuration.md#specs) says. Before it, a repository with
+`specs: none`, or no `specs` line, which means the same, got only a list
+of acceptance criteria. Nothing stops on the update: tickets refined
+earlier build as they are, and the next one refinement writes has the
+longer shape.
+
+`factory specs change-name N` is gone. A script of yours that ran it
+runs `factory specs new N` and `factory specs finish N` instead
+([Your repository's commands](cli.md#your-repositorys-commands)).
+
+The next time you run `factory init`, it asks once which spec tool you
+use, and writes your answer; choosing OpenSpec installs it.
+
 ## The commands
 
 | Command          | When                                                       |
