@@ -335,6 +335,11 @@ export const COMMANDS: Command[] = [
     args: "",
     run: async () => (await import("./guard.mts")).run("ticket-text"),
   },
+  {
+    words: ["guard", "credentials"],
+    args: "",
+    run: async () => (await import("./guard.mts")).run("credentials"),
+  },
 ];
 
 /** The commands a person runs, in the groups and words of docs/cli.md. */

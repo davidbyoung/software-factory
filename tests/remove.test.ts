@@ -386,6 +386,20 @@ describe("factory remove", () => {
     expect(r.has(".claude/settings.json")).toBe(false);
   });
 
+  it("takes out the guard on the credentials file with the other hooks", async () => {
+    const onlyFactory = JSON.parse(withHooks(null, LAUNCHER, true));
+    delete onlyFactory.attribution;
+    expect(JSON.stringify(onlyFactory)).toContain("guard credentials");
+    const r = remove({
+      files: {
+        ...SYNCED,
+        ".claude/settings.json": JSON.stringify(onlyFactory),
+      },
+    });
+    await r.run();
+    expect(r.has(".claude/settings.json")).toBe(false);
+  });
+
   it("deletes the folder a deleted settings file leaves empty", async () => {
     const onlyFactory = JSON.parse(withHooks(null, LAUNCHER));
     delete onlyFactory.attribution;
