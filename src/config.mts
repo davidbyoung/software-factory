@@ -1173,6 +1173,19 @@ export function parseChoices(
   return v as Record<string, string>;
 }
 
+/** js-yaml's error for `key: a: b`, said as the fix: the value needs
+ * quotes. Null for any other error. */
+function needsQuotes(e: unknown, text: string): string | null {
+  const { reason, mark } = e as { reason?: string; mark?: { line: number } };
+  if (reason !== "bad indentation of a mapping entry" || !mark) return null;
+  const m = /^\s*([^\s:#][^:]*): (\S.*: .*?)\s*$/.exec(
+    text.split("\n")[mark.line] ?? "",
+  );
+  if (!m || /^["'[{]/.test(m[2]!)) return null;
+  const [, key, value] = m;
+  return `line ${mark.line + 1}: ${key}: ${value} needs quotes around the name, such as ${key}: "${value}"`;
+}
+
 /** The settings combined from the factory's defaults, each preset in
  * `presets`, and `.claude/factory.yaml`, as `factory sync` combines them
  * into the lock. `factoryFile` and `ownFile` say which preset files are
@@ -1196,7 +1209,9 @@ export async function resolveFiles(
     ownText = d.readFile();
     own = load(ownText);
   } catch (e) {
-    throw new SettingsError(`${SETTINGS_FILE}: ${(e as Error).message}`);
+    throw new SettingsError(
+      `${SETTINGS_FILE}: ${needsQuotes(e, ownText!) ?? (e as Error).message}`,
+    );
   }
   const P = await import("./preset.mts");
   const top = isObj(own) ? own : {};

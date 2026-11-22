@@ -1715,6 +1715,27 @@ describe("main", () => {
     expect(err).toEqual([message]);
   });
 
+  it("says a value with an unquoted colon needs quotes", async () => {
+    const { d, err } = deps({
+      readFile: () =>
+        `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner: pass\n`,
+    });
+    expect(await main(["check"], d)).toBe(1);
+    expect(err).toEqual([
+      '.claude/factory.yaml: line 7: verdict-override: owner: pass needs quotes around the name, such as verdict-override: "owner: pass"',
+    ]);
+  });
+
+  it("reports any other YAML fault as js-yaml words it", async () => {
+    const { d, err } = deps({
+      readFile: () => `version: 2\nrepository: [a/b\n`,
+    });
+    expect(await main(["check"], d)).toBe(1);
+    expect(err[0]).toMatch(
+      /^\.claude\/factory\.yaml: deficient indentation \(3:1\)/,
+    );
+  });
+
   describe("config get, for the commands and the spec check", () => {
     const BARE = `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\n`;
     const get = async (file: string, key: string) => {
