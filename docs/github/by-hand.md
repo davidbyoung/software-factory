@@ -308,7 +308,7 @@ request from the repository adds can read every secret, so separate tokens
 protect little.
 
 Builds and auto-merge also take a fine-grained token instead: read and
-write access to Contents, Pull requests, Issues, and Workflows for builds,
+write access to Contents, Pull requests, Issues, Workflows, and Actions for builds,
 and to Contents and Pull requests for auto-merge. The board token must be
 classic.
 

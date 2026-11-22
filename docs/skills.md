@@ -82,7 +82,7 @@ spec when [`specs`](configuration.md#specs) is on.
   Acceptance criteria, or a Spec when the change is visible and not
   small. Each of these goes in a ticket field of yours instead, when
   [`tickets.fields`](configuration.md#ticketsfields) names one.
-- Marker comments that move the ticket to "refining" and show it waiting on
+- Notes on the ticket that move it to "refining" and show it waiting on
   you.
 - A blocked-by relationship for each ticket that must be built first.
 - For a decision about the look, mockups from your
