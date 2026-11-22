@@ -104,8 +104,8 @@ at a time on a schedule in the cloud. Each time it reads the board, for
 each ticket in Ready with the factory label and no open blocker, in the
 order the ready column shows them, top first, it:
 
-1. records on the ticket that a build is starting, which GitHub shows as
-   a comment;
+1. records a start note on the ticket, saying a build is starting, which
+   GitHub shows as a comment;
 2. starts a build of that ticket in the cloud, from your default branch.
 
 ```bash
@@ -180,8 +180,9 @@ account is not supported yet.
   ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
   A ticket without it sits in Ready and nothing starts it.
 - **It starts at most 20 builds an hour,** or what
-  [`builds.max-per-hour`](configuration.md#builds) says, counted from the starts
-  it posted, so a restart or a scheduled pass still knows them. A ticket
+  [`builds.max-per-hour`](configuration.md#builds) says (on a server you
+  host, what `FACTORY_MAX_PER_HOUR` says), counted from the start notes
+  it recorded, so a restart or a scheduled pass still knows them. A ticket
   past that waits, and the poller's log says so. Each build may run as long as
   [`session-minutes`](configuration.md#session-minutes) allows, so several
   can run at once: each pays for its own minutes, and the cloud runner

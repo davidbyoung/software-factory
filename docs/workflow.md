@@ -38,8 +38,8 @@ A ticket gets the label in one of three ways:
 - **You add it,** in your ticket system as you would any label, or from
   a terminal with `factory ticket adopt 12`.
 - **You name it in a session.** Running `/factory-refine 12` or
-  `/factory-build 12` on a ticket without the label adds it, and the
-  session says so:
+  `/factory-build 12` on a ticket without the label adds it, even one you
+  took the label off, and the session says so:
 
   ```text
   #12 had no factory label: added it, so the factory now tracks #12
@@ -49,8 +49,8 @@ A ticket gets the label in one of three ways:
 in the column it's in, with its fields as they were, and nothing builds
 it. To work a ticket by hand, remove the label first. While a ticket has
 the label, the factory keeps its card in the column the ticket's state
-calls for, which it works out from what sessions record on the ticket
-([The board](#the-board)). It keeps two moves of yours: to Ready, which
+calls for, which it works out from what sessions record on the ticket,
+each time the [board sync](#the-board) runs. It keeps two moves of yours: to Ready, which
 approves a build, and back to Backlog. Drag a labeled card anywhere
 else and the next sync moves it back.
 
@@ -78,7 +78,7 @@ is approved. A board without a `ready` column approves a build by running
 | ready    | Ready         | You approved it for a build from the board                                    |
 | building | In progress   | A session has claimed it, or a build ended without a pull request merging     |
 | review   | In review     | A pull request that closes it is open                                         |
-| done     | Done          | Its pull request merged, you closed it, or it is in any done column           |
+| done     | Done          | Its pull request merged, you closed it, or it is in a column `done` lists     |
 
 ```text
 backlog → refining → ready → building → review → done

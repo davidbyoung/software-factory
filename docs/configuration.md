@@ -245,7 +245,7 @@ tickets:
   [`tickets.labels`](#ticketslabels). Most repositories leave it out.
 
 Without a board, `factory status` still shows every ticket's state, which
-the factory keeps on the ticket. Builds then start only when
+the factory records on the ticket. Builds then start only when
 you run `/factory-build N` in a session.
 
 One board can show tickets from several repositories. Give each
@@ -323,8 +323,8 @@ factory's own names:
   `ready` takes one column, since only a ticket you approved goes there.
 
   A list for `done` keeps the columns that come after the merge, which
-  are your team's: the factory moves a merged ticket to the first, and
-  never moves one out of any of them.
+  are your team's: the factory moves a merged ticket to the first column
+  in the list, here Done, and never moves one out of any of them.
 
   ```yaml
   done: [Done, UAT, Released]
@@ -498,7 +498,8 @@ To rename a label:
    never renames a label, so until you do, it doesn't see them: a
    follow-ups ticket still labeled `follow-up` is ignored, and the next
    follow-up a session records opens a new one. Renaming `factory` hides
-   every ticket that carries the old name until you rename it here. If you
+   every ticket that carries the old name until you rename the label on
+   GitHub too. If you
    host the poller, also set `FACTORY_LABEL` to the new name
    ([Builds](builds.md#what-it-reads-from-its-environment)).
 3. Check the file and sync, as for every setting:

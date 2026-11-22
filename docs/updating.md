@@ -339,8 +339,9 @@ branch a build of ticket 12 would push.
 From this release the factory works only on tickets with its label
 ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
 Before it, every open ticket was the factory's, so the update labels
-each open ticket, and no card changes column. You don't need to do
-anything unless you host the poller and renamed the label.
+each open ticket, and no card changes column. With Dependabot, the
+update does it for you. Without it, you run one command before you
+merge, below.
 
 `factory-deps` labels them on the update pull request, before you
 merge, and says so in the comment that lists the files the sync
@@ -348,15 +349,20 @@ changed:
 
 ```text
 Labeled 14 open tickets factory. From this version the factory acts
-only on tickets with that label. ... #4, #31, #35, ...
+only on tickets with that label. Every open ticket had it in effect
+before, so nothing moves. Remove the label from any ticket the factory
+shouldn't touch: #4, #31, #35, #40, #41, #44, #47, #50, #51, #53, #54,
+#57, #61, #63.
 ```
 
 Read the list. For a ticket the factory shouldn't touch, remove the
-label: the factory then leaves it where it is. It labels only on the
-first update that has the label, so it happens once.
+label in your ticket system, before or after you merge: the factory then
+leaves it where it is. Only the first update that has the label labels
+anything, so a ticket you took the label off stays without it.
 
-If you update without Dependabot ([Without Dependabot](#without-dependabot)),
-run this on the update branch after `factory sync`, before you merge:
+If you update without Dependabot, as [Without
+Dependabot](#without-dependabot) describes, run this on the branch that
+installs the new version, after `factory sync`, before you merge:
 
 ```console
 $ factory ticket adopt --all-open
@@ -364,7 +370,8 @@ labeled #4, #31, #35, #40, #41, #44, #47, #50, #51, #53, #54, #57, #61, #63
 ✓ 14 open tickets carry factory
 ```
 
-Running it again labels nothing and says so.
+Running it again labels nothing, and says
+`✓ 14 open tickets carry factory; none needed it`.
 
 If you renamed the label under
 [`tickets.labels`](configuration.md#ticketslabels) and host your own
@@ -372,9 +379,8 @@ If you renamed the label under
 the poller's other variables are set, before you merge
 ([What it reads from its environment](builds.md#what-it-reads-from-its-environment)).
 
-**It worked when** the comment's count, or the command's last line,
-matches the number of open tickets you have, and `factory status` lists
-them.
+**It worked when** `factory status` lists the tickets it listed before
+the update, less any you took the label off.
 
 ## A spec for every visible change
 
