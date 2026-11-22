@@ -73,6 +73,7 @@ marked working below exist only in these docs.
 | Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                                       |
 | A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                                       |
 | Another code host or runner                                                                                      | Not planned. The design leaves room                                       |
+| Another spec tool, such as Spec Kit                                                                              | Not planned. An adapter under `src/specs/` adds one                       |
 | Each tool's setup, checks, and removal declared by the tool                                                      | Working                                                                   |
 | Sharing plugins between repositories                                                                             | Not planned                                                               |
 
@@ -395,6 +396,50 @@ variables, and reach pull requests through the code host.
 
 The in-memory runner is `tests/memory-runner.ts`, and GitHub Actions' has
 its own tests against faked replies.
+
+## Adding a spec tool
+
+A spec tool keeps a copy of each ticket's Spec in the repository. Only
+OpenSpec is built. The settings name it with
+[`specs`](configuration.md#specs), and `src/specs/index.mts` hands a
+command the adapter of that name: one module in `src/specs/` that
+implements the `SpecTool` type in `src/specs/types.mts`. `none` needs no
+adapter. Any other value fails `factory config check` with
+`specs must be one of none, openspec`, which lists a new tool once its
+adapter is registered.
+
+**Nothing runs a spec tool except its adapter.** A skill never runs
+`openspec` or any other tool's command. It runs `factory specs list`,
+`new N`, `check`, and `finish N` ([Your repository's
+commands](cli.md#your-repositorys-commands)), which print one line and
+exit 0 with no spec tool, so a skill need not ask which is set. A test
+fails when a factory skill, agent, rule, review instruction, workflow,
+or action runs OpenSpec itself.
+
+| What it gives                 | In `SpecTool`                     | OpenSpec's                                                                                                   |
+| ----------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Its name in init's messages   | `name`                            | `OpenSpec`                                                                                                   |
+| Its option in init's question | `label`                           | `OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/`                      |
+| How init installs it          | `install`                         | `npm install --save-dev @fission-ai/openspec`, when `package.json` lists it in neither kind of dependency    |
+| The check by default          | `defaultCheck`                    | `npx --no-install openspec validate --all --strict --no-interactive`                                         |
+| Its environment               | `env`                             | `DO_NOT_TRACK=1`, so it collects no usage statistics                                                         |
+| Its files that are process    | `processFiles`                    | `openspec/config.yaml`, which the merge policy always holds for the owner, whichever tool the settings name  |
+| Whether it runs               | `runs`                            | `npx --no-install openspec --version` exits 0                                                                |
+| The specs it keeps            | `list`                            | Each folder under `openspec/specs/` with a `spec.md`                                                         |
+| A ticket's spec               | `folder`, `started`, `start`      | A change, `openspec/changes/issue-N/`, started with `openspec new change`                                    |
+| The files to write            | `files`, `then`                   | The proposal, the spec deltas, and, for a ticket with the `spec` label, the design and tasks; then the check |
+| Folding it in                 | `finished`, `finish`, `foldsInto` | `openspec archive`, into `openspec/specs/`; a change already archived counts as folded                       |
+
+Other tools fill these differently: one that keeps a feature's spec in a
+single page marks that page `update` rather than `new`, one with no
+check of its own names a skill on the "Then:" line, and one that is not
+an npm package installs with its own command. `tests/memory-tools.ts`
+holds such a tool, `pagesSpecTool`, and the command and init tests run
+against it too, so nothing outside `src/specs/` assumes OpenSpec.
+
+A tool's own process, such as Spec Kit's `/speckit.clarify` or EGM's
+review, is not part of the adapter: a team that wants it sets it as a
+[plugin](plugins.md), as the refiner or a reviewer.
 
 ## Setting a tool up
 

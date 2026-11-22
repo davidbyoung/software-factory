@@ -882,3 +882,55 @@ describe("the docs, for settings version 2", () => {
     expect(build).toBeGreaterThan(gate);
   });
 });
+
+describe("the docs on spec tools", () => {
+  const cli = sectionOf(read("docs/cli.md"), "### Your repository's commands");
+  const specs = sectionOf(read(CONFIGURATION), "### `specs`");
+  const workflow = sectionOf(
+    read("docs/workflow.md"),
+    "## A change your users will see",
+  );
+  const setup = sectionOf(
+    read("docs/github/setup.md"),
+    "## Run `factory init`",
+  );
+
+  it("list the four spec commands on the CLI page, and not change-name", () => {
+    for (const command of ["list", "new N", "check", "finish N"])
+      expect(cli).toContain(`| \`factory specs ${command}\``);
+    expect(cli).toContain(
+      "`- No spec tool (specs: none): each ticket holds its own spec.`",
+    );
+    expect(read("docs/cli.md")).not.toContain("change-name");
+  });
+
+  it("say on the configuration page that init asks, and installs OpenSpec", () => {
+    expect(specs).toContain('"Which spec\ntool do you use?"');
+    expect(specs).toContain("`npm install --save-dev @fission-ai/openspec`");
+    expect(specs).toContain("specs: none\n");
+  });
+
+  it("give every visible change a Spec, a design, and tasks, whatever the tool", () => {
+    for (const part of ["- **Spec:**", "- **Design:**", "- **Tasks:**"])
+      expect(workflow).toContain(part);
+    expect(workflow).not.toContain("acceptance criteria are the whole spec");
+  });
+
+  it("show init's spec tool question on the setup page", () => {
+    expect(setup).toContain(
+      "? Which spec tool do you use?\n❯ None: each ticket holds its own spec\n",
+    );
+    expect(setup).toContain("Init skips either question");
+  });
+
+  it("say what another spec tool takes, and how the glossary reads Spec", () => {
+    const developing = read("docs/developing.md");
+    expect(developing).toContain("## Adding a spec tool");
+    expect(developing).toMatch(
+      /\| Another spec tool, such as Spec Kit +\| Not planned\. An adapter under `src\/specs\/` adds one/,
+    );
+    expect(read("docs/glossary.md")).toContain(
+      'gets a Spec section of "When this, then that" lines in\nits ticket',
+    );
+  });
+});
