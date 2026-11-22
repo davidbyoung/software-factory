@@ -85,24 +85,26 @@ jobs:
           done
 
       # The factory as the base commit installs it, beside the checkout, so
-      # the commands below are not the code under review. A base it cannot
-      # install leaves the steps below to fall back.
+      # the commands below are not the code under review. A base without the
+      # factory, as before the pull request that adds it, or one that cannot
+      # install, leaves the steps below to fall back.
       - name: Install the base commit's factory
         id: base
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          if git worktree add --detach "$RUNNER_TEMP/base" "$BASE" &&
+          if git cat-file -e "$BASE:.claude/factory.yaml" 2>/dev/null &&
+            git worktree add --detach "$RUNNER_TEMP/base" "$BASE" &&
             (cd "$RUNNER_TEMP/base" && npm ci); then
             echo "dir=$RUNNER_TEMP/base" >> "$GITHUB_OUTPUT"
           else
-            echo "The base commit's factory could not be installed; the steps below fall back."
+            echo "The base commit has no factory, or it could not be installed; the steps below fall back."
           fi
       # From the base commit too, so a change to the settings alone cannot
       # widen the commands its own review may run. Its lock holds them, from
       # a preset as well; a lock written before presets holds no settings,
       # and then the base commit's settings file does. The base commit's
-      # factory lists them, or the head's when the base could not install.
+      # factory lists them, or the head's when the base has none to run.
       - name: List the tools the review may use
         id: tools
         working-directory: ${{ steps.base.outputs.dir || github.workspace }}
@@ -131,7 +133,7 @@ jobs:
         run: |
           out="$RUNNER_TEMP/tickets.md"
           if [ -z "$BASE_DIR" ]; then
-            echo "The tickets could not be read: the base commit's factory could not be installed" > "$out"
+            echo "The tickets could not be read: the base commit has no factory, or it could not be installed" > "$out"
           elif ! npx --no-install factory review tickets "$PR" > "$out" 2> "$RUNNER_TEMP/tickets.err"; then
             echo "The tickets could not be read: $(tail -n 1 "$RUNNER_TEMP/tickets.err")" > "$out"
           fi

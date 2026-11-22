@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { load } from "js-yaml";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -224,6 +224,52 @@ describe("the tickets the review reads", () => {
     expect(steps.indexOf(install)).toBeLessThan(steps.indexOf(tools!));
   });
 
+  /** Runs the install step on a repository whose base commit holds
+   * `base`, with npm stood in for, and returns what it put in the step's
+   * output. */
+  const installOn = (base: Record<string, string>) => {
+    repo = mkdtempSync(join(tmpdir(), "claude-review-base-"));
+    temp = mkdtempSync(join(tmpdir(), "claude-review-temp-"));
+    git("init", "-q");
+    git("config", "user.email", "t@example.com");
+    git("config", "user.name", "Test");
+    const files = { "package-lock.json": "{}\n", ...base };
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(repo, path)), { recursive: true });
+      writeFileSync(join(repo, path), text);
+    }
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    const bin = join(temp, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const output = join(temp, "output");
+    writeFileSync(output, "");
+    const result = spawnSync("bash", ["-eo", "pipefail", "-c", install.run!], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        BASE: git("rev-parse", "HEAD"),
+        RUNNER_TEMP: temp,
+        GITHUB_OUTPUT: output,
+      },
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    return readFileSync(output, "utf8");
+  };
+
+  it("uses the base commit's install where the base has the factory", () => {
+    expect(installOn({ ".claude/factory.yaml": "version: 2\n" })).toBe(
+      `dir=${temp}/base\n`,
+    );
+  });
+
+  it("leaves the steps to fall back where the base has no factory yet, as before the pull request that adds it", () => {
+    expect(installOn({})).toBe("");
+  });
+
   it("lists the tools and reads the tickets with the base commit's factory, or the head's when it could not install", () => {
     expect(
       (tools as Step & { "working-directory"?: string })["working-directory"],
@@ -269,7 +315,7 @@ describe("the tickets the review reads", () => {
 
   it("notes that the tickets could not be read, and passes, when the base could not install", () => {
     expect(readTickets("", 0, "unused")).toBe(
-      "The tickets could not be read: the base commit's factory could not be installed\n",
+      "The tickets could not be read: the base commit has no factory, or it could not be installed\n",
     );
   });
 

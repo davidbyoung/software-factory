@@ -429,8 +429,9 @@ section that the images are missing; the build does not stop for them.
 npx --no-install factory pr closes PR
 ```
 
-That has to print N. If it does not, the link did not register; fix the
-body.
+That has to print N, unless the pull request builds only part of the
+follow-ups ticket, which it does not close. If it does not, the link did
+not register; fix the body.
 
 Then note what the build cost, on the pull request:
 
