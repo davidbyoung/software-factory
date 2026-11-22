@@ -1504,6 +1504,24 @@ describe("approvers", () => {
             },
           ],
         }),
+        thread(26, {
+          comments: [
+            { id: 26, author: "mallory", body: "Is this tested?" },
+            { id: 27, author: "alice", body: "Answer mallory, please." },
+          ],
+        }),
+        thread(28, {
+          comments: [
+            { id: 28, author: "alice", body: "Split this file." },
+            { id: 29, author: "mallory", body: "Agreed." },
+          ],
+        }),
+        thread(30, {
+          comments: [
+            { id: 30, author: "dana", body: "Name it better." },
+            { id: 31, author: "acme-builds", body: `Renamed.\n\n${AGENT}` },
+          ],
+        }),
       ],
     };
 
@@ -1511,13 +1529,16 @@ describe("approvers", () => {
       const { d, out } = org(seed);
       expect(await main(["state", "31"], d)).toBe(0);
       const from = out.indexOf("approver review bodies to answer: 1");
-      expect(out.slice(from, from + 6)).toEqual([
+      expect(out.slice(from, from + 9)).toEqual([
         "approver review bodies to answer: 1",
         "  - review 51 at 2026-11-22T15:10:00Z: The empty state needs a link back to the list.",
-        "unresolved threads: 3",
+        "unresolved threads: 6",
         "  - 21 on a.ts:3 by alice, approver's turn: Why a new helper here?",
         "  - 24 on a.ts:3 by mallory: Rename it.",
         "  - 25 on a.ts:3 by github-actions[bot]: `rows` can be empty.",
+        "  - 26 on a.ts:3 by mallory, approver's turn: Is this tested?",
+        "  - 28 on a.ts:3 by alice: Split this file.",
+        "  - 30 on a.ts:3 by dana: Name it better.",
       ]);
     });
 
@@ -1525,6 +1546,7 @@ describe("approvers", () => {
       const { d, log } = org(seed);
       await main(["state", "31"], d);
       expect(log.filter((l) => l.startsWith("canWrite")).sort()).toEqual([
+        "canWrite acme-builds",
         "canWrite alice",
         "canWrite dana",
         "canWrite github-actions[bot]",

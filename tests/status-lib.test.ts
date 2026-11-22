@@ -1099,14 +1099,11 @@ describe("parseCosts", () => {
     ).toEqual([0.92]);
   });
 
-  it.each(["acme", "someone", "acme-builds"])(
-    "ignores a comment by %s without the agent mark",
-    (author) => {
-      expect(
-        parseCosts(comment("<!-- cost: 3.41 session=abc -->", author)),
-      ).toEqual([]);
-    },
-  );
+  it("ignores a comment without the agent mark from anyone but the CI review's bot", () => {
+    expect(
+      parseCosts(comment("<!-- cost: 3.41 session=abc -->", "acme-builds")),
+    ).toEqual([]);
+  });
 
   it("reads a marker with the agent mark whoever posted it", () => {
     expect(

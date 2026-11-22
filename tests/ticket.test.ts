@@ -1869,7 +1869,7 @@ describe("answers", () => {
     ]);
   });
 
-  it("asks the ticket system, not the code host, whose comment may decide", async () => {
+  it("leaves out a comment by someone the ticket system does not let decide", async () => {
     const { d, out } = deps(
       [
         {

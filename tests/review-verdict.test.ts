@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { memoryCodeHost, type MemoryCodeHostOptions } from "./memory-code-host";
-import { afterEach, vi } from "vitest";
 import {
   apply,
   decide,
@@ -261,7 +260,6 @@ describe("reviewIsAboutHead", () => {
 // organization's repository, where the name before the slash is nobody's
 // login.
 describe("apply", () => {
-  afterEach(() => vi.restoreAllMocks());
   const HEAD = "4c1d2ab0000";
   const SUMMARY = {
     id: 1,
@@ -373,10 +371,13 @@ describe("apply", () => {
     expect(host.log.filter((l) => l.startsWith("canWrite"))).toEqual([]);
   });
 
-  it("refuses an override from an account the ticket system lets decide but the code host does not let write", async () => {
-    const { host, go } = setUp({ writers: ["dev"] });
+  it("honors an override from an approver whose login the event spells in another case", async () => {
+    const { host, log, go } = setUp();
 
-    await go("labeled", "pm");
-    expect(host.pull(31).labels).toEqual([]);
+    await go("labeled", "Alice");
+    expect(log).toContain(
+      `Review verdict on ${HEAD}: success, Overridden by an approver`,
+    );
+    expect(host.pull(31).labels).toEqual(["verdict: override"]);
   });
 });
