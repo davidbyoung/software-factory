@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   checkFields,
   closedPullComments,
+  logLine,
   main,
   nightlyComments,
   planSync,
@@ -101,6 +102,31 @@ describe("dry run on the recorded fixture", () => {
       "#18 Status=Backlog, Session=(empty), Runs in=(empty), Cost=(empty) (added to the board; set Status)",
       "#17 Status=Done, Session=cloud cse_01Zz9y, Runs in=(empty), Cost=(empty) (set Status, Session)",
     ]);
+  });
+});
+
+describe("dry run on the live board", () => {
+  it("prints each ticket as its ticket system writes it, and writes nothing", async () => {
+    const { d, out, mem } = deps();
+
+    expect(await main(["--dry-run"], d)).toBe(0);
+    expect(out).toContain(
+      "#16 Status=In review, Session=359bd84e, Runs in=Local, Cost=(empty) (set Status)",
+    );
+    expect(mem.writes).toEqual([]);
+  });
+});
+
+describe("logLine", () => {
+  it("names a card in a column no state names, as the ticket system writes it", () => {
+    const [plan] = planSync(
+      toSnapshot(SAVED.tickets, SAVED.pulls, NOW, SAVED.donePulls),
+      BOARD(),
+      RUN_PAGE,
+    );
+    expect(
+      logLine({ ...plan, key: "PROJ-12", unmapped: "QA" }, (key) => key),
+    ).toBe('PROJ-12 card is in "QA", which no state names (left alone)');
   });
 });
 
@@ -251,6 +277,64 @@ describe("nightlyComments", () => {
 });
 
 describe("collect", () => {
+  it("with --dry-run, says which comment it would post, and posts none", async () => {
+    const { pulls } = fakePulls({ 40: ["16"] });
+    const { d, files, out, mem } = deps(seeded(), {}, pulls);
+    files["event.json"] = JSON.stringify({
+      action: "closed",
+      pull_request: { number: 40, merged: false, body: "Closes #16" },
+    });
+    const before = mem.comments(16).length;
+
+    await main(
+      [
+        "collect",
+        "--out",
+        "o.json",
+        "--event",
+        "event.json",
+        "--event-name",
+        "pull_request_target",
+        "--dry-run",
+      ],
+      d,
+    );
+    expect(out).toEqual([
+      "would comment on #16: Pull request #40 was closed without merging. The card stays In progress, waiting on you. Move it to Ready to rebuild it, or ask a session to refine it first.",
+    ]);
+    expect(mem.comments(16)).toHaveLength(before);
+  });
+
+  it("tells the follow-ups ticket a merged pull request built part of it", async () => {
+    const mem = seeded();
+    mem.state.get("18")!.labels.push("follow-up");
+    const { d, files } = deps(mem, {}, fakePulls().pulls);
+    files["event.json"] = JSON.stringify({
+      action: "closed",
+      pull_request: { number: 40, merged: true, body: "Part of #18: a line." },
+    });
+
+    expect(
+      await main(
+        [
+          "collect",
+          "--out",
+          "o.json",
+          "--event",
+          "event.json",
+          "--event-name",
+          "pull_request_target",
+        ],
+        d,
+      ),
+    ).toBe(0);
+    expect(mem.comments(18).map((c) => c.body)).toEqual([
+      expect.stringMatching(
+        /^Pull request #40 merged part of these follow-ups\./,
+      ),
+    ]);
+  });
+
   it("releases the issues of a pull request closed without merging, then reads again", async () => {
     const { pulls } = fakePulls({ 40: ["16"] });
     const { d, files, written, mem } = deps(seeded(), {}, pulls);

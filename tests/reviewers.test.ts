@@ -4,6 +4,7 @@ import {
   lastAssistantText,
   main,
   modelName,
+  parseState,
   verdictOf,
   type Deps,
   type State,
@@ -371,5 +372,32 @@ describe("commentFor", () => {
       START,
     );
     expect(body).toContain("| finished, no verdict | 19 min | $0.15 ($5.02) |");
+  });
+});
+
+describe("the reviewer runs' state file", () => {
+  const RUN = {
+    agent: "a1",
+    reviewer: "factory-test-reviewer",
+    model: "sonnet",
+    start: "2026-11-22T12:00:00Z",
+    result: "running",
+  };
+
+  it("reads the comment's ID as text", () => {
+    expect(
+      parseState(JSON.stringify({ commentId: "77", runs: [RUN] })),
+    ).toEqual({ commentId: "77", runs: [RUN] });
+  });
+
+  it("reads state written before comment IDs were text, its number as the ID", () => {
+    expect(parseState(JSON.stringify({ commentId: 77, runs: [] }))).toEqual({
+      commentId: "77",
+      runs: [],
+    });
+  });
+
+  it.each([[null], [""], ["{"]])("starts empty from %j", (text) => {
+    expect(parseState(text)).toEqual({ commentId: null, runs: [] });
   });
 });

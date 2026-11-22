@@ -922,6 +922,36 @@ describe("main in a terminal", () => {
   });
 });
 
+describe("main, for a Ready card", () => {
+  it("flags one that has not started, but not one that waits on an open blocker", async () => {
+    const mem = memoryTickets([{ number: 1 }, { number: 2 }, { number: 5 }]);
+    for (const n of [1, 2])
+      mem.card(n, { status: "Ready", updatedAt: "2026-11-09T11:00:00Z" });
+    mem.blockers.set("2", ["5"]);
+    const out: string[] = [];
+    const d: Deps = {
+      source: async () => ({
+        tickets: mem.tickets,
+        pulls: { open: async () => [], address: (n) => `${n}` },
+        runner: { runPage: (id) => id },
+        own: true,
+      }),
+      settings: fakeSettings,
+      env: {},
+      now: () => NOW,
+      out: (l) => out.push(l),
+      sleep: async () => {},
+      write: () => {},
+      onInterrupt: () => {},
+    };
+
+    expect(await main([], d)).toBe(0);
+    const flags = out.filter((l) => l.includes("not started"));
+    expect(flags).toHaveLength(1);
+    expect(out[out.indexOf(flags[0]) - 1]).toMatch(/^\s+#1 /);
+  });
+});
+
 describe("main with a mapped board", () => {
   it("heads each group with the column the settings name for its state", async () => {
     const out: string[] = [];

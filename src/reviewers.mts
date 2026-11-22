@@ -310,6 +310,24 @@ export async function main(
   return 0;
 }
 
+/** A state file's text as the state; none when there is no file or it
+ * cannot be read. */
+export function parseState(text: string | null): State {
+  try {
+    if (!text) return { commentId: null, runs: [] };
+    const state = JSON.parse(text) as Omit<State, "commentId"> & {
+      commentId: string | number | null;
+    };
+    // State written before comment IDs were text holds a number.
+    return {
+      ...state,
+      commentId: state.commentId === null ? null : String(state.commentId),
+    };
+  } catch {
+    return { commentId: null, runs: [] };
+  }
+}
+
 const statePath = (session: string, issue: Key) =>
   join(commonDir(), `reviewer-runs-${session}-${issue}.json`);
 
@@ -362,23 +380,7 @@ export async function run(argv: string[]): Promise<number> {
     clock: readClock,
     readFile: read,
     state: {
-      read: (session, issue) => {
-        const text = read(statePath(session, issue));
-        try {
-          if (!text) return { commentId: null, runs: [] };
-          const state = JSON.parse(text) as Omit<State, "commentId"> & {
-            commentId: string | number | null;
-          };
-          // State written before comment IDs were text holds a number.
-          return {
-            ...state,
-            commentId:
-              state.commentId === null ? null : String(state.commentId),
-          };
-        } catch {
-          return { commentId: null, runs: [] };
-        }
-      },
+      read: (session, issue) => parseState(read(statePath(session, issue))),
       write: (session, issue, state) =>
         writeFileSync(statePath(session, issue), JSON.stringify(state)),
     },

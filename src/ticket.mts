@@ -728,6 +728,8 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         });
         break;
       case "cost":
+        // Read first: a number that is no ticket leaves the clock.
+        await d.tickets.read(issue);
         await post(d, issue, {
           kind: "cost",
           cost: takeCost(d.tickets.ref(issue), d),

@@ -939,6 +939,17 @@ describe("sessionIdentity", () => {
 });
 
 describe("the cost clock", () => {
+  it("leaves the clock when cost is given no ticket, as a pull request's number is not one", async () => {
+    quiet();
+    const { d, clocks, memory } = deps([{ number: 7 }]);
+    const clock = { issue: "7", start: "2026-11-09T12:00:00Z" };
+    clocks.set(SESSION, clock);
+
+    expect(await main(["cost", "64"], d)).toBe(1);
+    expect(clocks.get(SESSION)).toEqual(clock);
+    expect(memory.comments(7)).toEqual([]);
+  });
+
   it("starts on a claim that holds, on the claimed issue", async () => {
     const { d, clocks, memory } = deps();
 
