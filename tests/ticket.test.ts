@@ -55,6 +55,13 @@ function deps(
     pulls?: Partial<PullRequest>[];
     /** The tickets' own fields, and which factory field each holds. */
     ticketFields?: { fields: TicketField[]; mapping: FieldMapping };
+    /** Label names the settings set, beside the defaults. */
+    labels?: {
+      tickets?: Partial<Record<"spec" | "follow-up", string>>;
+      codeHost?: Partial<
+        Record<"merge-automatic" | "merge-manual" | "verdict-override", string>
+      >;
+    };
     /** `code-host.branch-name`, when not the fixture's. */
     branchName?: string;
     /** Who the code host's CLI is signed in as. */
@@ -105,9 +112,23 @@ function deps(
     runner: () => RUNNER,
     settings: async () => {
       const s = await fakeSettings();
+      const named = {
+        ...s,
+        tickets: {
+          ...s.tickets,
+          labels: { ...s.tickets.labels, ...options.labels?.tickets },
+        },
+        codeHost: {
+          ...s.codeHost,
+          labels: { ...s.codeHost.labels, ...options.labels?.codeHost },
+        },
+      };
       return options.branchName === undefined
-        ? s
-        : { ...s, codeHost: { ...s.codeHost, branchName: options.branchName } };
+        ? named
+        : {
+            ...named,
+            codeHost: { ...named.codeHost, branchName: options.branchName },
+          };
     },
     signedInAs:
       options.signedInAs ??
@@ -1357,6 +1378,122 @@ describe("the ticket commands", () => {
     expect(memory.state.get("7")?.labels).toEqual(["enhancement", "spec"]);
   });
 
+  describe("with labels the settings rename", () => {
+    const renamed = {
+      tickets: { spec: "needs-spec", "follow-up": "follow-ups" },
+      codeHost: { "verdict-override": "owner-pass" },
+    };
+    const NAMED = { ...SEVEN, labels: ["enhancement", "needs-spec"] };
+
+    it("label --add, --remove, and --was-removed take a key for its name", async () => {
+      const { d, out, memory } = deps([NAMED], { labels: renamed });
+      memory.removedLabels.set("7", ["needs-spec"]);
+
+      await main(["label", "7", "--add", "follow-up"], d);
+      await main(["label", "7", "--remove", "spec"], d);
+      await main(["label", "7", "--was-removed", "spec"], d);
+      expect(out).toEqual(["added", "removed", "yes"]);
+      expect(memory.state.get("7")?.labels).toEqual([
+        "enhancement",
+        "follow-ups",
+      ]);
+    });
+
+    it("label passes a word that is no key through as a name", async () => {
+      const { d, memory } = deps([SEVEN], { labels: renamed });
+
+      await main(["label", "7", "--add", "merge-manual"], d);
+      expect(memory.state.get("7")?.labels).toContain("merge-manual");
+    });
+
+    it("label --was-removed takes the override's key for its name", async () => {
+      const { d, out, memory } = deps([SEVEN], { labels: renamed });
+      memory.removedLabels.set("7", ["owner-pass"]);
+
+      await main(["label", "7", "--was-removed", "verdict-override"], d);
+      expect(out).toEqual(["yes"]);
+    });
+
+    it.each(["verdict-override", "owner-pass", "Owner-Pass"])(
+      "label --add refuses the override, given as %s",
+      async (word) => {
+        quiet();
+        const { d, memory } = deps([SEVEN], { labels: renamed });
+
+        expect(await main(["label", "7", "--add", word], d)).toBe(1);
+        expect(memory.state.get("7")?.labels).toEqual(["enhancement", "spec"]);
+      },
+    );
+
+    it("open and list --label take a key for its name", async () => {
+      const { d, out, memory, files } = deps(
+        [{ number: 3, title: "Follow-ups", labels: ["follow-ups"] }],
+        { labels: renamed },
+      );
+      files.set("o.md", "A conflict needs you.");
+
+      await main(["list", "--label", "follow-up"], d);
+      expect(out).toEqual(["3\tFollow-ups\tfollow-ups (follow-up)"]);
+      out.length = 0;
+      await main(
+        ["open", "--title", "Next", "--body-file", "o.md", "--label", "spec"],
+        d,
+      );
+      expect(memory.state.get(out[0]!)?.labels).toEqual(["needs-spec"]);
+    });
+
+    it("view, --field labels, and list show a renamed label's key beside it", async () => {
+      const { d, out } = deps([NAMED], { labels: renamed });
+
+      await main(["view", "7"], d);
+      expect(out).toContain("labels: enhancement, needs-spec (spec)");
+      out.length = 0;
+      await main(["view", "7", "--field", "labels"], d);
+      expect(out).toEqual(["enhancement", "needs-spec (spec)"]);
+      out.length = 0;
+      await main(["list"], d);
+      expect(out).toEqual([
+        "7\tSend every ticket read through one interface\tenhancement, needs-spec (spec)",
+      ]);
+    });
+
+    it("view --json keeps the raw names", async () => {
+      const { d, out } = deps([NAMED], { labels: renamed });
+
+      await main(["view", "7", "--json"], d);
+      expect(JSON.parse(out.join("\n")).labels).toEqual([
+        "enhancement",
+        "needs-spec",
+      ]);
+    });
+
+    it("follow-up adds to the ticket with the configured name", async () => {
+      const { d, out, memory } = deps(
+        [
+          { number: 4, labels: ["follow-ups"], body: "- [ ] a: b\n" },
+          { number: 5, labels: ["follow-up"], body: "" },
+        ],
+        { labels: renamed },
+      );
+
+      await main(["follow-up", "x.ts", "Wrong."], d);
+      expect(out).toEqual(["added to #4"]);
+      expect(memory.state.get("4")?.body).toContain("- [ ] x.ts: Wrong.");
+    });
+
+    it("follow-up opens its ticket with the configured name", async () => {
+      const { d, memory } = deps([{ number: 5, labels: ["follow-up"] }], {
+        labels: renamed,
+      });
+
+      await main(["follow-up", "x.ts", "Wrong."], d);
+      const opened = [...memory.state.values()].find(
+        (t) => t.title === "Follow-ups",
+      );
+      expect(opened?.labels).toEqual(["follow-ups"]);
+    });
+  });
+
   it("link prints what makes a merged pull request close the ticket", async () => {
     const { d, out } = deps([SEVEN]);
 
@@ -1620,7 +1757,7 @@ describe("a ticket system other than GitHub", () => {
 });
 
 describe("the owner's override label", () => {
-  it.each(["verdict: override", "Verdict: Override"])(
+  it.each(["verdict-override", "Verdict-Override"])(
     "label --add %s is refused and adds nothing",
     async (label) => {
       quiet();

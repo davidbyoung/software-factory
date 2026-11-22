@@ -74,6 +74,7 @@ import {
   type PullRequest,
 } from "./lib/work-status.mts";
 import { missingParts } from "./lib/refined-check.mts";
+import { labelOf, shownLabels, type Labels } from "./labels.mts";
 import { commonDir, readClock, writeClock, type Clock } from "./lib/clock.mts";
 import { costNote, measureSession, projectsDir } from "./lib/usage.mts";
 import type { Measured } from "./lib/usage.mts";
@@ -146,6 +147,8 @@ type Ctx = Deps & {
   /** Whether the code host's own links say which tickets a pull request
    * closes (`lib/pull-tickets.mts`). */
   own: boolean;
+  /** The name of each label the factory adds. */
+  labels: Labels;
 };
 
 export type { Clock };
@@ -321,8 +324,9 @@ export function withLine(body: string, line: string): string {
  * is open. The file leads the line, so each one names what it is about. */
 async function followUp(file: string, text: string, d: Ctx) {
   const line = `- [ ] ${file}: ${text}`;
+  const label = d.labels.tickets["follow-up"];
   const open = (await d.tickets.listOpen()).filter((t) =>
-    t.labels.includes("follow-up"),
+    t.labels.includes(label),
   );
   const [first] = open.sort((a, b) => compareKeys(a.key, b.key));
   if (first) {
@@ -336,7 +340,7 @@ async function followUp(file: string, text: string, d: Ctx) {
   );
   const made = await d.tickets.open({
     title: "Follow-ups",
-    labels: ["follow-up"],
+    labels: [label],
     body,
   });
   return `opened ${d.tickets.ref(made)}`;
@@ -397,11 +401,15 @@ function options(args: string[], name: string): string[] {
 
 /** A ticket for a reader: title, state, labels, body, and each comment with
  * its ID and author. */
-export function formatTicket(t: Ticket, ref: string): string[] {
+export function formatTicket(
+  t: Ticket,
+  ref: string,
+  names: Labels["tickets"],
+): string[] {
   const lines = [
     `${ref} ${t.title}`,
     `state: ${t.state}`,
-    `labels: ${t.labels.join(", ") || "(none)"}`,
+    `labels: ${shownLabels(t.labels, names).join(", ") || "(none)"}`,
     "",
     t.body.trimEnd() || "(no body)",
   ];
@@ -483,16 +491,25 @@ async function ticketCommand(
     return t.key(args[0]);
   };
   const json = args.includes("--json");
+  const names = d.labels.tickets;
+  /** A ticket label's key as its name, and the override's too, which a
+   * session may ask about or remove but never add. */
+  const named = (word: string) =>
+    labelOf(
+      { ...names, "verdict-override": d.labels.codeHost["verdict-override"] },
+      word,
+    );
   switch (command) {
     case "view": {
       const ticket = await t.read(keyed());
       const field = option(args, "--field");
       if (json) d.out(JSON.stringify(withRef(ticket, t), null, 2));
       else if (field === undefined)
-        formatTicket(ticket, t.ref(ticket.key)).forEach(d.out);
+        formatTicket(ticket, t.ref(ticket.key), names).forEach(d.out);
       else if (!(FIELDS as readonly string[]).includes(field))
         throw new Error(`--field is one of ${FIELDS.join(", ")}.`);
-      else if (field === "labels") ticket.labels.forEach(d.out);
+      else if (field === "labels")
+        shownLabels(ticket.labels, names).forEach(d.out);
       else if (field === "ref") d.out(t.ref(ticket.key));
       else d.out(String(ticket[field as "title" | "state" | "body"]));
       return 0;
@@ -509,7 +526,8 @@ async function ticketCommand(
       return 0;
     }
     case "list": {
-      const label = option(args, "--label");
+      const given = option(args, "--label");
+      const label = given === undefined ? undefined : labelOf(names, given);
       const title = option(args, "--title");
       const kept = (await t.listOpen())
         .filter((x) => label === undefined || x.labels.includes(label))
@@ -525,7 +543,9 @@ async function ticketCommand(
         );
       else
         for (const x of kept)
-          d.out(`${x.key}\t${x.title}\t${x.labels.join(", ")}`);
+          d.out(
+            `${x.key}\t${x.title}\t${shownLabels(x.labels, names).join(", ")}`,
+          );
       return 0;
     }
     case "edit":
@@ -570,7 +590,13 @@ async function ticketCommand(
       refuseBareTags(title);
       refuseBareTags(body);
       d.out(
-        String(await t.open({ title, body, labels: options(args, "--label") })),
+        String(
+          await t.open({
+            title,
+            body,
+            labels: options(args, "--label").map((l) => labelOf(names, l)),
+          }),
+        ),
       );
       return 0;
     }
@@ -583,13 +609,13 @@ async function ticketCommand(
       if (given.length !== 1) throw new Error(USAGE);
       if (was !== undefined) {
         const history = need(t, "label-history");
-        d.out((await history.wasRemoved(ticket, was)) ? "yes" : "no");
+        d.out((await history.wasRemoved(ticket, named(was))) ? "yes" : "no");
       } else if (add !== undefined) {
-        refuseOverride(add);
-        await t.addLabel(ticket, add);
+        refuseOverride(add, d.labels.codeHost["verdict-override"]);
+        await t.addLabel(ticket, labelOf(names, add));
         d.out("added");
       } else {
-        await t.removeLabel(ticket, removed!);
+        await t.removeLabel(ticket, named(removed!));
         d.out("removed");
       }
       return 0;
@@ -657,6 +683,10 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       board,
       ...opened,
       own: ownLinks(settings),
+      labels: {
+        tickets: settings.tickets.labels,
+        codeHost: settings.codeHost.labels,
+      },
     };
     if (command === "supports") {
       if (!first || !(GROUPS as readonly string[]).includes(first))
