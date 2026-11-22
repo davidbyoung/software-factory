@@ -509,7 +509,7 @@ describe("factory specs finish", () => {
   let at: ReturnType<typeof openspecAt>;
   afterEach(() => rmSync(at.root, { recursive: true, force: true }));
 
-  it("folds a started change into openspec/specs/ with DO_NOT_TRACK=1", async () => {
+  it("folds a started change into openspec/specs/ with OpenSpec's archive", async () => {
     at = openspecAt();
     mkdirSync(join(at.root, "openspec/changes/issue-37"), { recursive: true });
     const { d, out, err } = specDeps(at);

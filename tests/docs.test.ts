@@ -884,18 +884,13 @@ describe("the docs, for settings version 2", () => {
 });
 
 describe("the docs on spec tools", () => {
-  const cli = sectionOf(read("docs/cli.md"), "### Your repository's commands");
-  const specs = sectionOf(read(CONFIGURATION), "### `specs`");
-  const workflow = sectionOf(
-    read("docs/workflow.md"),
-    "## A change your users will see",
-  );
-  const setup = sectionOf(
-    read("docs/github/setup.md"),
-    "## Run `factory init`",
-  );
+  /** A section with its line breaks read as spaces, so a re-wrap of the
+   * prose changes nothing. */
+  const flat = (page: string, heading: string) =>
+    sectionOf(read(page), heading).replace(/\s+/g, " ");
 
   it("list the four spec commands on the CLI page, and not change-name", () => {
+    const cli = flat("docs/cli.md", "### Your repository's commands");
     for (const command of ["list", "new N", "check", "finish N"])
       expect(cli).toContain(`| \`factory specs ${command}\``);
     expect(cli).toContain(
@@ -905,22 +900,33 @@ describe("the docs on spec tools", () => {
   });
 
   it("say on the configuration page that init asks, and installs OpenSpec", () => {
-    expect(specs).toContain('"Which spec\ntool do you use?"');
+    const specs = flat(CONFIGURATION, "### `specs`");
+    expect(specs).toContain('"Which spec tool do you use?"');
     expect(specs).toContain("`npm install --save-dev @fission-ai/openspec`");
-    expect(specs).toContain("specs: none\n");
+    expect(specs).toContain("specs: none");
   });
 
   it("give every visible change a Spec, a design, and tasks, whatever the tool", () => {
+    const workflow = flat(
+      "docs/workflow.md",
+      "## A change your users will see",
+    );
     for (const part of ["- **Spec:**", "- **Design:**", "- **Tasks:**"])
       expect(workflow).toContain(part);
     expect(workflow).not.toContain("acceptance criteria are the whole spec");
   });
 
   it("show init's spec tool question on the setup page", () => {
+    const setup = sectionOf(
+      read("docs/github/setup.md"),
+      "## Run `factory init`",
+    );
     expect(setup).toContain(
       "? Which spec tool do you use?\n❯ None: each ticket holds its own spec\n",
     );
-    expect(setup).toContain("Init skips either question");
+    expect(setup.replace(/\s+/g, " ")).toContain(
+      "the spec tool question when they set `specs`",
+    );
   });
 
   it("say what another spec tool takes, and how the glossary reads Spec", () => {
@@ -929,8 +935,8 @@ describe("the docs on spec tools", () => {
     expect(developing).toMatch(
       /\| Another spec tool, such as Spec Kit +\| Not planned\. An adapter under `src\/specs\/` adds one/,
     );
-    expect(read("docs/glossary.md")).toContain(
-      'gets a Spec section of "When this, then that" lines in\nits ticket',
+    expect(read("docs/glossary.md").replace(/\s+/g, " ")).toContain(
+      'gets a Spec section of "When this, then that" lines in its ticket',
     );
   });
 });

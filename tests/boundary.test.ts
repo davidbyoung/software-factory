@@ -51,7 +51,7 @@ export function specToolCallsIn(text: string): string[] {
     .filter(
       (line) =>
         /\bnpx\b[^\n]*\bopenspec\b/.test(line) ||
-        /(^|[\s`$(;&|])openspec\s+[a-z-]+/.test(line),
+        /(^\s*|[`$(;&|]\s*)openspec\s+[a-z-]+/.test(line),
     )
     .map((line) => line.trim());
 }
@@ -211,6 +211,9 @@ describe("specToolCallsIn", () => {
     expect(specToolCallsIn("a line of `openspec/specs/` false")).toEqual([]);
     expect(specToolCallsIn("when `openspec/config.yaml` changed")).toEqual([]);
     expect(specToolCallsIn("With OpenSpec, the build folds it in.")).toEqual(
+      [],
+    );
+    expect(specToolCallsIn("Each build writes an openspec change.")).toEqual(
       [],
     );
   });

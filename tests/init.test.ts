@@ -120,8 +120,6 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
           values: choices.map((c) => c.value),
           fallback,
         });
-        offered.push(choices.map((c) => c.value));
-        selects.push({ names: choices.map((c) => c.name), fallback });
         asked.push(`select: ${message}`);
         log(`? select: ${message}`);
         return queue.specs.shift() ?? fallback!;
@@ -1054,11 +1052,11 @@ describe("factory init, where the poller runs", () => {
     await r.run();
 
     expect(r.asked).toContain(WHERE);
-    expect(r.selects[2]!.names).toEqual([
+    expect(r.selects[1]!.names).toEqual([
       "A schedule on GitHub Actions, every 5 minutes, nothing to host",
       "A server you host, within a minute",
     ]);
-    expect(r.offered[2]).toEqual(["github-action", "own-server"]);
+    expect(r.offered[1]).toEqual(["github-action", "own-server"]);
   });
 
   it("writes the trigger it is given, and on a public repository asks no interval", async () => {
@@ -1083,7 +1081,7 @@ describe("factory init, where the poller runs", () => {
     expect(r.out).toContain(
       "Each run bills at least one Actions minute on a private repository.",
     );
-    expect(r.selects[3]).toEqual({
+    expect(r.selects[2]).toEqual({
       names: [
         "Every 5 minutes, 8,640 runs a month",
         "Every 10 minutes, 4,320 runs a month",
@@ -1673,30 +1671,35 @@ describe("factory init, the spec tool", () => {
     expect(r.installs).toEqual([]);
   });
 
-  it("writes specs: openspec for OpenSpec, plans the install last, and installs it after writing the settings and before the sync", async () => {
+  it("writes specs: openspec for OpenSpec, installs it with npm, and says so", async () => {
+    const r = init({ answers: { ...plain, specs: ["openspec"] } });
+    expect(await r.run()).toBe(0);
+    expect(r.yaml().specs).toBe("openspec");
+    expect(r.installs.map((i) => i.argv)).toEqual([
+      ["npm", "install", "--save-dev", "@fission-ai/openspec"],
+    ]);
+    expect(r.out).toContain("Installed @fission-ai/openspec.");
+  });
+
+  it("plans the install after every other row and before a part turned off", async () => {
     const r = init({
       answers: { ...plain, specs: ["openspec"] },
       settings: `${withSpecs("")}auto-merge:\n  allow: [docs/**]\n`,
     });
     expect(await r.run()).toBe(0);
-    expect(r.yaml().specs).toBe("openspec");
-    const plan = r.out.slice(
-      r.out.indexOf("This is everything setup will do:"),
-    );
-    expect(plan.slice(1, plan.indexOf(INSTALL_ROW) + 2)).toEqual([
-      ...plan.slice(1, plan.indexOf(INSTALL_ROW)),
-      INSTALL_ROW,
+    const row = r.out.indexOf(INSTALL_ROW);
+    expect(r.out[row - 1]).toMatch(/^ {2}Write {4}/);
+    expect(r.out[row + 1]).toBe(
       "  Turn off Pull requests that merge themselves",
-    ]);
-    expect(r.installs).toEqual([
-      {
-        argv: ["npm", "install", "--save-dev", "@fission-ai/openspec"],
-        syncedBefore: 0,
-        packageJson: '{"name":"site"}\n',
-        settings: expect.stringContaining("specs: openspec"),
-      },
-    ]);
-    expect(r.out).toContain("Installed @fission-ai/openspec.");
+    );
+  });
+
+  it("installs after writing the settings, with OpenSpec named, and before the sync", async () => {
+    const r = init({ answers: { ...plain, specs: ["openspec"] } });
+    expect(await r.run()).toBe(0);
+    expect(r.installs[0]!.settings).toContain("specs: openspec");
+    expect(r.installs[0]!.syncedBefore).toBe(0);
+    expect(r.synced()).toBe(1);
   });
 
   it("writes package.json before the install when there was none", async () => {
@@ -1784,7 +1787,7 @@ describe("factory init, the spec tool", () => {
     expect(r.yaml().specs).toBe("none");
   });
 
-  it("offers, plans, and installs another spec tool by its adapter's words", async () => {
+  it("words the choice, the plan, the install, and its failure by another spec tool's adapter", async () => {
     const r = init({
       answers: { ...plain, specs: ["pages"] },
       install: { status: 1, stderr: "pip: not found\n" },
@@ -1944,7 +1947,9 @@ describe("factory init, the column step", () => {
   ) =>
     r.selects[
       r.asked
-        .filter((a) => a.startsWith("select: "))
+        .filter(
+          (a) => a.startsWith("select: ") && a !== `select: ${SPEC_QUESTION}`,
+        )
         .indexOf(`select: ${question}`)
     ]!;
   const STEP_LINES = [
@@ -2405,7 +2410,9 @@ describe("factory init, a block that leaves states out", () => {
   ) =>
     r.selects[
       r.asked
-        .filter((a) => a.startsWith("select: "))
+        .filter(
+          (a) => a.startsWith("select: ") && a !== `select: ${SPEC_QUESTION}`,
+        )
         .indexOf(`select: ${question}`)
     ]!;
   const SHOP_PARTIAL = [
@@ -2966,7 +2973,7 @@ describe("factory init, the field step", () => {
       "",
       "",
     ]);
-    expect(r.selects[1]).toEqual({
+    expect(r.selects[0]).toEqual({
       names: ["Yes", "Change some", "No: keep everything in the description"],
       fallback: "yes",
     });
@@ -3027,7 +3034,7 @@ describe("factory init, the field step", () => {
       ],
       checked: [],
     });
-    expect(r.selects[2]).toEqual({
+    expect(r.selects[1]).toEqual({
       names: [
         "The description",
         "Acceptance criteria",

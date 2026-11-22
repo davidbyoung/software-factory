@@ -342,7 +342,7 @@ describe("what a preset can't do", () => {
 });
 
 describe("a spec tool a preset names", () => {
-  const presetSetting = (specs: string) => {
+  const installPreset = (specs: string) => {
     root = repo(
       [
         "version: 2",
@@ -357,17 +357,17 @@ describe("a spec tool a preset names", () => {
   const text = `version: 2\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
 
   it("is what init finds, none included, so it asks nothing", async () => {
-    presetSetting("specs: none\n");
+    installPreset("specs: none\n");
     expect(await presetSpecsAt(root)(text)).toBe("none");
   });
 
   it("is the tool a preset names", async () => {
-    presetSetting("specs: openspec\n");
+    installPreset("specs: openspec\n");
     expect(await presetSpecsAt(root)(text)).toBe("openspec");
   });
 
-  it("is none to init when the presets listed name none", async () => {
-    presetSetting("commands:\n  gate: [npm test]\n");
+  it("is null when the presets listed name no spec tool", async () => {
+    installPreset("commands:\n  gate: [npm test]\n");
     expect(await presetSpecsAt(root)(text)).toBeNull();
   });
 });
