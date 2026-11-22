@@ -449,12 +449,17 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         check("board");
         const item = [...board.values()].find((i) => i.itemId === itemId);
         if (!item) throw new NotFoundError(`card ${itemId}`);
-        if (strict && options.moves && item.status !== null)
-          pathTo(item.status, column, options.moves);
-        writes.push({
-          itemId,
-          writes: [{ field: "Status", optionName: column }],
-        });
+        // Strict, a card passes through each status between, as a Jira
+        // issue's transitions take it.
+        const path =
+          strict && options.moves && item.status !== null
+            ? pathTo(item.status, column, options.moves)
+            : [column];
+        for (const status of path)
+          writes.push({
+            itemId,
+            writes: [{ field: "Status", optionName: status }],
+          });
         item.status = column;
         item.updatedAt = now();
       },

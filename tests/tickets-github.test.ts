@@ -1118,3 +1118,77 @@ describe.each([
     );
   });
 });
+
+describe("GitHub adapter: what ticket 61 added", () => {
+  it("moves a card by writing its Status option", async () => {
+    const { t, calls } = tickets([
+      [/Board\(/, boardPage([{ n: 1 }])],
+      [/mutation/, { data: {} }],
+    ]);
+    await t.board!.move("PVTI_1", "ready");
+    const [mutation] = calls.filter((c) => c.includes("mutation"));
+    expect(mutation).toMatch(/SetOption.*option=O_ready/);
+    expect(mutation).toContain("field=F_status");
+  });
+
+  it("finishes an open issue by closing it as completed", async () => {
+    const { t, calls } = tickets([
+      ISSUE_7,
+      [/-X PATCH repos\/acme\/widgets\/issues\/7/, {}],
+    ]);
+    await t.finish("7");
+    expect(calls.at(-1)).toContain("-X PATCH repos/acme/widgets/issues/7");
+    expect(calls.at(-1)).toContain("state=closed");
+    expect(calls.at(-1)).toContain("state_reason=completed");
+  });
+
+  it("finishes a closed issue without writing", async () => {
+    const { t, calls } = tickets([
+      [/issues\/7$/, restIssue(7, { state: "closed" })],
+    ]);
+    await t.finish("7");
+    expect(calls).toEqual([GET_7]);
+  });
+
+  it("posts nothing for a merge's note, which GitHub shows itself", async () => {
+    const { t, calls } = tickets([]);
+    expect(
+      await t.record.add("7", {
+        text: "Merged.",
+        markers: ["<!-- work-status: merged -->"],
+        tellsPerson: true,
+      }),
+    ).toBe("");
+    expect(calls).toEqual([]);
+  });
+
+  it("posts any other entry as a comment, its markers and the agent mark after its text", async () => {
+    const { t, calls } = tickets([
+      ISSUE_7,
+      [/issues\/7\/comments/, { id: 55 }],
+    ]);
+    expect(
+      await t.record.add("7", {
+        text: "Building this.",
+        markers: ["<!-- work-status: claim local s -->"],
+        tellsPerson: false,
+      }),
+    ).toBe("55");
+    expect(calls.at(-1)).toContain(
+      "body=Building this.\n\n<!-- work-status: claim local s -->\n<!-- agent -->",
+    );
+  });
+
+  it("reads only tickets with the label it is asked for", async () => {
+    const labeled = {
+      ...rawIssue(2),
+      labels: { nodes: [{ name: "Factory" }] },
+    };
+    const { t } = tickets([
+      [/Tickets\(/, issuesPage([rawIssue(1), labeled], [], null)],
+    ]);
+    expect((await t.readAll({ label: "factory" })).map((x) => x.key)).toEqual([
+      "2",
+    ]);
+  });
+});

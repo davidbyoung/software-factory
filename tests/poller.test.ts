@@ -983,13 +983,11 @@ describe("the hourly cap's setting", () => {
     await tick(d, state);
 
     expect(dispatches()).toHaveLength(2);
-    expect(
-      logs.some((l) =>
-        l.endsWith(
-          "waits: 2 builds started in the last hour (builds.max-per-hour)",
-        ),
+    expect(logs).toContainEqual(
+      expect.stringMatching(
+        /waits: 2 builds started in the last hour \(builds\.max-per-hour\)$/,
       ),
-    ).toBe(true);
+    );
   });
 
   it.each(["0", "two", "1.5"])(

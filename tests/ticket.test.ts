@@ -222,7 +222,8 @@ describe("claim", () => {
 
     await main(["claim", "7"], d);
 
-    expect(log.slice(0, 3)).toEqual(["post", "sleep", "read"]);
+    // The last read is the claim's check for the factory label.
+    expect(log).toEqual(["post", "sleep", "read", "read"]);
   });
 
   it("claims when its own comment is the live one, and remembers it", async () => {

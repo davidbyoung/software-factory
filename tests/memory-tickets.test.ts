@@ -19,6 +19,12 @@ describe("the strict in-memory adapter", () => {
 
     await m.tickets.board!.move("I_PROJ-1", "Done");
     expect(m.board.get("PROJ-1")!.status).toBe("Done");
+    expect(m.writes.flatMap((w) => w.writes)).toEqual(
+      ["Selected", "In Progress", "Done"].map((optionName) => ({
+        field: "Status",
+        optionName,
+      })),
+    );
   });
 
   it("refuses a move with no path", async () => {
