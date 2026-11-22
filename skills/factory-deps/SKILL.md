@@ -169,6 +169,26 @@ hand, first; for a preset, what this prints, as it stands:
 npx --no-install factory preset changes origin/DEFAULT
 ```
 
+For the factory, then label the tickets it works on, which it does only
+on the first update that has the factory label, the one whose old
+`.claude/factory.lock` lacks the label's setting:
+
+```bash
+git show origin/DEFAULT:.claude/factory.lock > old.lock
+npx --no-install factory ticket adopt --all-open --since-lock old.lock
+```
+
+When it prints a `labeled` line, start the comment with this paragraph:
+LIST is that line's tickets, COUNT how many, and NAME the label its last
+line names:
+
+```markdown
+**Labeled COUNT open tickets `NAME`.** From this version the factory acts
+only on tickets with that label. Every open ticket had it in effect
+before, so nothing moves. Remove the label from any ticket the factory
+shouldn't touch: LIST.
+```
+
 Never enable auto-merge, never approve and never merge: it waits for the
 owner, whatever its size.
 
