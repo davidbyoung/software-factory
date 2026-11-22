@@ -7,6 +7,7 @@
 import { GhError, type Gh } from "../lib/gh.mts";
 import type { IssueComment, PullRequest } from "../lib/work-status.mts";
 import { NotFoundError } from "../tickets/types.mts";
+import { writeAccess } from "../tickets/github-access.mts";
 import { statusOf, type Transport } from "../tickets/transport.mts";
 import { NeedsScopeError, NotSignedInError } from "./types.mts";
 import type {
@@ -461,6 +462,7 @@ export function githubCodeHost(o: {
       const repo = await t.rest<{ owner: { type: string } }>("GET", API);
       return repo.owner.type === "Organization";
     },
+    canWrite: (login) => writeAccess(t, o.repository, login),
     async checkRuns(sha) {
       const answer = await t.rest<{ check_runs: RestCheckRun[] }>(
         "GET",

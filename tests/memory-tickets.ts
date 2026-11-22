@@ -31,6 +31,7 @@ type Op =
   | "open"
   | "addLabel"
   | "removeLabel"
+  | "mayDecide"
   | "board"
   | "blockers"
   | "labelHistory"
@@ -72,6 +73,9 @@ export type MemoryOptions = {
   /** When a comment is posted, for its createdAt. */
   now?: () => string;
   owner?: string;
+  /** The accounts whose comments may decide on a ticket, in any case; only
+   * the owner unless given. */
+  deciders?: string[];
   /** The board's fields, where a test needs other columns. */
   fields?: BoardField[];
   /** The boards the repository's owner has, each with its columns. */
@@ -209,6 +213,11 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
       if (!t.labels.includes(label)) return;
       t.labels = t.labels.filter((l) => l !== label);
       removedLabels.set(n, [...(removedLabels.get(n) ?? []), label]);
+    },
+    async mayDecide(author) {
+      check("mayDecide");
+      const deciders = options.deciders ?? [owner];
+      return deciders.some((d) => d.toLowerCase() === author.toLowerCase());
     },
     linkText: (n) => `Closes #${n}`,
     address: (n) => `https://tickets.example/${n}`,

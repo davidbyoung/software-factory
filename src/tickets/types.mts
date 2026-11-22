@@ -174,6 +174,10 @@ export type Tickets = {
   open(ticket: NewTicket): Promise<number>;
   addLabel(ticket: number, label: string): Promise<void>;
   removeLabel(ticket: number, label: string): Promise<void>;
+  /** Whether a comment by `author` may decide on a ticket: an answer to a
+   * question, taken as an instruction. Rejects when the system cannot
+   * say. */
+  mayDecide(author: string): Promise<boolean>;
   /** What makes a merged pull request close the ticket. */
   linkText(ticket: number): string;
   /** The address of the ticket's page. */
