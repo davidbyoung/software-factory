@@ -57,6 +57,9 @@ export type MemoryCodeHostOptions = {
    * with the in-memory runner when a test reads the order across both. */
   log?: string[];
   owner?: string;
+  /** The accounts that can write to the repository, in any case; only the
+   * owner unless given. */
+  writers?: string[];
   /** Each token the code host knows: whose it is and its scopes. */
   tokens?: Record<string, { account: string; scopes: string[] | null }>;
   /** Whether adding a signing key first needs the sign-in's permission,
@@ -253,6 +256,11 @@ export function memoryCodeHost(
     async ownerIsOrganization() {
       called("ownerIsOrganization");
       return options.ownerIsOrganization ?? false;
+    },
+    async canWrite(login) {
+      called("canWrite", login);
+      const writers = options.writers ?? [owner];
+      return writers.some((w) => w.toLowerCase() === login.toLowerCase());
     },
     async checkRuns(sha) {
       called("checkRuns", sha);

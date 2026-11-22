@@ -8,11 +8,12 @@
 //   npx --no-install factory pr ready N              # refuses an unverified commit when git signs
 //   npx --no-install factory pr closes N             # issues the pull request closes
 //   npx --no-install factory pr wait-checks N        # every check on HEAD
-//   npx --no-install factory pr review-pending N REVIEW  # exits 0 when the owner's review needs an answer
+//   npx --no-install factory pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
 //   npx --no-install factory pr conflicts            # the pull requests the conflict sweep takes
 //   npx --no-install factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready]
 //   npx --no-install factory pr view N --field FIELD # one field of a pull request
 //   npx --no-install factory pr review N REVIEW      # a review's author, body, and line comments
+//   npx --no-install factory pr comments N [--from-approvers]  # conversation comments, or only an approver's
 //   npx --no-install factory pr unverified N         # the commits not shown as signed
 //   npx --no-install factory pr failed N             # each failed job's log, and a failed check's own report
 //   npx --no-install factory pr review-again N       # a fresh review of the same commit
@@ -61,7 +62,9 @@ export function withAgentMark(body: string): string {
 
 export type Report = {
   pull: Pull;
-  ownerLogin: string;
+  /** The authors among the reviews and the threads' last comments who can
+   * write to the repository. */
+  approvers: string[];
   reviewRun: { status: string; conclusion: string | null } | null;
   summary: PullComment | null;
   conversation: PullComment[];
@@ -72,10 +75,10 @@ export type Report = {
 
 const SKIP_AS_LAST = /<!-- (conflict-fix|session-handoff) -->|conflict-stop/;
 
-/** The owner's review bodies still to answer: submitted after the last
+/** An approver's review bodies still to answer: submitted after the last
  * conversation comment carrying the agent mark, a sweep's own comments
  * aside. */
-export function ownerReviewsToWork(r: Report): Review[] {
+export function approverReviewsToWork(r: Report): Review[] {
   const answered = r.conversation
     .filter((c) => c.body.includes(AGENT_MARK) && !SKIP_AS_LAST.test(c.body))
     .map((c) => c.createdAt)
@@ -83,7 +86,7 @@ export function ownerReviewsToWork(r: Report): Review[] {
     .at(-1);
   return r.reviews.filter(
     (review) =>
-      review.author === r.ownerLogin &&
+      r.approvers.includes(review.author) &&
       review.body.trim() !== "" &&
       !review.body.includes(AGENT_MARK) &&
       (!answered || review.submittedAt > answered),
@@ -137,9 +140,9 @@ export function formatReport(r: Report): string[] {
     lines.push(`summary: comment ${r.summary.id}, verdict ${verdict}`);
   } else lines.push("summary: none for this head");
 
-  const owner = ownerReviewsToWork(r);
-  lines.push(`owner review bodies to answer: ${owner.length}`);
-  for (const review of owner)
+  const toAnswer = approverReviewsToWork(r);
+  lines.push(`approver review bodies to answer: ${toAnswer.length}`);
+  for (const review of toAnswer)
     lines.push(
       `  - review ${review.id} at ${review.submittedAt}: ${firstLine(review.body)}`,
     );
@@ -148,10 +151,12 @@ export function formatReport(r: Report): string[] {
   lines.push(`unresolved threads: ${open.length}`);
   for (const t of open) {
     const last = t.comments.at(-1);
-    const ownerTurn =
-      last?.author === r.ownerLogin && !last.body.includes(AGENT_MARK);
+    const approverTurn =
+      last !== undefined &&
+      r.approvers.includes(last.author) &&
+      !last.body.includes(AGENT_MARK);
     lines.push(
-      `  - ${t.commentId} on ${t.path}:${t.line ?? "?"}${t.isOutdated ? " (outdated)" : ""} by ${t.comments[0]?.author ?? "?"}${ownerTurn ? ", owner's turn" : ""}: ${firstLine(t.comments[0]?.body ?? "")}`,
+      `  - ${t.commentId} on ${t.path}:${t.line ?? "?"}${t.isOutdated ? " (outdated)" : ""} by ${t.comments[0]?.author ?? "?"}${approverTurn ? ", approver's turn" : ""}: ${firstLine(t.comments[0]?.body ?? "")}`,
     );
   }
 
@@ -176,6 +181,14 @@ async function readPull(p: CodeHost, pr: number, d: Deps): Promise<Pull> {
   }
 }
 
+/** The distinct names among `authors` that can write to the repository,
+ * asking the code host once for each. Rejects when it cannot say. */
+async function writers(p: CodeHost, authors: string[]): Promise<string[]> {
+  const distinct = [...new Set(authors)];
+  const can = await Promise.all(distinct.map((a) => p.canWrite(a)));
+  return distinct.filter((_, i) => can[i]);
+}
+
 async function readReport(p: CodeHost, pr: number, d: Deps): Promise<Report> {
   const pull = await readPull(p, pr, d);
   const sha = pull.head.sha;
@@ -196,10 +209,15 @@ async function readReport(p: CodeHost, pr: number, d: Deps): Promise<Report> {
           c.body.includes(`claude-review sha=${sha}`),
       )
       .at(-1) ?? null;
+  const authors = [
+    ...reviews.map((review) => review.author),
+    ...threads
+      .filter((t) => !t.isResolved)
+      .flatMap((t) => t.comments.at(-1)?.author ?? []),
+  ];
   return {
     pull,
-    // The owner is the part of the repository before the slash.
-    ownerLogin: d.repository.split("/")[0],
+    approvers: await writers(p, authors),
     reviewRun: runs[0] ?? null,
     summary,
     conversation,
@@ -285,7 +303,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
+const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -320,15 +338,14 @@ function gitSigns(d: Deps): boolean {
   }
 }
 
-/** Whether the owner's review has something in it to work, and if not,
- * why: "closed", "someone else's review", or "the factory's own reply". An
+/** Whether an approver's review has something in it to work, and if not,
+ * why: "closed", "not an approver's", or "the factory's own reply". An
  * empty body counts for nothing, since the factory's reply is a review with
  * an empty body and one comment carrying the marker. */
 export async function reviewPending(
   p: CodeHost,
   pr: number,
   reviewId: number,
-  owner: string,
 ): Promise<{ pending: true } | { pending: false; why: string }> {
   const pull = await p.get(pr);
   if (pull.state !== "open")
@@ -338,8 +355,8 @@ export async function reviewPending(
     };
   const review = (await p.reviews(pr)).find((r) => r.id === reviewId);
   if (!review) throw new Error(`No review ${reviewId} on #${pr}.`);
-  if (review.author !== owner)
-    return { pending: false, why: `review ${reviewId} is someone else's` };
+  if (!(await p.canWrite(review.author)))
+    return { pending: false, why: `review ${reviewId} is not an approver's` };
   const { body } = review;
   if (body.trim() !== "" && !body.includes(AGENT_MARK))
     return { pending: true };
@@ -348,7 +365,7 @@ export async function reviewPending(
     return { pending: true };
   return {
     pending: false,
-    why: `review ${reviewId} is the factory's own reply: nothing of the owner's in it`,
+    why: `review ${reviewId} is the factory's own reply: nothing of an approver's in it`,
   };
 }
 
@@ -489,13 +506,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       case "review-pending": {
         const [pr, review] = numbers;
         if (!pr || !review) throw new Error(USAGE);
-        const result = await reviewPending(
-          p,
-          pr,
-          review,
-          // The owner is the part of the repository before the slash.
-          d.repository.split("/")[0],
-        );
+        const result = await reviewPending(p, pr, review);
         if (result.pending) {
           d.out("pending");
           return 0;
@@ -517,11 +528,18 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         if (!Number.isInteger(pr) || pr <= 0) throw new Error(USAGE);
         const author = option(rest, "--author");
         const contains = option(rest, "--contains");
-        const kept = (await p.comments(pr)).filter(
+        let kept = (await p.comments(pr)).filter(
           (c) =>
             (author === undefined || c.author === author) &&
             (contains === undefined || c.body.includes(contains)),
         );
+        if (rest.includes("--from-approvers")) {
+          const can = await writers(
+            p,
+            kept.map((c) => c.author),
+          );
+          kept = kept.filter((c) => can.includes(c.author));
+        }
         if (rest.includes("--json"))
           d.out(JSON.stringify(kept.map(inGithubNames), null, 2));
         else kept.forEach((c) => d.out(commentLine(c)));

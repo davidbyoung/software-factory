@@ -340,9 +340,10 @@ names each file.
   acts as the one account that owns its token: yours, or an account you
   create for the team's builds
   ([Secrets](github/by-hand.md#secrets)).
-- **Say who approves.** By default only the repository's owner can approve
-  a ticket for building or give a session instructions in a comment. List
-  the others under [`approvers`](configuration.md#approvers), _[Planned](developing.md#what-is-built)_.
+- **Anyone who can write to the repository is obeyed.** A session takes
+  instructions from a review or a comment by an account with write
+  access, and from nobody else. There is nothing to list: give a
+  teammate write access, and their reviews are answered.
 - **One version for everyone.** The version is pinned in
   `package-lock.json`. After an update merges, each person pulls and runs
   `npm ci`. `factory doctor` says so when the installed

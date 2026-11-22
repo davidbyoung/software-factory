@@ -17,6 +17,7 @@
 // (`tickets/`), so no skill calls a ticket system itself:
 //
 //   factory ticket view N [--field title|state|labels|body] [--json]
+//   factory ticket answers N   # the comments that count as answers
 //   factory ticket list [--label LABEL] [--title "TITLE"] [--json]
 //   factory ticket edit N [--title TITLE] [--body-file FILE [--attach FILE]...]
 //   factory ticket comment N --body-file FILE [--attach FILE]...
@@ -61,6 +62,7 @@ import { openRunner } from "./runner/index.mts";
 import type { Runner } from "./runner/types.mts";
 import { loadSettings, targetOf, type Settings } from "./config.mts";
 import {
+  AGENT_MARK,
   commentBody,
   sameName,
   reviewingPulls,
@@ -83,6 +85,7 @@ import {
   supports,
   type Group,
   type Ticket,
+  type TicketComment,
   type Tickets,
 } from "./tickets/types.mts";
 import { NotSignedInError } from "./code-host/types.mts";
@@ -381,19 +384,36 @@ export function formatTicket(t: Ticket): string[] {
     "",
     t.body.trimEnd() || "(no body)",
   ];
-  for (const c of t.comments)
-    lines.push(
-      "",
-      `--- comment ${c.id} by ${c.author} at ${c.createdAt}`,
-      c.body.trimEnd(),
-    );
+  for (const c of t.comments) lines.push("", ...formatComment(c));
   return lines;
+}
+
+/** One comment as `view` prints it: a line naming it, then its body. */
+export function formatComment(c: TicketComment): string[] {
+  return [
+    `--- comment ${c.id} by ${c.author} at ${c.createdAt}`,
+    c.body.trimEnd(),
+  ];
+}
+
+/** The comments on a ticket that count as answers: by someone the ticket
+ * system says may decide, without the agent mark, oldest first. Asks once
+ * for each distinct author. */
+async function answersOf(t: Tickets, ticket: Ticket): Promise<TicketComment[]> {
+  const unmarked = ticket.comments.filter((c) => !c.body.includes(AGENT_MARK));
+  const authors = [...new Set(unmarked.map((c) => c.author))];
+  const may = await Promise.all(authors.map((a) => t.mayDecide(a)));
+  const deciders = new Set(authors.filter((_, i) => may[i]));
+  return unmarked
+    .filter((c) => deciders.has(c.author))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 const FIELDS = ["title", "state", "labels", "body"] as const;
 
 const READS_AND_WRITES = new Set([
   "view",
+  "answers",
   "list",
   "edit",
   "comment",
@@ -449,6 +469,17 @@ async function ticketCommand(
         throw new Error(`--field is one of ${FIELDS.join(", ")}.`);
       else if (field === "labels") ticket.labels.forEach(d.out);
       else d.out(String(ticket[field as "title" | "state" | "body"]));
+      return 0;
+    }
+    case "answers": {
+      const ticket = await t.read(numbered());
+      const answers = await answersOf(t, ticket);
+      if (answers.length === 0)
+        d.out(`#${ticket.number} has no answers from an approver yet.`);
+      answers.forEach((c, i) => {
+        if (i > 0) d.out("");
+        formatComment(c).forEach(d.out);
+      });
       return 0;
     }
     case "list": {
@@ -561,7 +592,7 @@ async function ticketCommand(
 }
 
 const USAGE =
-  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|view|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
+  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
 
 export async function main(argv: string[], deps: Deps): Promise<number> {
   const [command, first, ...rest] = argv;

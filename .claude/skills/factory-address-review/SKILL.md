@@ -94,25 +94,25 @@ reporting a clean review. Never report a review as clean when none has run.
 
 ## 0a. The owner's review
 
-The repository owner reviews pull requests too. Their comments are worked
-like the Claude reviewer's findings, with two differences: a pushback on
-one stays open for the owner to decide, and the owner's reply after a
-pushback is final. The owner is the repository owner's login, read rather
-than hard-coded: the part of the repository's name before the slash.
-
-```bash
-OWNER_LOGIN=$(npx --no-install factory config get repository | cut -d/ -f1)
-```
+An approver, anyone whose account can write to the repository, reviews
+pull requests too. Their comments are worked like the Claude reviewer's
+findings, with two differences: a pushback on one stays open for an
+approver to decide, and an approver's reply after a pushback is final.
+Who is an approver is the code host's to say: `factory pr state` and
+`factory pr review-pending` already keep only an approver's reviews and
+turns, so no step here tests a name.
 
 **Only reviews count:** inline comments, and the body of a submitted
 review. A Conversation-tab comment that is not part of a review starts
 nothing and is never acted on. Do not go by the review's state: agents open
-pull requests through the owner's account, and GitHub does not let an
-author approve or request changes on their own pull request, so the owner's
-reviews are all `COMMENTED`.
+pull requests through an approver's account, and GitHub does not let an
+author approve or request changes on their own pull request, so the
+reviews of an approver who is the pull request's author are all
+`COMMENTED`.
 
 Every comment this skill posts contains `<!-- agent -->` (section 4), so a
-comment from `OWNER_LOGIN` without it is the owner's. Match with
+comment without it, from an account those commands count, is an
+approver's. Match with
 "contains", not "ends with": an automatic footer can follow the marker.
 
 ### A run started by the owner's review
@@ -139,9 +139,10 @@ passed.
    It prints the review's author and body, and each comment it left on a
    line with its `id`, `replyTo`, `path`, `line`, and `body`.
 
-3. **Nothing of the owner's in it:** stop without changing anything. That is
-   a review by someone else, or one of this skill's own replies: GitHub
-   records each thread reply as a review under the owner's account, with an
+3. **Nothing of an approver's in it:** stop without changing anything. That
+   is a review by someone who is not an approver, or one of this skill's
+   own replies: GitHub records each thread reply as a review under the
+   account that posted it, with an
    empty body and one comment carrying the marker. Otherwise work the
    comments without the marker, and the body if it is non-empty and lacks
    the marker.
@@ -162,7 +163,7 @@ passed.
 4. Check out the pull request's branch, Dependabot's included. Read whether
    it can merge as `factory-address-review` section 0 does, and if that is `dirty`
    and the pull request is one the conflict sweep's queue admits, run "A
-   conflict with the default branch" in the `factory-resolve-conflicts` skill first, then work each comment as "Each owner comment"
+   conflict with the default branch" in the `factory-resolve-conflicts` skill first, then work each comment as "Each approver comment"
    below says. Run the gate ("Gate" under "A
    conflict with the default branch" in that skill), commit, and push to that branch
    only, never with force. **A push refused because the branch moved**
@@ -176,13 +177,13 @@ passed.
    section 8, reporting as section 8 lays out. Otherwise no review is
    coming: work the review threads that already exist, and end with the
    same report. In this loop, section 1 works only the threads
-   `github-actions[bot]` opened; owner threads belong to the runs their
+   `github-actions[bot]` opened; approver threads belong to the runs their
    reviews started.
 6. **Only the latest push's run goes on.** In step 5's loop only, before
    working a Claude review and again before each push it makes, compare the pull request's head with your
    last commit (`npx --no-install factory pr view N --field head`). If
    another run has pushed since, stop: its push starts the next Claude
-   review, and that run works it, open threads included. A push of owner
+   review, and that run works it, open threads included. A push of approver
    fixes in step 4 that is refused is still pulled and pushed again.
 
 Each run works only its own review, and only the run that pushed last
@@ -197,19 +198,19 @@ This run never merges, enables auto-merge, marks a draft ready, or adds the
 branch.
 
 **Outside a run started by a review,** as in a local session working the
-pull request, the owner comments to work are the unresolved threads whose
-last comment is the owner's and lacks the marker, and the non-empty owner
-review bodies submitted after the last Conversation comment carrying the
+pull request, the approver comments to work are the unresolved threads
+whose last comment is an approver's and lacks the marker, and the non-empty
+approver review bodies submitted after the last Conversation comment carrying the
 marker. A comment that also carries `<!-- conflict-fix -->`,
 `conflict-stop`, or `<!-- session-handoff -->`, the `factory-resolve-conflicts` skill's
 comment markers, does not count as that last comment, so a sweep's comment
-does not hide an owner's unanswered review body. Thread replies do not count there, since a reply on one thread does
-not answer a review body. The report lists these as "owner review bodies
-to answer", and marks an unresolved thread "owner's turn" when its last
-comment is the owner's without the marker. Read a review body in full
+does not hide an approver's unanswered review body. Thread replies do not count there, since a reply on one thread does
+not answer a review body. The report lists these as "approver review bodies
+to answer", and marks an unresolved thread "approver's turn" when its last
+comment is an approver's without the marker. Read a review body in full
 with `npx --no-install factory pr review N ID`.
 
-### Each owner comment
+### Each approver comment
 
 A comment with a `replyTo` is a reply in an existing thread: read
 the whole thread first (`npx --no-install factory pr threads N --all`
@@ -223,19 +224,19 @@ to see whether it follows a pushback of yours.
   - **Agreed:** fix it (section 3), push, reply with what changed and the
     commit, and resolve the thread.
   - **Disagreed:** reply once with the evidence, a quoted source, a failing
-    test, or the code, and leave the thread open. Never resolve an owner
+    test, or the code, and leave the thread open. Never resolve an approver
     thread you did not fix, except as the next bullet says.
-- **The owner replied after your pushback.** That reply is final; do not
+- **An approver replied after your pushback.** That reply is final; do not
   push back again.
   - **It asks for the change:** make it, reply that you are following the
-    owner's call, with the commit, and resolve the thread.
+    approver's call, with the commit, and resolve the thread.
   - **It accepts the pushback:** reply that you are leaving the code as it
-    is, per the owner's reply, and resolve the thread.
+    is, per that reply, and resolve the thread.
   - **You cannot tell which:** ask in one line and leave it open.
 - **A review body.** Handle each point in it the same way, and answer it in
   the end comment (section 4); there is no thread to resolve.
 
-Owner threads are outside section 6's round count and its escalation.
+Approver threads are outside section 6's round count and its escalation.
 
 ## 1. Collect
 
@@ -425,7 +426,7 @@ the reasoning survives, and the user reads these instead of the transcript.
 
 **Every comment this skill posts, a thread reply or a conversation comment,
 contains `<!-- agent -->` on its own line.** That marker is how the next
-run tells its own words from the owner's (section 0a). Put it at the end of
+run tells its own words from an approver's (section 0a). Put it at the end of
 the body; an automatic footer may follow it.
 
 ```bash
@@ -446,9 +447,9 @@ npx --no-install factory pr resolve N COMMENT_ID
 ```
 
 Resolve accepted and rejected threads alike, with one exception: **an
-owner thread is resolved only when you fixed it, the owner overruled your
-pushback, or the owner accepted it** (section 0a). A pushback on an owner
-thread stays open for the owner. GitHub has no "ignored" state:
+approver thread is resolved only when you fixed it, or an approver
+overruled or accepted your pushback** (section 0a). A pushback on an
+approver thread stays open for an approver. GitHub has no "ignored" state:
 a rejection is a reply carrying the evidence, followed by the same resolve.
 Resolving without replying destroys the reasoning, which is the only reason
 the user can audit the decision later.
@@ -506,9 +507,9 @@ other push: pull with
 
 ## 6. Two rounds, then escalate
 
-Owner threads (section 0a) are outside this count, and this section's
-escalation does not apply to them: an open owner thread is already the
-owner's to decide. A run started by the owner's review has no memory of
+Approver threads (section 0a) are outside this count, and this section's
+escalation does not apply to them: an open approver thread is already an
+approver's to decide. A run started by the owner's review has no memory of
 earlier sessions, so it counts rounds from the `claude-review sha=`
 summaries of the commits it pushed itself.
 

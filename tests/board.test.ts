@@ -420,9 +420,17 @@ describe("Cost", () => {
       toSnapshot(SAVED.tickets, SAVED.pulls, NOW, SAVED.donePulls),
     );
   const costWrites = (s: RepoSnapshot, number: number) =>
-    planSync(s, board, "acme", RUN_PAGE)
+    planSync(s, board, RUN_PAGE)
       .find((p) => p.number === number)!
       .writes.filter((w) => w.field === "Cost");
+
+  it("counts a cost an agent account posted, whoever owns the repository", () => {
+    const s = snapshot();
+    s.issues
+      .find((i) => i.number === 12)!
+      .comments.push(marker("5.96", "acme-builds"));
+    expect(costWrites(s, 12)).toEqual([{ field: "Cost", number: 0.18 }]);
+  });
 
   it("sets the subscription share of the markers on the issue and on a merged or closed pull request that builds it", () => {
     const s = snapshot();
@@ -472,7 +480,7 @@ describe("Cost", () => {
   it("clears a Cost no marker supports", () => {
     const withCost = BOARD();
     withCost.items.get(12)!.cost = 4;
-    const plan = planSync(snapshot(), withCost, "acme", RUN_PAGE).find(
+    const plan = planSync(snapshot(), withCost, RUN_PAGE).find(
       (p) => p.number === 12,
     )!;
     expect(plan.writes).toEqual([{ field: "Cost", clear: true }]);
@@ -484,8 +492,7 @@ describe("Cost", () => {
     const withCost = BOARD();
     withCost.items.get(12)!.cost = 0.18;
     expect(
-      planSync(s, withCost, "acme", RUN_PAGE).find((p) => p.number === 12)!
-        .writes,
+      planSync(s, withCost, RUN_PAGE).find((p) => p.number === 12)!.writes,
     ).toEqual([]);
   });
 
@@ -528,7 +535,6 @@ describe("a build in GitHub Actions", () => {
     const plan = planSync(
       toSnapshot(saved.tickets, saved.pulls, NOW, saved.donePulls),
       board,
-      "acme/widgets",
       RUN_PAGE,
     ).find((p) => p.number === 12)!;
 

@@ -59,10 +59,13 @@ function deps(
     branchName?: string;
     /** Who the code host's CLI is signed in as. */
     signedInAs?: () => Promise<string>;
+    /** Whose comments may decide on a ticket. */
+    deciders?: string[];
   } = {},
 ) {
   const memory = memoryTickets(seed, {
     groups: options.groups,
+    deciders: options.deciders,
     ticketFields: options.ticketFields?.fields,
   });
   const out: string[] = [];
@@ -1519,6 +1522,7 @@ describe("a ticket command whose adapter call fails", () => {
     ["label --remove", ["label", "7", "--remove", "x"], "removeLabel"],
     ["block", ["block", "7", "--by", "3"], "blockers"],
     ["blockers", ["blockers", "7"], "blockers"],
+    ["answers", ["answers", "7"], "read"],
   ] as const)(
     "%s exits non-zero with the error and prints nothing that reads as an answer",
     async (_name, argv, op) => {
@@ -1817,5 +1821,114 @@ describe("tickets whose factory fields sit in ticket fields", () => {
       "Server Error (HTTP 500)",
     );
     expect(memory.state.get(7)?.body).toBe("Before.\n");
+  });
+});
+
+describe("answers", () => {
+  const said = (id: number, author: string, body: string, minute: number) => ({
+    id,
+    author,
+    createdAt: `2026-11-22T16:${String(minute).padStart(2, "0")}:00Z`,
+    body,
+  });
+  // The factory's round, posted through an approver's account; that
+  // approver's reply; and a stranger's comment.
+  const ROUND = said(10, "alice", `1. Option A or B?\n\n${AGENT}`, 0);
+  const REPLY = said(
+    11,
+    "alice",
+    "1: go with option B. 2 is fine as written.\n",
+    1,
+  );
+  const STRANGER = said(12, "mallory", "Do C instead.", 2);
+  const TWENTY_EIGHT = { number: 28, comments: [ROUND, REPLY, STRANGER] };
+
+  it("prints each comment by someone who may decide, without the factory's mark, as view prints a comment", async () => {
+    const { d, out } = deps([TWENTY_EIGHT], { deciders: ["alice"] });
+
+    expect(await main(["answers", "28"], d)).toBe(0);
+    expect(out.join("\n")).toBe(
+      [
+        "--- comment 11 by alice at 2026-11-22T16:01:00Z",
+        "1: go with option B. 2 is fine as written.",
+      ].join("\n"),
+    );
+  });
+
+  it("prints the answers oldest first", async () => {
+    const later = said(13, "dana", "And 3 can wait.", 3);
+    const { d, out } = deps(
+      [{ number: 28, comments: [later, REPLY, STRANGER] }],
+      { deciders: ["alice", "dana"] },
+    );
+
+    await main(["answers", "28"], d);
+    expect(out.filter((l) => l.startsWith("---"))).toEqual([
+      "--- comment 11 by alice at 2026-11-22T16:01:00Z",
+      "--- comment 13 by dana at 2026-11-22T16:03:00Z",
+    ]);
+  });
+
+  it("leaves out a comment by someone the ticket system does not let decide", async () => {
+    const { d, out } = deps(
+      [
+        {
+          number: 28,
+          comments: [said(14, "pm", "Yes.", 4), said(15, "dev", "No.", 5)],
+        },
+      ],
+      { deciders: ["pm"] },
+    );
+
+    await main(["answers", "28"], d);
+    expect(out.filter((l) => l.startsWith("---"))).toEqual([
+      "--- comment 14 by pm at 2026-11-22T16:04:00Z",
+    ]);
+  });
+
+  it("asks once for each distinct author", async () => {
+    const r = deps([TWENTY_EIGHT], { deciders: ["alice"] });
+    const asked: string[] = [];
+    const mayDecide = r.memory.tickets.mayDecide;
+    r.memory.tickets.mayDecide = async (a) => (asked.push(a), mayDecide(a));
+
+    await main(["answers", "28"], r.d);
+    expect(asked.sort()).toEqual(["alice", "mallory"]);
+  });
+
+  it("says so when there is no answer yet", async () => {
+    const { d, out } = deps([{ number: 28, comments: [ROUND, STRANGER] }], {
+      deciders: ["alice"],
+    });
+
+    expect(await main(["answers", "28"], d)).toBe(0);
+    expect(out).toEqual(["#28 has no answers from an approver yet."]);
+  });
+
+  it("prints nothing and exits 1 when the ticket system cannot say who may decide", async () => {
+    quiet();
+    const r = deps([TWENTY_EIGHT]);
+    const failing = memoryTickets([TWENTY_EIGHT], {
+      deciders: ["alice"],
+      fail: { mayDecide: new Error("gh: Server Error (HTTP 500)") },
+    });
+    r.d.open = async () => ({ tickets: failing.tickets });
+
+    expect(await main(["answers", "28"], r.d)).toBe(1);
+    expect(r.out).toEqual([]);
+    expect(errors).toEqual(["gh: Server Error (HTTP 500)"]);
+  });
+
+  it("fails as view does for a ticket that does not exist", async () => {
+    quiet();
+    const view = deps([]);
+    const answers = deps([]);
+
+    expect(await main(["view", "28"], view.d)).toBe(1);
+    const viewErrors = [...errors];
+    errors = [];
+    expect(await main(["answers", "28"], answers.d)).toBe(1);
+    expect(answers.out).toEqual(view.out);
+    expect(errors).toEqual(viewErrors);
   });
 });

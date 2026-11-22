@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { memoryCodeHost, type MemoryCodeHostOptions } from "./memory-code-host";
 import {
+  apply,
   decide,
   reviewIsAboutHead,
   verdictIn,
@@ -79,16 +81,16 @@ describe("decide, on the pull request's own events", () => {
     ).toBe(true);
   });
 
-  it("passes and announces when the owner adds the override", () => {
+  it("passes and announces when an approver adds the override", () => {
     expect(
       pr({
         action: "labeled",
         label: "verdict: override",
-        senderIsOwner: true,
+        senderIsApprover: true,
       }),
     ).toEqual({
       state: "success",
-      description: "Overridden by the owner",
+      description: "Overridden by an approver",
       announceOverride: true,
     });
   });
@@ -98,23 +100,40 @@ describe("decide, on the pull request's own events", () => {
       pr({
         action: "labeled",
         label: "verdict: owner override",
-        senderIsOwner: true,
+        senderIsApprover: true,
       }),
     ).toBeNull();
   });
 
-  it("removes an override anyone else adds, and keeps the review's verdict", () => {
+  it("removes an override anyone else adds, keeps the review's verdict, and says why", () => {
     expect(
       pr({
         action: "labeled",
         label: "verdict: override",
-        senderIsOwner: false,
+        senderIsApprover: false,
         verdict: "changes",
       }),
     ).toEqual({
       state: "failure",
       description: "The review asked for changes",
       removeOverride: true,
+      explainRemoval: "not an approver",
+    });
+  });
+
+  it("removes an override when who added it cannot be checked, and says so", () => {
+    expect(
+      pr({
+        action: "labeled",
+        label: "verdict: override",
+        senderIsApprover: false,
+        senderUnchecked: true,
+      }),
+    ).toEqual({
+      state: "pending",
+      description: "Waiting for the review of this commit",
+      removeOverride: true,
+      explainRemoval: "could not check",
     });
   });
 
@@ -234,5 +253,131 @@ describe("reviewIsAboutHead", () => {
 
   it("leaves the head alone after a run a newer push cancelled", () => {
     expect(reviewIsAboutHead("aaa", "bbb", null, "cancelled")).toBe(false);
+  });
+});
+
+// The event as GitHub sends it, applied to a pull request in an
+// organization's repository, where the name before the slash is nobody's
+// login.
+describe("apply", () => {
+  const HEAD = "4c1d2ab0000";
+  const SUMMARY = {
+    id: 1,
+    author: "github-actions[bot]",
+    body: `Review.\n<!-- claude-review sha=${HEAD} -->\n<!-- review-verdict: changes -->`,
+    createdAt: "2026-11-22T15:00:00Z",
+  };
+  const setUp = (
+    options: MemoryCodeHostOptions = {},
+    labels = ["verdict: override"],
+  ) => {
+    const host = memoryCodeHost(
+      [
+        {
+          number: 31,
+          labels,
+          head: { sha: HEAD, branch: "28", repository: "acme/x" },
+          comments: [SUMMARY],
+          threads: [],
+        },
+      ],
+      { writers: ["alice", "dana"], ...options },
+    );
+    const log: string[] = [];
+    const go = (action: string, sender: string) =>
+      apply({
+        eventName: "pull_request_target",
+        event: {
+          action,
+          label: { name: "verdict: override" },
+          sender: { login: sender },
+          repository: { owner: { login: "acme" } },
+          pull_request: { number: 31 },
+        },
+        pulls: host.codeHost,
+        log: (line) => void log.push(line),
+      });
+    return { host, log, go };
+  };
+  const comments = (host: ReturnType<typeof memoryCodeHost>) =>
+    host
+      .pull(31)
+      .comments.slice(1)
+      .map((c) => c.body);
+
+  it("passes the verdict when an approver adds the override", async () => {
+    const { host, log, go } = setUp();
+
+    await go("labeled", "alice");
+    expect(log).toContain(
+      `Review verdict on ${HEAD}: success, Overridden by an approver`,
+    );
+    expect(host.pull(31).labels).toEqual(["verdict: override"]);
+    expect(comments(host)).toEqual([
+      "`Review verdict` overridden by @alice at 4c1d2ab. 0 review thread(s) still open; each must be resolved before this can merge. A new push removes the override.",
+    ]);
+  });
+
+  it("passes it for a second approver after a push removed the first's", async () => {
+    const { host, log, go } = setUp();
+
+    await go("labeled", "alice");
+    await go("synchronize", "acme-builds");
+    expect(host.pull(31).labels).toEqual([]);
+    host.change(31, { labels: ["verdict: override"] });
+    await go("labeled", "dana");
+    expect(log.at(-1)).toBe(
+      `Review verdict on ${HEAD}: success, Overridden by an approver`,
+    );
+    expect(comments(host).at(-1)).toMatch(
+      /^`Review verdict` overridden by @dana /,
+    );
+  });
+
+  it("removes an override from an account that cannot write, keeps the review's verdict, and says why", async () => {
+    const { host, log, go } = setUp();
+
+    await go("labeled", "bob");
+    expect(log).toContain(
+      `Review verdict on ${HEAD}: failure, The review asked for changes`,
+    );
+    expect(host.pull(31).labels).toEqual([]);
+    expect(comments(host)).toEqual([
+      "Removed `verdict: override`: @bob cannot write to this repository, and only an account that can may pass the verdict.",
+    ]);
+  });
+
+  it("removes the override, says so, and fails when the code host cannot say who can write", async () => {
+    const { host, log, go } = setUp({
+      fail: { canWrite: new Error("gh: Server Error (HTTP 500)") },
+    });
+
+    await expect(go("labeled", "bob")).rejects.toThrow(
+      "gh: Server Error (HTTP 500)",
+    );
+    expect(log).toContain(
+      `Review verdict on ${HEAD}: failure, The review asked for changes`,
+    );
+    expect(host.pull(31).labels).toEqual([]);
+    expect(comments(host)).toEqual([
+      "Removed `verdict: override`: could not check whether @bob can write to this repository. Add the label again to retry.",
+    ]);
+  });
+
+  it("asks who can write only for the override label", async () => {
+    const { host, go } = setUp({}, []);
+
+    await go("synchronize", "bob");
+    expect(host.log.filter((l) => l.startsWith("canWrite"))).toEqual([]);
+  });
+
+  it("honors an override from an approver whose login the event spells in another case", async () => {
+    const { host, log, go } = setUp();
+
+    await go("labeled", "Alice");
+    expect(log).toContain(
+      `Review verdict on ${HEAD}: success, Overridden by an approver`,
+    );
+    expect(host.pull(31).labels).toEqual(["verdict: override"]);
   });
 });

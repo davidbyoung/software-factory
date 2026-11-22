@@ -38,8 +38,8 @@ unverified, for the builder to check.
    `For the builder` on the `spec` track, or `Acceptance criteria` without
    the label. An issue without `spec` has no `For the builder`: the area's
    rules ("Rules by area" in `CLAUDE.md`) say how it is built.
-2. The latest refinement round in the comments, and any reply from the
-   repository owner after it. Until the owner replies, each proposed default
+2. The latest refinement round in the comments, and any reply
+   `npx --no-install factory ticket answers N` prints after it. Until it prints one, each proposed default
    stands.
 3. `CLAUDE.md`, the files it imports, and the `CLAUDE.md` for every area
    the notes name.
@@ -73,8 +73,8 @@ anything?
 - **A blocking step with no owner,** such as an account, key, or form that
   only the owner can create, with no word on whether it exists.
 - **A conflict** between the criteria, the notes, and the repository's rules.
-- **A build order with no relationship behind it.** The body or a comment
-  by the repository owner says to build this after another issue that is
+- **A build order with no relationship behind it.** The body or an answer
+  `factory ticket answers N` prints says to build this after another issue that is
   still open, and
   `npx --no-install factory ticket blockers N` does not list it. `factory-build` stops only on a recorded relationship, so
   the prose alone lets the build start too soon. Word the finding as:

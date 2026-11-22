@@ -1084,7 +1084,6 @@ describe("parseCosts", () => {
     expect(
       parseCosts(
         comment(`Spent.\n\n<!-- cost: 3.41 session=abc -->\n${AGENT}`),
-        "acme",
       ),
     ).toEqual([3.41]);
   });
@@ -1096,24 +1095,22 @@ describe("parseCosts", () => {
           "Review cost: $0.92.\n\n<!-- cost: 0.92 -->",
           "github-actions[bot]",
         ),
-        "acme",
       ),
     ).toEqual([0.92]);
   });
 
-  it("ignores the owner's comment without the agent mark", () => {
+  it("ignores a comment without the agent mark from anyone but the CI review's bot", () => {
     expect(
-      parseCosts(comment("<!-- cost: 3.41 session=abc -->"), "acme"),
+      parseCosts(comment("<!-- cost: 3.41 session=abc -->", "acme-builds")),
     ).toEqual([]);
   });
 
-  it("ignores any other account", () => {
+  it("reads a marker with the agent mark whoever posted it", () => {
     expect(
       parseCosts(
-        comment(`<!-- cost: 3.41 session=abc -->\n${AGENT}`, "someone"),
-        "acme",
+        comment(`<!-- cost: 3.41 session=abc -->\n${AGENT}`, "acme-builds"),
       ),
-    ).toEqual([]);
+    ).toEqual([3.41]);
   });
 
   it("ignores a marker inside a code fence or inside a line", () => {
@@ -1122,7 +1119,6 @@ describe("parseCosts", () => {
         comment(
           `\`\`\`\n<!-- cost: 3.41 -->\n\`\`\`\nSee <!-- cost: 1.00 --> here.\n${AGENT}`,
         ),
-        "acme",
       ),
     ).toEqual([]);
   });
@@ -1158,13 +1154,11 @@ describe("issueCost", () => {
         comments: [cost("9")],
       }),
     ];
-    expect(issueCost(issue({ comments: [cost("5.96")] }), pulls, "acme")).toBe(
-      10.07,
-    );
+    expect(issueCost(issue({ comments: [cost("5.96")] }), pulls)).toBe(10.07);
   });
 
   it("is null when nothing carries a marker", () => {
-    expect(issueCost(issue(), [pull()], "acme")).toBeNull();
+    expect(issueCost(issue(), [pull()])).toBeNull();
   });
 });
 

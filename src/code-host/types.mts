@@ -136,6 +136,10 @@ export type CodeHost = {
   isPrivate(): Promise<boolean>;
   /** Whether an organization owns the repository, rather than a person. */
   ownerIsOrganization(): Promise<boolean>;
+  /** Whether the account can write to the repository: an approver, whose
+   * words a session takes as instructions. Rejects when the code host
+   * cannot say. */
+  canWrite(login: string): Promise<boolean>;
 
   /** The check runs on a commit, without its statuses. */
   checkRuns(sha: string): Promise<CheckRun[]>;

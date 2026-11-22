@@ -18,6 +18,7 @@ import {
   type Tickets,
   type Write,
 } from "./types.mts";
+import { writeAccess } from "./github-access.mts";
 import { statusOf, type Transport } from "./transport.mts";
 import { sameName } from "../lib/work-status.mts";
 
@@ -547,6 +548,7 @@ export function githubTickets(o: GithubOptions): Tickets {
         await issue(n);
       }
     },
+    mayDecide: (author) => writeAccess(t, o.repository, author),
     linkText: (n) => `Closes #${n}`,
     address: (n) => `https://github.com/${o.repository}/issues/${n}`,
 

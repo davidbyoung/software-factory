@@ -463,7 +463,6 @@ describe("what the sync writes", () => {
         issue(3, [], { state: "closed", closedAt: at(20) }),
       ),
       board,
-      "acme/widgets",
       RUN_PAGE,
       STOCK_CONFIG,
     );
@@ -481,7 +480,6 @@ describe("what the sync writes", () => {
     const [plan] = planSync(
       snapshot(issue(1, [marked(1, 1, "claim actions 99")])),
       board,
-      "acme/widgets",
       RUN_PAGE,
       STOCK_CONFIG,
     );
@@ -491,13 +489,7 @@ describe("what the sync writes", () => {
 
   it("places a card that has no Status", () => {
     const board = withCards(stockBoard(), [[1, null, at(0)]]);
-    const [plan] = planSync(
-      snapshot(issue(1)),
-      board,
-      "acme/widgets",
-      RUN_PAGE,
-      STOCK_CONFIG,
-    );
+    const [plan] = planSync(snapshot(issue(1)), board, RUN_PAGE, STOCK_CONFIG);
     expect(plan.writes).toEqual([{ field: "Status", optionName: "Todo" }]);
   });
 });
@@ -580,7 +572,6 @@ describe("the optional fields", () => {
         new Date(at(30)),
       ),
       board,
-      "acme/widgets",
       RUN_PAGE,
       config({ session: null }),
     );
@@ -1256,7 +1247,7 @@ describe("a state with a list of columns", () => {
       [3, "In Progress", at(0)],
       [4, "Todo", at(0)],
     ]);
-    const plans = planSync(snap, board, "acme/widgets", RUN_PAGE, CONFIG);
+    const plans = planSync(snap, board, RUN_PAGE, CONFIG);
     const status = (n: number) =>
       plans
         .find((p) => p.number === n)!
