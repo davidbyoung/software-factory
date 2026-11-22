@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { asIssue, type GithubIssue } from "./ticket-fixture.ts";
 import { linkPulls, ownLinks, ticketsOf } from "../src/lib/pull-tickets.mts";
 import {
   derive,
@@ -32,14 +33,15 @@ const pull = (body: string, closes: string[] = []): PullRequest => ({
     },
   ],
 });
-const ticket = (key: string, labels: string[] = []): Issue => ({
-  key,
-  title: key,
-  state: "open",
-  closedAt: null,
-  labels,
-  comments: [],
-});
+const ticket = (key: string, labels: string[] = []): Issue =>
+  asIssue({
+    key,
+    title: key,
+    state: "open",
+    closedAt: null,
+    labels,
+    comments: [],
+  });
 
 describe("the tickets a pull request builds, when the tickets are not the code host's own", () => {
   it("closes the tickets its body closes, and the sync shows them In review and counts their cost", () => {

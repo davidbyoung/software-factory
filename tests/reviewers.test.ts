@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { entryOf } from "../src/tickets/record-comments.mts";
 import {
   commentFor,
   lastAssistantText,
@@ -78,8 +79,10 @@ const input = (over: object = {}) => ({
   agent_type: "factory-test-reviewer",
   ...over,
 });
-const runsIn = (body: string) =>
-  parseRuns({ id: "1", createdAt: "", author: "x", body });
+const runsIn = (body: string) => {
+  const entry = entryOf({ id: "1", createdAt: "", author: "x", body });
+  return entry ? parseRuns(entry) : [];
+};
 
 describe("reviewer runs", () => {
   it("posts a running row on the clock's issue when a reviewer starts", async () => {

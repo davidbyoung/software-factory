@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { requestPrice } from "../src/lib/pricing.mts";
 import {
   costNote,
+  noteText,
   measureSession,
   spendIn,
   type Spend,
@@ -147,20 +148,26 @@ describe("costNote", () => {
   });
 
   it("gives the line and the hidden marker, to the cent", () => {
-    expect(costNote({ ok: true, spend: spend({}) }, "#224", "abc")).toBe(
+    expect(
+      noteText(costNote({ ok: true, spend: spend({}) }, "#224", "abc")),
+    ).toBe(
       "This session used $0.10 of the subscription ($3.41 at API list prices) on #224 since its last note.\n\n<!-- cost: 3.41 session=abc -->",
     );
   });
 
   it("ends the sentence with the unpriced tokens, and the marker carries the priced sum", () => {
     expect(
-      costNote(
-        {
-          ok: true,
-          spend: spend({ unpriced: new Map([["claude-fable-5-1", 120_000]]) }),
-        },
-        "#224",
-        "abc",
+      noteText(
+        costNote(
+          {
+            ok: true,
+            spend: spend({
+              unpriced: new Map([["claude-fable-5-1", 120_000]]),
+            }),
+          },
+          "#224",
+          "abc",
+        ),
       ),
     ).toBe(
       "This session used $0.10 of the subscription ($3.41 at API list prices) on #224 since its last note, plus 120,000 tokens on claude-fable-5-1 with no price.\n\n<!-- cost: 3.41 session=abc -->",
@@ -168,17 +175,19 @@ describe("costNote", () => {
   });
 
   it("says the cost could not be measured when no token is priced", () => {
-    const note = costNote(
-      {
-        ok: true,
-        spend: spend({
-          dollars: 0,
-          priced: 0,
-          unpriced: new Map([["claude-fable-5-1", 5]]),
-        }),
-      },
-      "#224",
-      "abc",
+    const note = noteText(
+      costNote(
+        {
+          ok: true,
+          spend: spend({
+            dollars: 0,
+            priced: 0,
+            unpriced: new Map([["claude-fable-5-1", 5]]),
+          }),
+        },
+        "#224",
+        "abc",
+      ),
     );
     expect(note).toMatch(/^This session's cost could not be measured: /);
     expect(note).not.toContain("<!-- cost:");
@@ -186,10 +195,12 @@ describe("costNote", () => {
 
   it("says the cost could not be measured when the transcript has no usage", () => {
     expect(
-      costNote(
-        { ok: true, spend: spend({ dollars: 0, priced: 0 }) },
-        "#224",
-        "abc",
+      noteText(
+        costNote(
+          { ok: true, spend: spend({ dollars: 0, priced: 0 }) },
+          "#224",
+          "abc",
+        ),
       ),
     ).toBe(
       "This session's cost could not be measured: its transcript records no usage since its last note.",

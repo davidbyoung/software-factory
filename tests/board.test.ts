@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { entryOf } from "../src/tickets/record-comments.mts";
 import { load as loadYaml } from "js-yaml";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -567,13 +568,13 @@ describe("Cost", () => {
     const s = snapshot();
     s.issues
       .find((i) => i.key === "12")!
-      .comments.push(marker("5.96", "acme-builds"));
+      .record.push(entryOf(marker("5.96", "acme-builds"))!);
     expect(costWrites(s, 12)).toEqual([{ field: "Cost", number: 0.18 }]);
   });
 
   it("sets the subscription share of the markers on the issue and on a merged or closed pull request that builds it", () => {
     const s = snapshot();
-    s.issues.find((i) => i.key === "12")!.comments.push(marker("5.96"));
+    s.issues.find((i) => i.key === "12")!.record.push(entryOf(marker("5.96"))!);
     s.donePulls = [
       {
         number: 90,
@@ -629,7 +630,7 @@ describe("Cost", () => {
 
   it("writes nothing when the card already holds the sum", () => {
     const s = snapshot();
-    s.issues.find((i) => i.key === "12")!.comments.push(marker("5.96"));
+    s.issues.find((i) => i.key === "12")!.record.push(entryOf(marker("5.96"))!);
     const withCost = BOARD();
     withCost.items.get("12")!.cost = 0.18;
     expect(
@@ -641,12 +642,14 @@ describe("Cost", () => {
     const saved: Saved = structuredClone(SAVED);
     saved.tickets
       .find((t) => t.key === "12")!
-      .comments.push({
-        id: "999",
-        createdAt: "2026-11-09T09:00:00Z",
-        body: "<!-- cost: 250 session=s -->\n<!-- agent -->",
-        author: "acme",
-      });
+      .record.push(
+        entryOf({
+          id: "999",
+          createdAt: "2026-11-09T09:00:00Z",
+          body: "<!-- cost: 250 session=s -->\n<!-- agent -->",
+          author: "acme",
+        })!,
+      );
     const { d, files, mem } = deps(seeded(), { GH_TOKEN: "t" });
     files["in.json"] = JSON.stringify(saved);
 
@@ -666,7 +669,9 @@ describe("a build in GitHub Actions", () => {
   };
   const withClaim = (): Saved => {
     const saved: Saved = structuredClone(SAVED);
-    saved.tickets.find((t) => t.key === "12")!.comments.push(actionsClaim);
+    saved.tickets
+      .find((t) => t.key === "12")!
+      .record.push(entryOf(actionsClaim)!);
     return saved;
   };
 
@@ -679,8 +684,8 @@ describe("a build in GitHub Actions", () => {
       RUN_PAGE,
     ).find((p) => p.key === "12")!;
 
+    expect(plan.column).toBe("In progress");
     expect(plan.writes).toEqual([
-      { field: "Status", optionName: "In progress" },
       {
         field: "Session",
         text: "https://github.com/acme/widgets/actions/runs/123456789",

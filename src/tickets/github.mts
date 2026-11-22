@@ -25,6 +25,7 @@ import {
 import { writeAccess } from "./github-access.mts";
 import { statusOf, type Transport } from "./transport.mts";
 import { sameName } from "../lib/work-status.mts";
+import { MERGED_MARKER, recordOf, renderEntry } from "./record-comments.mts";
 
 export type GithubOptions = {
   transport: Transport;
@@ -147,15 +148,19 @@ export const toComments = (raw: RawComments | undefined): TicketComment[] =>
     author: c.author?.login ?? "ghost",
   }));
 
+const withRecord = (comments: TicketComment[]) => ({
+  comments,
+  record: recordOf(comments),
+});
+
 export function fromRawIssue(raw: RawIssue): Ticket {
   return {
     key: String(raw.number),
     title: raw.title,
-    state: raw.state === "OPEN" ? "open" : "closed",
-    closedAt: raw.closedAt,
+    finishedAt: raw.state === "OPEN" ? null : raw.closedAt,
     labels: raw.labels.nodes.map((l) => l.name),
     body: raw.body ?? "",
-    comments: toComments(raw.comments),
+    ...withRecord(toComments(raw.comments)),
   };
 }
 
@@ -237,6 +242,9 @@ export function toBoard(pages: BoardPage[], repository: string): Board {
   const project = pages[0].data.owner?.projectV2;
   if (!project) throw new Error("The Project could not be read.");
   const items = new Map<Key, BoardItem>();
+  // GitHub returns a Project's items in the order the board shows them
+  // unsorted, which is the order a person drags them into.
+  let rank = 0;
   for (const page of pages) {
     for (const raw of page.data.owner!.projectV2!.items.nodes) {
       const number = raw.content?.number;
@@ -253,6 +261,7 @@ export function toBoard(pages: BoardPage[], repository: string): Board {
         session: raw.session?.text ?? "",
         runsIn: raw.runsIn?.name ?? "",
         cost: raw.cost?.number ?? null,
+        rank: rank++,
       });
     }
   }
@@ -513,14 +522,14 @@ export function githubTickets(o: GithubOptions): Tickets {
       return {
         key: String(raw.number),
         title: raw.title,
-        state: raw.state === "closed" ? "closed" : "open",
-        closedAt: raw.closed_at,
+        finishedAt: raw.state === "closed" ? raw.closed_at : null,
         labels: raw.labels.map(labelName),
         body: raw.body ?? "",
-        comments: comments.map(toComment),
+        ...withRecord(comments.map(toComment)),
       };
     },
-    async listOpen() {
+    readAll: (options) => readAllTickets(options),
+    async listUnfinished() {
       const all = await t.rest<RestIssue[]>(
         "GET",
         `${API}/issues?state=open&per_page=100`,
@@ -578,6 +587,27 @@ export function githubTickets(o: GithubOptions): Tickets {
       });
       return String(made.number);
     },
+    // Adding a label to an issue creates it when the repository lacks it.
+    async ensureLabel() {},
+    async finish(n) {
+      const raw = await issue(n);
+      if (raw.pull_request) throw new NotFoundError(`#${n}`);
+      if (raw.state === "closed") return;
+      await t.rest("PATCH", `${API}/issues/${n}`, {
+        fields: { state: "closed", state_reason: "completed" },
+      });
+    },
+    statuses: false,
+    record: {
+      add(n, entry) {
+        // GitHub shows the merge that closed an issue on the issue itself.
+        if (entry.markers.includes(MERGED_MARKER)) return Promise.resolve("");
+        return tickets.comment(n, renderEntry(entry));
+      },
+      update: (id, entry) => tickets.editComment(id, renderEntry(entry)),
+      remove: (id) => tickets.deleteComment(id),
+      read: async (n) => (await tickets.read(n)).record,
+    },
     async addLabel(n, label) {
       await anIssue(n);
       await found(
@@ -617,6 +647,11 @@ export function githubTickets(o: GithubOptions): Tickets {
           data: { addProjectV2ItemById: { item: { id: string } } };
         }>(ADD_CARD, { project: board.projectId, content: raw.node_id });
         return added.data.addProjectV2ItemById.item.id;
+      },
+      async move(itemId, column) {
+        await tickets.board!.set(itemId, [
+          { field: "Status", optionName: column },
+        ]);
       },
       async set(itemId, writes: Write[]) {
         if (o.board === null) throw new Error("The settings name no board.");
@@ -837,7 +872,9 @@ export function githubTickets(o: GithubOptions): Tickets {
     },
   };
 
-  tickets.readAll = async (options = {}) => {
+  async function readAllTickets(
+    options: { board?: boolean; label?: string } = {},
+  ): Promise<Ticket[]> {
     const pages: IssuesPage[] = [];
     let after: string | null = null;
     do {
@@ -850,15 +887,20 @@ export function githubTickets(o: GithubOptions): Tickets {
       const info = page.data.repository.open.pageInfo;
       after = info.hasNextPage ? info.endCursor : null;
     } while (after);
-    const read = fromIssuesPages(pages);
-    for (const x of read) issues.add(x.key);
+    const all = fromIssuesPages(pages);
+    for (const x of all) issues.add(x.key);
+    const label = options.label;
+    const read =
+      label === undefined
+        ? all
+        : all.filter((x) => x.labels.some((l) => sameName(l, label)));
     if (!options.board) return read;
     const board = await readBoard();
     return read.map((x) => ({
       ...x,
       card: board.items.get(x.key) ?? null,
     }));
-  };
+  }
 
   if (o.cli) {
     const cli = o.cli;

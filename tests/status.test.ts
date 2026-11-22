@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { asIssue, type GithubIssue } from "./ticket-fixture.ts";
 import { painter } from "../src/lib/color.mts";
 import {
   age,
@@ -41,7 +42,7 @@ function fixtureSource(fail?: Error): {
   open: ReturnType<typeof vi.fn>;
 } {
   const mem = memoryTickets(saved.tickets as Ticket[], {
-    fail: fail ? { listOpen: fail } : {},
+    fail: fail ? { read: fail } : {},
   });
   for (const item of toBoard(
     boardPages as BoardPage[],
@@ -64,15 +65,16 @@ const NOW = new Date("2026-11-09T12:00:00Z");
 /** How GitHub, and the in-memory adapter, write a ticket. */
 const REF = (key: string) => `#${key}`;
 const LINKS_IN = memoryTickets().tickets.linksIn;
-const issue = (number: number, over: Partial<Issue> = {}): Issue => ({
-  key: String(number),
-  title: `Issue ${number}`,
-  state: "open",
-  closedAt: null,
-  labels: [],
-  comments: [],
-  ...over,
-});
+const issue = (number: number, over: Partial<GithubIssue> = {}): Issue =>
+  asIssue({
+    key: String(number),
+    title: `Issue ${number}`,
+    state: "open",
+    closedAt: null,
+    labels: [],
+    comments: [],
+    ...over,
+  });
 const pull = (
   number: number,
   over: Partial<PullRequest> = {},

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { asIssue } from "./ticket-fixture.ts";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
@@ -47,14 +48,15 @@ const DISPATCH =
 
 describe("selectToStart", () => {
   it("starts Ready tickets in key order, letters first and then the number as a number", () => {
-    const ready = (key: string) => ({
-      key,
-      title: key,
-      state: "open" as const,
-      closedAt: null,
-      labels: [],
-      comments: [],
-    });
+    const ready = (key: string) =>
+      asIssue({
+        key,
+        title: key,
+        state: "open" as const,
+        closedAt: null,
+        labels: [],
+        comments: [],
+      });
     const card = (key: string): [string, BoardItem] => [
       key,
       {
@@ -102,7 +104,7 @@ describe("selectToStart", () => {
     });
     const snapshot = {
       issues: [
-        {
+        asIssue({
           key: "30",
           title: "A failed start",
           state: "open" as const,
@@ -112,7 +114,7 @@ describe("selectToStart", () => {
             comment(1, 2, commentBody({ kind: "started", marker: "st_1" })),
             comment(2, 3, fireFailed),
           ],
-        },
+        }),
       ],
       pulls: [],
     };

@@ -70,7 +70,7 @@ export function selectToStart(
   return snapshot.issues
     .filter(
       (issue) =>
-        issue.state === "open" &&
+        issue.finishedAt === null &&
         derive(
           issue,
           cardOf(board, issue.key, columns),
@@ -120,9 +120,9 @@ export function dispatchFailure(error: unknown): {
  * restart, neither of which keeps it in memory. */
 export function recentStarts(issues: RepoSnapshot["issues"], now: number) {
   return issues
-    .flatMap((issue) => markedComments(issue.comments))
+    .flatMap((issue) => markedComments(issue.record))
     .filter((m) => m.marker.kind === "started")
-    .map((m) => Date.parse(m.createdAt))
+    .map((m) => Date.parse(m.at))
     .filter((at) => now - at < HOUR);
 }
 

@@ -544,7 +544,7 @@ describe("refinement markers", () => {
 
     expect(out).toEqual(["posted"]);
     expect(last(memory, 7)).toContain(
-      `Nothing here needs your decision.\n\nThis session used $0.10 of the subscription ($3.41 at API list prices) on #7 since its last note.\n\n<!-- cost: 3.41 session=${SESSION} -->\n\nRefinement is done.`,
+      `Nothing here needs your decision.\n\nThis session has used $0.10 of the subscription ($3.41 at API list prices) on #7 so far.\n\nRefinement is done.`,
     );
   });
 
@@ -812,7 +812,7 @@ describe("ready", () => {
   it("names gh auth refresh -s project when the token cannot write the board", async () => {
     quiet();
     const { d, out, memory } = onBoard();
-    memory.tickets.board!.set = async () => {
+    memory.tickets.board!.move = async () => {
       throw SCOPES;
     };
 
@@ -1051,7 +1051,7 @@ describe("the cost clock", () => {
 
     expect(measured).toEqual(["2026-11-09T12:00:00Z"]);
     expect(last(memory, 9)).toContain(
-      `This session used $0.10 of the subscription ($3.41 at API list prices) on #9 since its last note.\n\n<!-- cost: 3.41 session=${SESSION} -->`,
+      `This session has used $0.10 of the subscription ($3.41 at API list prices) on #9 so far.\n\n<!-- cost-total: 3.41 session=${SESSION} -->`,
     );
     expect(clocks.get(SESSION)).toEqual({
       issue: "9",
@@ -1067,7 +1067,7 @@ describe("the cost clock", () => {
 
     await main(["stop", "7", "x"], d);
     expect(last(memory, 7)).toMatch(
-      /This session used \$0\.10[^\n]*\n\n<!-- cost: 3\.41 session=\S+ -->\n\n<!-- work-status: released -->/,
+      /This session has used \$0\.10[^\n]* so far\.\n\n<!-- cost-total: 3\.41 session=\S+ -->\n<!-- work-status: released -->/,
     );
   });
 
@@ -1090,7 +1090,7 @@ describe("the cost clock", () => {
     expect(await main(["cost", "230"], d)).toBe(0);
     expect(out).toEqual(["posted"]);
     expect(last(memory, 230)).toBe(
-      `This session used $0.10 of the subscription ($3.41 at API list prices) on #230 since its last note.\n\n<!-- cost: 3.41 session=${SESSION} -->\n<!-- agent -->`,
+      `This session has used $0.10 of the subscription ($3.41 at API list prices) on #230 so far.\n\n<!-- cost-total: 3.41 session=${SESSION} -->\n<!-- agent -->`,
     );
   });
 
@@ -1264,7 +1264,7 @@ describe("the ticket commands", () => {
 
     await main(["list", "--json"], d);
     expect(JSON.parse(out.join("\n"))).toEqual(
-      (await memory.tickets.listOpen()).map((t) => ({
+      (await memory.tickets.listUnfinished()).map((t) => ({
         ref: `#${t.key}`,
         ...t,
       })),
@@ -1732,7 +1732,7 @@ describe("a ticket command whose adapter call fails", () => {
   it.each([
     ["view", ["view", "7"], "read"],
     ["view --field body", ["view", "7", "--field", "body"], "read"],
-    ["list", ["list"], "listOpen"],
+    ["list", ["list"], "listUnfinished"],
     ["edit", ["edit", "7", "--body-file", "c.md"], "writeBody"],
     ["comment", ["comment", "7", "--body-file", "c.md"], "comment"],
     ["open", ["open", "--title", "T", "--body-file", "c.md"], "open"],

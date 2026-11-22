@@ -28,12 +28,17 @@ import { join } from "node:path";
 import { loadSettings } from "./config.mts";
 import { targetOf } from "./config.mts";
 import { openTickets } from "./tickets/index.mts";
-import { NotFoundError, type Key, type Tickets } from "./tickets/types.mts";
+import {
+  NotFoundError,
+  type Key,
+  type NewEntry,
+  type Tickets,
+} from "./tickets/types.mts";
+import { renderEntry } from "./tickets/record-comments.mts";
 import { commonDir, readClock, type Clock } from "./lib/clock.mts";
 import { subscriptionDollars } from "./lib/pricing.mts";
 import { dollars, spendIn } from "./lib/usage.mts";
 import {
-  AGENT_MARK,
   REVIEWER_RUNS_MARK,
   isStuck,
   runLine,
@@ -194,27 +199,34 @@ export function resultText(run: ReviewerRun, now: Date): string {
 /** The comment: a table for the owner, then each row's hidden copy for
  * `npx --no-install factory status`. It carries no cost marker: the session's next cost
  * note already includes what the reviewers spent. */
-export function commentFor(
+export function entryForRuns(
   session: string,
   runs: ReviewerRun[],
   now: Date,
-): string {
+): NewEntry {
   const rows = runs.map((run) => {
     const finished = run.result !== "running";
     return `| ${run.reviewer} | ${run.model} | ${utc(run.start)} | ${resultText(run, now)} | ${finished && run.end ? minutes(run.start, run.end) : ""} | ${finished && run.cost !== undefined ? `${dollars(subscriptionDollars(run.cost))} (${dollars(run.cost)})` : ""} |`;
   });
-  return [
-    "Reviewers in this session, each cost as a share of the subscription and, in parentheses, at API list prices:",
-    "",
-    "| Reviewer | Model | Started | Result | Ran for | Cost |",
-    "| --- | --- | --- | --- | --- | --- |",
-    ...rows,
-    "",
-    `${REVIEWER_RUNS_MARK}${session} -->`,
-    ...runs.map(runLine),
-    AGENT_MARK,
-  ].join("\n");
+  return {
+    text: [
+      "Reviewers in this session, each cost as a share of the subscription and, in parentheses, at API list prices:",
+      "",
+      "| Reviewer | Model | Started | Result | Ran for | Cost |",
+      "| --- | --- | --- | --- | --- | --- |",
+      ...rows,
+    ].join("\n"),
+    markers: [`${REVIEWER_RUNS_MARK}${session} -->`, ...runs.map(runLine)],
+    tellsPerson: false,
+  };
 }
+
+/** The entry as GitHub posts it, as a comment. */
+export const commentFor = (
+  session: string,
+  runs: ReviewerRun[],
+  now: Date,
+): string => renderEntry(entryForRuns(session, runs, now));
 
 async function publish(
   issue: Key,
@@ -222,18 +234,18 @@ async function publish(
   state: State,
   d: Deps,
 ): Promise<string> {
-  const body = commentFor(session, state.runs, d.now());
+  const entry = entryForRuns(session, state.runs, d.now());
   const tickets = await d.tickets();
   if (state.commentId !== null) {
     try {
-      await tickets.editComment(state.commentId, body);
+      await tickets.record.update(state.commentId, entry);
       return state.commentId;
     } catch (error) {
       // A deleted comment is posted again; anything else is a failure.
       if (!(error instanceof NotFoundError)) throw error;
     }
   }
-  return tickets.comment(issue, body);
+  return tickets.record.add(issue, entry);
 }
 
 export async function main(

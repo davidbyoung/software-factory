@@ -64,7 +64,8 @@ import type { Runner } from "./runner/types.mts";
 import { loadSettings, targetOf, type Settings } from "./config.mts";
 import {
   AGENT_MARK,
-  commentBody,
+  entryFor,
+  sessionTotal,
   sameName,
   reviewingPulls,
   workState,
@@ -77,7 +78,7 @@ import { missingParts } from "./lib/refined-check.mts";
 import { labelOf, shownLabels, type Labels } from "./labels.mts";
 import { commonDir, readClock, writeClock, type Clock } from "./lib/clock.mts";
 import { costNote, measureSession, projectsDir } from "./lib/usage.mts";
-import type { Measured } from "./lib/usage.mts";
+import type { CostNote, Measured } from "./lib/usage.mts";
 import { boardConfigOf, checkFields, type BoardConfig } from "./board.mts";
 import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
 import { openTickets } from "./tickets/index.mts";
@@ -86,6 +87,7 @@ import {
   compareKeys,
   need,
   supports,
+  type Entry,
   type Group,
   type Key,
   type Ticket,
@@ -156,31 +158,56 @@ export type { Clock };
 export async function readComments(
   c: { tickets: Tickets },
   issue: Key,
-): Promise<IssueComment[]> {
-  return (await c.tickets.read(issue)).comments;
+): Promise<Entry[]> {
+  return c.tickets.record.read(issue);
 }
 
 /** What a cost note needs: the session's clock and what it spent. */
 export type CostDeps = Pick<Deps, "env" | "clock" | "now" | "measure">;
 
-/** The cost note for what this session spent since its clock started, and
- * the clock restarted from now. `on` is where the note is posted, as
- * written in prose. */
-export function takeCost(on: string, d: CostDeps): string {
+/** A cost note, and the clock restart to make once it is posted, so a note
+ * that fails to post leaves the clock where it was. */
+export type TakenCost = { note: CostNote; restart: () => void };
+
+/** The cost note for what this session spent since its clock started. `on`
+ * is where the note is posted, as written in prose. With `total`, the
+ * session's total already recorded on the ticket, the note holds the new
+ * total. */
+export function takeCost(on: string, d: CostDeps, total?: number): TakenCost {
   const session = d.env.CLAUDE_CODE_SESSION_ID ?? "";
   if (!session)
-    return costNote(
-      { ok: false, reason: "CLAUDE_CODE_SESSION_ID is not set" },
-      on,
-      session,
-    );
+    return {
+      note: costNote(
+        { ok: false, reason: "CLAUDE_CODE_SESSION_ID is not set" },
+        on,
+        session,
+      ),
+      restart: () => {},
+    };
   const clock = d.clock.read(session);
   const now = d.now().toISOString();
-  const note = costNote(measure(d, session, clock?.start ?? null), on, session);
-  // Only claim and refining choose the issue: a note posted elsewhere, such
-  // as on a pull request, keeps the clock's.
-  d.clock.write(session, { issue: clock ? clock.issue : null, start: now });
-  return note;
+  const note = costNote(
+    measure(d, session, clock?.start ?? null),
+    on,
+    session,
+    total,
+  );
+  return {
+    note,
+    // Only claim and refining choose the issue: a note posted elsewhere,
+    // such as on a pull request, keeps the clock's.
+    restart: () =>
+      d.clock.write(session, { issue: clock ? clock.issue : null, start: now }),
+  };
+}
+
+/** The cost note for a ticket: the session's running total on it. */
+async function ticketCost(issue: Key, d: Ctx): Promise<TakenCost> {
+  const session = d.env.CLAUDE_CODE_SESSION_ID ?? "";
+  const total = session
+    ? sessionTotal(await d.tickets.record.read(issue), session)
+    : 0;
+  return takeCost(d.tickets.ref(issue), d, total);
 }
 
 function measure(d: CostDeps, session: string, since: string | null): Measured {
@@ -201,7 +228,7 @@ function startClock(issue: Key, d: Deps) {
 }
 
 async function post(c: Ctx, issue: Key, kind: CommentKind) {
-  return c.tickets.comment(issue, commentBody(kind, c.config.columns));
+  return c.tickets.record.add(issue, entryFor(kind, c.config.columns));
 }
 
 /** The ticket as a comment names it. */
@@ -210,8 +237,8 @@ const named = (c: { tickets: Tickets }, key: Key) => ({
   ref: c.tickets.ref(key),
 });
 
-async function remove(c: Ctx, commentId: string) {
-  await c.tickets.deleteComment(commentId);
+async function remove(c: Ctx, entryId: string) {
+  await c.tickets.record.remove(entryId);
 }
 
 /** What the ticket waits on that is still open; none when the ticket
@@ -227,7 +254,7 @@ export async function openBlockers(
 
 /** The outcome of a claim, as `factory-build` reads it. */
 export function claimOutcome(
-  comments: IssueComment[],
+  comments: Entry[],
   mine: string,
 ): "claimed" | `held by ${string}` {
   const { live } = workState(comments);
@@ -267,7 +294,7 @@ async function claim(issue: Key, who: Identity, d: Ctx) {
 
   const mine = await post(d, issue, { kind: "claim", who });
   await d.sleep(5000);
-  let comments: IssueComment[];
+  let comments: Entry[];
   try {
     comments = await readComments(d, issue);
   } catch (error) {
@@ -298,7 +325,7 @@ async function end(
   d: Ctx,
 ): Promise<"released" | "kept" | "not live"> {
   const ticket = await d.tickets.read(issue);
-  const live = workState(ticket.comments).live;
+  const live = workState(ticket.record).live;
   const stored = d.claimStore.read(issue);
   const mine =
     live !== null &&
@@ -326,7 +353,7 @@ export function withLine(body: string, line: string): string {
 async function followUp(file: string, text: string, d: Ctx) {
   const line = `- [ ] ${file}: ${text}`;
   const label = d.labels.tickets["follow-up"];
-  const open = (await d.tickets.listOpen()).filter((t) =>
+  const open = (await d.tickets.listUnfinished()).filter((t) =>
     t.labels.includes(label),
   );
   const [first] = open.sort((a, b) => compareKeys(a.key, b.key));
@@ -351,7 +378,7 @@ async function followUp(file: string, text: string, d: Ctx) {
 async function moveToReady(issue: Key, d: Ctx) {
   const ref = d.tickets.ref(issue);
   const found = await d.tickets.read(issue);
-  if (found.state !== "open") throw new Error(`${ref} is closed.`);
+  if (found.finishedAt !== null) throw new Error(`${ref} is closed.`);
   if (d.board === null) throw new Error("The settings name no board.");
   const ready = d.config.columns.Ready?.[0] ?? null;
   if (ready === null)
@@ -366,9 +393,7 @@ async function moveToReady(issue: Key, d: Ctx) {
   const fields = checkFields(read.fields, d.config);
   const option = fields.status.options?.find((o) => sameName(o.name, ready));
   try {
-    await board.set(item.itemId, [
-      { field: fields.status.name, optionName: option?.name ?? ready },
-    ]);
+    await board.move(item.itemId, option?.name ?? ready);
   } catch (error) {
     if (/INSUFFICIENT_SCOPES|required scopes/i.test(String(error)))
       throw new Error(
@@ -409,7 +434,7 @@ export function formatTicket(
 ): string[] {
   const lines = [
     `${ref} ${t.title}`,
-    `state: ${t.state}`,
+    `state: ${stateOf(t)}`,
     `labels: ${shownLabels(t.labels, names).join(", ") || "(none)"}`,
     "",
     t.body.trimEnd() || "(no body)",
@@ -417,6 +442,9 @@ export function formatTicket(
   for (const c of t.comments) lines.push("", ...formatComment(c));
   return lines;
 }
+
+/** A ticket's state as `view` prints it. */
+const stateOf = (t: Ticket) => (t.finishedAt === null ? "open" : "closed");
 
 /** One comment as `view` prints it: a line naming it, then its body. */
 export function formatComment(c: TicketComment): string[] {
@@ -512,7 +540,8 @@ async function ticketCommand(
       else if (field === "labels")
         shownLabels(ticket.labels, names).forEach(d.out);
       else if (field === "ref") d.out(t.ref(ticket.key));
-      else d.out(String(ticket[field as "title" | "state" | "body"]));
+      else if (field === "state") d.out(stateOf(ticket));
+      else d.out(String(ticket[field as "title" | "body"]));
       return 0;
     }
     case "answers": {
@@ -530,7 +559,7 @@ async function ticketCommand(
       const given = option(args, "--label");
       const label = given === undefined ? undefined : labelOf(names, given);
       const title = option(args, "--title");
-      const kept = (await t.listOpen())
+      const kept = (await t.listUnfinished())
         .filter((x) => label === undefined || x.labels.includes(label))
         .filter((x) => title === undefined || x.title === title)
         .sort((a, b) => compareKeys(a.key, b.key));
@@ -731,13 +760,17 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
           d.out("not live; posted nothing");
           return 3;
         }
-        await post(d, issue, {
-          kind: "stopped",
-          where: who.where,
-          issue: named(d, issue),
-          reason: rest[0],
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "stopped",
+            where: who.where,
+            issue: named(d, issue),
+            reason: rest[0],
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         d.out("released");
         return 0;
       }
@@ -753,18 +786,26 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         startClock(issue, d);
         break;
       case "waiting":
-        await post(d, issue, {
-          kind: "waiting",
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "waiting",
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         break;
       case "cost":
         // Read first: a number that is no ticket leaves the clock.
         await d.tickets.read(issue);
-        await post(d, issue, {
-          kind: "cost",
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "cost",
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         break;
       case "refined": {
         // A body the build could not read gets no marker, whoever wrote it.
@@ -784,12 +825,16 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         }
         const at = rest.indexOf("--before-file");
         const before = at === -1 ? undefined : d.readFile(rest[at + 1]);
-        await post(d, issue, {
-          kind: "refined",
-          issue: named(d, issue),
-          before,
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "refined",
+            issue: named(d, issue),
+            before,
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         break;
       }
       default:

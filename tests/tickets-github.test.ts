@@ -212,8 +212,7 @@ describe("GitHub adapter: read", () => {
     expect(ticket).toEqual({
       key: "7",
       title: "Ticket 7",
-      state: "open",
-      closedAt: null,
+      finishedAt: null,
       labels: ["enhancement"],
       body: "Body 7",
       comments: [
@@ -230,6 +229,7 @@ describe("GitHub adapter: read", () => {
           author: "acme",
         },
       ],
+      record: [],
     });
     expect(calls).toHaveLength(2);
   });
@@ -243,8 +243,7 @@ describe("GitHub adapter: read", () => {
       [/comments/, [[]]],
     ]);
     const ticket = await t.read("8");
-    expect(ticket.state).toBe("closed");
-    expect(ticket.closedAt).toBe("2026-11-09T10:00:00Z");
+    expect(ticket.finishedAt).toBe("2026-11-09T10:00:00Z");
   });
 
   it("fails as not found for a ticket that does not exist", async () => {
@@ -265,7 +264,7 @@ describe("GitHub adapter: read", () => {
   });
 });
 
-describe("GitHub adapter: listOpen", () => {
+describe("GitHub adapter: listUnfinished", () => {
   it("lists every open ticket over 100, leaving pull requests out", async () => {
     const first = Array.from({ length: 100 }, (_, i) => restIssue(i + 1));
     const second = [
@@ -279,7 +278,7 @@ describe("GitHub adapter: listOpen", () => {
         [first, second],
       ],
     ]);
-    const open = await t.listOpen();
+    const open = await t.listUnfinished();
     expect(open).toHaveLength(102);
     expect(open.map((x) => x.key)).not.toContain("102");
     expect(open.at(-1)).toEqual({
@@ -299,8 +298,10 @@ describe("GitHub adapter: readAll", () => {
     ];
     let page = 0;
     const { t, calls } = tickets([[/Tickets\(/, () => pages[page++]]]);
-    const read = await t.readAll!();
-    expect(read.map((x) => [x.key, x.state])).toEqual([
+    const read = await t.readAll();
+    expect(
+      read.map((x) => [x.key, x.finishedAt === null ? "open" : "closed"]),
+    ).toEqual([
       ["1", "open"],
       ["2", "open"],
       ["3", "open"],
@@ -325,43 +326,6 @@ describe("GitHub adapter: readAll", () => {
       cost: 1.5,
     });
     expect(read[1].card).toBeNull();
-  });
-});
-
-describe("the default readAll", () => {
-  const seeded = () => {
-    const m = memoryTickets([
-      { number: 1, comments: [] },
-      { number: 2, labels: ["follow-up"] },
-      { number: 3, state: "closed", closedAt: "2026-11-09T10:00:00Z" },
-    ]);
-    m.tickets.readAll = undefined;
-    return m;
-  };
-
-  it("returns what the list and the single reads return, for each open ticket", async () => {
-    const m = seeded();
-    const read = await readAll(m.tickets);
-    const expected: Ticket[] = [];
-    for (const s of await m.tickets.listOpen())
-      expected.push(await m.tickets.read(s.key));
-    expect(read).toEqual(expected);
-    expect(read.map((x) => x.key)).toEqual(["1", "2"]);
-  });
-
-  it("carries each ticket's card with the board, null off it", async () => {
-    const m = seeded();
-    m.card(1, { status: "Ready" });
-    const read = await readAll(m.tickets, { board: true });
-    expect(read[0].card?.status).toBe("Ready");
-    expect(read[1].card).toBeNull();
-  });
-
-  it("uses an adapter's own readAll when it has one", async () => {
-    const m = seeded();
-    const own: Ticket[] = [];
-    m.tickets.readAll = async () => own;
-    expect(await readAll(m.tickets)).toBe(own);
   });
 });
 
@@ -1107,8 +1071,7 @@ describe("GitHub adapter: a recorded GraphQL answer", () => {
     const strip = (x: Ticket) => ({
       key: x.key,
       title: x.title,
-      state: x.state,
-      closedAt: x.closedAt,
+      finishedAt: x.finishedAt,
       labels: x.labels,
       comments: x.comments,
     });

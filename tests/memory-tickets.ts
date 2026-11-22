@@ -6,6 +6,11 @@
 // are opaque text, as Jira and Linear give them.
 // A test that needs `fake-gh` for a ticket is a sign the command went
 // around the interface.
+// Plain, it keeps the factory's record in comments, as GitHub does. Strict,
+// it keeps the record apart and holds the factory to what Jira and Linear
+// allow: a status in place of open or closed, moves only along `moves`, no
+// hidden text in a comment, and no label used before it is created.
+import { recordOf, renderEntry } from "../src/tickets/record-comments.mts";
 import {
   GROUPS,
   KeyError,
@@ -15,6 +20,7 @@ import {
   type Blocker,
   type Board,
   type BoardField,
+  type Entry,
   type TicketField,
   type BoardItem,
   type Group,
@@ -24,8 +30,12 @@ import {
   type Write,
 } from "../src/tickets/types.mts";
 
-/** A ticket to start with, by its key; a number is its key as text. */
-export type Seed = Partial<Ticket> & ({ key: Key } | { number: number });
+/** A ticket to start with, by its key; a number is its key as text. It may
+ * say it is closed, and when, as a GitHub issue does. */
+export type Seed = Partial<Ticket> & {
+  state?: "open" | "closed";
+  closedAt?: string | null;
+} & ({ key: Key } | { number: number });
 
 const keyOfSeed = (t: Seed): Key =>
   "key" in t && t.key !== undefined
@@ -34,7 +44,9 @@ const keyOfSeed = (t: Seed): Key =>
 
 type Op =
   | "read"
-  | "listOpen"
+  | "listUnfinished"
+  | "record"
+  | "finish"
   | "writeBody"
   | "writeTitle"
   | "comment"
@@ -104,9 +116,36 @@ export type MemoryOptions = {
   createRefused?: string;
   /** The fields tickets can have, set on the ticket itself. */
   ticketFields?: TicketField[];
+  /** Strict only: the labels that exist before the test, which
+   * `ensureLabel` adds to. */
+  labels?: string[];
+  /** Strict only: the statuses a card can move to from each status; a move
+   * goes along them, and one with no path throws. Any move unless given. */
+  moves?: Record<string, string[]>;
   /** Whether those fields show their text as typed; true unless given. */
   plainText?: boolean;
 };
+
+/** The statuses a move from `from` to `to` passes through, along the
+ * allowed moves, or a thrown error when there is no path. */
+function pathTo(
+  from: string,
+  to: string,
+  moves: Record<string, string[]>,
+): string[] {
+  const seen = new Map<string, string[]>([[from, []]]);
+  const queue = [from];
+  while (queue.length) {
+    const at = queue.shift()!;
+    if (at === to) return seen.get(at)!;
+    for (const next of moves[at] ?? [])
+      if (!seen.has(next)) {
+        seen.set(next, [...seen.get(at)!, next]);
+        queue.push(next);
+      }
+  }
+  throw new Error(`No move from ${from} to ${to}.`);
+}
 
 export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
   const groups = new Set(options.groups ?? GROUPS);
@@ -120,19 +159,26 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
   const tickets = new Map<Key, Ticket>();
   for (const t of seed) {
     const key = keyOfSeed(t);
-    const { number: _, ...rest } = t as Partial<Ticket> & { number?: number };
+    const {
+      number: _,
+      state,
+      closedAt,
+      ...rest
+    } = t as Seed & { number?: number };
     tickets.set(key, {
       title: `Ticket ${key}`,
-      state: "open",
-      closedAt: null,
+      finishedAt: state === "closed" ? (closedAt ?? now()) : null,
       body: "",
       ...rest,
       key,
       // Copied, so one test's writes never reach a seed another test shares.
       labels: [...(t.labels ?? [])],
       comments: (t.comments ?? []).map((c) => ({ ...c, id: String(c.id) })),
+      record: (t.record ?? []).map((e) => ({ ...e, markers: [...e.markers] })),
     });
   }
+  const knownLabels = new Set(options.labels ?? []);
+  let nextEntry = 1;
   const board = new Map<Key, BoardItem>();
   const blockers = new Map<Key, Key[]>();
   const removedLabels = new Map<Key, string[]>();
@@ -166,12 +212,25 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
     }
     throw new NotFoundError(`comment ${id}`);
   };
+  // Plain, the record is the comments that carry a marker, as on GitHub.
+  const recordIn = (t: Ticket): Entry[] =>
+    strict ? t.record.map((e) => ({ ...e })) : recordOf(t.comments);
   const copy = (t: Ticket): Ticket => ({
     ...t,
     labels: [...t.labels],
     comments: t.comments.map((c) => ({ ...c })),
+    record: recordIn(t),
   });
+  const findEntry = (id: string): [Ticket, number] => {
+    for (const t of tickets.values()) {
+      const at = t.record.findIndex((e) => e.id === id);
+      if (at !== -1) return [t, at];
+    }
+    throw new NotFoundError(`entry ${id}`);
+  };
   const addComment = (n: Key, body: string): string => {
+    if (strict && body.includes("<!--"))
+      throw new Error("A comment here shows hidden text as it is typed.");
     const t = get(n);
     const id = commentId(nextComment++);
     const c: TicketComment = { id, author: owner, createdAt: now(), body };
@@ -197,10 +256,19 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
       check("read");
       return copy(get(n));
     },
-    async listOpen() {
-      check("listOpen");
+    async readAll(opts = {}) {
+      check("read");
+      const label = opts.label;
+      const read = [...tickets.values()]
+        .filter((t) => label === undefined || t.labels.includes(label))
+        .map(copy);
+      if (!opts.board || !groups.has("board")) return read;
+      return read.map((t) => ({ ...t, card: board.get(t.key) ?? null }));
+    },
+    async listUnfinished() {
+      check("listUnfinished");
       return [...tickets.values()]
-        .filter((t) => t.state === "open")
+        .filter((t) => t.finishedAt === null)
         .map((t) => ({
           key: t.key,
           title: t.title,
@@ -242,14 +310,69 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         title,
         body,
         labels: [...labels],
-        state: "open",
-        closedAt: null,
+        finishedAt: null,
         comments: [],
+        record: [],
       });
       return key;
     },
+    async ensureLabel(label) {
+      knownLabels.add(label);
+    },
+    async finish(n) {
+      check("finish");
+      const t = get(n);
+      // A system with statuses finishes a ticket by its status.
+      if (!strict && t.finishedAt === null) t.finishedAt = now();
+    },
+    statuses: strict,
+    record: {
+      async add(n, entry) {
+        // Plain, through the adapter's own comment, as GitHub's does.
+        if (!strict) {
+          if (entry.markers.some((m) => m.includes("work-status: merged")))
+            return "";
+          return adapter.comment(n, renderEntry(entry));
+        }
+        check("record");
+        const t = get(n);
+        const id = `e-${nextEntry++}`;
+        t.record.push({
+          id,
+          at: now(),
+          author: owner,
+          text: entry.text,
+          markers: [...entry.markers],
+        });
+        if (entry.tellsPerson) addComment(n, entry.text);
+        return id;
+      },
+      async update(id, entry) {
+        if (!strict) return adapter.editComment(id, renderEntry(entry));
+        check("record");
+        const [t, at] = findEntry(id);
+        t.record[at] = {
+          ...t.record[at],
+          text: entry.text,
+          markers: [...entry.markers],
+        };
+      },
+      async remove(id) {
+        if (!strict) return adapter.deleteComment(id);
+        check("record");
+        const [t, at] = findEntry(id);
+        t.record.splice(at, 1);
+      },
+      async read(n) {
+        if (!strict) return (await adapter.read(n)).record;
+        check("record");
+        return recordIn(get(n));
+      },
+    },
     async addLabel(n, label) {
       check("addLabel");
+      if (strict && !knownLabels.has(label))
+        throw new Error(`No label called ${label}: create it first.`);
       const t = get(n);
       if (!t.labels.includes(label)) t.labels.push(label);
     },
@@ -309,6 +432,8 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         check("board");
         const item = [...board.values()].find((i) => i.itemId === itemId);
         if (!item) throw new NotFoundError(`card ${itemId}`);
+        if (ws.some((w) => w.field === "Status"))
+          throw new Error("A card's column is set by move, not set.");
         writes.push({ itemId, writes: ws });
         for (const w of ws) {
           if ("clear" in w) {
@@ -317,11 +442,21 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
             else item.cost = null;
           } else if ("text" in w) item.session = w.text;
           else if ("number" in w) item.cost = w.number;
-          else if (w.field === "Status") {
-            item.status = w.optionName;
-            item.updatedAt = now();
-          } else item.runsIn = w.optionName;
+          else item.runsIn = w.optionName;
         }
+      },
+      async move(itemId, column) {
+        check("board");
+        const item = [...board.values()].find((i) => i.itemId === itemId);
+        if (!item) throw new NotFoundError(`card ${itemId}`);
+        if (strict && options.moves && item.status !== null)
+          pathTo(item.status, column, options.moves);
+        writes.push({
+          itemId,
+          writes: [{ field: "Status", optionName: column }],
+        });
+        item.status = column;
+        item.updatedAt = now();
       },
       async list() {
         check("board");
@@ -382,7 +517,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         get(n);
         return (blockers.get(n) ?? []).map((b) => ({
           key: b,
-          state: tickets.get(b)?.state ?? "open",
+          state: tickets.get(b)?.finishedAt ? "closed" : "open",
         }));
       },
       async add(n, by) {

@@ -120,18 +120,42 @@ function unpricedClause(spend: Spend): string {
   return `, plus ${parts.join(" and ")}`;
 }
 
+/** A cost note: its visible line, and its hidden marker, or null when the
+ * cost could not be measured. */
+export type CostNote = { text: string; marker: string | null };
+
+/** The note as a comment's text. */
+export const noteText = (note: CostNote): string =>
+  note.marker ? `${note.text}\n\n${note.marker}` : note.text;
+
 /** The cost note's visible line and hidden marker, or the line that says
- * why the cost could not be measured. */
+ * why the cost could not be measured. With `total`, the session's total
+ * already recorded on the ticket, the note holds the new total; without,
+ * what it spent since its last note, as a pull request's note does. */
 export function costNote(
   measured: Measured,
   /** Where the note is posted, as written in prose, such as `#12`. */
   on: string,
   session: string,
-): string {
-  const failed = (reason: string) =>
-    `This session's cost could not be measured: ${reason}.`;
+  total?: number,
+): CostNote {
+  const failed = (reason: string): CostNote => ({
+    text: `This session's cost could not be measured: ${reason}.`,
+    marker: null,
+  });
   if (!measured.ok) return failed(measured.reason);
   const { spend } = measured;
+  if (total !== undefined) {
+    if (spend.priced === 0 && spend.unpriced.size > 0)
+      return failed(
+        `no token in it is on a model with a list price${unpricedClause(spend).replace(/^, plus/, ":")}`,
+      );
+    const sum = Math.round((total + spend.dollars) * 100) / 100;
+    return {
+      text: `This session has used ${bothPrices(sum)} on ${on} so far${unpricedClause(spend)}.`,
+      marker: `<!-- cost-total: ${sum.toFixed(2)} session=${session} -->`,
+    };
+  }
   if (spend.priced === 0)
     return failed(
       spend.unpriced.size === 0
@@ -139,7 +163,10 @@ export function costNote(
         : `no token in it is on a model with a list price${unpricedClause(spend).replace(/^, plus/, ":")}`,
     );
   const amount = spend.dollars.toFixed(2);
-  return `This session used ${bothPrices(spend.dollars)} on ${on} since its last note${unpricedClause(spend)}.\n\n<!-- cost: ${amount} session=${session} -->`;
+  return {
+    text: `This session used ${bothPrices(spend.dollars)} on ${on} since its last note${unpricedClause(spend)}.`,
+    marker: `<!-- cost: ${amount} session=${session} -->`,
+  };
 }
 
 /** Where Claude Code keeps its transcripts. */

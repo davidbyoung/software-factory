@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => vi.restoreAllMocks());
+import { asIssue, type GithubIssue } from "./ticket-fixture.ts";
 import {
   boardConfigOf,
   boardReport,
@@ -63,17 +64,18 @@ const marked = (id: number, minute: number, marker: string) => ({
 });
 const issue = (
   number: number,
-  comments: Issue["comments"] = [],
-  over: Partial<Issue> = {},
-): Issue => ({
-  key: String(number),
-  title: `Issue ${number}`,
-  state: "open",
-  closedAt: null,
-  labels: [],
-  comments,
-  ...over,
-});
+  comments: GithubIssue["comments"] = [],
+  over: Partial<GithubIssue> = {},
+): Issue =>
+  asIssue({
+    key: String(number),
+    title: `Issue ${number}`,
+    state: "open",
+    closedAt: null,
+    labels: [],
+    comments,
+    ...over,
+  });
 
 /** GitHub's stock board, and the mapping a repository writes for it. */
 const STOCK_YAML = {
@@ -467,12 +469,10 @@ describe("what the sync writes", () => {
       STOCK_CONFIG,
     );
     const status = (n: number) =>
-      plans
-        .find((p) => p.key === String(n))!
-        .writes.find((w) => w.field === "Status");
-    expect(status(1)).toBeUndefined();
-    expect(status(2)).toEqual({ field: "Status", optionName: "In Progress" });
-    expect(status(3)).toEqual({ field: "Status", optionName: "Done" });
+      plans.find((p) => p.key === String(n))!.column;
+    expect(status(1)).toBeNull();
+    expect(status(2)).toBe("In Progress");
+    expect(status(3)).toBe("Done");
   });
 
   it("writes none of a card's fields while it sits in a column no state names", () => {
@@ -490,7 +490,8 @@ describe("what the sync writes", () => {
   it("places a card that has no Status", () => {
     const board = withCards(stockBoard(), [[1, null, at(0)]]);
     const [plan] = planSync(snapshot(issue(1)), board, RUN_PAGE, STOCK_CONFIG);
-    expect(plan.writes).toEqual([{ field: "Status", optionName: "Todo" }]);
+    expect(plan.column).toBe("Todo");
+    expect(plan.writes).toEqual([]);
   });
 });
 
@@ -576,7 +577,8 @@ describe("the optional fields", () => {
       RUN_PAGE,
       config({ session: null }),
     );
-    expect(plan.writes.map((w) => w.field)).toEqual(["Status"]);
+    expect(plan.column).not.toBeNull();
+    expect(plan.writes).toEqual([]);
   });
 });
 
@@ -1341,13 +1343,11 @@ describe("a state with a list of columns", () => {
     ]);
     const plans = planSync(snap, board, RUN_PAGE, CONFIG);
     const status = (n: number) =>
-      plans
-        .find((p) => p.key === String(n))!
-        .writes.find((w) => w.field === "Status");
-    expect(status(1)).toEqual({ field: "Status", optionName: "In Progress" });
-    expect(status(2)).toBeUndefined();
-    expect(status(3)).toBeUndefined();
-    expect(status(4)).toBeUndefined();
+      plans.find((p) => p.key === String(n))!.column;
+    expect(status(1)).toBe("In Progress");
+    expect(status(2)).toBeNull();
+    expect(status(3)).toBeNull();
+    expect(status(4)).toBeNull();
   });
 
   it("prints a list's row joined by commas, and reports each listed name the board lacks", () => {

@@ -403,6 +403,9 @@ export type Plan = {
   /** The cost markers' sum as subscription dollars, or null when there are
    * none. */
   cost: number | null;
+  /** The column to move the card to, or null when it stays. */
+  column: string | null;
+  /** The factory's own fields to write. */
   writes: Write[];
   /** The column the card sits in when no state names it: the sync leaves
    * such a card alone. */
@@ -444,22 +447,24 @@ export function planSync(
       item?.status != null &&
       statusOfColumn(item.status, cfg.columns) === null
     )
-      return { ...base, writes: [], unmapped: item.status };
+      return { ...base, column: null, writes: [], unmapped: item.status };
     const session = actionsRunLink(derived, runPage) ?? derived.session;
     const runsIn = derived.runsIn;
     const column = columnFor(derived.status, cfg.columns);
     const option = fields.status.options?.find((o) => sameName(o.name, column));
     const writes: Write[] = [];
-    if (
-      item?.status == null ||
-      !columnsFor(derived.status, cfg.columns).some((c) =>
-        sameName(item.status!, c),
-      )
-    )
-      writes.push({
-        field: fields.status.name,
-        optionName: option?.name ?? column,
-      });
+    // A card in any done column is done, and stays where it is.
+    const inDone =
+      item?.status != null &&
+      statusOfColumn(item.status, cfg.columns) === "Done";
+    const move =
+      !inDone &&
+      (item?.status == null ||
+        !columnsFor(derived.status, cfg.columns).some((c) =>
+          sameName(item.status!, c),
+        ))
+        ? (option?.name ?? column)
+        : null;
     if (fields.session && (item?.session ?? "") !== session)
       writes.push(
         session
@@ -485,7 +490,7 @@ export function planSync(
           ? { field: fields.cost.name, clear: true }
           : { field: fields.cost.name, number: cost },
       );
-    return { ...base, writes };
+    return { ...base, column: move, writes };
   });
 }
 
@@ -496,9 +501,14 @@ export function logLine(plan: Plan, ref: (key: Key) => string): string {
     return `${name} card is in "${plan.unmapped}", which no state names (left alone)`;
   const cost = plan.cost === null ? "(empty)" : plan.cost.toFixed(2);
   const values = `Status=${d.status}, Session=${d.session || "(empty)"}, Runs in=${d.runsIn || "(empty)"}, Cost=${cost}`;
-  if (plan.writes.length === 0) return `${name} ${values} (unchanged)`;
+  if (plan.writes.length === 0 && plan.column === null)
+    return `${name} ${values} (unchanged)`;
   const added = plan.itemId ? "" : "added to the board; ";
-  return `${name} ${values} (${added}set ${plan.writes.map((w) => w.field).join(", ")})`;
+  const set = [
+    ...(plan.column === null ? [] : ["Status"]),
+    ...plan.writes.map((w) => w.field),
+  ];
+  return `${name} ${values} (${added}set ${set.join(", ")})`;
 }
 
 export type Comment = { issue: Key; body: string };
@@ -671,7 +681,7 @@ async function collect(
     if (event.action === "closed") {
       const followUps = snapshot.issues
         .filter(
-          (i) => i.state === "open" && i.labels.includes(d.config.followUp),
+          (i) => i.finishedAt === null && i.labels.includes(d.config.followUp),
         )
         .map((i) => i.key);
       const links = ticketsOf(
@@ -737,9 +747,10 @@ async function apply(
   );
   for (const plan of plans) {
     d.out(logLine(plan, d.ref));
-    if (!write || plan.writes.length === 0) continue;
+    if (!write || (plan.writes.length === 0 && plan.column === null)) continue;
     const itemId = plan.itemId ?? (await write.add(plan.key));
-    await write.set(itemId, plan.writes);
+    if (plan.column !== null) await write.move(itemId, plan.column);
+    if (plan.writes.length) await write.set(itemId, plan.writes);
   }
 }
 
