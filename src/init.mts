@@ -1045,6 +1045,21 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         const added = [...columns, ...fields];
         if (added.length)
           d.out(`Added to board ${board}: ${added.join(", ")}.`);
+        // A ticket system that cannot add them leaves them to the owner.
+        if (!addColumns) {
+          const has = await boardOps.columns(board);
+          const lacking = shape.columns.filter(
+            (c) => !has.some((h) => h.toLowerCase() === c.toLowerCase()),
+          );
+          if (lacking.length)
+            d.out(
+              `Add these columns to board ${board} by hand: ${lacking.join(", ")}.`,
+            );
+        }
+        if (!addFields && shape.fields.length)
+          d.out(
+            `Add any of these fields board ${board} lacks, by hand: ${shape.fields.map((f) => f.name).join(", ")}.`,
+          );
       } catch (e) {
         d.out(
           `Could not give board ${board} its columns and fields: ${message(e)}`,
