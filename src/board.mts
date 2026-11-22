@@ -62,8 +62,7 @@ import {
 import { subscriptionDollars } from "./lib/pricing.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
-import { toBoard, type BoardPage } from "./tickets/github.mts";
-import { openTickets, refOf } from "./tickets/index.mts";
+import { fixtureBoard, openTickets, refOf } from "./tickets/index.mts";
 import { linkPulls, ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
 import {
   need,
@@ -784,12 +783,12 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       const saved: Saved = JSON.parse(
         deps.readFile(join(fixture, "repo.json")),
       );
-      const boardPages: BoardPage[] = JSON.parse(
+      const boardPages: unknown = JSON.parse(
         deps.readFile(join(fixture, "board.json")),
       );
       await apply(
         saved,
-        toBoard(boardPages, repository),
+        fixtureBoard(boardPages, repository),
         { ...deps, repository, config, runPage, ref },
         null,
       );

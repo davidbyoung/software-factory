@@ -9,6 +9,7 @@ import {
   once,
   onceSettings,
   readConfig,
+  sources,
   selectToStart,
   startMarker,
   tick,
@@ -30,6 +31,9 @@ import repoPages from "./fixtures/sync/repo-graphql.json";
 import boardPages from "./fixtures/sync/board.json";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
+import { builtOf, TOOLS } from "../src/tools.mts";
+import { memoryTickets } from "./memory-tickets";
+import { FAKE_EMAIL, FAKE_TOKEN, withFakeTickets } from "./fake-tools";
 
 const NOW = Date.parse("2026-11-09T10:00:00Z");
 const ENV = {
@@ -632,6 +636,31 @@ describe("onceSettings", () => {
       board: 7,
       ready: "Ready",
       followUp: "follow-up",
+      ticketSystem: { type: "github", options: {}, own: true },
+    });
+  });
+
+  it("takes the ticket system the settings name, whose links are not the code host's own", () => {
+    const tools = withFakeTickets(TOOLS, memoryTickets([]).tickets);
+    const s = parseSettings(
+      {
+        version: 2,
+        repository: "acme/widgets",
+        "code-host": CODE_HOST,
+        tickets: {
+          type: "fake",
+          site: "acme.example",
+          board: 7,
+          columns: FACTORY_COLUMNS,
+        },
+      },
+      () => true,
+      builtOf(tools),
+    );
+    expect(onceSettings(s).ticketSystem).toEqual({
+      type: "fake",
+      options: { site: "acme.example" },
+      own: false,
     });
   });
 
@@ -655,7 +684,11 @@ describe("onceSettings", () => {
           columns: { ...FACTORY_COLUMNS, ready: "Ready for dev" },
         },
       }),
-    ).toEqual({ board: 7, ready: "Ready for dev", followUp: "follow-up" });
+    ).toMatchObject({
+      board: 7,
+      ready: "Ready for dev",
+      followUp: "follow-up",
+    });
   });
 
   it("has no board when the settings name none", () => {
@@ -669,6 +702,79 @@ describe("onceSettings", () => {
         builds: { trigger: "manual" },
       }).ready,
     ).toBeNull();
+  });
+});
+
+describe("the ticket system the poller opens", () => {
+  const CONFIG = { owner: "acme", number: 7, githubToken: "ghp_x" };
+  const fake = (opened: (Record<string, string> | undefined)[]) =>
+    withFakeTickets(TOOLS, memoryTickets([]).tickets, false, {
+      credential: true,
+      opened,
+    }).tickets;
+
+  it("opens the settings' ticket system through the registry, with its credential", async () => {
+    const opened: (Record<string, string> | undefined)[] = [];
+    const { d } = setup(
+      {},
+      {
+        ...ENV,
+        [FAKE_EMAIL]: "ci@acme.example",
+        [FAKE_TOKEN]: "t0k",
+      },
+    );
+    await sources(
+      {
+        ...d,
+        systems: fake(opened),
+        ticketSystem: {
+          type: "fake",
+          options: { site: "acme.example" },
+          own: false,
+        },
+      },
+      CONFIG,
+    );
+    expect(opened).toEqual([
+      { [FAKE_EMAIL]: "ci@acme.example", [FAKE_TOKEN]: "t0k" },
+    ]);
+  });
+
+  it("opens the default ticket system with no settings, as a hosted poller has none", async () => {
+    const opened: (Record<string, string> | undefined)[] = [];
+    const { d } = setup({});
+    const systems = fake(opened);
+    let github = 0;
+    systems.github = {
+      ...systems.github!,
+      open: () => {
+        github += 1;
+        return memoryTickets([]).tickets;
+      },
+    };
+    await sources({ ...d, systems }, CONFIG);
+    expect([github, opened]).toEqual([1, []]);
+  });
+
+  it("logs a missing credential as its message, and counts a failed read", async () => {
+    const { d, state, logs } = setup({});
+    await tick(
+      {
+        ...d,
+        systems: fake([]),
+        ticketSystem: {
+          type: "fake",
+          options: { site: "acme.example" },
+          own: false,
+        },
+        env: { ...ENV, XDG_CONFIG_HOME: "/nonexistent" },
+      },
+      state,
+    );
+    expect(logs).toEqual([
+      "read failed (1 in a row): No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: factory init",
+    ]);
+    expect(state.failuresInARow).toBe(1);
   });
 });
 

@@ -711,6 +711,18 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
+  it("no source file outside src/tickets/ but the registry imports GitHub's ticket adapter", () => {
+    const found = sourceFilesOutside(["tickets/"])
+      .filter(({ rel }) => rel !== "tools.mts")
+      .flatMap(({ path }) =>
+        readFileSync(path, "utf8")
+          .split("\n")
+          .filter((l) => /tickets\/github(-open)?(\.\w+)?["']/.test(l))
+          .map((l) => `${path}: ${l.trim()}`),
+      );
+    expect(found).toEqual([]);
+  });
+
   it.each(["code-host/types.mts", "runner/types.mts"])(
     "src/%s declares no name with an underscore, and imports no implementation",
     (file) => {

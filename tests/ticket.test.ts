@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { chmodSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   claimOutcome,
   main,
@@ -9,10 +12,18 @@ import {
 import type { PullRequest } from "../src/lib/work-status.mts";
 import { sessionIdentity } from "../src/lib/gh.mts";
 import { githubActionsRunner } from "../src/runner/github-actions.mts";
-import { ghTransport } from "../src/tickets/transport.mts";
+import { ghTransport, HttpError } from "../src/tickets/transport.mts";
 import { parseSettings } from "../src/config.mts";
-import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
-import { withTicketFields } from "../src/tickets/index.mts";
+import {
+  CredentialError,
+  type Group,
+  type TicketField,
+  type Tickets,
+} from "../src/tickets/types.mts";
+import { openTickets, withTicketFields } from "../src/tickets/index.mts";
+import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
+import { builtOf, TOOLS, type Registry } from "../src/tools.mts";
+import { FAKE_EMAIL, FAKE_TOKEN, REFUSED, withFakeTickets } from "./fake-tools";
 import type { FieldMapping } from "../src/ticket-fields.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryRunner } from "./memory-runner";
@@ -2308,5 +2319,113 @@ describe("tickets named by a key", () => {
     expect(await main(["follow-up", "x.ts", "Wrong."], d)).toBe(0);
     expect(out).toEqual(["added to PROJ-4"]);
     expect(memory.state.get("PROJ-4")?.body).toContain("- [ ] x.ts: Wrong.");
+  });
+});
+
+describe("a ticket system's credential", () => {
+  const SITE = "acme.example";
+  const GOOD = { [FAKE_EMAIL]: "dana@acme.example", [FAKE_TOKEN]: "t0k3n" };
+  let env: Record<string, string | undefined>;
+  let opened: (Record<string, string> | undefined)[];
+  let memory: ReturnType<typeof memoryTickets>;
+  let systems: Registry["tickets"];
+  const settings = () =>
+    parseSettings(
+      {
+        version: 2,
+        repository: "acme/shop",
+        "code-host": CODE_HOST,
+        tickets: { type: "fake", site: SITE },
+      },
+      () => true,
+      builtOf({ ...TOOLS, tickets: systems }),
+    );
+  const open = (more: Record<string, string> = {}) =>
+    openTickets(
+      settings(),
+      { repository: "acme/shop", board: null },
+      { env: { ...env, ...more } },
+      systems,
+    );
+  const store = (values: Record<string, string>) =>
+    writeCredential({ tool: "fake", site: SITE, values, env });
+
+  beforeEach(() => {
+    env = { XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "creds-")) };
+    opened = [];
+    memory = memoryTickets([{ number: 7 }]);
+    systems = withFakeTickets(TOOLS, memory.tickets, false, {
+      credential: true,
+      opened,
+    }).tickets;
+  });
+
+  it("opens the ticket system the settings name through the registry, with the file's credential", async () => {
+    store(GOOD);
+    const { tickets } = await open();
+    expect((await tickets.read("7")).key).toBe("7");
+    expect(opened).toEqual([GOOD]);
+  });
+
+  it("says no credential is set, naming every variable and init", async () => {
+    await expect(open()).rejects.toThrow(
+      new CredentialError(
+        "No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: factory init",
+      ),
+    );
+    expect(opened).toEqual([]);
+  });
+
+  it("does not read a file others can read", async () => {
+    store(GOOD);
+    chmodSync(credentialsPath(env), 0o640);
+    await expect(open()).rejects.toThrow(
+      `${credentialsPath(env)} can be read by others, so it was not read. Run: chmod 600 ${credentialsPath(env)}`,
+    );
+    expect(opened).toEqual([]);
+  });
+
+  it("words a 401 to the file's credential as a refusal to run init for", async () => {
+    store({ ...GOOD, [FAKE_TOKEN]: REFUSED });
+    const { tickets } = await open();
+    await expect(tickets.read("7")).rejects.toThrow(
+      new CredentialError(
+        "Fake Tickets refused the credential on this machine for acme.example (401 Unauthorized). It may have expired. Run: factory init",
+      ),
+    );
+  });
+
+  it("words a 401 to the environment's credential naming the secrets, marked as an error in Actions", async () => {
+    const fromEnv = { ...GOOD, [FAKE_TOKEN]: REFUSED };
+    const line =
+      "Fake Tickets refused FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN for acme.example (401 Unauthorized). They may have expired. Run factory init, and replace them.";
+    await expect((await open(fromEnv)).tickets.read("7")).rejects.toThrow(
+      new CredentialError(line),
+    );
+    await expect(
+      (await open({ ...fromEnv, GITHUB_ACTIONS: "true" })).tickets.read("7"),
+    ).rejects.toThrow(new CredentialError(`::error::${line}`));
+  });
+
+  it("passes any other failure, such as a 403, through unchanged", async () => {
+    store(GOOD);
+    const denied = new HttpError(403, "no", "Forbidden");
+    memory.tickets.read = async () => {
+      throw denied;
+    };
+    await expect((await open()).tickets.read("7")).rejects.toBe(denied);
+  });
+
+  it("fails a command with the line on standard error and exit 1, printing no value", async () => {
+    store({ ...GOOD, [FAKE_TOKEN]: REFUSED });
+    quiet();
+    const { d, out } = deps();
+    d.open = (s, target) => openTickets(s, target, { env }, systems);
+    d.settings = async () => settings();
+    expect(await main(["view", "7"], d)).toBe(1);
+    expect(errors).toEqual([
+      "Fake Tickets refused the credential on this machine for acme.example (401 Unauthorized). It may have expired. Run: factory init",
+    ]);
+    expect([...out, ...errors].join("\n")).not.toMatch(/dana@|t0k3n|\bbad\b/);
   });
 });

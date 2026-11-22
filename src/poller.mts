@@ -43,15 +43,17 @@ import {
   githubActionsRunner,
 } from "./runner/github-actions.mts";
 import type { Runner } from "./runner/types.mts";
-import { githubTickets } from "./tickets/github.mts";
+import { DEFAULT_TICKETS, openSystem } from "./tickets/index.mts";
+import type { Registry } from "./tools.mts";
 import { HttpError, fetchTransport, statusOf } from "./tickets/transport.mts";
 import {
   boardOf,
   compareKeys,
+  CredentialError,
   type Key,
   type Tickets,
 } from "./tickets/types.mts";
-import { linkPulls } from "./lib/pull-tickets.mts";
+import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -175,24 +177,40 @@ export type Deps = {
   /** The repository's default branch, read from GitHub once the poller is
    * running; a dispatch runs on it. */
   defaultBranch?: string;
+  /** The ticket system to read, its settings under `tickets`, and whether
+   * the code host's links are its own: the settings' for a scheduled
+   * pass, and the default system for a poller someone hosts. */
+  ticketSystem?: {
+    type: string;
+    options: Record<string, unknown>;
+    own: boolean;
+  };
+  /** The ticket systems to open it from; the factory's own unless given. */
+  systems?: Registry["tickets"];
 };
+
+const HOSTED = { type: DEFAULT_TICKETS, options: {}, own: true };
 
 /** The ticket system, the code host, and the runner, over the `fetch`
  * transport. */
-export function sources(d: Deps, c: Config) {
+export async function sources(d: Deps, c: Config) {
   const transport = fetchTransport({
     token: c.githubToken,
     fetch: d.fetch,
     timeoutMs: FIRE_TIMEOUT_MS,
     userAgent: "ready-poller",
   });
+  const system = d.ticketSystem ?? HOSTED;
   return {
-    tickets: githubTickets({
-      transport,
-      repository: d.repository,
-      board: c.number,
-      boardOwner: c.owner,
-    }),
+    tickets: await openSystem(
+      d.systems ?? (await import("./tools.mts")).TOOLS.tickets,
+      system.type,
+      system.options,
+      { repository: d.repository, board: c.number, boardOwner: c.owner },
+      null,
+      { transport },
+      d.env,
+    ),
     codeHost: githubCodeHost({ transport, repository: d.repository }),
     runner: githubActionsRunner({ transport, repository: d.repository }),
   };
@@ -203,12 +221,10 @@ async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
     tickets.readAll!({ board: true }),
     codeHost.open(),
   ]);
-  // The poller reaches GitHub alone, so the code host's links are the
-  // tickets' own.
   return {
     snapshot: toSnapshot(
       read,
-      linkPulls(open, tickets, true),
+      linkPulls(open, tickets, (d.ticketSystem ?? HOSTED).own),
       new Date(d.now()),
     ),
     board: boardOf(read),
@@ -238,14 +254,16 @@ export async function tick(d: Deps, state: State): Promise<void> {
     state.failuresInARow += 1;
     return;
   }
-  const { tickets, codeHost, runner } = sources(d, config);
-  let read;
+  let tickets, codeHost, runner, read;
   try {
+    ({ tickets, codeHost, runner } = await sources(d, config));
     read = await readAll(tickets, codeHost, d);
     state.failuresInARow = 0;
   } catch (error) {
     state.failuresInARow += 1;
-    d.log(`read failed (${state.failuresInARow} in a row): ${String(error)}`);
+    d.log(
+      `read failed (${state.failuresInARow} in a row): ${error instanceof CredentialError ? error.message : String(error)}`,
+    );
     return;
   }
 
@@ -341,6 +359,8 @@ export type OnceSettings = {
   ready: string | null;
   /** The name of the follow-ups ticket's label. */
   followUp: string;
+  /** The settings' ticket system; the default one when not given. */
+  ticketSystem?: Deps["ticketSystem"];
 };
 
 export function onceSettings(s: Settings): OnceSettings {
@@ -348,6 +368,11 @@ export function onceSettings(s: Settings): OnceSettings {
     board: s.tickets.board,
     ready: columnsOf(s).Ready?.[0] ?? null,
     followUp: s.tickets.labels["follow-up"],
+    ticketSystem: {
+      type: s.tickets.type,
+      options: s.tickets.options,
+      own: ownLinks(s),
+    },
   };
 }
 
@@ -375,7 +400,10 @@ export async function once(s: OnceSettings, d: Deps): Promise<number> {
     FACTORY_FOLLOW_UP_LABEL: s.followUp,
   };
   const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
-  await tick({ ...d, env }, state);
+  await tick(
+    { ...d, env, ...(s.ticketSystem ? { ticketSystem: s.ticketSystem } : {}) },
+    state,
+  );
   return state.failuresInARow > 0 ? 1 : 0;
 }
 

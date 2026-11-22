@@ -10,6 +10,8 @@ import {
 } from "../src/parts.mts";
 import { secretSteps, TOOLS } from "../src/tools.mts";
 import { memoryContext } from "./memory-tools";
+import { memoryTickets } from "./memory-tickets";
+import { withFakeTickets } from "./fake-tools";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
 
@@ -126,10 +128,12 @@ describe("GitHub's one access token", () => {
       elsewhere: { ...TOOLS.tickets.github!, label: "Elsewhere", setup: {} },
     },
   };
-  const token = (parts: Part[], tickets?: string) =>
-    secretSteps(tools, memoryContext(parts, { tickets })).find(
+  const token = (parts: Part[], tickets?: string) => {
+    const step = secretSteps(tools, memoryContext(parts, { tickets })).find(
       (x) => x.tool === "GitHub",
     )?.step;
+    return step?.kind === "secret" ? step : undefined;
+  };
 
   it("stores the token under each name the parts read", () => {
     expect(token(["board", "cloud", "auto-merge"])?.storeAs).toEqual([
@@ -150,5 +154,26 @@ describe("GitHub's one access token", () => {
     expect(page(["board", "cloud"], "elsewhere")).toContain(
       "scopes=push,workflows&",
     );
+  });
+});
+
+describe("a tool's credential", () => {
+  const tools = withFakeTickets(TOOLS, memoryTickets([]).tickets, true, {
+    credential: true,
+  });
+  const steps = secretSteps(tools, memoryContext([], { tickets: "fake" }));
+
+  it("is one of the secret steps, after the tool's own steps", () => {
+    expect(
+      steps.filter((s) => s.tool === "Fake Tickets").map((s) => s.step.kind),
+    ).toEqual(["credential"]);
+  });
+
+  it("is read for the parts as a secret is", () => {
+    expect(neededSecrets(set(), steps)).toContainEqual({
+      part: null,
+      anyOf: ["FAKE_TICKETS_TOKEN"],
+      tool: "Fake Tickets",
+    });
   });
 });
