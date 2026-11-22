@@ -27,7 +27,7 @@ import { FAKE_EMAIL, FAKE_TOKEN, REFUSED, withFakeTickets } from "./fake-tools";
 import type { FieldMapping } from "../src/ticket-fields.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryRunner } from "./memory-runner";
-import { memoryTickets, type Seed } from "./memory-tickets";
+import { memoryTickets, type MemoryOptions, type Seed } from "./memory-tickets";
 import { CODE_HOST } from "./settings-fixture";
 import { NotSignedInError } from "../src/code-host/types.mts";
 
@@ -79,12 +79,15 @@ function deps(
     signedInAs?: () => Promise<string>;
     /** Whose comments may decide on a ticket. */
     deciders?: string[];
+    /** The in-memory adapter's own options, such as `strict`. */
+    memory?: MemoryOptions;
   } = {},
 ) {
   const memory = memoryTickets(seed, {
     groups: options.groups,
     deciders: options.deciders,
     ticketFields: options.ticketFields?.fields,
+    ...options.memory,
   });
   const out: string[] = [];
   const written: [string, string][] = [];
@@ -2427,5 +2430,84 @@ describe("a ticket system's credential", () => {
       "Fake Tickets refused the credential on this machine for acme.example (401 Unauthorized). It may have expired. Run: factory init",
     ]);
     expect([...out, ...errors].join("\n")).not.toMatch(/dana@|t0k3n|\bbad\b/);
+  });
+});
+
+describe("a ticket system that keeps the record apart", () => {
+  const strict = (seed: Seed[] = [{ key: "PROJ-7" }]) =>
+    deps(seed, { memory: { strict: true } });
+
+  it("claims through the record, with no comment for a person to read", async () => {
+    const { d, out, memory } = strict();
+
+    expect(await main(["claim", "PROJ-7"], d)).toBe(0);
+    expect(out).toEqual(["claimed"]);
+    expect(memory.comments("PROJ-7")).toEqual([]);
+    expect(memory.state.get("PROJ-7")!.record[0].markers).toEqual([
+      "<!-- work-status: claim local 359bd84e -->",
+    ]);
+  });
+
+  it("comments the closing note of refinement, without its hidden lines", async () => {
+    const { d, memory } = strict([{ key: "PROJ-7", body: PLAIN_BODY }]);
+
+    expect(await main(["refined", "PROJ-7", "--before-file", "c.md"], d)).toBe(
+      0,
+    );
+    const [comment] = memory.comments("PROJ-7");
+    expect(comment.body).toMatch(/^Nothing here needs your decision\./);
+    expect(comment.body).toContain("Refinement is done.");
+    expect(comment.body).not.toContain("<!--");
+  });
+
+  it("comments a stop that waits on someone", async () => {
+    const { d, memory } = strict();
+    await main(["claim", "PROJ-7"], d);
+    d.claimStore.read = () => memory.state.get("PROJ-7")!.record[0].id;
+
+    expect(await main(["stop", "PROJ-7", "the gate failed"], d)).toBe(0);
+    expect(memory.comments("PROJ-7").map((c) => c.body)).toEqual([
+      expect.stringMatching(/^Stopped without a pull request: the gate failed/),
+    ]);
+  });
+
+  it("adds the session's spend to its total already on the ticket", async () => {
+    const { d, memory } = strict([
+      {
+        key: "PROJ-7",
+        record: [
+          {
+            id: "e-0",
+            at: "2026-11-09T12:00:00Z",
+            author: "acme",
+            text: "Cost.",
+            markers: [`<!-- cost-total: 1.00 session=${SESSION} -->`],
+          },
+        ],
+      },
+    ]);
+
+    expect(await main(["cost", "PROJ-7"], d)).toBe(0);
+    expect(memory.state.get("PROJ-7")!.record.at(-1)!.markers).toEqual([
+      `<!-- cost-total: 4.41 session=${SESSION} -->`,
+    ]);
+  });
+
+  it("writes the same total again when a note that failed to post is retried", async () => {
+    const { d, clocks, memory } = strict();
+    clocks.set(SESSION, { issue: "PROJ-7", start: "2026-11-09T12:00:00Z" });
+    const add = memory.tickets.record.add;
+    memory.tickets.record.add = async () => {
+      throw new Error("HTTP 502");
+    };
+    quiet();
+
+    expect(await main(["cost", "PROJ-7"], d)).toBe(1);
+    expect(clocks.get(SESSION)!.start).toBe("2026-11-09T12:00:00Z");
+    memory.tickets.record.add = add;
+    expect(await main(["cost", "PROJ-7"], d)).toBe(0);
+    expect(memory.state.get("PROJ-7")!.record.at(-1)!.markers).toEqual([
+      `<!-- cost-total: 3.41 session=${SESSION} -->`,
+    ]);
   });
 });
