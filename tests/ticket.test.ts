@@ -109,6 +109,7 @@ function deps(
               {
                 spec: "spec",
                 "follow-up": "follow-up",
+                factory: "factory",
                 ...options.labels?.tickets,
               },
             )

@@ -1665,6 +1665,8 @@ export type Target = {
   columns: Columns;
   /** The name of the follow-ups ticket's label. */
   followUp: string;
+  /** The name of the label on every ticket the factory works on. */
+  factory: string;
 };
 
 /** The settings' answer, with GITHUB_REPOSITORY and FACTORY_BOARD_NUMBER
@@ -1681,6 +1683,7 @@ export function targetOf(
     watch: watchOf(s.builds.trigger, s.builds.pollMinutes),
     columns: columnsOf(s),
     followUp: s.tickets.labels["follow-up"],
+    factory: s.tickets.labels.factory,
   };
 }
 

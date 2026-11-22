@@ -734,6 +734,7 @@ describe("the sentences that name a column", () => {
       [],
       STOCK_COLUMNS,
       REF,
+      ["7"],
     );
     expect(closed.body).toContain("Tell a session to build #7");
     const claimed = issue(7, [

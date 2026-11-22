@@ -195,6 +195,7 @@ describe("closedPullComments", () => {
       followUps.map(String),
       DEFAULT_COLUMNS,
       (key) => `#${key}`,
+      [...closes, ...followUps].map(String),
     );
 
   it("releases each issue a pull request closed without merging would have closed", () => {
@@ -731,5 +732,61 @@ describe("workflows/factory-board-sync.yml", () => {
     expect(condition).toContain(
       "github.event.pull_request.head.repo.full_name == github.repository",
     );
+  });
+});
+
+describe("tickets without the factory label", () => {
+  const unlabel = (saved: Saved, key: string) => {
+    const t = saved.tickets.find((x) => x.key === key)!;
+    t.labels = t.labels.filter((l) => l !== "factory");
+  };
+
+  it("writes nothing to the card of a ticket without the label, and leaves it where it is", async () => {
+    const saved: Saved = structuredClone(SAVED);
+    unlabel(saved, "15");
+    unlabel(saved, "18");
+    const { d, files, mem, out } = deps(seeded(), { GH_TOKEN: "t" });
+    files["in.json"] = JSON.stringify(saved);
+    const before = structuredClone(mem.board.get("15"));
+
+    expect(await main(["apply", "--in", "in.json"], d)).toBe(0);
+    expect(mem.writes.filter((w) => w.itemId === "PVTI_15")).toEqual([]);
+    expect(mem.board.get("15")).toEqual(before);
+    // #18 was not on the board, and is not added.
+    expect(mem.board.has("18")).toBe(false);
+    expect(out.filter((l) => /#1[58]\b/.test(l))).toEqual([]);
+  });
+
+  it("reads only labeled tickets when it collects", async () => {
+    const mem = seeded();
+    for (const key of ["15", "18"]) {
+      const t = mem.state.get(key)!;
+      t.labels = t.labels.filter((l) => l !== "factory");
+    }
+    const { d, written } = deps(mem, { GH_TOKEN: "t" });
+
+    expect(await main(["collect", "--out", "repo.json"], d)).toBe(0);
+    const keys = (JSON.parse(written["repo.json"]) as Saved).tickets.map(
+      (t) => t.key,
+    );
+    expect(keys).not.toContain("15");
+    expect(keys).not.toContain("18");
+    expect(keys).toContain("12");
+  });
+
+  it("posts no comment on a ticket without the label when a pull request that closes it is closed", () => {
+    expect(
+      closedPullComments(
+        {
+          action: "closed",
+          pull_request: { number: 90, merged: false, body: "Closes #15" },
+        },
+        { closes: ["15"], partOf: [] },
+        [],
+        DEFAULT_COLUMNS,
+        (k) => `#${k}`,
+        [],
+      ),
+    ).toEqual([]);
   });
 });

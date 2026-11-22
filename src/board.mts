@@ -91,6 +91,8 @@ export type BoardConfig = {
   fields: FieldNames;
   /** The name of the follow-ups ticket's label. */
   followUp: string;
+  /** The name of the label on every ticket the factory works on. */
+  factory: string;
 };
 
 export const DEFAULT_FIELDS: FieldNames = {
@@ -102,6 +104,7 @@ export const DEFAULT_BOARD: BoardConfig = {
   columns: DEFAULT_COLUMNS,
   fields: DEFAULT_FIELDS,
   followUp: TICKET_LABELS["follow-up"],
+  factory: TICKET_LABELS.factory,
 };
 
 /** The columns and fields the settings name. */
@@ -110,6 +113,7 @@ export function boardConfigOf(s: Settings): BoardConfig {
     columns: columnsOf(s),
     fields: fieldNamesOf(s),
     followUp: s.tickets.labels["follow-up"],
+    factory: s.tickets.labels.factory,
   };
 }
 
@@ -527,10 +531,12 @@ export function closedPullComments(
   openFollowUps: Key[],
   columns: Columns,
   ref: (key: Key) => string,
+  /** The tickets with the factory label: no other gets a comment. */
+  labeled: Key[],
 ): Comment[] {
   if (event.action !== "closed") return [];
   const pull = event.pull_request;
-  const { closes } = links;
+  const closes = links.closes.filter((k) => labeled.includes(k));
   const closedKind = (issue: Key): CommentKind => ({
     kind: "pull-closed",
     issue: { key: issue, ref: ref(issue) },
@@ -645,7 +651,7 @@ async function postAll(comments: Comment[], d: Ctx, dryRun: boolean) {
 
 async function read(d: Ctx): Promise<Saved> {
   const [tickets, open] = await Promise.all([
-    readAll(d.tickets),
+    readAll(d.tickets, { label: d.config.factory }),
     d.pulls.open({ costs: true }),
   ]);
   const pulls = linkPulls(open, d.tickets, d.own);
@@ -661,8 +667,20 @@ async function read(d: Ctx): Promise<Saved> {
   return { tickets, pulls, donePulls };
 }
 
-const snapshotOf = (saved: Saved, now: Date): RepoSnapshot =>
-  toSnapshot(saved.tickets, saved.pulls, now, saved.donePulls);
+/** What the sync works from: the saved tickets with the factory label,
+ * whichever version of the factory saved them. */
+const snapshotOf = (
+  saved: Saved,
+  now: Date,
+  cfg: BoardConfig = DEFAULT_BOARD,
+): RepoSnapshot =>
+  toSnapshot(
+    saved.tickets.filter((t) => t.labels.includes(cfg.factory)),
+    saved.pulls,
+    now,
+    saved.donePulls,
+    cfg.columns,
+  );
 
 async function collect(
   d: Ctx,
@@ -674,7 +692,7 @@ async function collect(
   },
 ): Promise<Saved> {
   let saved = await read(d);
-  let snapshot = snapshotOf(saved, d.now());
+  let snapshot = snapshotOf(saved, d.now(), d.config);
 
   if (opts.eventName === "pull_request_target" && opts.event) {
     const event = JSON.parse(d.readFile(opts.event)) as PullEvent;
@@ -698,11 +716,12 @@ async function collect(
         followUps,
         d.config.columns,
         (k) => d.tickets.ref(k),
+        snapshot.issues.map((i) => i.key),
       );
       await postAll(comments, d, opts.dryRun);
       if (comments.length && !opts.dryRun) {
         saved = await read(d);
-        snapshot = snapshotOf(saved, d.now());
+        snapshot = snapshotOf(saved, d.now(), d.config);
       }
     }
   }
@@ -740,7 +759,7 @@ async function apply(
   for (const line of inspected.lines)
     if (line.text.startsWith("skipped")) d.out(`${line.label} ${line.text}`);
   const plans = planSync(
-    snapshotOf(saved, d.now()),
+    snapshotOf(saved, d.now(), d.config),
     board,
     d.runPage,
     d.config,

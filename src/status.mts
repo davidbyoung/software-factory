@@ -624,7 +624,10 @@ async function snapshotLines(
     run: (id) => source.runner.runPage(id),
   };
   const [tickets, pulls] = await Promise.all([
-    readAll(source.tickets, { board: target.board !== null }),
+    readAll(source.tickets, {
+      board: target.board !== null,
+      label: target.factory,
+    }),
     source.pulls.open({ checks: true }),
   ]);
   const snapshot = toSnapshot(

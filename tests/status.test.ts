@@ -37,11 +37,19 @@ import { CODE_HOST } from "./settings-fixture";
 
 /** The sync fixture's tickets and cards in the in-memory adapter, and its
  * open pull requests. `fail` makes the tickets' list fail. */
-function fixtureSource(fail?: Error): {
+function fixtureSource(
+  fail?: Error,
+  unlabeled: string[] = [],
+): {
   source: Deps["source"];
   open: ReturnType<typeof vi.fn>;
 } {
-  const mem = memoryTickets(saved.tickets as Ticket[], {
+  const tickets = (saved.tickets as Ticket[]).map((t) =>
+    unlabeled.includes(t.key)
+      ? { ...t, labels: t.labels.filter((l) => l !== "factory") }
+      : t,
+  );
+  const mem = memoryTickets(tickets, {
     fail: fail ? { read: fail } : {},
   });
   for (const item of toBoard(
@@ -933,7 +941,11 @@ describe("main in a terminal", () => {
     ],
   ])("links %s", async (_what, url) => {
     const mem = memoryTickets([
-      { number: 1, comments: [claimed("actions", "123456789")] },
+      {
+        number: 1,
+        labels: ["factory"],
+        comments: [claimed("actions", "123456789")],
+      },
     ]);
     const out: string[] = [];
     const d: Deps = {
@@ -963,7 +975,9 @@ describe("main in a terminal", () => {
 
 describe("main, for a Ready card", () => {
   it("flags one that has not started, but not one that waits on an open blocker", async () => {
-    const mem = memoryTickets([{ number: 1 }, { number: 2 }, { number: 5 }]);
+    const mem = memoryTickets(
+      [1, 2, 5].map((number) => ({ number, labels: ["factory"] })),
+    );
     for (const n of [1, 2])
       mem.card(n, { status: "Ready", updatedAt: "2026-11-09T11:00:00Z" });
     mem.blockers.set("2", ["5"]);
@@ -1549,5 +1563,30 @@ describe("sessionCell", () => {
         pulls: [],
       }),
     ).toBe("actions 123456789");
+  });
+});
+
+describe("tickets without the factory label", () => {
+  it("lists only tickets with the label, with no line about the others", async () => {
+    const run = async (unlabeled: string[]) => {
+      const out: string[] = [];
+      await main([], {
+        source: fixtureSource(undefined, unlabeled).source,
+        settings: fakeSettings,
+        env: {},
+        now: () => NOW,
+        out: (l) => out.push(l),
+        sleep: async () => {},
+        write: () => {},
+        onInterrupt: () => {},
+        style: () => ({ color: false, width: 200 }),
+      });
+      return out.join("\n");
+    };
+
+    expect(await run([])).toMatch(/#15\b/);
+    const without = await run(["15"]);
+    expect(without).not.toMatch(/#15\b/);
+    expect(without).not.toMatch(/label/i);
   });
 });

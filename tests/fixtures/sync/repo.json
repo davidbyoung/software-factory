@@ -3,7 +3,7 @@
     {
       "key": "10",
       "title": "Refining in a local session",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -27,7 +27,7 @@
     {
       "key": "11",
       "title": "A round waits on the owner",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -64,7 +64,7 @@
     {
       "key": "12",
       "title": "Moved to Ready after refinement",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -101,7 +101,7 @@
     {
       "key": "13",
       "title": "Ready from before a failed fire",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -138,7 +138,7 @@
     {
       "key": "14",
       "title": "The poller started a build",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -162,7 +162,7 @@
     {
       "key": "15",
       "title": "A cloud build claimed it",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -199,7 +199,7 @@
     {
       "key": "16",
       "title": "A local build opened its pull request",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -223,7 +223,7 @@
     {
       "key": "18",
       "title": "Not on the board yet",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [],
       "finishedAt": null,
@@ -232,7 +232,7 @@
     {
       "key": "17",
       "title": "Merged this morning",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {

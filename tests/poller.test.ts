@@ -638,6 +638,7 @@ describe("onceSettings", () => {
       board: 7,
       ready: "Ready",
       followUp: "follow-up",
+      factory: "factory",
       ticketSystem: { type: "github", options: {}, own: true },
     });
   });
@@ -782,7 +783,12 @@ describe("the ticket system the poller opens", () => {
 
 describe("once", () => {
   const TOKEN = { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN };
-  const settings = { board: 1, ready: "Ready", followUp: "follow-up" };
+  const settings = {
+    board: 1,
+    ready: "Ready",
+    followUp: "follow-up",
+    factory: "factory",
+  };
 
   it("starts each Ready ticket and returns 0", async () => {
     const { d, dispatches } = setup({}, TOKEN);
@@ -858,7 +864,9 @@ describe("once", () => {
     async (given, said) => {
       const { d, calls, logs } = setup({}, TOKEN);
 
-      expect(await once({ ...given, followUp: "follow-up" }, d)).toBe(1);
+      expect(
+        await once({ ...given, followUp: "follow-up", factory: "factory" }, d),
+      ).toBe(1);
       expect(calls).toEqual([]);
       expect(logs).toEqual([said]);
     },
@@ -904,5 +912,55 @@ describe("poller.Dockerfile", () => {
         "m",
       ),
     );
+  });
+});
+
+describe("tickets without the factory label", () => {
+  /** The recorded pages with the factory label taken off ticket 12. */
+  const unlabeled = () => {
+    const page = structuredClone(repoPages[0]) as {
+      data: {
+        repository: {
+          open: {
+            nodes: { number: number; labels: { nodes: { name: string }[] } }[];
+          };
+        };
+      };
+    };
+    for (const node of page.data.repository.open.nodes)
+      if (node.number === 12)
+        node.labels.nodes = node.labels.nodes.filter(
+          (l) => l.name !== "factory",
+        );
+    return page;
+  };
+
+  it("starts no build of a Ready ticket without the label, and logs nothing for it", async () => {
+    const { d, state, logs, comments, dispatches } = setup({
+      repoPage: unlabeled(),
+    });
+
+    await tick(d, state);
+
+    expect(dispatches()).toEqual([]);
+    expect(comments()).toEqual([]);
+    expect(logs.filter((l) => l.includes("#12"))).toEqual([]);
+  });
+
+  it("finds the label by the name FACTORY_LABEL gives it", async () => {
+    const renamed = JSON.parse(
+      JSON.stringify(repoPages[0]).replaceAll(
+        '{"name":"factory"}',
+        '{"name":"built-by-factory"}',
+      ),
+    );
+    const { d, state, dispatches } = setup(
+      { repoPage: renamed },
+      { ...ENV, FACTORY_LABEL: "built-by-factory" },
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
   });
 });

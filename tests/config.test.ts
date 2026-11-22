@@ -54,7 +54,7 @@ describe("parseSettings", () => {
           "acceptance-criteria": null,
           "for-the-builder": null,
         },
-        labels: { spec: "spec", "follow-up": "follow-up" },
+        labels: { spec: "spec", "follow-up": "follow-up", factory: "factory" },
       },
       codeHost: {
         type: "github",
@@ -548,6 +548,7 @@ describe("parseSettings", () => {
       expect(s.tickets.labels).toEqual({
         spec: "spec",
         "follow-up": "follow-up",
+        factory: "factory",
       });
       expect(s.codeHost.labels).toEqual({
         "merge-automatic": "merge-automatic",
@@ -563,6 +564,7 @@ describe("parseSettings", () => {
       expect(s.tickets.labels).toEqual({
         spec: "needs-spec",
         "follow-up": "follow-up",
+        factory: "factory",
       });
       expect(s.codeHost.labels["merge-manual"]).toBe("needs owner");
       expect(s.codeHost.labels["merge-automatic"]).toBe("merge-automatic");
@@ -570,8 +572,8 @@ describe("parseSettings", () => {
 
     it.each([
       [
-        labeled({ factory: "x" }),
-        ".claude/factory.yaml: tickets.labels.factory: unknown key",
+        labeled({ "merge-manual": "x" }),
+        ".claude/factory.yaml: tickets.labels.merge-manual: unknown key",
       ],
       [
         labeled(undefined, { spec: "x" }),
@@ -598,6 +600,24 @@ describe("parseSettings", () => {
     it("counts a default name, and names the key the file sets", () => {
       expect(() => parse(labeled({ spec: "follow-up" }))).toThrow(
         '.claude/factory.yaml: tickets.labels.spec: "follow-up" is already tickets.labels.follow-up. Give each label its own name',
+      );
+    });
+
+    it("takes the factory label's name", () => {
+      expect(
+        parse(labeled({ factory: "built-by-factory" })).tickets.labels.factory,
+      ).toBe("built-by-factory");
+    });
+
+    it("puts the factory label after follow-up in the order a clash names", () => {
+      expect(() => parse(labeled({ factory: "spec" }))).toThrow(
+        '.claude/factory.yaml: tickets.labels.factory: "spec" is already tickets.labels.spec. Give each label its own name',
+      );
+      expect(() =>
+        parse(labeled({ "follow-up": "x" }, { "merge-manual": "X" })),
+      ).toThrow("code-host.labels.merge-manual");
+      expect(() => parse(labeled({ "follow-up": "x", factory: "X" }))).toThrow(
+        '.claude/factory.yaml: tickets.labels.factory: "X" is already tickets.labels.follow-up. Give each label its own name',
       );
     });
 
@@ -1254,6 +1274,7 @@ describe("factory config explain", () => {
         labels:
           spec: spec                                                               # default
           follow-up: follow-up                                                     # default
+          factory: factory                                                         # default
       code-host:
         type: github
         branch-name: "{ticket}"

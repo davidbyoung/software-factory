@@ -8,6 +8,7 @@
 export const TICKET_LABELS = {
   spec: "spec",
   "follow-up": "follow-up",
+  factory: "factory",
 } as const;
 
 /** The labels on pull requests, each key with its default name. */

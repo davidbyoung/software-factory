@@ -129,6 +129,11 @@
           "type": "string",
           "minLength": 1,
           "description": "The label on the one follow-ups ticket. Default: follow-up."
+        },
+        "factory": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The label on every ticket the factory works on: it acts on no other. Default: factory."
         }
       }
     },

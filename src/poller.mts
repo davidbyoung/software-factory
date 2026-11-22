@@ -218,7 +218,10 @@ export async function sources(d: Deps, c: Config) {
 
 async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
   const [read, open] = await Promise.all([
-    tickets.readAll!({ board: true }),
+    tickets.readAll({
+      board: true,
+      label: d.env.FACTORY_LABEL?.trim() || TICKET_LABELS.factory,
+    }),
     codeHost.open(),
   ]);
   return {
@@ -359,6 +362,8 @@ export type OnceSettings = {
   ready: string | null;
   /** The name of the follow-ups ticket's label. */
   followUp: string;
+  /** The name of the label on every ticket the factory works on. */
+  factory: string;
   /** The settings' ticket system; the default one when not given. */
   ticketSystem?: Deps["ticketSystem"];
 };
@@ -368,6 +373,7 @@ export function onceSettings(s: Settings): OnceSettings {
     board: s.tickets.board,
     ready: columnsOf(s).Ready?.[0] ?? null,
     followUp: s.tickets.labels["follow-up"],
+    factory: s.tickets.labels.factory,
     ticketSystem: {
       type: s.tickets.type,
       options: s.tickets.options,
@@ -398,6 +404,7 @@ export async function once(s: OnceSettings, d: Deps): Promise<number> {
     FACTORY_BOARD_NUMBER: String(s.board),
     FACTORY_READY_COLUMN: s.ready,
     FACTORY_FOLLOW_UP_LABEL: s.followUp,
+    FACTORY_LABEL: s.factory,
   };
   const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
   await tick(

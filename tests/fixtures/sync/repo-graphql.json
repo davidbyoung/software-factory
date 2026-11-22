@@ -15,7 +15,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
@@ -37,7 +41,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
@@ -67,7 +75,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
@@ -97,7 +109,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
@@ -127,7 +143,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
@@ -149,7 +169,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
@@ -179,7 +203,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
@@ -201,7 +229,11 @@
               "state": "OPEN",
               "closedAt": null,
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": []
@@ -218,7 +250,11 @@
               "state": "CLOSED",
               "closedAt": "2026-11-09T09:30:00Z",
               "labels": {
-                "nodes": []
+                "nodes": [
+                  {
+                    "name": "factory"
+                  }
+                ]
               },
               "comments": {
                 "nodes": [
