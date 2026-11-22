@@ -253,3 +253,27 @@ describe.each(["factory-merge-policy.yml", "factory-review-verdict.yml"])(
     });
   },
 );
+
+describe("workflows/factory-merge-policy.yml", () => {
+  const workflow = load(
+    readFileSync(
+      new URL("../workflows/factory-merge-policy.yml", import.meta.url),
+      "utf8",
+    ),
+  ) as { jobs: Record<string, { steps: { id?: string; run?: string }[] }> };
+  const classify = Object.values(workflow.jobs)
+    .flatMap((j) => j.steps)
+    .find((s) => s.id === "classify")!;
+
+  it("labels with the name the command gives, not its key", () => {
+    const output = workflowOutput(
+      { risk: "merge-manual", reasons: ["x"] },
+      { ...PR_LABELS, "merge-manual": "needs owner" },
+    );
+    const [, field] = /echo "label=\$\(jq -r \.(\w+) /.exec(classify.run!)!;
+    const [, other] = /echo "other=\$\(jq -r \.(\w+) /.exec(classify.run!)!;
+
+    expect((output as Record<string, unknown>)[field!]).toBe("needs owner");
+    expect((output as Record<string, unknown>)[other!]).toBe("merge-automatic");
+  });
+});

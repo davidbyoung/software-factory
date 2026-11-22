@@ -703,6 +703,25 @@ describe("once", () => {
     expect(dispatches()).toEqual([]);
   });
 
+  it("starts no build of the follow-ups ticket, by its configured name, while a pull request builds part of it", async () => {
+    const repo = structuredClone(repoPages[0]);
+    const r = repo.data.repository;
+    r.open.nodes.find((n) => n.number === 12)!.labels.nodes = [
+      { name: "follow-ups" },
+    ] as never;
+    r.pullRequests.nodes.push({
+      ...structuredClone(r.pullRequests.nodes[0]!),
+      number: 42,
+      body: "Part of #12: its first line.",
+      closingIssuesReferences: { nodes: [] },
+    });
+    const { d, dispatches } = setup({ repoPage: repo }, TOKEN);
+
+    await once({ ...settings, followUp: "follow-ups" }, d);
+
+    expect(dispatches()).toEqual([]);
+  });
+
   it("returns 1, saying why, when it cannot read the board", async () => {
     const { d, logs } = setup({ graphql: { status: 502 } }, TOKEN);
 
