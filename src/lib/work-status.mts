@@ -176,13 +176,12 @@ export function hasCostMarker(body: string): boolean {
 }
 
 /** The cost markers in one comment, read as markers are: each on a line of
- * its own, outside a fenced code block. Only the owner's account, which the
- * agents post as, and the pull request review's bot count; the owner's comments count
- * only with the agent mark. */
-export function parseCosts(comment: IssueComment, owner: string): number[] {
-  const fromAgent =
-    comment.author === owner && comment.body.includes(AGENT_MARK);
-  if (!fromAgent && comment.author !== CI_BOT) return [];
+ * its own, outside a fenced code block. A comment counts when it carries the
+ * agent mark, whoever posted it, as a claim or a release does, or when the
+ * pull request review's bot posted it. */
+export function parseCosts(comment: IssueComment): number[] {
+  if (!comment.body.includes(AGENT_MARK) && comment.author !== CI_BOT)
+    return [];
   return linesOutsideFences(comment.body).flatMap((line) => {
     const match = COST_LINE.exec(line);
     return match ? [Number(match[1])] : [];
@@ -197,11 +196,7 @@ export function buildsIssue(body: string, number: number): boolean {
 
 /** The issue's Cost: every cost marker on it and on each pull request, open,
  * merged, or closed, that builds it, to the cent. Null when there are none. */
-export function issueCost(
-  issue: Issue,
-  pulls: PullRequest[],
-  owner: string,
-): number | null {
+export function issueCost(issue: Issue, pulls: PullRequest[]): number | null {
   const comments = [
     ...issue.comments,
     ...pulls
@@ -212,7 +207,7 @@ export function issueCost(
       )
       .flatMap((pull) => pull.comments ?? []),
   ];
-  const costs = comments.flatMap((c) => parseCosts(c, owner));
+  const costs = comments.flatMap((c) => parseCosts(c));
   if (costs.length === 0) return null;
   return Math.round(costs.reduce((a, b) => a + b, 0) * 100) / 100;
 }

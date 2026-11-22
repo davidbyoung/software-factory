@@ -403,11 +403,9 @@ export type Plan = {
 export function planSync(
   snapshot: RepoSnapshot,
   board: Board,
-  repository: string,
   runPage: (id: string) => string,
   cfg: BoardConfig = DEFAULT_BOARD,
 ): Plan[] {
-  const owner = repository.split("/")[0];
   const everyPull = [...snapshot.pulls, ...(snapshot.donePulls ?? [])];
   const fields = checkFields(board.fields, cfg);
   return snapshot.issues.map((issue) => {
@@ -417,7 +415,7 @@ export function planSync(
       snapshot.pulls,
       cfg.columns,
     );
-    const listPrice = issueCost(issue, everyPull, owner);
+    const listPrice = issueCost(issue, everyPull);
     const cost =
       listPrice === null
         ? null
@@ -690,7 +688,6 @@ async function apply(
   const plans = planSync(
     snapshotOf(saved, d.now()),
     board,
-    d.repository,
     d.runPage,
     d.config,
   );
