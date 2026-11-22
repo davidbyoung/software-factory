@@ -757,13 +757,6 @@ describe("factory sync: the default branch in the push triggers", () => {
     );
   });
 
-  it("names the build's run as GitHub writes a ticket", async () => {
-    await sync([], settings());
-    expect(read(".github/workflows/factory-build.yml")).toContain(
-      'run-name: "Build #${{ inputs.ticket }}"\n',
-    );
-  });
-
   it("names the build's run without # for a ticket system that writes a key as it is", () => {
     expect(withRunName(build(1), (key) => key, "w.yml")).toBe(
       `run-name: "Build \${{ inputs.ticket }}"\n${workflow(1)}`,

@@ -289,14 +289,14 @@ describe("the tickets the review reads", () => {
     );
   });
 
-  /** Runs the step with a stand-in factory that prints `printed` and exits
-   * `code`, and returns the file it leaves. */
-  const readTickets = (baseDir: string, code: number, printed: string) => {
+  /** Runs the step with `factory` standing in for the factory's command,
+   * and returns the file it leaves. */
+  const readTickets = (baseDir: string, factory: string) => {
     temp = mkdtempSync(join(tmpdir(), "claude-review-tickets-"));
     repo = temp;
     const script = read.run!.replace(
       'npx --no-install factory review tickets "$PR"',
-      `(printf '%s\\n' ${JSON.stringify(printed)}; exit ${code})`,
+      factory,
     );
     const result = spawnSync("bash", ["-eo", "pipefail", "-c", script], {
       cwd: temp,
@@ -308,32 +308,23 @@ describe("the tickets the review reads", () => {
   };
 
   it("leaves what the base commit's factory printed", () => {
-    expect(readTickets("/base", 0, "## #12 A ticket")).toBe(
+    expect(readTickets("/base", "echo '## #12 A ticket'")).toBe(
       "## #12 A ticket\n",
     );
   });
 
   it("notes that the tickets could not be read, and passes, when the base could not install", () => {
-    expect(readTickets("", 0, "unused")).toBe(
+    expect(readTickets("", "echo unused")).toBe(
       "The tickets could not be read: the base commit has no factory, or it could not be installed\n",
     );
   });
 
   it("notes the error's last line, and passes, when the read fails", () => {
-    const script = read.run!.replace(
-      'npx --no-install factory review tickets "$PR"',
-      "(echo 'first' >&2; echo 'Unknown command: review tickets' >&2; exit 1)",
-    );
-    temp = mkdtempSync(join(tmpdir(), "claude-review-tickets-"));
-    repo = temp;
-    const result = spawnSync("bash", ["-eo", "pipefail", "-c", script], {
-      cwd: temp,
-      env: { ...process.env, BASE_DIR: "/base", PR: "64", RUNNER_TEMP: temp },
-      encoding: "utf8",
-    });
-    expect(result.status).toBe(0);
-    expect(readFileSync(join(temp, "tickets.md"), "utf8")).toBe(
-      "The tickets could not be read: Unknown command: review tickets\n",
-    );
+    expect(
+      readTickets(
+        "/base",
+        "(echo 'first' >&2; echo 'Unknown command: review tickets' >&2; exit 1)",
+      ),
+    ).toBe("The tickets could not be read: Unknown command: review tickets\n");
   });
 });
