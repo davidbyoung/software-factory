@@ -373,7 +373,7 @@ The factory SHALL behave as this line says: When `factory init` runs and the set
 #### Scenario: Init asks for the spec tool
 
 - **WHEN** `factory init` runs and the settings in effect, from the file or a preset, have no `specs`
-- **THEN** It asks `Which spec tool do you use?` right after the branch-name question, or where that question would be when it is not asked, offering `None: each ticket holds its own spec` first and selected, then `OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/`.
+- **THEN** it asks `Which spec tool do you use?` right after the branch-name question, or where that question would be when it is not asked, offering `None: each ticket holds its own spec` first and selected, then `OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/`.
 
 ### Requirement: Init writes no spec tool
 

@@ -7,7 +7,7 @@ The factory SHALL behave as this line says: When `factory specs check` runs and 
 #### Scenario: The spec check with no spec tool
 
 - **WHEN** `factory specs check` runs and `specs.type` is `none`
-- **THEN** It prints `- No spec tool (specs: none): each ticket holds its own spec.` and exits 0.
+- **THEN** it prints `- No spec tool (specs: none): each ticket holds its own spec.` and exits 0.
 
 ## REMOVED Requirements
 
