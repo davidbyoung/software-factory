@@ -335,6 +335,11 @@ names each file.
 
 ## A team
 
+- **Each person signs in as themselves.** A teammate who clones the
+  repository needs their own logins, and, with a ticket system of its own
+  ([planned](developing.md#what-is-built), such as Jira), runs
+  `factory init` once for their own token.
+  [Where your tokens are kept](credentials.md) says what to do.
 - **A person's own session acts as that person.** A commit made by a
   teammate's session goes out under that teammate's account. A cloud build
   acts as the one account that owns its token: yours, or an account you

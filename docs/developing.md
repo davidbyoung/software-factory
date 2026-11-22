@@ -69,7 +69,8 @@ marked working below exist only in these docs.
 | A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                                             |
 | `factory ticket refined` refusing a ticket a build could not read                                                | Working                                             |
 | No skill, agent, rule, or review instruction names a stack, checked by a test                                    | Working                                             |
-| Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                 |
+| A ticket system's token kept in the repository's secrets and on your machine                                     | Working                                             |
+| Another ticket system, such as Jira                                                                              | Planned: #63                                        |
 | A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                 |
 | Another code host or runner                                                                                      | Not planned. The design leaves room                 |
 | Another spec tool, such as Spec Kit                                                                              | Not planned. An adapter under `src/specs/` adds one |
@@ -459,13 +460,14 @@ how to open it and its setup, the `ToolSetup` type in `src/setup.mts`. The
 names the settings accept are in `src/tool-names.mts`, and a test fails
 when the two differ. Every member of a setup is optional.
 
-| Member        | What it gives                                                                                                                           | Used by  |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `found`       | Its row under "Found", when it says more than the tool's name, such as where it was found                                               | `init`   |
-| `steps`       | A value to write under the tool's block of the settings, or a secret: which parts read it, how to get it, and how to check a pasted one | `init`   |
-| `checks`      | Its own lines in `doctor`: that it is reachable, signed in, or configured, each failure with its fix in the tool's words                | `doctor` |
-| `leftovers`   | What removing the factory leaves outside the repository, such as its secrets                                                            | `remove` |
-| `unconfigure` | Its own files with the factory's part taken out, such as a coding agent's settings without the factory's hooks                          | `remove` |
+| Member        | What it gives                                                                                                                           | Used by                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `found`       | Its row under "Found", when it says more than the tool's name, such as where it was found                                               | `init`                                               |
+| `steps`       | A value to write under the tool's block of the settings, or a secret: which parts read it, how to get it, and how to check a pasted one | `init`                                               |
+| `checks`      | Its own lines in `doctor`: that it is reachable, signed in, or configured, each failure with its fix in the tool's words                | `doctor`                                             |
+| `credential`  | A secret of more than one part, checked together, which a ticket system that is not GitHub also keeps on the machine                    | `init`, `doctor`, `remove`, and every ticket command |
+| `leftovers`   | What removing the factory leaves outside the repository, such as its secrets                                                            | `remove`                                             |
+| `unconfigure` | Its own files with the factory's part taken out, such as a coding agent's settings without the factory's hooks                          | `remove`                                             |
 
 **A value** is asked for once, after the parts are chosen, and written
 under the tool's block: a ticket system's under `tickets`, which accepts a
@@ -476,6 +478,16 @@ its page or runs its command, reads it in a masked prompt, and stores it
 through the runner under each name the tool gives. Its words are the
 tool's: the prompt, the reason it refuses a value, and the line when
 nothing is pasted.
+
+**A credential** is a secret with more than one part, such as an email and
+a token, checked together and stored under one name each: the `credential`
+member of a setup, asked after its steps. A ticket system that is not
+GitHub also keeps its credential on the machine: `init` writes it to
+`~/.config/software-factory/credentials.yaml`, filed under the tool and
+the value its setup names, such as `tickets.site`, and every command reads
+it from there, or from an environment variable of the same name, which
+takes priority. GitHub keeps nothing there, since the `gh` CLI's login
+does that job.
 
 With more than one tool of a kind, `init` asks which, except for the code
 host, which it reads from the git remote: each code host says which

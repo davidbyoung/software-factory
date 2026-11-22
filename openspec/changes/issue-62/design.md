@@ -46,3 +46,11 @@ The credential on this machine is one of: from the environment, in the file and 
 ## Dependencies
 
 - None to start. #63 waits on this ticket, recorded.
+
+## Departures in the build
+
+- **The credential is a member of the setup, not one of its steps.** `ToolSetup.credential` holds the `credential` step, and `stepsOf` asks it after the tool's own steps. A command opening the ticket system has no setup context to call `steps` with, and the credential needs none to name.
+- **`check` also takes the site,** since a ticket system checks a credential against its own address.
+- **`doctor` words its fixes as every other line does.** The fix follows the check on the same line, after a full stop when it starts "Run", so line 25's fixes read `Run factory init` and `Run chmod 600 PATH`, and the reasons ("It may have expired", "Fix or delete it") end the check's text.
+- **The board sync's fixture reads GitHub's recorded board through `tickets/index.mts`** (`fixtureBoard`), so `src/board.mts` no longer imports `src/tickets/github.mts` and the boundary check holds.
+- **`sync` loads the registry lazily.** The coding agent's setup imports `sync.mts`, so a static import of `tools.mts` would be a cycle; `plan` takes the ticket systems as a parameter for tests.
