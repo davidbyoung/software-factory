@@ -722,6 +722,14 @@ describe("workflows/factory-board-sync.yml", () => {
     ).toBeUndefined();
   });
 
+  it("runs when the factory starts it, on pull request events, and nightly, never on a ticket's own events", () => {
+    expect(Object.keys(workflow.on).sort()).toEqual([
+      "pull_request_target",
+      "schedule",
+      "workflow_dispatch",
+    ]);
+  });
+
   it("still skips Dependabot's pull requests, and forks'", () => {
     const condition = workflow.jobs.sync.if.replace(/\s+/g, " ");
     expect(condition).toContain(

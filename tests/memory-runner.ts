@@ -69,6 +69,9 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       called("startBuild", ticket, branch);
       builds.push({ id: builds.length + 1, ticket, branch, at: now() });
     },
+    async startSync(branch) {
+      called("startSync", branch);
+    },
     async findBuild(name, since) {
       called("findBuild", name);
       if (looked++ < (options.buildShowsAfter ?? 0)) return null;

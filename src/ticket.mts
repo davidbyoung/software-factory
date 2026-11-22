@@ -113,6 +113,8 @@ export type Deps = {
   /** The runner the settings name, which says whether this session is in
    * one of its runs. */
   runner: (repository: string, name: string) => Pick<Runner, "thisRun">;
+  /** Starts the board sync on the default branch, through the runner. */
+  startSync: (repository: string, settings: Settings) => Promise<void>;
   /** The factory's settings, read once when the command starts. */
   settings: () => Promise<Settings>;
   env: Record<string, string | undefined>;
@@ -777,7 +779,41 @@ const STEPS = new Set([
 const USAGE =
   "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
 
+/** The commands that record something on a ticket, after each of which
+ * the board sync runs, since no ticket system tells the code host. */
+const RECORDING = new Set([
+  "claim",
+  "refining",
+  "waiting",
+  "refined",
+  "stop",
+  "end",
+  "ready",
+  "cost",
+  "adopt",
+  "open",
+  "follow-up",
+]);
+
 export async function main(argv: string[], deps: Deps): Promise<number> {
+  const code = await command(argv, deps);
+  if (code !== 0 || !RECORDING.has(argv[0] ?? "")) return code;
+  try {
+    const settings = await deps.settings();
+    // The sync's workflow is written only where there is a board to sync.
+    if (settings.tickets.board === null && !settings.tickets.statuses)
+      return code;
+    await deps.startSync(targetOf(settings, deps.env).repository, settings);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    deps.out(
+      `? the board updates at the nightly sync: couldn't start factory-board-sync (${reason})`,
+    );
+  }
+  return code;
+}
+
+async function command(argv: string[], deps: Deps): Promise<number> {
   const [command, first, ...rest] = argv;
   try {
     // `supports` answers before anything is read: it names the groups.
@@ -950,6 +986,13 @@ export async function run(argv: string[]): Promise<number> {
     signedInAs: (repository, codeHost) =>
       openCodeHost(repository, codeHost).signedInAs(),
     runner: (repository, name) => openRunner(repository, name),
+    startSync: async (repository, settings) => {
+      const branch = await openCodeHost(
+        repository,
+        settings.codeHost.type,
+      ).defaultBranch();
+      await openRunner(repository, settings.builds.runner).startSync(branch);
+    },
     settings: () => loadSettings(),
     env: process.env,
     sleep,

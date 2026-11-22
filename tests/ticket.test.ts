@@ -102,6 +102,7 @@ function deps(
     ["c.md", "Nothing here needs your decision."],
   ]);
   const opened: Partial<Record<"repository" | "board", unknown>>[] = [];
+  const synced: string[] = [];
   const d: Deps = {
     open: async (_settings, target) => {
       opened.push(target);
@@ -179,6 +180,7 @@ function deps(
       read: (session) => clocks.get(session) ?? null,
       write: (session, clock) => clocks.set(session, clock),
     },
+    startSync: async () => void synced.push("sync"),
     measure: (_session, since) => {
       measured.push(since);
       return {
@@ -187,7 +189,7 @@ function deps(
       };
     },
   };
-  return { d, out, written, clocks, measured, memory, files, opened };
+  return { d, out, written, clocks, measured, memory, files, opened, synced };
 }
 
 /** Records the order of the adapter's calls among `log`. */
@@ -2670,5 +2672,53 @@ describe("factory ticket adopt", () => {
       await main(["adopt", "--all-open", "--since-lock", "old.lock"], d),
     ).toBe(0);
     expect(out).toEqual(["labeled #2, #3", "✓ 3 open tickets carry factory"]);
+  });
+});
+
+describe("starting the board sync", () => {
+  it.each([
+    [["claim", "7"]],
+    [["refining", "7"]],
+    [["waiting", "7"]],
+    [["cost", "7"]],
+    [["adopt", "7"]],
+    [["open", "--title", "T", "--body-file", "c.md"]],
+    [["follow-up", "a.ts", "Wrong."]],
+  ])("%j starts it once, and prints nothing more", async (argv) => {
+    const { d, synced, out } = deps();
+
+    expect(await main(argv, d)).toBe(0);
+    expect(synced).toEqual(["sync"]);
+    expect(out.some((l) => l.startsWith("?"))).toBe(false);
+  });
+
+  it("starts nothing for a command that records nothing", async () => {
+    const { d, synced } = deps();
+
+    await main(["view", "7"], d);
+    expect(synced).toEqual([]);
+  });
+
+  it("starts nothing without a board, where no sync is written", async () => {
+    const { d, synced, out } = deps();
+    const s = await fakeSettings();
+    d.settings = async () => ({ ...s, tickets: { ...s.tickets, board: null } });
+
+    expect(await main(["refining", "7"], d)).toBe(0);
+    expect(synced).toEqual([]);
+    expect(out).toEqual(["posted"]);
+  });
+
+  it("says when it cannot start the sync, after its own line, and keeps its exit code", async () => {
+    const { d, out } = deps();
+    d.startSync = async () => {
+      throw new Error("HTTP 403: Resource not accessible by integration");
+    };
+
+    expect(await main(["refining", "7"], d)).toBe(0);
+    expect(out).toEqual([
+      "posted",
+      "? the board updates at the nightly sync: couldn't start factory-board-sync (HTTP 403: Resource not accessible by integration)",
+    ]);
   });
 });

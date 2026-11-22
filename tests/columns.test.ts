@@ -836,6 +836,7 @@ describe("factory ticket ready", () => {
       openPulls: async () => [],
       signedInAs: async () => "dave",
       runner: () => ({ thisRun: () => null }),
+      startSync: async () => {},
       settings: async () => settings,
       env: { CLAUDE_CODE_SESSION_ID: "s" },
       sleep: async () => {},

@@ -1,11 +1,14 @@
-# Keeps the board's Status, Session, and Runs in in step with the marker
-# comments sessions post, and Cost with the cost markers on each issue and
+# Keeps the board's Status, Session, and Runs in in step with what sessions
+# record on each labeled ticket, and Cost with the costs on each ticket and
 # the pull requests that build it (`factory board collect` and `apply`). It
 # is the only writer of those four fields but one: a local session the owner
 # asks sets Status to Ready (`factory ticket ready`), as the owner's own
-# move. It recomputes
-# every issue on every run, so a run that GitHub replaces with a newer one
-# loses nothing.
+# move. It recomputes every ticket on every run, so a run that GitHub
+# replaces with a newer one loses nothing.
+#
+# The factory's commands start it after each thing they record, by
+# workflow_dispatch, since a ticket system other than GitHub cannot start a
+# GitHub workflow; the nightly run catches the rest.
 #
 # The workflow's token reads the repository and posts comments; GitHub's
 # own token cannot reach a user's Project, so FACTORY_BOARD_TOKEN, a classic
@@ -24,15 +27,11 @@
 name: Factory board sync
 
 on:
-  issues:
-    types: [opened, closed, reopened]
-  issue_comment:
-    types: [created, deleted]
   pull_request_target:
     types: [opened, closed, reopened, ready_for_review, converted_to_draft]
   schedule:
     # Nightly: clears claims and starts over 24 hours old, and catches what
-    # no event covers, such as an edited comment.
+    # no command started, such as a ticket closed by hand.
     - cron: "0 7 * * *"
   workflow_dispatch:
 
@@ -48,18 +47,14 @@ concurrency:
 jobs:
   sync:
     name: Sync the board
-    # A comment without a marker changes nothing. Dependabot's pull
-    # requests close no issue and are not on the board, and a fork's pull
-    # request does not get the board's token. The CI review adds its cost by
-    # editing its summary, which starts no run, so that cost reaches the
-    # card on the next run.
+    # Dependabot's pull requests close no ticket and are not on the board,
+    # and a fork's pull request does not get the board's token. The CI
+    # review adds its cost by editing its summary, which starts no run, so
+    # that cost reaches the card on the next run.
     if: >-
-      (github.event_name != 'issue_comment' ||
-        contains(github.event.comment.body, '<!-- work-status:') ||
-        contains(github.event.comment.body, '<!-- cost:')) &&
-      (github.event_name != 'pull_request_target' ||
-        (github.event.pull_request.user.login != 'dependabot[bot]' &&
-          github.event.pull_request.head.repo.full_name == github.repository))
+      github.event_name != 'pull_request_target' ||
+      (github.event.pull_request.user.login != 'dependabot[bot]' &&
+        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

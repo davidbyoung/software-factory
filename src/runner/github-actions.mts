@@ -78,6 +78,13 @@ export function githubActionsRunner(o: {
         { fields: { ref: branch, inputs: { ticket } } },
       );
     },
+    async startSync(branch) {
+      await t.rest(
+        "POST",
+        `${API}/actions/workflows/factory-board-sync.yml/dispatches`,
+        { fields: { ref: branch } },
+      );
+    },
     // GitHub answers a dispatch with no run, so the run is found by the
     // name the build workflow gives it. GitHub's times are whole seconds, so
     // `since` is rounded down to one.

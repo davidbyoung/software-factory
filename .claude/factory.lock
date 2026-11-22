@@ -28,6 +28,7 @@ settings:
     labels:
       spec: spec                                                               # default
       follow-up: follow-up                                                     # default
+      factory: factory                                                         # default
   code-host:
     type: github
     branch-name: "{ticket}"
@@ -39,6 +40,7 @@ settings:
     trigger: manual
     runner: github-actions                                                     # default
     # poll-minutes: only with trigger github-action
+    max-per-hour: 20                                                           # default
   specs:
     type: openspec
     check: npx --no-install openspec validate --all --strict --no-interactive  # default
