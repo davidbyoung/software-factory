@@ -94,25 +94,25 @@ reporting a clean review. Never report a review as clean when none has run.
 
 ## 0a. The owner's review
 
-The repository owner reviews pull requests too. Their comments are worked
-like the Claude reviewer's findings, with two differences: a pushback on
-one stays open for the owner to decide, and the owner's reply after a
-pushback is final. The owner is the repository owner's login, read rather
-than hard-coded: the part of the repository's name before the slash.
-
-```bash
-OWNER_LOGIN=$(npx --no-install factory config get repository | cut -d/ -f1)
-```
+An approver, anyone whose account can write to the repository, reviews
+pull requests too. Their comments are worked like the Claude reviewer's
+findings, with two differences: a pushback on one stays open for an
+approver to decide, and an approver's reply after a pushback is final.
+Who is an approver is the code host's to say: `factory pr state` and
+`factory pr review-pending` already keep only an approver's reviews and
+turns, so no step here tests a name.
 
 **Only reviews count:** inline comments, and the body of a submitted
 review. A Conversation-tab comment that is not part of a review starts
 nothing and is never acted on. Do not go by the review's state: agents open
-pull requests through the owner's account, and GitHub does not let an
-author approve or request changes on their own pull request, so the owner's
-reviews are all `COMMENTED`.
+pull requests through an approver's account, and GitHub does not let an
+author approve or request changes on their own pull request, so the
+reviews of an approver who is the pull request's author are all
+`COMMENTED`.
 
 Every comment this skill posts contains `<!-- agent -->` (section 4), so a
-comment from `OWNER_LOGIN` without it is the owner's. Match with
+comment without it, from an account those commands count, is an
+approver's. Match with
 "contains", not "ends with": an automatic footer can follow the marker.
 
 ### A run started by the owner's review
@@ -139,9 +139,10 @@ passed.
    It prints the review's author and body, and each comment it left on a
    line with its `id`, `replyTo`, `path`, `line`, and `body`.
 
-3. **Nothing of the owner's in it:** stop without changing anything. That is
-   a review by someone else, or one of this skill's own replies: GitHub
-   records each thread reply as a review under the owner's account, with an
+3. **Nothing of an approver's in it:** stop without changing anything. That
+   is a review by someone who is not an approver, or one of this skill's
+   own replies: GitHub records each thread reply as a review under the
+   account that posted it, with an
    empty body and one comment carrying the marker. Otherwise work the
    comments without the marker, and the body if it is non-empty and lacks
    the marker.
@@ -197,16 +198,16 @@ This run never merges, enables auto-merge, marks a draft ready, or adds the
 branch.
 
 **Outside a run started by a review,** as in a local session working the
-pull request, the owner comments to work are the unresolved threads whose
-last comment is the owner's and lacks the marker, and the non-empty owner
-review bodies submitted after the last Conversation comment carrying the
+pull request, the approver comments to work are the unresolved threads
+whose last comment is an approver's and lacks the marker, and the non-empty
+approver review bodies submitted after the last Conversation comment carrying the
 marker. A comment that also carries `<!-- conflict-fix -->`,
 `conflict-stop`, or `<!-- session-handoff -->`, the `factory-resolve-conflicts` skill's
 comment markers, does not count as that last comment, so a sweep's comment
-does not hide an owner's unanswered review body. Thread replies do not count there, since a reply on one thread does
-not answer a review body. The report lists these as "owner review bodies
-to answer", and marks an unresolved thread "owner's turn" when its last
-comment is the owner's without the marker. Read a review body in full
+does not hide an approver's unanswered review body. Thread replies do not count there, since a reply on one thread does
+not answer a review body. The report lists these as "approver review bodies
+to answer", and marks an unresolved thread "approver's turn" when its last
+comment is an approver's without the marker. Read a review body in full
 with `npx --no-install factory pr review N ID`.
 
 ### Each owner comment
@@ -425,7 +426,7 @@ the reasoning survives, and the user reads these instead of the transcript.
 
 **Every comment this skill posts, a thread reply or a conversation comment,
 contains `<!-- agent -->` on its own line.** That marker is how the next
-run tells its own words from the owner's (section 0a). Put it at the end of
+run tells its own words from an approver's (section 0a). Put it at the end of
 the body; an automatic footer may follow it.
 
 ```bash

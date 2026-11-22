@@ -212,8 +212,9 @@ npx --no-install factory ticket waiting N
 Then stop: refinement stops with it.
 
 **A later run,** by `/dx-first N` or by refinement through `CLAUDE.md`,
-reads the owner's replies since the newest draft comment. Only the owner's
-comments are answers.
+reads the replies since the newest draft comment: the comments
+`npx --no-install factory ticket answers N` prints after it. Only those
+are answers.
 
 - **A reply that says to save,** or the owner approving the ticket, saves
   the draft (step 8) with the replies folded in. The owner approves it by

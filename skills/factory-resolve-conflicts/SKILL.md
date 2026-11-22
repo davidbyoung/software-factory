@@ -11,7 +11,7 @@ Working the review itself, the threads, the checks, the coverage report,
 the replies, the rounds, and the report, is in the `factory-address-review`
 skill, as is the run a review of the owner's starts; this one says what a
 run does before and around that. The section numbers below are
-`factory-address-review`'s. The owner's login, which reviews count, and
+`factory-address-review`'s. Who is an approver, whose reviews count, and
 the `<!-- agent -->` marker are defined in `factory-address-review`
 section 0a, and where the marker goes in a comment in its section 4.
 
@@ -79,13 +79,13 @@ in the report.
    settled it:
 
    ```bash
-   OWNER_LOGIN=$(npx --no-install factory config get repository | cut -d/ -f1)
-   npx --no-install factory pr comments N --author "$OWNER_LOGIN" \
+   npx --no-install factory pr comments N --from-approvers \
      --contains "conflict-stop head=HEAD_SHA"
    ```
 
-   Agents post through the owner's account (section 0a), so the marker,
-   not the author, is what makes it a stop comment.
+   Agents post through an approver's account, a person's or an agent
+   account's (section 0a), so the marker, not who posted it, is what makes
+   it a stop comment.
 
 4. **Nothing `dirty` without a stop comment:** stop, with no comment, no
    push. Otherwise go on: the workflow has already run the setup. Before
