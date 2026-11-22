@@ -270,10 +270,22 @@ describe("factory remove", () => {
       "  3. Delete the Session, Runs in, and Cost fields from board 3, if you do not want them.",
       "  4. Delete the secret CLAUDE_CODE_OAUTH_TOKEN, unless another workflow uses it.",
       "  5. Delete the secret FACTORY_SIGNING_KEY.",
-      "  6. Delete whichever of the labels merge: automatic, merge: manual, verdict: override, follow-up, and spec exist, if you do not want their history: deleting one takes it off every ticket.",
+      "  6. Delete whichever of the labels merge-automatic, merge-manual, verdict-override, follow-up, and spec exist, if you do not want their history: deleting one takes it off every ticket.",
       "  7. Run npm uninstall @davidbyoung/software-factory.",
       "  8. Commit this on a branch, open a pull request, and merge it.",
     ]);
+  });
+
+  it("names each label by the name the settings give it", async () => {
+    const r = remove({
+      files: {
+        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner-pass\ntickets:\n  labels:\n    follow-up: follow-ups\n`,
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).toContain(
+      "the labels merge-automatic, merge-manual, owner-pass, follow-ups, and spec exist",
+    );
   });
 
   it("names no board's fields when the settings name no board", async () => {

@@ -12,7 +12,15 @@ export type Built = {
   runner: readonly string[];
   /** Each spec tool, with the check \`specs.check\` defaults to. */
   specs: Readonly<Record<string, string>>;
+  /** Why a ticket system or code host refuses a label name, or null, for
+   * each that limits names beyond their not being empty. */
+  labelFaults: {
+    tickets: Readonly<Record<string, LabelFault>>;
+    codeHost: Readonly<Record<string, LabelFault>>;
+  };
 };
+
+export type LabelFault = (name: string) => string | null;
 
 export const BUILT: Built = {
   codeHost: ["github"],
@@ -22,6 +30,7 @@ export const BUILT: Built = {
     openspec:
       "npx --no-install openspec validate --all --strict --no-interactive",
   },
+  labelFaults: { tickets: {}, codeHost: {} },
 };
 
 /** The words every command fails with for a name that is not built, such

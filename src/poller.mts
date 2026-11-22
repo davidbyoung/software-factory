@@ -20,6 +20,7 @@
 // It names its implementations itself, having no settings to name them:
 // the GitHub ticket adapter, GitHub as the code host, and GitHub Actions as
 // the runner, each over the `fetch` transport, since it runs with no `gh`.
+import { TICKET_LABELS } from "./labels.mts";
 import { randomBytes } from "node:crypto";
 import { columnsOf, loadSettings, type Settings } from "./config.mts";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -62,6 +63,7 @@ export function selectToStart(
   snapshot: RepoSnapshot,
   board: Board,
   columns: Columns = DEFAULT_COLUMNS,
+  followUp: string = TICKET_LABELS["follow-up"],
 ): Key[] {
   return snapshot.issues
     .filter(
@@ -72,6 +74,7 @@ export function selectToStart(
           cardOf(board, issue.key, columns),
           snapshot.pulls,
           columns,
+          followUp,
         ).status === "Ready",
     )
     .map((issue) => issue.key)
@@ -257,7 +260,12 @@ export async function tick(d: Deps, state: State): Promise<void> {
   }
 
   const columns = columnsFrom(d.env);
-  const ready = selectToStart(read.snapshot, read.board, columns);
+  const ready = selectToStart(
+    read.snapshot,
+    read.board,
+    columns,
+    d.env.FACTORY_FOLLOW_UP_LABEL?.trim() || TICKET_LABELS["follow-up"],
+  );
   // This pass's own start comments are not in what it read, so it adds them.
   const fired = recentStarts(read.snapshot.issues, d.now());
   if (d.now() - state.lastHeartbeat >= HOUR) {
@@ -328,10 +336,19 @@ export async function tick(d: Deps, state: State): Promise<void> {
 /** What one scheduled pass reads from the settings: the board's number,
  * and the column that approves a build, each null when the settings have
  * none. */
-export type OnceSettings = { board: number | null; ready: string | null };
+export type OnceSettings = {
+  board: number | null;
+  ready: string | null;
+  /** The name of the follow-ups ticket's label. */
+  followUp: string;
+};
 
 export function onceSettings(s: Settings): OnceSettings {
-  return { board: s.tickets.board, ready: columnsOf(s).Ready?.[0] ?? null };
+  return {
+    board: s.tickets.board,
+    ready: columnsOf(s).Ready?.[0] ?? null,
+    followUp: s.tickets.labels["follow-up"],
+  };
 }
 
 /** One pass, for a scheduled run: the board and the Ready column come from
@@ -355,6 +372,7 @@ export async function once(s: OnceSettings, d: Deps): Promise<number> {
     FACTORY_BOARD_OWNER: d.repository.split("/")[0],
     FACTORY_BOARD_NUMBER: String(s.board),
     FACTORY_READY_COLUMN: s.ready,
+    FACTORY_FOLLOW_UP_LABEL: s.followUp,
   };
   const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
   await tick({ ...d, env }, state);

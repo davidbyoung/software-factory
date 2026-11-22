@@ -14,6 +14,7 @@
 // the rules' numbers, and the default branch's name in the push triggers.
 // Edit the source in the package, never the copy. A file the lock lists that the package no longer has is
 // deleted. Nothing else is.
+import { PR_LABELS } from "./labels.mts";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   existsSync,
@@ -122,6 +123,24 @@ export function withDefaultBranch(text: string, name: string, file: string) {
 }
 
 const BUILD_WORKFLOW = "workflows/factory-build.yml";
+const VERDICT_WORKFLOW = "workflows/factory-review-verdict.yml";
+
+/** The verdict workflow starting on the override by the name the settings
+ * give it, written only when it is not the default, in single quotes as
+ * GitHub's expressions take text. */
+export function withOverride(text: string, name: string, file: string) {
+  const fallback = PR_LABELS["verdict-override"];
+  if (name === fallback) return text;
+  const line = `github.event.label.name == '${fallback}'`;
+  if (text.split(line).length !== 2)
+    throw new Error(
+      `${file}: expected one match for ${line}, to set the override's name`,
+    );
+  return text.replace(
+    line,
+    () => `github.event.label.name == '${name.replace(/'/g, "''")}'`,
+  );
+}
 
 /** The build workflow with its run named as the ticket system writes the
  * ticket, such as `Build #12` on GitHub, which `factory build` finds the
@@ -661,7 +680,9 @@ export async function plan(
       ? withDefaultBranch(source, branch, from)
       : from === BUILD_WORKFLOW
         ? withRunName(source, refOf(s.tickets.type), from)
-        : source;
+        : from === VERDICT_WORKFLOW
+          ? withOverride(source, s.codeHost.labels["verdict-override"], from)
+          : source;
     const kind = SESSION_WORKFLOWS[from.replace(/^workflows\//, "")];
     const written =
       kind && from.startsWith("workflows/")

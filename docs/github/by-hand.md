@@ -245,7 +245,7 @@ list, such as documentation.
    ```
 
    Then run `factory sync`, which writes the merge-policy workflow. It
-   labels each pull request `merge: automatic` or `merge: manual` and
+   labels each pull request `merge-automatic` or `merge-manual` and
    says why.
 
 2. **Allow auto-merge** on the repository: Settings, General, "Allow
@@ -253,7 +253,7 @@ list, such as documentation.
 3. **Store a GitHub token** as `FACTORY_AUTOMERGE_TOKEN` ([Secrets](#secrets)).
 
 **It worked when** a pull request that touches only files you listed gets
-the `merge: automatic` label.
+the `merge-automatic` label.
 
 ## Signed commits from cloud builds
 

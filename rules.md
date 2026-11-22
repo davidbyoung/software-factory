@@ -9,6 +9,11 @@ Tickets are read and written only through `npx --no-install factory ticket`,
 and a pull request's conversation comments and labels through
 `factory pr`, so the rules and skills hold whatever the ticket system.
 
+A label is named here by its key under `tickets.labels` or
+`code-host.labels`, such as `spec` or `verdict-override`, and those
+commands take the key; `factory ticket view` shows the key beside a label
+the repository renamed, as `needs-spec (spec)`.
+
 ## Small changes
 
 A change is small when it changes under about 30 lines outside tests,
@@ -155,11 +160,11 @@ discovering it at push time.
 ## What merges without the owner
 
 A pull request merges itself only when the merge-policy workflow labels it
-`merge: automatic` and every gate passes on its newest commit,
+`merge-automatic` and every gate passes on its newest commit,
 `Review verdict` included. The agents' own rules always wait for the
 owner. Its `Who merges` status in the checks list says which, and why.
 
-Agents never merge, enable auto-merge, or add the `verdict: override`
+Agents never merge, enable auto-merge, or add the `verdict-override`
 label, the owner's pass of the verdict for one commit; `factory pr label`
 and `factory ticket label` refuse it, and the guard hook stops the ordinary
 ways of adding it around them. Both workflows run from the default branch's copy,

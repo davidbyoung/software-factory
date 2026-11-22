@@ -19,7 +19,7 @@ when the review said ready. A push starts the next commit without one. When
 a round ends with rejections only and nothing to push, the verdict stays at
 the last review's failure, so ask for a fresh read of the same commit
 (`npx --no-install factory pr review-again N`); the reviewer
-reads your replies and posts a new verdict. Never add the `verdict: override`
+reads your replies and posts a new verdict. Never add the `verdict-override`
 label, never enable auto-merge, and never merge: the override is the
 owner's alone, and the merge-policy workflow decides auto-merge.
 
@@ -194,7 +194,7 @@ If the gate or the push fails, reply on the affected threads with the
 error and leave them open.
 
 This run never merges, enables auto-merge, marks a draft ready, or adds the
-`verdict: override` label, and it pushes only to the pull request's
+`verdict-override` label, and it pushes only to the pull request's
 branch.
 
 **Outside a run started by a review,** as in a local session working the
@@ -536,7 +536,7 @@ Escalate sooner, at any round, when:
 To escalate, leave the threads open and give the user, for each one, the
 reviewer's position, yours, and the evidence on both sides. The pull request
 cannot merge until they decide, which is the point. If they side with you,
-the `verdict: override` label is how they pass the verdict for this commit, and
+the `verdict-override` label is how they pass the verdict for this commit, and
 resolving the escalated threads is theirs too.
 
 ## 7. Three strikes on one unit

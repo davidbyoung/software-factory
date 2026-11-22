@@ -137,8 +137,9 @@ Follow-ups
 - [ ] tests/search.spec.ts: This test passes even when search returns nothing.
 ```
 
-There is one per repository, it carries the `follow-up` label, and there is
-nothing to configure. When you approve it, a session fixes every unchecked
+There is one per repository, and it needs no setup. Its label is
+`follow-up`, unless you rename it under
+[`tickets.labels`](configuration.md#ticketslabels). When you approve it, a session fixes every unchecked
 line on one branch, one commit per line, in one pull request.
 
 **Why a checklist and not a ticket each.** Every ticket costs the same
@@ -161,13 +162,14 @@ rule it breaks, so it can be fixed as written.
 
 ## Who merges
 
-Every pull request gets one of two labels:
+Every pull request gets one of two labels, which you can rename under
+[`code-host.labels`](configuration.md#code-hostlabels):
 
-- **`merge: automatic`**: every file is allowed by your
+- **`merge-automatic`**: every file is allowed by your
   [`auto-merge`](configuration.md#auto-merge) settings, and none of the
   commands you listed there held it. It merges itself once every check
   passes.
-- **`merge: manual`**: anything else. It waits for a person to merge it,
+- **`merge-manual`**: anything else. It waits for a person to merge it,
   and a "Who merges" status on the pull request says what held it and
   why.
 
@@ -176,7 +178,7 @@ Two more things guard a merge:
 - **"Review verdict"** is a status, which you can make required on your
   default branch, that passes only when the automated
   review of the newest commit said it is ready, or an approver overrode it
-  with the `verdict: override` label. Sessions never add that label.
+  with the `verdict-override` label. Sessions never add that label.
 - **Every review thread must be resolved.** A session answers each one,
   fixed or rejected with evidence, before resolving it.
 

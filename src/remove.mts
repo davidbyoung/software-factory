@@ -21,7 +21,7 @@ import {
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
 import { SIGNING_KEY } from "./parts.mts";
-import { OVERRIDE } from "./review-verdict.mts";
+import { DEFAULT_LABELS } from "./labels.mts";
 import type { Chosen, SetupContext, Unconfigured } from "./setup.mts";
 import { LOCK, PACKAGE } from "./sync.mts";
 import { CHOICES_FILE } from "./preset.mts";
@@ -35,14 +35,6 @@ export type RemoveDeps = {
   hasCommand: (name: string) => boolean;
   packageName: string;
 };
-
-const LABELS = [
-  "merge: automatic",
-  "merge: manual",
-  OVERRIDE,
-  "follow-up",
-  "spec",
-];
 
 /** The agents and skills the lock lists that presets shipped, a skill as
  * its folder, and the packages of the presets it records. */
@@ -70,6 +62,21 @@ async function presetParts(
     files: [...files].filter((p) => existsSync(join(root, p))),
     packages: [...new Set(lock.presets.map((p) => splitName(p.name).pkg))],
   };
+}
+
+/** The labels the factory adds, by the names the settings give them: the
+ * pull request labels, then the ticket labels. */
+function labelsOf(settings: Settings | null): string[] {
+  const { codeHost, tickets } = settings
+    ? { codeHost: settings.codeHost.labels, tickets: settings.tickets.labels }
+    : DEFAULT_LABELS;
+  return [
+    codeHost["merge-automatic"],
+    codeHost["merge-manual"],
+    codeHost["verdict-override"],
+    tickets["follow-up"],
+    tickets.spec,
+  ];
 }
 
 /** The factory's own files and folders, each a path from the root. */
@@ -190,7 +197,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
     ...(secrets === null || secrets.includes(SIGNING_KEY)
       ? [`Delete the secret ${SIGNING_KEY}${secrets === null ? " if set" : ""}`]
       : []),
-    `Delete whichever of the labels ${listed(LABELS)} exist, if you do not want their history: deleting one takes it off every ticket`,
+    `Delete whichever of the labels ${listed(labelsOf(settings))} exist, if you do not want their history: deleting one takes it off every ticket`,
     `Run npm uninstall ${d.packageName}`,
     ...shipped.packages.map((p) => `Run npm uninstall ${p}`),
     "Commit this on a branch, open a pull request, and merge it",

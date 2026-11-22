@@ -30,9 +30,15 @@ import { openTickets, type Tickets } from "./tickets/index.mts";
 import { ghTransport } from "./tickets/transport.mts";
 import { githubActionsSetup } from "./runner/setup.mts";
 import { specTools, type SpecTools } from "./specs/index.mts";
-import { BUILT, type Built } from "./tool-names.mts";
+import { BUILT, type Built, type LabelFault } from "./tool-names.mts";
 
-export type Tool = { label: string; setup: ToolSetup };
+export type Tool = {
+  label: string;
+  setup: ToolSetup;
+  /** Why it refuses a label name, where it limits names beyond their not
+   * being empty. */
+  labelFault?: LabelFault;
+};
 
 export type Registry = {
   codeHost: Record<
@@ -101,6 +107,13 @@ export const TOOLS: Registry = {
   specs: specTools(),
 };
 
+const faultsOf = (tools: Record<string, Tool>) =>
+  Object.fromEntries(
+    Object.entries(tools).flatMap(([name, t]) =>
+      t.labelFault ? [[name, t.labelFault]] : [],
+    ),
+  );
+
 /** The names and keys the settings accept, as `config.mts` checks them. */
 export function builtOf(r: Registry): Built {
   return {
@@ -112,6 +125,10 @@ export function builtOf(r: Registry): Built {
     specs: Object.fromEntries(
       Object.entries(r.specs).map(([name, t]) => [name, t.defaultCheck]),
     ),
+    labelFaults: {
+      tickets: faultsOf(r.tickets),
+      codeHost: faultsOf(r.codeHost),
+    },
   };
 }
 

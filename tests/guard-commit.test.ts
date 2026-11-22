@@ -12,7 +12,11 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { writeSettings } from "./locked.ts";
-import { checkCommit, ownLauncher } from "../src/guard-commit.mts";
+import {
+  addsOverride,
+  checkCommit,
+  ownLauncher,
+} from "../src/guard-commit.mts";
 import { CANNOT_TELL, type Sources } from "../src/lib/default-branch.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 
@@ -275,60 +279,47 @@ describe("factory guard commit", () => {
     };
 
     it("blocks adding it with --add-label", () => {
-      blocked('gh pr edit 5 --add-label "verdict: override"');
+      blocked("gh pr edit 5 --add-label verdict-override");
     });
 
     it("blocks --add-label written with an equals sign", () => {
-      blocked('gh pr edit 5 --add-label="verdict: override"');
+      blocked('gh pr edit 5 --add-label="verdict-override"');
     });
 
     it("blocks it in any letter case, as GitHub matches labels", () => {
-      blocked('gh pr edit 5 --add-label "Verdict: Override"');
+      blocked("gh pr edit 5 --add-label Verdict-Override");
     });
 
     it("blocks adding it in a command chained after another", () => {
-      blocked('echo hi && gh pr edit 5 --add-label "verdict: override"');
+      blocked("echo hi && gh pr edit 5 --add-label verdict-override");
     });
 
     it("blocks adding it as a labels[] field", () => {
       blocked(
-        'gh api -X POST repos/o/r/issues/5/labels -f "labels[]=verdict: override"',
+        "gh api -X POST repos/o/r/issues/5/labels -f labels[]=verdict-override",
       );
     });
 
     it("blocks a write to the labels API that names it anywhere", () => {
       blocked(
-        `echo '{"labels":["verdict: override"]}' | gh api repos/o/r/issues/5/labels --input -`,
+        `echo '{"labels":["verdict-override"]}' | gh api repos/o/r/issues/5/labels --input -`,
       );
     });
 
     it("blocks a PUT to the labels API that names it in any field", () => {
       blocked(
-        'gh api --method PUT repos/o/r/issues/5/labels -f "x=verdict: override"',
+        "gh api --method PUT repos/o/r/issues/5/labels -f x=verdict-override",
       );
-    });
-
-    it("blocks it written with an encoded colon and space", () => {
-      blocked(
-        "gh api -X POST repos/o/r/issues/5/labels -f labels[]=verdict%3A%20override",
-      );
-    });
-
-    it("blocks it written with a plus for the space", () => {
-      blocked("gh pr edit 5 --add-label verdict:+override");
     });
 
     it("allows removing it", () => {
-      const r = hook(
-        'gh pr edit 5 --remove-label "verdict: override"',
-        feature,
-      );
+      const r = hook("gh pr edit 5 --remove-label verdict-override", feature);
       expect(r.status).toBe(0);
     });
 
     it("allows a comment that only mentions it", () => {
       const r = hook(
-        'gh pr comment 5 --body "the verdict: override label is yours to add"',
+        'gh pr comment 5 --body "the verdict-override label is yours to add"',
         feature,
       );
       expect(r.status).toBe(0);
@@ -336,10 +327,71 @@ describe("factory guard commit", () => {
 
     it("allows adding another label beside removing it", () => {
       const r = hook(
-        'gh pr edit 5 --remove-label "verdict: override" --add-label bug',
+        "gh pr edit 5 --remove-label verdict-override --add-label bug",
         feature,
       );
       expect(r.status).toBe(0);
+    });
+
+    describe("named with a colon and a space", () => {
+      const NAME = "owner: pass";
+
+      it.each([
+        'gh pr edit 5 --add-label "owner: pass"',
+        'gh pr edit 5 --add-label "Owner: Pass"',
+        "gh api -X POST repos/o/r/issues/5/labels -f labels[]=owner%3A%20pass",
+        "gh pr edit 5 --add-label owner:+pass",
+      ])("finds it added in %s", (command) => {
+        expect(addsOverride(command, NAME)).toBe(true);
+      });
+
+      it("reads the name as text, not as a pattern", () => {
+        expect(addsOverride("gh pr edit 5 --add-label a.b", "a+b")).toBe(false);
+        expect(addsOverride("gh pr edit 5 --add-label a+b", "a+b")).toBe(true);
+      });
+
+      it("lets the default name through once the settings rename it", () => {
+        expect(
+          addsOverride("gh pr edit 5 --add-label verdict-override", NAME),
+        ).toBe(false);
+      });
+    });
+
+    describe("renamed in the checkout's lock", () => {
+      let repo: string;
+      afterEach(() => rmSync(repo, { recursive: true, force: true }));
+
+      it("blocks adding the name the lock gives it", async () => {
+        repo = mkdtempSync(join(tmpdir(), "guard-git-override-"));
+        execFileSync("git", ["init", "-q", "-b", "feature", repo]);
+        mkdirSync(join(repo, ".claude"));
+        writeFileSync(
+          join(repo, ".claude/factory.lock"),
+          [
+            "version: 1.0.0",
+            "presets: []",
+            "settings-hash: x",
+            "settings:",
+            "  version: 2",
+            "  repository: o/r",
+            "  code-host:",
+            '    branch-name: "{ticket}"',
+            "    labels:",
+            '      verdict-override: "owner: pass"',
+            "files: []",
+            "",
+          ].join("\n"),
+        );
+        const check = (command: string) =>
+          checkCommit({ cwd: repo, tool_input: { command } }, () => {});
+
+        expect(await check('gh pr edit 5 --add-label "owner: pass"')).toContain(
+          "is the owner's label",
+        );
+        expect(
+          await check("gh pr edit 5 --add-label verdict-override"),
+        ).toBeNull();
+      });
     });
   });
 

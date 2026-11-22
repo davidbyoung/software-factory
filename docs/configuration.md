@@ -83,18 +83,62 @@ The [glossary](glossary.md) has the rest.
 
 ## The shortest file
 
+These are the settings the factory needs before a session can build a
+ticket. Every other setting has a default.
+
 ```yaml
 version: 2
 repository: your-name/your-repo
 code-host:
-  type: github
   branch-name: "{ticket}"
+commands:
+  gate:
+    - npm test
 ```
 
-With only this, the factory refines a ticket when you run `/factory-refine N` in a session,
-nothing merges without you, and there is no board. Before a session can
-build a ticket, you also need to tell it how to check a change:
-[`commands.gate`](#commandsgate), below.
+- [`version`](#version), [`repository`](#repository), and
+  [`code-host.branch-name`](#code-host) are required by every command,
+  and `factory init` writes all three. Without one, every command stops
+  and names it. `"{ticket}"` is a pattern: ticket 12 is built on a branch
+  named `12`. The code host is GitHub unless you say otherwise.
+- [`commands.gate`](#commandsgate) is how a session checks a change, such
+  as your tests and linter. `factory init` doesn't write it: it lists it
+  under "Left to do", and you add it. Without it the factory still
+  [refines](workflow.md) tickets, but a session can't build one.
+
+With these, the factory refines a ticket when you run `/factory-refine N`
+in a session, builds it when you run `/factory-build N`, nothing merges
+without you, and there is no board.
+
+**With a board,** two more settings are required. Skip this part if you
+have none:
+[`tickets.board`](#tickets), your GitHub Project's number, and
+[`tickets.columns`](#ticketscolumns), which of its columns shows each of
+the six [states](workflow.md#the-six-states) a ticket goes through.
+`factory init` writes both from the board you choose:
+
+```yaml
+tickets:
+  board: 1
+  columns:
+    backlog: Backlog
+    refining: In refinement
+    ready: Ready
+    building: In progress
+    review: In review
+    done: Done
+```
+
+Every state needs a line. For a state your board has no column for,
+write `none` as its column. By default nothing starts a build when a
+ticket reaches Ready ([`builds.trigger`](#builds) is `manual`); if you
+set it to `own-server` or `github-action`, `ready` must name a column.
+
+`factory init` may write more, such as [`tickets.fields`](#ticketsfields)
+when you confirm the ticket fields it suggests. None of it is required.
+
+**It worked when** `factory config check` prints
+`✓ The settings are valid.`
 
 ## The settings most repositories change
 
@@ -197,6 +241,8 @@ tickets:
   default, `none`, means no board.
 - **`columns`** says which of the board's columns shows each state, and a
   board needs it: see [`tickets.columns`](#ticketscolumns).
+- **`labels`** renames the labels the factory puts on tickets: see
+  [`tickets.labels`](#ticketslabels). Most repositories leave it out.
 
 Without a board, `factory status` still shows every ticket's state, which
 the factory keeps in comments on the ticket. Builds then start only when
@@ -399,11 +445,79 @@ you confirm them.
 - **Changing a line** affects tickets refined afterwards. A ticket
   refined before keeps its factory fields where they were written.
 
+#### `tickets.labels`
+
+The names of the two labels the factory puts on tickets. Most
+repositories never set them: leave the block out, and the factory uses
+the default names. To rename a label on pull requests instead, see
+[`code-host.labels`](#code-hostlabels).
+
+Each label has a key and a name. The key is what you write on the left,
+and never changes. The name is what your ticket system shows, and is
+what you set:
+
+```yaml
+tickets:
+  labels:
+    spec: needs-spec # refinement adds needs-spec, not spec
+    follow-up: follow-ups # the follow-ups ticket carries follow-ups
+```
+
+| Key         | Default name | What the label marks                                                                                                  |
+| ----------- | ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `spec`      | `spec`       | A change your users will see, so [refinement writes a Spec](workflow.md#a-change-your-users-will-see) into the ticket |
+| `follow-up` | `follow-up`  | The one [follow-ups ticket](workflow.md#follow-ups)                                                                   |
+
+- **Write only the keys you change.** A key you leave out keeps its
+  default name. `factory init` doesn't ask about labels, and doesn't write
+  this block.
+- **You don't create the label.** The factory creates it on GitHub the
+  first time it adds it to a ticket.
+- **Two labels can't share a name,** and capitals don't make two names
+  different, so `Spec` and `spec` are one label. On GitHub, a name here
+  can't match one under `code-host.labels` either, since one
+  repository's labels serve its tickets and its pull requests.
+- **Quote a name with `: ` in it,** such as `spec: "kind: spec"`.
+  Without the quotes, YAML can't read the file.
+
+To rename a label:
+
+1. Write the new name under `tickets.labels` in `.claude/factory.yaml`.
+2. If tickets already carry the label, rename it on GitHub to the same
+   name, under Issues, Labels, Edit. That moves every ticket that has
+   it. The factory finds tickets only by the name in your settings and
+   never renames a label, so until you do, it doesn't see them: a
+   follow-ups ticket still labeled `follow-up` is ignored, and the next
+   follow-up a session records opens a new one.
+3. Check the file and sync, as for every setting:
+
+   ```console
+   $ factory config check
+   ✓ The settings are valid.
+   $ factory sync
+   wrote .claude/factory.lock
+   ```
+
+4. Commit `.claude/factory.yaml` and `.claude/factory.lock`.
+
+`factory config check` names a label it refuses, and why:
+
+```text
+.claude/factory.yaml: tickets.labels.spec: must not be empty
+.claude/factory.yaml: tickets.labels.spec: "follow-up" is already tickets.labels.follow-up. Give each label its own name
+```
+
+**It worked when** `factory config explain` shows your names under
+`tickets.labels`, without `# default` after them, and
+`factory ticket view N` on a ticket with the label shows it with its
+key, such as `labels: needs-spec (spec)`.
+
 ### `code-host`
 
-Where your repository and its pull requests live, and what every
-[build](#words-this-page-uses) names the branch it pushes, in a session
-on your machine and in the cloud alike.
+Where your repository and its pull requests live. It also sets what
+every [build](#words-this-page-uses) names the branch it pushes, in a
+session on your machine and in the cloud alike, and what the labels on
+pull requests are called.
 
 ```yaml
 code-host:
@@ -417,6 +531,8 @@ code-host:
   default: [`factory init`](github/setup.md) asks for it and offers
   `{ticket}`, so ticket 12 is built on a branch named `12`. A
   [preset](#presets) can set it for every repository that follows it.
+- **`labels`** renames the labels on pull requests: see
+  [`code-host.labels`](#code-hostlabels). Most repositories leave it out.
 
 Without `branch-name`, `factory config check` stops:
 
@@ -498,6 +614,60 @@ fault it finds:
 
 Commit `.claude/factory.yaml` and `.claude/factory.lock`. The next build
 uses the new pattern; branches already pushed keep their names.
+
+#### `code-host.labels`
+
+The names of the three labels on pull requests. They stay on your code
+host whatever ticket system you use. Most repositories never set them:
+leave the block out, and each label's name is its key.
+
+```yaml
+code-host:
+  branch-name: "{ticket}"
+  labels:
+    merge-automatic: auto-merge
+    merge-manual: needs-owner
+    verdict-override: owner-pass
+```
+
+| Key                | What the label marks                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `merge-automatic`  | The pull request [merges itself](workflow.md#who-merges) once every check passes                                                              |
+| `merge-manual`     | The pull request [waits for a person](workflow.md#who-merges) to merge it                                                                     |
+| `verdict-override` | A person passed the automated review's verdict on the newest commit, its ruling on whether it is ready. Sessions never add it, under any name |
+
+- **The two merge labels appear only if you use
+  [`auto-merge`](#auto-merge)**, with a pattern under `auto-merge.allow`.
+  Otherwise no pull request gets either, whatever you name them.
+- **The override matters only with [`pr-review`](#pr-review) on**, since
+  that review gives the verdict.
+- **Naming a label doesn't turn on `auto-merge` or `pr-review`.**
+- **New names take effect once they are on your default branch**, the
+  one pull requests merge into, since the workflows that add and read
+  these labels run from its copy. On a branch of its own, a rename
+  changes nothing yet, and pull requests keep getting the old names.
+
+The rules under [`tickets.labels`](#ticketslabels) hold here too: write
+only the keys you change, give each label its own name, quote a name
+with `: ` in it, and rename a label already on your pull requests on
+GitHub yourself. Then check the file and sync:
+
+```console
+$ factory config check
+✓ The settings are valid.
+$ factory sync
+wrote .claude/factory.lock
+wrote .github/workflows/factory-review-verdict.yml
+```
+
+The second `wrote` line appears only when you rename `verdict-override`:
+that workflow names the label it starts on, so the sync rewrites it.
+Commit `.claude/factory.yaml`, the lock, and any workflow `factory sync`
+wrote, and merge them.
+
+**It worked when** `factory config explain` shows your names under
+`code-host.labels`, without `# default` after them, and once merged, the
+next pull request the merge policy labels gets your name.
 
 ### `builds`
 

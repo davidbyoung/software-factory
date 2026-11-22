@@ -2,6 +2,7 @@
 // key names, and how a ticket's document is split into its description and
 // its ticket fields and joined back, and `init`'s field step, which asks the
 // coding agent where each goes. It names no agent and no ticket system.
+import { TICKET_LABELS } from "./labels.mts";
 import type { Agent } from "./agent/types.mts";
 import type { Ask } from "./init.mts";
 import { listed } from "./lib/listed.mts";
@@ -164,12 +165,15 @@ const ORDER = [
 ];
 
 /** A ticket's document: its description with each ticket field's text under
- * its key's heading, before the first later heading the description has. */
+ * its key's heading, before the first later heading the description has.
+ * `specLabel` is the name of the label that puts a ticket on the spec
+ * track. */
 export function join(
   description: string,
   values: Record<string, string>,
   mapping: FieldMapping,
   labels: readonly string[],
+  specLabel: string = TICKET_LABELS.spec,
 ): string {
   const order = [
     ...Object.keys(mapping).filter((k) => !ORDER.includes(k)),
@@ -180,7 +184,7 @@ export function join(
     pairs.filter(([k]) => SHARED.includes(k)).length === 2 &&
     mapping.spec === mapping["acceptance-criteria"];
   const reads = shared
-    ? labels.includes("spec")
+    ? labels.includes(specLabel)
       ? "spec"
       : "acceptance-criteria"
     : null;

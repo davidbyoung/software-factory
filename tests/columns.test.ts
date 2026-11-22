@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => vi.restoreAllMocks());
 import {
+  boardConfigOf,
   boardReport,
   checkFields,
   closedPullComments,
@@ -94,10 +95,7 @@ const STOCK_YAML = {
 const parse = (raw: unknown) => parseSettings(raw, () => true);
 const STOCK = parse(STOCK_YAML);
 const STOCK_COLUMNS = columnsOf(STOCK);
-const STOCK_CONFIG: BoardConfig = {
-  columns: STOCK_COLUMNS,
-  fields: fieldNamesOf(STOCK),
-};
+const STOCK_CONFIG: BoardConfig = boardConfigOf(STOCK);
 const stockBoard = (): Board =>
   toBoard(stockPages as BoardPage[], "acme/widgets");
 const withCards = (
@@ -509,6 +507,7 @@ describe("the optional fields", () => {
     options: options?.map((o) => ({ id: o, name: o })),
   });
   const config = (fields: Partial<BoardConfig["fields"]>): BoardConfig => ({
+    ...STOCK_CONFIG,
     columns: STOCK_COLUMNS,
     fields: { session: "Session", runsIn: "Runs in", cost: "Cost", ...fields },
   });
@@ -748,10 +747,50 @@ describe("the sentences that name a column", () => {
       new Date("2026-11-09T00:00:00Z"),
       STOCK_COLUMNS,
       REF,
+      "follow-up",
     );
     expect(nightly.body).toContain(
       "The card stays In Progress, waiting on you. To try again, tell a session to build #7",
     );
+  });
+});
+
+describe("the nightly clear, with the follow-ups label renamed", () => {
+  const claimed = issue(
+    7,
+    [
+      {
+        id: "1",
+        author: "acme",
+        createdAt: "2026-11-01T00:00:00Z",
+        body: `<!-- work-status: claim actions 1 -->\n${AGENT}`,
+      },
+    ],
+    { labels: ["follow-ups"] },
+  );
+  const partial = {
+    number: 9,
+    createdAt: "2026-11-01T00:00:00Z",
+    body: "Part of #7: a line.",
+    closes: [],
+    partOf: ["7"],
+    isDraft: false,
+    checks: null,
+    openThreads: 0,
+    author: "acme",
+  };
+  const nightly = (followUp: string) =>
+    nightlyComments(
+      toSnapshot([claimed], [partial], new Date("2026-11-09T00:00:00Z")),
+      new Date("2026-11-09T00:00:00Z"),
+      STOCK_COLUMNS,
+      REF,
+      followUp,
+    );
+
+  it("keeps the claim of the follow-ups ticket a pull request builds part of", () => {
+    expect(nightly("follow-ups")).toEqual([]);
+    expect(nightly("follow-up")).toHaveLength(1);
   });
 });
 
@@ -939,12 +978,7 @@ describe("factory board check", () => {
       "code-host": CODE_HOST,
       ...yaml,
     });
-    return boardReport(
-      7,
-      board,
-      { columns: columnsOf(s), fields: fieldNamesOf(s) },
-      s,
-    );
+    return boardReport(7, board, boardConfigOf(s), s);
   };
   const rowOf = (lines: string[], key: string) =>
     lines.find((l) => l.slice(4).startsWith(`${key} `) || l.slice(4) === key);
@@ -1125,7 +1159,7 @@ describe("factory board check", () => {
         fields: { cost: "none" },
       },
     });
-    const config = { columns: columnsOf(s), fields: fieldNamesOf(s) };
+    const config = boardConfigOf(s);
     const painted = boardReport(7, stockBoard(), config, s, paint);
     expect(painted).toContain(`  ${paint("green", "✓")} backlog    Todo`);
     expect(painted).toContain(
@@ -1200,7 +1234,7 @@ describe("a state with a list of columns", () => {
   const LIST = parse(LIST_YAML);
   const sentence = (body: string) => body.split("\n\n<!--")[0];
   const COLUMNS = columnsOf(LIST);
-  const CONFIG: BoardConfig = { columns: COLUMNS, fields: fieldNamesOf(LIST) };
+  const CONFIG: BoardConfig = boardConfigOf(LIST);
   const statusField = (...names: string[]): BoardField => ({
     id: "F_status",
     name: "Status",

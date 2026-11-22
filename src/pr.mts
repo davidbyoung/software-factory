@@ -43,6 +43,7 @@ import {
 } from "./code-host/index.mts";
 import { openRunner, type Run, type Runner } from "./runner/index.mts";
 import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
+import { labelOf, PR_LABELS, type Labels } from "./labels.mts";
 
 import type { Tickets } from "./tickets/types.mts";
 import { takeCost, type CostDeps } from "./ticket.mts";
@@ -65,6 +66,9 @@ export type Deps = {
   tickets?: () => Promise<{ tickets: Tickets; own: boolean }>;
   /** The session's cost clock, for `cost`. */
   cost?: CostDeps;
+  /** The name of each label the factory puts on pull requests, for
+   * `label`; the defaults without it. */
+  labels?: () => Promise<Labels["codeHost"]>;
 };
 
 /** The tickets a pull request builds, as the factory counts them. */
@@ -610,10 +614,11 @@ export async function main(argv: string[], d: Deps): Promise<number> {
           (add === undefined) === (remove === undefined)
         )
           throw new Error(USAGE);
+        const names = d.labels ? await d.labels() : PR_LABELS;
         if (add !== undefined) {
-          refuseOverride(add);
-          await p.addLabel(pr, add);
-        } else await p.removeLabel(pr, remove!);
+          refuseOverride(add, names["verdict-override"]);
+          await p.addLabel(pr, labelOf(names, add));
+        } else await p.removeLabel(pr, labelOf(names, remove!));
         d.out(add !== undefined ? "added" : "removed");
         return 0;
       }
@@ -785,6 +790,7 @@ export function prDeps(
       });
       return { tickets, own: ownLinks(settings) };
     },
+    labels: async () => (await loadSettings()).codeHost.labels,
     cost: {
       env: process.env,
       now: () => new Date(),

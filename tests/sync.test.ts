@@ -473,6 +473,48 @@ describe("factory sync", () => {
     },
   );
 
+  describe("the override's name in the verdict workflow", () => {
+    const VERDICT = "        github.event.label.name == 'verdict-override'))\n";
+    const COPY = ".github/workflows/factory-review-verdict.yml";
+    const named = (name: string) =>
+      settings({
+        "code-host": { ...CODE_HOST, labels: { "verdict-override": name } },
+      });
+
+    it("writes the name code-host.labels gives it, a quote doubled", async () => {
+      put(pkg, "workflows/factory-review-verdict.yml", VERDICT);
+      await sync([], named("owner's pass"));
+
+      expect(read(COPY)).toBe(
+        "        github.event.label.name == 'owner''s pass'))\n",
+      );
+    });
+
+    it("writes the workflow word for word with the default", async () => {
+      put(pkg, "workflows/factory-review-verdict.yml", VERDICT);
+      await sync([], settings());
+
+      expect(read(COPY)).toBe(VERDICT);
+    });
+
+    it("fails the check while the copy names another", async () => {
+      put(pkg, "workflows/factory-review-verdict.yml", VERDICT);
+      await sync([], settings());
+
+      const r = await sync(["--check"], named("owner-pass"));
+
+      expect(r.code).toBe(1);
+      expect(r.err).toContain(`  ${COPY}`);
+    });
+
+    it("stops, naming the workflow, when its label line is gone", async () => {
+      put(pkg, "workflows/factory-review-verdict.yml", "verdict\n");
+      await expect(sync([], named("owner-pass"))).rejects.toThrow(
+        "workflows/factory-review-verdict.yml: expected one match",
+      );
+    });
+  });
+
   it("writes the CI review only while pr-review is written, and deletes it once it is gone", async () => {
     await sync([], settings());
     expect(read(".github/workflows/factory-claude-review.yml")).toBeNull();

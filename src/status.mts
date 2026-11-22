@@ -11,6 +11,7 @@
 // The repository and the board come from the factory's settings, whose
 // loader needs dependencies installed; before npm ci the hook prints
 // nothing.
+import { TICKET_LABELS } from "./labels.mts";
 import { colorOn, painter } from "./lib/color.mts";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
@@ -127,6 +128,8 @@ export function toRows(
      * worth flagging; null when builds.trigger is manual. */
     watch?: Watch | null;
     columns?: Columns;
+    /** The name of the follow-ups ticket's label. */
+    followUp?: string;
     /** How the ticket system writes a ticket. */
     ref: (key: Key) => string;
   },
@@ -134,6 +137,7 @@ export function toRows(
   const watch =
     options.watch === undefined ? watchOf("own-server", 5) : options.watch;
   const columns = options.columns ?? DEFAULT_COLUMNS;
+  const followUp = options.followUp ?? TICKET_LABELS["follow-up"];
   const rows: Row[] = [];
   const closed: Row[] = [];
   const claimed = new Set<number>();
@@ -143,6 +147,7 @@ export function toRows(
       cardOf(board, issue.key, columns),
       snapshot.pulls,
       columns,
+      followUp,
     );
     const pulls = snapshot.pulls.filter((p) =>
       derived.pulls.includes(p.number),
@@ -171,7 +176,7 @@ export function toRows(
   for (const pull of snapshot.pulls) {
     if (claimed.has(pull.number)) continue;
     const followUps = snapshot.issues.filter(
-      (i) => i.labels.includes("follow-up") && pull.partOf.includes(i.key),
+      (i) => i.labels.includes(followUp) && pull.partOf.includes(i.key),
     );
     if (pull.closes.length > 0 || followUps.length > 0) continue;
     rows.push({
@@ -630,6 +635,7 @@ async function snapshotLines(
         cardOf(board, issue.key, target.columns),
         snapshot.pulls,
         target.columns,
+        target.followUp,
       ).status !== "Ready"
     )
       continue;
@@ -643,6 +649,7 @@ async function snapshotLines(
     toRows(snapshot, board, blockers, now, {
       watch: target.watch,
       columns: target.columns,
+      followUp: target.followUp,
       ref: (k) => source.tickets.ref(k),
     }),
     now,

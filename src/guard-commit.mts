@@ -17,6 +17,7 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaultDeps, loadSettings, settingsPath } from "./config.mts";
+import { PR_LABELS } from "./labels.mts";
 import {
   branchDeps,
   CANNOT_TELL,
@@ -38,18 +39,25 @@ export function blankQuoted(cmd: string): string {
     .replace(/'[^']*'/g, "''");
 }
 
-const OVERRIDE = String.raw`verdict(:|%3A)( |%20|\+)override`;
+/** The override's name as a pattern that also matches it URL-encoded: a
+ * colon as %3A, and a space as %20 or +. */
+const overridePattern = (name: string) =>
+  name
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/:/g, "(:|%3A)")
+    .replace(/ /g, "( |%20|\\+)");
 
-/** "verdict: override" is the owner's approval of one commit, and agents act
+/** The override is the owner's approval of one commit, and agents act
  * through the owner's account, so GitHub cannot tell their override from the
  * owner's. This is a tripwire, not a lock: it stops the ordinary gh ways of
  * adding it, not a script written to get around it. It reads each command of
- * the chain as typed, since the spaced name is always quoted, and blocks one
+ * the chain as typed, since a name with a space in it is quoted, and blocks one
  * that adds the override as --add-label's value or a labels[]= field, or that
  * writes to the labels API with the override anywhere in the command, as a
  * body sent with --input does. Removing the override, alone or beside adding
  * another label, is allowed. */
-export function addsOverride(raw: string): boolean {
+export function addsOverride(raw: string, name: string): boolean {
+  const OVERRIDE = overridePattern(name);
   const segments = raw
     .split(/\|\||&&|[;&|()]|\n/)
     .filter((s) => /^\s*gh\s/.test(s));
@@ -66,6 +74,20 @@ export function addsOverride(raw: string): boolean {
         /--input|-X\s*(POST|PUT)|--method\s+(POST|PUT)/.test(s),
     )
   );
+}
+
+/** The override's name in the lock of the checkout at `dir`, or its
+ * default where there is no lock to read. */
+async function overrideName(dir: string): Promise<string> {
+  const top = checkoutOf(dir);
+  const lock = join(top, ".claude/factory.lock");
+  if (!existsSync(lock)) return PR_LABELS["verdict-override"];
+  try {
+    const s = await loadSettings(defaultDeps(top, { FACTORY_LOCK: lock }));
+    return s.codeHost.labels["verdict-override"];
+  } catch {
+    return PR_LABELS["verdict-override"];
+  }
 }
 
 function resolvePath(dir: string, to: string): string {
@@ -200,8 +222,11 @@ export async function checkCommit(
 ): Promise<string | null> {
   const raw = input.tool_input?.command ?? "";
   const cwd = input.cwd ?? ".";
-  if (addsOverride(raw))
-    return '"verdict: override" is the owner\'s label. Ask them to add it.';
+  if (/\bgh\s/.test(raw) && /label/i.test(raw)) {
+    const name = await overrideName(cwd);
+    if (addsOverride(raw, name))
+      return `"${name}" is the owner's label. Ask them to add it.`;
+  }
 
   const calls = gitCalls(blankQuoted(raw), cwd);
   if (calls.length === 0) return null;

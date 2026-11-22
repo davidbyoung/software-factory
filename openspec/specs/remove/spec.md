@@ -46,13 +46,12 @@ of files it shares with the user, keeping the rest.
 
 ### Requirement: What is left by hand
 
-`factory remove` SHALL print what is left to remove outside the
-repository, each tool contributing its own lines, and commit nothing.
+The factory SHALL behave as this line says: When `factory remove` prints what is left to remove by hand, it lists the labels by their configured names, by default `merge-automatic`, `merge-manual`, `verdict-override`, `follow-up`, and `spec`.
 
 #### Scenario: What is left by hand
 
-- **WHEN** it has changed the repository
-- **THEN** it prints what is left to remove by hand, each tool contributing its own lines. With today's tools, that is the `FACTORY_` secrets, `CLAUDE_CODE_OAUTH_TOKEN`, and `ANTHROPIC_API_KEY` among those set; the "Software factory" ruleset, to remove first; the labels `merge: automatic`, `merge: manual`, `verdict: override`, `follow-up`, and `spec`; the board's Session, Runs in, and Cost fields when the settings name a board; and `npm uninstall @davidbyoung/software-factory`. It commits nothing.
+- **WHEN** `factory remove` prints what is left to remove by hand
+- **THEN** it lists the labels by their configured names, by default `merge-automatic`, `merge-manual`, `verdict-override`, `follow-up`, and `spec`.
 
 ### Requirement: Another tool's leftovers
 

@@ -3,9 +3,6 @@
 // factory's own refiner as for a plugin's. It reads headings only, never
 // what a section says.
 
-const SPEC_LABEL = "spec";
-const FOLLOW_UP_LABEL = "follow-up";
-
 /** The body's lines outside its fenced code blocks, so a sample body in a
  * code block is not read as the ticket's own. */
 function proseLines(body: string): string[] {
@@ -42,8 +39,12 @@ function under(
  * the `spec` label needs its decisions and at least one acceptance
  * criterion. One with it needs its decisions, a spec with a capability
  * and a numbered line, and the builder's design and tasks. */
-export function missingParts(body: string, labels: string[]): string[] {
-  if (labels.includes(FOLLOW_UP_LABEL)) return [];
+export function missingParts(
+  body: string,
+  labels: string[],
+  names: Readonly<Record<"spec" | "follow-up", string>>,
+): string[] {
+  if (labels.includes(names["follow-up"])) return [];
   const lines = proseLines(body);
   const missing: string[] = [];
   const need = (found: boolean, part: string) => {
@@ -51,7 +52,7 @@ export function missingParts(body: string, labels: string[]): string[] {
   };
   need(lines.includes("## Decisions"), "## Decisions");
 
-  if (!labels.includes(SPEC_LABEL)) {
+  if (!labels.includes(names.spec)) {
     const criteria = under(lines, "## Acceptance criteria");
     if (criteria === null) need(false, "## Acceptance criteria");
     else

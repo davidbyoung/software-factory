@@ -5,8 +5,10 @@
 //
 // Runs from main's copy, on two events: the Claude review finishing
 // (workflow_run), and the pull request itself (pull_request_target: opened,
-// pushed to, marked ready, or labeled "verdict: override"). The verdict is posted
+// pushed to, marked ready, or labeled with the override). The verdict is posted
 // on one commit, so a new push always starts without one.
+import { loadSettings } from "./config.mts";
+import { PR_LABELS } from "./labels.mts";
 import { readFileSync } from "node:fs";
 import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost } from "./code-host/types.mts";
@@ -14,7 +16,8 @@ import { openRunner } from "./runner/index.mts";
 
 // The status's name, which the main ruleset requires by exactly this text.
 export const CONTEXT = "Review verdict";
-export const OVERRIDE = "verdict: override";
+/** The override's name when the settings give it no other. */
+export const OVERRIDE = PR_LABELS["verdict-override"];
 
 export type Verdict = "ready" | "changes" | null;
 
@@ -24,6 +27,8 @@ export type Input = {
   action?: string;
   /** The label added or removed, on a labeled or unlabeled action. */
   label?: string;
+  /** The override's name, as `code-host.labels` gives it. */
+  override?: string;
   isDependabot: boolean;
   isDraft: boolean;
   /** The override label is on the pull request. A push removes it, so it
@@ -100,7 +105,7 @@ export function decide(input: Input): Decision | null {
   }
   switch (input.action) {
     case "labeled":
-      if (input.label !== OVERRIDE) return null;
+      if (input.label !== (input.override ?? OVERRIDE)) return null;
       if (!input.senderIsApprover) {
         return {
           ...fromVerdict(input.verdict, WAITING),
@@ -112,7 +117,7 @@ export function decide(input: Input): Decision | null {
       }
       return { ...OVERRIDDEN, announceOverride: true };
     case "unlabeled":
-      return input.label === OVERRIDE
+      return input.label === (input.override ?? OVERRIDE)
         ? fromVerdict(input.verdict, WAITING)
         : null;
     case "synchronize":
@@ -173,8 +178,11 @@ export async function apply(o: {
   /** The page of the run posting the status. */
   link?: string;
   log: (line: string) => void;
+  /** The override's name, as `code-host.labels` gives it. */
+  override?: string;
 }): Promise<void> {
   const { eventName, event, pulls, log } = o;
+  const override = o.override ?? OVERRIDE;
 
   // Read the pull request as it is now. The event's copy can be stale: a
   // "marked ready" event sent just after a push carries the previous commit.
@@ -207,7 +215,7 @@ export async function apply(o: {
   }
   let senderIsApprover: boolean | undefined;
   let lookupFailure: unknown;
-  if (event.action === "labeled" && event.label?.name === OVERRIDE)
+  if (event.action === "labeled" && event.label?.name === override)
     try {
       senderIsApprover = await pulls.canWrite(event.sender.login);
     } catch (error) {
@@ -218,9 +226,10 @@ export async function apply(o: {
     event: eventName,
     action: event.action,
     label: event.label?.name,
+    override,
     isDependabot: pr.author === "dependabot[bot]",
     isDraft: pr.isDraft,
-    hasOverride: labels.includes(OVERRIDE),
+    hasOverride: labels.includes(override),
     senderIsApprover,
     senderUnchecked: lookupFailure !== undefined,
     runConclusion: event.workflow_run?.conclusion,
@@ -236,17 +245,17 @@ export async function apply(o: {
   });
   log(`${CONTEXT} on ${sha}: ${decision.state}, ${decision.description}`);
 
-  if (decision.removeOverride) await pulls.removeLabel(pr.number, OVERRIDE);
+  if (decision.removeOverride) await pulls.removeLabel(pr.number, override);
   const who = event.sender?.login;
   if (decision.explainRemoval === "not an approver")
     await pulls.comment(
       pr.number,
-      `Removed \`${OVERRIDE}\`: @${who} cannot write to this repository, and only an account that can may pass the verdict.`,
+      `Removed \`${override}\`: @${who} cannot write to this repository, and only an account that can may pass the verdict.`,
     );
   if (decision.explainRemoval === "could not check") {
     await pulls.comment(
       pr.number,
-      `Removed \`${OVERRIDE}\`: could not check whether @${who} can write to this repository. Add the label again to retry.`,
+      `Removed \`${override}\`: could not check whether @${who} can write to this repository. Add the label again to retry.`,
     );
     throw lookupFailure;
   }
@@ -272,6 +281,7 @@ export async function run(): Promise<number> {
       pulls: openCodeHost(repo),
       link: openRunner(repo).thisRun(process.env)?.page,
       log: (line) => console.log(line),
+      override: (await loadSettings()).codeHost.labels["verdict-override"],
     });
     return 0;
   } catch (error) {

@@ -36,17 +36,17 @@ The "Removing it" column says what `factory remove` does with each.
 
 ### On GitHub
 
-| What                                                                                  | Added when                                                      | To undo                                                                                   |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Secrets and variables named `FACTORY_...`                                             | You create them                                                 | Delete them                                                                               |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                             | You create it, for the automated review and builds in the cloud | Delete it, unless another workflow uses it                                                |
-| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot  | `init`, when you paste them                                     | Leave them if your own CI uses them; otherwise delete both copies                         |
-| Labels: `merge: automatic`, `merge: manual`, `verdict: override`, `follow-up`, `spec` | First use                                                       | Delete them. Deleting a label removes it from every ticket                                |
-| A CI check that the factory's files are in step                                       | Setup                                                           | Goes with `factory-check.yml`                                                             |
-| A "Review verdict" required check, as the ruleset "Software factory"                  | `init`, when the review is on; or you, in your branch rules     | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
-| Statuses on pull requests: "Who merges", "Review verdict"                             | Each pull request                                               | They stay in history                                                                      |
-| One open ticket titled "Follow-ups"                                                   | The first follow-up                                             | Close it                                                                                  |
-| Comments on tickets the factory worked                                                | Each refinement and build                                       | They stay. They hold the ticket's history                                                 |
+| What                                                                                                                                                                                                                       | Added when                                                      | To undo                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Secrets and variables named `FACTORY_...`                                                                                                                                                                                  | You create them                                                 | Delete them                                                                               |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                  | You create it, for the automated review and builds in the cloud | Delete it, unless another workflow uses it                                                |
+| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                       | `init`, when you paste them                                     | Leave them if your own CI uses them; otherwise delete both copies                         |
+| Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `follow-up`, `spec`, or the names under [`tickets.labels`](../configuration.md#ticketslabels) and [`code-host.labels`](../configuration.md#code-hostlabels) | First use                                                       | Delete them. Deleting a label removes it from every ticket                                |
+| A CI check that the factory's files are in step                                                                                                                                                                            | Setup                                                           | Goes with `factory-check.yml`                                                             |
+| A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                       | `init`, when the review is on; or you, in your branch rules     | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
+| Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                  | Each pull request                                               | They stay in history                                                                      |
+| One open ticket titled "Follow-ups"                                                                                                                                                                                        | The first follow-up                                             | Close it                                                                                  |
+| Comments on tickets the factory worked                                                                                                                                                                                     | Each refinement and build                                       | They stay. They hold the ticket's history                                                 |
 
 ### On your board
 
@@ -81,7 +81,7 @@ anything to do, and stops there when there is not.
 | `factory-deps.yml`            | 01:00, 13:00, and 19:00 UTC, or by hand                         | Runs a session that moves Dependabot's pull requests along, when `factory deps --any` exits 0. Written once `.github/dependabot.yml` exists           |
 | `factory-deps-auto-merge.yml` | Dependabot's pull requests                                      | Lets one merge itself when your [`auto-merge`](../configuration.md#auto-merge) settings allow its files. Written once `.github/dependabot.yml` exists |
 | `factory-board-sync.yml`      | Ticket and pull request events, and nightly                     | Sets the board's columns and fields from the tickets' marker comments. Written once [`tickets.board`](../configuration.md#tickets) is set             |
-| `factory-merge-policy.yml`    | Every pull request                                              | Labels it `merge: automatic` or `merge: manual`, and turns auto-merge on for the first. Written once `auto-merge.allow` is set                        |
+| `factory-merge-policy.yml`    | Every pull request                                              | Labels it `merge-automatic` or `merge-manual`, and turns auto-merge on for the first. Written once `auto-merge.allow` is set                          |
 | `factory-review-verdict.yml`  | Each automated review                                           | Posts the "Review verdict" status from the review's summary                                                                                           |
 | `factory-claude-review.yml`   | Every pull request once it is marked ready, and each push after | Runs the automated review. Written once [`pr-review`](../configuration.md#pr-review) is set                                                           |
 | `factory-poller.yml`          | Every `builds.poll-minutes` minutes, or by hand                 | Runs one pass of the poller, starting a build for each Ready ticket. Written once `builds.trigger` is `github-action`                                 |
@@ -149,15 +149,15 @@ number, the last part of its address, is `tickets.board` in your settings.
 
 ## Labels and statuses
 
-| Name                | Kind                     | Set by                                                                                            |
-| ------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
-| `merge: automatic`  | Label on a pull request  | The merge policy, when every file is allowed                                                      |
-| `merge: manual`     | Label on a pull request  | The merge policy, otherwise                                                                       |
-| `verdict: override` | Label on a pull request  | Only a person: passes the review verdict for one commit. Sessions never add it                    |
-| `follow-up`         | Label on a ticket        | The first follow-up line, on the one follow-ups ticket                                            |
-| `spec`              | Label on a ticket        | Refinement, for a change your users will see, when [`specs: openspec`](../configuration.md#specs) |
-| Who merges          | Status on a pull request | The merge policy: which way it goes, and why                                                      |
-| Review verdict      | Status on a pull request | The review-verdict workflow: success only when the review said ready                              |
+| Name               | Kind                     | Set by                                                                                            |
+| ------------------ | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `merge-automatic`  | Label on a pull request  | The merge policy, when every file is allowed                                                      |
+| `merge-manual`     | Label on a pull request  | The merge policy, otherwise                                                                       |
+| `verdict-override` | Label on a pull request  | Only a person: passes the review verdict for one commit. Sessions never add it                    |
+| `follow-up`        | Label on a ticket        | The first follow-up line, on the one follow-ups ticket                                            |
+| `spec`             | Label on a ticket        | Refinement, for a change your users will see, when [`specs: openspec`](../configuration.md#specs) |
+| Who merges         | Status on a pull request | The merge policy: which way it goes, and why                                                      |
+| Review verdict     | Status on a pull request | The review-verdict workflow: success only when the review said ready                              |
 
 ## Hooks
 
