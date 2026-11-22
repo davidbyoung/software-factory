@@ -178,7 +178,8 @@ git show origin/DEFAULT:.claude/factory.lock > old.lock
 npx --no-install factory ticket adopt --all-open --since-lock old.lock
 ```
 
-When it prints a `labeled` line, start the comment with this paragraph:
+When it prints a `labeled` line, start that one comment with this
+paragraph, before the files the sync changed:
 LIST is that line's tickets, COUNT how many, and NAME the label its last
 line names:
 
