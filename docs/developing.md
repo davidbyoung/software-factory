@@ -30,50 +30,51 @@ completes with the files the version writes ([Updating](updating.md)).
 The factory is the npm package `@davidbyoung/software-factory`. Parts not
 marked working below exist only in these docs.
 
-| Part                                                                                                             | State                               |
-| ---------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| Refining, building, and working a pull request's review                                                          | Working                             |
-| The board, its sync, and `status`                                                                                | Working                             |
-| Builds from the board, with a poller you host                                                                    | Working                             |
-| Builds that run in GitHub Actions, started by a command                                                          | Working                             |
-| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                 | Working                             |
-| Who merges, and the review's verdict                                                                             | Working                             |
-| The labels `merge: manual` and `verdict: override`                                                               | Working                             |
-| These docs                                                                                                       | Working                             |
-| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                       | Working                             |
-| The follow-ups ticket as one checklist                                                                           | Working                             |
-| The `factory` tool, `sync`, and the package folder                                                               | Working                             |
-| A global `factory` command that runs each repository's own copy                                                  | Working                             |
-| The automated review as one of the factory's workflows, and [`pr-review`](configuration.md#pr-review)            | Working                             |
-| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                             |
-| The `factory-` names and the `FACTORY_` secrets                                                                  | Working                             |
-| Ticket commands that go through one interface                                                                    | Working                             |
-| The code host and the runner, each behind one interface                                                          | Working                             |
-| A published package                                                                                              | Working                             |
-| Updates through Dependabot, which `factory-deps` completes with `factory sync`                                   | Working                             |
-| `factory board --dry-run`                                                                                        | Working                             |
-| Your own column names on a board                                                                                 | Working                             |
-| `init` suggesting a board's columns through the coding agent                                                     | Working                             |
-| Refinement's factory fields in your ticket fields, suggested by `init`                                           | Working                             |
-| A UI reviewer for any website                                                                                    | Working                             |
-| Built-in measurements for any website                                                                            | Working                             |
-| A design skill for any website                                                                                   | Working                             |
-| `init`, which can be re-run, and `doctor`                                                                        | Working                             |
-| A second repository set up and removed from the quick start alone                                                | Working                             |
-| `factory remove`                                                                                                 | Working                             |
-| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                             |
-| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                             |
-| Settings version 2: commands, a spec check, and plugins grouped by phase                                         | Working                             |
-| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                             |
-| The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                             |
-| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                             |
-| `factory ticket refined` refusing a ticket a build could not read                                                | Working                             |
-| No skill, agent, rule, or review instruction names a stack, checked by a test                                    | Working                             |
-| Another ticket system, such as Jira                                                                              | Not planned. The design leaves room |
-| A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room |
-| Another code host or runner                                                                                      | Not planned. The design leaves room |
-| Each tool's setup, checks, and removal declared by the tool                                                      | Working                             |
-| Sharing plugins between repositories                                                                             | Not planned                         |
+| Part                                                                                                             | State                                               |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Refining, building, and working a pull request's review                                                          | Working                                             |
+| The board, its sync, and `status`                                                                                | Working                                             |
+| Builds from the board, with a poller you host                                                                    | Working                                             |
+| Builds that run in GitHub Actions, started by a command                                                          | Working                                             |
+| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                 | Working                                             |
+| Who merges, and the review's verdict                                                                             | Working                                             |
+| The labels `merge: manual` and `verdict: override`                                                               | Working                                             |
+| These docs                                                                                                       | Working                                             |
+| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                       | Working                                             |
+| The follow-ups ticket as one checklist                                                                           | Working                                             |
+| The `factory` tool, `sync`, and the package folder                                                               | Working                                             |
+| A global `factory` command that runs each repository's own copy                                                  | Working                                             |
+| The automated review as one of the factory's workflows, and [`pr-review`](configuration.md#pr-review)            | Working                                             |
+| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                                             |
+| The `factory-` names and the `FACTORY_` secrets                                                                  | Working                                             |
+| Ticket commands that go through one interface                                                                    | Working                                             |
+| The code host and the runner, each behind one interface                                                          | Working                                             |
+| A published package                                                                                              | Working                                             |
+| Updates through Dependabot, which `factory-deps` completes with `factory sync`                                   | Working                                             |
+| `factory board --dry-run`                                                                                        | Working                                             |
+| Your own column names on a board                                                                                 | Working                                             |
+| `init` suggesting a board's columns through the coding agent                                                     | Working                                             |
+| Refinement's factory fields in your ticket fields, suggested by `init`                                           | Working                                             |
+| A UI reviewer for any website                                                                                    | Working                                             |
+| Built-in measurements for any website                                                                            | Working                                             |
+| A design skill for any website                                                                                   | Working                                             |
+| `init`, which can be re-run, and `doctor`                                                                        | Working                                             |
+| A second repository set up and removed from the quick start alone                                                | Working                                             |
+| `factory remove`                                                                                                 | Working                                             |
+| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                             |
+| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                                             |
+| Settings version 2: commands, a spec check, and plugins grouped by phase                                         | Working                                             |
+| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                                             |
+| The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                                             |
+| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                                             |
+| `factory ticket refined` refusing a ticket a build could not read                                                | Working                                             |
+| No skill, agent, rule, or review instruction names a stack, checked by a test                                    | Working                                             |
+| Another ticket system, such as Jira                                                                              | Not planned. The design leaves room                 |
+| A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                 |
+| Another code host or runner                                                                                      | Not planned. The design leaves room                 |
+| Another spec tool, such as Spec Kit                                                                              | Not planned. An adapter under `src/specs/` adds one |
+| Each tool's setup, checks, and removal declared by the tool                                                      | Working                                             |
+| Sharing plugins between repositories                                                                             | Not planned                                         |
 
 When a part is built, its pull request updates this table, and corrects any
 page the build had to differ from. [The CLI](cli.md) marks each command
@@ -395,6 +396,50 @@ variables, and reach pull requests through the code host.
 
 The in-memory runner is `tests/memory-runner.ts`, and GitHub Actions' has
 its own tests against faked replies.
+
+## Adding a spec tool
+
+A spec tool keeps a copy of each ticket's Spec in the repository. Only
+OpenSpec is built. The settings name it with
+[`specs`](configuration.md#specs), and `src/specs/index.mts` hands a
+command the adapter of that name: one module in `src/specs/` that
+implements the `SpecTool` type in `src/specs/types.mts`. `none` needs no
+adapter. Any other value fails `factory config check` with
+`specs must be one of none, openspec`, which lists a new tool once its
+adapter is registered.
+
+**Nothing runs a spec tool except its adapter.** A skill never runs
+`openspec` or any other tool's command. It runs `factory specs list`,
+`new N`, `check`, and `finish N` ([Your repository's
+commands](cli.md#your-repositorys-commands)), which print one line and
+exit 0 with no spec tool, so a skill need not ask which is set. A test
+fails when a factory skill, agent, rule, review instruction, workflow,
+or action runs OpenSpec itself.
+
+| What it gives                 | In `SpecTool`                     | OpenSpec's                                                                                                   |
+| ----------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Its name in init's messages   | `name`                            | `OpenSpec`                                                                                                   |
+| Its option in init's question | `label`                           | `OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/`                      |
+| How init installs it          | `install`                         | `npm install --save-dev @fission-ai/openspec`, when `package.json` lists it in neither kind of dependency    |
+| The check by default          | `defaultCheck`                    | `npx --no-install openspec validate --all --strict --no-interactive`                                         |
+| Its environment               | `env`                             | `DO_NOT_TRACK=1`, so it collects no usage statistics                                                         |
+| Its files that are process    | `processFiles`                    | `openspec/config.yaml`, which the merge policy always holds for the owner, whichever tool the settings name  |
+| Whether it runs               | `runs`                            | `npx --no-install openspec --version` exits 0                                                                |
+| The specs it keeps            | `list`                            | Each folder under `openspec/specs/` with a `spec.md`                                                         |
+| A ticket's spec               | `folder`, `started`, `start`      | A change, `openspec/changes/issue-N/`, started with `openspec new change`                                    |
+| The files to write            | `files`, `then`                   | The proposal, the spec deltas, and, for a ticket with the `spec` label, the design and tasks; then the check |
+| Folding it in                 | `finished`, `finish`, `foldsInto` | `openspec archive`, into `openspec/specs/`; a change already archived counts as folded                       |
+
+Other tools fill these differently: one that keeps a feature's spec in a
+single page marks that page `update` rather than `new`, one with no
+check of its own names a skill on the "Then:" line, and one that is not
+an npm package installs with its own command. `tests/memory-tools.ts`
+holds such a tool, `pagesSpecTool`, and the command and init tests run
+against it too, so nothing outside `src/specs/` assumes OpenSpec.
+
+A tool's own process, such as Spec Kit's `/speckit.clarify` or EGM's
+review, is not part of the adapter: a team that wants it sets it as a
+[plugin](plugins.md), as the refiner or a reviewer.
 
 ## Setting a tool up
 

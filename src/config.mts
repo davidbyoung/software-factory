@@ -124,7 +124,8 @@ export const TRIGGERS = ["own-server", "github-action", "manual"] as const;
 /** How often the scheduled poller may check the board, in minutes: each
  * divides an hour, so a schedule every N minutes keeps an even beat. */
 export const POLL_MINUTES = [5, 10, 15, 30, 60] as const;
-export const SPECS = ["none", "openspec"] as const;
+/** The values `specs` takes: none, or a spec tool built. */
+export const SPECS = ["none", ...Object.keys(BUILT.specs)];
 
 const FIELD_DEFAULTS = {
   session: "Session",
@@ -172,7 +173,7 @@ export type Settings = {
     /** How often the scheduled poller checks the board. */
     pollMinutes: (typeof POLL_MINUTES)[number];
   };
-  specs: (typeof SPECS)[number];
+  specs: string;
   /** The command that checks the specs, or null when `specs` is none. */
   specCheck: string | null;
   /** Every command a build runs, each from the repository's root. */
@@ -256,9 +257,6 @@ export type Accessibility = (typeof ACCESSIBILITY)[number];
 export const SITE_AGENT = "factory-ui-reviewer";
 /** The agent that needs `commands.end-to-end`. */
 export const E2E_AGENT = "factory-e2e-reviewer";
-/** The spec check where `specs.type` is openspec and none is written. */
-export const OPENSPEC_CHECK =
-  "npx --no-install openspec validate --all --strict --no-interactive";
 /** `commands.relock` where none is written. */
 export const DEFAULT_RELOCK = "npm install";
 export const NO_PLAYWRIGHT = "site needs Playwright: npm install -D playwright";
@@ -891,15 +889,20 @@ export function parseSettings(
   ) as Record<FieldKey, string | null>;
   const ticketFields = ticketFieldsOf(rawFields);
   const specsBlock = typed(top.specs ?? "none", "specs");
-  const specs = oneOf(specsBlock.type, "specs", SPECS, "none");
-  if (specsBlock.check !== undefined && specs !== "openspec")
+  const specs = oneOf(
+    specsBlock.type,
+    "specs",
+    ["none", ...Object.keys(built.specs)],
+    "none",
+  );
+  if (specsBlock.check !== undefined && specs === "none")
     throw new SettingsError(
       `${SETTINGS_FILE}: specs.check needs specs.type: openspec`,
     );
   const specCheck =
-    specs === "openspec"
-      ? (command(specsBlock.check, "specs.check") ?? OPENSPEC_CHECK)
-      : null;
+    specs === "none"
+      ? null
+      : (command(specsBlock.check, "specs.check") ?? built.specs[specs]!);
   const autoMerge = object(top["auto-merge"], "auto-merge");
   const prReview =
     top["pr-review"] === undefined

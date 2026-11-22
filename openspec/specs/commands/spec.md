@@ -159,15 +159,6 @@ The factory SHALL behave as this line says: When `factory specs check` runs and 
 - **WHEN** `factory specs check` runs and `specs.type` is `openspec`
 - **THEN** it runs `specs.check` from the repository's root with `DO_NOT_TRACK=1` in its environment, passes its output through, and exits with its status.
 
-### Requirement: The spec check with specs off
-
-The factory SHALL behave as this line says: When `factory specs check` runs and `specs.type` is `none`, it prints `specs are off` and exits 0.
-
-#### Scenario: The spec check with specs off
-
-- **WHEN** `factory specs check` runs and `specs.type` is `none`
-- **THEN** it prints `specs are off` and exits 0.
-
 ### Requirement: Commands end with a line of their own
 
 The factory SHALL behave as this line says: `test-one`, `end-to-end`, and `specs check` pass their command's output through, then print line 30's or 31's line, and exit with its status.
@@ -176,3 +167,12 @@ The factory SHALL behave as this line says: `test-one`, `end-to-end`, and `specs
 
 - **WHEN** `test-one`, `end-to-end`, or `specs check` runs its command
 - **THEN** `test-one`, `end-to-end`, and `specs check` pass their command's output through, then print line 30's or 31's line, and exit with its status.
+
+### Requirement: The spec check with no spec tool
+
+The factory SHALL behave as this line says: When `factory specs check` runs and `specs.type` is `none`, it prints `- No spec tool (specs: none): each ticket holds its own spec.` and exits 0.
+
+#### Scenario: The spec check with no spec tool
+
+- **WHEN** `factory specs check` runs and `specs.type` is `none`
+- **THEN** It prints `- No spec tool (specs: none): each ticket holds its own spec.` and exits 0.

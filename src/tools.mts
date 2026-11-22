@@ -29,6 +29,7 @@ import { githubTicketsSetup } from "./tickets/github-setup.mts";
 import { openTickets, type Tickets } from "./tickets/index.mts";
 import { ghTransport } from "./tickets/transport.mts";
 import { githubActionsSetup } from "./runner/setup.mts";
+import { specTools, type SpecTools } from "./specs/index.mts";
 import { BUILT, type Built } from "./tool-names.mts";
 
 export type Tool = { label: string; setup: ToolSetup };
@@ -56,6 +57,7 @@ export type Registry = {
   >;
   runner: Record<string, Tool & { open(repository: string): Runner }>;
   agent: Record<string, Tool & { agent: Agent }>;
+  specs: SpecTools;
 };
 
 export const TOOLS: Registry = {
@@ -96,6 +98,7 @@ export const TOOLS: Registry = {
       agent: claudeCodeAgent(spawn),
     },
   },
+  specs: specTools(),
 };
 
 /** The names and keys the settings accept, as `config.mts` checks them. */
@@ -106,6 +109,9 @@ export function builtOf(r: Registry): Built {
       Object.entries(r.tickets).map(([name, t]) => [name, t.keys]),
     ),
     runner: Object.keys(r.runner),
+    specs: Object.fromEntries(
+      Object.entries(r.specs).map(([name, t]) => [name, t.defaultCheck]),
+    ),
   };
 }
 

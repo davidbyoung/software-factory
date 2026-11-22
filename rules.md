@@ -30,11 +30,11 @@ here rather than restate it.
   such as "small: one test, red first, one UI reviewer read", so the
   owner can overrule it before the work starts rather than halfway through.
 - **No `spec` label**, even when a user sees it: the issue's acceptance
-  criteria are the spec. No OpenSpec change either, unless the change makes
-  a line of `openspec/specs/` false, as renaming a label a spec quotes
-  would. That issue also carries a Spec section of the changed line, and
-  the build archives a proposal and spec delta in the same pull request,
-  which then waits for the owner. A fix that restores what a spec says
+  criteria are the spec. No spec tool change either, unless the change
+  makes a line of a spec `npx --no-install factory specs list` prints
+  false, as renaming a label a spec quotes would. That issue also carries
+  a Spec section of the changed line, and the build folds it into the
+  specs in the same pull request, which then waits for the owner. A fix that restores what a spec says
   changes no line of it.
 - **No `factory-ticket-readiness` read and no read by the test reviewers**
   (`npx --no-install factory plugins test-reviewer` lists them), with two
@@ -167,28 +167,34 @@ always the owner's.
 
 ## Spec track
 
-The spec track applies only when
-`npx --no-install factory config get specs` prints `openspec`. Then the GitHub
-issue is the spec: `factory-refine` writes it, the owner approves it by
-moving its card to Ready or telling a session to build it, and
-`factory-build` turns it into an OpenSpec change, builds it, and archives it
-into `openspec/specs/` in the same pull request. `openspec/specs/` is the
-current description of what the repository does; a change to it starts by
-reading its spec.
+The GitHub issue is the spec: `factory-refine` writes it, the owner
+approves it by moving its card to Ready or telling a session to build
+it, and `factory-build` builds it. A change that adds or alters behavior
+a user can see carries the `spec` label, which `factory-refine` adds,
+unless it is small ("Small changes" above), whatever spec tool the
+repository uses. Its issue holds "Decisions", numbered "Spec" lines, and
+"For the builder" with a design and tasks, so a build needs nothing
+else.
 
-A change that adds or alters behavior a user can see carries the
-`spec` label, which `factory-refine` adds, unless it is small ("Small
-changes" above). Everything else, such as copy, bug fixes that
-restore intended behavior, style tweaks, tooling, CI, and docs, builds
-from the issue's "Acceptance criteria" with no spec files and no "For the
-builder" section, since the area's `CLAUDE.md` says how it is built. A
-small change that makes a spec line false is the one exception ("Small
-changes" above). Neither skill removes `spec` or adds it back once
-the owner removed it: both act through the owner's GitHub account, so a
-label already decided is the owner's call.
+Everything else, such as copy, bug fixes that restore intended behavior,
+style tweaks, tooling, CI, and docs, builds from the issue's "Acceptance
+criteria" with no spec files and no "For the builder" section, since the
+area's `CLAUDE.md` says how it is built. A small change that makes a
+spec line false is the one exception ("Small changes" above). Neither
+skill removes `spec` or adds it back once the owner removed it: both act
+through the owner's GitHub account, so a label already decided is the
+owner's call.
 
-OpenSpec collects anonymous usage statistics unless told not to. Run it with
-`DO_NOT_TRACK=1`.
+A spec tool, which `npx --no-install factory config get specs` names,
+also keeps each Spec in the repository: `factory-build` starts it with
+`npx --no-install factory specs new N` and folds it in with
+`npx --no-install factory specs finish N`, in the same pull request.
+`npx --no-install factory specs list` prints the specs the repository
+keeps, its current description of what it does; a change to one starts
+by reading it. With `specs: none` each of these says each ticket holds
+its own spec, and the issue is the only copy. No skill, agent, rule, or
+workflow runs a spec tool's own commands: the `factory specs` commands
+reach it.
 
 ## Issues that wait on another
 
@@ -258,8 +264,8 @@ hook refuses the same in text sent to GitHub directly, as the
   the line unchecked.
 - A follow-up gets its own issue only when it would need the `spec` label,
   because it adds or alters behavior a user can see, or would make a
-  line of `openspec/specs/` false. A request from the owner is always its
-  own issue.
+  line of a spec `factory specs list` prints false. A request from the
+  owner is always its own issue.
 - The `factory-resolve-conflicts` conflict stop keeps opening its own issue: which side
   wins is the owner's decision, and nothing else records it.
 
@@ -269,7 +275,7 @@ telling a session to build it. The pull request closes it with `Closes #N`
 only when every line is checked; otherwise it starts with `Part of #N`,
 and the unchecked lines wait there. The sync reads `Part of #N` as a
 partial build, so any other link to the follow-ups issue words it
-differently. It has no OpenSpec change. `factory-build` appends a line and
+differently. It has no spec tool change. `factory-build` appends a line and
 builds the issue; `factory-refine` refines it per line. Its lines can be
 about anything, so the one pull request waits for the owner when any line
 touches a file that does, and gets the fresh-agent trace ("Changing the

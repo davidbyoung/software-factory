@@ -187,8 +187,9 @@ Run the gate, `npx --no-install factory gate`. Then, when
 repository's end-to-end suite covers, which its `CLAUDE.md` names, install
 what the suite needs, such as a browser, and run the suite as `CLAUDE.md`
 says, so a missing browser does not read as a failed gate. Run the spec
-check, `npx --no-install factory specs check`, when a file under
-`openspec/` conflicted.
+check, `npx --no-install factory specs check`, when a file under a
+folder `npx --no-install factory specs list` prints conflicted, or one
+under the spec change it starts.
 
 Fix what the merge broke and run the gate once more. A second failure is
 a stop.

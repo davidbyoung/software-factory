@@ -10,12 +10,18 @@ export type Built = {
   /** Each ticket system, with the keys it adds under `tickets`. */
   tickets: Readonly<Record<string, readonly string[]>>;
   runner: readonly string[];
+  /** Each spec tool, with the check \`specs.check\` defaults to. */
+  specs: Readonly<Record<string, string>>;
 };
 
 export const BUILT: Built = {
   codeHost: ["github"],
   tickets: { github: [] },
   runner: ["github-actions"],
+  specs: {
+    openspec:
+      "npx --no-install openspec validate --all --strict --no-interactive",
+  },
 };
 
 /** The words every command fails with for a name that is not built, such
