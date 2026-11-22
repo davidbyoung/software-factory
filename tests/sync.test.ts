@@ -22,6 +22,8 @@ import {
 } from "../src/sync.mts";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
+import { TOOLS } from "../src/tools.mts";
+import { fakeCredential } from "./fake-tools";
 
 // A made-up package and an empty repository beside it.
 let dir: string;
@@ -952,5 +954,125 @@ describe("launcherPath", () => {
     } finally {
       rmSync(pkg, { recursive: true, force: true });
     }
+  });
+});
+
+describe("factory sync: the ticket system's secrets in the workflows", () => {
+  const NAMES = ["FAKE_TICKETS_EMAIL", "FAKE_TICKETS_TOKEN"];
+  /** The registry with a ticket system that reads a credential, under
+   * GitHub's name so the settings take it as they stand. */
+  const withCredential = {
+    github: {
+      ...TOOLS.tickets.github!,
+      setup: { ...TOOLS.tickets.github!.setup, credential: fakeCredential },
+    },
+  };
+  const EVERY = settings({
+    ...FULL,
+    "pr-review": { commands: [] },
+    builds: { trigger: "github-action" },
+  });
+  const workflows = async (systems?: typeof withCredential) => {
+    put(root, DEPENDABOT, "version: 2\n");
+    const p = await plan(PACKAGE, root, await resolved(EVERY), "main", systems);
+    return new Map(
+      [...p.write].filter(([path]) => path.startsWith(".github/workflows/")),
+    );
+  };
+  type Job = {
+    env?: Record<string, string>;
+    steps?: { uses?: string; run?: string }[];
+  };
+  const jobs = (text: string) =>
+    Object.entries((load(text) as { jobs: Record<string, Job> }).jobs);
+  const runsFactory = (job: Job) =>
+    (job.steps ?? []).some(
+      (s) =>
+        /\bnpm ci\b/.test(s.run ?? "") ||
+        s.uses === "./.github/actions/factory-agent",
+    );
+  const SEVEN = [
+    "factory-board-sync",
+    "factory-build",
+    "factory-review",
+    "factory-conflicts",
+    "factory-deps",
+    "factory-poller",
+    "factory-claude-review",
+  ];
+
+  it.each(SEVEN)(
+    "sets each secret in every job of %s that runs the factory",
+    async (name) => {
+      const text = (await workflows(withCredential)).get(
+        `.github/workflows/${name}.yml`,
+      )!;
+      const picked = jobs(text).filter(([, j]) => runsFactory(j));
+      expect(picked.length).toBeGreaterThan(0);
+      for (const [, job] of picked)
+        for (const n of NAMES)
+          expect(job.env?.[n]).toBe(`\${{ secrets.${n} }}`);
+    },
+  );
+
+  it.each(["factory-check", "factory-review-verdict", "factory-merge-policy"])(
+    "sets none in %s, which opens no ticket system",
+    async (name) => {
+      const text = (await workflows(withCredential)).get(
+        `.github/workflows/${name}.yml`,
+      )!;
+      expect(text).not.toContain("FAKE_TICKETS");
+    },
+  );
+
+  it("only adds lines, each an env line for a secret", async () => {
+    const before = await workflows();
+    for (const [path, text] of await workflows(withCredential)) {
+      const was = before.get(path)!.split("\n");
+      const added: string[] = [];
+      let i = 0;
+      for (const l of text.split("\n"))
+        if (l === was[i]) i++;
+        else added.push(l);
+      expect(i).toBe(was.length);
+      for (const l of added)
+        expect(l).toMatch(
+          /^ {4}env:$|^ {6}FAKE_TICKETS_\w+: \$\{\{ secrets\.FAKE_TICKETS_\w+ \}\}$/,
+        );
+    }
+  });
+
+  it("writes a name the .npmrc also reads once", async () => {
+    put(root, ".npmrc", "//npm.example/:_authToken=${FAKE_TICKETS_TOKEN}\n");
+    const text = (await workflows(withCredential)).get(
+      ".github/workflows/factory-build.yml",
+    )!;
+    expect(text.match(/^ +FAKE_TICKETS_TOKEN:/gm)?.length).toBe(
+      jobs(text).filter(([, j]) => runsFactory(j)).length,
+    );
+  });
+
+  const settingsJson = async (systems?: typeof withCredential) =>
+    JSON.parse(
+      (
+        await plan(PACKAGE, root, await resolved(EVERY), "main", systems)
+      ).write.get(".claude/settings.json")!,
+    ) as {
+      hooks: Record<
+        string,
+        { matcher?: string; hooks: { command: string }[] }[]
+      >;
+    };
+
+  it("adds the guard on the credentials file for reading, searching, and listing files when the ticket system keeps one on the machine", async () => {
+    const groups = (await settingsJson(withCredential)).hooks.PreToolUse!;
+    expect(groups.map((g) => g.matcher)).toEqual(["Bash", "Read|Grep|Glob"]);
+    expect(groups[1]!.hooks[0]!.command).toMatch(/ guard credentials$/);
+  });
+
+  it("adds no such guard with GitHub's tickets", async () => {
+    expect(
+      (await settingsJson()).hooks.PreToolUse!.map((g) => g.matcher),
+    ).toEqual(["Bash"]);
   });
 });

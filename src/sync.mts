@@ -15,6 +15,7 @@
 // Edit the source in the package, never the copy. A file the lock lists that the package no longer has is
 // deleted. Nothing else is.
 import { PR_LABELS } from "./labels.mts";
+import type { Registry } from "./tools.mts";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   existsSync,
@@ -183,6 +184,69 @@ export function withMinutes(text: string, minutes: number, file: string) {
   return one(/^(\s+timeout-minutes: )\d+$/gm, minutes + 10, session);
 }
 
+/** Whether a job, as its lines, installs packages or starts a session:
+ * the jobs that run a factory command. */
+const runsFactory = (job: string[]) =>
+  job.some(
+    (l) =>
+      (/\bnpm ci\b/.test(l) && !/^\s*#/.test(l)) ||
+      /^\s+uses: \.\/\.github\/actions\/factory-agent\s*$/.test(l),
+  );
+
+/** The workflows whose jobs read tickets. */
+const TICKET_WORKFLOWS = [
+  "factory-board-sync.yml",
+  "factory-build.yml",
+  "factory-review.yml",
+  "factory-conflicts.yml",
+  "factory-deps.yml",
+  "factory-poller.yml",
+  "factory-claude-review.yml",
+].map((f) => `workflows/${f}`);
+
+/** A workflow whose jobs that run a factory command set each of the ticket
+ * system's secret names from the secret of the same name, in the job's
+ * `env`, skipping a name the job's `env` already sets, as one `.npmrc`
+ * also reads. Only lines are added. */
+export function withTicketEnv(text: string, names: string[], file: string) {
+  if (!names.length) return text;
+  const lines = text.split("\n");
+  const jobsAt = lines.indexOf("jobs:");
+  if (jobsAt < 0) return text;
+  const starts = lines
+    .map((l, i) => (i > jobsAt && /^ {2}[A-Za-z0-9_-]+:\s*$/.test(l) ? i : -1))
+    .filter((i) => i >= 0);
+  const inserts: { at: number; lines: string[] }[] = [];
+  starts.forEach((start, k) => {
+    const job = lines.slice(start, starts[k + 1] ?? lines.length);
+    if (!runsFactory(job)) return;
+    const env = job.findIndex((l) => /^ {4}env:\s*$/.test(l));
+    const set = new Set<string>();
+    if (env >= 0)
+      for (const l of job.slice(env + 1)) {
+        const m = /^ {6}([A-Za-z0-9_]+):/.exec(l);
+        if (!m) break;
+        set.add(m[1]!);
+      }
+    const entries = names
+      .filter((n) => !set.has(n))
+      .map((n) => `      ${n}: \${{ secrets.${n} }}`);
+    if (!entries.length) return;
+    const runsOn = job.findIndex((l) => /^ {4}runs-on:/.test(l));
+    if (env >= 0)
+      inserts.push({ at: start + env + 1 + set.size, lines: entries });
+    else if (runsOn >= 0)
+      inserts.push({ at: start + runsOn + 1, lines: ["    env:", ...entries] });
+    else
+      throw new Error(
+        `${file}: expected a runs-on line in each job that runs the factory, to set its env`,
+      );
+  });
+  for (const { at, lines: added } of inserts.sort((a, b) => b.at - a.at))
+    lines.splice(at, 0, ...added);
+  return lines.join("\n");
+}
+
 /** A workflow whose jobs that install packages set each name in `names`
  * from a secret of the same name, in the job's `env`, so every step that
  * runs npm reads it, a composite action's included. With `GITHUB_TOKEN`
@@ -200,12 +264,7 @@ export function withNpmEnv(text: string, names: string[], file: string) {
   starts.forEach((start, k) => {
     const end = starts[k + 1] ?? lines.length;
     const job = lines.slice(start, end);
-    const installs = job.some(
-      (l) =>
-        (/\bnpm ci\b/.test(l) && !/^\s*#/.test(l)) ||
-        /^\s+uses: \.\/\.github\/actions\/factory-agent\s*$/.test(l),
-    );
-    if (!installs) return;
+    if (!runsFactory(job)) return;
     const env = job.findIndex((l) => /^ {4}env:\s*$/.test(l));
     const runsOn = job.findIndex((l) => /^ {4}runs-on:/.test(l));
     const permissions = job.findIndex((l) => /^ {4}permissions:\s*$/.test(l));
@@ -380,8 +439,13 @@ type ClaudeSettings = { hooks?: Record<string, HookGroup[]> } & Record<
   unknown
 >;
 
-/** The five hook entries, one per event. */
-export function factoryHooks(launcher: string): [string, HookGroup][] {
+/** The five hook entries, one per event, and with `credentials` a sixth,
+ * the guard on the credentials file for the tools that read, search, and
+ * list files. */
+export function factoryHooks(
+  launcher: string,
+  credentials = false,
+): [string, HookGroup][] {
   const run = (args: string) =>
     `node "$CLAUDE_PROJECT_DIR"/${launcher} ${args}`;
   return [
@@ -407,6 +471,23 @@ export function factoryHooks(launcher: string): [string, HookGroup][] {
         ],
       },
     ],
+    ...(credentials
+      ? [
+          [
+            "PreToolUse",
+            {
+              matcher: "Read|Grep|Glob",
+              hooks: [
+                {
+                  type: "command",
+                  command: run("guard credentials"),
+                  timeout: 30,
+                },
+              ],
+            },
+          ] as [string, HookGroup],
+        ]
+      : []),
     [
       "PermissionRequest",
       {
@@ -453,12 +534,16 @@ const isFactory = (h: HookEntry) =>
   typeof h.command === "string" && h.command.includes(`/${LAUNCHER}`);
 
 /** `.claude/settings.json` with the entries that run the factory's launcher
- * replaced by the five above, and attribution turned off unless the file
+ * replaced by those above, and attribution turned off unless the file
  * sets its own. Every other entry stays, in its order. */
-export function withHooks(text: string | null, launcher: string): string {
+export function withHooks(
+  text: string | null,
+  launcher: string,
+  credentials = false,
+): string {
   const settings: ClaudeSettings = text ? JSON.parse(text) : {};
   const hooks = othersHooks(settings);
-  for (const [event, group] of factoryHooks(launcher))
+  for (const [event, group] of factoryHooks(launcher, credentials))
     (hooks[event] ??= []).push(group);
   const attribution = settings.attribution ?? NO_ATTRIBUTION;
   return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
@@ -664,6 +749,7 @@ export async function plan(
   root: string,
   r: Resolved,
   branch: string,
+  systems?: Registry["tickets"],
 ): Promise<Plan> {
   const { load } = await import("js-yaml");
   const { explainLines, markerOf } = await import("./explain.mts");
@@ -674,6 +760,12 @@ export async function plan(
   const write = new Map<string, string>();
   const has = (p: string) => existsSync(join(root, p));
   const npmrc = npmrcAt(root);
+  // The registry loads the coding agent, which imports this file.
+  const ticketTool = (systems ?? (await import("./tools.mts")).TOOLS.tickets)[
+    s.tickets.type
+  ];
+  const credential = ticketTool?.setup.credential;
+  const ticketNames = credential?.parts.map((p) => p.name) ?? [];
   for (const [from, to] of copies(pkg, s, has)) {
     const source = readFileSync(join(pkg, from), "utf8");
     const text = PUSH_WORKFLOWS.includes(from)
@@ -699,7 +791,11 @@ export async function plan(
     write.set(
       to,
       from.startsWith("workflows/")
-        ? withNpmEnv(written, npmrc.names, from)
+        ? withTicketEnv(
+            withNpmEnv(written, npmrc.names, from),
+            TICKET_WORKFLOWS.includes(from) ? ticketNames : [],
+            from,
+          )
         : written,
     );
   }
@@ -714,7 +810,10 @@ export async function plan(
     else write.set(to, readFileSync(source, "utf8"));
   }
   const launcher = launcherPath(pkg, root, manifest.name);
-  write.set(SETTINGS_JSON, withHooks(read(SETTINGS_JSON), launcher));
+  write.set(
+    SETTINGS_JSON,
+    withHooks(read(SETTINGS_JSON), launcher, Boolean(credential?.machine)),
+  );
   write.set(CLAUDE_MD, withImport(read(CLAUDE_MD)));
   const files = [...write.keys()].filter(
     (p) => p !== SETTINGS_JSON && p !== CLAUDE_MD,
