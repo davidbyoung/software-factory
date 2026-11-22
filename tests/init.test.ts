@@ -21,7 +21,7 @@ import type { Part } from "../src/parts.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
-import { memoryTools } from "./memory-tools";
+import { memoryTools, pagesSpecTool } from "./memory-tools";
 import {
   FAKE_PAGE,
   FAKE_TOKEN,
@@ -54,7 +54,12 @@ type Answers = {
   /** Answers to the branch name question; unscripted, it takes the
    * pattern offered, as Enter does. */
   branch?: string[];
+  /** Answers to the spec tool question; unscripted, it takes the one
+   * offered first, as Enter does. */
+  specs?: string[];
 };
+
+const SPEC_QUESTION = "Which spec tool do you use?";
 
 const BRANCH_QUESTION =
   "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
@@ -78,7 +83,15 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
     secret: [...(answers.secret ?? [])],
     input: [...(answers.input ?? [])],
     branch: [...(answers.branch ?? [])],
+    specs: [...(answers.specs ?? [])],
   };
+  /** The spec tool question's choices as they read, and the one chosen if
+   * none is picked, each time it is asked. */
+  const specChoices: {
+    names: string[];
+    values: string[];
+    fallback?: string;
+  }[] = [];
   const next = <K extends keyof typeof queue>(kind: K, message: string) => {
     asked.push(`${kind}: ${message}`);
     log(`? ${kind}: ${message}`);
@@ -101,6 +114,18 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
       return chosen;
     },
     select: async (message, choices, fallback) => {
+      if (message === SPEC_QUESTION) {
+        specChoices.push({
+          names: choices.map((c) => c.name),
+          values: choices.map((c) => c.value),
+          fallback,
+        });
+        offered.push(choices.map((c) => c.value));
+        selects.push({ names: choices.map((c) => c.name), fallback });
+        asked.push(`select: ${message}`);
+        log(`? select: ${message}`);
+        return queue.specs.shift() ?? fallback!;
+      }
       offered.push(choices.map((c) => c.value));
       selects.push({ names: choices.map((c) => c.name), fallback });
       return next("select", message) as string;
@@ -114,7 +139,16 @@ function scripted(answers: Answers, log: (line: string) => void = () => {}) {
       return queue.branch.shift() ?? fallback;
     },
   };
-  return { ask, asked, offered, selects, descriptions, checkboxes, queue };
+  return {
+    ask,
+    asked,
+    offered,
+    selects,
+    descriptions,
+    checkboxes,
+    queue,
+    specChoices,
+  };
 }
 
 type Setup = {
@@ -152,6 +186,10 @@ type Setup = {
   checks?: Check[];
   /** The branch name a preset in effect supplies, if any. */
   presetBranchName?: string;
+  /** The spec tool a preset in effect names, if any. */
+  presetSpecs?: string;
+  /** The install's status and standard error; it succeeds unless given. */
+  install?: { status: number; stderr: string };
 };
 
 const roots: string[] = [];
@@ -179,8 +217,24 @@ function init(setup: Setup) {
   const ran: string[][] = [];
   const opened: string[] = [];
   let synced = 0;
-  const { ask, asked, offered, selects, descriptions, checkboxes, queue } =
-    scripted(setup.answers, (line) => transcript.push(line));
+  const {
+    ask,
+    asked,
+    offered,
+    selects,
+    descriptions,
+    checkboxes,
+    queue,
+    specChoices,
+  } = scripted(setup.answers, (line) => transcript.push(line));
+  /** Each install init ran, and the sync count when it ran. */
+  const installs: {
+    argv: string[];
+    syncedBefore: number;
+    /** \`package.json\` and the settings as they stood when it ran. */
+    packageJson: string | null;
+    settings: string | null;
+  }[] = [];
   const host = memoryCodeHost([], {
     owner: "dave",
     tokens: {
@@ -257,6 +311,20 @@ function init(setup: Setup) {
     packageVersion: "0.2.0",
     paint: setup.paint,
     presetBranchName: async () => setup.presetBranchName ?? null,
+    presetSpecs: async () => setup.presetSpecs ?? null,
+    install: async (argv) => {
+      const at = (path: string) =>
+        existsSync(join(root, path))
+          ? readFileSync(join(root, path), "utf8")
+          : null;
+      installs.push({
+        argv,
+        syncedBefore: synced,
+        packageJson: at("package.json"),
+        settings: at(".claude/factory.yaml"),
+      });
+      return setup.install ?? { status: 0, stderr: "" };
+    },
   };
   const read = (path: string) =>
     existsSync(join(root, path))
@@ -272,6 +340,8 @@ function init(setup: Setup) {
     descriptions,
     checkboxes,
     queue,
+    specChoices,
+    installs,
     ran,
     opened,
     synced: () => synced,
@@ -348,6 +418,7 @@ describe("factory init, a first run with every part", () => {
     const r = first();
     expect(await r.run()).toBe(0);
     expect(r.yaml()).toEqual({
+      specs: "none",
       version: 2,
       repository: "acme/site",
       "code-host": CODE_HOST,
@@ -604,6 +675,7 @@ describe("factory init, run again", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.asked).toEqual([
+      "select: Which spec tool do you use?",
       "checkbox: Which parts do you want?",
       "confirm: 2 secrets these parts read are already set. Replace them?",
       "confirm: Go ahead?",
@@ -716,6 +788,7 @@ describe("factory init, run again", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.yaml()).toEqual({
+      specs: "none",
       version: 2,
       repository: "acme/site",
       "code-host": CODE_HOST,
@@ -729,6 +802,7 @@ describe("factory init, run again", () => {
     });
     await r.run();
     expect(r.yaml()).toEqual({
+      specs: "none",
       version: 2,
       repository: "acme/site",
       "code-host": CODE_HOST,
@@ -927,6 +1001,7 @@ describe("factory init, the board", () => {
       "No board to use instead: create one on the code host, then run factory init again.",
     );
     expect(r.yaml()).toEqual({
+      specs: "none",
       version: 2,
       repository: "acme/site",
       "code-host": CODE_HOST,
@@ -979,11 +1054,11 @@ describe("factory init, where the poller runs", () => {
     await r.run();
 
     expect(r.asked).toContain(WHERE);
-    expect(r.selects[1]!.names).toEqual([
+    expect(r.selects[2]!.names).toEqual([
       "A schedule on GitHub Actions, every 5 minutes, nothing to host",
       "A server you host, within a minute",
     ]);
-    expect(r.offered[1]).toEqual(["github-action", "own-server"]);
+    expect(r.offered[2]).toEqual(["github-action", "own-server"]);
   });
 
   it("writes the trigger it is given, and on a public repository asks no interval", async () => {
@@ -1008,7 +1083,7 @@ describe("factory init, where the poller runs", () => {
     expect(r.out).toContain(
       "Each run bills at least one Actions minute on a private repository.",
     );
-    expect(r.selects[2]).toEqual({
+    expect(r.selects[3]).toEqual({
       names: [
         "Every 5 minutes, 8,640 runs a month",
         "Every 10 minutes, 4,320 runs a month",
@@ -1183,6 +1258,7 @@ describe("factory init, word for word", () => {
         "  Board          none yet",
         "",
         "? input: How should a build name its branch? Use {ticket}, and {user} for the GitHub account:",
+        "? select: Which spec tool do you use?",
         "? checkbox: Which parts do you want?",
         "? select: Which board?",
         "? input: Which files may merge without you? (comma-separated)",
@@ -1246,6 +1322,7 @@ describe("factory init, word for word", () => {
         "    - docs/**",
         "pr-review:",
         "  commands: []",
+        "specs: none",
         "",
       ].join("\n"),
       secrets: {
@@ -1310,6 +1387,7 @@ describe("factory init, a secret met another way", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.asked).toEqual([
+      "select: Which spec tool do you use?",
       "checkbox: Which parts do you want?",
       "confirm: 2 secrets these parts read are already set. Replace them?",
       "confirm: Go ahead?",
@@ -1334,8 +1412,9 @@ describe("factory init, a tool's own setup", () => {
       },
     });
     expect(await r.run()).toBe(0);
-    expect(r.asked.slice(0, 3)).toEqual([
+    expect(r.asked.slice(0, 4)).toEqual([
       `input: ${BRANCH_QUESTION}`,
+      "select: Which spec tool do you use?",
       "checkbox: Which parts do you want?",
       "input: Your ticket system's address",
     ]);
@@ -1547,6 +1626,182 @@ describe("factory init, the branch name", () => {
       type: "github",
       "branch-name": "{ticket}",
     });
+  });
+});
+
+describe("factory init, the spec tool", () => {
+  const NONE_CHOICE = "None: each ticket holds its own spec";
+  const OPENSPEC_CHOICE =
+    "OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/";
+  const INSTALL_ROW =
+    "  Install  @fission-ai/openspec, with npm install --save-dev";
+  const plain = { checkbox: [[]], confirm: [true] };
+  const withSpecs = (specs: string) =>
+    `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n${specs}\n`;
+
+  it("asks which spec tool right after the branch name, offering None first and choosing it on Enter", async () => {
+    const r = init({ answers: plain });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.slice(0, 3)).toEqual([
+      `input: ${BRANCH_QUESTION}`,
+      "select: Which spec tool do you use?",
+      "checkbox: Which parts do you want?",
+    ]);
+    expect(r.specChoices).toEqual([
+      {
+        names: [NONE_CHOICE, OPENSPEC_CHOICE],
+        values: ["none", "openspec"],
+        fallback: "none",
+      },
+    ]);
+  });
+
+  it("asks it where the branch name would be when that question is skipped", async () => {
+    const r = init({ answers: plain, presetBranchName: "{ticket}" });
+    expect(await r.run()).toBe(0);
+    expect(r.asked.slice(0, 2)).toEqual([
+      "select: Which spec tool do you use?",
+      "checkbox: Which parts do you want?",
+    ]);
+  });
+
+  it("writes specs: none for None, and plans and installs nothing", async () => {
+    const r = init({ answers: { ...plain, specs: ["none"] } });
+    expect(await r.run()).toBe(0);
+    expect(r.yaml().specs).toBe("none");
+    expect(r.out).not.toContain(INSTALL_ROW);
+    expect(r.installs).toEqual([]);
+  });
+
+  it("writes specs: openspec for OpenSpec, plans the install last, and installs it after writing the settings and before the sync", async () => {
+    const r = init({
+      answers: { ...plain, specs: ["openspec"] },
+      settings: `${withSpecs("")}auto-merge:\n  allow: [docs/**]\n`,
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.yaml().specs).toBe("openspec");
+    const plan = r.out.slice(
+      r.out.indexOf("This is everything setup will do:"),
+    );
+    expect(plan.slice(1, plan.indexOf(INSTALL_ROW) + 2)).toEqual([
+      ...plan.slice(1, plan.indexOf(INSTALL_ROW)),
+      INSTALL_ROW,
+      "  Turn off Pull requests that merge themselves",
+    ]);
+    expect(r.installs).toEqual([
+      {
+        argv: ["npm", "install", "--save-dev", "@fission-ai/openspec"],
+        syncedBefore: 0,
+        packageJson: '{"name":"site"}\n',
+        settings: expect.stringContaining("specs: openspec"),
+      },
+    ]);
+    expect(r.out).toContain("Installed @fission-ai/openspec.");
+  });
+
+  it("writes package.json before the install when there was none", async () => {
+    const r = init({
+      answers: { ...plain, specs: ["openspec"] },
+      packageJson: false,
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.installs[0]!.packageJson).toContain(
+      "@davidbyoung/software-factory",
+    );
+  });
+
+  it("prints npm's last five error lines when the install fails, carries on, and puts the install first under Left to do", async () => {
+    const r = init({
+      answers: { ...plain, specs: ["openspec"] },
+      install: {
+        status: 1,
+        stderr:
+          "one\ntwo\nnpm error code E404\nnpm error 404 Not Found\nnpm error a\nnpm error b\n",
+      },
+    });
+    expect(await r.run()).toBe(0);
+    const at = r.out.indexOf("Could not install @fission-ai/openspec:");
+    expect(r.out.slice(at, at + 6)).toEqual([
+      "Could not install @fission-ai/openspec:",
+      "  two",
+      "  npm error code E404",
+      "  npm error 404 Not Found",
+      "  npm error a",
+      "  npm error b",
+    ]);
+    expect(r.synced()).toBe(1);
+    const left = r.out.indexOf("Nothing is committed. Left to do:");
+    expect(r.out[left + 1]).toBe(
+      "  1. Install OpenSpec, which a build writes specs with: npm install --save-dev @fission-ai/openspec",
+    );
+  });
+
+  it("plans no install and installs nothing when package.json lists OpenSpec", async () => {
+    const r = init({
+      answers: { ...plain, specs: ["openspec"] },
+      files: {
+        "package.json":
+          '{"devDependencies":{"@fission-ai/openspec":"^1.0.0"}}\n',
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).not.toContain(INSTALL_ROW);
+    expect(r.installs).toEqual([]);
+  });
+
+  it("installs nothing when told not to go ahead", async () => {
+    const r = init({
+      answers: { checkbox: [[]], confirm: [false], specs: ["openspec"] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(INSTALL_ROW);
+    expect(r.installs).toEqual([]);
+  });
+
+  it("does not ask when the settings name a spec tool, keeps it, and installs the one they name", async () => {
+    const r = init({
+      answers: plain,
+      settings: withSpecs("specs:\n  type: openspec\n  check: make specs"),
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.specChoices).toEqual([]);
+    expect(r.yaml().specs).toEqual({ type: "openspec", check: "make specs" });
+    expect(r.out).toContain(INSTALL_ROW);
+    expect(r.installs).toHaveLength(1);
+  });
+
+  it("does not ask when a preset names a spec tool, none included", async () => {
+    const r = init({ answers: plain, presetSpecs: "none" });
+    expect(await r.run()).toBe(0);
+    expect(r.specChoices).toEqual([]);
+    expect(r.yaml().specs).toBeUndefined();
+  });
+
+  it("asks once on a re-run whose settings name no spec tool", async () => {
+    const r = init({ answers: plain, settings: withSpecs("") });
+    expect(await r.run()).toBe(0);
+    expect(r.specChoices).toHaveLength(1);
+    expect(r.yaml().specs).toBe("none");
+  });
+
+  it("offers, plans, and installs another spec tool by its adapter's words", async () => {
+    const r = init({
+      answers: { ...plain, specs: ["pages"] },
+      install: { status: 1, stderr: "pip: not found\n" },
+      tools: (b) => ({ ...b, specs: { ...b.specs, pages: pagesSpecTool() } }),
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.specChoices[0]!.names).toEqual([
+      NONE_CHOICE,
+      OPENSPEC_CHOICE,
+      "Pages: each ticket's spec is a page in pages/",
+    ]);
+    expect(r.out).toContain("  Install  pages-cli, with pip install");
+    expect(r.installs[0]!.argv).toEqual(["pip", "install", "pages-cli"]);
+    expect(r.out).toContain("Could not install pages-cli:");
+    expect(r.out).toContain(
+      "  1. Install Pages, which a build writes specs with: pip install pages-cli",
+    );
   });
 });
 
@@ -2582,6 +2837,7 @@ describe("the tokens .npmrc reads", () => {
       expect(await r.run()).toBe(0);
       expect(r.asked).toEqual([
         `input: ${BRANCH_QUESTION}`,
+        "select: Which spec tool do you use?",
         "checkbox: Which parts do you want?",
         "confirm: 1 secret these parts read is already set. Replace it?",
         "confirm: Go ahead?",
@@ -2690,7 +2946,7 @@ describe("factory init, the field step", () => {
       out.indexOf("This is everything setup will do:"),
     );
   const FOUR = (d: string, s: string, a: string, f: string) =>
-    `version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: ${d}\n    spec: ${s}\n    acceptance-criteria: ${a}\n    for-the-builder: ${f}\n${CODE_HOST_YAML}\n`;
+    `version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: ${d}\n    spec: ${s}\n    acceptance-criteria: ${a}\n    for-the-builder: ${f}\n${CODE_HOST_YAML}\nspecs: none\n`;
 
   it("names the text fields and shows the suggestion as a table, before the plan", async () => {
     const r = fielded({ select: ["yes"] });
@@ -2710,7 +2966,7 @@ describe("factory init, the field step", () => {
       "",
       "",
     ]);
-    expect(r.selects[0]).toEqual({
+    expect(r.selects[1]).toEqual({
       names: ["Yes", "Change some", "No: keep everything in the description"],
       fallback: "yes",
     });
@@ -2771,7 +3027,7 @@ describe("factory init, the field step", () => {
       ],
       checked: [],
     });
-    expect(r.selects[1]).toEqual({
+    expect(r.selects[2]).toEqual({
       names: [
         "The description",
         "Acceptance criteria",

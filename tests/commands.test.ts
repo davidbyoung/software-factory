@@ -19,6 +19,8 @@ import { specTools } from "../src/specs/index.mts";
 import { openspec } from "../src/specs/openspec.mts";
 import type { Run } from "../src/specs/types.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
+import { BUILT } from "../src/tool-names.mts";
+import { pagesSpecTool } from "./memory-tools";
 
 const ROOT = "/repo";
 
@@ -472,6 +474,33 @@ describe("factory specs new", () => {
     expect(at.runs.map((r) => r.env)).toEqual([
       { DO_NOT_TRACK: "1" },
       { DO_NOT_TRACK: "1" },
+    ]);
+  });
+});
+
+describe("factory specs new, with a spec tool that is not OpenSpec", () => {
+  it("lists the files it updates and writes, and ends with the tool's own next step", async () => {
+    const { d, out } = deps({ specs: "pages" });
+    d.settings = async () =>
+      parseSettings(
+        {
+          version: 2,
+          repository: "o/r",
+          "code-host": CODE_HOST,
+          specs: "pages",
+        },
+        () => true,
+        { ...BUILT, specs: { ...BUILT.specs, pages: "pages check" } },
+      );
+    d.specTools = { pages: pagesSpecTool() };
+
+    expect(await main(["specs-new", "37"], d)).toBe(0);
+    expect(out).toEqual([
+      "Started ticket 37's spec in pages/",
+      "Write each file from ticket 37's body:",
+      "  update  pages/SITEMAP.md  A line for ticket 37",
+      "  new     pages/37.md       The Spec",
+      "Then: /pages-review",
     ]);
   });
 });

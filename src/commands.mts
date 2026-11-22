@@ -217,8 +217,10 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
   const files = tool.files(id, labels.includes("spec"));
   const width = Math.max(...files.map((f) => f.path.length)) + 2;
+  const kinds = Math.max(...files.map((f) => f.kind.length));
   d.out(`Write each file from ticket ${id}'s body:`);
-  for (const f of files) d.out(`  ${f.kind}  ${f.path.padEnd(width)}${f.what}`);
+  for (const f of files)
+    d.out(`  ${f.kind.padEnd(kinds)}  ${f.path.padEnd(width)}${f.what}`);
   d.out(`Then: ${tool.then}`);
   return 0;
 }
