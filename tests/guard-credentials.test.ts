@@ -44,7 +44,14 @@ describe("factory guard credentials", () => {
     expect(await run(which, input)).toEqual({ code: 2, err: [REASON] });
   });
 
-  it("lets a call through that does not name it", async () => {
+  it("lets a Bash command through that does not name it", async () => {
+    expect(await run("all", { command: "cat notes/credentials.md" })).toEqual({
+      code: 0,
+      err: [],
+    });
+  });
+
+  it("lets a file read through that does not name it", async () => {
     expect(
       await run("credentials", {
         file_path: "/home/dana/notes/credentials.md",

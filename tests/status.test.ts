@@ -1094,7 +1094,7 @@ describe("main --hook", () => {
 });
 
 describe("main --hook, with a credential to fix", () => {
-  it("says what to fix under Work in progress, in place of the state, and starts the session", async () => {
+  it("says what to fix under Work in progress, and exits 0 so the session starts", async () => {
     const line =
       "No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: factory init";
     const out: string[] = [];

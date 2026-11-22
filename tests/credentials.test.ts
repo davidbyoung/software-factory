@@ -5,12 +5,13 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   credentialsPath,
   hasEntry,
@@ -35,6 +36,7 @@ const mode = (p: string) => statSync(p).mode & 0o777;
 beforeEach(() => {
   env = { XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "creds-")) };
 });
+afterEach(() => rmSync(env.XDG_CONFIG_HOME!, { recursive: true, force: true }));
 
 describe("where a credential is read from", () => {
   it("is under XDG_CONFIG_HOME when that is set", () => {
@@ -44,8 +46,8 @@ describe("where a credential is read from", () => {
   });
 
   it("is under ~/.config otherwise", () => {
-    expect(credentialsPath({ HOME: "/h" })).toMatch(
-      /\/\.config\/software-factory\/credentials\.yaml$/,
+    expect(credentialsPath({})).toBe(
+      join(homedir(), ".config", "software-factory", "credentials.yaml"),
     );
   });
 

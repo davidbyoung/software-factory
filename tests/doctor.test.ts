@@ -875,25 +875,22 @@ describe("factory doctor, a credential kept on the machine", () => {
     [
       "missing",
       null,
-      undefined,
       "✗ No credential on this machine for acme.example. Run factory init",
     ],
     [
       "refused",
       { ...PAIR, FAKE_TICKETS_TOKEN: REFUSED },
-      undefined,
       "✗ The credential on this machine is refused (401 Unauthorized). It may have expired. Run factory init",
     ],
     [
       "not checked",
       { ...PAIR, FAKE_TICKETS_TOKEN: "down" },
-      undefined,
       "✗ The credential on this machine could not be checked (Fake Tickets is down.). Check that acme.example can be reached. Run factory doctor",
     ],
   ])(
     "fails when it is %s, with the fix, and skips the tool's own checks",
-    async (_, machine, spoil, expected) => {
-      const r = await run(machine, { spoil });
+    async (_, machine, expected) => {
+      const r = await run(machine);
       expect(r.code).toBe(1);
       expect(r.lines).toEqual([expected]);
     },

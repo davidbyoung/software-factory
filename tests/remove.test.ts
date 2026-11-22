@@ -409,7 +409,7 @@ describe("factory remove", () => {
         ".claude/settings.json": JSON.stringify(onlyFactory),
       },
     });
-    await r.run();
+    expect(await r.run()).toBe(0);
     expect(r.has(".claude/settings.json")).toBe(false);
   });
 
@@ -481,7 +481,7 @@ describe("factory remove, a credential kept on the machine", () => {
       env,
     });
     expect(await r.run()).toBe(0);
-    return { lines: group(r.out), path: credentialsPath(env) };
+    return { lines: group(r.out), path: credentialsPath(env), out: r.out };
   };
 
   it("names the credential's secrets among those set, and the site's entry in the file, with where to revoke the token", async () => {
@@ -509,6 +509,8 @@ describe("factory remove, a credential kept on the machine", () => {
 
   it("names no entry when the settings cannot be read, since they name the site", async () => {
     const r = await run({ settings: "version: 3\n", machine: true });
-    expect(r.lines.some((l) => l.includes(SITE))).toBe(false);
+    expect(r.out[0]).toMatch(/^Could not read \.claude\/factory\.yaml/);
+    expect(r.out).toContain("  Fake Tickets");
+    expect(r.out.join("\n")).not.toContain(r.path);
   });
 });

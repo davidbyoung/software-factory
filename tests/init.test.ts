@@ -3245,16 +3245,19 @@ describe("factory init, a credential kept on the machine", () => {
         ...o,
       });
 
-    it("asks for each part in order, stores them as secrets and on this machine, and says whose they are", async () => {
+    it("plans the secrets, then storing the credential on this machine", async () => {
       const r = first();
       expect(await r.run()).toBe(0);
-      const path = credentialsPath(r.env);
-      expect(r.out).toContain(`  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`);
-      expect(
-        r.out.indexOf(
-          `  Store    your Fake Tickets credential on this machine, in ${path}`,
-        ),
-      ).toBe(r.out.indexOf(`  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`) + 1);
+      const at = r.out.indexOf(`  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`);
+      expect(r.out.slice(at, at + 2)).toEqual([
+        `  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`,
+        `  Store    your Fake Tickets credential on this machine, in ${credentialsPath(r.env)}`,
+      ]);
+    });
+
+    it("asks for each part in order, then says whose they are and where they went", async () => {
+      const r = first();
+      expect(await r.run()).toBe(0);
       const at = r.transcript.indexOf(`? ${EMAIL_Q}`);
       expect(r.transcript.slice(at - 1, at + 3)).toEqual([
         `Fake Tickets' token: opening ${FAKE_PAGE}`,
@@ -3262,6 +3265,11 @@ describe("factory init, a credential kept on the machine", () => {
         `? ${TOKEN_Q}`,
         "It belongs to Fake User. Stored as FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, and on this machine.",
       ]);
+    });
+
+    it("stores the values as secrets and in a file only its owner can read, printing neither", async () => {
+      const r = first();
+      expect(await r.run()).toBe(0);
       expect(r.runner.secrets.get(FAKE_EMAIL)).toBe(EMAIL);
       expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(TOKEN);
       expect(stored(r.env)).toEqual({
@@ -3269,7 +3277,7 @@ describe("factory init, a credential kept on the machine", () => {
         source: "file",
         values: GOOD_PAIR,
       });
-      expect(statSync(path).mode & 0o777).toBe(0o600);
+      expect(statSync(credentialsPath(r.env)).mode & 0o777).toBe(0o600);
       expect(r.out.join("\n")).not.toContain(TOKEN);
     });
 
