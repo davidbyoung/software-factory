@@ -1413,18 +1413,26 @@ describe("the ticket commands", () => {
     };
     const NAMED = { ...SEVEN, labels: ["enhancement", "needs-spec"] };
 
-    it("label --add, --remove, and --was-removed take a key for its name", async () => {
+    it("label --add takes a key for its name", async () => {
+      const { d, memory } = deps([NAMED], { labels: renamed });
+
+      await main(["label", "7", "--add", "follow-up"], d);
+      expect(memory.state.get("7")?.labels).toContain("follow-ups");
+    });
+
+    it("label --remove takes a key for its name", async () => {
+      const { d, memory } = deps([NAMED], { labels: renamed });
+
+      await main(["label", "7", "--remove", "spec"], d);
+      expect(memory.state.get("7")?.labels).toEqual(["enhancement"]);
+    });
+
+    it("label --was-removed takes a key for its name", async () => {
       const { d, out, memory } = deps([NAMED], { labels: renamed });
       memory.removedLabels.set("7", ["needs-spec"]);
 
-      await main(["label", "7", "--add", "follow-up"], d);
-      await main(["label", "7", "--remove", "spec"], d);
       await main(["label", "7", "--was-removed", "spec"], d);
-      expect(out).toEqual(["added", "removed", "yes"]);
-      expect(memory.state.get("7")?.labels).toEqual([
-        "enhancement",
-        "follow-ups",
-      ]);
+      expect(out).toEqual(["yes"]);
     });
 
     it("label passes a word that is no key through as a name", async () => {
@@ -1453,16 +1461,20 @@ describe("the ticket commands", () => {
       },
     );
 
-    it("open and list --label take a key for its name", async () => {
-      const { d, out, memory, files } = deps(
+    it("list --label takes a key for its name", async () => {
+      const { d, out } = deps(
         [{ number: 3, title: "Follow-ups", labels: ["follow-ups"] }],
         { labels: renamed },
       );
-      files.set("o.md", "A conflict needs you.");
 
       await main(["list", "--label", "follow-up"], d);
       expect(out).toEqual(["3\tFollow-ups\tfollow-ups (follow-up)"]);
-      out.length = 0;
+    });
+
+    it("open --label takes a key for its name", async () => {
+      const { d, out, memory, files } = deps([], { labels: renamed });
+      files.set("o.md", "A conflict needs you.");
+
       await main(
         ["open", "--title", "Next", "--body-file", "o.md", "--label", "spec"],
         d,
@@ -1470,15 +1482,23 @@ describe("the ticket commands", () => {
       expect(memory.state.get(out[0]!)?.labels).toEqual(["needs-spec"]);
     });
 
-    it("view, --field labels, and list show a renamed label's key beside it", async () => {
+    it("view shows a renamed label's key beside it", async () => {
       const { d, out } = deps([NAMED], { labels: renamed });
 
       await main(["view", "7"], d);
       expect(out).toContain("labels: enhancement, needs-spec (spec)");
-      out.length = 0;
+    });
+
+    it("view --field labels shows a renamed label's key beside it", async () => {
+      const { d, out } = deps([NAMED], { labels: renamed });
+
       await main(["view", "7", "--field", "labels"], d);
       expect(out).toEqual(["enhancement", "needs-spec (spec)"]);
-      out.length = 0;
+    });
+
+    it("list shows a renamed label's key beside it", async () => {
+      const { d, out } = deps([NAMED], { labels: renamed });
+
       await main(["list"], d);
       expect(out).toEqual([
         "7\tSend every ticket read through one interface\tenhancement, needs-spec (spec)",

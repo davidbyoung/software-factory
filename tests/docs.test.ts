@@ -680,8 +680,6 @@ const rows = (text: string) =>
         .map((cell) => cell.trim()),
     );
 
-// What the docs say about settings version 2: its commands, its spec check,
-// its plugins by phase, and the commands that came with it.
 describe("the docs on label names", () => {
   it("name no pull request label by its old name", () => {
     const old = /merge: automatic|merge: manual|verdict: override/;
@@ -694,8 +692,10 @@ describe("the docs on label names", () => {
       expect.arrayContaining(["ticketslabels", "code-hostlabels"]),
     );
   });
+});
 
-  it("show every required setting in the shortest file, a board's among them", () => {
+describe("the shortest file in docs/configuration.md", () => {
+  it("shows every required setting, a board's among them", () => {
     const text = read("docs/configuration.md");
     const shortest = text.slice(
       text.indexOf("## The shortest file"),
@@ -718,6 +718,8 @@ describe("the docs on label names", () => {
   });
 });
 
+// What the docs say about settings version 2: its commands, its spec check,
+// its plugins by phase, and the commands that came with it.
 describe("the docs, for settings version 2", () => {
   const configuration = read(CONFIGURATION);
   const entries = settingsEntries(configuration);

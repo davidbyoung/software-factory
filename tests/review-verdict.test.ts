@@ -285,12 +285,16 @@ describe("apply", () => {
       { writers: ["alice", "dana"], ...options },
     );
     const log: string[] = [];
-    const go = (action: string, sender: string) =>
+    const go = (
+      action: string,
+      sender: string,
+      added = override ?? "verdict-override",
+    ) =>
       apply({
         eventName: "pull_request_target",
         event: {
           action,
-          label: { name: override ?? "verdict-override" },
+          label: { name: added },
           sender: { login: sender },
           repository: { owner: { login: "acme" } },
           pull_request: { number: 31 },
@@ -374,6 +378,13 @@ describe("apply", () => {
       expect(log).toContain(
         `Review verdict on ${HEAD}: success, Overridden by an approver`,
       );
+    });
+
+    it("ignores the default name once the settings rename the override", async () => {
+      const { log, go } = setUp({}, ["verdict-override"], "owner-pass");
+
+      await go("labeled", "alice", "verdict-override");
+      expect(log).toEqual(["Nothing to post."]);
     });
 
     it("removes the configured name from an account that cannot write, naming it", async () => {

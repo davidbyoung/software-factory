@@ -100,8 +100,9 @@ no UI reviewer: `docs-reader`, the one reviewer plugin, reads the docs.
 Nothing. There is no `auto-merge` in `.claude/factory.yaml`, so every pull
 request waits for the owner, since every change here reaches every
 repository that uses the factory. No merge-policy workflow runs, so no
-pull request gets a `merge:` label or a `Who merges` status: where the
-rules or a skill name either, read it as "waits for the owner".
+pull request gets a `merge-automatic` or `merge-manual` label or a
+`Who merges` status: where the rules or a skill name either, read it as
+"waits for the owner".
 
 ## Spec track: this repository
 

@@ -822,13 +822,24 @@ describe("the pull-request commands", () => {
       "verdict-override": "owner-pass",
     });
 
-    it("label --add and --remove take a merge label's key for its name", async () => {
-      const { d, host } = twelve({ labels: ["auto-merge"] });
-      const named = { ...d, labels: renamed };
+    it("label --add takes a merge label's key for its name", async () => {
+      const { d, host } = twelve();
 
-      await main(["label", "12", "--add", "merge-manual"], named);
-      await main(["label", "12", "--remove", "merge-automatic"], named);
+      await main(["label", "12", "--add", "merge-manual"], {
+        ...d,
+        labels: renamed,
+      });
       expect(host.pull(12).labels).toEqual(["needs owner"]);
+    });
+
+    it("label --remove takes a merge label's key for its name", async () => {
+      const { d, host } = twelve({ labels: ["auto-merge", "spec"] });
+
+      await main(["label", "12", "--remove", "merge-automatic"], {
+        ...d,
+        labels: renamed,
+      });
+      expect(host.pull(12).labels).toEqual(["spec"]);
     });
 
     it("label --remove takes the override's key for its name", async () => {
