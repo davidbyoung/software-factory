@@ -52,3 +52,10 @@ No new state. A claim, a refinement marker, and a cost marker carry the same tex
 ## Dependencies
 
 - None to start. #57, #61, and #63 wait on this ticket, recorded as blocked-by links.
+
+## Where the build departed
+
+- The review workflow runs the factory from the base install with a step's `working-directory`, not `cd`: the boundary test refuses a factory command after a `cd`. When the base cannot install, both steps run in the head's checkout, `review tools` as it does today and `review tickets` not at all, leaving Spec line 26's note.
+- The reviewer reads the tickets file with the Read tool, which needs the runner's temporary folder named with `--add-dir`.
+- The GitHub adapter remembers each number its reads returned as an issue, so the sync and the poller, which read every ticket first, make no extra request before a write.
+- `factory specs new` and `finish` take a key, refusing one the ticket system does not use with Spec line 2's message, where they took only a whole number.
