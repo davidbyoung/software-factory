@@ -55,8 +55,9 @@ The first command shows every file it will delete or change and asks
 before changing anything. It then deletes the factory's files, takes its
 hooks and its import line out of the files it shares with your coding
 agent, and prints what is left outside the repository for you to remove by
-hand: secrets, the rule that requires the review's verdict, labels, and the
-board's fields. Each tool you use adds its own lines to that list. It
+hand, grouped by the tool it belongs to: secrets, the rule that requires
+the review's verdict, labels, the board's fields, and a token kept on your
+machine. Each tool you use adds its own lines to that list. It
 commits nothing. Review the changes, commit them on a branch, and merge.
 
 If your settings file is gone or cannot be read, it says so, removes what

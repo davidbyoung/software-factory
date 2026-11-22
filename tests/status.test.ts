@@ -28,7 +28,7 @@ import { watchOf } from "../src/lib/work-status.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryTickets } from "./memory-tickets";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
-import type { Ticket } from "../src/tickets/types.mts";
+import { CredentialError, type Ticket } from "../src/tickets/types.mts";
 import saved from "./fixtures/sync/repo.json";
 import boardPages from "./fixtures/sync/board.json";
 import { FACTORY_COLUMNS } from "./factory-columns";
@@ -1090,6 +1090,27 @@ describe("main --hook", () => {
     expect(out).toEqual([
       "Work status: could not read GitHub (Error: gh: HTTP 401 Bad credentials)",
     ]);
+  });
+});
+
+describe("main --hook, with a credential to fix", () => {
+  it("says what to fix under Work in progress, and exits 0 so the session starts", async () => {
+    const line =
+      "No Fake Tickets credential for acme.example. Set FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, or run: factory init";
+    const out: string[] = [];
+    const d: Deps = {
+      source: () => Promise.reject(new CredentialError(line)),
+      settings: fakeSettings,
+      env: {},
+      now: () => NOW,
+      out: (l) => out.push(l),
+      sleep: () => new Promise(() => {}),
+      write: () => {},
+      onInterrupt: () => {},
+    };
+
+    expect(await main(["--hook"], d)).toBe(0);
+    expect(out).toEqual(["## Work in progress", "", `✗ ${line}`]);
   });
 });
 

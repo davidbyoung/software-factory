@@ -5,13 +5,69 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Agent, Answer, Question } from "../src/agent/types.mts";
-import type { ToolSetup } from "../src/setup.mts";
+import type { CredentialStep, ToolSetup } from "../src/setup.mts";
+import { HttpError } from "../src/tickets/transport.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
 
 export const FAKE_TOKEN = "FAKE_TICKETS_TOKEN";
 export const FAKE_PAGE = "https://tickets.example/tokens";
 export const FAKE_AGENT_FILE = "FAKEAGENT.md";
+export const FAKE_EMAIL = "FAKE_TICKETS_EMAIL";
+export const FAKE_REVOKE = "https://tickets.example/revoke";
+/** The token Fake Tickets refuses with a 401. */
+export const REFUSED = "bad";
+
+/** Fake Tickets' credential, an email and a token kept on the machine too,
+ * as Jira's is. */
+export const fakeCredential: CredentialStep = {
+  kind: "credential",
+  needs: [{ part: null, anyOf: [FAKE_TOKEN] }],
+  parts: [
+    {
+      name: FAKE_EMAIL,
+      prompt: "The email of your Fake Tickets account:",
+      masked: false,
+    },
+    {
+      name: FAKE_TOKEN,
+      prompt: "Paste the Fake Tickets token (leave empty to do this later):",
+      masked: true,
+    },
+  ],
+  intro: ["", `Fake Tickets' token: opening ${FAKE_PAGE}`],
+  get: { page: FAKE_PAGE },
+  check: async (values) => {
+    if (values[FAKE_TOKEN] === REFUSED)
+      throw new HttpError(401, "refused", "Unauthorized");
+    if (values[FAKE_TOKEN] === "down") throw new Error("Fake Tickets is down.");
+    return { account: "Fake User", lines: [] };
+  },
+  refused: (reason) =>
+    `Fake Tickets refused that email and token: ${reason}. Paste another.`,
+  skipped: "No Fake Tickets credential stored.",
+  revoke: { page: FAKE_REVOKE },
+  machine: { under: "site" },
+};
+
+/** The adapter with every call to the system refused, as a system
+ * refuses a token; what it answers without calling, such as a key, stays. */
+function refusing(tickets: Tickets): Tickets {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(tickets))
+    out[k] =
+      typeof v === "function"
+        ? (...args: unknown[]) => {
+            const r = (v as (...a: unknown[]) => unknown).apply(tickets, args);
+            if (!(r instanceof Promise)) return r;
+            r.catch(() => {});
+            return Promise.reject(
+              new HttpError(401, "refused", "Unauthorized"),
+            );
+          }
+        : v;
+  return out as Tickets;
+}
 
 const fakeTicketsSetup: ToolSetup = {
   steps: () => [
@@ -49,12 +105,25 @@ const fakeTicketsSetup: ToolSetup = {
 };
 
 /** The registry with Fake Tickets beside the ticket systems it has, or in
- * their place when `alone`. */
+ * their place when `alone`. With `credential`, it reads an email and a
+ * token kept on the machine in place of its one token, and records the
+ * credential each open was given in `opened`. */
 export function withFakeTickets(
   base: Registry,
   tickets: Tickets,
   alone = false,
+  o: {
+    credential?: boolean;
+    opened?: (Record<string, string> | undefined)[];
+  } = {},
 ): Registry {
+  const setup: ToolSetup = o.credential
+    ? {
+        steps: () => fakeTicketsSetup.steps!({} as never).slice(0, 1),
+        credential: fakeCredential,
+        checks: fakeTicketsSetup.checks!,
+      }
+    : fakeTicketsSetup;
   return {
     ...base,
     tickets: {
@@ -62,8 +131,13 @@ export function withFakeTickets(
       fake: {
         label: "Fake Tickets",
         keys: ["site"],
-        setup: fakeTicketsSetup,
-        open: () => tickets,
+        setup,
+        open: (_target, _settings, opts) => {
+          o.opened?.push(opts?.credential);
+          return opts?.credential?.[FAKE_TOKEN] === REFUSED
+            ? refusing(tickets)
+            : tickets;
+        },
       },
     },
   };

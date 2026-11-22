@@ -12,10 +12,16 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NoDefaultBranch } from "../src/lib/default-branch.mts";
+import { chmodSync, statSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { main, parseRemote, type Ask, type InitDeps } from "../src/init.mts";
 import { painter, type Paint } from "../src/lib/color.mts";
+import {
+  credentialsPath,
+  readCredential,
+  writeCredential,
+} from "../src/lib/credentials.mts";
 import type { Check } from "../src/setup.mts";
 import type { Part } from "../src/parts.mts";
 import { memoryCodeHost } from "./memory-code-host";
@@ -23,8 +29,10 @@ import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools, pagesSpecTool } from "./memory-tools";
 import {
+  FAKE_EMAIL,
   FAKE_PAGE,
   FAKE_TOKEN,
+  REFUSED,
   withCodeHosts,
   withFakeTickets,
   scriptedAgent,
@@ -188,6 +196,10 @@ type Setup = {
   presetSpecs?: string;
   /** The install's status and standard error; it succeeds unless given. */
   install?: { status: number; stderr: string };
+  /** The environment, beside a config folder of the test's own. */
+  env?: Record<string, string>;
+  /** Credentials on this machine before init runs, by site. */
+  machine?: Record<string, Record<string, string>>;
 };
 
 const roots: string[] = [];
@@ -209,6 +221,13 @@ function init(setup: Setup) {
     mkdirSync(join(root, path, ".."), { recursive: true });
     writeFileSync(join(root, path), text);
   }
+  const env = {
+    XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "init-config-")),
+    ...setup.env,
+  };
+  roots.push(env.XDG_CONFIG_HOME);
+  for (const [site, values] of Object.entries(setup.machine ?? {}))
+    writeCredential({ tool: "fake", site, values, env });
   const out: string[] = [];
   /** Every line printed and every question asked, in the order they came. */
   const transcript: string[] = [];
@@ -323,6 +342,7 @@ function init(setup: Setup) {
       });
       return setup.install ?? { status: 0, stderr: "" };
     },
+    env,
   };
   const read = (path: string) =>
     existsSync(join(root, path))
@@ -330,6 +350,7 @@ function init(setup: Setup) {
       : null;
   return {
     run: () => main([], d),
+    env,
     out,
     transcript,
     asked,
@@ -3189,5 +3210,304 @@ describe("factory init, the field step", () => {
       "Fake Tickets shows a field's text as typed, without Markdown formatting.",
     );
     expect(lines).not.toMatch(/Claude Code|GitHub/);
+  });
+});
+
+describe("factory init, a credential kept on the machine", () => {
+  const SITE = "acme.example";
+  const EMAIL = "dana@acme.example";
+  const TOKEN = "t0k3n-dana";
+  const GOOD_PAIR = { [FAKE_EMAIL]: EMAIL, [FAKE_TOKEN]: TOKEN };
+  const EMAIL_Q = "input: The email of your Fake Tickets account:";
+  const TOKEN_Q =
+    "secret: Paste the Fake Tickets token (leave empty to do this later):";
+  const fake = (b: Registry, t: Tickets) =>
+    withFakeTickets(b, t, true, { credential: true });
+  const stored = (env: Record<string, string>) =>
+    readCredential({
+      tool: "fake",
+      site: SITE,
+      names: [FAKE_EMAIL, FAKE_TOKEN],
+      env,
+    });
+  const SET_UP = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE}\n`;
+
+  describe("on a first setup", () => {
+    const first = (o: Partial<Setup> = {}) =>
+      init({
+        tools: fake,
+        answers: {
+          checkbox: [[]],
+          input: [SITE, EMAIL],
+          confirm: [true],
+          secret: [TOKEN],
+        },
+        ...o,
+      });
+
+    it("plans the secrets, then storing the credential on this machine", async () => {
+      const r = first();
+      expect(await r.run()).toBe(0);
+      const at = r.out.indexOf(`  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`);
+      expect(r.out.slice(at, at + 2)).toEqual([
+        `  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`,
+        `  Store    your Fake Tickets credential on this machine, in ${credentialsPath(r.env)}`,
+      ]);
+    });
+
+    it("asks for each part in order, then says whose they are and where they went", async () => {
+      const r = first();
+      expect(await r.run()).toBe(0);
+      const at = r.transcript.indexOf(`? ${EMAIL_Q}`);
+      expect(r.transcript.slice(at - 1, at + 3)).toEqual([
+        `Fake Tickets' token: opening ${FAKE_PAGE}`,
+        `? ${EMAIL_Q}`,
+        `? ${TOKEN_Q}`,
+        "It belongs to Fake User. Stored as FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, and on this machine.",
+      ]);
+    });
+
+    it("stores the values as secrets and in a file only its owner can read, printing neither", async () => {
+      const r = first();
+      expect(await r.run()).toBe(0);
+      expect(r.runner.secrets.get(FAKE_EMAIL)).toBe(EMAIL);
+      expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(TOKEN);
+      expect(stored(r.env)).toEqual({
+        state: "found",
+        source: "file",
+        values: GOOD_PAIR,
+      });
+      expect(statSync(credentialsPath(r.env)).mode & 0o777).toBe(0o600);
+      expect(r.out.join("\n")).not.toContain(TOKEN);
+    });
+
+    it("prints the tool's refusal and asks again from the first masked part", async () => {
+      const r = first({
+        answers: {
+          checkbox: [[]],
+          input: [SITE, EMAIL],
+          confirm: [true],
+          secret: [REFUSED, TOKEN],
+        },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain(
+        "Fake Tickets refused that email and token: 401 Unauthorized. Paste another.",
+      );
+      expect(r.asked.filter((q) => q === EMAIL_Q)).toHaveLength(1);
+      expect(r.asked.filter((q) => q === TOKEN_Q)).toHaveLength(2);
+      expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(TOKEN);
+    });
+
+    it("prints the tool's message for any other failure, and asks again", async () => {
+      const r = first({
+        answers: {
+          checkbox: [[]],
+          input: [SITE, EMAIL],
+          confirm: [true],
+          secret: ["down", TOKEN],
+        },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain("Fake Tickets is down.");
+      expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(TOKEN);
+    });
+
+    it("stores nothing in either place when a part is left empty", async () => {
+      const r = first({
+        answers: {
+          checkbox: [[]],
+          input: [SITE, ""],
+          confirm: [true],
+        },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain(
+        "No Fake Tickets credential stored. Run factory init again to add it.",
+      );
+      expect(r.runner.secrets.size).toBe(0);
+      expect(stored(r.env)).toEqual({ state: "missing" });
+    });
+
+    it("stores the credential this machine already holds for the site, asking nothing, once the tool accepts it", async () => {
+      const r = first({
+        machine: { [SITE]: GOOD_PAIR },
+        answers: { checkbox: [[]], input: [SITE], confirm: [true] },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain(
+        "It belongs to Fake User. Stored as FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, from this machine.",
+      );
+      expect(r.out.some((l) => l.startsWith("  Store "))).toBe(false);
+      expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(TOKEN);
+    });
+
+    it("asks as usual when the tool refuses the one this machine holds", async () => {
+      const r = first({
+        machine: { [SITE]: { ...GOOD_PAIR, [FAKE_TOKEN]: REFUSED } },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.asked).toContain(TOKEN_Q);
+      expect(stored(r.env)).toMatchObject({ values: GOOD_PAIR });
+    });
+
+    it("stops before any other question when the file cannot be read", async () => {
+      const r = first({ machine: { other: GOOD_PAIR } });
+      chmodSync(credentialsPath(r.env), 0o644);
+      expect(await r.run()).toBe(1);
+      expect(r.out).toContain(
+        `${credentialsPath(r.env)} can be read by others, so it was not read. Run: chmod 600 ${credentialsPath(r.env)}`,
+      );
+      expect(r.asked).toEqual([]);
+    });
+  });
+
+  describe("on a re-run", () => {
+    const again = (o: Partial<Setup> = {}) =>
+      init({
+        tools: fake,
+        settings: SET_UP,
+        secrets: { [FAKE_EMAIL]: "ci@acme.example", [FAKE_TOKEN]: "ci" },
+        answers: { input: [EMAIL], secret: [TOKEN], confirm: [false] },
+        ...o,
+      });
+    const row = (r: ReturnType<typeof init>) =>
+      r.out.find((l) => l.startsWith("  This machine"));
+
+    it("asks for this machine's missing credential right after Found, stores it here only, and asks whether to change the parts", async () => {
+      const r = again();
+      expect(await r.run()).toBe(0);
+      expect(row(r)).toBe(
+        "  This machine   no Fake Tickets credential for acme.example",
+      );
+      expect(r.asked).toEqual([
+        EMAIL_Q,
+        TOKEN_Q,
+        "confirm: Change which parts are on?",
+      ]);
+      expect(r.out.slice(-3)).toEqual([
+        "It belongs to Fake User. Stored on this machine.",
+        "",
+        "Nothing else changed.",
+      ]);
+      expect(stored(r.env)).toMatchObject({ values: GOOD_PAIR });
+      expect(r.runner.secrets.get(FAKE_TOKEN)).toBe("ci");
+      expect(r.read(".claude/factory.yaml")).toBe(SET_UP);
+      expect(r.synced()).toBe(0);
+    });
+
+    it("asks again for a credential the tool refuses, naming it in Found", async () => {
+      const r = again({
+        machine: { [SITE]: { ...GOOD_PAIR, [FAKE_TOKEN]: REFUSED } },
+      });
+      expect(await r.run()).toBe(0);
+      expect(row(r)).toBe(
+        "  This machine   Fake Tickets refused the credential for acme.example",
+      );
+      expect(stored(r.env)).toMatchObject({ values: GOOD_PAIR });
+    });
+
+    it("says to replace refused variables, asking for nothing and writing no file, since they would still win", async () => {
+      const r = again({
+        env: { [FAKE_EMAIL]: EMAIL, [FAKE_TOKEN]: REFUSED },
+        answers: { checkbox: [[]], confirm: [false, true] },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain(
+        "Fake Tickets refused FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN for acme.example (401 Unauthorized). They may have expired. Run factory init, and replace them.",
+      );
+      expect(r.asked).not.toContain(TOKEN_Q);
+      expect(r.asked).not.toContain("confirm: Change which parts are on?");
+      expect(stored({ XDG_CONFIG_HOME: r.env.XDG_CONFIG_HOME })).toEqual({
+        state: "missing",
+      });
+    });
+
+    it("asks nothing for an accepted one, and carries on as before", async () => {
+      const r = again({
+        machine: { [SITE]: GOOD_PAIR },
+        answers: { checkbox: [[]], confirm: [false, true] },
+      });
+      expect(await r.run()).toBe(0);
+      expect(row(r)).toBe(
+        "  This machine   Fake Tickets credential for acme.example",
+      );
+      expect(r.asked).not.toContain("confirm: Change which parts are on?");
+      expect(r.asked).toContain("checkbox: Which parts do you want?");
+    });
+
+    it("says the tool's line and still asks when a part is left empty", async () => {
+      const r = again({ answers: { input: [""], confirm: [false] } });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain(
+        "No Fake Tickets credential stored. Run factory init again to add it.",
+      );
+      expect(r.asked).toContain("confirm: Change which parts are on?");
+    });
+
+    it("carries on to the parts on a yes, storing missing secrets from this machine with no second prompt", async () => {
+      const r = again({
+        secrets: {},
+        answers: {
+          input: [EMAIL],
+          secret: [TOKEN],
+          confirm: [true, true],
+          checkbox: [[]],
+        },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.asked.filter((q) => q === TOKEN_Q)).toHaveLength(1);
+      expect(r.out).toContain(
+        "It belongs to Fake User. Stored as FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN, from this machine.",
+      );
+      expect(r.runner.secrets.get(FAKE_TOKEN)).toBe(TOKEN);
+    });
+
+    it("stops with this machine set up when the repository's secrets cannot be listed", async () => {
+      const r = again({
+        runnerFails: {
+          secretNames: new Error("403 Must have admin rights to Repository"),
+        },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out.at(-1)).toBe(
+        "Could not list the repository's secrets, so the parts are left as they are: 403 Must have admin rights to Repository",
+      );
+      expect(r.asked).not.toContain("confirm: Change which parts are on?");
+      expect(stored(r.env)).toMatchObject({ values: GOOD_PAIR });
+    });
+
+    it.each([
+      [
+        "open to others",
+        (path: string) => chmodSync(path, 0o604),
+        /can be read by others, so it was not read\. Run: chmod 600 /,
+      ],
+      [
+        "not YAML",
+        (path: string) => writeFileSync(path, "fake: ["),
+        /is not valid YAML: .*\. Fix or delete it, then run factory init again\.$/,
+      ],
+    ])(
+      "stops right after Found, asking nothing, when the file is %s",
+      async (_, spoil, line) => {
+        const r = again({ machine: { other: GOOD_PAIR } });
+        spoil(credentialsPath(r.env));
+        expect(await r.run()).toBe(1);
+        expect(r.out.at(-1)).toMatch(line);
+        expect(r.out.at(-2)).toBe("");
+        expect(r.asked).toEqual([]);
+      },
+    );
+  });
+
+  it("shows no This machine row and asks no such question with GitHub's tickets", async () => {
+    const r = init({
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
+      answers: { checkbox: [[]], confirm: [true] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out.some((l) => l.includes("This machine"))).toBe(false);
+    expect(r.asked).not.toContain("confirm: Change which parts are on?");
   });
 });

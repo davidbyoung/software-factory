@@ -299,3 +299,12 @@ export function boardOf(tickets: Ticket[]): Board {
   for (const t of tickets) if (t.card) items.set(t.key, t.card);
   return { projectId: "", fields: [], items };
 }
+
+/** A ticket system's credential is missing, refused, or in a file that
+ * cannot be read: the message is the one line to print, with its fix. */
+export class CredentialError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CredentialError";
+  }
+}

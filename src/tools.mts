@@ -14,20 +14,23 @@ import {
 } from "./code-host/github-setup.mts";
 import { openCodeHost, type CodeHost } from "./code-host/index.mts";
 import type { Settings } from "./config.mts";
-import { gh } from "./lib/gh.mts";
 import type { Part } from "./parts.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
 import type {
   Chosen,
+  CredentialStep,
   SecretStep,
   SetupContext,
   SetupStep,
   ToolSetup,
 } from "./setup.mts";
-import { githubTickets } from "./tickets/github.mts";
+import {
+  openGithubTickets,
+  type OpenOptions,
+  type OpenTarget,
+} from "./tickets/github-open.mts";
 import { githubTicketsSetup } from "./tickets/github-setup.mts";
-import { openTickets, type Tickets } from "./tickets/index.mts";
-import { ghTransport } from "./tickets/transport.mts";
+import type { Tickets } from "./tickets/types.mts";
 import { githubActionsSetup } from "./runner/setup.mts";
 import { specTools, type SpecTools } from "./specs/index.mts";
 import { BUILT, type Built, type LabelFault } from "./tool-names.mts";
@@ -55,9 +58,12 @@ export type Registry = {
     Tool & {
       /** The keys it adds under `tickets`. */
       keys: readonly string[];
+      /** The adapter alone: `openTickets` (`tickets/index.mts`) adds the
+       * credential and the ticket fields a command reads it with. */
       open(
-        target: { repository: string; board: number | null },
+        target: OpenTarget,
         settings: Settings | null,
+        opts?: OpenOptions,
       ): Tickets | Promise<Tickets>;
     }
   >;
@@ -80,14 +86,7 @@ export const TOOLS: Registry = {
       label: "GitHub Issues",
       keys: BUILT.tickets.github!,
       setup: githubTicketsSetup,
-      open: (target, settings) =>
-        settings
-          ? openTickets(settings, target).then((o) => o.tickets)
-          : githubTickets({
-              transport: ghTransport(gh),
-              repository: target.repository,
-              board: target.board,
-            }),
+      open: (target, _settings, opts) => openGithubTickets(target, opts),
     },
   },
   runner: {
@@ -148,17 +147,21 @@ export function stepsOf(
   c: SetupContext,
 ): { tool: string; step: SetupStep }[] {
   return inUse(r, c.chosen).flatMap((t) =>
-    (t.setup.steps?.(c) ?? []).map((step) => ({ tool: t.label, step })),
+    [
+      ...(t.setup.steps?.(c) ?? []),
+      ...(t.setup.credential ? [t.setup.credential] : []),
+    ].map((step) => ({ tool: t.label, step })),
   );
 }
 
-/** The secret steps among them. */
+/** The secret and credential steps among them. */
 export function secretSteps(
   r: Registry,
   c: SetupContext,
-): { tool: string; step: SecretStep }[] {
+): { tool: string; step: SecretStep | CredentialStep }[] {
   return stepsOf(r, c).filter(
-    (s): s is { tool: string; step: SecretStep } => s.step.kind === "secret",
+    (s): s is { tool: string; step: SecretStep | CredentialStep } =>
+      s.step.kind === "secret" || s.step.kind === "credential",
   );
 }
 

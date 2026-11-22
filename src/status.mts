@@ -45,7 +45,13 @@ import {
   type RepoSnapshot,
   type ReviewerRun,
 } from "./lib/work-status.mts";
-import { boardOf, readAll, type Key, type Tickets } from "./tickets/types.mts";
+import {
+  boardOf,
+  readAll,
+  type Key,
+  type Tickets,
+  CredentialError,
+} from "./tickets/types.mts";
 import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 import { openTickets } from "./tickets/index.mts";
 import { openCodeHost, type CodeHost } from "./code-host/index.mts";
@@ -586,6 +592,7 @@ export function formatRows(
 
 /** The one line a failed read prints. */
 export function failureLine(error: unknown): string {
+  if (error instanceof CredentialError) return error.message;
   const text = String(error);
   if (/read:project|INSUFFICIENT_SCOPES|required scopes/i.test(text))
     return "Work status: the GitHub CLI cannot read the board yet. Run: gh auth refresh -s project";
@@ -711,7 +718,12 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         ...(await snapshotLines(source, target, d.now(), true)),
         "```",
       ];
-    })().catch((error: unknown) => [failureLine(error)]);
+    })().catch((error: unknown) =>
+      // A credential to fix is said in place of the tickets' state.
+      error instanceof CredentialError
+        ? ["## Work in progress", "", `✗ ${error.message}`]
+        : [failureLine(error)],
+    );
     const result = await Promise.race([work, limit]);
     if (result === "timeout") {
       d.out("Work status: GitHub did not answer within 20 seconds.");

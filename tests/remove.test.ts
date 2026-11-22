@@ -2,6 +2,7 @@
 // leaves for you to remove by hand, run against a checkout laid out as
 // `factory sync` leaves one and the in-memory tools.
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -16,7 +17,8 @@ import { main } from "../src/remove.mts";
 import { IMPORT_LINE, withHooks } from "../src/sync.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
-import { withFakeTickets } from "./fake-tools";
+import { FAKE_REVOKE, withFakeTickets } from "./fake-tools";
+import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -82,6 +84,7 @@ function remove(o: {
   secrets?: Record<string, string>;
   go?: boolean;
   tools?: (base: Registry, tickets: Tickets) => Registry;
+  env?: Record<string, string>;
 }) {
   const root = mkdtempSync(join(tmpdir(), "remove-"));
   roots.push(root);
@@ -110,6 +113,7 @@ function remove(o: {
       ),
       hasCommand: () => true,
       packageName: "@davidbyoung/software-factory",
+      env: o.env ?? { XDG_CONFIG_HOME: "/nonexistent" },
     });
   const has = (path: string) => existsSync(join(root, path));
   const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -252,7 +256,7 @@ describe("factory remove", () => {
       expect(r.read(path)).toBe(SYNCED[path]);
   });
 
-  it("prints what is left by hand, from each tool", async () => {
+  it("prints what is left by hand under the tool it belongs to, numbered straight through", async () => {
     const r = remove({
       secrets: {
         CLAUDE_CODE_OAUTH_TOKEN: "x",
@@ -265,12 +269,20 @@ describe("factory remove", () => {
     expect(r.out.slice(r.out.indexOf(""))).toEqual([
       "",
       "Nothing is committed. Left for you to do by hand:",
+      "",
+      "  GitHub",
       '  1. Delete the "Software factory" ruleset first, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
-      "  2. Delete the secrets FACTORY_BOARD_TOKEN and FACTORY_AUTOMERGE_TOKEN.",
-      "  3. Delete the Session, Runs in, and Cost fields from board 3, if you do not want them.",
-      "  4. Delete the secret CLAUDE_CODE_OAUTH_TOKEN, unless another workflow uses it.",
-      "  5. Delete the secret FACTORY_SIGNING_KEY.",
-      "  6. Delete whichever of the labels merge-automatic, merge-manual, verdict-override, follow-up, and spec exist, if you do not want their history: deleting one takes it off every ticket.",
+      "  2. Delete the secrets FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, and FACTORY_SIGNING_KEY.",
+      "  3. Delete whichever of the labels merge-automatic, merge-manual, and verdict-override exist, if you do not want their history: deleting one takes it off every pull request.",
+      "",
+      "  GitHub Issues",
+      "  4. Delete whichever of the labels follow-up and spec exist, if you do not want their history: deleting one takes it off every ticket.",
+      "  5. Delete the Session, Runs in, and Cost fields from board 3, if you do not want them.",
+      "",
+      "  Claude Code",
+      "  6. Delete the secret CLAUDE_CODE_OAUTH_TOKEN, unless another workflow uses it.",
+      "",
+      "  Then",
       "  7. Run npm uninstall @davidbyoung/software-factory.",
       "  8. Commit this on a branch, open a pull request, and merge it.",
     ]);
@@ -284,8 +296,9 @@ describe("factory remove", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out.join("\n")).toContain(
-      "the labels merge-automatic, merge-manual, owner-pass, follow-ups, and spec exist",
+      "the labels merge-automatic, merge-manual, and owner-pass exist",
     );
+    expect(r.out.join("\n")).toContain("the labels follow-ups and spec exist");
   });
 
   it("names no board's fields when the settings name no board", async () => {
@@ -365,10 +378,10 @@ describe("factory remove", () => {
       "Could not read .claude/factory.yaml: .claude/factory.yaml: version: must be 2. Naming what Claude Code, GitHub, GitHub Issues, and GitHub Actions leave behind.",
     );
     expect(r.out).toContain(
-      "  2. Delete the secrets FACTORY_BOARD_TOKEN, FACTORY_BUILD_TOKEN, and FACTORY_AUTOMERGE_TOKEN if set.",
+      "  2. Delete the secrets FACTORY_BOARD_TOKEN, FACTORY_BUILD_TOKEN, FACTORY_AUTOMERGE_TOKEN, and FACTORY_SIGNING_KEY if set.",
     );
     expect(r.out).toContain(
-      "  3. Delete the secrets CLAUDE_CODE_OAUTH_TOKEN and ANTHROPIC_API_KEY if set, unless another workflow uses them.",
+      "  5. Delete the secrets CLAUDE_CODE_OAUTH_TOKEN and ANTHROPIC_API_KEY if set, unless another workflow uses them.",
     );
   });
 
@@ -383,6 +396,20 @@ describe("factory remove", () => {
     });
     await r.run();
     expect(r.out).toContain("  Delete   .claude/settings.json");
+    expect(r.has(".claude/settings.json")).toBe(false);
+  });
+
+  it("takes out the guard on the credentials file with the other hooks", async () => {
+    const onlyFactory = JSON.parse(withHooks(null, LAUNCHER, true));
+    delete onlyFactory.attribution;
+    expect(JSON.stringify(onlyFactory)).toContain("guard credentials");
+    const r = remove({
+      files: {
+        ...SYNCED,
+        ".claude/settings.json": JSON.stringify(onlyFactory),
+      },
+    });
+    expect(await r.run()).toBe(0);
     expect(r.has(".claude/settings.json")).toBe(false);
   });
 
@@ -416,5 +443,74 @@ describe("factory remove", () => {
     expect(JSON.parse(r.read(".claude/settings.json"))).toEqual({
       attribution: { commit: "", pr: "", sessionUrl: false },
     });
+  });
+});
+
+describe("factory remove, a credential kept on the machine", () => {
+  const SITE = "acme.example";
+  const FAKE_SETTINGS = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE}\n`;
+  const fake = (b: Registry, t: Tickets) =>
+    withFakeTickets(b, t, true, { credential: true });
+  const group = (out: string[]) => {
+    const at = out.indexOf("  Fake Tickets");
+    return out
+      .slice(at + 1, out.indexOf("", at))
+      .map((l) => l.replace(/^ {2}\d+\. /, ""));
+  };
+  const run = async (o: {
+    settings?: string;
+    secrets?: Record<string, string>;
+    machine?: boolean;
+    spoil?: boolean;
+  }) => {
+    const env = {
+      XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "remove-config-")),
+    };
+    if (o.machine)
+      writeCredential({
+        tool: "fake",
+        site: SITE,
+        values: { FAKE_TICKETS_EMAIL: "a", FAKE_TICKETS_TOKEN: "b" },
+        env,
+      });
+    if (o.spoil) chmodSync(credentialsPath(env), 0o644);
+    const r = remove({
+      files: { ...SYNCED, ".claude/factory.yaml": o.settings ?? FAKE_SETTINGS },
+      secrets: o.secrets,
+      tools: fake,
+      env,
+    });
+    expect(await r.run()).toBe(0);
+    return { lines: group(r.out), path: credentialsPath(env), out: r.out };
+  };
+
+  it("names the credential's secrets among those set, and the site's entry in the file, with where to revoke the token", async () => {
+    const r = await run({
+      secrets: { FAKE_TICKETS_EMAIL: "x", FAKE_TICKETS_TOKEN: "x" },
+      machine: true,
+    });
+    expect(r.lines).toEqual([
+      "Delete the secrets FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN.",
+      `Delete acme.example from ${r.path}, unless another repository on that site uses it, and revoke the token at ${FAKE_REVOKE}.`,
+    ]);
+  });
+
+  it("names no secret that is not set, and no entry the file does not hold", async () => {
+    const r = await run({ secrets: { FAKE_TICKETS_TOKEN: "x" } });
+    expect(r.lines).toEqual(["Delete the secret FAKE_TICKETS_TOKEN."]);
+  });
+
+  it("says the entry may be there when the file cannot be read", async () => {
+    const r = await run({ machine: true, spoil: true });
+    expect(r.lines).toEqual([
+      `Delete acme.example from ${r.path}, unless another repository on that site uses it, and revoke the token at ${FAKE_REVOKE}, if it is there.`,
+    ]);
+  });
+
+  it("names no entry when the settings cannot be read, since they name the site", async () => {
+    const r = await run({ settings: "version: 3\n", machine: true });
+    expect(r.out[0]).toMatch(/^Could not read \.claude\/factory\.yaml/);
+    expect(r.out).toContain("  Fake Tickets");
+    expect(r.out.join("\n")).not.toContain(r.path);
   });
 });

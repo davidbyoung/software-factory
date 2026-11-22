@@ -4,8 +4,10 @@
 // every secret through the runner, and changes the repository's settings
 // through the code host. It commits nothing.
 //
-// Tokens are read in a masked prompt and go straight to the runner: none is
-// printed, written to a file, or passed in a command's arguments.
+// Tokens are read in a masked prompt and go straight to the runner, and a
+// ticket system's credential also to this machine's credentials file
+// (`lib/credentials.mts`): none is printed, written to any other file, or
+// passed in a command's arguments.
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -58,6 +60,17 @@ import {
 } from "./npmrc.mts";
 import { listed } from "./lib/listed.mts";
 import {
+  credentialsPath,
+  fileProblem,
+  machineState,
+  refusalReason,
+  refusedEnvLine,
+  shownPath,
+  writeCredential,
+  type MachineState,
+} from "./lib/credentials.mts";
+import { statusOf } from "./tickets/transport.mts";
+import {
   neededSecrets,
   PART_TEXT,
   PARTS,
@@ -67,7 +80,13 @@ import {
   type Part,
 } from "./parts.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
-import { RULE, type Check, type Chosen, type SetupContext } from "./setup.mts";
+import {
+  RULE,
+  type Check,
+  type Chosen,
+  type CredentialStep,
+  type SetupContext,
+} from "./setup.mts";
 import { differences, PACKAGE, plan as syncPlan } from "./sync.mts";
 import {
   DEFAULT_COLUMNS,
@@ -143,6 +162,8 @@ export type InitDeps = {
   presetSpecs: (settingsText: string) => Promise<string | null>;
   /** Runs an install from the root; its status and standard error. */
   install: (argv: string[]) => Promise<{ status: number; stderr: string }>;
+  /** Where the credentials file and a credential's variables are read. */
+  env?: Record<string, string | undefined>;
 };
 
 const SIGNING_TITLE = "software factory builds";
@@ -346,6 +367,27 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   };
 
   const npmrc = npmrcAt(d.root);
+  const env = d.env ?? process.env;
+  // On a re-run, the credential the settings' ticket system keeps on this
+  // machine, checked before anything is asked.
+  const settingsTool = settings
+    ? d.tools.tickets[settings.tickets.type]
+    : undefined;
+  const machineStep = settingsTool?.setup.credential?.machine
+    ? settingsTool.setup.credential
+    : null;
+  const machineSite =
+    settings && machineStep
+      ? String(settings.tickets.options[machineStep.machine!.under] ?? "")
+      : "";
+  const machine: MachineState | null =
+    settings && machineStep
+      ? await machineState(machineStep, settings.tickets.type, machineSite, env)
+      : null;
+  /** A credential the ticket system accepted, to store from without
+   * asking. */
+  let fromMachine: { values: Record<string, string>; account: string } | null =
+    machine?.state === "accepted" ? machine : null;
   d.out(`Setting up the software factory for ${repository}`);
   d.out("");
   if (!agent.agent.installed(d.hasCommand)) {
@@ -381,11 +423,114 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       ? `${settings.tickets.board}, from your settings`
       : "none yet",
   );
+  if (machine && machine.state !== "unreadable")
+    row(
+      "This machine",
+      machine.state === "missing"
+        ? `no ${settingsTool!.label} credential for ${machineSite}`
+        : machine.state === "refused"
+          ? `${settingsTool!.label} refused the credential for ${machineSite}`
+          : `${settingsTool!.label} credential for ${machineSite}`,
+    );
   d.out("");
+  if (machine?.state === "unreadable") {
+    d.out(machine.line);
+    return 1;
+  }
+  // Variables the system refuses still win over the file, so what fixes
+  // them is replacing them where they are set.
+  if (machine?.state === "refused" && machine.source === "env") {
+    d.out(
+      refusedEnvLine(
+        settingsTool!.label,
+        machineStep!.parts.map((p) => p.name),
+        machineSite,
+        machine.reason,
+        env,
+      ),
+    );
+    d.out("");
+  }
   const refused = firstRefusal(npmrc);
   if (refused) {
     d.out(refused);
     return 1;
+  }
+
+  /** A credential asked for part by part and checked together; asked
+   * again from its first masked part when refused. Null when a part is
+   * left empty. */
+  const askCredential = async (
+    step: CredentialStep,
+    site: string,
+  ): Promise<{ values: Record<string, string>; account: string } | null> => {
+    for (const l of step.intro) d.out(l);
+    if (step.get && "page" in step.get) d.openPage(step.get.page);
+    if (step.get && "command" in step.get)
+      await d.interactive(step.get.command);
+    const values: Record<string, string> = {};
+    let from = 0;
+    for (;;) {
+      for (const part of step.parts.slice(from)) {
+        const value = part.masked
+          ? await d.ask.secret(part.prompt)
+          : (await d.ask.input(part.prompt, "")).trim();
+        if (!value) {
+          d.out(`${step.skipped} ${AGAIN}`);
+          return null;
+        }
+        values[part.name] = value;
+      }
+      try {
+        const checked = await step.check(values, site);
+        for (const l of checked.lines) d.out(l);
+        return { values, account: checked.account };
+      } catch (e) {
+        d.out(
+          statusOf(e) === 401 ? step.refused(refusalReason(e)) : message(e),
+        );
+        from = Math.max(
+          0,
+          step.parts.findIndex((p) => p.masked),
+        );
+      }
+    }
+  };
+
+  // This machine's credential, missing or refused: asked for first, since
+  // a teammate may not be allowed to list the repository's secrets.
+  if (
+    settings &&
+    machineStep &&
+    (machine?.state === "missing" ||
+      (machine?.state === "refused" && machine.source === "file"))
+  ) {
+    const got = await askCredential(machineStep, machineSite);
+    if (got) {
+      writeCredential({
+        tool: settings.tickets.type,
+        site: machineSite,
+        values: got.values,
+        env,
+      });
+      d.out(`It belongs to ${got.account}. Stored on this machine.`);
+      fromMachine = got;
+    }
+    d.out("");
+    try {
+      await d.tools.runner[settings.builds.runner]!.open(
+        repository,
+      ).secretNames();
+    } catch (e) {
+      d.out(
+        `Could not list the repository's secrets, so the parts are left as they are: ${message(e)}`,
+      );
+      return 0;
+    }
+    if (!(await d.ask.confirm("Change which parts are on?", false))) {
+      d.out("Nothing else changed.");
+      return 0;
+    }
   }
 
   const pick = async (kind: "tickets" | "runner", question: string) => {
@@ -400,9 +545,19 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       names.map((n) => ({ name: tools[n]!.label, value: n })),
     );
   };
+  const chosenTickets = await pick("tickets", "Which ticket system?");
+  // A credentials file that cannot be read stops a first setup once the
+  // ticket system that would read it is chosen.
+  if (!settings && d.tools.tickets[chosenTickets]!.setup.credential?.machine) {
+    const problem = fileProblem(env);
+    if (problem) {
+      d.out(problem.line);
+      return 1;
+    }
+  }
   const chosen: Chosen = {
     codeHost: found.codeHost,
-    tickets: await pick("tickets", "Which ticket system?"),
+    tickets: chosenTickets,
     runner: await pick("runner", "Where do cloud builds run?"),
     agent: agentName,
   };
@@ -440,6 +595,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const tickets = await d.tools.tickets[chosen.tickets]!.open(
     { repository, board: null },
     settings,
+    fromMachine ? { credential: fromMachine.values } : {},
   );
   const context = (parts: Iterable<Part>): SetupContext => ({
     repository,
@@ -744,9 +900,35 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     .filter(({ step }) => replace || unmet(step))
     .map(({ step }) => ({
       step,
-      names: step.storeAs.filter((n) => replace || !isSet(n)),
+      // A credential's parts are checked together, so all are stored.
+      names:
+        step.kind === "secret"
+          ? step.storeAs.filter((n) => replace || !isSet(n))
+          : step.parts.some((p) => replace || !isSet(p.name))
+            ? step.parts.map((p) => p.name)
+            : [],
     }))
     .filter((a) => a.names.length > 0);
+  // A credential kept on the machine: the site it is filed under, and on
+  // a first setup the one the file already holds for it, when accepted.
+  const siteOf = (step: CredentialStep) =>
+    step.machine
+      ? String(doc.getIn(["tickets", step.machine.under]) ?? "")
+      : "";
+  const machineAsked = asked.find(
+    (a): a is { step: CredentialStep; names: string[] } =>
+      a.step.kind === "credential" && a.step.machine !== null,
+  );
+  if (machineAsked && !fromMachine) {
+    const held = await machineState(
+      machineAsked.step,
+      chosen.tickets,
+      siteOf(machineAsked.step),
+      env,
+    );
+    if (held.state === "accepted") fromMachine = held;
+  }
+  const storesOnMachine = machineAsked !== undefined && !fromMachine;
   const wantsKey = parts.has("signing") && (replace || !isSet(SIGNING_KEY));
   const npmAsked = npm.tokens
     .map((name) => {
@@ -809,6 +991,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       `give board ${board} any of the factory's columns and fields it lacks`,
     );
   if (toStore.length) planRow("Secrets", toStore.join(", "));
+  if (storesOnMachine)
+    planRow(
+      "Store",
+      `your ${d.tools.tickets[chosen.tickets]!.label} credential on this machine, in ${shownPath(credentialsPath(env))}`,
+    );
   for (const a of npmAsked) planRow("Secrets", `${a.name} ${forWhich(a)}`);
   if (parts.has("auto-merge"))
     planRow("Settings", "allow auto-merge on the repository");
@@ -898,6 +1085,31 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   // Each tool's secrets, in the tools' order.
   let tokenAccount: string | null = null;
   for (const { step, names } of asked) {
+    if (step.kind === "credential") {
+      const site = siteOf(step);
+      if (step.machine && fromMachine) {
+        for (const n of names)
+          await runner.setSecret(n, fromMachine.values[n]!);
+        d.out(
+          `It belongs to ${fromMachine.account}. Stored as ${listed(names)}, from this machine.`,
+        );
+        continue;
+      }
+      const got = await askCredential(step, site);
+      if (!got) continue;
+      for (const n of names) await runner.setSecret(n, got.values[n]!);
+      if (step.machine)
+        writeCredential({
+          tool: chosen.tickets,
+          site,
+          values: got.values,
+          env,
+        });
+      d.out(
+        `It belongs to ${got.account}. Stored as ${listed(names)}${step.machine ? ", and on this machine" : ""}.`,
+      );
+      continue;
+    }
     for (const l of step.intro) d.out(l);
     if (step.get && "page" in step.get) d.openPage(step.get.page);
     if (step.get && "command" in step.get)

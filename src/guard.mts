@@ -1,18 +1,28 @@
-// The PreToolUse hook for Bash: `factory guard` runs both guards on one
-// reading of the hook's input, and `factory guard commit` or
-// `factory guard ticket-text` runs one. A block exits 2 with the reason on
-// standard error, which stops the call and shows the reason to Claude.
+// The PreToolUse hook for Bash: `factory guard` runs every guard on one
+// reading of the hook's input, and `factory guard commit`,
+// `factory guard ticket-text`, or `factory guard credentials` runs one. A
+// block exits 2 with the reason on standard error, which stops the call
+// and shows the reason to Claude.
 import { readFileSync } from "node:fs";
 import { checkCommit, type HookInput } from "./guard-commit.mts";
+import { checkCredentials } from "./guard-credentials.mts";
 import { checkTicketText } from "./guard-ticket-text.mts";
 
-export type Which = "all" | "commit" | "ticket-text";
+export type Which = "all" | "commit" | "ticket-text" | "credentials";
 
 export async function guard(
   which: Which,
   input: HookInput,
   err: (text: string) => void,
 ): Promise<number> {
+  if (which === "all" || which === "credentials") {
+    const refusal = checkCredentials(input);
+    if (refusal) {
+      err(refusal);
+      return 2;
+    }
+    if (which === "credentials") return 0;
+  }
   if (which !== "ticket-text") {
     const block = await checkCommit(input, err);
     if (block) {

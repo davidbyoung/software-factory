@@ -335,6 +335,11 @@ export const COMMANDS: Command[] = [
     args: "",
     run: async () => (await import("./guard.mts")).run("ticket-text"),
   },
+  {
+    words: ["guard", "credentials"],
+    args: "",
+    run: async () => (await import("./guard.mts")).run("credentials"),
+  },
 ];
 
 /** The commands a person runs, in the groups and words of docs/cli.md. */
@@ -446,7 +451,16 @@ export async function main(argv: string[]): Promise<number> {
     );
     return 2;
   }
-  return (await found.command.run(found.rest)) ?? 0;
+  try {
+    return (await found.command.run(found.rest)) ?? 0;
+  } catch (e) {
+    // A ticket system's credential to fix is one line, with no stack.
+    if (e instanceof Error && e.name === "CredentialError") {
+      console.error(e.message);
+      return 1;
+    }
+    throw e;
+  }
 }
 
 process.exitCode = await main(process.argv.slice(2));

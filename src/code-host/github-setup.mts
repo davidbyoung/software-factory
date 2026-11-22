@@ -6,8 +6,10 @@ import {
   AUTOMERGE_TOKEN,
   BOARD_TOKEN,
   BUILD_TOKEN,
+  SIGNING_KEY,
   type Part,
 } from "../parts.mts";
+import { PR_LABELS } from "../labels.mts";
 import {
   RULE,
   type Need,
@@ -154,13 +156,17 @@ export const githubCodeHostSetup: ToolSetup = {
     lines.push(
       `Delete the "${RULE}" ruleset first${sure ? "" : ", if there is one"}, under Settings, Rules: until then every pull request waits on its "Review verdict" check`,
     );
-    const names = ALL_TOKENS.filter(
+    const names = [...ALL_TOKENS, SIGNING_KEY].filter(
       (n) => c.secrets === null || c.secrets.includes(n),
     );
     if (names.length)
       lines.push(
         `Delete the secret${names.length === 1 ? "" : "s"} ${listed(names)}${c.secrets === null ? " if set" : ""}`,
       );
+    const labels = c.settings?.codeHost.labels ?? PR_LABELS;
+    lines.push(
+      `Delete whichever of the labels ${listed([labels["merge-automatic"], labels["merge-manual"], labels["verdict-override"]])} exist, if you do not want their history: deleting one takes it off every pull request`,
+    );
     return lines;
   },
 };

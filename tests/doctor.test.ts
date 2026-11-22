@@ -17,11 +17,14 @@ import { builtOf, TOOLS, type Registry } from "../src/tools.mts";
 import {
   FAKE_AGENT_FILE,
   FAKE_TOKEN,
+  REFUSED,
   withFakeAgent,
   withFakeTickets,
 } from "./fake-tools";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
+import { chmodSync } from "node:fs";
+import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -82,6 +85,7 @@ function doctor(o: {
   ticketFields?: TicketField[];
   ticketGroups?: Group[];
   ticketsFail?: NonNullable<Parameters<typeof memoryTickets>[1]>["fail"];
+  env?: Record<string, string | undefined>;
 }) {
   /** Each check's line, without its heading's indent; `printed` is the
    * output as printed, headings included. */
@@ -139,6 +143,7 @@ function doctor(o: {
       if (line.startsWith("  ")) out.push(line.slice(2));
     },
     paint: o.paint,
+    env: o.env ?? { XDG_CONFIG_HOME: "/nonexistent" },
   };
   return { run: () => main([], d), out, printed };
 }
@@ -813,5 +818,105 @@ describe("factory doctor, in color", () => {
     await run();
     expect(out[0]).toBe(`${paint("green", "✓")} The settings are valid`);
     expect(out).toContain(`${paint("dim", "-")} A board`);
+  });
+});
+
+describe("factory doctor, a credential kept on the machine", () => {
+  const SITE = "acme.example";
+  const RAW = { tickets: { type: "fake", site: SITE } };
+  const PAIR = {
+    FAKE_TICKETS_EMAIL: "dana@acme.example",
+    FAKE_TICKETS_TOKEN: "t0k",
+  };
+  const fake = (b: Registry, t: Tickets) =>
+    withFakeTickets(b, t, true, { credential: true });
+  const run = async (
+    machine: Record<string, string> | null,
+    o: { env?: Record<string, string>; spoil?: (path: string) => void } = {},
+  ) => {
+    const env = {
+      XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "doctor-config-")),
+      ...o.env,
+    };
+    if (machine)
+      writeCredential({ tool: "fake", site: SITE, values: machine, env });
+    o.spoil?.(credentialsPath(env));
+    const r = doctor({
+      raw: RAW,
+      tools: fake,
+      secrets: { FAKE_TICKETS_TOKEN: "x" },
+      env,
+    });
+    const code = await r.run();
+    return {
+      code,
+      lines: section(r.printed, "Fake Tickets"),
+      path: credentialsPath(env),
+    };
+  };
+
+  it("says whose the credential on this machine is, and runs the tool's own checks", async () => {
+    const r = await run(PAIR);
+    expect(r.code).toBe(0);
+    expect(r.lines).toEqual([
+      "✓ The credential on this machine is accepted, for Fake User",
+      "✓ Fake Tickets can be reached",
+    ]);
+  });
+
+  it("names the variables when the credential came from them", async () => {
+    const r = await run(null, { env: PAIR });
+    expect(r.lines[0]).toBe(
+      "✓ The credential in FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN is accepted, for Fake User",
+    );
+  });
+
+  it("says to replace refused variables where they are set", async () => {
+    const r = await run(null, {
+      env: { ...PAIR, FAKE_TICKETS_TOKEN: REFUSED },
+    });
+    expect(r.code).toBe(1);
+    expect(r.lines).toEqual([
+      "✗ The credential in FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN is refused (401 Unauthorized). They may have expired: replace them where they are set",
+    ]);
+  });
+
+  it.each([
+    [
+      "missing",
+      null,
+      "✗ No credential on this machine for acme.example. Run factory init",
+    ],
+    [
+      "refused",
+      { ...PAIR, FAKE_TICKETS_TOKEN: REFUSED },
+      "✗ The credential on this machine is refused (401 Unauthorized). It may have expired. Run factory init",
+    ],
+    [
+      "not checked",
+      { ...PAIR, FAKE_TICKETS_TOKEN: "down" },
+      "✗ The credential on this machine could not be checked (Fake Tickets is down.). Check that acme.example can be reached. Run factory doctor",
+    ],
+  ])(
+    "fails when it is %s, with the fix, and skips the tool's own checks",
+    async (_, machine, expected) => {
+      const r = await run(machine);
+      expect(r.code).toBe(1);
+      expect(r.lines).toEqual([expected]);
+    },
+  );
+
+  it("fails on a file others can read, naming the chmod", async () => {
+    const r = await run(PAIR, { spoil: (p) => chmodSync(p, 0o644) });
+    expect(r.lines).toEqual([
+      `✗ ${r.path} can be read by others. Run chmod 600 ${r.path}`,
+    ]);
+  });
+
+  it("fails on a file that is not YAML", async () => {
+    const r = await run(PAIR, { spoil: (p) => writeFileSync(p, "fake: [") });
+    expect(r.lines).toEqual([
+      `✗ ${r.path} is not valid YAML. Fix or delete it. Run factory init`,
+    ]);
   });
 });

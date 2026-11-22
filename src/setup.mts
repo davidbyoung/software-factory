@@ -59,7 +59,41 @@ export type SecretStep = {
   stored: (names: string[], account?: string) => string;
 };
 
-export type SetupStep = ValueStep | SecretStep;
+/** One value of a credential, stored under its own name. */
+export type CredentialPart = { name: string; prompt: string; masked: boolean };
+
+/** A secret of one or more parts, asked for in order and checked together,
+ * such as an email and an API token. With `machine`, it is also kept in
+ * the file on this machine (`lib/credentials.mts`), filed under the value
+ * of the setting `machine.under` names under `tickets`. */
+export type CredentialStep = {
+  kind: "credential";
+  needs: Need[];
+  parts: CredentialPart[];
+  /** Printed before the first part is read. */
+  intro: string[];
+  get?: { page: string } | { command: string[] };
+  /** Resolves to the account the values belong to, and lines to print;
+   * rejects with an `HttpError` when the system refuses them, or with any
+   * other error whose message is the line to print. */
+  check: (
+    values: Record<string, string>,
+    site: string,
+  ) => Promise<{ account: string; lines: string[] }>;
+  /** The line printed for a refusal, before asking again. */
+  refused: (reason: string) => string;
+  /** Printed when a part is left empty, before "Run ... init again". */
+  skipped: string;
+  /** Where a token is revoked, for `remove`. */
+  revoke?: { page: string };
+  machine: { under: string } | null;
+};
+
+export type SetupStep = ValueStep | SecretStep | CredentialStep;
+
+/** The names a secret or a credential is stored under. */
+export const namesOf = (step: SecretStep | CredentialStep): string[] =>
+  step.kind === "secret" ? step.storeAs : step.parts.map((p) => p.name);
 
 /** The name of each kind's tool in use. */
 export type Chosen = {
@@ -92,6 +126,9 @@ export type ToolSetup = {
   /** Its row under Found, when it says more than its label. */
   found?(c: Pick<SetupContext, "hasCommand">): string;
   steps?(c: SetupContext): SetupStep[];
+  /** The credential the tool reads, which needs no context to name, so a
+   * command finds it without setting up. Asked after its steps. */
+  credential?: CredentialStep;
   checks?(c: WithSecrets): Promise<Check[]>;
   /** What `remove` prints as left to remove by hand. */
   leftovers?(c: WithSecrets): string[];

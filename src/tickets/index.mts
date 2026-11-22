@@ -1,12 +1,20 @@
-// Which adapter the settings' `tickets.type` picks, built for a command in a
-// session or CI. `github` is the only one; the settings refuse any other
-// value before this runs (`config.mts`).
+// Which adapter the settings' `tickets.type` picks, opened through the
+// registry (`tools.mts`) for a command in a session or CI, with the
+// credential it reads, when it reads one, from the environment or this
+// machine's file (`lib/credentials.mts`).
 import { TICKET_LABELS, type Labels } from "../labels.mts";
-import { gh, type Gh } from "../lib/gh.mts";
 import { fieldNamesOf, type Settings } from "../config.mts";
-import { githubKey, githubRef, githubTickets } from "./github.mts";
-import { ghTransport } from "./transport.mts";
-import { need, type Key, type Tickets } from "./types.mts";
+import {
+  readCredential,
+  refusedEnvLine,
+  refusedFileLine,
+  missingLine,
+} from "../lib/credentials.mts";
+import type { Registry } from "../tools.mts";
+import { githubKey, githubRef, toBoard, type BoardPage } from "./github.mts";
+import type { OpenOptions, OpenTarget } from "./github-open.mts";
+import { statusOf } from "./transport.mts";
+import { CredentialError, need, type Key, type Tickets } from "./types.mts";
 import { join, split, type FieldMapping } from "../ticket-fields.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
@@ -23,6 +31,14 @@ export const unsupportedType = (type: string) =>
 
 export type Opened = { tickets: Tickets };
 
+/** The ticket system a poller someone hosts opens, having no settings. */
+export const DEFAULT_TICKETS = "github";
+
+/** A board read from GitHub's recorded pages, for the board sync's
+ * fixture. */
+export const fixtureBoard = (pages: unknown, repository: string) =>
+  toBoard(pages as BoardPage[], repository);
+
 /** How a ticket system of this type writes a ticket, without opening its
  * adapter, for text written ahead of time, such as a workflow's run name. */
 export function refOf(type: string): (key: Key) => string {
@@ -37,23 +53,120 @@ export function keyOf(type: string): (typed: string) => Key {
   return githubKey;
 }
 
-/** The settings' adapter, reaching its system through the GitHub CLI. The
- * repository and board are the caller's, since a workflow can name its own. */
+/** The credential the ticket system `type` reads on this machine, for the
+ * site the settings give it: null when it reads none, or CredentialError
+ * when it is missing or its file cannot be read. */
+export function machineCredentialOf(
+  systems: Registry["tickets"],
+  type: string,
+  options: Record<string, unknown>,
+  env: Record<string, string | undefined> = process.env,
+): {
+  label: string;
+  site: string;
+  names: string[];
+  source: "env" | "file";
+  values: Record<string, string>;
+} | null {
+  const tool = systems[type];
+  const step = tool?.setup.credential;
+  if (!tool || !step?.machine) return null;
+  const site = String(options[step.machine.under] ?? "");
+  const names = step.parts.map((p) => p.name);
+  const found = readCredential({ tool: type, site, names, env });
+  if (found.state === "missing")
+    throw new CredentialError(missingLine(tool.label, site, names));
+  return { label: tool.label, site, names, ...found };
+}
+
+/** The adapter with every call's `401` turned into CredentialError, worded
+ * by where the credential came from. Each group is wrapped the same way. */
+function withRefusals<T extends object>(
+  inner: T,
+  line: (reason: string) => string,
+): T {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(inner)) {
+    if (typeof v === "function") {
+      const refused = (e: unknown) => {
+        if (statusOf(e) === 401) {
+          const r = e as { status: number; reason?: string };
+          throw new CredentialError(
+            line(`${r.status}${r.reason ? ` ${r.reason}` : ""}`),
+          );
+        }
+        throw e;
+      };
+      out[k] = (...args: unknown[]) => {
+        let result: unknown;
+        try {
+          result = (v as (...a: unknown[]) => unknown).apply(inner, args);
+        } catch (e) {
+          refused(e);
+        }
+        return result instanceof Promise ? result.catch(refused) : result;
+      };
+    } else if (v && typeof v === "object" && !Array.isArray(v))
+      out[k] = withRefusals(v as object, line);
+    else out[k] = v;
+  }
+  return out as T;
+}
+
+/** The ticket system `type` opened through the registry with the
+ * credential it reads, if any, and every `401` it then meets worded as a
+ * refusal of that credential. */
+export async function openSystem(
+  systems: Registry["tickets"],
+  type: string,
+  options: Record<string, unknown>,
+  target: OpenTarget,
+  settings: Settings | null,
+  opts: OpenOptions = {},
+  env: Record<string, string | undefined> = process.env,
+): Promise<Tickets> {
+  const tool = systems[type];
+  if (!tool) throw new Error(unsupportedType(type));
+  const credential = machineCredentialOf(systems, type, options, env);
+  const opened = await tool.open(target, settings, {
+    ...opts,
+    ...(credential ? { credential: credential.values } : {}),
+  });
+  return credential
+    ? withRefusals(opened, (reason) =>
+        credential.source === "file"
+          ? refusedFileLine(credential.label, credential.site, reason)
+          : refusedEnvLine(
+              credential.label,
+              credential.names,
+              credential.site,
+              reason,
+              env,
+            ),
+      )
+    : opened;
+}
+
+/** The settings' adapter, opened through the registry: GitHub's reaches
+ * its system through the GitHub CLI unless `opts` gives a transport. The
+ * repository and board are the caller's, since a workflow can name its
+ * own. */
 export async function openTickets(
   settings: Settings,
-  target: { repository: string; board: number | null },
-  run: Gh = gh,
+  target: OpenTarget,
+  opts: OpenOptions & { env?: Record<string, string | undefined> } = {},
+  systems?: Registry["tickets"],
 ): Promise<Opened> {
-  const type: string = settings.tickets.type;
-  if (type !== "github") throw new Error(unsupportedType(type));
-  const transport = ghTransport(run);
-  const tickets = githubTickets({
-    transport,
-    repository: target.repository,
-    board: target.board,
-    cli: run,
-    fieldNames: fieldNamesOf(settings),
-  });
+  const { env, ...rest } = opts;
+  const tickets = await openSystem(
+    systems ?? (await import("../tools.mts")).TOOLS.tickets,
+    settings.tickets.type,
+    settings.tickets.options,
+    target,
+    settings,
+    { ...rest, fieldNames: fieldNamesOf(settings) },
+    env,
+  );
   const mapping = settings.tickets.ticketFields;
   return {
     tickets: Object.values(mapping).some((v) => v !== null)

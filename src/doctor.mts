@@ -39,6 +39,7 @@ import {
 import { differences, LOCK, PACKAGE, plan } from "./sync.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
+import { machineState, type MachineState } from "./lib/credentials.mts";
 
 export type { Check } from "./setup.mts";
 
@@ -57,6 +58,8 @@ export type DoctorDeps = {
   tools: Registry;
   out: (line: string) => void;
   paint?: Paint;
+  /** Where a credential's variables and the credentials file are read. */
+  env?: Record<string, string | undefined>;
 };
 
 const SYNC = "Run factory sync";
@@ -140,12 +143,24 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     runner: s.builds.runner,
     agent: Object.keys(d.tools.agent)[0]!,
   };
+  // The credential the ticket system keeps on this machine, checked first:
+  // the system is opened with it only once it is accepted.
+  const step = d.tools.tickets[chosen.tickets]!.setup.credential;
+  const machine = step?.machine
+    ? await machineState(
+        step,
+        chosen.tickets,
+        String(s.tickets.options[step.machine.under] ?? ""),
+        d.env ?? process.env,
+      )
+    : null;
   const opened = {
     codeHost: d.tools.codeHost[chosen.codeHost]!.open(s.repository),
     runner: d.tools.runner[chosen.runner]!.open(s.repository),
     tickets: await d.tools.tickets[chosen.tickets]!.open(
       { repository: s.repository, board: s.tickets.board },
       s,
+      machine?.state === "accepted" ? { credential: machine.values } : {},
     ),
   };
   const context = (parts: Iterable<Part>): SetupContext => ({
@@ -242,24 +257,36 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     ),
   );
 
-  for (const tool of [tickets, runner, agent])
+  if (machine)
+    out.push({
+      ...machineCheck(
+        machine,
+        step!.parts.map((p) => p.name),
+        String(s.tickets.options[step!.machine!.under] ?? ""),
+      ),
+      group: tickets!.label,
+    });
+  // A ticket system its credential does not open is not checked further.
+  const reachable = !machine || machine.state === "accepted";
+  for (const tool of reachable ? [tickets, runner, agent] : [runner, agent])
     out.push(
       ...under(
         tool!.label,
         (await tool!.setup.checks?.({ ...context(on), secrets })) ?? [],
       ),
     );
-  out.push(
-    ...under(
-      tickets!.label,
-      await fieldChecks(
-        opened.tickets,
-        s.tickets.ticketFields,
-        s.repository,
+  if (reachable)
+    out.push(
+      ...under(
         tickets!.label,
+        await fieldChecks(
+          opened.tickets,
+          s.tickets.ticketFields,
+          s.repository,
+          tickets!.label,
+        ),
       ),
-    ),
-  );
+    );
   const order = [
     SETTINGS,
     codeHost!.label,
@@ -273,6 +300,56 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     .map((c, i) => [c, i] as const)
     .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
     .map(([c]) => c);
+}
+
+/** The one line on the credential this machine holds, with its fix in
+ * the words every other line uses. */
+function machineCheck(m: MachineState, names: string[], site: string): Check {
+  switch (m.state) {
+    case "accepted":
+      return {
+        state: "pass",
+        text:
+          m.source === "env"
+            ? `The credential in ${listed(names)} is accepted, for ${m.account}`
+            : `The credential on this machine is accepted, for ${m.account}`,
+      };
+    case "missing":
+      return {
+        state: "fail",
+        text: `No credential on this machine for ${site}`,
+        fix: INIT,
+      };
+    case "refused":
+      return m.source === "env"
+        ? {
+            state: "fail",
+            text: `The credential in ${listed(names)} is refused (${m.reason}). They may have expired: replace them where they are set`,
+          }
+        : {
+            state: "fail",
+            text: `The credential on this machine is refused (${m.reason}). It may have expired`,
+            fix: INIT,
+          };
+    case "unchecked":
+      return {
+        state: "fail",
+        text: `The credential on this machine could not be checked (${m.reason}). Check that ${site} can be reached`,
+        fix: "Run factory doctor",
+      };
+    case "unreadable":
+      return m.unreadable === "loose"
+        ? {
+            state: "fail",
+            text: `${m.path} can be read by others`,
+            fix: `Run chmod 600 ${m.path}`,
+          }
+        : {
+            state: "fail",
+            text: `${m.path} is not valid YAML. Fix or delete it`,
+            fix: INIT,
+          };
+  }
 }
 
 const DEPENDABOT = ".github/dependabot.yml";

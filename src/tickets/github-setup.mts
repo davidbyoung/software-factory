@@ -3,6 +3,7 @@
 import { boardConfigOf, inspectBoard } from "../board.mts";
 import { fieldNamesOf } from "../config.mts";
 import { listed } from "../lib/listed.mts";
+import { TICKET_LABELS } from "../labels.mts";
 import type { ToolSetup } from "../setup.mts";
 
 const INIT = "Run factory init";
@@ -40,14 +41,18 @@ export const githubTicketsSetup: ToolSetup = {
 
   leftovers: (c) => {
     const s = c.settings;
-    if (s === null || s.tickets.board === null) return [];
+    const labels = s?.tickets.labels ?? TICKET_LABELS;
+    const lines = [
+      `Delete whichever of the labels ${listed([labels["follow-up"], labels.spec])} exist, if you do not want their history: deleting one takes it off every ticket`,
+    ];
+    if (s === null || s.tickets.board === null) return lines;
     const fields = Object.values(fieldNamesOf(s)).filter(
       (f): f is string => f !== null,
     );
-    return fields.length
-      ? [
-          `Delete the ${listed(fields)} field${fields.length === 1 ? "" : "s"} from board ${s.tickets.board}, if you do not want them`,
-        ]
-      : [];
+    if (fields.length)
+      lines.push(
+        `Delete the ${listed(fields)} field${fields.length === 1 ? "" : "s"} from board ${s.tickets.board}, if you do not want them`,
+      );
+    return lines;
   },
 };
