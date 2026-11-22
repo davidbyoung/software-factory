@@ -170,7 +170,10 @@ spec tool, writes into the repository's specs, one requirement per line.
 
 - Name each capability as `factory specs list` names them, or name a new
   one in the same style. Mark it `(new)` or `(modified)`. With no spec
-  tool, "(modified)" means it changes behavior the project has today.
+  tool the list is empty: name a capability for what it describes, in
+  lowercase words joined by hyphens, such as `feedback-form`, reusing a
+  name an earlier ticket gave it, and "(modified)" means it changes
+  behavior the project has today.
 - Under a modified capability, list only lines that are new or that change
   what the spec says today, and any requirement that no longer holds as
   "No longer: ...". Read the existing spec first; a line that restates it

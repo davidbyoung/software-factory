@@ -88,7 +88,9 @@ anything?
   the builder" with "Design" and "Tasks", which `factory-build` builds
   from and, with a spec tool, writes into the repository's specs; also a
   Spec line that could not stand as one WHEN/THEN scenario on its own, a
-  capability named unlike those `factory specs list` prints, or a
+  capability named unlike those `factory specs list` prints (with no
+  spec tool, which lists none, one not in lowercase words joined by
+  hyphens), or a
   "modified" line that restates the current spec instead of changing it. Without the label the body needs "Decisions" and
   "Acceptance criteria", and a missing "For the builder" is not a finding:
   ask only what the criteria and the area's rules leave open.

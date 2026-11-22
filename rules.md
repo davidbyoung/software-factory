@@ -192,8 +192,9 @@ also keeps each Spec in the repository: `factory-build` starts it with
 `npx --no-install factory specs list` prints the specs the repository
 keeps, its current description of what it does; a change to one starts
 by reading it. With `specs: none` each of these says each ticket holds
-its own spec, and the issue is the only copy. Nothing runs a spec tool's
-own commands: the `factory specs` commands reach it.
+its own spec, and the issue is the only copy. No skill, agent, rule, or
+workflow runs a spec tool's own commands: the `factory specs` commands
+reach it.
 
 ## Issues that wait on another
 
