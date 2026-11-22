@@ -20,9 +20,13 @@ import {
 } from "./config.mts";
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
-import { SIGNING_KEY } from "./parts.mts";
-import { DEFAULT_LABELS } from "./labels.mts";
-import type { Chosen, SetupContext, Unconfigured } from "./setup.mts";
+import { credentialsPath, hasEntry, shownPath } from "./lib/credentials.mts";
+import type {
+  Chosen,
+  CredentialStep,
+  SetupContext,
+  Unconfigured,
+} from "./setup.mts";
 import { LOCK, PACKAGE } from "./sync.mts";
 import { CHOICES_FILE } from "./preset.mts";
 import { builtOf, inUse, TOOLS, type Registry } from "./tools.mts";
@@ -34,6 +38,8 @@ export type RemoveDeps = {
   tools: Registry;
   hasCommand: (name: string) => boolean;
   packageName: string;
+  /** Where the credentials file is read. */
+  env?: Record<string, string | undefined>;
 };
 
 /** The agents and skills the lock lists that presets shipped, a skill as
@@ -64,19 +70,32 @@ async function presetParts(
   };
 }
 
-/** The labels the factory adds, by the names the settings give them: the
- * pull request labels, then the ticket labels. */
-function labelsOf(settings: Settings | null): string[] {
-  const { codeHost, tickets } = settings
-    ? { codeHost: settings.codeHost.labels, tickets: settings.tickets.labels }
-    : DEFAULT_LABELS;
-  return [
-    codeHost["merge-automatic"],
-    codeHost["merge-manual"],
-    codeHost["verdict-override"],
-    tickets["follow-up"],
-    tickets.spec,
-  ];
+/** What is left of a credential kept on the machine: its secrets, among
+ * those set, and the file's entry for the site, which only the settings
+ * name. The file's keys are read; the ticket system is never called. */
+function credentialLeftovers(
+  step: CredentialStep,
+  tool: string,
+  settings: Settings | null,
+  secrets: string[] | null,
+  env: Record<string, string | undefined>,
+): string[] {
+  const lines: string[] = [];
+  const names = step.parts
+    .map((p) => p.name)
+    .filter((n) => secrets === null || secrets.includes(n));
+  if (names.length)
+    lines.push(
+      `Delete the secret${names.length === 1 ? "" : "s"} ${listed(names)}${secrets === null ? " if set" : ""}`,
+    );
+  if (!settings || !step.machine) return lines;
+  const site = String(settings.tickets.options[step.machine.under] ?? "");
+  const held = hasEntry(tool, site, env);
+  if (held === false) return lines;
+  lines.push(
+    `Delete ${site} from ${shownPath(credentialsPath(env))}, unless another repository on that site uses it${step.revoke ? `, and revoke the token at ${step.revoke.page}` : ""}${held === null ? ", if it is there" : ""}`,
+  );
+  return lines;
 }
 
 /** The factory's own files and folders, each a path from the root. */
@@ -190,21 +209,44 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
   if (settings)
     secrets = await context.opened.runner.secretNames().catch(() => null);
   const withSecrets = { ...context, secrets };
-  const byHand = [
-    ...[tools[1], tools[2], tools[3], tools[0]].flatMap(
-      (t) => t!.setup.leftovers?.(withSecrets) ?? [],
+  const ticketTool = d.tools.tickets[chosen.tickets]!;
+  // Each tool's lines under its name, numbered straight through.
+  const groups: [string, string[]][] = [
+    ...[tools[1]!, tools[2]!, tools[3]!, tools[0]!].map(
+      (t): [string, string[]] => [
+        t.label,
+        [
+          ...(t.setup.leftovers?.(withSecrets) ?? []),
+          ...(t === ticketTool && t.setup.credential
+            ? credentialLeftovers(
+                t.setup.credential,
+                chosen.tickets,
+                settings,
+                secrets,
+                d.env ?? process.env,
+              )
+            : []),
+        ],
+      ],
     ),
-    ...(secrets === null || secrets.includes(SIGNING_KEY)
-      ? [`Delete the secret ${SIGNING_KEY}${secrets === null ? " if set" : ""}`]
-      : []),
-    `Delete whichever of the labels ${listed(labelsOf(settings))} exist, if you do not want their history: deleting one takes it off every ticket`,
-    `Run npm uninstall ${d.packageName}`,
-    ...shipped.packages.map((p) => `Run npm uninstall ${p}`),
-    "Commit this on a branch, open a pull request, and merge it",
+    [
+      "Then",
+      [
+        `Run npm uninstall ${d.packageName}`,
+        ...shipped.packages.map((p) => `Run npm uninstall ${p}`),
+        "Commit this on a branch, open a pull request, and merge it",
+      ],
+    ],
   ];
   d.out("");
   d.out("Nothing is committed. Left for you to do by hand:");
-  byHand.forEach((step, i) => d.out(`  ${i + 1}. ${step}.`));
+  let n = 0;
+  for (const [label, lines] of groups) {
+    if (!lines.length) continue;
+    d.out("");
+    d.out(`  ${label}`);
+    for (const step of lines) d.out(`  ${++n}. ${step}.`);
+  }
   return 0;
 }
 
