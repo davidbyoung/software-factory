@@ -16,6 +16,7 @@
 // GitHub serves a pull request's conversation comments, and its body, as
 // an issue's, so those paths are read too; `gh pr` and `pulls/N` are not.
 
+import { fencedLines } from "./lib/fences.mts";
 import { PR_LABELS, sameLabel } from "./labels.mts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -83,12 +84,12 @@ export type BareTag = { tag: string; line: string };
  * each remaining tag stays on its own line. */
 function withoutCode(text: string): string {
   const blank = (s: string) => s.replace(/[^\n]/g, " ");
+  const fenced = fencedLines(text);
   return text
+    .split("\n")
+    .map((line, i) => (fenced[i] ? blank(line) : line))
+    .join("\n")
     .replace(/<!--[\s\S]*?-->/g, blank)
-    .replace(
-      /^([ \t]*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n\1\2[^\n]*|$)/gm,
-      blank,
-    )
     .replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, blank);
 }
 
