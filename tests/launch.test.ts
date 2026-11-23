@@ -24,14 +24,31 @@ const choose = (
 ) => chooseEntry({ cwd, here, name: NAME, ...fs(files, links) });
 
 describe("chooseEntry", () => {
-  it("runs the repository's own source, so a worktree runs its own copy", () => {
+  it("runs the factory's own source in the factory's repository, from a global install", () => {
     expect(
-      choose("/repo/src", "/repo/node_modules/@acme/factory", [
+      choose("/repo/src", "/usr/lib/node_modules/@acme/factory", [
         "/repo/.git",
-        "/repo/packages/factory/package.json",
-        "/repo/packages/factory/src/cli.mts",
+        "/repo/package.json",
+        "/repo/src/cli.mts",
       ]),
-    ).toEqual({ run: "/repo/packages/factory/src/cli.mts" });
+    ).toEqual({ run: "/repo/src/cli.mts" });
+  });
+
+  it("runs a worktree's own source, not the clone's it sits in", () => {
+    expect(
+      choose(
+        "/repo/.claude/worktrees/w/src",
+        "/usr/lib/node_modules/@acme/factory",
+        [
+          "/repo/.git",
+          "/repo/package.json",
+          "/repo/src/cli.mts",
+          "/repo/.claude/worktrees/w/.git",
+          "/repo/.claude/worktrees/w/package.json",
+          "/repo/.claude/worktrees/w/src/cli.mts",
+        ],
+      ),
+    ).toEqual({ run: "/repo/.claude/worktrees/w/src/cli.mts" });
   });
 
   it("hands a global install's run to the copy the repository installed", () => {

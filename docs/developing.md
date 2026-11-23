@@ -138,9 +138,11 @@ serves both, and carries out what `chooseEntry` in `bin/launch.js` picks, in
 this order:
 
 1. The source in the repository it was run from: the first folder at or
-   above the current directory that has `.git`, when it has
-   `packages/factory/package.json` with this package's name. So a git
-   worktree runs its own copy, not the one `npx` finds up the tree.
+   above the current directory that has `.git`, when that is this
+   package's own repository: its `package.json` has this package's name.
+   So a git worktree runs its own copy, not the one `npx` finds up the
+   tree. A global `factory` picks this rule up after a release and a
+   global reinstall.
 2. The copy that repository installed, when that is not this one, so a
    global install runs the repository's own version.
 3. Nothing, with a line saying how to install it, when this copy is outside

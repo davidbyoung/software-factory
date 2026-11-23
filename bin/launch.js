@@ -4,9 +4,9 @@
 // In order:
 //
 //   1. The source in the repository it was run from: the first folder at or
-//      above `cwd` that has `.git`, when it has `packages/factory/` with
-//      this package's name. So a git worktree runs its own copy, not the one
-//      `npx` finds up the tree.
+//      above `cwd` that has `.git`, when it is this package's own repository,
+//      its `package.json` carrying this package's name. So a git worktree
+//      runs its own copy, not the one `npx` finds up the tree.
 //   2. The copy that repository installed, in its `node_modules`, when that
 //      is not this one: a global install hands the run to the repository's
 //      own version, which its synced files were written by.
@@ -34,9 +34,8 @@ export function chooseEntry(deps) {
   const root = repositoryRoot(cwd, exists);
 
   if (root) {
-    const pkg = join(root, "packages", "factory");
-    const cli = join(pkg, "src", "cli.mts");
-    if (exists(cli) && readName(join(pkg, "package.json")) === name)
+    const cli = join(root, "src", "cli.mts");
+    if (exists(cli) && readName(join(root, "package.json")) === name)
       return { run: cli };
 
     const installed = join(root, "node_modules", ...name.split("/"));

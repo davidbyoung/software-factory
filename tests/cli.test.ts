@@ -168,18 +168,17 @@ describe("the launcher", () => {
   it("runs the source of the repository it was run from, not the checkout whose node_modules it came from", () => {
     // The main checkout's package, which npx finds up the tree.
     const main = join(dir, "main");
-    fakePackage(join(main, "packages/factory"), "src/cli.mts", "main");
+    fakePackage(main, "src/cli.mts", "main");
     mkdirSync(join(main, ".git"));
     // A worktree with its own source and no node_modules.
     const worktree = join(main, ".claude/worktrees/w");
-    fakePackage(join(worktree, "packages/factory"), "src/cli.mts", "worktree");
+    fakePackage(worktree, "src/cli.mts", "worktree");
     writeFileSync(join(worktree, ".git"), "gitdir: elsewhere\n");
 
-    const out = execFileSync(
-      "node",
-      [join(main, "packages/factory/bin/factory.js")],
-      { cwd: join(worktree, "packages"), encoding: "utf8" },
-    );
+    const out = execFileSync("node", [join(main, "bin/factory.js")], {
+      cwd: join(worktree, "src"),
+      encoding: "utf8",
+    });
 
     expect(out.trim()).toBe("worktree");
   });
