@@ -214,6 +214,10 @@ this release, and do these steps in the repository's checkout.
      `review / Factory files in step`. If a rule of your repository
      requires it by name, change the name there
      ([Workflows](github/reference.md#workflows)).
+   - A review you submit on it starts a run, "Answer the review", that
+     fails. It runs the new workflow with the old version of the factory,
+     which your default branch still names. No rule requires it, and it
+     passes once this pull request has merged.
 
 **It worked when** the pull request's checks pass, and `factory doctor`
 shows the version the repository names:
