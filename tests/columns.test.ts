@@ -841,6 +841,7 @@ describe("factory ticket ready", () => {
       env: { CLAUDE_CODE_SESSION_ID: "s" },
       sleep: async () => {},
       out: (l) => out.push(l),
+      followUpStore: { read: () => null, write: () => {} },
       claimStore: { read: () => null, write: () => {} },
       readFile: () => "",
       now: () => new Date(at(0)),

@@ -171,6 +171,7 @@ function deps(
       if (text === undefined) throw new Error(`ENOENT: ${path}`);
       return text;
     },
+    followUpStore: { read: () => null, write: () => {} },
     claimStore: {
       read: () => (options.stored == null ? null : String(options.stored)),
       write: (issue, id) => written.push([issue, id]),
@@ -861,6 +862,24 @@ describe("ready", () => {
 
 describe("follow-up", () => {
   const LINE = "The usage text names a flag that was removed.";
+
+  it("adds to the follow-ups ticket it just opened, though the list does not show it yet", async () => {
+    const { d, out, memory } = deps([]);
+    let opened: string | null = null;
+    d.followUpStore = {
+      read: () => opened,
+      write: (key) => void (opened = key),
+    };
+
+    await main(["follow-up", "a.ts", "First."], d);
+    // GitHub lists a new ticket a few seconds after it is opened.
+    memory.tickets.listUnfinished = async () => [];
+    await main(["follow-up", "b.ts", "Second."], d);
+
+    expect(out).toEqual(["opened #1", "added to #1"]);
+    expect(memory.state.size).toBe(1);
+    expect(memory.state.get("1")?.body).toContain("- [ ] b.ts: Second.");
+  });
 
   it("appends the line, led by its file, to the open follow-ups issue", async () => {
     const { d, out, memory } = deps([
