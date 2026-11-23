@@ -419,6 +419,10 @@ export function memoryCodeHost(
         .map((p) => toView(p, true));
     },
     address: (n) => `https://code.example/pull/${n}`,
+    remote: (repository) => ({
+      url: `https://code.example/${repository}.git`,
+      host: "code.example",
+    }),
 
     async signedInAs() {
       called("signedInAs");

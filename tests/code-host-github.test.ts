@@ -606,6 +606,15 @@ describe("the address of a pull request", () => {
   });
 });
 
+describe("where git reads a repository from", () => {
+  it("is the repository's address on GitHub, whichever repository is asked for", () => {
+    expect(pulls([]).p.remote("acme/factory-config")).toEqual({
+      url: "https://github.com/acme/factory-config.git",
+      host: "github.com",
+    });
+  });
+});
+
 describe("the open pull requests and those linking to tickets", () => {
   it("reads the open pull requests with this repository's closing references, open threads, and checks", async () => {
     const { p, calls } = pulls([
