@@ -136,8 +136,10 @@ describe("newEvents", () => {
       comment({ id: 1, author: BOT }),
       comment({ id: 2, author: "owner" }),
     ];
-    const running = [check({ name: "Claude review", state: "pending" })];
-    const ended = [check({ name: "Claude review", state: "passed" })];
+    const running = [
+      check({ name: "review / Claude review", state: "pending" }),
+    ];
+    const ended = [check({ name: "review / Claude review", state: "passed" })];
 
     expect(lines({ comments, checks: running })).toEqual([
       "comment 2 by owner on a.ts:3",
@@ -208,8 +210,14 @@ describe("newEvents", () => {
     ]);
   });
 
+  it("waits for no review where the automated review is off", () => {
+    expect(lines({ checks: [check()], reviewOn: false })).toEqual([
+      `every check has finished on ${SHA}`,
+    ]);
+  });
+
   it("stops waiting for a review whose run failed and posted nothing", () => {
-    const checks = [check({ name: "Claude review", state: "failed" })];
+    const checks = [check({ name: "review / Claude review", state: "failed" })];
 
     expect(lines({ checks })).toContain(`every check has finished on ${SHA}`);
   });

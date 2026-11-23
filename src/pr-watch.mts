@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
-import { reachOf, repoRoot } from "./config.mts";
+import { loadSettings, reachOf, repoRoot } from "./config.mts";
 import {
   branchDeps,
   needDefaultBranch,
@@ -51,6 +51,8 @@ export type Snapshot = {
   conversation: Comment[];
   comments: Comment[];
   reviews: Comment[];
+  /** False where the settings turn the automated review off. */
+  reviewOn?: boolean;
 };
 
 export type WatchEvent = { key: string; line: string };
@@ -63,7 +65,9 @@ const FAILED_CONCLUSIONS = new Set([
   "action_required",
 ]);
 const AGENT_MARKER = "<!-- agent -->";
-const REVIEW_CHECK = "Claude review";
+/** The review's check, as a job of the workflow a pull request starts is
+ * named: the calling job, then the job. */
+const REVIEW_CHECK = "review / Claude review";
 const REVIEW_BOT = "github-actions[bot]";
 
 export function toChecks(runs: CheckRun[], statuses: CommitStatus[]): Check[] {
@@ -104,9 +108,10 @@ function fingerprint(body: string): string {
   return createHash("sha256").update(body).digest("hex").slice(0, 12);
 }
 
-/** A failed review run posts no summary, so that run ends the wait for one. */
+/** A failed review run posts no summary, so that run ends the wait for one,
+ * and where the automated review is off there is none to wait for. */
 function reviewIsOver(snapshot: Snapshot): boolean {
-  if (reviewSummary(snapshot)) return true;
+  if (snapshot.reviewOn === false || reviewSummary(snapshot)) return true;
   const run = snapshot.checks.find((check) => check.name === REVIEW_CHECK);
   return run?.state === "failed";
 }
@@ -282,6 +287,7 @@ async function main(argv: string[]) {
     process.exit(1);
   }
 
+  const reviewOn = (await loadSettings()).prReview !== null;
   const seenFile = execFileSync(
     "git",
     ["rev-parse", "--git-path", `watch-pr-${pr}.json`],
@@ -295,7 +301,7 @@ async function main(argv: string[]) {
   for (;;) {
     try {
       const { snapshot, body } = await readSnapshot(p, n);
-      const events = newEvents(snapshot, seen, branch);
+      const events = newEvents({ ...snapshot, reviewOn }, seen, branch);
       if (snapshot.state !== "open") {
         rmSync(seenFile, { force: true });
         console.log(events.map((event) => event.line).join("\n"));

@@ -509,6 +509,12 @@ describe("waiting for the review", () => {
     ).toBe(false);
   });
 
+  it("settles with no review where the automated review is off", () => {
+    expect(
+      isSettled(report({ reviewOn: false, summary: null, reviewRun: null })),
+    ).toBe(true);
+  });
+
   it("settles without a summary when the review run failed", () => {
     expect(
       isSettled(
@@ -522,6 +528,12 @@ describe("waiting for the review", () => {
 });
 
 describe("formatReport", () => {
+  it("expects no review where the automated review is off", () => {
+    expect(
+      formatReport(report({ reviewOn: false, summary: null, reviewRun: null })),
+    ).toContain("Claude review: none expected on this head");
+  });
+
   it("names the verdict, an approver's turn on a thread, and each check", () => {
     const lines = formatReport(
       report({

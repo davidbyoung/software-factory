@@ -829,7 +829,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     deps.out(
-      `? the board updates at the nightly sync: couldn't start factory-board-sync (${reason})`,
+      `? the board updates at the nightly sync: couldn't start the board sync (${reason})`,
     );
   }
   return code;

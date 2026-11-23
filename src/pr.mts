@@ -69,6 +69,8 @@ export type Deps = {
   /** The name of each label the factory puts on pull requests, for
    * `label`; the defaults without it. */
   labels?: () => Promise<Labels["codeHost"]>;
+  /** Whether the settings have the automated review on; on without it. */
+  reviewOn?: () => Promise<boolean>;
 };
 
 /** The tickets a pull request builds, as the factory counts them. */
@@ -98,6 +100,8 @@ export type Report = {
    * write to the repository. */
   approvers: string[];
   reviewRun: { status: string; conclusion: string | null } | null;
+  /** False where the settings turn the automated review off. */
+  reviewOn?: boolean;
   summary: PullComment | null;
   conversation: PullComment[];
   reviews: Review[];
@@ -125,10 +129,11 @@ export function approverReviewsToWork(r: Report): Review[] {
   );
 }
 
-/** A review is coming for this head only on a pull request the Claude review
- * workflow runs on. */
-export function reviewExpected(pull: Pull): boolean {
+/** A review is coming for this head only where the automated review is on,
+ * and on a pull request its job runs on. */
+export function reviewExpected(pull: Pull, reviewOn = true): boolean {
   return (
+    reviewOn &&
     !pull.isDraft &&
     pull.author !== "dependabot[bot]" &&
     pull.head.repository === pull.base.repository &&
@@ -138,7 +143,7 @@ export function reviewExpected(pull: Pull): boolean {
 
 export function isSettled(r: Report): boolean {
   const reviewDone =
-    !reviewExpected(r.pull) ||
+    !reviewExpected(r.pull, r.reviewOn) ||
     r.summary !== null ||
     (r.reviewRun?.status === "completed" &&
       r.reviewRun.conclusion !== "success");
@@ -159,7 +164,7 @@ export function formatReport(r: Report): string[] {
     `state: ${p.state}${p.isDraft ? ", draft" : ", ready"}; head ${p.head.sha.slice(0, 7)} on ${p.head.branch}; base ${p.base.branch}; author ${p.author}`,
     `mergeable: ${p.mergeableState}`,
   ];
-  if (!reviewExpected(p))
+  if (!reviewExpected(p, r.reviewOn))
     lines.push("Claude review: none expected on this head");
   else if (!r.reviewRun) lines.push("Claude review: no run yet for this head");
   else
@@ -251,6 +256,7 @@ async function readReport(p: CodeHost, pr: number, d: Deps): Promise<Report> {
     pull,
     approvers: await writers(p, authors),
     reviewRun: runs[0] ?? null,
+    reviewOn: (await d.reviewOn?.()) ?? true,
     summary,
     conversation,
     reviews,
@@ -792,6 +798,7 @@ export function prDeps(
       return { tickets, own: ownLinks(settings) };
     },
     labels: async () => (await loadSettings()).codeHost.labels,
+    reviewOn: async () => (await loadSettings()).prReview !== null,
     cost: {
       env: process.env,
       now: () => new Date(),

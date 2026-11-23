@@ -3,10 +3,11 @@
 //
 //   factory review verdict    # reads GITHUB_EVENT_NAME and _PATH
 //
-// Runs from main's copy, on two events: the Claude review finishing
-// (workflow_run), and the pull request itself (pull_request_target: opened,
-// pushed to, marked ready, or labeled with the override). The verdict is posted
-// on one commit, so a new push always starts without one.
+// Runs from main's copy, on two events: the pull request's own workflow
+// finishing (workflow_run), whose review job is what it judges, and the
+// pull request itself (pull_request_target: opened, pushed to, marked ready,
+// or labeled with the override). The verdict is posted on one commit, so a
+// new push always starts without one.
 import { loadSettings } from "./config.mts";
 import { PR_LABELS } from "./labels.mts";
 import { readFileSync } from "node:fs";
@@ -40,8 +41,11 @@ export type Input = {
   senderIsApprover?: boolean;
   /** The code host could not say whether that account can write. */
   senderUnchecked?: boolean;
-  /** workflow_run's conclusion: success, failure, cancelled, skipped. */
+  /** How the review's job ended in the run that finished: success, failure,
+   * cancelled, skipped. */
   runConclusion?: string;
+  /** The settings turn the automated review off, so none is coming. */
+  reviewOff?: boolean;
   /** The marker in the review's summary for this commit; null if none. */
   verdict: Verdict;
 };
@@ -67,6 +71,10 @@ const OVERRIDDEN: Decision = {
   state: "success",
   description: "Overridden by an approver",
 };
+const OFF: Decision = {
+  state: "success",
+  description: "The automated review is off",
+};
 
 function fromVerdict(verdict: Verdict, ifMissing: Decision): Decision {
   if (verdict === "ready") {
@@ -85,6 +93,14 @@ export function decide(input: Input): Decision | null {
       state: "success",
       description: "Review skipped: Dependabot. CI and end-to-end are the gate",
     };
+  }
+  if (input.reviewOff) {
+    // A status that waited would wait forever, and a rule that requires
+    // this one would hold every pull request.
+    const otherLabel =
+      (input.action === "labeled" || input.action === "unlabeled") &&
+      input.label !== (input.override ?? OVERRIDE);
+    return otherLabel ? null : OFF;
   }
   if (input.event === "workflow_run") {
     // An override already vouches for this commit; a late review must not
@@ -180,6 +196,11 @@ export async function apply(o: {
   log: (line: string) => void;
   /** The override's name, as `code-host.labels` gives it. */
   override?: string;
+  /** False where the settings turn the automated review off. */
+  reviewOn?: boolean;
+  /** How the review's job ended in a run, by the run's ID. Without it, the
+   * run's own conclusion stands in. */
+  reviewConclusion?: (run: number) => Promise<string>;
 }): Promise<void> {
   const { eventName, event, pulls, log } = o;
   const override = o.override ?? OVERRIDE;
@@ -202,13 +223,20 @@ export async function apply(o: {
 
   const { labels } = pr;
   const comments = await pulls.comments(pr.number);
+  const reviewOff = o.reviewOn === false;
+  const runConclusion: string | undefined =
+    eventName === "workflow_run" && !reviewOff
+      ? ((await o.reviewConclusion?.(event.workflow_run.id)) ??
+        event.workflow_run.conclusion)
+      : undefined;
   if (
     eventName === "workflow_run" &&
+    !reviewOff &&
     !reviewIsAboutHead(
       event.workflow_run.head_sha,
       sha,
       verdictIn(comments, sha),
-      event.workflow_run.conclusion,
+      runConclusion,
     )
   ) {
     return log(`${sha} is waiting for its own review.`);
@@ -232,7 +260,8 @@ export async function apply(o: {
     hasOverride: labels.includes(override),
     senderIsApprover,
     senderUnchecked: lookupFailure !== undefined,
-    runConclusion: event.workflow_run?.conclusion,
+    runConclusion,
+    reviewOff,
     verdict: verdictIn(comments, sha),
   });
   if (!decision) return log("Nothing to post.");
@@ -275,13 +304,17 @@ export async function apply(o: {
 export async function run(): Promise<number> {
   const repo = process.env.GITHUB_REPOSITORY!;
   try {
+    const settings = await loadSettings();
+    const runner = openRunner(repo);
     await apply({
       eventName: process.env.GITHUB_EVENT_NAME as Input["event"],
       event: JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH!, "utf8")),
       pulls: openCodeHost(repo),
-      link: openRunner(repo).thisRun(process.env)?.page,
+      link: runner.thisRun(process.env)?.page,
       log: (line) => console.log(line),
-      override: (await loadSettings()).codeHost.labels["verdict-override"],
+      override: settings.codeHost.labels["verdict-override"],
+      reviewOn: settings.prReview !== null,
+      reviewConclusion: (run) => runner.reviewConclusion(run),
     });
     return 0;
   } catch (error) {
