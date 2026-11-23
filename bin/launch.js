@@ -6,49 +6,139 @@
 //   1. The source in the repository it was run from: the first folder at or
 //      above `cwd` that has `.git`, when it is this package's own repository,
 //      its `package.json` carrying this package's name. So a git worktree
-//      runs its own copy, not the one `npx` finds up the tree.
-//   2. The copy that repository installed, in its `node_modules`, when that
-//      is not this one: a global install hands the run to the repository's
-//      own version, which its synced files were written by.
-//   3. Nothing, when this copy lives outside that repository and the
-//      repository has none of its own: the caller says how to install it.
-//   4. Itself: `src/cli.mts` beside it when that exists, or `dist/cli.mjs`,
-//      the compiled code an installed package ships. Outside any
-//      repository, as in the poller's image, it always runs itself.
+//      runs its own copy.
+//   2. The version that repository names, in `version:` of its
+//      `.claude/factory.lock`, or FACTORY_VERSION when that is set: this
+//      copy when it is that version, and otherwise the copy of it in the
+//      cache, which the caller downloads the first time.
+//   3. Itself, where no version is named: a repository not set up yet,
+//      outside any repository, as in the poller's image, and for `update`,
+//      the command that changes the version a repository names.
+//
+// "Itself" is `src/cli.mts` beside it when that exists, or `dist/cli.mjs`,
+// the compiled code an installed package ships.
 
-import { dirname, join, relative, isAbsolute } from "node:path";
+import { dirname, join } from "node:path";
+
+const RELEASE = /^\d+\.\d+\.\d+$/;
 
 /**
  * @param {{
  *   cwd: string,
  *   here: string,
  *   name: string,
+ *   version: string,
+ *   cache: string,
+ *   env: Record<string, string | undefined>,
+ *   command: string | undefined,
  *   exists: (path: string) => boolean,
  *   readName: (manifest: string) => string | null,
- *   realpath: (path: string) => string,
+ *   read: (path: string) => string | null,
  * }} deps
- * @returns {{ run: string } | { launch: string } | { missing: string }}
+ * @returns {{ run: string }
+ *   | { download: { version: string, dir: string, entry: string } }
+ *   | { fault: string }}
  */
 export function chooseEntry(deps) {
-  const { cwd, here, name, exists, readName, realpath } = deps;
+  const { cwd, here, name, exists, readName } = deps;
   const root = repositoryRoot(cwd, exists);
 
   if (root) {
     const cli = join(root, "src", "cli.mts");
     if (exists(cli) && readName(join(root, "package.json")) === name)
       return { run: cli };
-
-    const installed = join(root, "node_modules", ...name.split("/"));
-    const isOurs = readName(join(installed, "package.json")) === name;
-    const isThis = isOurs && realpath(installed) === realpath(here);
-    if (isOurs && !isThis)
-      return { launch: join(installed, "bin", "factory.js") };
-    if (!isOurs && !inside(realpath(here), realpath(root)))
-      return { missing: root };
   }
 
   const beside = join(here, "src", "cli.mts");
-  return { run: exists(beside) ? beside : join(here, "dist", "cli.mjs") };
+  const self = { run: exists(beside) ? beside : join(here, "dist", "cli.mjs") };
+
+  const wanted =
+    deps.env.FACTORY_VERSION ||
+    (deps.command === "update" || !root ? null : lockVersion(root, deps.read));
+  if (!wanted || wanted === deps.version) return self;
+  if (!RELEASE.test(wanted))
+    return {
+      fault: `✗ .claude/factory.lock names the factory ${wanted}, which is not a release. Run: factory update`,
+    };
+
+  const dir = join(deps.cache, "versions", wanted);
+  const entry = join(
+    dir,
+    "node_modules",
+    ...name.split("/"),
+    "dist",
+    "cli.mjs",
+  );
+  return exists(entry)
+    ? { run: entry }
+    : { download: { version: wanted, dir, entry } };
+}
+
+/** The version a repository's lock names, or null when it has no lock or
+ * the lock names none. Read with a pattern, since the launcher loads no
+ * package to parse YAML with. */
+function lockVersion(root, read) {
+  const text = read(join(root, ".claude", "factory.lock"));
+  return text?.match(/^version: *(\S+) *$/m)?.[1] ?? null;
+}
+
+/** Where the factory keeps what it downloads: each version of itself, and
+ * each commit of a preset. `src/lib/cache.mts` gives the same folder. */
+export function cacheRoot(env, home) {
+  return join(env.XDG_CACHE_HOME || join(home, ".cache"), "software-factory");
+}
+
+/** The line of npm's output that says why it failed: its last `npm error`
+ * line but the one naming its log file, or the output's last line when
+ * there is none. */
+export function lastNpmError(output) {
+  const lines = output.split("\n").filter((line) => line.trim() !== "");
+  const errors = lines.filter(
+    (line) =>
+      /^npm (error|ERR!)/.test(line) && !/complete log of this run/.test(line),
+  );
+  return (errors.at(-1) ?? lines.at(-1) ?? "").trim();
+}
+
+/**
+ * Downloads one version into the cache with npm, into a folder of its own
+ * that is moved into place whole, so two commands that start at once never
+ * run a half-installed copy. Returns null, or why it failed.
+ *
+ * @param {{ version: string, dir: string, entry: string }} download
+ * @param {{
+ *   name: string,
+ *   pid: number,
+ *   npm: (args: string[]) => { status: number | null, output: string },
+ *   mkdir: (path: string) => void,
+ *   rename: (from: string, to: string) => void,
+ *   remove: (path: string) => void,
+ *   exists: (path: string) => boolean,
+ * }} deps
+ * @returns {string | null}
+ */
+export function install(download, deps) {
+  const { version, dir, entry } = download;
+  const staging = `${dir}.${deps.pid}`;
+  deps.mkdir(staging);
+  const npm = deps.npm([
+    "install",
+    "--prefix",
+    staging,
+    "--no-save",
+    "--no-audit",
+    "--no-fund",
+    `${deps.name}@${version}`,
+  ]);
+  if (npm.status === 0) {
+    try {
+      deps.rename(staging, dir);
+    } catch {
+      // Another command put it there first.
+    }
+  }
+  deps.remove(staging);
+  return deps.exists(entry) ? null : lastNpmError(npm.output);
 }
 
 /** The first folder at or above `dir` that has `.git`, or null. */
@@ -58,9 +148,4 @@ function repositoryRoot(dir, exists) {
     if (dirname(dir) === dir) return null;
     dir = dirname(dir);
   }
-}
-
-function inside(path, folder) {
-  const rel = relative(folder, path);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
