@@ -12,6 +12,9 @@ export default defineConfig({
       reporter: ["text-summary", "lcov"],
       // The coverage floors: CI and the gate fail under any of them. Raise
       // them by hand as coverage rises; never lower one to get a change in.
+      // The one exception: when deleting well-covered code drops the total
+      // under a floor, a build may lower that floor to the new total, and
+      // its pull request says which floor moved and why.
       thresholds: {
         lines: 86,
         branches: 84,
