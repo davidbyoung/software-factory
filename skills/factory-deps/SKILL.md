@@ -51,8 +51,9 @@ in the report and the next one starts.
 ## 1. What the state means
 
 - **Major or not:** the title's "from X to Y". A different leading number
-  is a major. A grouped pull request ("Bump the npm group") is minor and
-  patch only.
+  is a major. The npm group ("Bump the npm group") is minor and patch
+  only; the factory's own group carries every update type, so read its
+  versions the same way.
 - **Checks still running, or whether it can merge is still `unknown`:** leave it for
   the next run.
 - **Two earlier shepherd comments already report a fix that did not turn
@@ -136,8 +137,8 @@ end for this run: comment what was tried and leave it for the next one.
 ## 4. An update of the factory or a preset
 
 A pull request that bumps `@davidbyoung/software-factory`, or the package
-of a preset `.claude/factory.lock` lists, gets steps 2 and 3, and the files
-the new version writes. `factory deps` says `sync (step 4)` for each. Run
+of a preset `.claude/factory.lock` lists, gets steps 2 and 3, the files
+the new version writes, and, for a major, step 5's migration. `factory deps` says `sync (step 4)` for each. Run
 the sync right after `npm ci` on its branch, before step 3's gate: until it
 runs, every `factory` command stops on the stale lock and names it.
 
