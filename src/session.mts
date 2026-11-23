@@ -82,7 +82,7 @@ const USAGE =
   "Usage: factory session ready build|conflicts|deps|review [PR REVIEW]";
 
 /** What a kind's check finds in the repository, through the code host. */
-function workOf(
+export function workOf(
   kind: Kind,
   p: CodeHost,
   numbers: number[],

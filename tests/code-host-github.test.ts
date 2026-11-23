@@ -771,3 +771,35 @@ describe("the newest pull request from a branch", () => {
     expect(calls[0]).toContain("head=acme:fix%2B54%26more&state=open");
   });
 });
+
+describe("the factory's releases, and closing a pull request", () => {
+  it("gives the tag of the newest release of the repository asked for", async () => {
+    const { p, calls } = pulls([[/releases\/latest/, { tag_name: "v0.3.0" }]]);
+    expect(await p.newestRelease("acme/factory")).toBe("v0.3.0");
+    expect(calls).toEqual(["api repos/acme/factory/releases/latest"]);
+  });
+
+  it("gives null for a repository with no release", async () => {
+    const { p } = pulls([[/releases\/latest/, notFound()]]);
+    expect(await p.newestRelease("acme/factory")).toBeNull();
+  });
+
+  it("throws any other error reading the newest release", async () => {
+    const { p } = pulls([[/releases\/latest/, new Error("HTTP 503")]]);
+    await expect(p.newestRelease("acme/factory")).rejects.toThrow("HTTP 503");
+  });
+
+  it("gives the page of a release by its tag", () => {
+    expect(pulls([]).p.releasePage("acme/factory", "v0.3.0")).toBe(
+      "https://github.com/acme/factory/releases/tag/v0.3.0",
+    );
+  });
+
+  it("closes a pull request", async () => {
+    const { p, calls } = pulls([[/pulls\/41/, {}]]);
+    await p.close(41);
+    expect(calls).toEqual([
+      "api -X PATCH repos/acme/widgets/pulls/41 -f state=closed",
+    ]);
+  });
+});

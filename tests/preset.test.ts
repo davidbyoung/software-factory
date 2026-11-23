@@ -13,6 +13,7 @@ import {
   type Deps,
 } from "../src/config.mts";
 import {
+  lockedVersion,
   parseName,
   PresetNameError,
   settingsHash,
@@ -699,5 +700,18 @@ describe("reading the settings from the lock", () => {
     expect(err).toEqual([
       "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
     ]);
+  });
+});
+
+describe("the version of the factory a lock names", () => {
+  it("is its version line, whatever follows it", () => {
+    expect(lockedVersion("# a comment\nversion: 0.3.0\npresets: []\n")).toBe(
+      "0.3.0",
+    );
+  });
+
+  it("is none for a lock that is missing or names none", () => {
+    expect(lockedVersion(null)).toBeNull();
+    expect(lockedVersion("presets: []\n  version: 2\n")).toBeNull();
   });
 });

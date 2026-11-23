@@ -2,7 +2,8 @@
 // work is asked first, with the workflow's own token, so a repository with
 // no build token gets no run that fails for want of one.
 import { describe, expect, it } from "vitest";
-import { foundLine, ready, type Ready } from "../src/session.mts";
+import { foundLine, ready, workOf, type Ready } from "../src/session.mts";
+import { memoryCodeHost, type PullSeed } from "./memory-code-host.ts";
 
 const NOTICE =
   "so no session ran. Builds in the cloud are off: factory init turns them on.";
@@ -77,5 +78,55 @@ describe("foundLine", () => {
     expect(foundLine("deps", 3)).toBe("3 Dependabot pull requests are open");
     expect(foundLine("deps", 1)).toBe("1 Dependabot pull request is open");
     expect(foundLine("review", 41)).toBe("A review on #41 waits for an answer");
+  });
+});
+
+describe("the work a kind's check finds", () => {
+  const pull = (number: number, over: Partial<PullSeed> = {}): PullSeed => ({
+    number,
+    head: {
+      branch: `b${number}`,
+      sha: `sha${number}`,
+      repository: "acme/widgets",
+    },
+    ...over,
+  });
+  const found = (kind: "conflicts" | "deps" | "review", seed: PullSeed[]) => {
+    const said: string[] = [];
+    const work = workOf(kind, memoryCodeHost(seed).codeHost, [], (l) =>
+      said.push(l),
+    );
+    return { work, said };
+  };
+
+  it("counts the pull requests that conflict with the default branch", async () => {
+    const { work } = found("conflicts", [
+      pull(1, { mergeableState: "dirty" }),
+      pull(2, { mergeableState: "dirty" }),
+      pull(3),
+    ]);
+    expect(await work()).toBe("2 pull requests conflict");
+  });
+
+  it("finds no conflict to sweep where every pull request merges cleanly", async () => {
+    expect(await found("conflicts", [pull(1)]).work()).toBeNull();
+  });
+
+  it("counts Dependabot's open pull requests, and nobody else's", async () => {
+    const { work } = found("deps", [
+      pull(1, { author: "dependabot[bot]" }),
+      pull(2),
+    ]);
+    expect(await work()).toBe("1 Dependabot pull request is open");
+  });
+
+  it("finds nothing for the dependencies' session with no pull request of Dependabot's", async () => {
+    expect(await found("deps", [pull(1)]).work()).toBeNull();
+  });
+
+  it("refuses a review's check without the pull request's and the review's numbers", async () => {
+    await expect(found("review", []).work()).rejects.toThrow(
+      "Usage: factory session ready",
+    );
   });
 });

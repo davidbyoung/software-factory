@@ -20,6 +20,7 @@ import {
   staleOf,
   type Settings,
 } from "./config.mts";
+import { lockedVersion } from "./preset.mts";
 import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
@@ -566,15 +567,11 @@ export function doctorDeps(root = repoRoot()): DoctorDeps {
       const manifest = JSON.parse(
         readFileSync(join(PACKAGE, "package.json"), "utf8"),
       ) as { name: string };
-      let named: string | null = null;
-      try {
-        named =
-          /^version: *(\S+) *$/m.exec(
-            readFileSync(join(root, LOCK), "utf8"),
-          )?.[1] ?? null;
-      } catch {
-        named = null;
-      }
+      const named = lockedVersion(
+        existsSync(join(root, LOCK))
+          ? readFileSync(join(root, LOCK), "utf8")
+          : null,
+      );
       const home = manifest.name.replace(/^@/, "");
       return {
         named,

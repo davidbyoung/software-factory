@@ -13,6 +13,7 @@ import {
   commitDate,
   fetchCommit,
   FetchError,
+  fileAt,
   gitEnv,
   lastGitLine,
   movePin,
@@ -36,6 +37,7 @@ import {
   NODE,
   own,
   publish,
+  remoteOf,
   put,
   read,
   repo,
@@ -573,5 +575,16 @@ describe("why a preset's repository could not be read, for factory update", () =
     expect(whyUnread(git, "foo/old-presets", "acme/web")).toBe(
       "not found, or private",
     );
+  });
+});
+
+describe("a file at a revision of the repository", () => {
+  it("is its text at that commit, and null where the commit has none", () => {
+    const commit = publish("acme/base-lock", {
+      "": { settings: "version: 2\n" },
+    });
+    const dir = remoteOf("acme/base-lock");
+    expect(fileAt(dir, commit, "factory-preset.yaml")).toBe("version: 2\n");
+    expect(fileAt(dir, commit, ".claude/factory.lock")).toBeNull();
   });
 });

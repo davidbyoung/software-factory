@@ -739,6 +739,10 @@ function firstSides(text: string): string {
     .join("\n");
 }
 
+/** The version of the factory a lock names, or null when it names none. */
+export const lockedVersion = (lock: string | null): string | null =>
+  /^version: *(\S+) *$/m.exec(lock ?? "")?.[1] ?? null;
+
 /** The presets a lock pins. A lock with conflict markers is read with the
  * first side of each conflict, and one that still can't be read pins
  * none. */

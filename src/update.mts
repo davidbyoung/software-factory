@@ -325,10 +325,9 @@ export async function run(argv: string[]): Promise<number> {
     existsSync(join(root, LOCK))
       ? readFileSync(join(root, LOCK), "utf8")
       : null;
-  const lockVersion = () =>
-    /^version: *(\S+) *$/m.exec(lockText() ?? "")?.[1] ?? manifest.version;
   const { load } = await import("js-yaml");
-  const { parseName, pinsOf } = await import("./preset.mts");
+  const { lockedVersion, parseName, pinsOf } = await import("./preset.mts");
+  const lockVersion = () => lockedVersion(lockText()) ?? manifest.version;
   const { fetchDeps, movePin, newestCommit, presetDiffers, whyUnread } =
     await import("./preset-fetch.mts");
   const { changes, presetDeps } = await import("./preset-commands.mts");
