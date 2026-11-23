@@ -161,12 +161,12 @@ The factory SHALL behave as this line says: When there is no board, a ticket the
 
 ### Requirement: When the sync workflow is written
 
-The factory SHALL behave as this line says: When `factory sync` runs with `tickets.board` set, or with a ticket system that has statuses of its own, it writes `.github/workflows/factory-board-sync.yml`; otherwise it writes none, as today without a board.
+The factory SHALL behave as this line says: When `factory sync` runs with `tickets.board` set, or with a ticket system that has statuses of its own, the board sync's job in `.github/workflows/factory.yml` is on; otherwise it is off, as today without a board.
 
 #### Scenario: When the sync workflow is written
 
 - **WHEN** `factory sync` runs with `tickets.board` set, or with a ticket system that has statuses of its own
-- **THEN** it writes `.github/workflows/factory-board-sync.yml`; otherwise it writes none, as today without a board.
+- **THEN** the board sync's job in `.github/workflows/factory.yml` is on; otherwise it is off, as today without a board.
 
 ### Requirement: Statuses need tickets.columns
 

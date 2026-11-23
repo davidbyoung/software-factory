@@ -1,6 +1,6 @@
 // The `factory preset` commands: add and remove a preset, choose between
-// two presets where they disagree, check a preset before publishing it,
-// and say what a preset update changes in this repository.
+// two presets where they disagree, check a preset before merging a change
+// to it, and say what a preset update changes in this repository.
 //
 //   factory preset add NAME [--yes] [--dry-run]
 //   factory preset remove NAME [--yes] [--dry-run]
@@ -9,7 +9,6 @@
 //   factory preset check
 //   factory preset changes REF
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
-import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -19,11 +18,11 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { STATUS_CODES } from "node:http";
 import { dirname, join, relative, sep } from "node:path";
 import {
   filesDeps,
   parseChoices,
+  PresetsError,
   repoRoot,
   resolveFiles,
   SETTINGS_FILE,
@@ -34,32 +33,46 @@ import {
 import {
   CHOICES_FILE,
   choicesText,
-  findPackage,
+  itemKey,
   LOCK_FILE,
   OWN,
+  ownerOf,
+  parseName,
+  pinsOf,
   PLUGIN_LISTS,
   presetFaults,
+  PresetNameError,
   PRESET_FILE,
   readLock,
   shipped,
   shipsText,
-  splitName,
+  short,
   stable,
   staleMessages,
+  withPins,
+  yamlDump,
   type Lock,
+  type Pinned,
 } from "./preset.mts";
+import {
+  commitDate,
+  fetchDeps,
+  FetchError,
+  fileAt,
+  newestCommit,
+  pinAt,
+  sameOwner,
+  type FetchDeps,
+} from "./preset-fetch.mts";
 import type { Check } from "./setup.mts";
-import { npmrcRegistry } from "./npmrc.mts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-const DEPENDABOT = ".github/dependabot.yml";
-
 export type PresetDeps = {
   root: string;
-  /** Where `preset check` looks for a package, the folder it runs in. */
+  /** Where `preset check` looks for presets, the folder it runs in. */
   cwd: string;
   out: (line: string) => void;
   err: (line: string) => void;
@@ -67,19 +80,36 @@ export type PresetDeps = {
   terminal: boolean;
   /** Asks one question and gives the answer typed. */
   ask: (question: string) => Promise<string>;
-  /** Runs npm with these arguments in the root. */
-  npm: (args: string[]) => { status: number; stdout: string; stderr: string };
   /** Runs `factory sync`, giving each line it prints to `out`. */
   sync: (out: (line: string) => void) => Promise<number>;
   /** A file's text at a git revision, or null when it has none there. */
   show: (ref: string, path: string) => string | null;
   /** The settings resolved from the files, as `factory sync` resolves them,
-   * with `.claude/factory.yaml` and the choices file as given. */
-  resolve: (own: string, choices: string | null) => Promise<Resolved>;
+   * with `.claude/factory.yaml` and the choices file as given, and with
+   * `lock` as the lock's text where it is given. */
+  resolve: (
+    own: string,
+    choices: string | null,
+    lock?: string | null,
+  ) => Promise<Resolved>;
   write: (path: string, text: string | null) => void;
   read: (path: string) => string | null;
+  /** What reads a preset's repository, for the repository and the code
+   * host the settings name. */
+  fetch: (repository: string, codeHost: string) => FetchDeps;
+  /** The time now, for telling whether a commit is this year's. */
+  now: () => Date;
   paint?: Paint;
 };
+
+/** An error as a command prints it: a name under `presets` that is no
+ * preset's, or is not pinned, with its mark. */
+const said = (e: unknown, paint: Paint) =>
+  e instanceof PresetsError || e instanceof PresetNameError
+    ? `${paint("red", "✗")} ${e.message}`
+    : e instanceof Error
+      ? e.message
+      : String(e);
 
 // ---------------------------------------------------------------- Values
 
@@ -148,7 +178,7 @@ function valueInEffect(r: Resolved, key: string): unknown {
       ? items.find((i) => isObj(i) && (i.agent ?? i.skill) === name)
       : undefined;
   }
-  if (key.startsWith(".claude/")) return r.resolution.files.get(key)?.source;
+  if (key.startsWith(".claude/")) return r.resolution.files.get(key)?.hash;
   return getPath(r.resolution.raw, key.split("."));
 }
 
@@ -205,13 +235,12 @@ async function yamlDoc(text: string) {
   return parseDocument(text);
 }
 
-/** `.claude/factory.yaml` with NAME added, quoted, at the end of
- * `presets`, which goes after `repository` when it is new. */
+/** `.claude/factory.yaml` with NAME added at the end of `presets`, which
+ * goes after `repository` when it is new. */
 async function withPreset(text: string, name: string): Promise<string> {
   const { Scalar, isMap, isSeq, YAMLSeq, Pair } = await import("yaml");
   const doc = await yamlDoc(text);
   const item = new Scalar(name);
-  item.type = Scalar.QUOTE_DOUBLE;
   const list = doc.get("presets");
   if (isSeq(list)) list.items.push(item);
   else if (isMap(doc.contents)) {
@@ -287,58 +316,6 @@ async function withKey(
   return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
-// ---------------------------------------------------------------- npm
-
-/** The registry npm installs a package from. */
-function registryOf(d: PresetDeps, pkg: string): string {
-  const scope = pkg.startsWith("@") ? pkg.split("/")[0] : null;
-  const get = (key: string) => {
-    const r = d.npm(["config", "get", key]);
-    const v = r.stdout.trim();
-    return r.status === 0 && v && v !== "undefined" ? v : null;
-  };
-  return (scope && get(`${scope}:registry`)) ?? get("registry") ?? "";
-}
-
-/** npm's failure in the factory's words. */
-export function installError(
-  name: string,
-  stderr: string,
-  registry: string,
-): string[] {
-  const code = /code E(\d{3})\b/.exec(stderr)?.[1];
-  if (!code) {
-    const last =
-      stderr
-        .split("\n")
-        .filter((l) => /^npm (error|ERR!)/.test(l))
-        .at(-1) ??
-      stderr.trim().split("\n").at(-1) ??
-      "";
-    return [`npm couldn't install ${name}:`, last];
-  }
-  const lines = [
-    `npm couldn't install ${name}: ${registry} answered ${code} ${STATUS_CODES[Number(code)] ?? ""}.`.replace(
-      " .",
-      ".",
-    ),
-  ];
-  if (["401", "403", "404"].includes(code))
-    lines.push(
-      `If it's a private package, give this machine a token for ${registry}, as .npmrc expects.`,
-    );
-  return lines;
-}
-
-function inPackageJson(d: PresetDeps, pkg: string): boolean {
-  const text = d.read("package.json");
-  if (!text) return false;
-  const m = JSON.parse(text) as Record<string, Record<string, string>>;
-  return Boolean(m.dependencies?.[pkg] ?? m.devDependencies?.[pkg]);
-}
-
-// ---------------------------------------------------------------- Dependabot
-
 async function loadYaml(text: string | null): Promise<unknown> {
   if (text === null) return null;
   const { load } = await import("js-yaml");
@@ -347,59 +324,6 @@ async function loadYaml(text: string | null): Promise<unknown> {
   } catch {
     return null;
   }
-}
-
-/** Whether a group in `.github/dependabot.yml` has the package as its only
- * pattern. */
-export async function hasOwnGroup(
-  text: string | null,
-  pkg: string,
-): Promise<boolean> {
-  const o = await loadYaml(text);
-  const updates = isObj(o) && Array.isArray(o.updates) ? o.updates : [];
-  return updates.some(
-    (u) =>
-      isObj(u) &&
-      isObj(u.groups) &&
-      Object.values(u.groups).some(
-        (g) =>
-          isObj(g) &&
-          Array.isArray(g.patterns) &&
-          g.patterns.length === 1 &&
-          g.patterns[0] === pkg,
-      ),
-  );
-}
-
-const bare = (url: string) => url.replace(/\/+$/, "");
-
-/** The lines `preset add` ends with for what Dependabot still needs. */
-export async function nextLines(
-  dependabot: string | null,
-  npmrc: string | null,
-  pkg: string,
-): Promise<string[]> {
-  if (dependabot === null) return [];
-  const out: string[] = [];
-  if (!(await hasOwnGroup(dependabot, pkg)))
-    out.push(
-      `Next: in ${DEPENDABOT}, give ${pkg} a group of its own, so its updates arrive as their own pull requests.`,
-    );
-  const registry = npmrcRegistry(npmrc, pkg);
-  if (registry) {
-    const o = await loadYaml(dependabot);
-    const known =
-      isObj(o) && isObj(o.registries)
-        ? Object.values(o.registries).map((r) =>
-            isObj(r) && typeof r.url === "string" ? bare(r.url) : "",
-          )
-        : [];
-    if (!known.includes(bare(registry)))
-      out.push(
-        `Next: in ${DEPENDABOT}, add ${registry} under registries, so Dependabot sees new versions of ${pkg}.`,
-      );
-  }
-  return out;
 }
 
 /** Runs the sync, saying the choices file was written, where it was, just
@@ -415,9 +339,71 @@ async function syncing(d: PresetDeps, wroteChoices: boolean): Promise<number> {
   return code;
 }
 
+/** Runs the sync and gives what it did as these commands say it: each of
+ * the presets' files it wrote or deleted, and what it kept or dropped. The
+ * factory's own copies it brought in step go unsaid. Null when it failed. */
+async function quietSync(
+  d: PresetDeps,
+  presetFile: (path: string) => boolean,
+): Promise<string[] | null> {
+  const ok = (d.paint ?? plain)("green", "✓");
+  const lines: string[] = [];
+  if ((await d.sync((l) => lines.push(l))) !== 0) return null;
+  return lines.flatMap((line) => {
+    const m = /^(wrote|deleted) (.+)$/.exec(line);
+    if (!m) return [line];
+    if (!presetFile(m[2]!)) return [];
+    return [`${ok} ${m[1] === "wrote" ? "Wrote" : "Deleted"} ${m[2]}.`];
+  });
+}
+
 // ---------------------------------------------------------------- add
 
 const PAREN = "this preset";
+
+/** A commit's day as a summary says it, in UTC: `November 20`, with the
+ * year when it is not this one. */
+export function dayOf(date: Date, now: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "long",
+    day: "numeric",
+    ...(date.getUTCFullYear() === now.getUTCFullYear()
+      ? {}
+      : { year: "numeric" }),
+  }).format(date);
+}
+
+/** When each setting that holds a command runs it, in the order the
+ * summary lists them. */
+const RUNS: [string, string][] = [
+  ["pr-review.commands", "in the review"],
+  ["commands.gate", "at the gate"],
+  ["commands.before-commit", "before each commit"],
+  ["commands.build-setup", "at the start of a cloud build"],
+  ...[
+    "commands.test-one",
+    "commands.end-to-end",
+    "commands.coverage.run",
+    "commands.relock",
+    "specs.check",
+    "site.start",
+  ].map((key): [string, string] => [key, `as ${key}`]),
+];
+
+/** A `runs` line for each command in effect that the preset NAME gave. */
+function runsLines(r: Resolved, name: string): string[] {
+  const from = (key: string) => r.resolution.sources.get(key)?.from;
+  return RUNS.flatMap(([key, when]) => {
+    const value = getPath(r.resolution.raw, key.split("."));
+    const commands = Array.isArray(value)
+      ? value.filter((item) => (from(itemKey(key, item)) ?? from(key)) === name)
+      : value !== undefined && value !== null && from(key) === name
+        ? [value]
+        : [];
+    return commands.map((c) => `runs   ${show(c)}, ${when}`);
+  });
+}
 
 export async function add(argv: string[], d: PresetDeps): Promise<number> {
   const paint = d.paint ?? plain;
@@ -439,32 +425,54 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
     d.err(`${name} is already in presets`);
     return 1;
   }
-  const { pkg } = splitName(name);
-  const before = inPackageJson(d, pkg);
-  const undo = () => {
-    if (!before) d.npm(["uninstall", pkg]);
-  };
-  if (!before) {
-    const r = d.npm(["install", "--save-dev", pkg]);
-    if (r.status !== 0) {
-      for (const line of installError(name, r.stderr, registryOf(d, pkg)))
-        d.err(line);
-      return 1;
-    }
-  }
-
+  const fail = paint("red", "✗");
+  const { load, dump } = await import("js-yaml");
   const choicesBefore = d.read(CHOICES_FILE);
+  const lockBefore = d.read(LOCK_FILE);
   let now: Resolved;
   let after: Resolved;
+  let pin: Pinned;
+  let date: Date;
+  let lockAfter: string;
+  let others = false;
   try {
+    const { repo } = parseName(name);
     now = await d.resolve(ownText, choicesBefore);
-    after = await d.resolve(await withPreset(ownText, name), choicesBefore);
+    const { repository } = now.settings;
+    const f = d.fetch(repository, now.settings.codeHost.type);
+    others = !sameOwner(repo, repository);
+    if (others && yes) {
+      d.err(
+        `${fail} ${name} belongs to another owner, so a person adds it, at a terminal. Run it without --yes.`,
+      );
+      return 1;
+    }
+    try {
+      pin = pinAt(f, name, newestCommit(f, repo), load);
+      date = commitDate(f, repo, pin.commit);
+    } catch (e) {
+      if (!(e instanceof FetchError)) throw e;
+      d.err(
+        others
+          ? `${fail} ${name}: not found, or private. A preset of another owner has to be public. To follow a private one, keep a copy under ${ownerOf(repository)} and add the copy.`
+          : `${name}: ${repo} could not be read: ${e.message}`,
+      );
+      return 1;
+    }
+    lockAfter = withPins(
+      lockBefore,
+      [...pinsOf(lockBefore, load).filter((p) => p.name !== name), pin],
+      yamlDump(dump),
+    );
+    after = await d.resolve(
+      await withPreset(ownText, name),
+      choicesBefore,
+      lockAfter,
+    );
   } catch (e) {
-    undo();
-    d.err(e instanceof Error ? e.message : String(e));
+    d.err(said(e, paint));
     return 1;
   }
-  const version = after.presets.find((p) => p.name === name)!.version;
   const [effNow, effAfter] = await Promise.all([
     effective(now),
     effective(after),
@@ -547,8 +555,12 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
     .filter(([to]) => !existsSync(join(d.root, to)) || locked.includes(to))
     .map(([to]) => `writes ${to}`);
 
+  if (others)
+    d.out(
+      `${name} is public, and ${ownerOf(parseName(name).repo)} is not this repository's owner.`,
+    );
   for (const line of summary(
-    `${name} ${version} would change these settings here:`,
+    `${name} at ${short(pin.commit)}, from ${dayOf(date, d.now())}, would change these settings here:`,
     [
       { title: "added", rows: added },
       { title: "replaces the default", rows: replacesDefault },
@@ -558,19 +570,19 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       })),
       { title: `replaced by your ${SETTINGS_FILE}`, rows: yours },
     ],
-    writes,
+    [...writes, ...runsLines(after, name)],
     paint,
   ))
     d.out(line);
 
-  if (dry) {
-    undo();
-    return 0;
-  }
+  if (dry) return 0;
   if (!yes && !d.terminal) {
-    undo();
     d.out("");
-    d.out("Run it in a terminal to choose, or add --yes to apply it.");
+    d.out(
+      others
+        ? "Run it in a terminal to apply it."
+        : "Run it in a terminal to choose, or add --yes to apply it.",
+    );
     return 1;
   }
 
@@ -602,19 +614,24 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
     }
     d.out("");
     if (!(await apply(d))) {
-      undo();
       d.out("Nothing changed.");
       return 0;
     }
   }
   d.write(SETTINGS_FILE, text);
-  d.out(`added ${name} to presets in ${SETTINGS_FILE}`);
+  d.write(LOCK_FILE, lockAfter);
   const chosen = choicesText(choices);
   if (chosen !== choicesBefore) d.write(CHOICES_FILE, chosen);
-  const code = await syncing(d, chosen !== choicesBefore && chosen !== null);
-  for (const line of await nextLines(d.read(DEPENDABOT), d.read(".npmrc"), pkg))
-    d.out(line);
-  return code;
+  const lines = await quietSync(d, (path) => path in pin.files);
+  if (lines === null) return 1;
+  const ok = paint("green", "✓");
+  d.out(
+    `${ok} Added ${name} to ${SETTINGS_FILE}, pinned at ${short(pin.commit)} in ${LOCK_FILE}.`,
+  );
+  if (chosen !== choicesBefore && chosen !== null)
+    d.out(`${ok} Wrote ${CHOICES_FILE}.`);
+  for (const line of lines) d.out(line);
+  return 0;
 }
 
 /** The files the lock lists. */
@@ -653,11 +670,14 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
   let now: Resolved;
   let after: Resolved;
   const without = await withoutPreset(ownText, name);
+  // A name the lock does not pin has nothing in effect, so removing it
+  // changes no setting, and it need not be a name that can be pinned.
+  const pinned = pinsOf(d.read(LOCK_FILE), load).some((p) => p.name === name);
   try {
-    now = await d.resolve(ownText, choicesBefore);
     after = await d.resolve(without, choicesText(kept));
+    now = pinned ? await d.resolve(ownText, choicesBefore) : after;
   } catch (e) {
-    d.err(e instanceof Error ? e.message : String(e));
+    d.err(said(e, paint));
     return 1;
   }
   const effAfter = await effective(after);
@@ -762,17 +782,18 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
     }
   }
   d.write(SETTINGS_FILE, text);
-  d.out(`removed ${name} from presets in ${SETTINGS_FILE}`);
-  if (dropped > 0) {
-    d.write(CHOICES_FILE, choicesText(kept));
+  if (dropped > 0) d.write(CHOICES_FILE, choicesText(kept));
+  const shippedHere = new Set(now.presets.flatMap((p) => Object.keys(p.files)));
+  const lines = await quietSync(d, (path) => shippedHere.has(path));
+  if (lines === null) return 1;
+  const ok = paint("green", "✓");
+  d.out(`${ok} Removed ${name} from ${SETTINGS_FILE} and ${LOCK_FILE}.`);
+  if (dropped > 0)
     d.out(
-      `removed ${dropped} choice${dropped === 1 ? "" : "s"} from ${CHOICES_FILE}`,
+      `${ok} Removed ${dropped} choice${dropped === 1 ? "" : "s"} from ${CHOICES_FILE}.`,
     );
-  }
-  const { pkg } = splitName(name);
-  if (!listed.some((n) => n !== name && splitName(n).pkg === pkg))
-    d.npm(["uninstall", pkg]);
-  return syncing(d, false);
+  for (const line of lines) d.out(line);
+  return 0;
 }
 
 // ---------------------------------------------------------------- choices
@@ -784,7 +805,7 @@ export async function choices(_argv: string[], d: PresetDeps): Promise<number> {
   try {
     r = await d.resolve(ownText, before);
   } catch (e) {
-    d.err(e instanceof Error ? e.message : String(e));
+    d.err(said(e, d.paint ?? plain));
     return 1;
   }
   // What is not chosen yet comes first: it is what a choice is wanted for.
@@ -852,7 +873,7 @@ export async function chooseOne(
   try {
     r = await d.resolve(d.read(SETTINGS_FILE) ?? "", before);
   } catch (e) {
-    d.err(e instanceof Error ? e.message : String(e));
+    d.err(said(e, d.paint ?? plain));
     return 1;
   }
   const g = r.resolution.disagreements.find((x) => x.key === key);
@@ -879,7 +900,7 @@ const ADVICE: Record<string, string> = {
   unknown: "",
 };
 
-/** Each folder under `dir` with a preset file, the package's own first. */
+/** Each folder under `dir` with a preset file, `dir` itself first. */
 function presetFolders(dir: string, base = dir): string[] {
   const here = existsSync(join(dir, PRESET_FILE))
     ? [relative(base, dir).split(sep).join("/")]
@@ -896,20 +917,13 @@ function presetFolders(dir: string, base = dir): string[] {
 }
 
 export async function check(_argv: string[], d: PresetDeps): Promise<number> {
-  const none = "No preset here: no factory-preset.yaml beside a package.json";
-  const manifest = join(d.cwd, "package.json");
-  if (!existsSync(manifest)) {
-    d.err(none);
-    return 1;
-  }
   const folders = presetFolders(d.cwd);
   if (!folders.length) {
-    d.err(none);
+    d.err(`No preset here: no ${PRESET_FILE} in this folder or below it`);
     return 1;
   }
-  const pkg = String(JSON.parse(readFileSync(manifest, "utf8")).name ?? "");
   const { load } = await import("js-yaml");
-  const names = folders.map((f) => (f ? `${pkg}/${f}` : pkg));
+  const names = folders.map((f) => (f ? `${f}/${PRESET_FILE}` : PRESET_FILE));
   const shippedNames = new Set(
     folders.flatMap((f) =>
       shipped(join(d.cwd, f)).map(([to]) =>
@@ -919,8 +933,8 @@ export async function check(_argv: string[], d: PresetDeps): Promise<number> {
   );
   const problems: string[] = [];
   const notes: string[] = [];
-  folders.forEach((f) => {
-    const file = f ? `${f}/${PRESET_FILE}` : PRESET_FILE;
+  folders.forEach((f, i) => {
+    const file = names[i]!;
     let raw: unknown;
     try {
       raw = load(readFileSync(join(d.cwd, file), "utf8"));
@@ -1044,7 +1058,7 @@ function leaves(
 }
 
 /** `factory preset changes REF`: what the presets' update changed here,
- * as `factory-deps` comments it. */
+ * as its pull request describes it. */
 export async function changes(argv: string[], d: PresetDeps): Promise<number> {
   const ref = argv[0];
   if (!ref) {
@@ -1075,12 +1089,10 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
   ];
   const out: string[] = [];
 
-  const versions = (l: typeof a) =>
-    new Map(l.presets.map((p) => [splitName(p.name).pkg, p.version]));
-  const [va, vb] = [versions(a), versions(b)];
-  for (const [pkg, v] of vb) {
-    const was = va.get(pkg);
-    if (was !== undefined && was !== v) out.push(`${pkg} ${was} → ${v}`);
+  for (const p of b.presets) {
+    const was = a.presets.find((x) => x.name === p.name)?.commit;
+    if (was !== undefined && was !== p.commit)
+      out.push(`${p.name} ${short(was)} → ${short(p.commit)}`);
   }
 
   const here: string[] = [];
@@ -1127,6 +1139,9 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
       `- ${key}: ${show(x)} → ${show(y)}${sa !== sb && sb && sb !== OWN && sb !== "default" ? `, now from ${sb}` : ""}`,
     );
   }
+  const [ha, hb] = [writtenHashes(a), writtenHashes(b)];
+  for (const [f, hash] of hb)
+    if (ha.has(f) && ha.get(f) !== hash) here.push(`- ${f}, rewritten`);
   for (const f of added) if (!explained.has(f)) here.push(`- wrote ${f}`);
   for (const f of deleted) if (!explained.has(f)) here.push(`- deleted ${f}`);
 
@@ -1189,13 +1204,23 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
     out.push(title, ...lines);
   });
   if (choice.length)
-    out.push(
-      "",
-      "To choose, on this branch:",
-      "  npx --no-install factory preset choices",
-    );
+    out.push("", "To choose, on this branch:", "  factory preset choices");
   for (const line of out) d.out(line);
   return 0;
+}
+
+/** The hash of each preset's file a lock lists as written, from the
+ * preset whose file it is: the one no other's replaced. */
+function writtenHashes(l: Lock): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const p of l.presets)
+    for (const [file, hash] of Object.entries(p.files))
+      if (
+        l.files.includes(file) &&
+        !(l.overridden[file] ?? []).some((o) => o.from === p.name)
+      )
+        out.set(file, hash);
+  return out;
 }
 
 /** A setting's value in a lock: a list's whole value, or a plugin by its
@@ -1214,60 +1239,25 @@ function valueAt(l: { settings: Obj | null }, key: string): unknown {
 
 // ---------------------------------------------------------------- doctor
 
-/** Doctor's lines for the lock and the presets it records. */
+/** Doctor's lines for the lock and the presets it pins. */
 export async function presetChecks(
   root: string,
   stale: string | null,
 ): Promise<Check[]> {
-  const out: Check[] = [];
-  const read = (p: string) => {
-    try {
-      return readFileSync(join(root, p), "utf8");
-    } catch {
-      return null;
-    }
-  };
-  const text = read(LOCK_FILE);
   const { load } = await import("js-yaml");
-  const lock = text ? readLock(text, load) : null;
-  const shownByPreset = new Set<string>();
-  const hasModules = existsSync(join(root, "node_modules"));
-  for (const p of lock?.presets ?? []) {
-    const pkg = splitName(p.name).pkg;
-    const v = hasModules
-      ? (findPackage(root, pkg)?.version ?? null)
-      : undefined;
-    if (v === null) {
-      const m = staleMessages.notInstalled(p.name);
-      shownByPreset.add(m);
-      out.push({ state: "fail", text: m });
-    } else if (v !== undefined && v !== p.version) {
-      const m = staleMessages.version(p.name, v, p.version);
-      shownByPreset.add(m);
-      out.push({ state: "fail", text: m });
-    } else
-      out.push({
-        state: "pass",
-        text: `${p.name} ${p.version} is installed, as the lock records`,
-      });
+  let text: string | null;
+  try {
+    text = readFileSync(join(root, LOCK_FILE), "utf8");
+  } catch {
+    text = null;
   }
-  if (stale && !shownByPreset.has(stale))
-    out.unshift({ state: "fail", text: stale });
-  const dependabot = read(DEPENDABOT);
-  if (dependabot !== null)
-    for (const pkg of new Set(
-      (lock?.presets ?? []).map((p) => splitName(p.name).pkg),
-    ))
-      out.push(
-        (await hasOwnGroup(dependabot, pkg))
-          ? { state: "pass", text: `${pkg} has a Dependabot group of its own` }
-          : {
-              state: "fail",
-              text: `${pkg} has no Dependabot group of its own, so its updates may arrive with other packages`,
-              fix: `in ${DEPENDABOT}, give ${pkg} a group of its own`,
-            },
-      );
-  return out;
+  return [
+    ...(stale ? [{ state: "fail" as const, text: stale }] : []),
+    ...pinsOf(text, load).map((p) => ({
+      state: "pass" as const,
+      text: `${p.name} is pinned at ${short(p.commit)}`,
+    })),
+  ];
 }
 
 // ---------------------------------------------------------------- running
@@ -1296,7 +1286,7 @@ export async function main(argv: string[], d: PresetDeps): Promise<number> {
     return await run(rest, d);
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;
-    d.err(e.message);
+    d.err(said(e, d.paint ?? plain));
     return 1;
   }
 }
@@ -1330,14 +1320,6 @@ export function presetDeps(root = repoRoot()): PresetDeps {
         rl.close();
       }
     },
-    npm: (args) => {
-      const r = spawnSync("npm", args, { cwd: root, encoding: "utf8" });
-      return {
-        status: r.status ?? 1,
-        stdout: r.stdout ?? "",
-        stderr: r.stderr ?? "",
-      };
-    },
     sync: async (out) => {
       const sync = await import("./sync.mts");
       return sync.main([], {
@@ -1345,23 +1327,16 @@ export function presetDeps(root = repoRoot()): PresetDeps {
         out,
       });
     },
-    show: (ref, path) => {
-      try {
-        return execFileSync("git", ["show", `${ref}:${path}`], {
-          cwd: root,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-        });
-      } catch {
-        return null;
-      }
-    },
-    resolve: (own, choicesFile) =>
+    show: (ref, path) => fileAt(root, ref, path),
+    resolve: (own, choicesFile, lock) =>
       resolveFiles({
         ...files,
         readFile: () => own,
         readChoices: () => choicesFile,
+        ...(lock === undefined ? {} : { readLock: () => lock }),
       }),
+    fetch: (repository, codeHost) => fetchDeps(repository, codeHost),
+    now: () => new Date(),
     write: (path, text) => {
       const at = join(root, path);
       if (text === null) rmSync(at, { force: true });

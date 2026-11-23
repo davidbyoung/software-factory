@@ -4,24 +4,16 @@
 everything that must give the same answer every time. You will run a few
 of these yourself; most are run for you.
 
-Run any command as `factory`, from the global install the
-[quick start](quick-start.md#1-install) sets up. Run in a repository, it
-hands the run to the copy that repository installed, so each repository
-keeps its own version; in a repository with none, it says how to install
-one and exits 1. `factory` with no command, or one it does not have, prints
-the list of commands it has and exits non-zero.
+Run any command as `factory`, from the one install on your machine that
+the [quick start](quick-start.md#1-install) sets up. `factory` with no
+command, or one it does not have, prints the list of commands it has and
+exits non-zero.
 
 Commands you read yourself, such as `doctor`, `status`, and
 `config explain`, use color when they print to a terminal: a green ✓, a
 red ✗, and dim text for what needs no attention. The marks and words
 are the same without it. Set `NO_COLOR` to turn color off, or
 `FORCE_COLOR=1` to keep it when you pipe the output, as to `less -R`.
-
-> **Without the global install, type `npx --no-install factory`.** Another
-> package on npm is called `factory`. Where this one is not installed, `npx`
-> without `--no-install` offers to download and run that one instead; with
-> it, `npx` fails. The factory's own skills, hooks, and workflows always
-> run it that way, since they cannot count on a global install.
 
 A table with a State column has commands still to come, marked
 **Planned**; every command in a table without one is built.
@@ -30,12 +22,52 @@ A table with a State column has commands still to come, marked
 The skills are not `factory` commands: you type one in a session as a
 slash command, such as `/factory-refine 12`. [Skills](skills.md) lists them.
 
+## Which version runs
+
+The command you installed only starts the factory. Each repository names
+the version it uses, in the `version:` line of `.claude/factory.lock`,
+and that is the one that runs there:
+
+| Where you run `factory`                                   | What runs                                                                         |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| A repository whose `.claude/factory.lock` names a version | That version. The first time, npm downloads it, and a line says so                |
+| A repository not set up yet, or outside any repository    | The version installed on your machine                                             |
+| When you run `factory update`, in any directory           | The version installed on your machine, which hands the sync to the newest release |
+| With `FACTORY_VERSION` set to a release                   | That release, for that one command, whatever the lock names                       |
+
+```text
+Downloading the factory 0.3.0, which this repository names. This happens once.
+```
+
+`FACTORY_VERSION=0.3.0 factory init` runs that one `init` at 0.3.0.
+`factory update` sets the variable itself for its sync, and
+[Updating](updating.md#naming-every-column) uses it where a release needs
+a setting before it can sync. A run in the cloud installs the version the
+repository names:
+[What a job installs](github/reference.md#what-a-job-installs).
+
+Each version it downloads is kept in `~/.cache/software-factory/`, or
+under `$XDG_CACHE_HOME` when that is set, and the folder is safe to
+delete. When a version cannot be downloaded, the command stops, exits 1,
+and ends its line with npm's own reason:
+
+```text
+✗ This repository names the factory 0.3.0, and it could not be downloaded: npm error 404 Not Found
+```
+
+A session's hooks run the same command. On a machine without it, they
+stop each command the session tries to run, and print:
+
+```text
+The factory is not installed on this machine. Install it once: npm install -g @davidbyoung/software-factory
+```
+
 ## Setting up
 
 | Command                | When you run it                                                                                             |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `factory init`         | Once, to set a repository up. Again, to turn a part on or off                                               |
-| `factory sync`         | After installing, updating, or editing `.claude/factory.yaml`                                               |
+| `factory sync`         | After editing `.claude/factory.yaml`, to write the factory's files from your settings                       |
 | `factory sync --check` | To see that the factory's files match your settings. It also runs in CI                                     |
 | `factory config check` | To validate your settings. It also runs in CI                                                               |
 | `factory board check`  | After pointing [`tickets.board`](configuration.md#tickets) at your board, to see how it reads it            |
@@ -86,37 +118,43 @@ command exit 1.
 
 ## Now and then
 
-| Command                  | When you run it                                                   | State |
-| ------------------------ | ----------------------------------------------------------------- | ----- |
-| `factory config get KEY` | To print one setting in effect, such as `tickets.board`           | Built |
-| `factory config explain` | To see every setting in effect, defaults included                 | Built |
-| `factory plugins`        | To see the plugins the factory will use, by role                  | Built |
-| `factory site compare`   | To picture a website's pages before and after a change. See below | Built |
-| `factory site stop`      | To end the sites `compare --keep` left running                    | Built |
-| `factory remove`         | To take the factory out of a repository                           | Built |
+| Command                  | When you run it                                                                                               | State |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------- | ----- |
+| `factory config get KEY` | To print one setting in effect, such as `tickets.board`                                                       | Built |
+| `factory config explain` | To see every setting in effect, defaults included                                                             | Built |
+| `factory plugins`        | To see the plugins the factory will use, by role                                                              | Built |
+| `factory site compare`   | To picture a website's pages before and after a change. See below                                             | Built |
+| `factory site stop`      | To end the sites `compare --keep` left running                                                                | Built |
+| `factory update`         | To raise the factory to its newest release, and each preset to its newest commit, without waiting for the job | Built |
+| `factory remove`         | To take the factory out of a repository                                                                       | Built |
 
 `factory plugins` prints one line for each plugin, the factory's own
 included: its kind, its name, its [role](plugins.md#the-roles), then its
 files or labels. `factory plugins ROLE` prints one role's lines.
 
-A new version is installed with npm and applied with `factory sync`, as
-[Updating](updating.md) says. [Removing](removing.md) says what `remove`
-deletes and what it leaves to you.
+`factory update` changes the version your repository names and syncs, and
+leaves the files for you to commit:
+[Doing it yourself](updating.md#doing-it-yourself) shows what it prints.
+The update job runs it with `--pull-requests`, which opens a pull request
+for each update instead ([Updating](updating.md#what-happens)).
+[Removing](removing.md) says what `remove` deletes and what it leaves to
+you.
 
 ## Presets
 
-A [preset](presets.md) is an npm package of settings that several
-repositories share, listed under
-[`presets`](configuration.md#presets).
+A [preset](presets.md) is a folder of settings, in a repository on your
+code host, that several repositories share. A repository lists each one
+it follows under [`presets`](configuration.md#presets), by the name of
+the repository that holds it, such as `acme/factory-config`.
 
-| Command                            | When you run it                                                                                                                                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `factory preset add NAME`          | To follow a preset. It shows what would change and asks before changing anything                                                                                                           |
-| `factory preset remove NAME`       | To stop following one, the same way                                                                                                                                                        |
-| `factory preset choices`           | To see where two of your presets disagree, and choose which one this repository follows                                                                                                    |
-| `factory preset choose KEY PRESET` | To record one of those choices without questions, from a session or a script, as [Your choices](presets.md#your-choices) shows                                                             |
-| `factory preset check`             | In a preset's own package, before publishing it                                                                                                                                            |
-| `factory preset changes REF`       | To see what the presets' update changed since `REF`, a git branch, tag, or commit such as `origin/main`. The [`factory-deps`](skills.md#factory-deps) skill posts it on each preset update |
+| Command                            | When you run it                                                                                                                                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory preset add NAME`          | To follow a preset. It shows what would change and asks before changing anything                                                                                                                        |
+| `factory preset remove NAME`       | To stop following one, the same way                                                                                                                                                                     |
+| `factory preset choices`           | To see where two of your presets disagree, and choose which one this repository follows                                                                                                                 |
+| `factory preset choose KEY PRESET` | To record one of those choices without questions, from a session or a script, as [Your choices](presets.md#your-choices) shows                                                                          |
+| `factory preset check`             | In a checkout of a preset's own repository, before merging a change to it                                                                                                                               |
+| `factory preset changes REF`       | To see what the presets' update changed since `REF`, a git branch, tag, or commit such as `origin/main`. It is the description of each [preset update's pull request](presets.md#when-a-preset-changes) |
 
 `add` and `remove` ask only in a terminal. Elsewhere they print what would
 change and stop, unless given `--yes`; `--dry-run` prints it and changes
@@ -140,35 +178,35 @@ ticket system would swallow, name it, and post nothing.
 
 N is the ticket's key as your ticket system writes it: `12` on GitHub.
 
-| Command                                                    | What it does                                                                                                                                                                                                                                                                                                                                          |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory ticket view N`                                    | Prints ticket N: its title, state, labels, body, and comments with their IDs and authors. A label you renamed shows its key beside it                                                                                                                                                                                                                 |
-| `factory ticket answers N`                                 | Prints each comment on N that counts as an answer: its author can write to the repository, and it is not the factory's own. Says so when there is none                                                                                                                                                                                                |
-| `factory ticket view N --field NAME`                       | Prints one of `title`, `state`, `labels` (one per line), `body`, or `ref`, how the ticket system writes N in prose, such as `#12`, and nothing else                                                                                                                                                                                                   |
-| `factory ticket list`                                      | Lists the open tickets: key, title, and labels, separated by tabs                                                                                                                                                                                                                                                                                     |
-| `factory ticket list --label LABEL`                        | Only those with the label. `--title "TITLE"` keeps those whose title is exactly that                                                                                                                                                                                                                                                                  |
-| `factory ticket edit N [--title TITLE] [--body-file FILE]` | Replaces N's title, its body, or both. `--attach FILE` adds an image to a body                                                                                                                                                                                                                                                                        |
-| `factory ticket comment N --body-file FILE`                | Comments on N and prints the comment's ID. `--attach FILE` adds an image                                                                                                                                                                                                                                                                              |
-| `factory ticket open --title TITLE --body-file FILE`       | Opens a ticket with the factory label and prints its key. `--label LABEL` adds another                                                                                                                                                                                                                                                                |
-| `factory ticket label N --add LABEL`                       | Adds a label to N. `--remove LABEL` takes one off                                                                                                                                                                                                                                                                                                     |
-| `factory ticket label N --was-removed LABEL`               | Prints `yes` if the label was ever removed from N, otherwise `no`                                                                                                                                                                                                                                                                                     |
-| `factory ticket link N`                                    | Prints the text that makes a merged pull request close N, such as "Closes #12". `--part` prints the text that says it builds part of N, such as "Part of #4"                                                                                                                                                                                          |
-| `factory ticket branch N`                                  | Prints the branch a build of N pushes, from [`code-host.branch-name`](configuration.md#code-host), such as `12` or `feature/octocat/12`. Exits 1 when N does not exist, or the pattern has `{user}` and `gh` is not signed in                                                                                                                         |
-| `factory ticket blockers N`                                | One line per ticket N waits on: the ticket, as its system writes it, and whether it is open                                                                                                                                                                                                                                                           |
-| `factory ticket block N --by M`                            | Records that N waits on M                                                                                                                                                                                                                                                                                                                             |
-| `factory ticket unblock N --by M`                          | Removes that record                                                                                                                                                                                                                                                                                                                                   |
-| `factory ticket supports GROUP`                            | Prints `yes` or `no` for `board`, `blockers`, `label-history`, or `attachments`                                                                                                                                                                                                                                                                       |
-| `factory ticket claim N`                                   | Claims ticket N for this session. Prints `claimed`, `held by`, or `blocked by`. Adds the factory label first when N lacks it, and says so                                                                                                                                                                                                             |
-| `factory ticket adopt N...`                                | Adds the factory label to each ticket named. `--all-open` labels every open ticket instead, and `--since-lock FILE`, which `factory-deps` uses on an update, labels only when FILE, the `.claude/factory.lock` the update replaces, has no [`tickets.labels.factory`](configuration.md#ticketslabels). Prints each it labeled, then how many carry it |
-| `factory ticket still-live N`                              | Says whether this session still holds N                                                                                                                                                                                                                                                                                                               |
-| `factory ticket stop N "reason"`                           | Releases N and says why                                                                                                                                                                                                                                                                                                                               |
-| `factory ticket end N`                                     | A run's last step: releases this session's claim if no open pull request links N. Prints `released`, `kept`, or `not live`                                                                                                                                                                                                                            |
-| `factory ticket refining N`                                | Marks N as being refined. Adds the factory label first when N lacks it, and says so                                                                                                                                                                                                                                                                   |
-| `factory ticket waiting N`                                 | Marks N as waiting on your reply to a round of questions                                                                                                                                                                                                                                                                                              |
-| `factory ticket refined N`                                 | Marks N as refined, unless its body lacks what a build reads. `--check` makes that check alone and posts nothing                                                                                                                                                                                                                                      |
-| `factory ticket ready N`                                   | Moves N to Ready. Only when you ask a session to. Adds the factory label first when N lacks it, and says so                                                                                                                                                                                                                                           |
-| `factory ticket cost N`                                    | Notes what this session has spent on ticket N so far                                                                                                                                                                                                                                                                                                  |
-| `factory follow-up FILE "what is wrong"`                   | Adds a line about that file to the follow-ups ticket, opening the ticket if none is open                                                                                                                                                                                                                                                              |
+| Command                                                    | What it does                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory ticket view N`                                    | Prints ticket N: its title, state, labels, body, and comments with their IDs and authors. A label you renamed shows its key beside it                                                                                                                                                                       |
+| `factory ticket answers N`                                 | Prints each comment on N that counts as an answer: its author can write to the repository, and it is not the factory's own. Says so when there is none                                                                                                                                                      |
+| `factory ticket view N --field NAME`                       | Prints one of `title`, `state`, `labels` (one per line), `body`, or `ref`, how the ticket system writes N in prose, such as `#12`, and nothing else                                                                                                                                                         |
+| `factory ticket list`                                      | Lists the open tickets: key, title, and labels, separated by tabs                                                                                                                                                                                                                                           |
+| `factory ticket list --label LABEL`                        | Only those with the label. `--title "TITLE"` keeps those whose title is exactly that                                                                                                                                                                                                                        |
+| `factory ticket edit N [--title TITLE] [--body-file FILE]` | Replaces N's title, its body, or both. `--attach FILE` adds an image to a body                                                                                                                                                                                                                              |
+| `factory ticket comment N --body-file FILE`                | Comments on N and prints the comment's ID. `--attach FILE` adds an image                                                                                                                                                                                                                                    |
+| `factory ticket open --title TITLE --body-file FILE`       | Opens a ticket with the factory label and prints its key. `--label LABEL` adds another                                                                                                                                                                                                                      |
+| `factory ticket label N --add LABEL`                       | Adds a label to N. `--remove LABEL` takes one off                                                                                                                                                                                                                                                           |
+| `factory ticket label N --was-removed LABEL`               | Prints `yes` if the label was ever removed from N, otherwise `no`                                                                                                                                                                                                                                           |
+| `factory ticket link N`                                    | Prints the text that makes a merged pull request close N, such as "Closes #12". `--part` prints the text that says it builds part of N, such as "Part of #4"                                                                                                                                                |
+| `factory ticket branch N`                                  | Prints the branch a build of N pushes, from [`code-host.branch-name`](configuration.md#code-host), such as `12` or `feature/octocat/12`. Exits 1 when N does not exist, or the pattern has `{user}` and `gh` is not signed in                                                                               |
+| `factory ticket blockers N`                                | One line per ticket N waits on: the ticket, as its system writes it, and whether it is open                                                                                                                                                                                                                 |
+| `factory ticket block N --by M`                            | Records that N waits on M                                                                                                                                                                                                                                                                                   |
+| `factory ticket unblock N --by M`                          | Removes that record                                                                                                                                                                                                                                                                                         |
+| `factory ticket supports GROUP`                            | Prints `yes` or `no` for `board`, `blockers`, `label-history`, or `attachments`                                                                                                                                                                                                                             |
+| `factory ticket claim N`                                   | Claims ticket N for this session. Prints `claimed`, `held by`, or `blocked by`. Adds the factory label first when N lacks it, and says so                                                                                                                                                                   |
+| `factory ticket adopt N...`                                | Adds the factory label to each ticket named. `--all-open` labels every open ticket instead, and `--since-lock FILE` labels only when FILE, the `.claude/factory.lock` an update replaces, has no [`tickets.labels.factory`](configuration.md#ticketslabels). Prints each it labeled, then how many carry it |
+| `factory ticket still-live N`                              | Says whether this session still holds N                                                                                                                                                                                                                                                                     |
+| `factory ticket stop N "reason"`                           | Releases N and says why                                                                                                                                                                                                                                                                                     |
+| `factory ticket end N`                                     | A run's last step: releases this session's claim if no open pull request links N. Prints `released`, `kept`, or `not live`                                                                                                                                                                                  |
+| `factory ticket refining N`                                | Marks N as being refined. Adds the factory label first when N lacks it, and says so                                                                                                                                                                                                                         |
+| `factory ticket waiting N`                                 | Marks N as waiting on your reply to a round of questions                                                                                                                                                                                                                                                    |
+| `factory ticket refined N`                                 | Marks N as refined, unless its body lacks what a build reads. `--check` makes that check alone and posts nothing                                                                                                                                                                                            |
+| `factory ticket ready N`                                   | Moves N to Ready. Only when you ask a session to. Adds the factory label first when N lacks it, and says so                                                                                                                                                                                                 |
+| `factory ticket cost N`                                    | Notes what this session has spent on ticket N so far                                                                                                                                                                                                                                                        |
+| `factory follow-up FILE "what is wrong"`                   | Adds a line about that file to the follow-ups ticket, opening the ticket if none is open                                                                                                                                                                                                                    |
 
 A command that records something on a ticket, such as `claim`,
 `refining`, `cost`, `open`, or `adopt`, then starts the board sync, so the
@@ -176,7 +214,7 @@ board follows it. When it cannot start it, it says so on a line of its
 own and still exits 0, and the nightly sync catches up:
 
 ```text
-? the board updates at the nightly sync: couldn't start factory-board-sync (HTTP 403: Resource not accessible by integration)
+? the board updates at the nightly sync: couldn't start the board sync (HTTP 403: Resource not accessible by integration)
 ```
 
 `factory ticket refined N` posts nothing and exits 1 when N's body lacks a
@@ -226,6 +264,11 @@ the factory's own jobs, so a failed board sync does not stop a pull
 request being marked ready. With no run two minutes after the commit became the head, it
 prints `no checks` and exits 0. A failure exits 3.
 
+Where [`pr-review`](configuration.md#pr-review) is not set, no automated
+review runs. `factory pr state N` then prints
+`Claude review: none expected on this head`, and `factory pr state N --wait`
+and `factory pr watch N` wait for none.
+
 ### Your repository's commands
 
 Skills call these to check and test a change, so no skill names a test
@@ -268,25 +311,27 @@ the commit hook blocks a session's git command with it.
 
 ### Workflows and hooks
 
-| Command                     | Run by                                                                                                                                | What it does                                                                                                                                                             | State |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
-| `factory board collect`     | The board-sync workflow                                                                                                               | Reads the tickets and posts the comments a closed pull request or the nightly run needs                                                                                  | Built |
-| `factory board apply`       | The board-sync workflow                                                                                                               | Sets each ticket's column and fields from its comments                                                                                                                   | Built |
-| `factory board --dry-run`   | You, to see what it would set                                                                                                         | Reads the tickets and the board, prints what the sync would set, and writes nothing                                                                                      | Built |
-| `factory merge-policy N`    | The merge-policy workflow                                                                                                             | Decides whether N may merge without you, and why                                                                                                                         | Built |
-| `factory review verdict`    | The review-verdict workflow                                                                                                           | Posts the "Review verdict" status for a commit                                                                                                                           | Built |
-| `factory review cost`       | The review workflow                                                                                                                   | Adds what the CI review cost to its summary                                                                                                                              | Built |
-| `factory review tools`      | The review workflow                                                                                                                   | Prints the tools the CI review may use, from [`pr-review.commands`](configuration.md#pr-review)                                                                          | Built |
-| `factory review tickets N`  | The review workflow                                                                                                                   | Each ticket pull request N closes or builds part of, headed by its name and title, with its body                                                                         | Built |
-| `factory poller`            | Your server                                                                                                                           | Starts a build for each Ready ticket. See [Builds](builds.md)                                                                                                            | Built |
-| `factory poller --once`     | The scheduled poller's workflow                                                                                                       | One pass of the poller, with the board and Ready column from your settings                                                                                               | Built |
-| `factory guard`             | A hook, before each command                                                                                                           | Runs every guard below on one Bash call                                                                                                                                  | Built |
-| `factory guard commit`      | Within `factory guard`                                                                                                                | Blocks a commit on your default branch, a push to it, a force push, or a commit while a [`commands.before-commit`](configuration.md#commandsbefore-commit) command fails | Built |
-| `factory guard ticket-text` | Within `factory guard`                                                                                                                | Refuses ticket text with a bare `<tag>`, which the ticket system would swallow                                                                                           | Built |
-| `factory guard credentials` | Within `factory guard`, and a hook before each file read, search, or listing, with a ticket system that keeps a token on your machine | Refuses a call that reads the credentials file, which only the factory's commands read. A message or a search that only mentions it goes through                         | Built |
-| `factory reviewers start`   | A hook, when an agent starts                                                                                                          | Records a reviewer's run on the ticket, for its cost                                                                                                                     | Built |
-| `factory reviewers stop`    | A hook, when an agent stops                                                                                                           | The same                                                                                                                                                                 | Built |
-| `factory session-start`     | A hook, when a session starts                                                                                                         | Shows unfinished branches and each ticket's state                                                                                                                        | Built |
+| Command                                  | Run by                                                                                                                                | What it does                                                                                                                                                                | State |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `factory board collect`                  | The board sync's job                                                                                                                  | Reads the tickets and posts the comments a closed pull request or the nightly run needs                                                                                     | Built |
+| `factory board apply`                    | The board sync's job                                                                                                                  | Sets each ticket's column and fields from its comments                                                                                                                      | Built |
+| `factory board --dry-run`                | You, to see what it would set                                                                                                         | Reads the tickets and the board, prints what the sync would set, and writes nothing                                                                                         | Built |
+| `factory merge-policy N`                 | The job that says who merges                                                                                                          | Decides whether N may merge without you, and why                                                                                                                            | Built |
+| `factory review verdict`                 | The job that records the review's verdict                                                                                             | Posts the "Review verdict" status for a commit                                                                                                                              | Built |
+| `factory review cost`                    | The automated review's job                                                                                                            | Adds what the CI review cost to its summary                                                                                                                                 | Built |
+| `factory review tools`                   | The automated review's job                                                                                                            | Prints the tools the CI review may use, from [`pr-review.commands`](configuration.md#pr-review)                                                                             | Built |
+| `factory review tickets N`               | The automated review's job                                                                                                            | Each ticket pull request N closes or builds part of, headed by its name and title, with its body                                                                            | Built |
+| `factory poller`                         | Your server                                                                                                                           | Starts a build for each Ready ticket. See [Builds](builds.md)                                                                                                               | Built |
+| `factory poller --once`                  | The poller's job                                                                                                                      | One pass of the poller, with the board and Ready column from your settings                                                                                                  | Built |
+| `factory session ready KIND [PR REVIEW]` | A job that would run a cloud session: a build, an answer to your review, the conflict sweep, or Dependabot's pull requests            | Decides whether the session runs. It looks for work first, then for the build token and Claude's credential, as [With a part off](github/reference.md#with-a-part-off) says | Built |
+| `factory update --pull-requests`         | The update job                                                                                                                        | Opens a pull request for a newer release of the factory, and one for each preset repository whose preset changed ([Updating](updating.md#what-happens))                     | Built |
+| `factory guard`                          | A hook, before each command                                                                                                           | Runs every guard below on one Bash call                                                                                                                                     | Built |
+| `factory guard commit`                   | Within `factory guard`                                                                                                                | Blocks a commit on your default branch, a push to it, a force push, or a commit while a [`commands.before-commit`](configuration.md#commandsbefore-commit) command fails    | Built |
+| `factory guard ticket-text`              | Within `factory guard`                                                                                                                | Refuses ticket text with a bare `<tag>`, which the ticket system would swallow                                                                                              | Built |
+| `factory guard credentials`              | Within `factory guard`, and a hook before each file read, search, or listing, with a ticket system that keeps a token on your machine | Refuses a call that reads the credentials file, which only the factory's commands read. A message or a search that only mentions it goes through                            | Built |
+| `factory reviewers start`                | A hook, when an agent starts                                                                                                          | Records a reviewer's run on the ticket, for its cost                                                                                                                        | Built |
+| `factory reviewers stop`                 | A hook, when an agent stops                                                                                                           | The same                                                                                                                                                                    | Built |
+| `factory session-start`                  | A hook, when a session starts                                                                                                         | Shows unfinished branches and each ticket's state                                                                                                                           | Built |
 
 The board sync runs `collect` and `apply` as two steps, so the board's
 token reaches only the second. The board's number comes from

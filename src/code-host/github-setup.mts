@@ -12,10 +12,12 @@ import {
 import { PR_LABELS } from "../labels.mts";
 import {
   RULE,
+  type Check,
   type Need,
   type SetupContext,
   type ToolSetup,
 } from "../setup.mts";
+import { FACTORY_FILE, HELD_EVENT } from "../workflow-files.mts";
 import type { TokenNeed } from "./types.mts";
 
 /** The repository a remote's address names, or null for one not on
@@ -74,6 +76,36 @@ function tokenReads(c: SetupContext): Need[] {
 
 const ALL_TOKENS = [BOARD_TOKEN, BUILD_TOKEN, AUTOMERGE_TOKEN];
 
+/** Whether the factory's workflow may start on the event GitHub holds back
+ * in a public repository: a line for a public one, and none for a private
+ * one, where nothing is held back. */
+async function eventsCheck(c: SetupContext): Promise<Check[]> {
+  const subject = `${HELD_EVENT} is allowed for ${FACTORY_FILE}`;
+  try {
+    const answer = await c.opened.codeHost.eventAllowed(
+      FACTORY_FILE,
+      HELD_EVENT,
+    );
+    if (answer === "open") return [];
+    return answer === "allowed"
+      ? [{ state: "pass", text: subject }]
+      : [
+          {
+            state: "fail",
+            text: `${HELD_EVENT} is not allowed for ${FACTORY_FILE}, so GitHub runs no verdict, merge policy, or board sync on a pull request`,
+            fix: "Run factory init",
+          },
+        ];
+  } catch (e) {
+    return [
+      {
+        state: "unknown",
+        text: `Could not tell whether ${HELD_EVENT} is allowed: ${e instanceof Error ? e.message : String(e)}`,
+      },
+    ];
+  }
+}
+
 export const githubCodeHostSetup: ToolSetup = {
   steps: (c) => {
     const needs = tokenReads(c);
@@ -131,13 +163,12 @@ export const githubCodeHostSetup: ToolSetup = {
   },
 
   checks: async (c) => {
+    let signedIn: Check;
     try {
-      return [
-        {
-          state: "pass",
-          text: `Signed in as ${await c.opened.codeHost.signedInAs()}`,
-        },
-      ];
+      signedIn = {
+        state: "pass",
+        text: `Signed in as ${await c.opened.codeHost.signedInAs()}`,
+      };
     } catch (e) {
       return [
         {
@@ -147,6 +178,7 @@ export const githubCodeHostSetup: ToolSetup = {
         },
       ];
     }
+    return [signedIn, ...(await eventsCheck(c))];
   },
 
   leftovers: (c) => {

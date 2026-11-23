@@ -43,10 +43,6 @@ export const PART_TEXT: Record<Part, { name: string; gives: string }> = {
   },
 };
 
-/** The workflow that runs the automated review, which `factory sync`
- * writes while the settings have `pr-review`. */
-export const REVIEW_WORKFLOW = ".github/workflows/factory-claude-review.yml";
-
 export const AGENT_TOKEN = "CLAUDE_CODE_OAUTH_TOKEN";
 export const AGENT_KEY = "ANTHROPIC_API_KEY";
 export const BOARD_TOKEN = "FACTORY_BOARD_TOKEN";

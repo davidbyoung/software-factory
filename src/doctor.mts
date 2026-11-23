@@ -14,11 +14,13 @@ import { join } from "node:path";
 import {
   defaultDeps,
   filesDeps,
+  loadSettings,
   repoRoot,
   resolveFiles,
   staleOf,
   type Settings,
 } from "./config.mts";
+import { lockedVersion } from "./preset.mts";
 import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
@@ -36,7 +38,7 @@ import {
   needDefaultBranch,
   NoDefaultBranch,
 } from "./lib/default-branch.mts";
-import { differences, LOCK, PACKAGE, plan } from "./sync.mts";
+import { differences, launcherPath, LOCK, PACKAGE, plan } from "./sync.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
 import { machineState, type MachineState } from "./lib/credentials.mts";
@@ -48,8 +50,14 @@ export type DoctorDeps = {
   /** The paths a sync would change. It rejects with NoDefaultBranch when
    * the default branch, which the sync writes, cannot be told. */
   outOfStep: (s: Settings) => Promise<string[]> | string[];
-  /** The version installed, and the one the repository's lock records. */
-  versions: () => { installed: string; locked: string | null };
+  /** The version the lock names, or null for none; the factory's newest
+   * release, asked for only when it is needed; and whether the repository
+   * is the factory's own, which runs its source. */
+  factory: () => Promise<{
+    named: string | null;
+    own: boolean;
+    newest: () => Promise<string>;
+  }>;
   /** Whether the lock is current, and each preset it records is installed
    * and has a Dependabot group of its own. */
   lockChecks?: () => Promise<Check[]>;
@@ -114,24 +122,34 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
         },
   );
 
-  const { installed, locked } = d.versions();
-  if (locked === null)
+  const factory = await d.factory();
+  if (factory.own)
+    out.push({ state: "pass", text: "The factory runs from its source here" });
+  else if (factory.named === null)
     out.push({
       state: "fail",
-      text: `Version ${installed} is installed, but the repository records none`,
+      text: "The repository names a version of the factory",
       fix: SYNC,
     });
-  else if (compareVersions(installed, locked) === 0)
-    out.push({
-      state: "pass",
-      text: `Version ${installed} is installed, as the repository records`,
-    });
-  else
-    out.push({
-      state: "fail",
-      text: `Version ${installed} is installed, but the repository records ${locked}`,
-      fix: compareVersions(installed, locked) < 0 ? "Run npm ci" : SYNC,
-    });
+  else {
+    const { named } = factory;
+    try {
+      const newest = await factory.newest();
+      out.push(
+        compareVersions(named, newest) < 0
+          ? {
+              state: "unknown",
+              text: `The factory ${named}. ${newest} is released: merge its pull request, or run factory update`,
+            }
+          : { state: "pass", text: `The factory ${named}, the newest release` },
+      );
+    } catch (e) {
+      out.push({
+        state: "unknown",
+        text: `The factory ${named}. The newest release could not be read: ${message(e)}`,
+      });
+    }
+  }
   out.push(...((await d.lockChecks?.()) ?? []));
   for (const c of out) c.group = SETTINGS;
   const under = (group: string, found: Check[]) =>
@@ -545,20 +563,28 @@ export function doctorDeps(root = repoRoot()): DoctorDeps {
       ),
     lockChecks: async () =>
       presetChecks(root, await staleOf(defaultDeps(root))),
-    versions: () => {
-      const installed = JSON.parse(
+    factory: async () => {
+      const manifest = JSON.parse(
         readFileSync(join(PACKAGE, "package.json"), "utf8"),
-      ).version as string;
-      let locked: string | null = null;
-      try {
-        locked =
-          /^version: (.+)$/m.exec(
-            readFileSync(join(root, LOCK), "utf8"),
-          )?.[1] ?? null;
-      } catch {
-        locked = null;
-      }
-      return { installed, locked };
+      ) as { name: string };
+      const named = lockedVersion(
+        existsSync(join(root, LOCK))
+          ? readFileSync(join(root, LOCK), "utf8")
+          : null,
+      );
+      const home = manifest.name.replace(/^@/, "");
+      return {
+        named,
+        own: launcherPath(PACKAGE, root) === "bin/factory.js",
+        newest: async () => {
+          const s = await loadSettings();
+          const tag = await TOOLS.codeHost[s.codeHost.type]!.open(
+            s.repository,
+          ).newestRelease(home);
+          if (!tag) throw new Error(`${home} has no release`);
+          return tag.replace(/^v/, "");
+        },
+      };
     },
     root,
     hasCommand,

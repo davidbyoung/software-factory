@@ -5,7 +5,7 @@ The process rules that hold in any repository the factory builds.
 a heading of the same name with ": this repository" added. Where the two
 differ, `CLAUDE.md` wins.
 
-Tickets are read and written only through `npx --no-install factory ticket`,
+Tickets are read and written only through `factory ticket`,
 and a pull request's conversation comments and labels through
 `factory pr`, so the rules and skills hold whatever the ticket system.
 
@@ -36,13 +36,13 @@ here rather than restate it.
   owner can overrule it before the work starts rather than halfway through.
 - **No `spec` label**, even when a user sees it: the issue's acceptance
   criteria are the spec. No spec tool change either, unless the change
-  makes a line of a spec `npx --no-install factory specs list` prints
+  makes a line of a spec `factory specs list` prints
   false, as renaming a label a spec quotes would. That issue also carries
   a Spec section of the changed line, and the build folds it into the
   specs in the same pull request, which then waits for the owner. A fix that restores what a spec says
   changes no line of it.
 - **No `factory-ticket-readiness` read and no read by the test reviewers**
-  (`npx --no-install factory plugins test-reviewer` lists them), with two
+  (`factory plugins test-reviewer` lists them), with two
   exceptions that keep every test reviewer it prints whose `files`, if it
   has any, the change touches: a change to
   tests alone, the one kind they exist for, and code that builds what is
@@ -70,12 +70,12 @@ here rather than restate it.
   touched, not every size and scheme, and told the change is small. The UI
   reviewer is `factory-ui-reviewer` where the repository lists it, and
   otherwise the repository's own, among its reviewer plugins
-  (`npx --no-install factory plugins reviewer`).
+  (`factory plugins reviewer`).
 - The gate and CI stay. The pull request says it took this path.
 
 ## Branching, pushing, and review
 
-The default branch, whose name `npx --no-install factory default-branch`
+The default branch, whose name `factory default-branch`
 prints, is protected: no direct pushes, no bypass, CI must pass, and every
 review thread must be resolved before a merge. Work accordingly rather than
 discovering it at push time.
@@ -93,8 +93,8 @@ discovering it at push time.
   built it, wherever it ran, marks it ready once: when the gate passes,
   everything is pushed, GitHub shows the pushed commit as the head, and
   every CI run on it has passed or been skipped
-  (`npx --no-install factory pr wait-checks N`, then
-  `npx --no-install factory pr ready N`).
+  (`factory pr wait-checks N`, then
+  `factory pr ready N`).
   It stays a draft for the owner to mark ready in two cases: a small change
   whose build made a layout or style choice, with the UI reviewer's
   screenshots in the body ("Small changes" above), and a pull request the
@@ -105,23 +105,28 @@ discovering it at push time.
 - **The session that built a PR watches it until it merges or closes.** It
   has the context to fix what comes in. The desktop app's PR monitor does not
   connect in local sessions here, so once the PR is ready, or left a draft
-  for the owner to mark ready (above), a local session runs `npx --no-install factory pr watch N` in the background. That exits when a
+  for the owner to mark ready (above), a local session runs `factory pr watch N` in the background. That exits when a
   check fails, a review or comment lands, or a conflict appears, which wakes
   the session. Work what it reports, then run it again, until it prints
   `merged` or `closed`. A session that stops watching an open PR first runs
   it with `--release`. A run in GitHub Actions, which nothing can wake
   later, works its review under `factory-address-review`, waiting with
-  `npx --no-install factory pr state N --wait`, and does not run it, since
-  nothing can wake it once it stops.
+  `factory pr state N --wait`, and does not run it, since
+  nothing can wake it once it stops. A pull request `factory update`
+  opened was built by no session: its review waits for the owner, who
+  merges it or tells a session to work it with `factory-address-review`.
 - **A pull request that resolves an issue closes it.** When asked to open
-  one, start the body with the line `npx --no-install factory ticket link N`
-  prints for each issue the branch resolves, so the merge closes them. Check that `npx --no-install factory pr closes PR`
+  one, start the body with the line `factory ticket link N`
+  prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
   prints each one.
-- **After pushing, check for review automatically.** The `Claude review`
-  workflow reviews every push to a PR. If an open PR exists for the branch,
-  wait for the review of that push, then work it with the `factory-address-review` skill
+- **After pushing, check for review automatically.** Where the automated
+  review is on, which is where `factory config get pr-review` prints `on`,
+  it reviews every push to a PR that is marked
+  ready. If an open PR exists for the branch, wait for the review of that
+  push, then work it with the `factory-address-review` skill
   without being asked. If no PR exists yet, say so in one line: review begins
-  when the user opens one.
+  when the user opens one. Where the review is off, none comes: a push is
+  done once its checks pass.
 - **A conflict with the default branch is fixed through the `factory-resolve-conflicts` skill.** Its
   sweep runs after each merge into the default branch and nightly, on every ready pull
   request that conflicts, and a session working a pull request with
@@ -129,12 +134,12 @@ discovering it at push time.
   sides contradict, it pushes nothing, comments why, and opens an issue.
 - **An issue is built in GitHub Actions by moving its card to Ready** on
   the board, the GitHub Project whose number
-  `npx --no-install factory config get tickets.board` prints: the
-  poller dispatches the "Factory build" workflow, within about a minute
+  `factory config get tickets.board` prints: the
+  poller starts a build, a run of the "Factory" workflow, within about a minute
   when you host it (`builds.trigger: own-server`) or at its next scheduled
   pass (`github-action`), the same run that
-  `npx --no-install factory build N` starts by hand. A local build starts by telling a session to work the
-  issue. Where `npx --no-install factory config get builds.trigger` prints
+  `factory build N` starts by hand. A local build starts by telling a session to work the
+  issue. Where `factory config get builds.trigger` prints
   `manual`, no poller runs and a card moved to Ready starts nothing: a
   build starts only when the owner tells a session to work the issue or
   runs `factory build N`, so wherever these rules or a skill say Ready
@@ -146,10 +151,10 @@ discovering it at push time.
   which goes to Backlog: a
   build that ends without a merge stays In progress, and a finished
   refinement stays In refinement, both "Waiting on you", and nothing
-  retries on its own. The board-sync workflow alone writes Status,
+  retries on its own. The board sync alone writes Status,
   Session, and Runs in, with one exception: a local session moves the
-  card to Ready with `npx --no-install factory ticket ready N` when the
-  owner asks it to. `npx --no-install factory status` shows the
+  card to Ready with `factory ticket ready N` when the
+  owner asks it to. `factory status` shows the
   same in the terminal.
 - **No thread stays unresolved.** The ruleset blocks a merge while any review
   thread is open. Each one ends fixed, or rejected with evidence, and
@@ -164,21 +169,21 @@ discovering it at push time.
 
 ## What merges without the owner
 
-A pull request merges itself only when the merge-policy workflow labels it
+A pull request merges itself only when the merge policy labels it
 `merge-automatic` and every gate passes on its newest commit,
 `Review verdict` included. The agents' own rules always wait for the
 owner. Its `Who merges` status in the checks list says which, and why.
-Where `.claude/factory.yaml` lists no file under `auto-merge.allow`, no
-merge-policy workflow runs: no pull request gets either label or a `Who merges`
+Where `.claude/factory.yaml` lists no file under `auto-merge.allow`, the
+merge policy does not run: no pull request gets either label or a `Who merges`
 status, and every one waits for the owner, so wherever these rules or a
 skill name them, read it as "waits for the owner".
 
 Agents never merge, enable auto-merge, or add the `verdict-override`
 label, an approver's pass of the verdict for one commit; `factory pr label`
 and `factory ticket label` refuse it, and the guard hook stops the ordinary
-ways of adding it around them. Both workflows run from the default branch's copy,
-so a pull request cannot change how it is judged, and changes to them are
-always the owner's.
+ways of adding it around them. The merge policy and the verdict run from
+the default branch's copy, so a pull request cannot change how it is judged,
+and changes to them are always the owner's.
 
 ## Spec track
 
@@ -200,11 +205,11 @@ skill removes `spec` or adds it back once the owner removed it: both act
 through the owner's GitHub account, so a label already decided is the
 owner's call.
 
-A spec tool, which `npx --no-install factory config get specs` names,
+A spec tool, which `factory config get specs` names,
 also keeps each Spec in the repository: `factory-build` starts it with
-`npx --no-install factory specs new N` and folds it in with
-`npx --no-install factory specs finish N`, in the same pull request.
-`npx --no-install factory specs list` prints the specs the repository
+`factory specs new N` and folds it in with
+`factory specs finish N`, in the same pull request.
+`factory specs list` prints the specs the repository
 keeps, its current description of what it does; a change to one starts
 by reading it. With `specs: none` each of these says each ticket holds
 its own spec, and the issue is the only copy. No skill, agent, rule, or
@@ -228,14 +233,14 @@ To record that issue N is blocked by issue M, list what N waits on, and
 remove one, in any session:
 
 ```bash
-npx --no-install factory ticket block N --by M
-npx --no-install factory ticket blockers N
-npx --no-install factory ticket unblock N --by M
+factory ticket block N --by M
+factory ticket blockers N
+factory ticket unblock N --by M
 ```
 
 `blockers` prints one line per ticket N waits on, as the ticket system
 writes it, and whether it is open. A ticket system without blockers says so: check with
-`npx --no-install factory ticket supports blockers`.
+`factory ticket supports blockers`.
 
 ## Follow-ups
 
@@ -258,11 +263,11 @@ It is added with the file and the rest of the line as two arguments, and
 the script opens the issue when none is open:
 
 ```bash
-npx --no-install factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
+factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
 ```
 
 TICKET is the ticket as its system writes it, which
-`npx --no-install factory ticket view N --field ref` prints, such as `#12`.
+`factory ticket view N --field ref` prints, such as `#12`.
 A reviewer that does not know the ticket writes `TICKET` as it stands, and
 whoever appends the line fills it in.
 
@@ -290,9 +295,9 @@ hook refuses the same in text sent to GitHub directly, as the
 The follow-ups issue builds as one branch and one pull request, one commit
 per line, once the owner approves it, by moving its card to Ready or
 telling a session to build it. The pull request closes it with the line
-`npx --no-install factory ticket link N` prints only when every line is
+`factory ticket link N` prints only when every line is
 checked; otherwise it starts with the line
-`npx --no-install factory ticket link N --part` prints, and the unchecked
+`factory ticket link N --part` prints, and the unchecked
 lines wait there. The sync reads that line as a partial build, so any
 other link to the follow-ups issue words it differently. It has no spec tool change. `factory-build` appends a line and
 builds the issue; `factory-refine` refines it per line. Its lines can be
@@ -310,12 +315,12 @@ finding the builder left undone is not a follow-up either.
 
 ## Changing the process
 
-The factory's skills, agents, rules, review instructions, and workflows
-under `.claude/` and `.github/` are copies, written by `factory sync` from
-the factory's package. Change the source in the package, run
-`npx --no-install factory sync`, and commit both: the gate and CI fail
-when a copy differs from what `sync` writes from its source and the
-settings.
+The factory's skills, agents, rules, and review instructions under
+`.claude/` and `.github/` are copies, and its two workflow files are
+written from the settings, all by `factory sync` from the factory's
+package. Change the source in the package, run `factory sync`, and commit
+both: the gate and CI fail when a file differs from what `sync` writes
+from its source and the settings.
 
 A rule written for the change in front of its author can be wrong for
 every other kind. Once, the step that adds the `spec` label kept adding

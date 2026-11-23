@@ -66,8 +66,13 @@ function doctor(o: {
   outOfStep?: string[];
   /** The default branch, which the sync writes, cannot be told. */
   noDefaultBranch?: boolean;
-  installed?: string;
+  /** The version the lock names; 0.2.0 unless given, and null for none. */
   locked?: string | null;
+  /** The factory's newest release, or why it cannot be read; the version
+   * the lock names unless given. */
+  newest?: string | Error;
+  /** The repository is the factory's own, which runs its source. */
+  own?: boolean;
   secrets?: Record<string, string>;
   dependabotSecrets?: Record<string, string>;
   organizationSecrets?: string[];
@@ -77,6 +82,9 @@ function doctor(o: {
   /** What a runner operation fails with. */
   runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
   codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
+  /** Whether the code host holds a workflow's events back, as GitHub does
+   * in a public repository. */
+  eventsHeld?: boolean;
   columns?: string[];
   files?: Record<string, string>;
   paint?: Paint;
@@ -109,6 +117,7 @@ function doctor(o: {
       codeHost: memoryCodeHost([], {
         owner: "dave",
         ownerIsOrganization: o.organization,
+        eventsHeld: o.eventsHeld,
         fail: o.codeHostFails,
       }).codeHost,
       runner: memoryRunner({
@@ -131,10 +140,17 @@ function doctor(o: {
       if (o.noDefaultBranch) throw new NoDefaultBranch();
       return o.outOfStep ?? [];
     },
-    versions: () => ({
-      installed: o.installed ?? "0.2.0",
-      locked: o.locked === undefined ? "0.2.0" : o.locked,
-    }),
+    factory: async () => {
+      const named = o.locked === undefined ? "0.2.0" : o.locked;
+      return {
+        named,
+        own: o.own ?? false,
+        newest: async () => {
+          if (o.newest instanceof Error) throw o.newest;
+          return o.newest ?? named ?? "0.2.0";
+        },
+      };
+    },
     root: checkout(o.files),
     hasCommand: (name) => name !== "claude" || o.claude !== false,
     tools,
@@ -167,6 +183,33 @@ const SIX = [
   "Done",
 ];
 
+describe("factory doctor, the events the factory's workflow starts on", () => {
+  const LINE =
+    "pull_request_target is not allowed for .github/workflows/factory.yml, so GitHub runs no verdict, merge policy, or board sync on a pull request";
+
+  it("fails, naming the fix, where the code host holds the event back and no policy allows it", async () => {
+    const { run, printed } = doctor({ eventsHeld: true });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(`✗ ${LINE}. Run factory init`);
+  });
+
+  it("prints no line where the code host holds nothing back, as in a private repository", async () => {
+    const { run, printed } = doctor({});
+    expect(await run()).toBe(0);
+    expect(printed.join("\n")).not.toContain("pull_request_target");
+  });
+
+  it("says it could not tell, and fails nothing, when the policies cannot be read", async () => {
+    const { run, printed } = doctor({
+      codeHostFails: { eventAllowed: new Error("HTTP 403") },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      "? Could not tell whether pull_request_target is allowed: HTTP 403",
+    );
+  });
+});
+
 describe("factory doctor", () => {
   it("passes a repository with only the basics, listing every part as off, under headings", async () => {
     const { run, printed } = doctor({});
@@ -175,7 +218,7 @@ describe("factory doctor", () => {
       "Settings and files",
       "  ✓ The settings are valid",
       "  ✓ The factory's files match the settings",
-      "  ✓ Version 0.2.0 is installed, as the repository records",
+      "  ✓ The factory 0.2.0, the newest release",
       "  - commands.gate is not set: a build cannot finish until it is",
       "",
       "GitHub",
@@ -218,7 +261,7 @@ describe("factory doctor", () => {
       "Settings and files",
       "  ✓ The settings are valid",
       "  ✓ The factory's files match the settings",
-      "  ✓ Version 0.2.0 is installed, as the repository records",
+      "  ✓ The factory 0.2.0, the newest release",
       "",
       "GitHub",
       "  ✓ Signed in as dave",
@@ -296,31 +339,38 @@ describe("factory doctor", () => {
     );
   });
 
-  it("tells someone behind the repository's version to install it", async () => {
-    const { run, out } = doctor({ installed: "0.1.0", locked: "0.2.0" });
-    expect(await run()).toBe(1);
+  it("says a newer release is out, and how to get it, without failing", async () => {
+    const { run, out } = doctor({ locked: "0.2.0", newest: "0.3.0" });
+    expect(await run()).toBe(0);
     expect(out[2]).toBe(
-      "✗ Version 0.1.0 is installed, but the repository records 0.2.0. Run npm ci",
+      "? The factory 0.2.0. 0.3.0 is released: merge its pull request, or run factory update",
     );
   });
 
-  it("tells someone ahead of the repository's version to sync", async () => {
-    const { run, out } = doctor({ installed: "0.3.0", locked: "0.2.0" });
-    expect(await run()).toBe(1);
+  it("says so when the newest release cannot be read, without failing", async () => {
+    const { run, out } = doctor({ newest: new Error("HTTP 503") });
+    expect(await run()).toBe(0);
     expect(out[2]).toBe(
-      "✗ Version 0.3.0 is installed, but the repository records 0.2.0. Run factory sync",
+      "? The factory 0.2.0. The newest release could not be read: HTTP 503",
     );
   });
 
-  it("passes a placeholder version the repository records, as the factory's own does", async () => {
+  it("fails a repository whose lock names no version", async () => {
+    const { run, out } = doctor({ locked: null });
+    expect(await run()).toBe(1);
+    expect(out[2]).toBe(
+      "✗ The repository names a version of the factory. Run factory sync",
+    );
+  });
+
+  it("asks for no release in the factory's own repository, which runs its source", async () => {
     const { run, out } = doctor({
-      installed: "0.0.0-development",
+      own: true,
       locked: "0.0.0-development",
+      newest: new Error("never asked"),
     });
     await run();
-    expect(out[2]).toBe(
-      "✓ Version 0.0.0-development is installed, as the repository records",
-    );
+    expect(out[2]).toBe("✓ The factory runs from its source here");
   });
 
   it("checks each secret a part that is on reads", async () => {

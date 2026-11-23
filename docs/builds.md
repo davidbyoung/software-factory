@@ -77,14 +77,17 @@ commits is not shown as verified, when your own git signs commits.
 
 **Before the session starts,** the commands under
 [`commands.build-setup`](configuration.md#commandsbuild-setup) in your
-settings run, after your npm dependencies are installed.
+settings run. Your npm dependencies are installed before them, with
+`npm ci`, when your repository's root has a `package-lock.json`.
 
 ## The other jobs that run in the cloud
 
-Three more jobs run on the cloud runner. Each checks first whether there is
-anything to do and starts a session only when there is, so a run with
-nothing to do costs about a minute of the runner and no use of the agent. A
-run that works costs about what a build does.
+Three more jobs run a session on the cloud runner. Each checks first
+whether there is anything to do and starts a session only when there is,
+so a run with nothing to do costs about a minute of the runner and no use
+of the agent. A run that works costs about what a build does. With work
+to do and no token to do it with, a run that nobody asked for says so
+and passes ([With a part off](github/reference.md#with-a-part-off)).
 
 | Job                      | Starts on                                          | What the session does                                                                                            |
 | ------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -95,6 +98,11 @@ run that works costs about what a build does.
 Each acts as the same account a build does. The review job answers your
 reviews only: the factory's own replies start runs that find nothing of
 yours in them and stop.
+
+A fourth job runs no session: three times a day, the update job opens a
+pull request for a newer release of the factory, and for a
+[preset](presets.md) that changed. [Updating](updating.md#what-happens)
+describes it.
 
 ## The poller
 
@@ -202,7 +210,7 @@ Each release of the factory publishes the poller as a container image,
 `ghcr.io/davidbyoung/software-factory-poller`, tagged with its version and
 `latest`. It holds nothing but Node and that version of the factory, runs
 as an unprivileged user, and needs no sign-in to pull. Run the version your
-repository installs, with the variables above; `factory init` prints the
+repository names, with the variables above; `factory init` prints the
 exact line. To try it on your machine:
 
 ```bash
@@ -223,8 +231,9 @@ needs a Dockerfile there. Add one of a single line, such as
 FROM ghcr.io/davidbyoung/software-factory-poller:0.2.0
 ```
 
-and this entry in `.github/dependabot.yml`, so each new version of the
-factory updates it, alongside the factory's own update:
+and this entry in `.github/dependabot.yml`, so Dependabot opens a pull
+request for each new version of the image, which waits for you as the
+factory's own [update](updating.md) does:
 
 ```yaml
 - package-ecosystem: docker
@@ -253,9 +262,9 @@ the factory never deploys it.
 
 ## A scheduled poller: `github-action`
 
-For a repository with nowhere to run a container. `factory sync` writes a
-workflow, `factory-poller.yml`, that runs one pass of the poller on a
-schedule, and by hand:
+For a repository with nowhere to run a container. `factory sync` writes
+the poller's schedule into `.github/workflows/factory.yml`, whose poller
+job runs one pass of the poller on that schedule, and by hand:
 
 ```bash
 factory poller --once
@@ -291,8 +300,9 @@ before choosing it:
   goes quiet. `factory doctor` fails when it has, and says how to switch it
   back on.
 
-`factory status` flags a Ready card "not started, is the factory-poller
-workflow running?" once it has waited the interval and 15 minutes more.
+`factory status` flags a Ready card "not started, is the poller's job in
+factory.yml running?" once it has waited the interval and 15 minutes
+more.
 
 **Moving from a poller you host to the schedule,** stop the one you host:
 both would start builds, and each start comment counts toward the 20 an
@@ -300,11 +310,11 @@ hour.
 
 ### When the schedule fails
 
-| What you see                                                                                 | What happened                                                 | What to do                                             |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------ |
-| `factory status` flags a Ready ticket "not started, is the factory-poller workflow running?" | The workflow failed, or the code host switched it off         | Run `factory doctor`, and read the workflow's last run |
-| `factory doctor` says `factory-poller.yml is disabled`                                       | The code host switched the schedule off in a quiet repository | Do what `doctor` says to switch it back on             |
-| A failed run of the workflow saying `not polling: FACTORY_BOARD_TOKEN not set`               | The board's token is not a secret here                        | Run `factory init` to add it                           |
+| What you see                                                                                     | What happened                                                 | What to do                                               |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------- |
+| `factory status` flags a Ready ticket "not started, is the poller's job in factory.yml running?" | The job failed, or the code host switched the workflow off    | Run `factory doctor`, and read the poller job's last run |
+| `factory doctor` says `factory.yml is disabled`                                                  | The code host switched the workflow off in a quiet repository | Do what `doctor` says to switch it back on               |
+| A failed run of the poller's job saying `not polling: FACTORY_BOARD_TOKEN not set`               | The board's token is not a secret here                        | Run `factory init` to add it                             |
 
 [The reference](github/reference.md#limits) has GitHub's own numbers.
 

@@ -80,6 +80,7 @@ import {
   type Part,
 } from "./parts.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
+import { FACTORY_EVENTS, FACTORY_FILE, HELD_EVENT } from "./workflow-files.mts";
 import {
   RULE,
   type Check,
@@ -415,10 +416,6 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     agent.setup.found?.({ hasCommand: d.hasCommand }) ?? agent.label,
   );
   row("Cloud builds", shown("runner"));
-  row(
-    "package.json",
-    hasPackage ? "yes" : "none, so a private one will be created",
-  );
   if (npmrc.names.length) row(NPMRC, `reads ${npmrc.names.join(", ")}`);
   row("Settings", settingsText === null ? "none yet" : SETTINGS_FILE);
   row(
@@ -593,6 +590,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const specTool = d.tools.specs[specsAnswer ?? writtenSpecs ?? "none"];
   const installing =
     specTool && !specTool.install.installed(d.root) ? specTool : null;
+  // npm installs into the nearest folder above that has a package.json, so
+  // a spec tool it installs gets a private one here first, and its
+  // node_modules stays out of git.
+  const withNpm = installing?.install.via.startsWith("npm ") ?? false;
+  const ignored = /^\/?node_modules\/?$/m.test(read(".gitignore") ?? "");
 
   const codeHost = d.tools.codeHost[chosen.codeHost]!.open(repository);
   const runner = d.tools.runner[chosen.runner]!.open(repository);
@@ -959,10 +961,8 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const newText = String(doc);
   const writes = [
     ...(newText !== settingsText ? [SETTINGS_FILE] : []),
-    ...(hasPackage ? [] : ["package.json"]),
-    ...(/^\/?node_modules\/?$/m.test(read(".gitignore") ?? "")
-      ? []
-      : [".gitignore"]),
+    ...(withNpm && !hasPackage ? ["package.json"] : []),
+    ...(withNpm && !ignored ? [".gitignore"] : []),
   ];
   let syncs: string[];
   try {
@@ -1007,6 +1007,17 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     planRow(
       "Rules",
       `Require "${REVIEW_VERDICT}" before a merge to the default branch, as the rule "${RULE}"`,
+    );
+  // A code host may hold a workflow's events back in a repository anyone
+  // can read. One that cannot say gets no row, and doctor's line instead.
+  const eventsHeld =
+    (await codeHost
+      .eventAllowed(FACTORY_FILE, HELD_EVENT)
+      .catch(() => null)) === "blocked";
+  if (eventsHeld)
+    planRow(
+      "Policy",
+      `Let ${FACTORY_FILE} run on ${HELD_EVENT}, as the policy "${RULE}"`,
     );
   if (installing)
     planRow(
@@ -1072,25 +1083,25 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
   }
 
-  if (!hasPackage)
+  if (withNpm && !hasPackage)
     write(
       "package.json",
       `${JSON.stringify(
         {
           name: name.toLowerCase().replace(/[^a-z0-9._-]/g, "-"),
           private: true,
-          devDependencies: { [d.packageName]: `^${d.packageVersion}` },
         },
         null,
         2,
       )}\n`,
     );
-  const ignore = read(".gitignore");
-  if (!/^\/?node_modules\/?$/m.test(ignore ?? ""))
+  if (withNpm && !ignored) {
+    const ignore = read(".gitignore");
     write(
       ".gitignore",
       `${ignore ?? ""}${ignore && !ignore.endsWith("\n") ? "\n" : ""}node_modules/\n`,
     );
+  }
   write(SETTINGS_FILE, String(doc));
   let installFailed: string | null = null;
   if (installing) {
@@ -1242,11 +1253,22 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         ),
       );
 
+  let eventsLeft: string | null = null;
+  if (eventsHeld)
+    await codeHost.allowEvents(RULE, FACTORY_FILE, FACTORY_EVENTS).then(
+      () => d.out(`✓ Allowed ${HELD_EVENT} for ${FACTORY_FILE}.`),
+      (e) => {
+        d.out(`Could not allow ${HELD_EVENT}: ${message(e)}. Carrying on.`);
+        eventsLeft = `Let ${FACTORY_FILE} run on ${HELD_EVENT}: your repository's Settings, Actions, Policies`;
+      },
+    );
+
   // What is left for you.
   d.out("");
   if (deletable.length)
     d.out(`You can now delete these secrets: ${deletable.join(", ")}`);
   const left: string[] = installFailed ? [installFailed] : [];
+  if (eventsLeft) left.push(eventsLeft);
   const app = codeHost.reviewAppPage();
   if (parts.has("review") && app)
     left.push(`Install the app the review posts through: ${app}`);

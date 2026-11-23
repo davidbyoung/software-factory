@@ -12,7 +12,9 @@ import {
   SETTINGS_KEYS,
   ROLE_SHAPE,
   ROLES,
+  SESSION_MINUTES,
 } from "../src/config.mts";
+import { reviewWorkflow } from "../src/workflow-files.mts";
 
 const PACKAGE = ".";
 const CLI = "docs/cli.md";
@@ -162,17 +164,14 @@ function isSetting(path: string): boolean {
   );
 }
 
-/** Each line in a fenced code block that runs the factory as
- * `npx --no-install factory`, the form a skill or hook uses, where a page a
- * reader follows writes `factory`, the global install. */
-export function npxCommandLines(text: string): string[] {
-  const fenced = fencedLines(text);
+/** Each line that runs the factory through `npx`. The factory is installed
+ * once on a machine, so every page, skill, and message names the command
+ * `factory`: no copy is left in a repository for `npx` to find, and a bare
+ * `npx factory` can run another package of that name. */
+export function npxLines(text: string): string[] {
   return text
     .split(/\r?\n/)
-    .filter(
-      (line, i) =>
-        fenced[i] && /^\s*(\$ )?npx --no-install factory\b/.test(line),
-    )
+    .filter((line) => /\bnpx (--no-install )?factory\b/.test(line))
     .map((line) => line.trim());
 }
 
@@ -270,7 +269,7 @@ describe("plannedCommands", () => {
       "| `factory init` | Sets up | Planned |",
       "| `factory build N` | Builds | Built |",
       "| `factory poller --once` | A schedule | One pass | Planned |",
-      "| `npx --no-install factory doctor` | Checks | Planned |",
+      "| `factory doctor` | Checks | Planned |",
     ].join("\n");
     expect(plannedCommands(cli)).toEqual([
       "factory init",
@@ -301,7 +300,7 @@ describe("unmarked", () => {
       "writes everything.",
       "",
       "```bash",
-      "npx --no-install factory init",
+      "factory init",
       "```",
     ].join("\n");
     expect(unmarked(text, planned)).toEqual([]);
@@ -309,10 +308,8 @@ describe("unmarked", () => {
 
   it("reads a code block by the nearest line of prose above it", () => {
     const block = (above: string) =>
-      [above, "", "```bash", "npx --no-install factory init", "```"].join("\n");
-    expect(unmarked(block("Then:"), planned)).toEqual([
-      "npx --no-install factory init",
-    ]);
+      [above, "", "```bash", "factory init", "```"].join("\n");
+    expect(unmarked(block("Then:"), planned)).toEqual(["factory init"]);
     expect(unmarked(block("*[Planned](x)*: then:"), planned)).toEqual([]);
   });
 
@@ -377,33 +374,20 @@ describe("unmarked", () => {
   });
 });
 
-describe("npxCommandLines", () => {
-  it("finds a command line in a fence that runs the factory through npx", () => {
+describe("npxLines", () => {
+  it("finds the factory run through npx, in prose and in a code block", () => {
     const page = [
-      "Run `npx --no-install factory sync` in prose.",
+      "Run `npx --no-" + "install factory sync` in prose.",
       "```bash",
-      "npx --no-install factory sync",
+      "npx factory status",
       "factory doctor",
-      "```",
-      "```console",
-      "$ npx --no-install factory status",
+      "npx --no-install openspec validate",
       "```",
     ].join("\n");
-    expect(npxCommandLines(page)).toEqual([
-      "npx --no-install factory sync",
-      "$ npx --no-install factory status",
+    expect(npxLines(page)).toEqual([
+      "Run `npx --no-" + "install factory sync` in prose.",
+      "npx factory status",
     ]);
-  });
-
-  it("reads a shorter fence quoted inside a longer one as still inside", () => {
-    const page = [
-      "````md",
-      "```",
-      "npx --no-install factory sync",
-      "````",
-      "npx --no-install factory doctor",
-    ].join("\n");
-    expect(npxCommandLines(page)).toEqual(["npx --no-install factory sync"]);
   });
 });
 
@@ -627,12 +611,10 @@ describe("the docs", () => {
     expect(found).toEqual([]);
   });
 
-  it("write factory, not npx --no-install factory, in a command a reader runs", () => {
-    const found = pages()
-      .filter((page) => page !== "docs/developing.md")
-      .flatMap((page) =>
-        npxCommandLines(read(page)).map((line) => `${page}: ${line}`),
-      );
+  it("name the command factory, never through npx", () => {
+    const found = pages().flatMap((page) =>
+      npxLines(read(page)).map((line) => `${page}: ${line}`),
+    );
     expect(found).toEqual([]);
   });
 
@@ -676,20 +658,26 @@ describe("the docs", () => {
     expect(found).toEqual([]);
   });
 
-  it("never show a bare `npx factory`, which can run another package", () => {
-    const found = pages().flatMap((page) =>
-      read(page)
-        .split("\n")
-        .filter((line) => /\bnpx factory\b/.test(line))
-        .map((line) => `${page}: ${line.trim()}`),
-    );
-    expect(found).toEqual([]);
-  });
-
   it("ship a review workflow that reads either credential init can store", () => {
-    const workflow = read("workflows/factory-claude-review.yml");
-    expect(workflow).toContain("secrets.CLAUDE_CODE_OAUTH_TOKEN");
-    expect(workflow).toContain("secrets.ANTHROPIC_API_KEY");
+    const written = load(
+      reviewWorkflow({
+        version: "1.0.0",
+        branch: "main",
+        parts: ["review"],
+        pollMinutes: null,
+        ref: (key) => key,
+        minutes: { ...SESSION_MINUTES },
+        overrideLabel: "verdict-override",
+        secrets: [],
+      }),
+    ) as { jobs: { review: { secrets: Record<string, string> } } };
+    expect(written.jobs.review.secrets).toMatchObject({
+      "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
+      "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
+    });
+    const review = read(".github/workflows/review.yml");
+    expect(review).toContain("secrets.claude-token");
+    expect(review).toContain("secrets.claude-api-key");
   });
 
   it("carry no banner saying the pages are not built", () => {

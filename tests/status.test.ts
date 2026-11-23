@@ -285,7 +285,7 @@ describe("toRows", () => {
       );
 
       expect(rows.map((r) => r.flags)).toEqual([
-        ["not started, is the factory-poller workflow running?"],
+        ["not started, is the poller's job in factory.yml running?"],
         [],
       ]);
     },

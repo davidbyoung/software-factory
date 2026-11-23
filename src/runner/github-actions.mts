@@ -1,14 +1,19 @@
-// GitHub Actions as the runner: a build is a run of the build workflow,
-// started by a dispatch, and the review is a run of the review workflow.
+// GitHub Actions as the runner: a build is a run of the factory's workflow,
+// started by a dispatch that names the job, and the review is one job of
+// the workflow a pull request starts.
 // With `src/tickets/` and `src/code-host/`, this is the only code that
 // calls GitHub.
 import type { GhIn } from "../lib/gh.mts";
 import { statusOf, type Transport } from "../tickets/transport.mts";
 import type { FailedJob, Run, Runner } from "./types.mts";
 
-/** The workflow a build is a run of. */
-export const BUILD_WORKFLOW = "factory-build.yml";
-const REVIEW_WORKFLOW = "factory-claude-review.yml";
+/** The workflow file every job judged from the default branch runs in: a
+ * build, the board sync, and the poller among them. */
+export const FACTORY_WORKFLOW = "factory.yml";
+/** The workflow file a pull request starts, and the review's job in it, as
+ * its check is named: the calling job, then the job. */
+export const REVIEW_WORKFLOW = "factory-review.yml";
+export const REVIEW_JOB = "review / Claude review";
 const SITE = "https://github.com";
 
 type RestRun = {
@@ -56,43 +61,58 @@ export function githubActionsRunner(o: {
       if (listed.secrets.length < 100) return all;
     }
   };
-  const reviewsOf = async (sha: string) =>
+  type Job = {
+    id: number;
+    name: string;
+    status: string;
+    conclusion: string | null;
+  };
+  const jobsOf = async (run: number) =>
     (
-      await t.rest<{
-        workflow_runs: {
-          id: number;
-          status: string;
-          conclusion: string | null;
-        }[];
-      }>(
+      await t.rest<{ jobs: Job[] }>(
         "GET",
-        `${API}/actions/workflows/${REVIEW_WORKFLOW}/runs?head_sha=${sha}&per_page=5`,
+        `${API}/actions/runs/${run}/jobs?per_page=100`,
       )
-    ).workflow_runs;
+    ).jobs;
+  /** The review's job in each of the newest runs of the pull request's
+   * workflow for a commit, newest first. A run whose review was skipped,
+   * as for a draft, has none. */
+  const reviewsOf = async (sha: string) => {
+    const { workflow_runs } = await t.rest<{ workflow_runs: { id: number }[] }>(
+      "GET",
+      `${API}/actions/workflows/${REVIEW_WORKFLOW}/runs?head_sha=${sha}&per_page=5`,
+    );
+    const found: Job[] = [];
+    for (const run of workflow_runs) {
+      const job = (await jobsOf(run.id)).find((j) => j.name === REVIEW_JOB);
+      if (job && job.conclusion !== "skipped") found.push(job);
+    }
+    return found;
+  };
 
   return {
     async startBuild(ticket, branch) {
       await t.rest(
         "POST",
-        `${API}/actions/workflows/${BUILD_WORKFLOW}/dispatches`,
-        { fields: { ref: branch, inputs: { ticket } } },
+        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        { fields: { ref: branch, inputs: { job: "build", ticket } } },
       );
     },
     async startSync(branch) {
       await t.rest(
         "POST",
-        `${API}/actions/workflows/factory-board-sync.yml/dispatches`,
-        { fields: { ref: branch } },
+        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        { fields: { ref: branch, inputs: { job: "board" } } },
       );
     },
     // GitHub answers a dispatch with no run, so the run is found by the
-    // name the build workflow gives it. GitHub's times are whole seconds, so
+    // name the workflow gives a build. GitHub's times are whole seconds, so
     // `since` is rounded down to one.
     async findBuild(runName, since) {
       const from = Math.floor(since / 1000) * 1000;
       const answer = await t.rest<{ workflow_runs: DispatchedRun[] }>(
         "GET",
-        `${API}/actions/workflows/${BUILD_WORKFLOW}/runs?event=workflow_dispatch&per_page=30`,
+        `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=workflow_dispatch&per_page=30`,
       );
       const found = answer.workflow_runs.find(
         (r) => r.display_title === runName && Date.parse(r.created_at) >= from,
@@ -100,7 +120,7 @@ export function githubActionsRunner(o: {
       return found?.html_url ?? null;
     },
     buildsPage: () =>
-      `${SITE}/${o.repository}/actions/workflows/${BUILD_WORKFLOW}`,
+      `${SITE}/${o.repository}/actions/workflows/${FACTORY_WORKFLOW}`,
     runPage: (id) => `${SITE}/${o.repository}/actions/runs/${id}`,
     thisRun(env) {
       if (env.GITHUB_ACTIONS !== "true") return null;
@@ -139,8 +159,12 @@ export function githubActionsRunner(o: {
     async reviewAgain(sha) {
       const [newest] = await reviewsOf(sha);
       if (!newest) return false;
-      await t.rest("POST", `${API}/actions/runs/${newest.id}/rerun`);
+      await t.rest("POST", `${API}/actions/jobs/${newest.id}/rerun`);
       return true;
+    },
+    async reviewConclusion(run) {
+      const job = (await jobsOf(run)).find((j) => j.name === REVIEW_JOB);
+      return job?.conclusion ?? "skipped";
     },
     async failedJobs(run) {
       const { jobs } = await t.rest<{

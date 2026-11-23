@@ -1,0 +1,88 @@
+# workflow-files Specification
+
+## Purpose
+
+The two workflow files `factory sync` writes into a repository, `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`: what they hold, the version of the factory's own workflows they call, and when each job runs.
+
+## Requirements
+
+### Requirement: The two workflow files
+
+The factory SHALL behave as this line says: When `factory sync` runs, it writes `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`, whatever the settings, as "What the pull request holds" shows them. It writes no other workflow and nothing under `.github/actions/`. It overwrites today's `factory-review.yml`, and deletes the ten other `factory-*.yml` files and `.github/actions/factory-agent/` that the lock lists.
+
+#### Scenario: The two workflow files
+
+- **WHEN** `factory sync` runs
+- **THEN** it writes `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`, whatever the settings, as "What the pull request holds" shows them. It writes no other workflow and nothing under `.github/actions/`. It overwrites today's `factory-review.yml`, and deletes the ten other `factory-*.yml` files and `.github/actions/factory-agent/` that the lock lists.
+
+### Requirement: The version each file calls
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The version each file calls
+
+- **WHEN** `factory sync` writes the two workflow files
+- **THEN** Each file's one job calls `davidbyoung/software-factory/.github/workflows/run.yml` or `review.yml` at `@v` and the version the lock names, and `factory sync --check` fails when either names another.
+
+### Requirement: The factory's own repository
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The factory's own repository
+
+- **WHEN** `factory sync` writes the two workflow files in the factory's own repository
+- **THEN** In the factory's own repository the two call `./.github/workflows/run.yml` and `./.github/workflows/review.yml`, and each job installs the factory from the checkout.
+
+### Requirement: What the files hold from the settings
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: What the files hold from the settings
+
+- **WHEN** `factory sync` fills in the two workflow files from the settings
+- **THEN** The files hold, from the settings: the default branch in the push trigger; the poller's `cron` line, written as today's, only when `builds.trigger` is `github-action`; which of `review`, `board`, `auto-merge`, `poller`, and `dependabot` are on, by the settings "The jobs" names for each; each session's minutes; the `verdict-override` label's name; and the names of the secrets `.npmrc` and the ticket system read.
+
+### Requirement: Each job's events and condition
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Each job's events and condition
+
+- **WHEN** an event, a schedule, or a run by hand starts a job in "The jobs"
+- **THEN** Each job in "The jobs" runs on the events, schedule, and condition its row gives, with today's steps, permissions, and concurrency.
+
+### Requirement: A job whose part is off
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A job whose part is off
+
+- **WHEN** a job's row names one of those five, and that part is off
+- **THEN** A job whose row names one of those five is skipped, and starts no runner, when it is off. Every other condition in that column is checked by the job itself.
+
+### Requirement: Starting a job through factory.yml
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Starting a job through factory.yml
+
+- **WHEN** `factory build N`, the poller, or a command that starts the board sync starts its job
+- **THEN** `factory build N`, the poller, and the commands that start the board sync start their job through `factory.yml`. `factory build N` prints its run's link as today.
+
+### Requirement: Installing the repository's own dependencies
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Installing the repository's own dependencies
+
+- **WHEN** a job that runs a session, or the automated review, starts
+- **THEN** A job that runs a session, and the automated review, run `npm ci` only when the repository's root has a `package-lock.json`, and take Node's version from `package.json` when it sets `engines.node`, and 22 otherwise. `commands.build-setup` runs after, as today.
+
+### Requirement: The check on every pull request
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The check on every pull request
+
+- **WHEN** a pull request is opened or pushed to, or the default branch is pushed to
+- **THEN** `factory sync --check` and `factory config check` run on every pull request under `pull_request`, and on a push to the default branch. On a pull request the first is `factory sync --check --against BASE`, the base commit, whose lock line 40 compares with.

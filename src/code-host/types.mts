@@ -121,6 +121,13 @@ export type CodeHost = {
    * host's own words when the head has nothing the base lacks, or already
    * has an open pull request. */
   create(pull: NewPull): Promise<number>;
+  /** Closes a pull request without merging it. */
+  close(pull: number): Promise<void>;
+  /** The tag of the newest release of a repository on this code host, as
+   * `owner/name`, or null when it has none. */
+  newestRelease(repository: string): Promise<string | null>;
+  /** The page of a release's notes, by its repository and tag. */
+  releasePage(repository: string, tag: string): string;
   listOpen(): Promise<Pull[]>;
   /** The open pull request from this branch, or null. */
   forBranch(branch: string): Promise<number | null>;
@@ -192,6 +199,12 @@ export type CodeHost = {
 
   /** The address of a pull request's page. */
   address(pull: number): string;
+  /** Where git reads a repository on this code host, named as owner/name,
+   * from: the address it clones, and the host's name. */
+  remote(repository: string): { url: string; host: string };
+  /** The token the code host's command-line tool is signed in with, for
+   * git to read a repository with, or null when it is signed in as nobody. */
+  gitToken(): string | null;
 
   /** Who the code host's command-line tool is signed in as. Rejects with
    * NotSignedInError when it is signed in as nobody, or refused. */
@@ -214,6 +227,16 @@ export type CodeHost = {
   /** Requires `check` to pass before a merge to the default branch, as a
    * rule named `rule`. A rule of that name already there is left alone. */
   requireCheck(rule: string, check: string): Promise<void>;
+  /** Whether the code host starts a workflow file on an event, which it may
+   * hold back in a repository anyone can read: `open` where it holds
+   * nothing back, and otherwise `allowed` or `blocked`. */
+  eventAllowed(
+    file: string,
+    event: string,
+  ): Promise<"open" | "allowed" | "blocked">;
+  /** Lets one workflow file start on these events, and only these, as a
+   * policy named `rule`. One of that name already there is rewritten. */
+  allowEvents(rule: string, file: string, events: string[]): Promise<void>;
   /** Adds a public key to the signed-in account, to sign commits with.
    * Rejects with NeedsScopeError when the sign-in lacks the permission. */
   addSigningKey(title: string, publicKey: string): Promise<void>;

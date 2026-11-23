@@ -14,68 +14,78 @@ cards.
 
 **It uses the factory on itself.** `.claude/factory.yaml` here sets the
 board, OpenSpec, the gate, and the pull request review, and `node bin/factory.js sync` copies
-this repository's own skills, agents, rules, and workflows into `.claude/`
-and `.github/`, with hooks that run `bin/factory.js` at the root. So a
+this repository's own skills, agents, and rules into `.claude/` and
+`.github/`, with hooks that run `bin/factory.js` at the root. So a
 change to a skill shows in the same pull request twice: the source, and
-the copy this repository's own sessions follow. `CLAUDE.md` says what is
-this repository's own, and `npx --no-install factory` finds the package's
-own command here without installing it.
+the copy this repository's own sessions follow. The sync also writes the
+two workflow files every repository gets, `factory.yml` and
+`factory-review.yml`, which here call `./.github/workflows/run.yml` and
+`./.github/workflows/review.yml`, the same commit's copies, where any
+other repository's call them at a released version. `CLAUDE.md` says
+what is this repository's own, and the `factory` command, run here, runs
+this repository's source.
 
 A change reaches a repository that uses the factory as a release: a new
-version on npm, then Dependabot's pull request there, which `factory-deps`
-completes with the files the version writes ([Updating](updating.md)).
+version on npm and its tag here, then a pull request there, which that
+repository's update job opens with the files the version writes
+([Updating](updating.md)).
 
 ## What is built
 
 The factory is the npm package `@davidbyoung/software-factory`. Parts not
 marked working below exist only in these docs.
 
-| Part                                                                                                             | State                                               |
-| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Refining, building, and working a pull request's review                                                          | Working                                             |
-| The board, its sync, and `status`                                                                                | Working                                             |
-| Builds from the board, with a poller you host                                                                    | Working                                             |
-| Builds that run in GitHub Actions, started by a command                                                          | Working                                             |
-| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                 | Working                                             |
-| Who merges, and the review's verdict                                                                             | Working                                             |
-| The labels `merge-manual` and `verdict-override`                                                                 | Working                                             |
-| These docs                                                                                                       | Working                                             |
-| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                       | Working                                             |
-| The follow-ups ticket as one checklist                                                                           | Working                                             |
-| The `factory` tool, `sync`, and the package folder                                                               | Working                                             |
-| A global `factory` command that runs each repository's own copy                                                  | Working                                             |
-| The automated review as one of the factory's workflows, and [`pr-review`](configuration.md#pr-review)            | Working                                             |
-| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball    | Working                                             |
-| The `factory-` names and the `FACTORY_` secrets                                                                  | Working                                             |
-| Ticket commands that go through one interface                                                                    | Working                                             |
-| The code host and the runner, each behind one interface                                                          | Working                                             |
-| A published package                                                                                              | Working                                             |
-| Updates through Dependabot, which `factory-deps` completes with `factory sync`                                   | Working                                             |
-| `factory board --dry-run`                                                                                        | Working                                             |
-| Your own column names on a board                                                                                 | Working                                             |
-| `init` suggesting a board's columns through the coding agent                                                     | Working                                             |
-| Refinement's factory fields in your ticket fields, suggested by `init`                                           | Working                                             |
-| A UI reviewer for any website                                                                                    | Working                                             |
-| Built-in measurements for any website                                                                            | Working                                             |
-| A design skill for any website                                                                                   | Working                                             |
-| `init`, which can be re-run, and `doctor`                                                                        | Working                                             |
-| A second repository set up and removed from the quick start alone                                                | Working                                             |
-| `factory remove`                                                                                                 | Working                                             |
-| Starting builds from a scheduled workflow, `factory poller --once`, and a poller built from an installed package | Working                                             |
-| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill       | Working                                             |
-| Settings version 2: commands, a spec check, and plugins grouped by phase                                         | Working                                             |
-| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                    | Working                                             |
-| The default branch read from Git and the code host, never assumed, and `factory default-branch`                  | Working                                             |
-| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`              | Working                                             |
-| `factory ticket refined` refusing a ticket a build could not read                                                | Working                                             |
-| No skill, agent, rule, or review instruction names a stack, checked by a test                                    | Working                                             |
-| A ticket system's token kept in the repository's secrets and on your machine                                     | Working                                             |
-| Another ticket system, such as Jira                                                                              | Planned: #63                                        |
-| A ticket system or code host named by a package, for an adapter you write yourself                               | Not planned. The design leaves room                 |
-| Another code host or runner                                                                                      | Not planned. The design leaves room                 |
-| Another spec tool, such as Spec Kit                                                                              | Not planned. An adapter under `src/specs/` adds one |
-| Each tool's setup, checks, and removal declared by the tool                                                      | Working                                             |
-| Sharing plugins between repositories                                                                             | Not planned                                         |
+| Part                                                                                                                    | State                                               |
+| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Refining, building, and working a pull request's review                                                                 | Working                                             |
+| The board, its sync, and `status`                                                                                       | Working                                             |
+| Builds from the board, with a poller you host                                                                           | Working                                             |
+| Builds that run in GitHub Actions, started by a command                                                                 | Working                                             |
+| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                        | Working                                             |
+| Who merges, and the review's verdict                                                                                    | Working                                             |
+| The labels `merge-manual` and `verdict-override`                                                                        | Working                                             |
+| These docs                                                                                                              | Working                                             |
+| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                              | Working                                             |
+| The follow-ups ticket as one checklist                                                                                  | Working                                             |
+| The `factory` tool, `sync`, and the package folder                                                                      | Working                                             |
+| One install on a machine: the `factory` command runs the version each repository's lock names, downloading it once      | Working                                             |
+| Nothing of the factory's installed in a repository: no `package.json` entry, and hooks that run the machine's `factory` | Working                                             |
+| Two workflow files in a repository, which call the factory's own workflows at the version its lock names                | Working                                             |
+| A job that passes or is skipped when its part is off, and a session job that looks for work before a token              | Working                                             |
+| The Actions policy a public repository needs for `pull_request_target`, added by `init` and checked by `doctor`         | Working                                             |
+| The automated review as one of the factory's jobs, and [`pr-review`](configuration.md#pr-review)                        | Working                                             |
+| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball           | Working                                             |
+| The `factory-` names and the `FACTORY_` secrets                                                                         | Working                                             |
+| Ticket commands that go through one interface                                                                           | Working                                             |
+| The code host and the runner, each behind one interface                                                                 | Working                                             |
+| A published package                                                                                                     | Working                                             |
+| `factory update`, and the update job that opens a pull request for each release and each preset's change                | Working                                             |
+| Presets from a repository, each pinned to a commit in the lock                                                          | Working                                             |
+| `factory board --dry-run`                                                                                               | Working                                             |
+| Your own column names on a board                                                                                        | Working                                             |
+| `init` suggesting a board's columns through the coding agent                                                            | Working                                             |
+| Refinement's factory fields in your ticket fields, suggested by `init`                                                  | Working                                             |
+| A UI reviewer for any website                                                                                           | Working                                             |
+| Built-in measurements for any website                                                                                   | Working                                             |
+| A design skill for any website                                                                                          | Working                                             |
+| `init`, which can be re-run, and `doctor`                                                                               | Working                                             |
+| A second repository set up and removed from the quick start alone                                                       | Working                                             |
+| `factory remove`                                                                                                        | Working                                             |
+| Starting builds from a scheduled job, `factory poller --once`, and a poller built from an installed package             | Working                                             |
+| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill              | Working                                             |
+| Settings version 2: commands, a spec check, and plugins grouped by phase                                                | Working                                             |
+| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                           | Working                                             |
+| The default branch read from Git and the code host, never assumed, and `factory default-branch`                         | Working                                             |
+| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`                     | Working                                             |
+| `factory ticket refined` refusing a ticket a build could not read                                                       | Working                                             |
+| No skill, agent, rule, or review instruction names a stack, checked by a test                                           | Working                                             |
+| A ticket system's token kept in the repository's secrets and on your machine                                            | Working                                             |
+| Another ticket system, such as Jira                                                                                     | Planned: #63                                        |
+| A ticket system or code host named by a package, for an adapter you write yourself                                      | Not planned. The design leaves room                 |
+| Another code host or runner                                                                                             | Not planned. The design leaves room                 |
+| Another spec tool, such as Spec Kit                                                                                     | Not planned. An adapter under `src/specs/` adds one |
+| Each tool's setup, checks, and removal declared by the tool                                                             | Working                                             |
+| Sharing plugins between repositories                                                                                    | Not planned                                         |
 
 When a part is built, its pull request updates this table, and corrects any
 page the build had to differ from. [The CLI](cli.md) marks each command
@@ -88,6 +98,7 @@ built or planned.
   package.json                 name, version, bin, files, and its own dependencies
   .claude-plugin/plugin.json   so the folder is also a valid Claude Code plugin
   bin/factory.js               the launcher: plain JavaScript, no logic of its own
+  bin/launch.js                which version the launcher runs, and its download
   src/cli.mts                  reads the command and loads only that command's module
   src/                         one module per command, and the shared library
   src/tickets/                 the ticket interface, its GitHub adapter, and the transports
@@ -97,7 +108,8 @@ built or planned.
   agents/factory-*.md          the built-in reviewers
   rules.md                     the process rules
   review.md                    the pull request reviewer's instructions
-  workflows/factory-*.yml      the workflows copied into .github/workflows/
+  src/workflow-files.mts       writes the two workflow files a repository gets
+  .github/workflows/           run.yml, review.yml, and session.yml: the jobs those two files call
   poller.Dockerfile            the poller's image
   docs/                        these pages
   tests/                       the tool's tests and their fixtures
@@ -128,8 +140,8 @@ in `docs/configuration.md`, and a test fails when the first two differ.
 ## Running from source
 
 The tool is TypeScript, run directly by Node 22.18 or later with no build
-step. In this repository, `npm ci` and then `node bin/factory.js`, or a
-global `factory`, runs the source.
+step. In this repository, `npm ci` and then `node bin/factory.js`, or the
+`factory` command installed on the machine, runs the source.
 
 Node refuses to run TypeScript from inside `node_modules`, so an installed
 package runs compiled JavaScript. `prepack` compiles `src/` to `dist/` with
@@ -140,25 +152,35 @@ this order:
 1. The source in the repository it was run from: the first folder at or
    above the current directory that has `.git`, when that is this
    package's own repository: its `package.json` has this package's name.
-   So a git worktree runs its own copy, not the one `npx` finds up the
-   tree. A global `factory` picks this rule up after a release and a
-   global reinstall.
-2. The copy that repository installed, when that is not this one, so a
-   global install runs the repository's own version.
-3. Nothing, with a line saying how to install it, when this copy is outside
-   that repository and the repository has none.
-4. `src/cli.mts` beside the launcher, when it exists, and otherwise
-   `dist/cli.mjs`. Outside any repository, as in the poller's image, this
-   is always the choice.
+   So a git worktree runs its own copy.
+2. The version that repository names, in the `version:` line of its
+   `.claude/factory.lock`, or `FACTORY_VERSION` when that is set, which is
+   how `factory update` hands the sync to the newest release. That is the
+   launcher's own copy when it is that version, and otherwise the copy in
+   the cache, `~/.cache/software-factory/versions/VERSION/`, which the
+   launcher downloads the first time with `npm install --prefix`. A
+   version that is not a release, or cannot be downloaded, stops the
+   command with a line that says so.
+3. Itself, where no version is named: in a repository not set up yet,
+   outside any repository, as in the poller's image, and for
+   `factory update`, the command that changes the version a repository
+   names. "Itself" is `src/cli.mts` beside the launcher, when it exists,
+   and otherwise `dist/cli.mjs`.
 
-Hooks run the launcher by its path with `node`, not through `npx`, since a
-guard runs before every command a session runs: `npx` took 289 ms a call,
-`node` on the launcher 56 ms.
+The launcher reads the lock's version with a pattern, since it loads no
+package to parse YAML with. [Which version runs](cli.md#which-version-runs)
+is what a user is told.
+
+Hooks here run the launcher by its path with `node`. In a repository that
+uses the factory they run `factory` from the machine's `PATH`, and where
+it is missing, the two guards block the call and print how to install it
+(`factoryHooks` in `src/sync.mts`).
 
 To prove the package works outside its host, CI packs the folder, installs
-the tarball into an empty repository, and runs `factory sync`,
+the tarball once as a machine does, and runs `factory sync`,
 `factory sync --check`, `factory config check`, and `factory plugins`
-there:
+in an empty repository, which must be left with no `package.json` and no
+`node_modules`:
 
 ```bash
 npm run pack-check
@@ -180,10 +202,30 @@ in the next release, as a copy under its `.claude/` and `.github/` that
 when a copy differs from its source, so an edit made to a copy by mistake
 cannot merge.
 
-A skill, agent, or workflow that the factory's own steps call is its core,
-and every repository gets it. Anything else is written only when a setting
-or a file in the repository turns it on: add it to `NEEDS` in
-`src/sync.mts`, so a repository that does not use it never carries it.
+A skill or agent that the factory's own steps call is its core, and every
+repository gets it. Anything else is written only when a setting or a
+file in the repository turns it on: add it to `NEEDS` in `src/sync.mts`,
+so a repository that does not use it never carries it.
+
+**The workflows are source, not copies.** `.github/workflows/run.yml`,
+`review.yml`, and `session.yml` are edited where they are, and nothing
+copies them. A repository that uses the factory gets two files,
+`.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`,
+which `src/workflow-files.mts` writes from its settings: the default
+branch, the parts that are on, the poller's schedule, each session's
+minutes, and the names of its secrets. Each has one job, which calls
+`run.yml` or `review.yml` in this repository at `@v` and the version the
+lock names, and `run.yml` calls `session.yml` for each job that runs a
+session. `tests/workflow-files.test.ts` shows each setting's effect on
+the two files, and `tests/workflows.test.ts` reads the three workflows'
+YAML.
+
+A job that a part turns off carries an `if` on `inputs.parts`, so it is
+skipped without starting a machine, and `partsOn` in `src/sync.mts` says
+which setting turns each part on. A job that runs a session asks
+`factory session ready` whether there is work before it looks for a
+token. A change to one of the three workflows reaches a repository only
+at the next release, since each calls them at a version.
 
 A factory file must name nothing that belongs to the host repository: not
 its paths, its commands, its subject, or its own skills. A test fails when
@@ -198,7 +240,7 @@ own commands from its settings, and writes the default branch as the name
 it fails on. The three files written only for a website or an end-to-end
 suite, `factory-ui-reviewer`, `factory-e2e-reviewer`, and `factory-design`,
 may name a browser tool, and `factory-deps` npm's own files and commands,
-since the factory's update is an npm package's.
+since it works a dependency bot's pull requests.
 
 ## Adding a ticket system
 
@@ -395,9 +437,10 @@ every command that reads the settings and reaches the runner, with
 | Have the review run again      | `reviewAgain` | The newest run of a commit's review, run again; false when none has run on it                                                              |
 | The jobs that failed in a run  | `failedJobs`  | Each failed job's name and everything it printed. Which runs count is the caller's: `factory pr failed` takes those `wait-checks` waits on |
 
-**A runner also needs its own job files, which no interface covers.** The
-workflows under `workflows/`, the action they share, and their secrets
-are GitHub Actions' own. `factory sync` copies them whatever
+**A runner also needs its own job files, which no interface covers.**
+`run.yml`, `review.yml`, and `session.yml` under `.github/workflows/`,
+the two files `src/workflow-files.mts` writes that call them, and their
+secrets are GitHub Actions' own. `factory sync` writes the two files whatever
 `builds.runner` says, and another runner would need its own set, written
 for it.
 
@@ -427,8 +470,8 @@ adapter is registered.
 `new N`, `check`, and `finish N` ([Your repository's
 commands](cli.md#your-repositorys-commands)), which print one line and
 exit 0 with no spec tool, so a skill need not ask which is set. A test
-fails when a factory skill, agent, rule, review instruction, workflow,
-or action runs OpenSpec itself.
+fails when a factory skill, agent, rule, review instruction, or workflow
+runs OpenSpec itself.
 
 | What it gives                 | In `SpecTool`                     | OpenSpec's                                                                                                   |
 | ----------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -517,14 +560,14 @@ one file.
 
 ## Checking a change
 
-| Check                  | What it proves                                                                                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`, which only a build that deleted well-covered code may lower, saying so. A new test is seen failing before it is trusted |
-| `factory sync --check` | The copies match the source                                                                                                                                                                                         |
-| Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host                                                      |
-| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                                                                  |
-| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`)                                          |
-| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                                                                    |
+| Check                  | What it proves                                                                                                                                                                                                               |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`, which only a build that deleted well-covered code may lower, saying so. A new test is seen failing before it is trusted          |
+| `factory sync --check` | The copies match the source                                                                                                                                                                                                  |
+| Pack and install       | CI packs the folder, installs the tarball once as a machine does, and runs `sync`, `config check`, and one read-only command in an empty scratch repository, which is left with no `package.json`. It works outside its host |
+| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                                                                           |
+| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`)                                                   |
+| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                                                                             |
 
 The skills are instructions, and instructions cannot be unit tested. The
 last row is the only real proof that a change to one still works.
@@ -540,11 +583,14 @@ last row is the only real proof that a change to one still works.
    once they pass does it publish the version to npm, then the poller's
    image of that version to GitHub's container registry. Last, it tags the
    commit and creates a GitHub Release whose notes list the pull requests
-   merged since the previous version. Those notes are the changelog, and
-   Dependabot copies them into the update pull requests it opens, so a
-   pull request's title is the line a user reads. When a release needs
-   something done by hand in a repository that uses the factory, edit its
-   GitHub Release as soon as the run ends, and put the steps first.
+   merged since the previous version. The tag is what each repository's
+   two workflow files call `run.yml` and `review.yml` at, and the newest
+   GitHub Release is how a repository's update job learns of a version.
+   Those notes are the changelog, and the update's pull request in each
+   repository links them, so a pull request's title is the line a user
+   reads. When a release needs something done by hand in a repository
+   that uses the factory, edit its GitHub Release as soon as the run
+   ends, and put the steps first.
 3. A run that stops partway has made no tag. Re-running its failed jobs,
    from the run's page, finishes it on the same commit and version, and
    does not publish to npm twice. A new run for a version npm already has
@@ -598,11 +644,10 @@ this repository's own reviewer, reads a changed page as that person.
 
 - **A page says who it is for and what they will have at the end,** in its
   first lines.
-- **Write a command the reader runs as `factory ...`,** the global
-  install [The CLI](cli.md) says to run them from. `npx --no-install
-factory` is for text a skill, hook, workflow, or session reads, such as
-  a `CLAUDE.md` line a page shows. A test fails on a fenced command line
-  in a page a reader follows that starts with it.
+- **The command is always written `factory ...`,** in a page, and in
+  text a skill, hook, workflow, or session reads. It is installed once
+  on a machine ([The CLI](cli.md#which-version-runs)), so nothing runs
+  it through `npx`, and a test fails on a page that does.
 - **Lead with the command that does it.** The same steps by hand go on a
   page of their own, linked once. A step that runs a skill shows its slash
   command, such as `/factory-refine 12`, not only words to say to a

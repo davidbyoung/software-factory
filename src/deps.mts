@@ -2,8 +2,8 @@
 // The open Dependabot pull requests, oldest first, and what each needs, for
 // the factory-deps skill's steps 0 and 1.
 //
-//   npx --no-install factory deps
-//   npx --no-install factory deps --any   # exits 0 when one is open, 1 when none, 2 when it could not tell
+//   factory deps
+//   factory deps --any   # exits 0 when one is open, 1 when none, 2 when it could not tell
 //
 // A failed read exits 1 with the error, or 2 with `--any`.
 import { reachOf, repoRoot } from "./config.mts";
@@ -41,13 +41,12 @@ export function isMajor(title: string): boolean {
 
 /** What the skill does with a bump, in the order its steps take them.
  * `branch` is the default branch, which a conflicting bump merges, and
- * `synced` the packages whose update needs `factory sync`: the factory's
- * own and each preset's. */
-export function nextStep(
-  bump: Bump,
-  branch: string,
-  synced: string[] = [],
-): string {
+ * `factory` the name a bump of the factory's own workflows carries: such a
+ * one is left for the Updates job's pull request, which also holds the
+ * files that version writes. */
+export function nextStep(bump: Bump, branch: string, factory = ""): string {
+  if (factory && bump.title.includes(factory))
+    return "leave (step 4): it names the factory";
   if (bump.mergeableState === "unknown") return "leave: state not computed yet";
   if (bump.checks.some((c) => c.status !== "completed"))
     return "leave: checks still running";
@@ -57,8 +56,6 @@ export function nextStep(
   if (bump.mergeableState === "dirty") steps.push(`merge ${branch} (step 2)`);
   if (failing(bump).length > 0)
     steps.push(`fix ${failing(bump).join(", ")} (step 3)`);
-  if (synced.some((name) => bump.title.includes(name)))
-    steps.push("sync (step 4)");
   if (bump.major) steps.push("migrate (step 5)");
   return steps.length > 0 ? steps.join("; ") : "nothing: waits on its merge";
 }
@@ -98,17 +95,13 @@ export function checksLine(bump: Bump): string {
   return `checks: ${parts.join("; ")}`;
 }
 
-export function formatBump(
-  bump: Bump,
-  branch: string,
-  synced: string[] = [],
-): string[] {
+export function formatBump(bump: Bump, branch: string, factory = ""): string[] {
   return [
     `#${bump.number} ${bump.title}`,
     `  ${bump.major ? "major" : "minor or patch"}; head ${bump.head} at ${bump.sha.slice(0, 7)}; mergeable ${bump.mergeableState}; auto-merge ${bump.autoMerge ? "on" : "off"}`,
     `  ${checksLine(bump)}`,
     `  earlier shepherd comments: ${bump.shepherdComments}`,
-    `  next: ${nextStep(bump, branch, synced)}`,
+    `  next: ${nextStep(bump, branch, factory)}`,
   ];
 }
 
@@ -139,7 +132,7 @@ export async function main(
   out: (line: string) => void,
   argv: string[],
   defaultBranch: () => Promise<string>,
-  synced: string[] = [],
+  factory = "",
 ): Promise<number> {
   try {
     const pulls = (await p.listOpen())
@@ -159,7 +152,7 @@ export async function main(
     }
     const branch = await defaultBranch();
     for (const pull of pulls) {
-      formatBump(await readBump(p, pull.number), branch, synced).forEach((l) =>
+      formatBump(await readBump(p, pull.number), branch, factory).forEach((l) =>
         out(l),
       );
     }
@@ -170,22 +163,15 @@ export async function main(
   }
 }
 
-/** The factory's package and each preset's the lock records, whose
- * updates each need a sync. */
-async function syncedPackages(root: string): Promise<string[]> {
+/** The factory's own repository, as a bump of its workflows names it. */
+async function factoryName(): Promise<string> {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { PACKAGE } = await import("./sync.mts");
-  const { readLock, splitName, LOCK_FILE } = await import("./preset.mts");
-  const { load } = await import("js-yaml");
-  const own = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8"))
-    .name as string;
-  try {
-    const lock = readLock(readFileSync(join(root, LOCK_FILE), "utf8"), load);
-    return [own, ...new Set(lock.presets.map((p) => splitName(p.name).pkg))];
-  } catch {
-    return [own];
-  }
+  const { name } = JSON.parse(
+    readFileSync(join(PACKAGE, "package.json"), "utf8"),
+  ) as { name: string };
+  return name.replace(/^@/, "");
 }
 
 /** `factory deps`. */
@@ -203,6 +189,6 @@ export async function run(argv: string[] = []): Promise<number> {
         ...branchDeps(repoRoot()),
         host: () => p.defaultBranch(),
       }),
-    await syncedPackages(repoRoot()),
+    await factoryName(),
   );
 }

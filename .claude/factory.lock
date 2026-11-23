@@ -107,11 +107,5 @@ files:
   - .claude/agents/factory-ticket-readiness.md
   - .claude/factory/rules.md
   - .github/factory-review.md
-  - .github/workflows/factory-board-sync.yml
-  - .github/workflows/factory-build.yml
-  - .github/workflows/factory-check.yml
-  - .github/workflows/factory-claude-review.yml
-  - .github/workflows/factory-conflicts.yml
-  - .github/workflows/factory-review-verdict.yml
+  - .github/workflows/factory.yml
   - .github/workflows/factory-review.yml
-  - .github/actions/factory-agent/action.yml

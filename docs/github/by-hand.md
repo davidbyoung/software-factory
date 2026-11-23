@@ -9,12 +9,14 @@ parts you want, in the order they appear.
 
 The basics are all the [quick start](../quick-start.md) needs. Everything
 else is optional, and each part stands alone. You need the tools under
-[What you need](setup.md#what-you-need), and the package
-[installed](../quick-start.md#1-install).
+[What you need](setup.md#what-you-need), and the `factory` command
+[installed on your machine](../quick-start.md#1-install). Nothing is
+installed in the repository.
 
 | Part                                                                        | What it takes                                                      |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [The basics](#the-basics)                                                   | A settings file and one command                                    |
+| [A public repository](#a-public-repository)                                 | One Actions policy, which a private repository does not need       |
 | [The automated review](#the-automated-review)                               | The Claude GitHub App, a workflow file, and your Claude token      |
 | [A board](#a-board)                                                         | A Project, one setting, and a GitHub token                         |
 | [Builds in the cloud](#builds-in-the-cloud)                                 | Your Claude token and a GitHub token                               |
@@ -47,8 +49,8 @@ If you followed the quick start, this is done.
 
    It writes the skills, agents, and rules Claude Code loads, under
    `.claude/`; adds hook entries to `.claude/settings.json`; adds one line
-   to `CLAUDE.md`; and writes the workflows under `.github/workflows/`.
-   [What lives where](reference.md) names each.
+   to `CLAUDE.md`; and writes its two workflow files under
+   `.github/workflows/`. [What lives where](reference.md) names each.
 
 3. List the commands that check a change, such as your tests and linter,
    under [`commands.gate`](../configuration.md#commandsgate). A build runs
@@ -92,7 +94,33 @@ If you followed the quick start, this is done.
 
 Every part below is turned on the same way: add its settings to
 `.claude/factory.yaml`, run `factory sync`, do the steps
-the part lists, and merge what `sync` wrote.
+the part lists, and merge what `sync` wrote. The two workflow files are
+always there, and a part's [job](reference.md#the-jobs) is skipped until
+its settings turn it on.
+
+## A public repository
+
+Skip this for a private repository.
+
+From December 2, 2026, GitHub blocks the `pull_request_target` event in
+a public repository unless one of its Actions policies allows it, and
+`.github/workflows/factory.yml` starts on that event
+([A public repository](setup.md#a-public-repository) says why). Add the
+policy in your repository's Settings, under Actions, Policies:
+
+1. **Create a policy** named "Software factory", with its enforcement
+   set to Active.
+2. **Target one workflow file,** by its path:
+   `.github/workflows/factory.yml`. A policy with no path covers every
+   workflow in the repository, and would stop your own.
+3. **Add a rule that restricts events,** and list all six the file
+   starts on: `pull_request_target`, `pull_request_review`,
+   `workflow_run`, `push`, `schedule`, and `workflow_dispatch`. The rule
+   lets through only the events it lists, so listing
+   `pull_request_target` alone would stop the file's other jobs.
+
+**It worked when** `factory doctor` shows
+`✓ pull_request_target is allowed for .github/workflows/factory.yml`.
 
 ## The automated review
 
@@ -101,14 +129,14 @@ it finds, and posts a verdict. The session that built the pull request
 answers each comment, fixing it or rejecting it with evidence.
 
 It is on while `.claude/factory.yaml` has
-[`pr-review`](../configuration.md#pr-review). Three files have similar
-names, and `sync` writes all three:
+[`pr-review`](../configuration.md#pr-review). Three files have a part in
+it, two of them with similar names, and `sync` writes all three:
 
-| File                                           | What it is                                                 |
-| ---------------------------------------------- | ---------------------------------------------------------- |
-| `.github/workflows/factory-claude-review.yml`  | The workflow that runs the review                          |
-| `.github/factory-review.md`                    | The review's instructions                                  |
-| `.github/workflows/factory-review-verdict.yml` | Turns each review's summary into a "Review verdict" status |
+| File                                   | What it is                                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `.github/workflows/factory-review.yml` | The workflow file whose review job runs the review                                             |
+| `.github/factory-review.md`            | The review's instructions                                                                      |
+| `.github/workflows/factory.yml`        | The workflow file whose verdict job turns each review's summary into a "Review verdict" status |
 
 1. **Install the Claude GitHub App** on the repository, from
    <https://github.com/apps/claude>. The review posts its comments through
@@ -117,7 +145,7 @@ names, and `sync` writes all three:
 2. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`
    ([Secrets](#secrets)), unless step 1 did.
 3. **Write `pr-review` in `.claude/factory.yaml`,** and run
-   `factory sync`, which writes the three files above:
+   `factory sync`, which turns the review's job on:
 
    ```yaml
    pr-review:
@@ -134,9 +162,10 @@ names, and `sync` writes all three:
    pr-review:
    ```
 
-   The workflow installs your project with `npm ci`, and chooses the
-   model from `FACTORY_BUILD_MODEL` ([Variables](reference.md#workflows))
-   when it is set.
+   The review's job installs your project with `npm ci` when your
+   repository's root has a `package-lock.json`, and chooses the model
+   from `FACTORY_BUILD_MODEL` ([Variables](reference.md#who-a-cloud-session-acts-as)) when
+   it is set.
 
 4. **Optionally, write `.github/review-notes.md`:** what a reviewer must
    know about your project that your `CLAUDE.md` does not say. The
@@ -186,24 +215,29 @@ what each column means.
    columns.
 
 5. **Store a GitHub token** as `FACTORY_BOARD_TOKEN` ([Secrets](#secrets)).
-6. **Run `factory sync`.** It writes the board-sync
-   workflow, the only thing that writes to the board. It never creates,
-   renames, or removes a column or field.
+6. **Run `factory sync`.** It turns on the board sync's job, the only
+   thing that writes to the board. It never creates, renames, or removes
+   a column or field.
 
 ## Builds in the cloud
 
 `factory build 12` builds ticket 12 in GitHub Actions and
 prints the run's link, with no session open on your machine.
 
-`sync` already wrote the workflows these use, and each does nothing until
-it has work and its secrets:
+`sync` already wrote `factory.yml`, whose jobs these are. Each does
+nothing until it has work and its secrets
+([With a part off](reference.md#with-a-part-off)):
 
-| Workflow                | What its Claude Code session does                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `factory-build.yml`     | Builds a ticket                                                                      |
-| `factory-review.yml`    | Answers a review you submit on a pull request                                        |
-| `factory-conflicts.yml` | Resolves a conflict between a pull request and your default branch                   |
-| `factory-deps.yml`      | Moves Dependabot's pull requests along, written once `.github/dependabot.yml` exists |
+| Job                        | What its Claude Code session does                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| A build                    | Builds a ticket                                                                       |
+| Answering your review      | Answers a review you submit on a pull request                                         |
+| The conflict sweep         | Resolves a conflict between a pull request and your default branch                    |
+| Dependabot's pull requests | Moves Dependabot's pull requests along. It is on once `.github/dependabot.yml` exists |
+
+One more job needs the same GitHub token and runs no session: the update
+job, which opens a pull request for each new release of the factory
+([Updating](../updating.md#what-happens)).
 
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`.
 2. **Store a GitHub token that can push**, as `FACTORY_BUILD_TOKEN`. With
@@ -244,9 +278,9 @@ list, such as documentation.
        - docs/**
    ```
 
-   Then run `factory sync`, which writes the merge-policy workflow. It
-   labels each pull request `merge-automatic` or `merge-manual` and
-   says why.
+   Then run `factory sync`, which turns on the job that says who
+   merges. It labels each pull request `merge-automatic` or
+   `merge-manual` and says why.
 
 2. **Allow auto-merge** on the repository: Settings, General, "Allow
    auto-merge".

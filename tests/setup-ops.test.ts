@@ -310,6 +310,163 @@ describe("the code host's setup operations, on GitHub", () => {
     expect(calls).toHaveLength(1);
   });
 
+  describe("the events a workflow file may start on", () => {
+    const FILE = ".github/workflows/factory.yml";
+    const LIST = /^api repos\/acme\/site\/actions\/policies\?per_page=100$/;
+    const policy = (over: Record<string, unknown> = {}) => ({
+      id: 7,
+      name: "Software factory",
+      enforcement: "active",
+      conditions: { workflow_path: { include: [FILE], exclude: [] } },
+      rules: [
+        {
+          type: "restrict_action_events",
+          parameters: { allowed_events: ["push", "pull_request_target"] },
+        },
+      ],
+      ...over,
+    });
+    /** A public repository whose policies are `policies`: the list gives
+     * each one's name and enforcement, and its own page the rest. */
+    const withPolicies = (policies: ReturnType<typeof policy>[]) =>
+      host([
+        [/^api repos\/acme\/site$/, { private: false }],
+        [
+          LIST,
+          {
+            total_count: policies.length,
+            policies: policies.map(({ id, name, enforcement }) => ({
+              id,
+              name,
+              enforcement,
+            })),
+          },
+        ],
+        ...policies.map((p): [RegExp, unknown] => [
+          new RegExp(`^api repos/acme/site/actions/policies/${p.id}$`),
+          p,
+        ]),
+      ]);
+    const asked = (policies: ReturnType<typeof policy>[]) =>
+      withPolicies(policies).host.eventAllowed(FILE, "pull_request_target");
+
+    it("holds nothing back in a private repository, and reads no policy", async () => {
+      const { host: h, calls } = host([
+        [/^api repos\/acme\/site$/, { private: true }],
+      ]);
+      expect(await h.eventAllowed(FILE, "pull_request_target")).toBe("open");
+      expect(calls).toHaveLength(1);
+    });
+
+    it("is blocked in a public repository with no policy", async () => {
+      expect(await asked([])).toBe("blocked");
+    });
+
+    it("is allowed by an active policy for the file that lists the event", async () => {
+      expect(await asked([policy()])).toBe("allowed");
+    });
+
+    it("is allowed by an active policy for every workflow that lists the event", async () => {
+      expect(await asked([policy({ conditions: {} })])).toBe("allowed");
+      expect(
+        await asked([
+          policy({
+            conditions: { workflow_path: { include: ["~ALL"], exclude: [] } },
+          }),
+        ]),
+      ).toBe("allowed");
+    });
+
+    it.each([
+      [
+        "is for another file",
+        {
+          conditions: {
+            workflow_path: {
+              include: [".github/workflows/ci.yml"],
+              exclude: [],
+            },
+          },
+        },
+      ],
+      [
+        "leaves the file out",
+        {
+          conditions: { workflow_path: { include: ["~ALL"], exclude: [FILE] } },
+        },
+      ],
+      ["is not enforced", { enforcement: "disabled" }],
+      ["only watches", { enforcement: "evaluate" }],
+      [
+        "lists other events",
+        {
+          rules: [
+            {
+              type: "restrict_action_events",
+              parameters: { allowed_events: ["push"] },
+            },
+          ],
+        },
+      ],
+      [
+        "restricts who may run it, not which events",
+        {
+          rules: [
+            {
+              type: "restrict_actions_actors",
+              parameters: { allowed_actors: [] },
+            },
+          ],
+        },
+      ],
+    ])("is blocked while the one policy %s", async (_, over) => {
+      expect(await asked([policy(over)])).toBe("blocked");
+    });
+
+    it("adds a policy for the one file that lists every event it starts on", async () => {
+      const { host: h, calls } = host([
+        [LIST, { total_count: 0, policies: [] }],
+        [/-X POST repos\/acme\/site\/actions\/policies/, { id: 9 }],
+      ]);
+      await h.allowEvents("Software factory", FILE, [
+        "push",
+        "pull_request_target",
+      ]);
+      expect(calls[1].input).toEqual({
+        name: "Software factory",
+        enforcement: "active",
+        conditions: { workflow_path: { include: [FILE], exclude: [] } },
+        rules: [
+          {
+            type: "restrict_action_events",
+            parameters: { allowed_events: ["push", "pull_request_target"] },
+          },
+        ],
+      });
+    });
+
+    it("rewrites a policy of that name, so a new trigger reaches it", async () => {
+      const { host: h, calls } = host([
+        [
+          LIST,
+          {
+            total_count: 1,
+            policies: [
+              { id: 7, name: "Software factory", enforcement: "disabled" },
+            ],
+          },
+        ],
+        [/-X PUT repos\/acme\/site\/actions\/policies\/7/, { id: 7 }],
+      ]);
+      await h.allowEvents("Software factory", FILE, ["push"]);
+      expect(calls).toHaveLength(2);
+      expect(calls[1].input).toMatchObject({
+        enforcement: "active",
+        rules: [{ parameters: { allowed_events: ["push"] } }],
+      });
+    });
+  });
+
   it("adds a signing key to the signed-in account", async () => {
     const { host: h, calls } = host([
       [/-X POST user\/ssh_signing_keys/, { id: 1 }],

@@ -29,7 +29,7 @@ criteria and Decisions. Stop here, and say why, when:
   pull request carries the built result, and that is the picture.
 
 The proof for a change with no look to choose is not a picture of it. It
-is `npx --no-install factory site compare` on the branch, whose
+is `factory site compare` on the branch, whose
 measurements and the site's own `checks` say whether anything got worse,
 and, for a change to a state such as an open menu or keyboard focus, that
 state measured as section 3 step 4 says. Say so in the report, so the
@@ -37,7 +37,7 @@ issue's acceptance criteria can name it.
 
 ## 1. Know the site before drawing
 
-- **The design guide.** `npx --no-install factory config get
+- **The design guide.** `factory config get
 site.design-guide` names it. Read it first: its rules, each with its
   check. When it prints `none`, the site has no guide: design from the
   site's own pages, and say in the round that there was no guide.
@@ -88,7 +88,7 @@ depends on the one before.
 1. **A scratch worktree of the default branch**, and the change made in
    it. Note what `git worktree list` shows first. From the checkout this
    session works in, with the default branch's name, which
-   `npx --no-install factory default-branch` prints, in place of DEFAULT:
+   `factory default-branch` prints, in place of DEFAULT:
 
    ```bash
    git worktree add --detach ../mockup-SLUG origin/DEFAULT
@@ -103,8 +103,8 @@ depends on the one before.
    checkout this session works in, where the factory is already installed:
 
    ```bash
-   npx --no-install factory config get commands.relock
-   npx --no-install factory config get commands.build-setup
+   factory config get commands.relock
+   factory config get commands.build-setup
    ```
 
    The comparison installs the default branch's side, not this one, and
@@ -114,7 +114,7 @@ depends on the one before.
 3. **Picture it,** from the scratch worktree:
 
    ```bash
-   npx --no-install factory site compare --keep
+   factory site compare --keep
    ```
 
    It builds the change and the default branch, pictures every page at the
@@ -138,7 +138,7 @@ depends on the one before.
    time in its name.
 6. **Review it,** as section 4 says, from that folder.
 7. **Stop and clean up,** from the scratch worktree:
-   `npx --no-install factory site stop`, which ends both sites and removes
+   `factory site stop`, which ends both sites and removes
    the default branch's worktree. Then, from the checkout this session
    works in, `git worktree remove --force ../mockup-SLUG`, and check that
    `git worktree list` shows what it showed before step 1.

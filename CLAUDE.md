@@ -20,7 +20,7 @@ Run the gate before reporting the task as done:
 
 ```bash
 npm run format                  # auto-format with Prettier
-npx --no-install factory gate   # commands.gate in .claude/factory.yaml
+factory gate   # commands.gate in .claude/factory.yaml
 ```
 
 The gate here is `npm run check`: format, types, specs, the factory's
@@ -33,17 +33,17 @@ before every `git commit` and blocks the commit if one fails.
 The other commands the factory's skills run here:
 
 ```bash
-npx --no-install factory test-one PATH "NAME"   # one unit test, by commands.test-one
-npx --no-install factory specs check            # the spec check, after an OpenSpec change
+factory test-one PATH "NAME"   # one unit test, by commands.test-one
+factory specs check            # the spec check, after an OpenSpec change
 npm run pack-check                              # pack, install into an empty repository, and run it there
 npm run site-check                              # the site comparison against the sample sites, with a browser
 ```
 
 CI runs the same checks on every pull request, in `ci.yml` (format, types,
 specs, unit tests under the same coverage floors, `pack-check`, and
-`site-check`, and uploads the coverage to Codecov) and the synced
-`factory-check.yml` (the factory's files and settings). There is no
-end-to-end suite.
+`site-check`, and uploads the coverage to Codecov) and the "Factory files
+in step" job of the synced `factory-review.yml` (the factory's files and
+settings). There is no end-to-end suite.
 
 ## Rules by area
 
@@ -99,7 +99,7 @@ no UI reviewer: `docs-reader`, the one reviewer plugin, reads the docs.
 
 Nothing. There is no `auto-merge` in `.claude/factory.yaml`, so every pull
 request waits for the owner, since every change here reaches every
-repository that uses the factory. No merge-policy workflow runs, so no
+repository that uses the factory. The merge policy does not run, so no
 pull request gets a `merge-automatic` or `merge-manual` label or a
 `Who merges` status: where the rules or a skill name either, read it as
 "waits for the owner".
@@ -107,16 +107,17 @@ pull request gets a `merge-automatic` or `merge-manual` label or a
 ## Spec track: this repository
 
 `specs` is `openspec` here. A ticket gets the `spec` label when it changes
-what a factory user sees: a command's output or exit, a setting, or which
-files the factory writes into their repository and where. The text of
+what a factory user sees: a command's output or exit, a setting, which
+files the factory writes into their repository and where, or when a job
+of the workflows their two files call runs. The text of
 its skills, agents, rules, and review instructions is not spec-tracked,
 since prose has no test to map a scenario to: a change to it goes through
 the fresh-agent trace in "Changing the process" instead. `openspec/specs/` holds a spec for
-each capability a ticket has changed, as `npx --no-install factory specs
+each capability a ticket has changed, as `factory specs
 list` prints them; behavior with none gets one when a ticket next changes
 it. The docs stay the reader's guide, and a spec change updates them in
 the same pull request. The factory's spec check,
-`npx --no-install factory specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
+`factory specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
 itself, and so does the `spec:validate` script the gate and CI run.
 
 ## Refining: this repository
@@ -169,14 +170,22 @@ Refinement's own check of the build order is unchanged. The owner runs
 ## Changing the process: this repository
 
 The source of every factory file is in this repository: `skills/`,
-`agents/`, `rules.md`, `review.md`, `workflows/`, and `actions/`. Change
-the source, run `node bin/factory.js sync`, and commit both; CI's
-`Factory files in step` fails when a copy differs from its source. Never
-edit the copy under `.claude/` or `.github/`.
-`.claude/agents/docs-reader.md`, this repository's own reviewer, and
-`.claude/skills/dx-first/` and `.claude/skills/ticket-order/`, its own
-skills, are not copies: they have no source elsewhere and are edited
-where they are.
+`agents/`, `rules.md`, and `review.md`, and, for the two workflow files a
+repository gets, `src/workflow-files.mts`. Change the source, run
+`node bin/factory.js sync`, and commit both; CI's `Factory files in step`
+fails when a copy differs from its source. Never edit the copy under
+`.claude/` or `.github/`.
+These are not copies: they have no source elsewhere and are edited where
+they are.
+
+- `.github/workflows/run.yml`, `review.yml`, and `session.yml`, the
+  workflows every repository's two files call. Here those two files,
+  `factory.yml` and `factory-review.yml`, call the copies in the same
+  commit, so a pull request's own `review.yml` runs on it, and `run.yml`
+  runs from `main`.
+- `.claude/agents/docs-reader.md`, this repository's own reviewer.
+- `.claude/skills/dx-first/` and `.claude/skills/ticket-order/`, its own
+  skills.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
@@ -184,6 +193,7 @@ gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
 `review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
 `ticket.mts`, which starts the board sync,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
+`workflow-files.mts`, `session.mts`, `update.mts`,
 `lib/default-branch.mts`, `lib/refined-check.mts`, `specs/`, whose
 adapters name the files the merge policy holds, and `config.mts`'s
 `pluginsOf`.

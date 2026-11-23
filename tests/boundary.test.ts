@@ -138,20 +138,25 @@ export function underscoredNamesIn(text: string): string[] {
   return found;
 }
 
-/** Each command line that runs `npx --no-install factory` after a `cd` in
- * the same command: from another directory, npx cannot find the factory,
- * which is installed only in the repository. */
+/** Each command line that runs `factory` after a `cd` in the same command:
+ * from another directory it runs for whatever repository that directory is
+ * in, at the version that repository names, or for none. */
 export function factoryAfterCdIn(text: string): string[] {
   return joinContinuations(text)
     .split("\n")
-    .filter((line) => /\bcd\b[^\n]*\bnpx --no-install factory\b/.test(line))
+    .filter((line) => /\bcd\b[^\n]*[;&]\s*factory\b/.test(line))
     .map((line) => line.trim());
 }
 
+/** The factory's own workflows, which the two files `factory sync` writes
+ * into a repository call. */
+const WORKFLOWS = ["run.yml", "review.yml", "session.yml"].map((file) =>
+  join(PACKAGE, ".github/workflows", file),
+);
+
 const instructionFiles = () => [
-  ...["skills", "agents", "workflows"].flatMap((d) =>
-    filesUnder(join(PACKAGE, d)),
-  ),
+  ...["skills", "agents"].flatMap((d) => filesUnder(join(PACKAGE, d))),
+  ...WORKFLOWS,
   join(PACKAGE, "rules.md"),
   join(PACKAGE, "review.md"),
 ];
@@ -229,7 +234,7 @@ describe("ticketCallsIn", () => {
   });
 
   it("lets through the factory's commands and gh api calls to other paths", () => {
-    expect(ticketCallsIn("npx --no-install factory ticket view N")).toEqual([]);
+    expect(ticketCallsIn("factory ticket view N")).toEqual([]);
     expect(ticketCallsIn("gh api repos/REPO/pulls/N/files")).toEqual([]);
     expect(ticketCallsIn("See the issues list on GitHub.")).toEqual([]);
   });
@@ -250,7 +255,7 @@ describe("specToolCallsIn", () => {
   });
 
   it("lets through the factory's commands, OpenSpec's folders, and its name", () => {
-    expect(specToolCallsIn("npx --no-install factory specs new N")).toEqual([]);
+    expect(specToolCallsIn("factory specs new N")).toEqual([]);
     expect(specToolCallsIn("a line of `openspec/specs/` false")).toEqual([]);
     expect(specToolCallsIn("when `openspec/config.yaml` changed")).toEqual([]);
     expect(specToolCallsIn("With OpenSpec, the build folds it in.")).toEqual(
@@ -273,9 +278,7 @@ describe("hostToolIn", () => {
   });
 
   it("lets through the factory's commands and words that only hold the letters", () => {
-    expect(
-      hostToolIn("npx --no-install factory pr view 12 --field head"),
-    ).toEqual([]);
+    expect(hostToolIn("factory pr view 12 --field head")).toEqual([]);
     expect(hostToolIn("A high bar, though.")).toEqual([]);
     expect(hostToolIn("whether it can merge is `dirty`")).toEqual([]);
   });
@@ -285,13 +288,11 @@ describe("factoryAfterCdIn", () => {
   it("finds a factory command run after a cd, and lets one from the root through", () => {
     expect(
       factoryAfterCdIn(
-        'cd "$dir" && npx --no-install factory ticket comment N \\\n  --body-file body.md',
+        'cd "$dir" && factory ticket comment N \\\n  --body-file body.md',
       ),
     ).toHaveLength(1);
     expect(
-      factoryAfterCdIn(
-        'npx --no-install factory ticket comment N --body-file "$dir/body.md"',
-      ),
+      factoryAfterCdIn('factory ticket comment N --body-file "$dir/body.md"'),
     ).toEqual([]);
   });
 });
@@ -623,7 +624,9 @@ describe("the boundaries", () => {
       expect.arrayContaining([
         "skills/factory-build/SKILL.md",
         "agents/factory-test-reviewer.md",
-        "workflows/factory-build.yml",
+        ".github/workflows/run.yml",
+        ".github/workflows/review.yml",
+        ".github/workflows/session.yml",
         "rules.md",
         "review.md",
       ]),
@@ -662,11 +665,8 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
-  it("no skill, agent, rule, review, workflow, or action in the package runs a spec tool itself", () => {
-    const found = [
-      ...instructionFiles(),
-      ...filesUnder(join(PACKAGE, "actions")),
-    ].flatMap((path) =>
+  it("no skill, agent, rule, review, or workflow in the package runs a spec tool itself", () => {
+    const found = instructionFiles().flatMap((path) =>
       specToolCallsIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
     );
     expect(found).toEqual([]);

@@ -19,7 +19,7 @@ Tickets go through `factory ticket` and a pull request through
 `factory pr`. The workflow has set the run up: the dependencies are installed and the
 `commands.build-setup` commands have run, so a run does no setup of its own.
 
-The default branch's name is what `npx --no-install factory default-branch`
+The default branch's name is what `factory default-branch`
 prints. The commands below write it as DEFAULT.
 
 Asked to resolve the conflicts on one pull request N, a session skips the
@@ -30,15 +30,15 @@ works the review of its push as `factory-address-review` section 0 says.
 ## The conflict sweep
 
 Run as "the conflict sweep", by the workflow that starts after each push
-to the default branch and nightly. It ran `factory pr conflicts` first,
-which is steps 1 to 3 below, and starts a session only when it exits 0.
+to the default branch and nightly. It ran `factory session ready conflicts` first,
+which is steps 1 to 3 below, and starts a session only when it finds one.
 Read what it read again, since time has passed. It finds every pull request that conflicts with
 the default branch and sends each through "A conflict with the default branch" and then its review.
 
 Before it lists the queue, the sweep checks that the settings name a gate:
 
 ```bash
-npx --no-install factory config get commands.gate
+factory config get commands.gate
 ```
 
 When it prints nothing, `commands.gate` is not set, and no fix could be
@@ -50,7 +50,7 @@ in the report.
    not based on the default branch are left alone:
 
    ```bash
-   npx --no-install factory pr conflicts
+   factory pr conflicts
    ```
 
    It prints the number of each one that conflicts and has no stop
@@ -61,9 +61,9 @@ in the report.
    commit:
 
    ```bash
-   npx --no-install factory pr view N --field mergeable
-   npx --no-install factory pr view N --field branch
-   npx --no-install factory pr view N --field head
+   factory pr view N --field mergeable
+   factory pr view N --field branch
+   factory pr view N --field head
    ```
 
    `dirty` is a conflict. `clean`, `behind`, `blocked`, `unstable`, and
@@ -79,7 +79,7 @@ in the report.
    settled it:
 
    ```bash
-   npx --no-install factory pr comments N --from-approvers \
+   factory pr comments N --from-approvers \
      --contains "conflict-stop head=HEAD_SHA"
    ```
 
@@ -94,7 +94,7 @@ in the report.
    each one's text from the default branch's copy:
 
    ```bash
-   npx --no-install factory plugins resolver
+   factory plugins resolver
    git show origin/DEFAULT:.claude/skills/NAME/SKILL.md
    ```
 
@@ -146,8 +146,8 @@ git log --merge --format='%h %s' -- FILE
 Each `(#N)` in that log names a pull request on the default branch's side. Before
 editing, read it and the ticket it closes, and read the pull request being
 fixed and the ticket it closes, so the resolution keeps what each set out
-to do: `npx --no-install factory pr closes PR` prints each ticket's key,
-and `npx --no-install factory ticket view KEY` reads it. Read the rules for the area a conflicted file is in ("Rules by
+to do: `factory pr closes PR` prints each ticket's key,
+and `factory ticket view KEY` reads it. Read the rules for the area a conflicted file is in ("Rules by
 area" in `CLAUDE.md`).
 
 - **Keep both sides.** Tests from both stay. A reworded or reformatted
@@ -156,18 +156,18 @@ area" in `CLAUDE.md`).
   comma.
 - **`.claude/factory.lock`, first:** it is never merged by hand. Resolve
   `.claude/factory.yaml` and `.claude/factory.choices.yaml`, take either
-  side's lock, and run `npx --no-install factory sync`, which writes it
+  side's lock, and run `factory sync`, which writes it
   from them. Do it before anything else that runs `factory`: every command
   but the sync reads its settings from the lock, and stops while it is
   conflicted or stale.
 - **The lock file `commands.relock` regenerates:** resolve the manifest
   it is generated from first, then take the default branch's copy of the
   lock file and run `commands.relock`, the command
-  `npx --no-install factory config get commands.relock` prints.
+  `factory config get commands.relock` prints.
 - **A file a resolver rebuilds:** any other conflicted file that matches a
   resolver's `files` is that resolver's, in place of a hand merge, and
   where two match it, the first listed.
-  `npx --no-install factory plugins resolver` lists each resolver with its
+  `factory plugins resolver` lists each resolver with its
   `files`. Invoke its skill with the Skill tool, handing it the conflicted
   files that match. It leaves each resolved and staged, or says it cannot,
   which is a stop. In the sweep, the list and each skill's text are the
@@ -183,13 +183,13 @@ would fail the gate and read as a false stop.
 
 ### Gate
 
-Run the gate, `npx --no-install factory gate`. Then, when
+Run the gate, `factory gate`. Then, when
 `git diff --name-only origin/DEFAULT...HEAD` lists anything the
 repository's end-to-end suite covers, which its `CLAUDE.md` names, install
 what the suite needs, such as a browser, and run the suite as `CLAUDE.md`
 says, so a missing browser does not read as a failed gate. Run the spec
-check, `npx --no-install factory specs check`, when a file under a
-folder `npx --no-install factory specs list` prints conflicted, or one
+check, `factory specs check`, when a file under a
+folder `factory specs list` prints conflicted, or one
 under the spec change it starts.
 
 Fix what the merge broke and run the gate once more. A second failure is
@@ -212,7 +212,7 @@ changes the credential may not push: a stop, with GitHub's error. Do not
 work around it.
 
 Then comment on the pull request with
-`npx --no-install factory pr comment N --body-file file`: what
+`factory pr comment N --body-file file`: what
 conflicted, with which pull request, how it was resolved, which gates
 passed, and that a new review runs on this commit. End it with:
 
@@ -249,7 +249,7 @@ pull request: `git merge --abort`, or `git reset --hard origin/BRANCH`
 once the merge is committed locally. Then:
 
 1. **Comment on the pull request** why
-   (`npx --no-install factory pr comment N --body-file file`), ending with
+   (`factory pr comment N --body-file file`), ending with
    the marker for its current head:
 
    ```
@@ -270,11 +270,11 @@ once the merge is committed locally. Then:
 
    ```bash
    TITLE="#N: merge conflict with the default branch needs a decision"
-   EXISTING=$(npx --no-install factory ticket list --title "$TITLE" | cut -f1 | head -1)
+   EXISTING=$(factory ticket list --title "$TITLE" | cut -f1 | head -1)
    if [ -n "$EXISTING" ]; then
-     npx --no-install factory ticket comment "$EXISTING" --body-file issue.md
+     factory ticket comment "$EXISTING" --body-file issue.md
    else
-     npx --no-install factory ticket open --title "$TITLE" --body-file issue.md
+     factory ticket open --title "$TITLE" --body-file issue.md
    fi
    ```
 

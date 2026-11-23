@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const NPMRC = ".npmrc";
-const SYNC = "npx --no-install factory sync";
+const SYNC = "factory sync";
 const PUBLIC_REGISTRY = "https://registry.npmjs.org/";
 const SIGN_IN = /:(_authToken|_auth|_password|username)$/;
 /** npm's own pattern (`@npmcli/config`'s `env-replace.js`): an odd run of
@@ -99,13 +99,5 @@ export function addressOf(n: Npmrc, name: string): string {
 /** The registries Dependabot has to be told, the public one aside. */
 export const privateRegistries = (n: Npmrc) =>
   n.registries.filter((r) => bare(r) !== bare(PUBLIC_REGISTRY));
-
-/** The registry `.npmrc` sends a package's scope to, or null. */
-export function npmrcRegistry(text: string | null, pkg: string): string | null {
-  if (!text || !pkg.startsWith("@")) return null;
-  const scope = pkg.split("/")[0]!;
-  const found = entries(text).find((e) => e.key === `${scope}:registry`);
-  return found ? found.value : null;
-}
 
 export { bare as bareRegistry };

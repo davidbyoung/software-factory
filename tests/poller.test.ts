@@ -44,7 +44,7 @@ const ENV = {
   FACTORY_READY_COLUMN: "Ready",
 };
 const DISPATCH =
-  "https://api.github.com/repos/acme/widgets/actions/workflows/factory-build.yml/dispatches";
+  "https://api.github.com/repos/acme/widgets/actions/workflows/factory.yml/dispatches";
 
 describe("selectToStart", () => {
   it("starts Ready tickets in key order, letters first and then the number as a number", () => {
@@ -409,7 +409,9 @@ describe("tick", () => {
     expect(comments()).toEqual([
       "Starting a build in GitHub Actions: the card moved to Ready.\n\n<!-- work-status: started actions st_0123456789ab -->\n<!-- agent -->",
     ]);
-    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+    expect(dispatches()).toEqual([
+      { ref: "trunk", inputs: { job: "build", ticket: "12" } },
+    ]);
     const order = calls.map((c) =>
       c.url === DISPATCH ? "dispatch" : c.url.split("/").at(-1),
     );
@@ -442,7 +444,9 @@ describe("tick", () => {
 
     await tick(d, state);
 
-    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+    expect(dispatches()).toEqual([
+      { ref: "trunk", inputs: { job: "build", ticket: "12" } },
+    ]);
     expect(comments()[0]).toContain("the card moved to Ready for dev.");
   });
 
@@ -808,7 +812,9 @@ describe("once", () => {
     const { d, dispatches } = setup({}, TOKEN);
 
     expect(await once(settings, d)).toBe(0);
-    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+    expect(dispatches()).toEqual([
+      { ref: "trunk", inputs: { job: "build", ticket: "12" } },
+    ]);
   });
 
   it("reads the board its settings name, owned by the repository's owner", async () => {
@@ -975,7 +981,9 @@ describe("tickets without the factory label", () => {
 
     await tick(d, state);
 
-    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+    expect(dispatches()).toEqual([
+      { ref: "trunk", inputs: { job: "build", ticket: "12" } },
+    ]);
   });
 });
 

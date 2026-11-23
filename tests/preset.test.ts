@@ -12,12 +12,20 @@ import {
   pluginsOf,
   type Deps,
 } from "../src/config.mts";
-import { settingsHash, staleReason, type StaleDeps } from "../src/preset.mts";
+import {
+  lockedVersion,
+  parseName,
+  PresetNameError,
+  settingsHash,
+  staleReason,
+  type StaleDeps,
+} from "../src/preset.mts";
 import {
   ACME,
   deps,
   install,
   installAcme,
+  lockPin,
   NODE,
   own,
   put,
@@ -80,12 +88,12 @@ describe("combining presets", () => {
 
   it("takes one layer's whole list of commands", async () => {
     acme();
-    install(root, "@acme/more", "1.0.0", {
+    install(root, "acme/more", {
       "": {
         settings: "version: 2\ncommands:\n  gate: [npm run lint, npm test]\n",
       },
     });
-    put(root, ".claude/factory.yaml", own([NODE, "@acme/more"]));
+    put(root, ".claude/factory.yaml", own([NODE, "acme/more"]));
     expect((await resolveAt(root)).settings.commands.gate).toEqual([
       "npm run lint",
       "npm test",
@@ -149,7 +157,7 @@ describe("combining presets", () => {
         ],
       ),
     );
-    install(root, ACME, "1.0.0", {
+    install(root, ACME, {
       "": {
         settings:
           "version: 2\nplugins:\n  test:\n    reviewers:\n      - agent: acme-tester\n",
@@ -172,7 +180,7 @@ describe("combining presets", () => {
 
   it("takes a later layer's whole block when it names a different type", async () => {
     root = repo(own([ACME], ["specs: none"]));
-    install(root, ACME, "1.0.0", {
+    install(root, ACME, {
       "": {
         settings:
           "version: 2\nspecs:\n  type: openspec\n  check: openspec validate\n",
@@ -187,7 +195,6 @@ describe("combining presets", () => {
     root = repo(own([ACME, NODE], ["session-minutes:", "  conflicts: 70"]));
     installAcme(
       root,
-      "1.0.0",
       "version: 2\nsession-minutes:\n  build: 100\n  review: 20\n",
       "version: 2\nsession-minutes:\n  review: 30\n",
     );
@@ -202,11 +209,11 @@ describe("combining presets", () => {
 
 describe("the agents and skills presets ship", () => {
   const two = () => {
-    root = repo(own([ACME, "@other/preset"]));
-    install(root, ACME, "1.0.0", {
+    root = repo(own([ACME, "other/preset"]));
+    install(root, ACME, {
       "": { settings: "version: 2\n", agents: { shared: "acme\n" } },
     });
-    install(root, "@other/preset", "1.0.0", {
+    install(root, "other/preset", {
       "": {
         settings: "version: 2\n",
         agents: { shared: "other\n" },
@@ -218,9 +225,9 @@ describe("the agents and skills presets ship", () => {
   it("writes the later preset's file of a name two ship, or the one a choice names", async () => {
     two();
     let files = (await resolveAt(root)).resolution.files;
-    expect(files.get(".claude/agents/shared.md")?.from).toBe("@other/preset");
+    expect(files.get(".claude/agents/shared.md")?.from).toBe("other/preset");
     expect(files.get(".claude/skills/tidy/SKILL.md")?.from).toBe(
-      "@other/preset",
+      "other/preset",
     );
     put(
       root,
@@ -239,50 +246,132 @@ describe("the agents and skills presets ship", () => {
   });
 });
 
+describe("a name under presets", () => {
+  it.each([
+    ["acme/factory-config", "acme/factory-config", ""],
+    ["acme/factory-config//node", "acme/factory-config", "node"],
+    ["acme/factory-config//stacks/node", "acme/factory-config", "stacks/node"],
+    ["acme/platform/factory-config//go", "acme/platform/factory-config", "go"],
+  ])("%s is the repository %s and the folder %j", (name, repo, folder) => {
+    expect(parseName(name)).toEqual({ repo, folder });
+  });
+
+  it("is told it is an npm package when it starts with @", () => {
+    expect(() => parseName("@acme/factory-preset")).toThrow(
+      new PresetNameError(
+        'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.',
+      ),
+    );
+  });
+
+  it.each([
+    "factory-config",
+    "acme/",
+    "/factory-config",
+    "acme/factory-config//",
+    "acme/factory-config/node//",
+    "acme/../factory-config",
+    "acme/factory-config//../node",
+    "acme/factory config",
+    "https://github.com/acme/factory-config",
+  ])("is refused as %j, which names no repository", (name) => {
+    expect(() => parseName(name)).toThrow(
+      new PresetNameError(
+        `presets: ${JSON.stringify(name)} is not a preset's name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER`,
+      ),
+    );
+  });
+
+  it.each([
+    [
+      '"@acme/factory-preset"',
+      'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.',
+    ],
+    [
+      "factory-config",
+      'presets: "factory-config" is not a preset\'s name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER',
+    ],
+  ])("stops config check when it is %s", async (name, message) => {
+    root = repo(own([name]));
+    const r = deps(root);
+    expect(await config(["check"], r.d)).toBe(1);
+    expect(r.err).toEqual([message]);
+  });
+
+  it("stops config check, naming preset add, when the lock does not pin it", async () => {
+    root = repo(own([ACME, NODE]));
+    install(root, ACME, { "": { settings: "version: 2\n" } });
+    const r = deps(root);
+    expect(await config(["check"], r.d)).toBe(1);
+    expect(r.err).toEqual([
+      `presets: ${NODE} is not pinned yet. Run: factory preset add ${NODE}`,
+    ]);
+  });
+});
+
 describe("what a preset can't do", () => {
-  const refused = async (settings: string, expected: string) => {
+  /** A lock that pins the preset with these settings, as no command
+   * writes it: `preset add` refuses the same file before it pins it. */
+  const refused = async (
+    settings: Record<string, unknown>,
+    expected: string,
+    files: Record<string, string> = {},
+  ) => {
     root = repo(own([ACME]));
-    install(root, ACME, "1.0.0", { "": { settings } });
+    lockPin(root, { name: ACME, commit: "1".repeat(40), settings, files });
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([expected]);
   };
 
   it.each([
-    ["repository: a/b", "repository"],
-    ["auto-merge:\n  allow: [src/**]", "auto-merge.allow"],
-    ["auto-merge:\n  commands: [npm test]", "auto-merge.commands"],
-  ])("refuses a preset that sets %s", async (line, key) => {
-    await refused(
-      `version: 2\n${line}\n`,
-      `${ACME}: ${key}: a preset can't set this`,
-    );
+    [{ repository: "a/b" }, "repository"],
+    [{ "auto-merge": { allow: ["src/**"] } }, "auto-merge.allow"],
+    [{ "auto-merge": { commands: ["npm test"] } }, "auto-merge.commands"],
+  ])("refuses a preset that sets %o", async (settings, key) => {
+    await refused(settings, `${ACME}: ${key}: a preset can't set this`);
   });
 
   it("refuses a preset that names another preset", async () => {
     await refused(
-      `version: 2\npresets: ["${NODE}"]\n`,
+      { presets: [NODE] },
       `${ACME}: presets: a preset can't name another preset`,
     );
   });
 
   it("refuses a preset that leaves a plugin out", async () => {
     await refused(
-      "version: 2\nplugins:\n  build:\n    reviewers:\n      - agent: x\n        off: true\n",
+      { plugins: { build: { reviewers: [{ agent: "x", off: true }] } } },
       `${ACME}: plugins.build.reviewers[0]: off: only .claude/factory.yaml can leave a plugin out`,
     );
   });
 
   it("refuses a preset with a key the factory doesn't know, as config check words it", async () => {
     await refused(
-      "version: 2\nrules:\n  small-change-lnes: 3\n",
+      { rules: { "small-change-lnes": 3 } },
       `${ACME}: rules.small-change-lnes: unknown key`,
     );
   });
 
+  it.each([
+    ".github/workflows/own.yml",
+    ".claude/settings.json",
+    ".claude/skills/../../.github/workflows/own.yml",
+    ".claude/agents/nested/x.md",
+  ])(
+    "refuses a lock that has it ship %s, which is no agent's or skill's path",
+    async (path) => {
+      await refused(
+        {},
+        `.claude/factory.lock: ${ACME}: ${path} is not an agent's or a skill's path`,
+        { [path]: "sha256:0" },
+      );
+    },
+  );
+
   it("takes a preset that names a ticket field for a heading of the repository's own", async () => {
     root = repo(own([ACME]));
-    install(root, ACME, "1.0.0", {
+    install(root, ACME, {
       "": {
         settings:
           "version: 2\ntickets:\n  fields:\n    proposed-docs: Docs draft\n",
@@ -293,33 +382,12 @@ describe("what a preset can't do", () => {
     expect(r.err).toEqual([]);
   });
 
-  it("refuses a preset whose version is not 2", async () => {
-    await refused("version: 1\n", `${ACME}: version: must be 2`);
-  });
-
   it("refuses a preset listed twice", async () => {
     root = repo(own([ACME, ACME]));
-    install(root, ACME, "1.0.0", { "": { settings: "version: 2\n" } });
+    install(root, ACME, { "": { settings: "version: 2\n" } });
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([`presets: ${ACME} is listed twice`]);
-  });
-
-  it("refuses a listed preset with no factory-preset.yaml in its folder", async () => {
-    root = repo(own([`${ACME}/web`]));
-    install(root, ACME, "1.0.0", { "": { settings: "version: 2\n" } });
-    const r = deps(root);
-    expect(await config(["check"], r.d)).toBe(1);
-    expect(r.err).toEqual([
-      `${ACME}/web: no factory-preset.yaml in node_modules/${ACME}/web`,
-    ]);
-  });
-
-  it("refuses a listed preset whose package is not installed", async () => {
-    root = repo(own([ACME]));
-    const r = deps(root);
-    expect(await config(["check"], r.d)).toBe(1);
-    expect(r.err).toEqual([`${ACME}: not installed. Run: npm ci`]);
   });
 
   it("refuses off on a plugin no preset names", async () => {
@@ -352,7 +420,7 @@ describe("a spec tool a preset names", () => {
         "",
       ].join("\n"),
     );
-    installAcme(root, "1.4.0", `version: 2\n${specs}`);
+    installAcme(root, `version: 2\n${specs}`);
   };
   const text = `version: 2\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
 
@@ -390,7 +458,7 @@ describe("a branch name a preset supplies", () => {
         "",
       ].join("\n"),
     );
-    installAcme(root, "1.4.0", preset);
+    installAcme(root, preset);
   };
 
   it("is the pattern of a repository whose own file has none", async () => {
@@ -418,7 +486,7 @@ describe("a branch name a preset supplies", () => {
     withoutOwn();
     expect(
       await presetBranchNameAt(root)(
-        'version: 2\nrepository: acme/billing\npresets:\n  - "@acme/missing"\n',
+        "version: 2\nrepository: acme/billing\npresets:\n  - acme/missing\n",
       ),
     ).toBeNull();
   });
@@ -427,7 +495,7 @@ describe("a branch name a preset supplies", () => {
     withoutOwn();
     const { out } = await explain();
     expect(lineOf(out, "branch-name:")).toMatch(
-      /^branch-name: "feature\/\{user\}\/\{ticket\}" +# @acme\/factory-preset$/,
+      /^branch-name: "feature\/\{user\}\/\{ticket\}" +# acme\/factory-config$/,
     );
   });
 });
@@ -437,7 +505,7 @@ describe("factory config explain with presets", () => {
     acme();
     let { out } = await explain();
     expect(lineOf(out, "review-rounds:")).toMatch(
-      /^review-rounds: 3 +# @acme\/factory-preset\/node, not chosen yet$/,
+      /^review-rounds: 3 +# acme\/factory-config\/\/node, not chosen yet$/,
     );
     put(
       root,
@@ -446,7 +514,7 @@ describe("factory config explain with presets", () => {
     );
     ({ out } = await explain());
     expect(lineOf(out, "small-change-lines:")).toMatch(
-      /^small-change-lines: 30 +# @acme\/factory-preset\/node, chosen over @acme\/factory-preset$/,
+      /^small-change-lines: 30 +# acme\/factory-config\/\/node, chosen over acme\/factory-config$/,
     );
     expect(lineOf(out, "relock:")).toMatch(/^relock: npm install +# default$/);
   });
@@ -455,7 +523,7 @@ describe("factory config explain with presets", () => {
     acme([ACME, NODE], ["rules:", "  small-change-lines: 50"]);
     const { out } = await explain();
     expect(lineOf(out, "small-change-lines:")).toMatch(
-      /^small-change-lines: 50 +# over @acme\/factory-preset and @acme\/factory-preset\/node$/,
+      /^small-change-lines: 50 +# over acme\/factory-config and acme\/factory-config\/\/node$/,
     );
     expect(lineOf(out, "repository:")).toBe("repository: acme/billing");
   });
@@ -464,11 +532,11 @@ describe("factory config explain with presets", () => {
     acme([ACME, NODE], ["pr-review:", "  commands: [node]"]);
     const { out } = await explain();
     expect(lineOf(out, "- npm audit")).toMatch(
-      /^- npm audit +# @acme\/factory-preset\/node$/,
+      /^- npm audit +# acme\/factory-config\/\/node$/,
     );
     expect(lineOf(out, "- node")).toBe("- node");
     expect(lineOf(out, "- agent: acme-security-reviewer")).toMatch(
-      /# @acme\/factory-preset$/,
+      /# acme\/factory-config$/,
     );
   });
 });
@@ -490,7 +558,6 @@ describe("reading the settings from the lock", () => {
     root = repo(settings);
     return deps(root, {
       lock: { read: () => text, check: true },
-      installed: () => undefined,
       ...over,
     });
   };
@@ -534,7 +601,7 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps(lock({ hash: settingsHash("old", null) }));
     await stops(
       d,
-      ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync",
+      ".claude/factory.yaml changed since the last sync. Run: factory sync",
     );
   });
 
@@ -545,29 +612,7 @@ describe("reading the settings from the lock", () => {
     });
     await stops(
       d,
-      ".claude/factory.choices.yaml changed since the last sync. Run: npx --no-install factory sync",
-    );
-  });
-
-  const withPreset = `presets:\n  - name: "${ACME}"\n    version: 1.4.0`;
-
-  it("stops, naming sync, when a preset's installed version differs from the lock's", async () => {
-    const { d } = lockDeps(lock({ presets: withPreset }), {
-      installed: () => "1.5.0",
-    });
-    await stops(
-      d,
-      `${ACME} is 1.5.0 in node_modules but 1.4.0 in .claude/factory.lock. Run: npx --no-install factory sync`,
-    );
-  });
-
-  it("names npm ci, not sync, when the installed preset is older than the lock's", async () => {
-    const { d } = lockDeps(lock({ presets: withPreset }), {
-      installed: () => "1.3.0",
-    });
-    await stops(
-      d,
-      `${ACME} is 1.3.0 in node_modules but 1.4.0 in .claude/factory.lock. Run: npm ci`,
+      ".claude/factory.choices.yaml changed since the last sync. Run: factory sync",
     );
   });
 
@@ -575,47 +620,29 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps(
       "settings:\n<<<<<<< HEAD\n  a: 1\n=======\n  a: 2\n>>>>>>> b\n",
     );
-    await stops(
-      d,
-      ".claude/factory.lock can't be read. Run: npx --no-install factory sync",
-    );
-  });
-
-  it("stops, naming npm ci, when a preset the lock lists is not installed", async () => {
-    const { d } = lockDeps(lock({ presets: withPreset }), {
-      installed: () => null,
-    });
-    await stops(
-      d,
-      `${ACME} is in .claude/factory.lock but not installed. Run: npm ci`,
-    );
+    await stops(d, ".claude/factory.lock can't be read. Run: factory sync");
   });
 
   it("stops on a lock from an earlier release, which has no settings", async () => {
     const { d } = lockDeps("# old\nversion: 0.4.0\nfiles:\n  - a\n");
     await stops(
       d,
-      ".claude/factory.lock is from an earlier version of the factory. Run: npx --no-install factory sync",
+      ".claude/factory.lock is from an earlier version of the factory. Run: factory sync",
     );
   });
 
   it("stops when there is no lock", async () => {
     const { d } = lockDeps(null);
-    await stops(
-      d,
-      ".claude/factory.lock is missing. Run: npx --no-install factory sync",
-    );
+    await stops(d, ".claude/factory.lock is missing. Run: factory sync");
   });
 
-  it("names the first reason in order: missing, earlier, changed, not installed, another version", () => {
-    const two = `presets:\n  - name: "${ACME}"\n    version: 1.4.0\n  - name: "@b/p"\n    version: 1.0.0`;
+  it("names the first reason in order: missing, earlier, changed", () => {
     const at = (over: Partial<StaleDeps>) =>
       staleReason({
-        lock: lock({ presets: two }),
+        lock: lock(),
         own: settings,
         choices: null,
         changed: () => [],
-        installed: (pkg) => (pkg === ACME ? "9.9.9" : null),
         load: yaml,
         ...over,
       });
@@ -624,15 +651,24 @@ describe("reading the settings from the lock", () => {
     expect(
       at({ lock: `version: 0.4.0\nsettings-hash: ${stale}\nfiles: []\n` }),
     ).toContain("earlier version");
-    expect(at({ lock: lock({ presets: two, hash: stale }) })).toContain(
+    expect(at({ lock: lock({ hash: stale }) })).toContain(
       "changed since the last sync",
     );
-    expect(at({})).toBe(
-      "@b/p is in .claude/factory.lock but not installed. Run: npm ci",
-    );
-    expect(at({ installed: () => "9.9.9" })).toContain(
-      `${ACME} is 9.9.9 in node_modules`,
-    );
+    expect(at({})).toBeNull();
+  });
+
+  it("is current whatever commit a preset is pinned at, with nothing of it on this machine", () => {
+    expect(
+      staleReason({
+        lock: lock({
+          presets: `presets:\n  - name: ${ACME}\n    commit: ${"1".repeat(40)}\n    settings: {}\n    files: {}`,
+        }),
+        own: settings,
+        choices: null,
+        changed: () => [],
+        load: yaml,
+      }),
+    ).toBeNull();
   });
 
   it("reads the lock FACTORY_LOCK names without checking it is current", async () => {
@@ -642,11 +678,40 @@ describe("reading the settings from the lock", () => {
     expect((await loadSettings(d)).rules.reviewRounds).toBe(7);
   });
 
-  it("reads the file FACTORY_SETTINGS names, its presets from node_modules, with no lock", async () => {
+  it("reads the file FACTORY_SETTINGS names, with no lock", async () => {
+    root = repo(settings);
+    put(root, "try.yaml", own([], ["rules:", "  review-rounds: 6"]));
+    const d = defaultDeps(root, { FACTORY_SETTINGS: join(root, "try.yaml") });
+    expect((await loadSettings(d)).rules.reviewRounds).toBe(6);
+  });
+
+  it("stops on a file FACTORY_SETTINGS names that lists presets, even ones the lock pins", async () => {
     root = repo(settings);
     installAcme(root);
     put(root, "try.yaml", own([NODE]));
     const d = defaultDeps(root, { FACTORY_SETTINGS: join(root, "try.yaml") });
-    expect((await loadSettings(d)).rules.reviewRounds).toBe(3);
+    await expect(loadSettings(d)).rejects.toThrow(
+      "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
+    );
+    const err: string[] = [];
+    expect(
+      await config(["get", "repository"], { ...d, err: (l) => err.push(l) }),
+    ).toBe(1);
+    expect(err).toEqual([
+      "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
+    ]);
+  });
+});
+
+describe("the version of the factory a lock names", () => {
+  it("is its version line, whatever follows it", () => {
+    expect(lockedVersion("# a comment\nversion: 0.3.0\npresets: []\n")).toBe(
+      "0.3.0",
+    );
+  });
+
+  it("is none for a lock that is missing or names none", () => {
+    expect(lockedVersion(null)).toBeNull();
+    expect(lockedVersion("presets: []\n  version: 2\n")).toBeNull();
   });
 });

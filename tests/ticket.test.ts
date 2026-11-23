@@ -2763,7 +2763,7 @@ describe("starting the board sync", () => {
     expect(await main(["refining", "7"], d)).toBe(0);
     expect(out).toEqual([
       "posted",
-      "? the board updates at the nightly sync: couldn't start factory-board-sync (HTTP 403: Resource not accessible by integration)",
+      "? the board updates at the nightly sync: couldn't start the board sync (HTTP 403: Resource not accessible by integration)",
     ]);
   });
 });

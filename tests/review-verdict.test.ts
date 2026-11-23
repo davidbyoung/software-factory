@@ -18,6 +18,49 @@ const base: Input = {
 };
 const on = (overrides: Partial<Input>) => decide({ ...base, ...overrides });
 
+describe("decide, with the automated review off", () => {
+  const OFF = { state: "success", description: "The automated review is off" };
+  const off = (overrides: Partial<Input>) =>
+    decide({ ...base, reviewOff: true, ...overrides });
+
+  it.each<[string, Partial<Input>]>([
+    ["the review's workflow finishing", { runConclusion: "skipped" }],
+    [
+      "a pull request opened",
+      { event: "pull_request_target", action: "opened" },
+    ],
+    ["a push", { event: "pull_request_target", action: "synchronize" }],
+    [
+      "a draft",
+      { event: "pull_request_target", action: "opened", isDraft: true },
+    ],
+    [
+      "an override on it",
+      { event: "pull_request_target", action: "opened", hasOverride: true },
+    ],
+    [
+      "the override label added",
+      {
+        event: "pull_request_target",
+        action: "labeled",
+        label: "verdict-override",
+      },
+    ],
+  ])("passes on %s", (_, input) => {
+    expect(off(input)).toEqual(OFF);
+  });
+
+  it("still says why Dependabot's pull request is not reviewed", () => {
+    expect(off({ isDependabot: true })?.description).toMatch(/^Review skipped/);
+  });
+
+  it("posts nothing when another label is added", () => {
+    expect(
+      off({ event: "pull_request_target", action: "labeled", label: "bug" }),
+    ).toBeNull();
+  });
+});
+
 describe("decide, when the review finishes", () => {
   it("passes a commit the review found ready", () => {
     expect(on({ verdict: "ready" })?.state).toBe("success");
@@ -310,6 +353,61 @@ describe("apply", () => {
       .pull(31)
       .comments.slice(1)
       .map((c) => c.body);
+
+  const finished = (
+    over: Partial<Parameters<typeof apply>[0]> = {},
+    conclusion = "failure",
+  ) => {
+    const host = memoryCodeHost([
+      {
+        number: 31,
+        labels: [],
+        head: { sha: HEAD, branch: "28", repository: "acme/x" },
+        comments: [
+          { ...SUMMARY, body: SUMMARY.body.replace("changes", "ready") },
+        ],
+        threads: [],
+      },
+    ]);
+    const log: string[] = [];
+    const go = () =>
+      apply({
+        eventName: "workflow_run",
+        event: { workflow_run: { id: 9, head_sha: HEAD, conclusion } },
+        pulls: host.codeHost,
+        log: (line) => log.push(line),
+        ...over,
+      });
+    return { log, go };
+  };
+
+  it("judges the review's own job, not the run its job was in", async () => {
+    // The run failed on another job, the files-in-step check.
+    const { log, go } = finished({ reviewConclusion: async () => "success" });
+
+    await go();
+    expect(log).toEqual([
+      `Review verdict on ${HEAD}: success, The review found it ready`,
+    ]);
+  });
+
+  it("takes the run's conclusion where nothing reads the job's", async () => {
+    const { log, go } = finished();
+
+    await go();
+    expect(log).toEqual([
+      `Review verdict on ${HEAD}: failure, The review did not finish`,
+    ]);
+  });
+
+  it("passes every pull request where the automated review is off", async () => {
+    const { log, go } = finished({ reviewOn: false });
+
+    await go();
+    expect(log).toEqual([
+      `Review verdict on ${HEAD}: success, The automated review is off`,
+    ]);
+  });
 
   it("passes the verdict when an approver adds the override", async () => {
     const { host, log, go } = setUp();

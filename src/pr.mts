@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 // A pull request's fixed steps, through GitHub's GraphQL and REST APIs.
 //
-//   npx --no-install factory pr state [N] [--wait]   # what factory-address-review steps 0 to 1b read
-//   npx --no-install factory pr threads N [--all]    # unresolved review threads, or every one
-//   npx --no-install factory pr reply N COMMENT_ID --body-file FILE
-//   npx --no-install factory pr resolve N COMMENT_ID
-//   npx --no-install factory pr ready N              # refuses an unverified commit when git signs
-//   npx --no-install factory pr closes N             # the tickets the pull request closes, by key
-//   npx --no-install factory pr cost N               # notes this session's cost on the pull request
-//   npx --no-install factory pr wait-checks N        # every check on HEAD
-//   npx --no-install factory pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
-//   npx --no-install factory pr conflicts            # the pull requests the conflict sweep takes
-//   npx --no-install factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready]
-//   npx --no-install factory pr view N --field FIELD # one field of a pull request
-//   npx --no-install factory pr review N REVIEW      # a review's author, body, and line comments
-//   npx --no-install factory pr comments N [--from-approvers]  # conversation comments, or only an approver's
-//   npx --no-install factory pr unverified N         # the commits not shown as signed
-//   npx --no-install factory pr failed N             # each failed job's log, and a failed check's own report
-//   npx --no-install factory pr review-again N       # a fresh review of the same commit
+//   factory pr state [N] [--wait]   # what factory-address-review steps 0 to 1b read
+//   factory pr threads N [--all]    # unresolved review threads, or every one
+//   factory pr reply N COMMENT_ID --body-file FILE
+//   factory pr resolve N COMMENT_ID
+//   factory pr ready N              # refuses an unverified commit when git signs
+//   factory pr closes N             # the tickets the pull request closes, by key
+//   factory pr cost N               # notes this session's cost on the pull request
+//   factory pr wait-checks N        # every check on HEAD
+//   factory pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
+//   factory pr conflicts            # the pull requests the conflict sweep takes
+//   factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready]
+//   factory pr view N --field FIELD # one field of a pull request
+//   factory pr review N REVIEW      # a review's author, body, and line comments
+//   factory pr comments N [--from-approvers]  # conversation comments, or only an approver's
+//   factory pr unverified N         # the commits not shown as signed
+//   factory pr failed N             # each failed job's log, and a failed check's own report
+//   factory pr review-again N       # a fresh review of the same commit
 //
 // COMMENT_ID is a thread's first comment, as `threads` prints it. A failed
 // read exits 1 with the error; `review-pending` and `conflicts`, which a
@@ -69,6 +69,8 @@ export type Deps = {
   /** The name of each label the factory puts on pull requests, for
    * `label`; the defaults without it. */
   labels?: () => Promise<Labels["codeHost"]>;
+  /** Whether the settings have the automated review on; on without it. */
+  reviewOn?: () => Promise<boolean>;
 };
 
 /** The tickets a pull request builds, as the factory counts them. */
@@ -98,6 +100,8 @@ export type Report = {
    * write to the repository. */
   approvers: string[];
   reviewRun: { status: string; conclusion: string | null } | null;
+  /** False where the settings turn the automated review off. */
+  reviewOn?: boolean;
   summary: PullComment | null;
   conversation: PullComment[];
   reviews: Review[];
@@ -125,10 +129,11 @@ export function approverReviewsToWork(r: Report): Review[] {
   );
 }
 
-/** A review is coming for this head only on a pull request the Claude review
- * workflow runs on. */
-export function reviewExpected(pull: Pull): boolean {
+/** A review is coming for this head only where the automated review is on,
+ * and on a pull request its job runs on. */
+export function reviewExpected(pull: Pull, reviewOn = true): boolean {
   return (
+    reviewOn &&
     !pull.isDraft &&
     pull.author !== "dependabot[bot]" &&
     pull.head.repository === pull.base.repository &&
@@ -138,7 +143,7 @@ export function reviewExpected(pull: Pull): boolean {
 
 export function isSettled(r: Report): boolean {
   const reviewDone =
-    !reviewExpected(r.pull) ||
+    !reviewExpected(r.pull, r.reviewOn) ||
     r.summary !== null ||
     (r.reviewRun?.status === "completed" &&
       r.reviewRun.conclusion !== "success");
@@ -159,7 +164,7 @@ export function formatReport(r: Report): string[] {
     `state: ${p.state}${p.isDraft ? ", draft" : ", ready"}; head ${p.head.sha.slice(0, 7)} on ${p.head.branch}; base ${p.base.branch}; author ${p.author}`,
     `mergeable: ${p.mergeableState}`,
   ];
-  if (!reviewExpected(p))
+  if (!reviewExpected(p, r.reviewOn))
     lines.push("Claude review: none expected on this head");
   else if (!r.reviewRun) lines.push("Claude review: no run yet for this head");
   else
@@ -251,6 +256,7 @@ async function readReport(p: CodeHost, pr: number, d: Deps): Promise<Report> {
     pull,
     approvers: await writers(p, authors),
     reviewRun: runs[0] ?? null,
+    reviewOn: (await d.reviewOn?.()) ?? true,
     summary,
     conversation,
     reviews,
@@ -335,7 +341,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: npx --no-install factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
+const USAGE = `Usage: factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -792,6 +798,7 @@ export function prDeps(
       return { tickets, own: ownLinks(settings) };
     },
     labels: async () => (await loadSettings()).codeHost.labels,
+    reviewOn: async () => (await loadSettings()).prReview !== null,
     cost: {
       env: process.env,
       now: () => new Date(),

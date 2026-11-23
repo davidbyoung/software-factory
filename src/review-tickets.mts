@@ -2,7 +2,7 @@
 // closes, then each it builds part of, as a `## ` heading with the ticket's
 // written form and title, then its body.
 //
-//   npx --no-install factory review tickets N
+//   factory review tickets N
 //
 // The review workflow runs it from the base commit's install and hands the
 // reviewer its output, so a pull request cannot change what its own review

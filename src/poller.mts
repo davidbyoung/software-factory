@@ -44,7 +44,7 @@ import {
 import { githubCodeHost } from "./code-host/github.mts";
 import type { CodeHost } from "./code-host/types.mts";
 import {
-  BUILD_WORKFLOW,
+  FACTORY_WORKFLOW,
   githubActionsRunner,
 } from "./runner/github-actions.mts";
 import type { Runner } from "./runner/types.mts";
@@ -361,7 +361,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
     fired.push(d.now());
     const outcome = await dispatch(runner, d.defaultBranch, issue);
     if (outcome.ok) {
-      d.log(`${ref} started ${marker}: dispatched ${BUILD_WORKFLOW}`);
+      d.log(`${ref} started ${marker}: dispatched ${FACTORY_WORKFLOW}`);
       continue;
     }
     d.log(`${ref} dispatch failed: ${outcome.status} (${outcome.reason})`);

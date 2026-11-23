@@ -2,7 +2,7 @@
 // the review step passes to `--allowedTools`: the factory's own, then a
 // `Bash(COMMAND:*)` for each of the settings' `pr-review.commands`.
 //
-//   FACTORY_SETTINGS=base-settings.yaml npx --no-install factory review tools
+//   FACTORY_SETTINGS=base-settings.yaml factory review tools
 //
 // The workflow reads the settings from the pull request's base commit, so
 // a change to the settings alone cannot widen what its own review may run.

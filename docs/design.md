@@ -33,13 +33,12 @@ that merges on its own has to earn that one file pattern at a time.
 
 ## The factory's files are copied into your repository
 
-The skills, agents, rules, and CI workflows are written into your
-repository and checked for drift, which is more machinery than loading
-them from the package. A cloud build starts from a fresh checkout, and what
-is committed to the repository is what it reads, so the instructions a
+The skills, agents, and rules are written into your repository and
+checked for drift, which is more machinery than loading them from the
+package. A cloud build starts from a fresh checkout, and what is
+committed to the repository is what it reads, so the instructions a
 build follows are the ones the pull request shows. The choice is not
-forced: loading them from the package would also work, and would mean
-one version for every repository.
+forced: loading them from the package would also work.
 
 It has one real benefit. Every version of the instructions your sessions
 followed is in your repository's history, beside the code they built, and
@@ -47,6 +46,40 @@ an update shows you exactly which instruction changed.
 
 The package is still laid out as a plugin for today's coding agent, so
 that route stays open.
+
+## The workflows are not copied
+
+The CI jobs are the one part that is not a copy. Your repository holds
+two short workflow files, `.github/workflows/factory.yml` and
+`.github/workflows/factory-review.yml`, and each has one job that calls
+a workflow in the factory's own repository, at the exact version your
+repository names. The skills, agents, and rules have to be committed
+files, since those are what a session loads, in the cloud as on your
+machine. A workflow does not: the code host can run one from another
+repository at a version, so your repository need not carry about ten
+files that change with every release. The two files hold only what is
+your repository's own: its default branch, which parts are on, the
+poller's schedule, and the names of its secrets.
+
+There are two files and not one because GitHub runs a `pull_request`
+workflow from the pull request's copy, and what decides a merge must run
+from the default branch's copy, where a pull request cannot change how
+it is judged.
+
+The version in them is exact, never a moving one such as `v1`: the
+copied files and the jobs have to be the same version, so a release
+reaches your repository only as a pull request you merge
+([Updating](updating.md#what-happens)).
+
+## The factory is installed once on a machine
+
+Your repository holds no `package.json` entry for the factory and no
+copy of its code. The `factory` command on a machine reads the version a
+repository names in `.claude/factory.lock` and runs that one, which it
+downloads the first time. So a repository in any language carries
+nothing of Node's, everyone working in it runs the same version without
+installing anything after an update, and two repositories on one machine
+can be on different versions.
 
 ## Skill names start with `factory-`
 
@@ -121,13 +154,14 @@ of each.
 
 ## Three version numbers
 
-They are separate on purpose.
+The factory, the settings file, and the comment markers each have a
+version.
 
-| Number              | Where it is                                  | Changes when                         |
-| ------------------- | -------------------------------------------- | ------------------------------------ |
-| The factory's       | The installed package and `factory.lock`     | Every release                        |
-| The settings file's | `version:` at the top of `factory.yaml`      | A key is renamed or moved            |
-| The markers'        | In the comments the factory posts on tickets | The format of those comments changes |
+| Number                                | Where it is                                  | Changes when                         |
+| ------------------------------------- | -------------------------------------------- | ------------------------------------ |
+| The factory's, the one the lock names | `factory.lock` and the two workflow files    | Every release                        |
+| The settings file's                   | `version:` at the top of `factory.yaml`      | A key is renamed or moved            |
+| The comment markers'                  | In the comments the factory posts on tickets | The format of those comments changes |
 
 - **Below `1.0.0`, a release may change anything**, and its notes say what.
   `1.0.0` comes when a second repository has run on the factory for a while

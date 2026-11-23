@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Decide whether a pull request can merge without the owner.
 //
-//   npx --no-install factory merge-policy PR_NUMBER    # prints the labels to set
+//   factory merge-policy PR_NUMBER    # prints the labels to set
 //
 // "merge-automatic" only when no changed file is one of the factory's own,
 // none matches auto-merge.deny in .claude/factory.yaml, every one matches

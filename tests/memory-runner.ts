@@ -13,6 +13,8 @@ export type MemoryRunnerOptions = {
   runs?: Record<string, Run[]>;
   /** The review's runs for each commit, newest first. */
   reviewRuns?: Record<string, ReviewRun[]>;
+  /** How the review ended in a run, by the run's ID: `success` otherwise. */
+  reviewConclusions?: Record<number, string>;
   /** The jobs that failed in each run, by the run's ID, with their logs. */
   failedJobs?: Record<number, FailedJob[]>;
   /** The run the session is in; outside one unless given. */
@@ -96,6 +98,10 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       if (!reviewRuns.get(sha)?.length) return false;
       reviewsAsked.push(sha);
       return true;
+    },
+    async reviewConclusion(run) {
+      called("reviewConclusion", String(run));
+      return options.reviewConclusions?.[run] ?? "success";
     },
     async failedJobs(run) {
       called("failedJobs", run);

@@ -173,6 +173,8 @@ type Setup = {
   boards?: { number: number; title: string; columns: string[] }[];
   signingNeedsScope?: boolean;
   rulesRefused?: string;
+  eventsHeld?: boolean;
+  eventsRefused?: string;
   createRefused?: string;
   files?: Record<string, string>;
   tokens?: Record<string, { account: string; scopes: string[] | null }>;
@@ -268,6 +270,8 @@ function init(setup: Setup) {
     },
     signingNeedsScope: setup.signingNeedsScope,
     rulesRefused: setup.rulesRefused,
+    eventsHeld: setup.eventsHeld,
+    eventsRefused: setup.eventsRefused,
     isPrivate: setup.private,
     defaultBranch: setup.defaultBranch ?? undefined,
     ownerIsOrganization: setup.organization,
@@ -435,12 +439,10 @@ describe("factory init, a first run with every part", () => {
     expect(found).toMatch(/Tickets +GitHub Issues/);
     expect(found).toMatch(/Coding agent +Claude Code/);
     expect(found).toMatch(/Cloud builds +GitHub Actions/);
-    expect(found).toMatch(
-      /package\.json +none, so a private one will be created/,
-    );
+    expect(found).not.toContain("package.json");
   });
 
-  it("writes the settings, the review's among them, a private package.json, and syncs", async () => {
+  it("writes the settings, the review's among them, and syncs, with no package.json and no .gitignore line", async () => {
     const r = first();
     expect(await r.run()).toBe(0);
     expect(r.yaml()).toEqual({
@@ -453,12 +455,8 @@ describe("factory init, a first run with every part", () => {
       "auto-merge": { allow: ["docs/**", "**/*.md"] },
       "pr-review": { commands: [] },
     });
-    expect(JSON.parse(r.read("package.json")!)).toEqual({
-      name: "site",
-      private: true,
-      devDependencies: { "@davidbyoung/software-factory": "^0.2.0" },
-    });
-    expect(r.read(".gitignore")).toBe("node_modules/\n");
+    expect(r.read("package.json")).toBeNull();
+    expect(r.read(".gitignore")).toBeNull();
     expect(r.synced()).toBe(1);
   });
 
@@ -609,7 +607,7 @@ describe("factory init, a first run with every part", () => {
     );
     const text = plan.join("\n");
     expect(text).toContain(".claude/factory.yaml");
-    expect(text).toContain("package.json");
+    expect(text).not.toContain("package.json");
     expect(text).toContain(".claude/skills/factory-build/SKILL.md");
     expect(text).toContain("FACTORY_BOARD_TOKEN");
     expect(text).toContain('Require "Review verdict"');
@@ -1269,6 +1267,52 @@ describe("factory init, repository rules", () => {
   });
 });
 
+describe("factory init, the events the factory's workflow starts on", () => {
+  const ROW =
+    '  Policy   Let .github/workflows/factory.yml run on pull_request_target, as the policy "Software factory"';
+  const answers = { checkbox: [[]], confirm: [true] };
+
+  it("plans the policy and adds it where the code host holds the event back", async () => {
+    const r = init({ eventsHeld: true, answers });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(ROW);
+    expect(r.out).toContain(
+      "✓ Allowed pull_request_target for .github/workflows/factory.yml.",
+    );
+    expect(r.out.indexOf(ROW)).toBeLessThan(
+      r.out.indexOf(
+        "✓ Allowed pull_request_target for .github/workflows/factory.yml.",
+      ),
+    );
+    expect(
+      await r.host.codeHost.eventAllowed(
+        ".github/workflows/factory.yml",
+        "workflow_run",
+      ),
+    ).toBe("allowed");
+  });
+
+  it("leaves it to do by hand, saying where, when the policy cannot be added", async () => {
+    const r = init({
+      eventsHeld: true,
+      eventsRefused: "Resource not accessible",
+      answers,
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).not.toContain("✓ Allowed pull_request_target");
+    expect(r.out.join("\n")).toMatch(
+      /\d+\. Let \.github\/workflows\/factory\.yml run on pull_request_target: your repository's Settings, Actions, Policies/,
+    );
+  });
+
+  it("plans nothing where the code host holds nothing back", async () => {
+    const r = init({ answers });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).not.toContain("Policy");
+    expect(r.host.log.filter((l) => l.startsWith("allowEvents"))).toEqual([]);
+  });
+});
+
 describe("factory init, word for word", () => {
   it("prints and asks the same on a first run with every part", async () => {
     const r = init({
@@ -1291,7 +1335,6 @@ describe("factory init, word for word", () => {
         "  Tickets        GitHub Issues",
         "  Coding agent   Claude Code",
         "  Cloud builds   GitHub Actions",
-        "  package.json   none, so a private one will be created",
         "  Settings       none yet",
         "  Board          none yet",
         "",
@@ -1304,8 +1347,6 @@ describe("factory init, word for word", () => {
         "",
         "This is everything setup will do:",
         "  Write    .claude/factory.yaml",
-        "  Write    package.json",
-        "  Write    .gitignore",
         "  Write    .claude/skills/factory-build/SKILL.md",
         "  Create   board "site" under acme, linked to the repository, with the factory's columns and fields",
         "  Secrets  CLAUDE_CODE_OAUTH_TOKEN, FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, FACTORY_SIGNING_KEY",
@@ -1382,7 +1423,6 @@ describe("factory init, word for word", () => {
         "  Tickets        GitHub Issues",
         "  Coding agent   Claude Code",
         "  Cloud builds   GitHub Actions",
-        "  package.json   yes",
         "  Settings       .claude/factory.yaml",
         "  Board          3, from your settings",
         "",
@@ -1390,7 +1430,6 @@ describe("factory init, word for word", () => {
         "? confirm: 4 secrets these parts read are already set. Replace them?",
         "",
         "This is everything setup will do:",
-        "  Write    .gitignore",
         "  Write    .claude/skills/factory-build/SKILL.md",
         "  Board    give board 3 any of the factory's columns and fields it lacks",
         "  Settings allow auto-merge on the repository",
@@ -1742,15 +1781,17 @@ describe("factory init, the spec tool", () => {
     expect(r.synced()).toBe(1);
   });
 
-  it("writes package.json before the install when there was none", async () => {
+  it("writes a private package.json and ignores node_modules before the install when there was none", async () => {
     const r = init({
       answers: { ...plain, specs: ["openspec"] },
       packageJson: false,
     });
     expect(await r.run()).toBe(0);
-    expect(r.installs[0]!.packageJson).toContain(
-      "@davidbyoung/software-factory",
-    );
+    expect(JSON.parse(r.installs[0]!.packageJson!)).toEqual({
+      name: "site",
+      private: true,
+    });
+    expect(r.read(".gitignore")).toBe("node_modules/\n");
   });
 
   it("prints npm's last five error lines when the install fails, carries on, and puts the install first under Left to do", async () => {
@@ -2727,12 +2768,12 @@ describe("the tokens .npmrc reads", () => {
     });
   const after = (out: string[], line: string) => out.slice(out.indexOf(line));
 
-  it("lists .npmrc and the names it reads under Found, after package.json", async () => {
+  it("lists .npmrc and the names it reads under Found, after Cloud builds", async () => {
     const r = first(`${NPMRC}//b.example/:_authToken=\${B_TOKEN}\n`, {
       answers: { checkbox: [[]], confirm: [true], secret: [TOKEN, TOKEN] },
     });
     await r.run();
-    const at = r.out.findIndex((l) => l.startsWith("  package.json"));
+    const at = r.out.findIndex((l) => l.startsWith("  Cloud builds"));
     expect(r.out[at + 1]).toBe("  .npmrc         reads NPM_TOKEN, B_TOKEN");
   });
 
@@ -2882,7 +2923,7 @@ describe("the tokens .npmrc reads", () => {
       "  Settings       none yet",
       "  Board          none yet",
       "",
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: npx --no-install factory sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: factory sync",
     ]);
     expect(r.read(".claude/factory.yaml")).toBeNull();
   });

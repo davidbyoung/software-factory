@@ -13,37 +13,37 @@ case where you have already merged.
 
 ## A repository that is not JavaScript
 
-The factory's tool runs on Node and is installed with npm, whatever your
-project is written in. In a PHP, Python, or Go repository that means:
+The factory's tool runs on Node, whatever your project is written in,
+and it is installed on each machine, not in your repository. In a PHP,
+Python, or Go repository that means:
 
-- **A `package.json` appears**, holding one development dependency and
-  nothing else. Make it yourself before installing, marked private so it
-  can never be published:
-
-  ```bash
-  echo '{ "private": true }' > package.json
-  ```
-
-  Without one, npm installs into the nearest folder above that has a
-  `package.json`, if there is one, rather than into your repository.
-
-- **`package-lock.json` is committed.** It is what keeps everyone on the
-  same version of the factory.
-- **`node_modules/` is ignored.** `factory init` adds it
-  to your `.gitignore`.
-- **Everyone who works on the repository needs Node 22.18 or later**, and
-  runs `npm ci` once after cloning.
+- **Nothing of Node's goes in the repository.** The factory adds no
+  `package.json`, no `package-lock.json`, and no `node_modules/`. The one
+  exception is a spec tool that npm installs, such as OpenSpec, if you
+  choose one ([`specs`](configuration.md#specs)): `factory init` then
+  writes a small private `package.json` for it, and ignores
+  `node_modules/`.
+- **Everyone who runs an agent session in the repository needs Node
+  22.18 or later,** and the `factory` command, installed once on their
+  machine as [the quick start](quick-start.md#1-install) shows.
 - **Your own CI does not change.** The factory's cloud jobs install Node
-  for themselves. If you turn on the automated review, how it installs your
-  project, such as `composer install`, is yours to edit.
+  and the factory for themselves. They run `npm ci` for your project only
+  when its root has a `package-lock.json`, so in a repository without one
+  they install nothing of yours. What a cloud build needs beyond that,
+  such as `composer install`, goes under
+  [`commands.build-setup`](configuration.md#commandsbuild-setup). The
+  automated review installs nothing else, and runs only the commands
+  you list under [`pr-review.commands`](configuration.md#pr-review).
 - **Your commands stay yours.** The gate a build runs, and everything
   else under [`commands`](configuration.md#commands) in the settings, is
   whatever your project runs: `composer test`, `make check`,
   `go vet ./...`.
 
-The factory's hooks run its own tool, so they need nothing beyond Node.
-Someone who only writes code by hand, and never runs an agent session in
-the repository, needs none of this.
+The factory's hooks run that one command, so they need nothing beyond
+Node and the install. On a machine without it, they stop a session's
+commands and say how to install it. Someone who only writes code by
+hand, and never runs an agent session in the repository, needs none of
+this.
 
 [Configuration](configuration.md#a-project-that-isnt-javascript) has a
 complete settings file for a PHP library.
@@ -326,7 +326,8 @@ ticket field too: see [`tickets.fields`](configuration.md#ticketsfields).
   settings stay as they are.
 - **Your skills and agents:** untouched. Everything the factory adds is
   named `factory-...`, so nothing collides.
-- **Your CI workflows:** untouched. The factory's are named `factory-...`.
+- **Your CI workflows:** untouched. The factory's are two files,
+  `factory.yml` and `factory-review.yml`.
 - **`factory init` lists every file** it would write or
   change before it writes, and changes nothing if you say no.
 
@@ -349,10 +350,14 @@ names each file.
   instructions from a review or a comment by an account with write
   access, and from nobody else. There is nothing to list: give a
   teammate write access, and their reviews are answered.
-- **One version for everyone.** The version is pinned in
-  `package-lock.json`. After an update merges, each person pulls and runs
-  `npm ci`. `factory doctor` says so when the installed
-  version and the repository's disagree.
+- **Each person installs the factory once,** on their own machine, as
+  [the quick start](quick-start.md#1-install) shows. A machine without it
+  is told so when a session starts.
+- **One version for everyone.** The repository names the version, in
+  `.claude/factory.lock`, and each person's `factory` command runs that
+  one. After an update merges, each person pulls, and nobody installs
+  the factory again: the command downloads the new version the first
+  time it runs.
 - **One session per ticket.** A session claims a ticket before it starts,
   and a second one is told who holds it.
 - **Only labeled tickets are the factory's.** A teammate who works a
@@ -362,8 +367,10 @@ names each file.
 - **One person merges updates.** An update changes the instructions
   everyone's sessions follow, so it always waits for a person.
   [Updating](updating.md) describes it.
-- **Check your coding agent's plan** covers the way your team would use
-  this, including builds that run without anyone watching.
+- **Check your coding agent's plan.** Read its terms to see that it
+  covers the way your team would use the factory, including builds that
+  run without anyone watching: nobody has tested that it does
+  ([What nobody has tested](limitations.md#what-nobody-has-tested)).
 
 ## What it does to your repository, in short
 
@@ -377,8 +384,8 @@ and how to undo each. The short version:
   pushing, and that run your
   [`commands.before-commit`](configuration.md#commandsbefore-commit)
   commands. They apply to agent sessions, not to your own terminal.
-- Its CI workflows: one that checks the factory's files are in step, the
-  ones that run a session in the cloud, and one more for each optional part
-  you turn on. With a Dependabot configuration, two more complete
-  Dependabot's pull requests, the factory's own updates among them.
+- Two CI workflow files, `factory.yml` and `factory-review.yml`. Their
+  jobs check that the factory's files are in step, run sessions in the
+  cloud, open the factory's updates as pull requests, and run each
+  optional part you turn on. A job whose part is off is skipped.
 - Comments on tickets it works, and one "Follow-ups" ticket.

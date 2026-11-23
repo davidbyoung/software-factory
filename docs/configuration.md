@@ -23,9 +23,9 @@ and look up any other setting under [Every setting](#every-setting).
   its column on the board and fills in its fields. It is the only thing
   that writes to the board.
 - **`factory sync`:** a command you run. It copies the factory's skills,
-  agents, rules, and workflows into your repository, choosing which ones
-  from this file, and writes the settings in effect into
-  `.claude/factory.lock`. It has nothing to do with the board sync.
+  agents, and rules into your repository, choosing which ones from this
+  file, writes its two workflow files, and writes the settings in effect
+  into `.claude/factory.lock`. It has nothing to do with the board sync.
 - **Skill and agent:** a skill is a set of instructions a session follows,
   and an agent is a separate reviewer a session launches to read something
   and report back.
@@ -75,7 +75,7 @@ The [glossary](glossary.md) has the rest.
   `factory config check`, and the `factory preset` commands.
 
   ```text
-  .claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync
+  .claude/factory.yaml changed since the last sync. Run: factory sync
   ```
 
   [`factory config explain`](cli.md) prints the settings in effect, each
@@ -196,20 +196,26 @@ needs it too.
 
 ### `presets`
 
-Settings shared by several repositories, each an npm package your team
-publishes, listed in the order they apply: a later preset wins over an
-earlier one, and your own settings in this file win over every preset's.
+Settings shared by several repositories, each a folder in a repository
+on your code host, listed in the order they apply: a later preset wins
+over an earlier one, and your own settings in this file win over every
+preset's.
 
 ```yaml
 presets:
-  - "@acme/factory-preset" # what every Acme repository shares
-  - "@acme/factory-preset/node" # extra settings for its Node repositories
+  - acme/factory-config # what every Acme repository shares
+  - acme/factory-config//node # extra settings for its Node repositories
 ```
 
 - **Default:** none.
+- **A name is the repository that holds the preset,** written
+  `OWNER/NAME`. A preset kept in a folder of that repository adds `//`
+  and the folder: `OWNER/NAME//FOLDER`.
 - **Add or remove one** with `factory preset add NAME` or
-  `factory preset remove NAME`, which install or uninstall the package,
-  edit this list, and sync. A name that starts with `@` must be quoted.
+  `factory preset remove NAME`, which edit this list, pin the preset to
+  one commit of its repository in `.claude/factory.lock`, or drop that
+  pin, and sync. A name written here by hand is not pinned, so the next
+  sync stops and names the command that pins it.
 - **A preset can't set** `repository`, `auto-merge.allow`, or
   `auto-merge.commands`, and can't list other presets
   ([why](presets.md#what-a-preset-cant-set)).
@@ -670,11 +676,11 @@ $ factory config check
 ✓ The settings are valid.
 $ factory sync
 wrote .claude/factory.lock
-wrote .github/workflows/factory-review-verdict.yml
+wrote .github/workflows/factory.yml
 ```
 
 The second `wrote` line appears only when you rename `verdict-override`:
-that workflow names the label it starts on, so the sync rewrites it.
+that workflow file names the label, so the sync rewrites it.
 Commit `.claude/factory.yaml`, the lock, and any workflow `factory sync`
 wrote, and merge them.
 
@@ -709,7 +715,8 @@ The three triggers:
 - **`github-action`:** a schedule on GitHub Actions does the same every
   `poll-minutes` minutes, with nothing for you to host. On a private
   repository, each check is billed as at least one Actions minute.
-  `factory sync` adds its workflow.
+  `factory sync` writes its schedule into
+  `.github/workflows/factory.yml`.
 
 Watch the spelling: the trigger is `github-action`, singular, and the
 runner is `github-actions`, plural.
@@ -755,7 +762,9 @@ tool do you use?" when `.claude/factory.yaml` has no `specs` line and no
 [preset](presets.md) sets one. With `openspec`, init installs OpenSpec as
 a development dependency, `npm install --save-dev @fission-ai/openspec`,
 whenever your `package.json` doesn't list it, and prints
-`Installed @fission-ai/openspec.` It worked when that line prints and
+`Installed @fission-ai/openspec.` In a repository with no
+`package.json`, it writes a small private one first, and adds
+`node_modules/` to your `.gitignore`. It worked when that line prints and
 `package.json` lists the package. So to turn OpenSpec on later, write
 `specs: openspec` and run `factory init` again. A re-run is safe: it
 keeps every setting you have, asks again only which parts you want,
@@ -839,8 +848,9 @@ commands:
 #### `commands.build-setup`
 
 Commands that run before a cloud build starts work, to install what the
-session will need. Your npm dependencies are already installed by then,
-with `npm ci`, but nothing else is.
+session will need. When your repository's root has a
+`package-lock.json`, your npm dependencies are already installed by
+then, with `npm ci`. Nothing else is.
 
 ```yaml
 commands:
@@ -1046,8 +1056,9 @@ session-minutes:
 | `dependencies` | Working through dependency updates                        | `50`    |
 
 - **Each is a whole number above zero.**
-- **Run `factory sync` after changing one,** since it writes them into the
-  workflows. `factory config check` fails until you do.
+- **Run `factory sync` after changing one,** since it writes them into
+  `.github/workflows/factory.yml`. `factory config check` fails until
+  you do.
 - **GitHub may stop a job sooner:** see
   [its limits](github/reference.md#limits).
 
@@ -1341,8 +1352,11 @@ pr-review:
 ```
 
 - **Default:** off. Writing `pr-review` turns it on, even with nothing
-  under it (`pr-review: {}`), and `factory sync` then adds its workflow,
-  `.github/workflows/factory-claude-review.yml`.
+  under it (`pr-review: {}`), and `factory sync` then turns the review's
+  job on in `.github/workflows/factory-review.yml`. While it is off,
+  each pull request's "Review verdict" status passes, reading "The
+  automated review is off". `factory config get pr-review` prints `on`
+  or `off`.
   [Setting up on GitHub](github/setup.md) has what it needs there.
 - **`commands` is what the reviewer may run** to confirm something it
   suspects, beyond reading the code and commenting. It doesn't run them on
@@ -1354,7 +1368,7 @@ pr-review:
 - **It reads this list from the branch the pull request merges into,** so
   a pull request can't widen what its own review may run.
 - **To turn it off,** delete `pr-review` and run `factory sync`, which
-  removes the workflow.
+  turns the job off again.
 - `factory review tools` prints everything the reviewer may use.
 
 ### `rules`
@@ -1387,11 +1401,11 @@ change by saying so in your own instructions for the coding agent, such as
 | `factory config explain` | Prints the whole file as the factory reads it, with every default written out and marked `# default` |
 | `factory doctor`         | Checks the file against your real board, and that each secret the factory needs is set               |
 
-The first line `factory init` writes is optional. It points your editor at
-the schema in the installed package:
+A first line like this one is optional. It points your editor at the
+schema, in the factory's own repository:
 
 ```yaml
-# $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
+# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
 ```
 
 JetBrains editors and Visual Studio Code's YAML extension both read it.
@@ -1411,7 +1425,7 @@ Changes to components, styles, docs, and tests merge unread, except
 anything touching checkout or consent.
 
 ```yaml
-# $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
+# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
 version: 2
 repository: harbor-goods/storefront
 
@@ -1491,7 +1505,7 @@ A marketing site with a board and nothing else changed. Builds start when
 someone asks a session, since `builds.trigger` defaults to `manual`.
 
 ```yaml
-# $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
+# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
 version: 2
 repository: riverbend-studio/site
 
@@ -1525,7 +1539,7 @@ build installs its dependencies first. Docs merge unread, and one reviewer
 of its own reads changes to its public API.
 
 ```yaml
-# $schema: ../node_modules/@davidbyoung/software-factory/settings.schema.json
+# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
 version: 2
 repository: northwind-php/ledger
 

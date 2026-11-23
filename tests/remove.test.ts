@@ -55,8 +55,8 @@ const SYNCED: Record<string, string> = {
   ".claude/skills/mine/SKILL.md": "mine\n",
   ".claude/agents/factory-ui-reviewer.md": "reviewer\n",
   ".claude/agents/mine.md": "mine\n",
-  ".github/workflows/factory-check.yml": "on: push\n",
-  ".github/workflows/factory-claude-review.yml": "on: pull_request\n",
+  ".github/workflows/factory-review.yml": "on: pull_request\n",
+  ".github/workflows/factory.yml": "on: push\n",
   ".github/workflows/ci.yml": "on: push\n",
   ".github/factory-review.md": "review\n",
   ".github/actions/factory-agent/action.yml": "runs:\n",
@@ -112,7 +112,6 @@ function remove(o: {
         tickets,
       ),
       hasCommand: () => true,
-      packageName: "@davidbyoung/software-factory",
       env: o.env ?? { XDG_CONFIG_HOME: "/nonexistent" },
     });
   const has = (path: string) => existsSync(join(root, path));
@@ -126,8 +125,8 @@ const DELETED = [
   ".claude/factory",
   ".claude/skills/factory-build",
   ".claude/agents/factory-ui-reviewer.md",
-  ".github/workflows/factory-check.yml",
-  ".github/workflows/factory-claude-review.yml",
+  ".github/workflows/factory-review.yml",
+  ".github/workflows/factory.yml",
   ".github/factory-review.md",
   ".github/actions/factory-agent",
 ];
@@ -136,10 +135,12 @@ describe("factory remove with presets", () => {
   const LOCK = [
     "version: 0.5.0",
     "presets:",
-    '  - name: "@acme/factory-preset"',
-    "    version: 1.4.0",
-    '  - name: "@acme/factory-preset/node"',
-    "    version: 1.4.0",
+    "  - name: acme/factory-config",
+    "    commit: 3f9c2e1a7b4d5c6e8f9012a3b4c5d6e7f8091a2b",
+    "    settings: {}",
+    "    files:",
+    "      .claude/agents/acme-security-reviewer.md: sha256:0",
+    "      .claude/skills/acme-refine/SKILL.md: sha256:1",
     "settings-hash: sha256:0",
     "settings:",
     "  version: 2",
@@ -156,7 +157,7 @@ describe("factory remove with presets", () => {
         ...SYNCED,
         ".claude/factory.lock": LOCK,
         ".claude/factory.choices.yaml":
-          'rules.review-rounds: "@acme/factory-preset"\n',
+          "rules.review-rounds: acme/factory-config\n",
         ".claude/agents/acme-security-reviewer.md": "security\n",
         ".claude/skills/acme-refine/SKILL.md": "refine\n",
       },
@@ -174,13 +175,10 @@ describe("factory remove with presets", () => {
     expect(r.has(".claude/agents/mine.md")).toBe(true);
   });
 
-  it("adds uninstalling each preset's package to what is left by hand", async () => {
+  it("leaves no npm uninstall line, for the factory or for a preset", async () => {
     const r = withPresets();
     await r.run();
-    const steps = r.out.filter((l) => /^ {2}\d+\. /.test(l));
-    expect(
-      steps.filter((l) => l.includes("npm uninstall @acme/factory-preset.")),
-    ).toHaveLength(1);
+    expect(r.out.filter((l) => l.includes("npm uninstall"))).toEqual([]);
   });
 });
 
@@ -195,8 +193,8 @@ describe("factory remove", () => {
       "  Delete   .claude/factory",
       "  Delete   .claude/skills/factory-build",
       "  Delete   .claude/agents/factory-ui-reviewer.md",
-      "  Delete   .github/workflows/factory-check.yml",
-      "  Delete   .github/workflows/factory-claude-review.yml",
+      "  Delete   .github/workflows/factory-review.yml",
+      "  Delete   .github/workflows/factory.yml",
       "  Delete   .github/factory-review.md",
       "  Delete   .github/actions/factory-agent",
       "  Change   .claude/settings.json",
@@ -283,8 +281,7 @@ describe("factory remove", () => {
       "  6. Delete the secret CLAUDE_CODE_OAUTH_TOKEN, unless another workflow uses it.",
       "",
       "  Then",
-      "  7. Run npm uninstall @davidbyoung/software-factory.",
-      "  8. Commit this on a branch, open a pull request, and merge it.",
+      "  7. Commit this on a branch, open a pull request, and merge it.",
     ]);
   });
 

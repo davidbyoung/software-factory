@@ -1,12 +1,13 @@
 // The proof the package works outside the repository it is developed in:
-// packs this folder, installs the tarball into an empty repository in a
-// temporary folder, and runs the factory there.
+// packs this folder, installs the tarball once on a machine, as a person
+// does, and runs the factory in an empty repository in a temporary folder.
 //
 //   npm run pack-check
 //
-// It fails when a command exits non-zero, when the sync wrote no skill,
-// when a hook entry does not point into the installed package, or when a
-// packed file names the repository the factory was drawn out of
+// It fails when a command exits non-zero, when the sync wrote no skill or
+// either workflow file, when it left a package.json or node_modules in the
+// repository, when a hook entry does not run the machine's factory, or
+// when a packed file names the repository the factory was drawn out of
 // (`host-names.mts`). That last check stands between the package and
 // publishing.
 import { execFileSync } from "node:child_process";
@@ -69,19 +70,28 @@ try {
     .trim()
     .split("\n")
     .at(-1)!;
+  // Once on the machine, as a person installs it: a prefix of its own
+  // stands in for the machine's, and the repository holds no package.json.
+  const prefix = join(dir, "machine");
+  run(
+    "npm",
+    [
+      "install",
+      "--global",
+      "--prefix",
+      prefix,
+      "--no-audit",
+      "--no-fund",
+      "--silent",
+      join(dir, tarball),
+    ],
+    dir,
+  );
+  const factory = join(prefix, "bin", "factory");
   const repo = join(dir, "scratch");
   mkdirSync(join(repo, ".claude"), { recursive: true });
   run("git", ["init", "-q"], repo);
-  writeFileSync(
-    join(repo, "package.json"),
-    '{ "name": "scratch", "private": true }\n',
-  );
   writeFileSync(join(repo, ".claude/factory.yaml"), SETTINGS);
-  run(
-    "npm",
-    ["install", "--no-audit", "--no-fund", "--silent", join(dir, tarball)],
-    repo,
-  );
 
   for (const args of [
     ["sync"],
@@ -90,13 +100,19 @@ try {
     ["plugins"],
   ]) {
     try {
-      run("npx", ["--no-install", "factory", ...args], repo);
+      run(factory, args, repo);
     } catch {
       fail(`factory ${args.join(" ")} exited non-zero`);
     }
   }
+  for (const left of ["package.json", "node_modules", ".github/actions"])
+    if (existsSync(join(repo, left)))
+      fail(`the sync left ${left} in the repository`);
+  for (const file of ["factory.yml", "factory-review.yml"])
+    if (!existsSync(join(repo, ".github/workflows", file)))
+      fail(`the sync wrote no .github/workflows/${file}`);
 
-  const installed = join(repo, "node_modules", name);
+  const installed = join(prefix, "lib", "node_modules", name);
   const named = filesUnder(installed).flatMap((path) => {
     const file = relative(installed, path);
     return hostWordsIn(readFileSync(path, "utf8"), file).map(
@@ -123,9 +139,11 @@ try {
   const commands = Object.values(hooks).flatMap((groups) =>
     groups.flatMap((g) => g.hooks.map((h) => h.command)),
   );
-  const outside = commands.filter((c) => !c.includes(`node_modules/${name}/`));
+  const outside = commands.filter((c) => !/(^|; )factory [a-z]/.test(c));
   if (commands.length !== 5 || outside.length > 0)
-    fail(`a hook entry does not point into the package: ${outside.join("; ")}`);
+    fail(
+      `a hook entry does not run the machine's factory: ${outside.join("; ")}`,
+    );
 
   console.log(
     `pack-check passed: ${written.length} skills, ${commands.length} hook entries`,

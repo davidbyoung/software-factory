@@ -5,7 +5,7 @@
 // `factory ticket ready` sets Status to Ready when the owner asks a local
 // session to, and the rules read that as the owner's own move.
 //
-// In .github/workflows/factory-board-sync.yml it runs in two steps, so the board's
+// In the board job of the factory's run.yml it runs in two steps, so the board's
 // token reaches only the second:
 //   collect  with the workflow's token: posts the comments a closed pull
 //            request or the nightly run calls for, then saves the repository
@@ -13,8 +13,8 @@
 //            writes what changed
 //
 // Locally, to see what it would set without writing anything:
-//   npx --no-install factory board --dry-run
-//   npx --no-install factory board --dry-run --fixture DIR --now ISO
+//   factory board --dry-run
+//   factory board --dry-run --fixture DIR --now ISO
 // The second reads repo.json, as collect saves it, and board.json, the
 // board's recorded GraphQL pages, from DIR instead of GitHub.
 //

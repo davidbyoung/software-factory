@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The tokens a repository's `.npmrc` reads to sign in to a private npm registry: how `factory sync` passes them to the factory's workflows, and how `factory init` stores and `factory doctor` checks them, for GitHub Actions and for Dependabot.
+The tokens a repository's `.npmrc` reads to sign in to a private npm registry: how `factory sync` passes them, by name, through the repository's two workflow files to the factory's jobs, and how `factory init` stores and `factory doctor` checks them, for GitHub Actions and for Dependabot.
 
 ## Requirements
 
@@ -17,30 +17,30 @@ The factory SHALL behave as this line says: When a line of the `.npmrc` at the r
 
 ### Requirement: The installing jobs get the variable
 
-The factory SHALL behave as this line says: When sync takes a name, each job of a factory workflow that runs `npm ci` (in `factory-check`, `factory-board-sync`, `factory-review-verdict`, `factory-merge-policy`, `factory-poller`, and `factory-claude-review`) has `NAME: ${{ secrets.NAME }}` in the job's `env`.
+The factory SHALL behave as this line says: When sync takes a name, `factory.yml` and `factory-review.yml` pass it by name in one more line under `secrets`, and each job that installs has `NAME` in its environment.
 
 #### Scenario: The installing jobs get the variable
 
 - **WHEN** sync takes a name
-- **THEN** each job of a factory workflow that runs `npm ci` (in `factory-check`, `factory-board-sync`, `factory-review-verdict`, `factory-merge-policy`, `factory-poller`, and `factory-claude-review`) has `NAME: ${{ secrets.NAME }}` in the job's `env`.
+- **THEN** `factory.yml` and `factory-review.yml` pass it by name in one more line under `secrets`, and each job that installs has `NAME` in its environment.
 
 ### Requirement: The agent's jobs get the variable
 
-The factory SHALL behave as this line says: When sync takes a name, each job that runs the `factory-agent` action (in `factory-build`, `factory-review`, `factory-conflicts`, and `factory-deps`) has `NAME: ${{ secrets.NAME }}` in the job's `env`.
+The factory SHALL behave as this line says: When sync takes a name, each job that runs a session has `NAME` in its environment, passed by the same line under `secrets`.
 
 #### Scenario: The agent's jobs get the variable
 
 - **WHEN** sync takes a name
-- **THEN** each job that runs the `factory-agent` action (in `factory-build`, `factory-review`, `factory-conflicts`, and `factory-deps`) has `NAME: ${{ secrets.NAME }}` in the job's `env`.
+- **THEN** each job that runs a session has `NAME` in its environment, passed by the same line under `secrets`.
 
 ### Requirement: Sync adds only lines
 
-The factory SHALL behave as this line says: With names, each synced workflow is its source with only the added lines of 2, 3, and 5: removing them gives back, byte for byte, what sync writes without names.
+The factory SHALL behave as this line says: With names, each of the two workflow files is what sync writes without names with only the one line under `secrets` added, and line 5's `packages: read`: removing them gives back, byte for byte, what sync writes without names.
 
 #### Scenario: Sync adds only lines
 
 - **WHEN** sync takes one or more names
-- **THEN** With names, each synced workflow is its source with only the added lines of 2, 3, and 5: removing them gives back, byte for byte, what sync writes without names.
+- **THEN** With names, each of the two workflow files is what sync writes without names with only the one line under `secrets` added, and line 5's `packages: read`: removing them gives back, byte for byte, what sync writes without names.
 
 ### Requirement: No names, no change
 
@@ -53,39 +53,39 @@ The factory SHALL behave as this line says: When there is no `.npmrc`, or sync t
 
 ### Requirement: GITHUB_TOKEN is the workflow's own
 
-The factory SHALL behave as this line says: When the name taken is `GITHUB_TOKEN`, sync writes `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the same places, and adds `packages: read` to the `permissions` of each workflow it writes it into.
+The factory SHALL behave as this line says: When the name taken is `GITHUB_TOKEN`, sync writes it into that line like any other name, and adds `packages: read` to the `permissions` of both workflow files.
 
 #### Scenario: GITHUB_TOKEN is the workflow's own
 
 - **WHEN** the name taken is `GITHUB_TOKEN`
-- **THEN** sync writes `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the same places, and adds `packages: read` to the `permissions` of each workflow it writes it into.
+- **THEN** sync writes it into that line like any other name, and adds `packages: read` to the `permissions` of both workflow files.
 
 ### Requirement: A GITHUB_ name is refused
 
-The factory SHALL behave as this line says: When a sign-in line reads a name starting with `GITHUB_` other than `GITHUB_TOKEN`, `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: npx --no-install factory sync` on standard error, and exits 1.
+The factory SHALL behave as this line says: When a sign-in line reads a name starting with `GITHUB_` other than `GITHUB_TOKEN`, `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: factory sync` on standard error, and exits 1.
 
 #### Scenario: A GITHUB_ name is refused
 
 - **WHEN** a sign-in line reads a name starting with `GITHUB_` other than `GITHUB_TOKEN`
-- **THEN** `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: npx --no-install factory sync` on standard error, and exits 1.
+- **THEN** `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: factory sync` on standard error, and exits 1.
 
 ### Requirement: A name the runner sets is refused
 
-The factory SHALL behave as this line says: When a sign-in line reads `HOME`, `PATH`, `CI`, or a name starting with `RUNNER_` or `ACTIONS_`, `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and the runner sets NAME for itself. Rename it in .npmrc, then run: npx --no-install factory sync` on standard error, and exits 1.
+The factory SHALL behave as this line says: When a sign-in line reads `HOME`, `PATH`, `CI`, or a name starting with `RUNNER_` or `ACTIONS_`, `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and the runner sets NAME for itself. Rename it in .npmrc, then run: factory sync` on standard error, and exits 1.
 
 #### Scenario: A name the runner sets is refused
 
 - **WHEN** a sign-in line reads `HOME`, `PATH`, `CI`, or a name starting with `RUNNER_` or `ACTIONS_`
-- **THEN** `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and the runner sets NAME for itself. Rename it in .npmrc, then run: npx --no-install factory sync` on standard error, and exits 1.
+- **THEN** `factory sync` writes nothing, prints `.npmrc reads ${NAME} to sign in, and the runner sets NAME for itself. Rename it in .npmrc, then run: factory sync` on standard error, and exits 1.
 
 ### Requirement: Init's Found row
 
-The factory SHALL behave as this line says: When `.npmrc` takes a name, `factory init` prints a `.npmrc` row under "Found", after `package.json`, reading `reads ` and the names joined by `, `. With none, there is no row.
+The factory SHALL behave as this line says: When `.npmrc` takes a name, `factory init` prints a `.npmrc` row under "Found", after `Cloud builds`, reading `reads ` and the names joined by `, `. With none, there is no row.
 
 #### Scenario: Init's Found row
 
 - **WHEN** `.npmrc` takes a name
-- **THEN** `factory init` prints a `.npmrc` row under "Found", after `package.json`, reading `reads ` and the names joined by `, `. With none, there is no row.
+- **THEN** `factory init` prints a `.npmrc` row under "Found", after `Cloud builds`, reading `reads ` and the names joined by `, `. With none, there is no row.
 
 ### Requirement: Init asks for a token
 

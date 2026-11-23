@@ -1,7 +1,7 @@
 // Starts a build of a ticket on the runner, on the default branch, and
 // prints the run's link.
 //
-//   npx --no-install factory build N
+//   factory build N
 //
 // The runner may answer the start with no run, so the command looks for it.
 // When none appears within 15 seconds it prints the link to the page that

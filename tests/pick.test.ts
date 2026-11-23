@@ -44,7 +44,7 @@ describe("openRunner", () => {
       await runner.startBuild("12", "main");
 
       expect(gh.calls).toEqual([
-        "api -X POST repos/acme/widgets/actions/workflows/factory-build.yml/dispatches -f ref=main -f inputs[ticket]=12",
+        "api -X POST repos/acme/widgets/actions/workflows/factory.yml/dispatches -f ref=main -f inputs[job]=build -f inputs[ticket]=12",
       ]);
     },
   );

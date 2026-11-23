@@ -153,7 +153,10 @@ describe("the launcher", () => {
     mkdirSync(join(at, "bin"), { recursive: true });
     copyFileSync(LAUNCHER, join(at, "bin/factory.js"));
     copyFileSync(join(PACKAGE, "bin/launch.js"), join(at, "bin/launch.js"));
-    writeFileSync(join(at, "package.json"), JSON.stringify({ name: NAME }));
+    writeFileSync(
+      join(at, "package.json"),
+      JSON.stringify({ name: NAME, version: "0.3.0" }),
+    );
     if (entry) {
       mkdirSync(dirname(join(at, entry)), { recursive: true });
       writeFileSync(join(at, entry), `console.log(${JSON.stringify(says)});\n`);
@@ -183,36 +186,64 @@ describe("the launcher", () => {
     expect(out.trim()).toBe("worktree");
   });
 
-  it("hands a global install's run to the repository's own copy", () => {
-    const global = join(dir, "global");
-    fakePackage(global, "dist/cli.mjs", "global");
+  /** A repository whose lock names `version`. */
+  function repository(version: string) {
     const repo = join(dir, "repo");
     mkdirSync(join(repo, ".git"), { recursive: true });
-    fakePackage(join(repo, "node_modules", NAME), "dist/cli.mjs", "repo's");
+    mkdirSync(join(repo, ".claude"));
+    writeFileSync(
+      join(repo, ".claude/factory.lock"),
+      `version: ${version}\npresets: []\n`,
+    );
+    return repo;
+  }
+
+  it("runs the cached copy of the version the repository's lock names", () => {
+    const global = join(dir, "global");
+    fakePackage(global, "dist/cli.mjs", "the machine's 0.3.0");
+    const cache = join(dir, "cache");
+    fakePackage(
+      join(cache, "software-factory/versions/0.2.0/node_modules", NAME),
+      "dist/cli.mjs",
+      "cached 0.2.0",
+    );
 
     const out = execFileSync("node", [join(global, "bin/factory.js")], {
-      cwd: repo,
+      cwd: repository("0.2.0"),
       encoding: "utf8",
+      env: { ...process.env, XDG_CACHE_HOME: cache, FACTORY_VERSION: "" },
     });
 
-    expect(out.trim()).toBe("repo's");
+    expect(out.trim()).toBe("cached 0.2.0");
   });
 
-  it("says how to install it in a repository that has no copy of its own, and exits 1", () => {
+  it("runs itself where the repository names the version installed", () => {
     const global = join(dir, "global");
-    fakePackage(global, "dist/cli.mjs", "global");
-    const repo = join(dir, "repo");
-    mkdirSync(join(repo, ".git"), { recursive: true });
+    fakePackage(global, "dist/cli.mjs", "the machine's 0.3.0");
+
+    const out = execFileSync("node", [join(global, "bin/factory.js")], {
+      cwd: repository("0.3.0"),
+      encoding: "utf8",
+      env: { ...process.env, FACTORY_VERSION: "" },
+    });
+
+    expect(out.trim()).toBe("the machine's 0.3.0");
+  });
+
+  it("stops on a lock that names no release, and exits 1", () => {
+    const global = join(dir, "global");
+    fakePackage(global, "dist/cli.mjs", "the machine's 0.3.0");
 
     const r = spawnSync("node", [join(global, "bin/factory.js")], {
-      cwd: repo,
+      cwd: repository("banana"),
       encoding: "utf8",
+      env: { ...process.env, FACTORY_VERSION: "" },
     });
 
     expect(r.status).toBe(1);
     expect(r.stdout).toBe("");
     expect(r.stderr.trim()).toBe(
-      `${repo} has no copy of the factory installed. Install it there with: npm install --save-dev ${NAME}`,
+      "✗ .claude/factory.lock names the factory banana, which is not a release. Run: factory update",
     );
   });
 
@@ -279,33 +310,31 @@ function files(dir: string): string[] {
   });
 }
 
-describe("the files the package copies into a repository", () => {
-  // Another package on npm is called `factory`, and a bare `npx factory`
-  // downloads and runs it wherever this one is not installed. What the tool
-  // prints for a person, such as `sync --check`'s advice, is not scanned:
-  // it runs only where the factory is installed.
-  it("run the tool with npx --no-install, never a bare npx", () => {
-    const copied = [
+describe("the factory's own files and messages", () => {
+  // The factory is installed once on a machine, so nothing it writes into a
+  // repository, and nothing it prints, runs it through `npx`: there is no
+  // copy in the repository for `npx --no-install` to find, and a bare
+  // `npx factory` downloads another package of that name.
+  it("name the command factory, never through npx", () => {
+    const scanned = [
       ...files("skills"),
       ...files("agents"),
-      ...files("workflows"),
-      ...files("actions"),
+      ...files("src"),
       "rules.md",
       "review.md",
     ];
-    const bare: string[] = [];
-    for (const f of copied) {
+    const found: string[] = [];
+    for (const f of scanned) {
       readFileSync(join(PACKAGE, f), "utf8")
         .split("\n")
         .forEach((line, i) => {
-          for (const m of line.matchAll(/\bnpx((?:\s+-\S+)*)\s+factory\b/g))
-            if (!/(^|\s)--no-install(\s|$)/.test(m[1]))
-              bare.push(`${f}:${i + 1}: ${line.trim()}`);
+          if (/\bnpx(\s+-\S+)*\s+factory\b/.test(line))
+            found.push(`${f}:${i + 1}: ${line.trim()}`);
         });
     }
 
-    expect(copied.length).toBeGreaterThan(5);
-    expect(bare).toEqual([]);
+    expect(scanned.length).toBeGreaterThan(50);
+    expect(found).toEqual([]);
   });
 });
 

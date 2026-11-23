@@ -54,8 +54,8 @@ each time the [board sync](#the-board) runs. It keeps two moves of yours: to Rea
 approves a build, and back to Backlog. Drag a labeled card anywhere
 else and the next sync moves it back.
 
-If you installed the factory before the label existed, the update that
-brings it labels every open ticket once:
+If you set the factory up before the label existed, the update that
+brings it has you label every open ticket once:
 [Labeling your open tickets](updating.md#labeling-your-open-tickets).
 
 ## The six states

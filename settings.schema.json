@@ -22,7 +22,7 @@
         "type": "string",
         "minLength": 1
       },
-      "description": "The presets this repository follows, each an npm package, or a folder of one, holding a factory-preset.yaml. Later ones win over earlier ones, and this file wins over them all."
+      "description": "The presets this repository follows, each a repository on its code host written OWNER/NAME, or a folder of one written OWNER/NAME//FOLDER, holding a factory-preset.yaml. Later ones win over earlier ones, and this file wins over them all."
     },
     "tickets": {
       "description": "Where tickets live and how their state is shown.",

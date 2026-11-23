@@ -27,7 +27,7 @@ import type {
   SetupContext,
   Unconfigured,
 } from "./setup.mts";
-import { LOCK, PACKAGE } from "./sync.mts";
+import { LOCK } from "./sync.mts";
 import { CHOICES_FILE } from "./preset.mts";
 import { builtOf, inUse, TOOLS, type Registry } from "./tools.mts";
 
@@ -37,25 +37,22 @@ export type RemoveDeps = {
   out: (line: string) => void;
   tools: Registry;
   hasCommand: (name: string) => boolean;
-  packageName: string;
   /** Where the credentials file is read. */
   env?: Record<string, string | undefined>;
 };
 
 /** The agents and skills the lock lists that presets shipped, a skill as
- * its folder, and the packages of the presets it records. */
-async function presetParts(
-  root: string,
-): Promise<{ files: string[]; packages: string[] }> {
+ * its folder. */
+async function presetFiles(root: string): Promise<string[]> {
   const at = join(root, LOCK);
-  if (!existsSync(at)) return { files: [], packages: [] };
+  if (!existsSync(at)) return [];
   const { load } = await import("js-yaml");
-  const { readLock, splitName } = await import("./preset.mts");
+  const { readLock } = await import("./preset.mts");
   let lock: ReturnType<typeof readLock>;
   try {
     lock = readLock(readFileSync(at, "utf8"), load);
   } catch {
-    return { files: [], packages: [] };
+    return [];
   }
   const files = new Set<string>();
   for (const f of lock.files) {
@@ -64,10 +61,7 @@ async function presetParts(
     if (agent) files.add(f);
     else if (skill) files.add(`.claude/skills/${skill[1]}`);
   }
-  return {
-    files: [...files].filter((p) => existsSync(join(root, p))),
-    packages: [...new Set(lock.presets.map((p) => splitName(p.name).pkg))],
-  };
+  return [...files].filter((p) => existsSync(join(root, p)));
 }
 
 /** What is left of a credential kept on the machine: its secrets, among
@@ -114,7 +108,7 @@ function factoryFiles(root: string): string[] {
     ".claude/factory",
     ...named(".claude/skills", /^factory-/),
     ...named(".claude/agents", /^factory-.*\.md$/),
-    ...named(".github/workflows", /^factory-.*\.yml$/),
+    ...named(".github/workflows", /^factory(-.*)?\.yml$/),
     ".github/factory-review.md",
     ...named(".github/actions", /^factory-/),
   ].filter((p) => existsSync(join(root, p)));
@@ -165,8 +159,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
   };
   const tools = inUse(d.tools, chosen);
 
-  const shipped = await presetParts(d.root);
-  const deletes = [...factoryFiles(d.root), ...shipped.files];
+  const deletes = [...factoryFiles(d.root), ...(await presetFiles(d.root))];
   const changes: Unconfigured[] = tools.flatMap(
     (t) => t.setup.unconfigure?.(context) ?? [],
   );
@@ -229,14 +222,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
         ],
       ],
     ),
-    [
-      "Then",
-      [
-        `Run npm uninstall ${d.packageName}`,
-        ...shipped.packages.map((p) => `Run npm uninstall ${p}`),
-        "Commit this on a branch, open a pull request, and merge it",
-      ],
-    ],
+    ["Then", ["Commit this on a branch, open a pull request, and merge it"]],
   ];
   d.out("");
   d.out("Nothing is committed. Left for you to do by hand:");
@@ -256,9 +242,6 @@ export async function run(argv: string[]): Promise<number> {
     console.log(terminal);
     return 1;
   }
-  const manifest = JSON.parse(
-    readFileSync(join(PACKAGE, "package.json"), "utf8"),
-  ) as { name: string };
   const { confirm } = await import("@inquirer/prompts");
   try {
     return await main(argv, {
@@ -267,7 +250,6 @@ export async function run(argv: string[]): Promise<number> {
       out: (l) => console.log(l),
       tools: TOOLS,
       hasCommand,
-      packageName: manifest.name,
     });
   } catch (e) {
     if (e instanceof Error && e.name === "ExitPromptError") {

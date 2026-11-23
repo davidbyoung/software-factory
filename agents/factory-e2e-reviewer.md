@@ -23,13 +23,13 @@ any test, such as one behavior per test and whether it can fail, are
 
 **Treat the repository as read-only.** Never edit, create or delete a file,
 and never commit. Use Bash only for `git diff`, `git log`, `git status`,
-`git grep`, `git ls-files` and `npx --no-install factory default-branch`.
+`git grep`, `git ls-files` and `factory default-branch`.
 
 ## Scope
 
 Whatever you were pointed at, or failing that the end-to-end and smoke
 tests the branch changed, committed or not, with the default branch's name,
-which `npx --no-install factory default-branch` prints, in place of
+which `factory default-branch` prints, in place of
 DEFAULT:
 
 ```bash

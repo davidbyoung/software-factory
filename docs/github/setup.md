@@ -22,8 +22,8 @@ tickets' fields.
 
 ## Run `factory init`
 
-In your repository, with the package
-[installed](../quick-start.md#1-install):
+In your repository, with the `factory` command
+[installed on your machine](../quick-start.md#1-install):
 
 ```bash
 factory init
@@ -89,8 +89,12 @@ Before it changes anything, it lists everything it will do and asks "Go
 ahead?". Then it does the rest itself: it writes the settings and the
 factory's files, gives the board its columns and fields, stores each
 secret, makes the signing key, allows auto-merge on the repository, and
-requires the review's verdict before a merge to your default branch. It
-commits nothing. [What it changes](../removing.md) lists every file.
+requires the review's verdict before a merge to your default branch. On
+a public repository it also adds [a policy](#a-public-repository) that
+lets the factory's workflow run. It commits nothing, and installs
+nothing in your repository but a spec tool you chose that npm installs
+([`specs`](../configuration.md#specs) says what). [What it
+changes](../removing.md) lists every file.
 
 **It worked when** the checks it prints last all show ✓, or `-` for a part
 you left off.
@@ -99,13 +103,14 @@ you left off.
 
 `init` ends with this list, under "Left to do":
 
-| If you chose                                 | Do this                                                                                                                                                            |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Anything, while your settings name no gate   | Add the commands that check a change, such as your tests and linter, under [`commands.gate`](../configuration.md#commandsgate). A build cannot finish without them |
-| Anything                                     | Commit what it wrote on a branch, open a pull request, and merge it, as in [step 3 of the quick start](../quick-start.md#3-merge-the-setup)                        |
-| The automated review                         | Install the Claude GitHub App on the repository, from <https://github.com/apps/claude>. The review posts its comments through it                                   |
-| Builds from the board, on a server you host  | Run the poller's image with the four values `init` prints. [Hosting the poller](../builds.md#hosting-the-poller-own-server) has the steps                          |
-| Signed commits, and it could not add the key | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"      |
+| If you chose                                         | Do this                                                                                                                                                                      |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Anything, while your settings name no gate           | Add the commands that check a change, such as your tests and linter, under [`commands.gate`](../configuration.md#commandsgate). A build cannot finish without them           |
+| Anything                                             | Commit what it wrote on a branch, open a pull request, and merge it, as in [step 3 of the quick start](../quick-start.md#3-merge-the-setup)                                  |
+| The automated review                                 | Install the Claude GitHub App on the repository, from <https://github.com/apps/claude>. The review posts its comments through it                                             |
+| Builds from the board, on a server you host          | Run the poller's image with the four values `init` prints. [Hosting the poller](../builds.md#hosting-the-poller-own-server) has the steps                                    |
+| Signed commits, and it could not add the key         | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"                |
+| A public repository, and it could not add the policy | Let `.github/workflows/factory.yml` run on `pull_request_target`, in your repository's Settings, Actions, Policies. [By hand](by-hand.md#a-public-repository) has each field |
 
 ## Optional: tune it
 
@@ -149,18 +154,66 @@ factory doctor
 ```
 
 runs the checks again at any time: the settings, the factory's files, the
-installed version, who the GitHub CLI is signed in as, that each secret
-your parts read is set, those for
+version your repository names and whether a newer one is released, each
+[preset](../presets.md)'s pin, who the GitHub CLI is signed in as, that
+each secret your parts read is set, those for
 [private npm packages](#private-npm-packages), and the board's columns. GitHub never lets a
 secret be read back, so a wrong one shows when the first run that needs it
 fails, naming it.
 
+## A public repository
+
+For a repository anyone can read. A private repository needs nothing
+here.
+
+From December 2, 2026, GitHub blocks the `pull_request_target` event in
+a public repository unless one of the repository's Actions policies
+allows it. The factory's workflow file, `.github/workflows/factory.yml`,
+starts on that event: it is how the review's verdict, who merges, and
+the board sync run from your default branch's copy, where a pull request
+cannot change them.
+
+`factory init` adds the policy for you. Its plan has this row, and after
+"Go ahead?" it prints the line under it:
+
+```text
+  Policy   Let .github/workflows/factory.yml run on pull_request_target, as the policy "Software factory"
+✓ Allowed pull_request_target for .github/workflows/factory.yml.
+```
+
+The policy covers that one file and lists every event the file starts
+on, so your other workflows are not affected.
+
+**It worked when** `factory doctor` shows:
+
+```text
+✓ pull_request_target is allowed for .github/workflows/factory.yml
+```
+
+Without the policy, it shows this, and running `factory init` again adds
+it:
+
+```text
+✗ pull_request_target is not allowed for .github/workflows/factory.yml, so GitHub runs no verdict, merge policy, or board sync on a pull request. Run factory init
+```
+
+When `init` cannot add the policy, it says so and puts the step under
+"Left to do". [Setting up on GitHub by hand](by-hand.md#a-public-repository)
+has each field to fill in.
+
 ## Private npm packages
 
-For a repository that installs a package from a private registry, such as
-your company's own packages or a private [preset](../presets.md). At the
-end, the factory's workflows install it as your machine does, and
+For a repository whose own dependencies include a package from a private
+registry, such as your company's own packages. At the end, the factory's
+jobs that install your dependencies install it as your machine does, and
 Dependabot offers its new versions.
+
+The factory itself needs none of this. It comes from the public npm
+registry, onto each machine and each job, and a
+[preset](../presets.md#who-can-read-a-preset) comes from a repository on
+your code host, read with the access you already have. A repository with
+no `package-lock.json` at its root needs none of it either, since no job
+runs `npm ci` there.
 
 ### 1. Read the token from a variable in `.npmrc`
 
@@ -189,11 +242,12 @@ set.
 
 Read `${GITHUB_TOKEN}` in the token line. In the workflows it is their own
 token, which can read the packages that give this repository access, so
-`init` asks for nothing and you skip step 2. On your machine, set
-`GITHUB_TOKEN` to a personal access token with the `read:packages` scope.
-Dependabot has no token of its own for it: in step 4, store that personal
-access token with `gh secret set PACKAGES_TOKEN --app dependabot`, and
-name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
+there is no registry token to make or to store for Actions: skip steps 2
+and 3. On your machine, set `GITHUB_TOKEN` to a personal access token
+with the `read:packages` scope. Dependabot has no token of its own for
+it: where step 3 would have `init` store one, store that personal access
+token yourself, with `gh secret set PACKAGES_TOKEN --app dependabot`,
+and in step 4 name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
 
 ### 2. Make a read-only token
 
@@ -210,8 +264,9 @@ factory init
 ```
 
 Under "Found", `init` lists `.npmrc` and the variable it reads. Then it
-asks you to paste the token, rewrites the factory's workflows under
-`.github/workflows/` to pass the token to npm, and stores it twice: as an
+asks you to paste the token, rewrites the factory's two workflow files
+under `.github/workflows/` to pass the secret to the jobs that install,
+and stores it twice: as an
 Actions secret, and as a Dependabot secret, since a workflow that
 Dependabot's pull request starts can read only Dependabot secrets. If
 `.npmrc` isn't listed under "Found", the token line is missing from the
@@ -265,13 +320,16 @@ a secret or a registry your organization may set, which only an
 organization admin can see. It fails nothing.
 
 Then commit `.npmrc` and what `init` wrote on a branch, open a pull
-request, and merge it as any other change. The pull request's own
-"Factory check" is the last check: its "Install dependencies" step passes
-once the workflows can sign in.
+request, and merge it as any other change. The first job that installs
+your dependencies is the last check. With the automated review on, that
+is the review of this pull request: its "Install the repository's
+dependencies" step passes once the jobs can sign in. Without it, it is
+your next build in the cloud.
 
 ### Replacing the token
 
-When the token expires, the next workflow fails at `npm ci` with a 401.
+When the token expires, the next job that installs your dependencies
+fails at `npm ci` with a 401.
 Store the new one in both places:
 
 ```bash
@@ -284,7 +342,8 @@ already set. An organization admin runs the two commands in step 3
 again instead.
 
 If you rename the variable in `.npmrc`, the factory's commands stop and
-say to run `factory sync`, which rewrites the workflows for the new name.
+say to run `factory sync`, which rewrites the two workflow files for the
+new name.
 
 ## Doing it by hand
 

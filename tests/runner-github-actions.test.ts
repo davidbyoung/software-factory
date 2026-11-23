@@ -18,15 +18,23 @@ function runner(routes: Parameters<typeof fakeGh>[0] = []) {
 }
 
 const DISPATCH =
-  /-X POST repos\/acme\/widgets\/actions\/workflows\/factory-build\.yml\/dispatches/;
+  /-X POST repos\/acme\/widgets\/actions\/workflows\/factory\.yml\/dispatches/;
 const BUILDS =
-  /actions\/workflows\/factory-build\.yml\/runs\?event=workflow_dispatch/;
+  /actions\/workflows\/factory\.yml\/runs\?event=workflow_dispatch/;
 const build = (id: number, title: string, created: string) => ({
   id,
   display_title: title,
   event: "workflow_dispatch",
   created_at: created,
   html_url: `${SITE}/actions/runs/${id}`,
+});
+
+const REVIEWS = /actions\/workflows\/factory-review\.yml\/runs\?head_sha=h/;
+const job = (id: number, name: string, conclusion: string | null) => ({
+  id,
+  name,
+  status: conclusion === null ? "in_progress" : "completed",
+  conclusion,
 });
 
 describe("starting a build", () => {
@@ -36,17 +44,17 @@ describe("starting a build", () => {
     await r.startBuild("12", "main");
 
     expect(calls).toEqual([
-      "api -X POST repos/acme/widgets/actions/workflows/factory-build.yml/dispatches -f ref=main -f inputs[ticket]=12",
+      "api -X POST repos/acme/widgets/actions/workflows/factory.yml/dispatches -f ref=main -f inputs[job]=build -f inputs[ticket]=12",
     ]);
   });
 
   it("starts the board sync on the branch", async () => {
-    const { r, calls } = runner([[/factory-board-sync/, {}]]);
+    const { r, calls } = runner([[/factory\.yml\/dispatches/, {}]]);
 
     await r.startSync("main");
 
     expect(calls).toEqual([
-      "api -X POST repos/acme/widgets/actions/workflows/factory-board-sync.yml/dispatches -f ref=main",
+      "api -X POST repos/acme/widgets/actions/workflows/factory.yml/dispatches -f ref=main -f inputs[job]=board",
     ]);
   });
 
@@ -101,7 +109,7 @@ describe("pages", () => {
   it("gives the page that lists builds, and a run's page from its ID", () => {
     const { r, calls } = runner();
 
-    expect(r.buildsPage()).toBe(`${SITE}/actions/workflows/factory-build.yml`);
+    expect(r.buildsPage()).toBe(`${SITE}/actions/workflows/factory.yml`);
     expect(r.runPage("123456789")).toBe(`${SITE}/actions/runs/123456789`);
     expect(calls).toEqual([]);
   });
@@ -184,13 +192,15 @@ describe("the runs for a commit", () => {
     ]);
   });
 
-  it("returns the review workflow's runs for the commit", async () => {
+  it("returns the review job of each run of the review's workflow for the commit", async () => {
     const { r, calls } = runner([
+      [REVIEWS, { workflow_runs: [{ id: 9, status: "completed" }] }],
       [
-        /actions\/workflows\/factory-claude-review\.yml\/runs\?head_sha=h/,
+        /actions\/runs\/9\/jobs/,
         {
-          workflow_runs: [
-            { id: 9, status: "completed", conclusion: "success" },
+          jobs: [
+            job(1, "review / Factory files in step", "failure"),
+            job(2, "review / Claude review", "success"),
           ],
         },
       ],
@@ -199,32 +209,73 @@ describe("the runs for a commit", () => {
     expect(await r.reviewRuns("h")).toEqual([
       { status: "completed", conclusion: "success" },
     ]);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("leaves out a run whose review job was skipped, as for a draft", async () => {
+    const { r } = runner([
+      [REVIEWS, { workflow_runs: [{ id: 9, status: "completed" }] }],
+      [
+        /actions\/runs\/9\/jobs/,
+        {
+          jobs: [
+            job(1, "review / Factory files in step", "success"),
+            job(2, "review / Claude review", "skipped"),
+          ],
+        },
+      ],
+    ]);
+
+    expect(await r.reviewRuns("h")).toEqual([]);
+  });
+
+  it("gives the review job's conclusion in one run, whatever its other jobs did", async () => {
+    const { r } = runner([
+      [
+        /actions\/runs\/9\/jobs/,
+        {
+          jobs: [
+            job(1, "review / Factory files in step", "failure"),
+            job(2, "review / Claude review", "success"),
+          ],
+        },
+      ],
+      [/actions\/runs\/8\/jobs/, { jobs: [] }],
+    ]);
+
+    expect(await r.reviewConclusion(9)).toBe("success");
+    expect(await r.reviewConclusion(8)).toBe("skipped");
   });
 });
 
 describe("asking for the review again", () => {
-  const REVIEWS =
-    /actions\/workflows\/factory-claude-review\.yml\/runs\?head_sha=h/;
-  const RERUN = /-X POST repos\/acme\/widgets\/actions\/runs\/\d+\/rerun/;
+  const RERUN = /-X POST repos\/acme\/widgets\/actions\/jobs\/\d+\/rerun/;
 
-  it("has the newest run of the commit's review run again", async () => {
+  it("has the review job of the commit's newest run run again", async () => {
     const { r, calls } = runner([
       [
         REVIEWS,
         {
           workflow_runs: [
-            { id: 77, status: "completed", conclusion: "success" },
-            { id: 70, status: "completed", conclusion: "failure" },
+            { id: 77, status: "completed" },
+            { id: 70, status: "completed" },
           ],
         },
+      ],
+      [
+        /actions\/runs\/77\/jobs/,
+        { jobs: [job(5, "review / Claude review", "success")] },
+      ],
+      [
+        /actions\/runs\/70\/jobs/,
+        { jobs: [job(4, "review / Claude review", "failure")] },
       ],
       [RERUN, ""],
     ]);
 
     expect(await r.reviewAgain("h")).toBe(true);
-    expect(calls[1]).toBe(
-      "api -X POST repos/acme/widgets/actions/runs/77/rerun",
+    expect(calls.at(-1)).toBe(
+      "api -X POST repos/acme/widgets/actions/jobs/5/rerun",
     );
   });
 
