@@ -27,7 +27,7 @@ import type {
   SetupContext,
   Unconfigured,
 } from "./setup.mts";
-import { LOCK, PACKAGE } from "./sync.mts";
+import { LOCK } from "./sync.mts";
 import { CHOICES_FILE } from "./preset.mts";
 import { builtOf, inUse, TOOLS, type Registry } from "./tools.mts";
 
@@ -37,7 +37,6 @@ export type RemoveDeps = {
   out: (line: string) => void;
   tools: Registry;
   hasCommand: (name: string) => boolean;
-  packageName: string;
   /** Where the credentials file is read. */
   env?: Record<string, string | undefined>;
 };
@@ -114,7 +113,7 @@ function factoryFiles(root: string): string[] {
     ".claude/factory",
     ...named(".claude/skills", /^factory-/),
     ...named(".claude/agents", /^factory-.*\.md$/),
-    ...named(".github/workflows", /^factory-.*\.yml$/),
+    ...named(".github/workflows", /^factory(-.*)?\.yml$/),
     ".github/factory-review.md",
     ...named(".github/actions", /^factory-/),
   ].filter((p) => existsSync(join(root, p)));
@@ -229,14 +228,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
         ],
       ],
     ),
-    [
-      "Then",
-      [
-        `Run npm uninstall ${d.packageName}`,
-        ...shipped.packages.map((p) => `Run npm uninstall ${p}`),
-        "Commit this on a branch, open a pull request, and merge it",
-      ],
-    ],
+    ["Then", ["Commit this on a branch, open a pull request, and merge it"]],
   ];
   d.out("");
   d.out("Nothing is committed. Left for you to do by hand:");
@@ -256,9 +248,6 @@ export async function run(argv: string[]): Promise<number> {
     console.log(terminal);
     return 1;
   }
-  const manifest = JSON.parse(
-    readFileSync(join(PACKAGE, "package.json"), "utf8"),
-  ) as { name: string };
   const { confirm } = await import("@inquirer/prompts");
   try {
     return await main(argv, {
@@ -267,7 +256,6 @@ export async function run(argv: string[]): Promise<number> {
       out: (l) => console.log(l),
       tools: TOOLS,
       hasCommand,
-      packageName: manifest.name,
     });
   } catch (e) {
     if (e instanceof Error && e.name === "ExitPromptError") {
