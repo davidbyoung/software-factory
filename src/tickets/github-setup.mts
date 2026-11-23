@@ -15,7 +15,11 @@ export const githubTicketsSetup: ToolSetup = {
     const number = s.tickets.board;
     try {
       const board = await c.opened.tickets.board!.read();
-      const { problems } = inspectBoard(board.fields, boardConfigOf(s));
+      const { problems } = inspectBoard(
+        board.fields,
+        boardConfigOf(s),
+        board.columnField,
+      );
       return [
         problems.length === 0
           ? {

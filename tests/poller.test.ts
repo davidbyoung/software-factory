@@ -73,7 +73,12 @@ describe("selectToStart", () => {
     expect(
       selectToStart(
         { issues: keys.map(ready), pulls: [] },
-        { projectId: "P", fields: [], items: new Map(keys.map(card)) },
+        {
+          projectId: "P",
+          columnField: "Status",
+          fields: [],
+          items: new Map(keys.map(card)),
+        },
       ),
     ).toEqual(["OPS-3", "PROJ-9", "PROJ-12"]);
   });
@@ -120,6 +125,7 @@ describe("selectToStart", () => {
     };
     const board = (updatedAt: string): Board => ({
       projectId: "P",
+      columnField: "Status",
       fields: [],
       items: new Map([
         [
@@ -1056,6 +1062,7 @@ describe("the board's order", () => {
     const keys = ["5", "9", "12", "30"];
     const board: Board = {
       projectId: "P",
+      columnField: "Status",
       fields: [],
       items: new Map([
         card("5", 2),

@@ -101,6 +101,7 @@ const pull = (
 });
 const board = (cards: [number, string, string][] = []): Board => ({
   projectId: "P",
+  columnField: "Status",
   fields: [],
   items: new Map(
     cards.map(([number, status, updatedAt]) => [

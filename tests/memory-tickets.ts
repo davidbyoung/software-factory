@@ -404,6 +404,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
 
   const readBoard = (): Board => ({
     projectId: "P_memory",
+    columnField: "Status",
     fields: options.fields ?? BOARD_FIELDS,
     items: new Map([...board].map(([n, item]) => [n, { ...item }])),
   });

@@ -98,6 +98,9 @@ export type Board = {
   projectId: string;
   /** The board's own title, for the report `factory board check` prints. */
   title?: string;
+  /** The single-select field whose options are the board's columns, as
+   * the ticket system names it: Status on GitHub. */
+  columnField: string;
   fields: BoardField[];
   /** This repository's tickets on the board, by key. */
   items: Map<Key, BoardItem>;
@@ -338,7 +341,7 @@ export const readAll = (
 export function boardOf(tickets: Ticket[]): Board {
   const items = new Map<Key, BoardItem>();
   for (const t of tickets) if (t.card) items.set(t.key, t.card);
-  return { projectId: "", fields: [], items };
+  return { projectId: "", columnField: "", fields: [], items };
 }
 
 /** A ticket system's credential is missing, refused, or in a file that

@@ -170,15 +170,17 @@ const FIELD_KINDS = [
  * changes a field. */
 export function inspectBoard(
   fields: BoardField[],
-  cfg: BoardConfig = DEFAULT_BOARD,
+  cfg: BoardConfig,
+  /** The field the ticket system keeps the columns in. */
+  columnField: string,
 ): Inspection {
   const problems: string[] = [];
   const find = (name: string) => fields.find((f) => sameName(f.name, name));
-  const status = find("Status") ?? null;
+  const status = find(columnField) ?? null;
   const notes: string[] = [];
 
   if (status?.dataType !== "SINGLE_SELECT") {
-    problems.push("the Status field is missing or not a single select");
+    problems.push(`the ${columnField} field is missing or not a single select`);
   } else {
     const names = (status.options ?? []).map((o) => o.name);
     const missing = (Object.keys(STATE_KEYS) as StateKey[]).flatMap((key) =>
@@ -187,7 +189,7 @@ export function inspectBoard(
         .map((column) => `${column} (tickets.columns.${key})`),
     );
     if (missing.length)
-      problems.push(`the Status field lacks ${missing.join(", ")}`);
+      problems.push(`the ${columnField} field lacks ${missing.join(", ")}`);
     for (const name of names)
       if (statusOfColumn(name, cfg.columns) === null)
         notes.push(
@@ -197,7 +199,7 @@ export function inspectBoard(
 
   const out: Inspection["fields"] = { session: null, runsIn: null, cost: null };
   const lines: Inspection["lines"] = [
-    { label: "Status", text: status ? "written" : "missing" },
+    { label: columnField, text: status ? "written" : "missing" },
   ];
   for (const kind of FIELD_KINDS) {
     const name = cfg.fields[kind.key];
@@ -248,9 +250,10 @@ export function inspectBoard(
  * them. */
 export function checkFields(
   fields: BoardField[],
-  cfg: BoardConfig = DEFAULT_BOARD,
+  cfg: BoardConfig,
+  columnField: string,
 ): Fields {
-  const found = inspectBoard(fields, cfg);
+  const found = inspectBoard(fields, cfg, columnField);
   if (found.problems.length)
     throw new Error(`The board: ${found.problems.join("; ")}.`);
   return { status: found.status!, ...found.fields };
@@ -276,9 +279,10 @@ export function boardRows(
   fields: BoardField[],
   cfg: BoardConfig,
   settings: Pick<Settings, "builds">,
+  columnField: string,
 ): { columns: BoardRow[]; fields: BoardRow[] } {
   const find = (name: string) => fields.find((f) => sameName(f.name, name));
-  const status = find("Status") ?? null;
+  const status = find(columnField) ?? null;
   const readable = status?.dataType === "SINGLE_SELECT";
   const options = readable ? (status.options ?? []).map((o) => o.name) : [];
   const ready = cfg.columns.Ready?.[0] ?? null;
@@ -323,10 +327,10 @@ export function boardRows(
 
   const rows: BoardRow[] = [
     status === null
-      ? { state: "fail", key: "Status", text: "no such field" }
+      ? { state: "fail", key: columnField, text: "no such field" }
       : readable
-        ? { state: "pass", key: "Status", text: "synced" }
-        : { state: "fail", key: "Status", text: "not a single select" },
+        ? { state: "pass", key: columnField, text: "synced" }
+        : { state: "fail", key: columnField, text: "not a single select" },
   ];
   for (const kind of FIELD_KINDS) {
     const name = cfg.fields[kind.key];
@@ -387,7 +391,7 @@ export function boardReport(
   settings: Pick<Settings, "builds">,
   paint: Paint = plain,
 ): string[] {
-  const rows = boardRows(board.fields, cfg, settings);
+  const rows = boardRows(board.fields, cfg, settings, board.columnField);
   const row = (r: BoardRow) => {
     const [mark, color] = MARKS[r.state];
     return `  ${color ? paint(color, mark) : mark} ${r.key.padEnd(10)} ${r.text}`;
@@ -454,7 +458,7 @@ export function planSync(
   cfg: BoardConfig = DEFAULT_BOARD,
 ): Plan[] {
   const everyPull = [...snapshot.pulls, ...(snapshot.donePulls ?? [])];
-  const fields = checkFields(board.fields, cfg);
+  const fields = checkFields(board.fields, cfg, board.columnField);
   return snapshot.issues.map((issue) => {
     const derived = derive(
       issue,
@@ -807,7 +811,7 @@ async function apply(
   },
   write: Tickets["board"] | null,
 ) {
-  const inspected = inspectBoard(board.fields, d.config);
+  const inspected = inspectBoard(board.fields, d.config, board.columnField);
   if (inspected.problems.length)
     throw new Error(`The board: ${inspected.problems.join("; ")}.`);
   for (const line of inspected.lines)
@@ -906,7 +910,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       const number = await projectNumber(deps);
       for (const line of boardReport(number, found, config, settings, d.paint))
         d.out(line);
-      const rows = boardRows(found.fields, config, settings);
+      const rows = boardRows(found.fields, config, settings, found.columnField);
       return [...rows.columns, ...rows.fields].some((r) => r.state === "fail")
         ? 1
         : 0;

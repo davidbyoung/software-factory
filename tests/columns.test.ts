@@ -513,7 +513,8 @@ describe("the optional fields", () => {
     fields: { session: "Session", runsIn: "Runs in", cost: "Cost", ...fields },
   });
   const textOf = (fields: BoardField[], cfg: BoardConfig, label: string) =>
-    inspectBoard(fields, cfg).lines.find((l) => l.label === label)!.text;
+    inspectBoard(fields, cfg, "Status").lines.find((l) => l.label === label)!
+      .text;
 
   it("writes a field that is named and present, or left at its default and present", () => {
     const fields = [
@@ -524,16 +525,22 @@ describe("the optional fields", () => {
     expect(textOf(fields, config({}), "Session")).toBe("written");
     expect(textOf(fields, config({}), "Cost")).toBe("written");
     expect(
-      checkFields(fields, config({ session: "session" })).session?.id,
+      checkFields(fields, config({ session: "session" }), "Status").session?.id,
     ).toBe("F_Session");
   });
 
   it("fails a field that is named and missing, naming the field and its key", () => {
-    expect(() => checkFields(stock, config({ session: "Agent" }))).toThrow(
+    expect(() =>
+      checkFields(stock, config({ session: "Agent" }), "Status"),
+    ).toThrow(
       "the Agent field is missing or not Text (tickets.fields.session)",
     );
     expect(() =>
-      checkFields([...stock, field("Cost", "TEXT")], config({ cost: "Spend" })),
+      checkFields(
+        [...stock, field("Cost", "TEXT")],
+        config({ cost: "Spend" }),
+        "Status",
+      ),
     ).toThrow("(tickets.fields.cost)");
   });
 
@@ -541,12 +548,12 @@ describe("the optional fields", () => {
     expect(textOf(stock, config({}), "Session")).toBe(
       "skipped: the board has no field named Session",
     );
-    expect(checkFields(stock, config({})).session).toBeNull();
+    expect(checkFields(stock, config({}), "Status").session).toBeNull();
   });
 
   it("fails a default-named field of the wrong type, saying what to do", () => {
     expect(() =>
-      checkFields([...stock, field("Cost", "TEXT")], config({})),
+      checkFields([...stock, field("Cost", "TEXT")], config({}), "Status"),
     ).toThrow(
       "the Cost field is not a Number: name another field in tickets.fields.cost, or set it to none",
     );
@@ -554,6 +561,7 @@ describe("the optional fields", () => {
       checkFields(
         [...stock, field("Runs in", "SINGLE_SELECT", ["Local"])],
         config({}),
+        "Status",
       ),
     ).toThrow(
       "the Runs in field lacks Actions: name another field in tickets.fields.runs-in, or set it to none",
@@ -562,7 +570,9 @@ describe("the optional fields", () => {
 
   it("never writes a field set to none, wherever it is", () => {
     const fields = [...stock, field("Cost", "TEXT")];
-    expect(checkFields(fields, config({ cost: null })).cost).toBeNull();
+    expect(
+      checkFields(fields, config({ cost: null }), "Status").cost,
+    ).toBeNull();
     const board = withCards(
       { ...stockBoard(), fields: [...stock, field("Session", "TEXT")] },
       [[1, "Todo", at(0)]],
@@ -1303,6 +1313,7 @@ describe("a state with a list of columns", () => {
   ];
   const listBoard = (cards: [number, string | null, string][]): Board => ({
     projectId: "PVT_3",
+    columnField: "Status",
     title: "Shop board",
     fields: [statusField(...BOARD_NAMES)],
     items: new Map(

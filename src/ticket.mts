@@ -495,7 +495,7 @@ async function moveToReady(issue: Key, d: Ctx) {
   const item = read.items.get(issue);
   if (!item) throw new Error(`${ref} is not on the board.`);
   if (item.status !== null && sameName(item.status, ready)) return;
-  const fields = checkFields(read.fields, d.config);
+  const fields = checkFields(read.fields, d.config, read.columnField);
   const option = fields.status.options?.find((o) => sameName(o.name, ready));
   try {
     await board.move(item.itemId, option?.name ?? ready);

@@ -148,6 +148,9 @@ export const toComments = (raw: RawComments | undefined): TicketComment[] =>
     author: c.author?.login ?? "ghost",
   }));
 
+/** The field a GitHub Project keeps its columns in. */
+const STATUS = "Status";
+
 const withRecord = (comments: TicketComment[]) => ({
   comments,
   record: recordOf(comments),
@@ -268,6 +271,7 @@ export function toBoard(pages: BoardPage[], repository: string): Board {
   return {
     projectId: project.id,
     title: project.title,
+    columnField: STATUS,
     fields: project.fields.nodes.filter((f) => f.name),
     items,
   };
@@ -485,7 +489,12 @@ export function githubTickets(o: GithubOptions): Tickets {
 
   const readBoard = async (): Promise<Board> => {
     if (o.board === null)
-      return { projectId: "", fields: [], items: new Map() };
+      return {
+        projectId: "",
+        columnField: STATUS,
+        fields: [],
+        items: new Map(),
+      };
     const pages: BoardPage[] = [];
     let after: string | null = null;
     do {
@@ -650,7 +659,7 @@ export function githubTickets(o: GithubOptions): Tickets {
       },
       async move(itemId, column) {
         await tickets.board!.set(itemId, [
-          { field: "Status", optionName: column },
+          { field: STATUS, optionName: column },
         ]);
       },
       async set(itemId, writes: Write[]) {
