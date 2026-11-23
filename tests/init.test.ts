@@ -10,12 +10,19 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
+import { Writable } from "node:stream";
 import { join } from "node:path";
 import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { chmodSync, statSync } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { load } from "js-yaml";
-import { main, parseRemote, type Ask, type InitDeps } from "../src/init.mts";
+import {
+  initDeps,
+  main,
+  parseRemote,
+  type Ask,
+  type InitDeps,
+} from "../src/init.mts";
 import { painter, type Paint } from "../src/lib/color.mts";
 import {
   credentialsPath,
@@ -3543,5 +3550,25 @@ describe("factory init, a credential kept on the machine", () => {
     expect(await r.run()).toBe(0);
     expect(r.out.some((l) => l.includes("This machine"))).toBe(false);
     expect(r.asked).not.toContain("confirm: Change which parts are on?");
+  });
+});
+
+describe("init's own dependencies", () => {
+  const stream = (tty: boolean) =>
+    Object.assign(new Writable({ write: (_c, _e, done) => done() }), {
+      isTTY: tty,
+      getColorDepth: () => (tty ? 8 : 1),
+      hasColors: () => tty,
+    });
+
+  it("paints its closing checks in a terminal that shows color, and not when piped", async () => {
+    vi.stubEnv("NO_COLOR", undefined);
+    vi.stubEnv("FORCE_COLOR", undefined);
+    const root = mkdtempSync(join(tmpdir(), "init-deps-"));
+    const shown = await initDeps(root, stream(true));
+    const piped = await initDeps(root, stream(false));
+
+    expect(shown.paint!("green", "✓")).not.toBe("✓");
+    expect(piped.paint!("green", "✓")).toBe("✓");
   });
 });

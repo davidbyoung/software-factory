@@ -1295,25 +1295,16 @@ async function terminalAsk(): Promise<Ask> {
   };
 }
 
-export async function run(argv: string[]): Promise<number> {
-  const terminal = noTerminal("init");
-  if (terminal) {
-    console.log(terminal);
-    return 1;
-  }
-  let root: string;
-  try {
-    root = repoRoot();
-  } catch {
-    console.log(
-      "This is not a git repository. Run it in your repository's checkout.",
-    );
-    return 1;
-  }
+/** The dependencies `run` gives `main`, for the repository at `root`. Its
+ * colors follow `stream`, the terminal init prints to. */
+export async function initDeps(
+  root: string,
+  stream: NodeJS.WritableStream = process.stdout,
+): Promise<InitDeps> {
   const manifest = JSON.parse(
     readFileSync(join(PACKAGE, "package.json"), "utf8"),
   ) as { name: string; version: string };
-  const d: InitDeps = {
+  return {
     root,
     ask: await terminalAsk(),
     out: (l) => console.log(l),
@@ -1386,10 +1377,28 @@ export async function run(argv: string[]): Promise<number> {
       }
     },
     checks: () => doctorChecks(doctorDeps(root)),
-    paint: painter(colorOn()),
+    paint: painter(colorOn(stream)),
     packageName: manifest.name,
     packageVersion: manifest.version,
   };
+}
+
+export async function run(argv: string[]): Promise<number> {
+  const terminal = noTerminal("init");
+  if (terminal) {
+    console.log(terminal);
+    return 1;
+  }
+  let root: string;
+  try {
+    root = repoRoot();
+  } catch {
+    console.log(
+      "This is not a git repository. Run it in your repository's checkout.",
+    );
+    return 1;
+  }
+  const d = await initDeps(root);
   try {
     return await main(argv, d);
   } catch (e) {
