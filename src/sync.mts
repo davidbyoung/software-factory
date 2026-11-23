@@ -412,20 +412,18 @@ export function copies(pkg: string, s: Settings, has: Has): [string, string][] {
   return out;
 }
 
-/** The launcher's path from the repository's root: the root's own, where
- * the repository is the package itself; the package's own folder where it
- * is inside the repository, as a workspace or installed; and where it would
- * be installed otherwise. */
-export function launcherPath(pkg: string, root: string, name: string) {
+/** The launcher's path from the repository's root, where the package is in
+ * the repository: the root's own, where the repository is the package
+ * itself, and the package's own folder, as a workspace has it. Null
+ * anywhere else, where the hooks run the factory installed on the machine. */
+export function launcherPath(pkg: string, root: string): string | null {
   const rel = relative(realpathSync(root), realpathSync(pkg))
     .split(sep)
     .join("/");
   if (rel === "") return LAUNCHER;
-  const base =
-    !rel.startsWith("..") && !rel.startsWith("/")
-      ? rel
-      : `node_modules/${name}`;
-  return `${base}/${LAUNCHER}`;
+  return !rel.startsWith("..") && !rel.startsWith("/")
+    ? `${rel}/${LAUNCHER}`
+    : null;
 }
 
 type HookEntry = {
@@ -440,21 +438,40 @@ type ClaudeSettings = { hooks?: Record<string, HookGroup[]> } & Record<
   unknown
 >;
 
+/** What a hook prints where the factory is not installed on the machine. */
+export const notInstalled = (name: string) =>
+  `The factory is not installed on this machine. Install it once: npm install -g ${name}`;
+
 /** The five hook entries, one per event, and with `credentials` a sixth,
  * the guard on the credentials file for the tools that read, search, and
- * list files. */
+ * list files. With no `launcher` they run the machine's `factory`, the
+ * package `name` installs. Where it is missing, the two guards block the
+ * call, since exit 2 is what stops a tool, the session-start hook says so
+ * on stdout, which a session shows, and the rest do nothing. */
 export function factoryHooks(
-  launcher: string,
+  launcher: string | null,
   credentials = false,
+  name = "",
 ): [string, HookGroup][] {
-  const run = (args: string) =>
-    `node "$CLAUDE_PROJECT_DIR"/${launcher} ${args}`;
+  const factory = launcher
+    ? `node "$CLAUDE_PROJECT_DIR"/${launcher}`
+    : "factory";
+  const unless = (otherwise: string) =>
+    launcher ? "" : `command -v factory >/dev/null 2>&1 || ${otherwise}; `;
+  const say = `echo "${notInstalled(name)}"`;
+  const run = (args: string) => `${factory} ${args}`;
+  const guard = (args: string) =>
+    `${unless(`{ ${say} >&2; exit 2; }`)}${factory} ${args}`;
   return [
     [
       "SessionStart",
       {
         hooks: [
-          { type: "command", command: run("session-start"), timeout: 30 },
+          {
+            type: "command",
+            command: `${unless(`{ ${say}; exit 0; }`)}${run("session-start")}`,
+            timeout: 30,
+          },
         ],
       },
     ],
@@ -465,7 +482,7 @@ export function factoryHooks(
         hooks: [
           {
             type: "command",
-            command: run("guard"),
+            command: guard("guard"),
             timeout: 180,
             statusMessage: "Checking the factory's guards",
           },
@@ -481,7 +498,7 @@ export function factoryHooks(
               hooks: [
                 {
                   type: "command",
-                  command: run("guard credentials"),
+                  command: guard("guard credentials"),
                   timeout: 30,
                 },
               ],
@@ -494,7 +511,11 @@ export function factoryHooks(
       {
         matcher: "Write|Edit|MultiEdit",
         hooks: [
-          { type: "command", command: run("guard permission"), timeout: 30 },
+          {
+            type: "command",
+            command: `${unless("exit 0")}${run("guard permission")}`,
+            timeout: 30,
+          },
         ],
       },
     ],
@@ -531,20 +552,28 @@ export function factoryHooks(
  * Actions does, reads the repository's. */
 const NO_ATTRIBUTION = { commit: "", pr: "", sessionUrl: false };
 
+/** An entry that runs the factory: its launcher by path, as the factory's
+ * own repository and every earlier release wrote it, or the machine's
+ * `factory` on one of the three commands the hooks run. */
 const isFactory = (h: HookEntry) =>
-  typeof h.command === "string" && h.command.includes(`/${LAUNCHER}`);
+  typeof h.command === "string" &&
+  (h.command.includes(`/${LAUNCHER}`) ||
+    /(?:^|[\s;&|{(])factory (?:session-start|guard|reviewers)\b/.test(
+      h.command,
+    ));
 
 /** `.claude/settings.json` with the entries that run the factory's launcher
  * replaced by those above, and attribution turned off unless the file
  * sets its own. Every other entry stays, in its order. */
 export function withHooks(
   text: string | null,
-  launcher: string,
+  launcher: string | null,
   credentials = false,
+  name = "",
 ): string {
   const settings: ClaudeSettings = text ? JSON.parse(text) : {};
   const hooks = othersHooks(settings);
-  for (const [event, group] of factoryHooks(launcher, credentials))
+  for (const [event, group] of factoryHooks(launcher, credentials, name))
     (hooks[event] ??= []).push(group);
   const attribution = settings.attribution ?? NO_ATTRIBUTION;
   return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
@@ -810,10 +839,15 @@ export async function plan(
       kept.push(`kept ${to}, this repository's own, over ${from}`);
     else write.set(to, readFileSync(source, "utf8"));
   }
-  const launcher = launcherPath(pkg, root, manifest.name);
+  const launcher = launcherPath(pkg, root);
   write.set(
     SETTINGS_JSON,
-    withHooks(read(SETTINGS_JSON), launcher, Boolean(credential?.machine)),
+    withHooks(
+      read(SETTINGS_JSON),
+      launcher,
+      Boolean(credential?.machine),
+      manifest.name,
+    ),
   );
   write.set(CLAUDE_MD, withImport(read(CLAUDE_MD)));
   const files = [...write.keys()].filter(

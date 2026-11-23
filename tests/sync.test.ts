@@ -14,7 +14,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { resolveFiles, type Resolved } from "../src/config.mts";
 import {
+  factoryHooks,
+  hasAnyFactoryHook,
+  hasFactoryHooks,
   launcherPath,
+  withHooks,
+  withoutHooks,
   main,
   PACKAGE,
   NEEDS,
@@ -183,7 +188,7 @@ describe("factory sync", () => {
         matcher: "Bash",
         hooks: [
           expect.objectContaining({
-            command: `node "$CLAUDE_PROJECT_DIR"/node_modules/@o/factory/bin/factory.js guard`,
+            command: `command -v factory >/dev/null 2>&1 || { echo "The factory is not installed on this machine. Install it once: npm install -g @o/factory" >&2; exit 2; }; factory guard`,
           }),
         ],
       }),
@@ -194,7 +199,7 @@ describe("factory sync", () => {
         matcher: "Write|Edit|MultiEdit",
         hooks: [
           expect.objectContaining({
-            command: `node "$CLAUDE_PROJECT_DIR"/node_modules/@o/factory/bin/factory.js guard permission`,
+            command: `command -v factory >/dev/null 2>&1 || exit 0; factory guard permission`,
           }),
         ],
       }),
@@ -397,7 +402,7 @@ describe("factory sync", () => {
       hooks: [own],
     });
     expect(written.hooks.PreToolUse[1].hooks[0].command).toMatch(
-      /node_modules\/@o\/factory\/bin\/factory\.js guard$/,
+      /; factory guard$/,
     );
   });
 
@@ -926,13 +931,13 @@ describe("launcherPath", () => {
 
   it("points at the package's own folder when it sits inside the repository", () => {
     mkdirSync(join(dir, "packages/factory"), { recursive: true });
-    expect(launcherPath(join(dir, "packages/factory"), dir, "@o/factory")).toBe(
+    expect(launcherPath(join(dir, "packages/factory"), dir)).toBe(
       "packages/factory/bin/factory.js",
     );
   });
 
   it("points at the root's own launcher when the repository is the package itself", () => {
-    expect(launcherPath(dir, dir, "@o/factory")).toBe("bin/factory.js");
+    expect(launcherPath(dir, dir)).toBe("bin/factory.js");
   });
 
   it("follows a workspace link to the package's folder inside the repository", () => {
@@ -942,20 +947,68 @@ describe("launcherPath", () => {
       join(dir, "packages/factory"),
       join(dir, "node_modules/@o/factory"),
     );
-    expect(
-      launcherPath(join(dir, "node_modules/@o/factory"), dir, "@o/factory"),
-    ).toBe("packages/factory/bin/factory.js");
+    expect(launcherPath(join(dir, "node_modules/@o/factory"), dir)).toBe(
+      "packages/factory/bin/factory.js",
+    );
   });
 
-  it("points into node_modules when the package is outside the repository", () => {
+  it("is the machine's factory when the package is outside the repository", () => {
     const pkg = mkdtempSync(join(tmpdir(), "factory-elsewhere-"));
     try {
-      expect(launcherPath(pkg, dir, "@o/factory")).toBe(
-        "node_modules/@o/factory/bin/factory.js",
-      );
+      expect(launcherPath(pkg, dir)).toBeNull();
     } finally {
       rmSync(pkg, { recursive: true, force: true });
     }
+  });
+});
+
+describe("factoryHooks", () => {
+  const MISSING =
+    "The factory is not installed on this machine. Install it once: npm install -g @o/factory";
+  const commands = (launcher: string | null, credentials = false) =>
+    factoryHooks(launcher, credentials, "@o/factory").map(
+      ([event, group]) => `${event}: ${group.hooks[0].command}`,
+    );
+
+  it("runs the machine's factory, and stops a command or a file read where there is none", () => {
+    const guard = `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; factory`;
+    expect(commands(null, true)).toEqual([
+      `SessionStart: command -v factory >/dev/null 2>&1 || { echo "${MISSING}"; exit 0; }; factory session-start`,
+      `PreToolUse: ${guard} guard`,
+      `PreToolUse: ${guard} guard credentials`,
+      "PermissionRequest: command -v factory >/dev/null 2>&1 || exit 0; factory guard permission",
+      "SubagentStart: factory reviewers start 2>/dev/null || true",
+      "SubagentStop: factory reviewers stop 2>/dev/null || true",
+    ]);
+  });
+
+  it("runs the launcher by its path where the package is in the repository", () => {
+    expect(commands("bin/factory.js")).toEqual([
+      'SessionStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js session-start',
+      'PreToolUse: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard',
+      'PermissionRequest: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard permission',
+      'SubagentStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers start 2>/dev/null || true',
+      'SubagentStop: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers stop 2>/dev/null || true',
+    ]);
+  });
+
+  it("replaces an entry an earlier release wrote, which ran a copy in node_modules", () => {
+    const old = withHooks(null, "node_modules/@o/factory/bin/factory.js");
+    const now = JSON.parse(withHooks(old, null, false, "@o/factory"));
+    expect(now.hooks.PreToolUse).toHaveLength(1);
+    expect(now.hooks.PreToolUse[0].hooks[0].command).toMatch(
+      /; factory guard$/,
+    );
+    expect(hasFactoryHooks(JSON.stringify(now))).toBe(true);
+    expect(withoutHooks(JSON.stringify(now))).toBe(
+      `${JSON.stringify({ attribution: now.attribution }, null, 2)}\n`,
+    );
+  });
+
+  it("leaves a hook of the repository's own that only mentions a factory", () => {
+    const own = { type: "command", command: "my-factory guard --all" };
+    const text = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [own] }] } });
+    expect(hasAnyFactoryHook(text)).toBe(false);
   });
 });
 
