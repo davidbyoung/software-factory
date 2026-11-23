@@ -1,5 +1,6 @@
 // What a reader of the docs is told about what is not built, and how they
 // are told to run the command.
+import { fencedLines } from "../src/lib/fences.mts";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import { load } from "js-yaml";
@@ -161,31 +162,25 @@ function isSetting(path: string): boolean {
   );
 }
 
+/** Each line in a fenced code block that runs the factory as
+ * `npx --no-install factory`, the form a skill or hook uses, where a page a
+ * reader follows writes `factory`, the global install. */
+export function npxCommandLines(text: string): string[] {
+  const fenced = fencedLines(text);
+  return text
+    .split(/\r?\n/)
+    .filter(
+      (line, i) =>
+        fenced[i] && /^\s*(\$ )?npx --no-install factory\b/.test(line),
+    )
+    .map((line) => line.trim());
+}
+
 /** Each settings key `text` names in backticks whose first mention is not a
  * link to its entry in docs/configuration.md. A key is named alone, by a
  * path under it, or with a value, as `builds.trigger: manual`, and its entry
  * is the longest of `entries` its path starts with. Code blocks and headings
  * are not read. */
-/** Each line in a fenced code block that runs the factory as
- * `npx --no-install factory`, the form a skill or hook uses, where a page a
- * reader follows writes `factory`, the global install. */
-export function npxCommandLines(text: string): string[] {
-  const found: string[] = [];
-  let fence: string | null = null;
-  for (const line of text.split("\n")) {
-    const opener = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
-    if (opener) {
-      if (fence === null) fence = opener;
-      else if (opener[0] === fence[0] && opener.length >= fence.length)
-        fence = null;
-      continue;
-    }
-    if (fence !== null && /^\s*(\$ )?npx --no-install factory\b/.test(line))
-      found.push(line.trim());
-  }
-  return found;
-}
-
 export function unlinkedSettings(text: string, entries: string[]): string[] {
   const prose = text
     .replace(/^\s*```[\s\S]*?^\s*```/gm, "")
@@ -398,6 +393,17 @@ describe("npxCommandLines", () => {
       "npx --no-install factory sync",
       "$ npx --no-install factory status",
     ]);
+  });
+
+  it("reads a shorter fence quoted inside a longer one as still inside", () => {
+    const page = [
+      "````md",
+      "```",
+      "npx --no-install factory sync",
+      "````",
+      "npx --no-install factory doctor",
+    ].join("\n");
+    expect(npxCommandLines(page)).toEqual(["npx --no-install factory sync"]);
   });
 });
 

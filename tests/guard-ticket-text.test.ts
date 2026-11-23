@@ -37,6 +37,8 @@ describe("bareTags", () => {
       "\n",
     );
     expect(bareTags(text).map((t) => t.tag)).toEqual(["<outside>"]);
+    const tilde = ["```md", "~~~", "<inside>", "```", "<outside>"].join("\n");
+    expect(bareTags(tilde).map((t) => t.tag)).toEqual(["<outside>"]);
   });
 
   it("passes the tags GitHub renders on purpose, open and closed", () => {

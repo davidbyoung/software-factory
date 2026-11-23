@@ -202,6 +202,7 @@ describe("the shipped pull_request workflows' fork guards", () => {
     ).jobs;
 
   it("runs the Claude review only on a pull request from this repository", () => {
+    expect(Object.keys(jobsOf("factory-claude-review.yml"))).not.toEqual([]);
     for (const job of Object.values(jobsOf("factory-claude-review.yml")))
       expect(job.if).toContain(
         "github.event.pull_request.head.repo.full_name == github.repository",
@@ -209,6 +210,7 @@ describe("the shipped pull_request workflows' fork guards", () => {
   });
 
   it("enables auto-merge only on Dependabot's own pull requests", () => {
+    expect(Object.keys(jobsOf("factory-deps-auto-merge.yml"))).not.toEqual([]);
     for (const job of Object.values(jobsOf("factory-deps-auto-merge.yml")))
       expect(job.if).toContain("github.actor == 'dependabot[bot]'");
   });
