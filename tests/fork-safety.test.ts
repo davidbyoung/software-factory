@@ -185,3 +185,31 @@ describe("this repository's workflows", () => {
     expect(found).toEqual([]);
   });
 });
+
+// A pull_request job gets no secrets on a fork's pull request, unless a
+// private repository turns on sending them; then only a job's own guard
+// keeps a fork's code from the secrets. The two shipped pull_request
+// workflows that use secrets each keep theirs.
+describe("the shipped pull_request workflows' fork guards", () => {
+  const jobsOf = (file: string) =>
+    (
+      load(
+        readFileSync(
+          join(import.meta.dirname, "..", "workflows", file),
+          "utf8",
+        ),
+      ) as { jobs: Record<string, { if?: string }> }
+    ).jobs;
+
+  it("runs the Claude review only on a pull request from this repository", () => {
+    for (const job of Object.values(jobsOf("factory-claude-review.yml")))
+      expect(job.if).toContain(
+        "github.event.pull_request.head.repo.full_name == github.repository",
+      );
+  });
+
+  it("enables auto-merge only on Dependabot's own pull requests", () => {
+    for (const job of Object.values(jobsOf("factory-deps-auto-merge.yml")))
+      expect(job.if).toContain("github.actor == 'dependabot[bot]'");
+  });
+});
