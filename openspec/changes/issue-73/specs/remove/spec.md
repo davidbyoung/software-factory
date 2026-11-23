@@ -28,3 +28,12 @@ The factory SHALL behave as this line says: When `factory remove` lists what is 
 
 - **WHEN** `factory remove` lists what is left by hand
 - **THEN** it prints each tool's lines under the tool's label, indented two spaces, in the order code host, ticket system, runner, and coding agent, then `Then`, holding the line to commit; a tool with no lines has no heading, and the steps are numbered straight through the groups.
+
+### Requirement: The factory's files are deleted
+
+`factory remove` SHALL delete the factory's files when told to go ahead.
+
+#### Scenario: The factory's files are deleted
+
+- **WHEN** going ahead
+- **THEN** it deletes `.claude/factory.yaml`, `.claude/factory.lock`, `.claude/factory/`, every `.claude/skills/factory-*/` and `.claude/agents/factory-*.md`, `.github/workflows/factory.yml` and every `.github/workflows/factory-*.yml`, and `.github/factory-review.md`.
