@@ -302,12 +302,18 @@ export async function run(argv: string[]): Promise<number> {
   const settings = await loadSettings();
   const host = openCodeHost(settings.repository, settings.codeHost.type);
   const home = manifest.name.replace(/^@/, "");
+  const lockText = () =>
+    existsSync(join(root, LOCK))
+      ? readFileSync(join(root, LOCK), "utf8")
+      : null;
   const lockVersion = () =>
-    /^version: *(\S+) *$/m.exec(
-      existsSync(join(root, LOCK))
-        ? readFileSync(join(root, LOCK), "utf8")
-        : "",
-    )?.[1] ?? manifest.version;
+    /^version: *(\S+) *$/m.exec(lockText() ?? "")?.[1] ?? manifest.version;
+  const { load } = await import("js-yaml");
+  const { parseName, pinsOf } = await import("./preset.mts");
+  const { fetchDeps, movePin, newestCommit, presetDiffers } =
+    await import("./preset-fetch.mts");
+  const { changes, presetDeps } = await import("./preset-commands.mts");
+  const fetch = fetchDeps(settings.repository, settings.codeHost.type);
   return main(argv, {
     hasSettings,
     own: launcherPath(PACKAGE, root) === "bin/factory.js",
@@ -318,11 +324,26 @@ export async function run(argv: string[]): Promise<number> {
       return tag.replace(/^v/, "");
     },
     presets: {
-      pins: () => [],
-      newest: async () => "",
-      differs: async () => false,
-      move: async () => {},
-      changes: async () => [],
+      pins: () =>
+        pinsOf(lockText(), load).map(({ name, commit }) => ({
+          name,
+          repo: parseName(name).repo,
+          commit,
+        })),
+      newest: async (repo) => newestCommit(fetch, repo),
+      differs: async (pin, commit) =>
+        presetDiffers(fetch, pin.name, pin.commit, commit),
+      move: async (names, commit) => {
+        for (const name of names) await movePin(root, name, commit, fetch);
+      },
+      changes: async (ref) => {
+        const lines: string[] = [];
+        await changes([ref], {
+          ...presetDeps(root),
+          out: (l) => lines.push(l),
+        });
+        return lines;
+      },
     },
     sync: async (version) => {
       const r = spawnSync(

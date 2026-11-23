@@ -66,6 +66,24 @@ describe("nextStep", () => {
     );
   });
 
+  it("leaves a bump that names the factory, whatever its state, for the Updates job's own pull request", () => {
+    const named = bump({
+      title:
+        "Bump davidbyoung/software-factory/.github/workflows/run.yml from 0.2.0 to 0.3.0",
+      mergeableState: "dirty",
+      checks: [
+        { id: 1, name: "E2E", status: "completed", conclusion: "failure" },
+      ],
+    });
+
+    expect(nextStep(named, "main", "davidbyoung/software-factory")).toBe(
+      "leave (step 4): it names the factory",
+    );
+    expect(
+      nextStep(bump(), "main", "davidbyoung/software-factory"),
+    ).not.toMatch(/step 4/);
+  });
+
   it("lists the merge, the fix, and the migration in step order", () => {
     const failing = bump({
       mergeableState: "dirty",

@@ -441,6 +441,7 @@ export function memoryCodeHost(
       url: `https://code.example/${repository}.git`,
       host: "code.example",
     }),
+    gitToken: () => null,
 
     async signedInAs() {
       called("signedInAs");

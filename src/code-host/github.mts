@@ -374,6 +374,8 @@ export function githubCodeHost(o: {
   cli?: Gh;
   /** For asking GitHub about a token other than the transport's. */
   fetch?: typeof fetch;
+  /** The token the GitHub CLI is signed in with, or null for nobody. */
+  token?: () => string | null;
 }): CodeHost {
   const t = o.transport;
   const API = `repos/${o.repository}`;
@@ -705,6 +707,7 @@ export function githubCodeHost(o: {
       url: `https://github.com/${repository}.git`,
       host: "github.com",
     }),
+    gitToken: () => o.token?.() ?? null,
 
     async signedInAs() {
       try {

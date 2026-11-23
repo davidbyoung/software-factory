@@ -202,6 +202,39 @@ describe("the sign-in a preset's repository is read with", () => {
     },
   );
 
+  it("is the code host's own sign-in for the same owner on a machine, where git's own may hold none", () => {
+    const env = gitEnv(
+      { ...d({ PATH: "/bin" }), signIn: () => "gho_machine" },
+      REPO,
+    );
+    expect(env.FACTORY_PRESET_TOKEN).toBe("gho_machine");
+    expect(env.GIT_CONFIG_VALUE_1).toContain(
+      'echo "password=$FACTORY_PRESET_TOKEN"',
+    );
+  });
+
+  it("takes the environment's token before the code host's sign-in, and asks for neither for another owner", () => {
+    let asked = 0;
+    const signIn = () => {
+      asked += 1;
+      return "gho_machine";
+    };
+    expect(
+      gitEnv({ ...d({ GH_TOKEN: "s3cret" }), signIn }, REPO)
+        .FACTORY_PRESET_TOKEN,
+    ).toBe("s3cret");
+    expect(
+      gitEnv({ ...d({}), signIn }, "foo/presets").FACTORY_PRESET_TOKEN,
+    ).toBeUndefined();
+    expect(asked).toBe(0);
+  });
+
+  it("is the machine's own when the code host's tool is signed in as nobody", () => {
+    const env = gitEnv({ ...d({ PATH: "/bin" }), signIn: () => null }, REPO);
+    expect(env.FACTORY_PRESET_TOKEN).toBeUndefined();
+    expect(env.GIT_CONFIG_COUNT).toBeUndefined();
+  });
+
   it("adds the token's helper after settings the environment already gives git", () => {
     const env = gitEnv(
       d({

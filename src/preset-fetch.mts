@@ -69,6 +69,9 @@ export type FetchDeps = {
   /** The repository that follows the presets, as its settings name it. */
   repository: string;
   env: Record<string, string | undefined>;
+  /** The token the code host's own command-line tool is signed in with, or
+   * null when it is signed in as nobody. */
+  signIn?: () => string | null;
 };
 
 /** What reads the presets of `repository` on this machine. */
@@ -76,13 +79,19 @@ export const fetchDeps = (
   repository: string,
   codeHost: string = DEFAULT_CODE_HOST,
   env: Record<string, string | undefined> = process.env,
-): FetchDeps => ({
-  git: runGit,
-  cache: cacheRoot(env, homedir()),
-  remote: openCodeHost(repository, codeHost).remote,
-  repository,
-  env,
-});
+): FetchDeps => {
+  const host = openCodeHost(repository, codeHost);
+  let token: string | null | undefined;
+  return {
+    git: runGit,
+    cache: cacheRoot(env, homedir()),
+    remote: host.remote,
+    repository,
+    env,
+    // Asked once: every git call reads the environment again.
+    signIn: () => (token === undefined ? (token = host.gitToken()) : token),
+  };
+};
 
 /** A repository git could not read. Its message is git's own last line. */
 export class FetchError extends Error {}
@@ -95,14 +104,15 @@ export const sameOwner = (repo: string, repository: string) =>
 const TOKEN = "FACTORY_PRESET_TOKEN";
 
 /** The environment git reads a preset's repository with. One of the same
- * owner is read with the machine's own sign-in, or in a run with `GH_TOKEN`
- * or `GITHUB_TOKEN` as the password. Any other is read with no sign-in at
+ * owner is read with `GH_TOKEN` or `GITHUB_TOKEN` as the password, as a run
+ * has them, or else the token the code host's own tool is signed in with,
+ * or else git's own sign-in on the machine. Any other is read with no sign-in at
  * all: no credential helper, and no system or global settings, which could
  * name one. Nothing ever waits on a person: git asks for nothing at the
  * terminal or through a program, and Git Credential Manager, which opens
  * a window of its own, is told to fail instead. */
 export function gitEnv(
-  d: Pick<FetchDeps, "env" | "repository" | "cache">,
+  d: Pick<FetchDeps, "env" | "repository" | "cache" | "signIn">,
   repo: string,
 ): Record<string, string | undefined> {
   const base = {
@@ -128,7 +138,7 @@ export function gitEnv(
       GIT_CONFIG_GLOBAL: devNull,
       ...config(0, [["credential.helper", ""]]),
     };
-  const token = d.env.GH_TOKEN || d.env.GITHUB_TOKEN;
+  const token = d.env.GH_TOKEN || d.env.GITHUB_TOKEN || d.signIn?.();
   if (!token) return base;
   // An empty helper clears the machine's own, and the token stays out of
   // git's arguments, which other processes can read.
