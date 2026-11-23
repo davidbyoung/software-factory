@@ -3,7 +3,7 @@
 # repository starts one run, and a person can start one by hand from the
 # Actions tab with the pull request's and the review's numbers.
 #
-# A run costs a minute of Actions when there is nothing of the owner's in the
+# A run costs a minute of Actions when there is nothing of an approver's in the
 # review, such as the factory's own reply, and starts no session then. Runs
 # are not limited: each review gets its own, and two on one pull request may
 # overlap, since the skill has each run work only its own review. GitHub

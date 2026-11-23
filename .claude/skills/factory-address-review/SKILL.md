@@ -371,9 +371,10 @@ Each line gets a verdict, as a review finding does:
 is whether a regression would go unnoticed, not the number.
 
 **On a small change** ("Small changes" in `.claude/factory/rules.md`),
-list the uncovered lines and give no verdict that asks for a test: the
-small path gives a bug fix one test that reproduces the defect, and any
-other small change one that checks it, and that test stands.
+list the uncovered lines with one verdict for them all, **fine as-is: a
+small change**, and ask for no test: the tests the small path gives the
+change, such as the one that reproduces a bug's defect, stand. This is
+the one reason the list above does not hold.
 
 A test written for a coverage line follows the same rules as any other. It
 asserts behavior, not that the line ran, and it fails when the code it covers

@@ -290,13 +290,13 @@ export function refuseBareTags(text: string): void {
   if (tags.length > 0) throw new Error(refusal(tags));
 }
 
-/** The owner's pass of the review verdict for one commit, which no agent
+/** An approver's pass of the review verdict for one commit, which no agent
  * adds ("What merges without the owner" in rules.md), by its key or by
  * `name`, the name the settings give it. */
 export function refuseOverride(label: string, name: string): void {
   const given = label.trim();
   if ([PR_LABELS["verdict-override"], name].some((n) => sameLabel(n, given)))
     throw new Error(
-      `Refused: the ${name} label is the owner's pass of the review verdict, which an agent never adds.`,
+      `Refused: the ${name} label is an approver's pass of the review verdict, which an agent never adds.`,
     );
 }

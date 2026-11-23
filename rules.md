@@ -168,8 +168,8 @@ A pull request merges itself only when the merge-policy workflow labels it
 `merge-automatic` and every gate passes on its newest commit,
 `Review verdict` included. The agents' own rules always wait for the
 owner. Its `Who merges` status in the checks list says which, and why.
-Where `.claude/factory.yaml` sets no `auto-merge`, no merge-policy
-workflow runs: no pull request gets either label or a `Who merges`
+Where `.claude/factory.yaml` lists no file under `auto-merge.allow`, no
+merge-policy workflow runs: no pull request gets either label or a `Who merges`
 status, and every one waits for the owner, so wherever these rules or a
 skill name them, read it as "waits for the owner".
 

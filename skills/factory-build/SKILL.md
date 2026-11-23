@@ -485,12 +485,12 @@ can wake later, waits for the review with
 `npx --no-install factory pr state PR --wait` instead, and does not start
 `factory pr watch`. Work the review with the `factory-address-review` skill.
 
-Where the settings set `auto-merge`, the merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from
+Where the settings list a file under `auto-merge.allow`, the merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from
 the files it changes, and turns auto-merge on for `merge-automatic` ones, which
 then merge themselves once every gate passes. Never enable auto-merge,
 merge, or add the `verdict-override` label yourself. In the report, say which
 label the pull request got, so the owner knows whether it waits for them;
-with no `auto-merge`, no label comes, and say it waits for the owner.
+with none listed, no label comes, and say it waits for the owner.
 
 ## 7. Report
 

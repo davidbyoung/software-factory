@@ -517,14 +517,14 @@ one file.
 
 ## Checking a change
 
-| Check                  | What it proves                                                                                                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`. A new test is seen failing before it is trusted                                |
-| `factory sync --check` | The copies match the source                                                                                                                                                |
-| Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host             |
-| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                         |
-| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`) |
-| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                           |
+| Check                  | What it proves                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`, which only a build that deleted well-covered code may lower, saying so. A new test is seen failing before it is trusted |
+| `factory sync --check` | The copies match the source                                                                                                                                                                                         |
+| Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host                                                      |
+| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                                                                  |
+| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`)                                          |
+| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                                                                    |
 
 The skills are instructions, and instructions cannot be unit tested. The
 last row is the only real proof that a change to one still works.
