@@ -265,12 +265,12 @@ function boardShape(s: Settings | null): {
   return { columns, fields };
 }
 
-/** The repository and code host a remote's address names, or null for one
- * on a code host the factory does not support. */
 /** A pasted secret, joined where the terminal wrapped it: a token holds
  * no space or line break, and one copied from a wrapped line does. */
 const pasted = (value: string) => value.replace(/\s+/g, "");
 
+/** The repository and code host a remote's address names, or null for one
+ * on a code host the factory does not support. */
 export function parseRemote(
   url: string,
   tools: Registry = TOOLS,

@@ -121,10 +121,10 @@ export type Deps = {
   env: Record<string, string | undefined>;
   sleep: (ms: number) => Promise<unknown>;
   out: (line: string) => void;
-  /** Where this checkout remembers the claim it posted on each issue. */
   /** The follow-ups ticket this clone last opened, which GitHub may not
    * list for a few seconds after. */
   followUpStore: { read: () => Key | null; write: (key: Key) => void };
+  /** Where this checkout remembers the claim it posted on each issue. */
   claimStore: {
     read: (issue: Key) => string | null;
     write: (issue: Key, commentId: string) => void;
