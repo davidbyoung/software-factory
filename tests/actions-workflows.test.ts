@@ -1,7 +1,13 @@
 // The four workflows that run unattended and the agent action they call,
 // read as files, and the action's scripts run for real.
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { load } from "js-yaml";
@@ -346,6 +352,53 @@ describe("the action ends on the commit it started on", () => {
     expect(sh("git rev-parse HEAD").trim()).toBe(first);
     expect(sh("git branch --show-current").trim()).toBe("");
     expect(sh("cat f").trim()).toBe("a");
+  });
+
+  it.each([
+    [
+      "reinstalls the dependencies when the session changed the lock file",
+      true,
+    ],
+    ["leaves them when it did not", false],
+  ])("%s", (_name, changed) => {
+    const dir = mkdtempSync(join(tmpdir(), "restore-"));
+    const repo = join(dir, "repo");
+    const temp = join(dir, "temp");
+    const bin = join(dir, "bin");
+    for (const d of [repo, temp, bin]) mkdirSync(d);
+    // A stand-in npm that records each run.
+    writeFileSync(
+      join(bin, "npm"),
+      `#!/bin/sh\necho "$@" >> "${join(dir, "npm-runs")}"\n`,
+      { mode: 0o755 },
+    );
+    const env = {
+      PATH: `${bin}:${process.env.PATH}`,
+      HOME: dir,
+      GIT_CONFIG_NOSYSTEM: "1",
+      RUNNER_TEMP: temp,
+    } as unknown as NodeJS.ProcessEnv;
+    const sh = (script: string) =>
+      execFileSync("bash", ["-eo", "pipefail", "-c", script], {
+        cwd: repo,
+        env,
+        encoding: "utf8",
+      });
+    sh(
+      "git init -q -b main && git config user.name T && git config user.email t@example.com && echo 1 > package-lock.json && echo a > f && git add . && git commit -qm one",
+    );
+    sh(record.run!);
+    sh(
+      changed
+        ? "echo 2 > package-lock.json && git commit -qam two"
+        : "echo b > f && git commit -qam two",
+    );
+    sh(restore.run!);
+
+    const runs = join(dir, "npm-runs");
+    expect(existsSync(runs) ? readFileSync(runs, "utf8").trim() : "").toBe(
+      changed ? "ci" : "",
+    );
   });
 });
 

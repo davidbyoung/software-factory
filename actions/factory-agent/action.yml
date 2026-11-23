@@ -214,5 +214,11 @@ runs:
       run: |
         file="$RUNNER_TEMP/factory-start-commit"
         if [ -f "$file" ]; then
-          git checkout --force --detach "$(cat "$file")"
+          start="$(cat "$file")"
+          # A session that updated a dependency, the factory itself included,
+          # leaves node_modules ahead of the restored files.
+          changed=false
+          git diff --quiet "$start" -- package-lock.json || changed=true
+          git checkout --force --detach "$start"
+          if [ "$changed" = true ]; then npm ci; fi
         fi
