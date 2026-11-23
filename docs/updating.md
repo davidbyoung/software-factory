@@ -202,7 +202,7 @@ this release, and do these steps in the repository's checkout.
      [Dependency bots](github/reference.md#dependency-bots) has the
      `ignore` entry to add to the `github-actions` update when
      Dependabot updates your workflow files.
-6. **Commit all of it on a branch,** and open a pull request. Two of its
+6. **Commit all of it on a branch,** and open a pull request. Three of its
    checks behave differently on this one pull request, since your
    default branch still holds the old workflows:
    - "Review verdict" stays waiting where the automated review is on,
@@ -219,8 +219,8 @@ this release, and do these steps in the repository's checkout.
      which your default branch still names. No rule requires it, and it
      passes once this pull request has merged.
 
-**It worked when** the pull request's checks pass, and `factory doctor`
-shows the version the repository names:
+**It worked when** every other check on the pull request passes, and
+`factory doctor` shows the version the repository names:
 
 ```text
 ✓ The factory 0.3.0, the newest release
