@@ -62,12 +62,12 @@ The factory SHALL behave as this line says: When a session runs `git commit`, th
 
 ### Requirement: The build action runs build-setup
 
-The factory SHALL behave as this line says: When an unattended build starts, the `factory-agent` action runs each `commands.build-setup` command in order before the session, and the run stops at the first that fails.
+The factory SHALL behave as this line says: When an unattended build starts, the session's job runs each `commands.build-setup` command in order before the session, and the run stops at the first that fails.
 
 #### Scenario: The build action runs build-setup
 
 - **WHEN** an unattended build starts
-- **THEN** the `factory-agent` action runs each `commands.build-setup` command in order before the session, and the run stops at the first that fails.
+- **THEN** the session's job runs each `commands.build-setup` command in order before the session, and the run stops at the first that fails.
 
 ### Requirement: The gate passes
 

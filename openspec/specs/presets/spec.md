@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Presets: npm packages of settings, agents, and skills that several repositories share, how `factory sync` combines them with the factory's defaults and `.claude/factory.yaml`, and the `factory preset` commands that add, remove, choose between, check, and report on them.
+Presets: folders of settings, agents, and skills in a repository on the code host, each pinned to a commit in the lock, that several repositories share, how `factory sync` combines them with the factory's defaults and `.claude/factory.yaml`, and the `factory preset` commands that add, remove, choose between, check, and report on them.
 
 ## Requirements
 
@@ -159,15 +159,6 @@ The factory SHALL behave as this line says: When `presets` lists the same preset
 - **WHEN** `presets` lists the same preset twice
 - **THEN** they print `presets: NAME is listed twice`.
 
-### Requirement: A preset with no file
-
-The factory SHALL behave as this line says: When a listed preset has no `factory-preset.yaml` in its folder, they print `NAME: no factory-preset.yaml in node_modules/PACKAGE/FOLDER`.
-
-#### Scenario: A preset with no file
-
-- **WHEN** a listed preset has no `factory-preset.yaml` in its folder
-- **THEN** they print `NAME: no factory-preset.yaml in node_modules/PACKAGE/FOLDER`.
-
 ### Requirement: Off on a plugin no preset names
 
 The factory SHALL behave as this line says: When `.claude/factory.yaml` writes `off: true` on a plugin that no preset names, they print `KEY: NAME: off, but no preset names it`.
@@ -184,7 +175,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Preset add shows a summary
 
 - **WHEN** `factory preset add NAME` runs in a terminal
-- **THEN** it installs the package NAME is in as a dev dependency, then prints the summary of Proposed docs: changes grouped as `added`, `replaces the default`, `disagrees with PRESET`, and `replaced by your .claude/factory.yaml`, then `writes PATH` for each agent and skill. It changes nothing else before `Apply? [y/N]` is answered `y`. A value the preset sets equal to the one in effect is not listed.
+- **THEN** it downloads the newest commit of NAME's repository, then prints the summary of Proposed docs: changes grouped as `added`, `replaces the default`, `disagrees with PRESET`, and `replaced by your .claude/factory.yaml`, then `writes PATH` for each agent and skill. It changes nothing else before `Apply? [y/N]` is answered `y`. A value the preset sets equal to the one in effect is not listed.
 
 ### Requirement: Preset add asks where presets disagree
 
@@ -206,21 +197,21 @@ The factory SHALL behave as this line says: When the summary has a value `.claud
 
 ### Requirement: Preset add applies
 
-The factory SHALL behave as this line says: When `Apply?` is answered `y`, `preset add` adds NAME, quoted, at the end of `presets`, writes the answers, runs the sync, and prints `added NAME to presets in .claude/factory.yaml` and the sync's lines.
+The factory SHALL behave as this line says: When `Apply?` is answered `y`, `preset add` adds NAME, quoted, at the end of `presets`, writes the answers, runs the sync, and prints the lines "What preset add prints when applied" gives.
 
 #### Scenario: Preset add applies
 
 - **WHEN** `Apply?` is answered `y`
-- **THEN** `preset add` adds NAME, quoted, at the end of `presets`, writes the answers, runs the sync, and prints `added NAME to presets in .claude/factory.yaml` and the sync's lines.
+- **THEN** `preset add` adds NAME, quoted, at the end of `presets`, writes the answers, runs the sync, and prints the lines "What preset add prints when applied" gives.
 
 ### Requirement: Preset add declined
 
-The factory SHALL behave as this line says: When `Apply?` is answered anything but `y`, `preset add` uninstalls the package unless it was installed before, changes nothing else, prints `Nothing changed.`, and exits 0.
+The factory SHALL behave as this line says: When `Apply?` is answered anything but `y`, `preset add` changes nothing, prints `Nothing changed.`, and exits 0.
 
 #### Scenario: Preset add declined
 
 - **WHEN** `Apply?` is answered anything but `y`
-- **THEN** `preset add` uninstalls the package unless it was installed before, changes nothing else, prints `Nothing changed.`, and exits 0.
+- **THEN** `preset add` changes nothing, prints `Nothing changed.`, and exits 0.
 
 ### Requirement: Preset add outside a terminal
 
@@ -258,42 +249,6 @@ The factory SHALL behave as this line says: When NAME is already in `presets`, `
 - **WHEN** NAME is already in `presets`
 - **THEN** `preset add` prints `NAME is already in presets` and exits 1.
 
-### Requirement: npm can't install the preset
-
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
-
-#### Scenario: npm can't install the preset
-
-- **WHEN** npm can't install the package
-- **THEN** `preset add` prints `npm couldn't install NAME: REGISTRY answered STATUS.` and exits 1 with nothing changed. REGISTRY is the registry npm used, from `npm config get @SCOPE:registry`, or `npm config get registry` for an unscoped package. STATUS comes from npm's error code, such as `401 Unauthorized` for `E401`. When the code is 401, 403, or 404, it adds `If it's a private package, give this machine a token for REGISTRY, as .npmrc expects.` When npm's error has no HTTP status, it prints `npm couldn't install NAME:` and npm's last error line.
-
-### Requirement: A package with no preset file
-
-The factory SHALL behave as this line says: When the package has no `factory-preset.yaml` in NAME's folder, `preset add` prints line 29's message, uninstalls it as line 35 does, and exits 1.
-
-#### Scenario: A package with no preset file
-
-- **WHEN** the package has no `factory-preset.yaml` in NAME's folder
-- **THEN** `preset add` prints line 29's message, uninstalls it as line 35 does, and exits 1.
-
-### Requirement: The Dependabot group line
-
-The factory SHALL behave as this line says: When `.github/dependabot.yml` exists and no group in it has the package as its only pattern, `preset add` ends with `Next: in .github/dependabot.yml, give PACKAGE a group of its own, so its updates arrive as their own pull requests.`
-
-#### Scenario: The Dependabot group line
-
-- **WHEN** `.github/dependabot.yml` exists and no group in it has the package as its only pattern
-- **THEN** `preset add` ends with `Next: in .github/dependabot.yml, give PACKAGE a group of its own, so its updates arrive as their own pull requests.`
-
-### Requirement: The Dependabot registry line
-
-The factory SHALL behave as this line says: When `.npmrc` sends the package's scope to a registry that `.github/dependabot.yml` has no `registries` entry for, `preset add` ends with `Next: in .github/dependabot.yml, add REGISTRY under registries, so Dependabot sees new versions of PACKAGE.`
-
-#### Scenario: The Dependabot registry line
-
-- **WHEN** `.npmrc` sends the package's scope to a registry that `.github/dependabot.yml` has no `registries` entry for
-- **THEN** `preset add` ends with `Next: in .github/dependabot.yml, add REGISTRY under registries, so Dependabot sees new versions of PACKAGE.`
-
 ### Requirement: Preset remove shows a summary
 
 The factory SHALL behave as this line says: When `factory preset remove NAME` runs, it prints the summary of Proposed docs: `removed`, `back to the default`, `back to another preset's value` (`KEY OLD → NEW, from NAME`), `back to a value you chose against`, and `deletes PATH`, then asks about each value that goes back to one the repository chose against, before changing anything.
@@ -314,21 +269,21 @@ The factory SHALL behave as this line says: When a value would go back to one th
 
 ### Requirement: Preset remove applies
 
-The factory SHALL behave as this line says: When `preset remove` is applied, it takes NAME out of `presets`, removes each choice that names it, uninstalls its package unless another listed preset is in the same package, deletes the files only it shipped, runs the sync, and prints `removed NAME from presets in .claude/factory.yaml`, `removed K choices from .claude/factory.choices.yaml` when K is above 0, and the sync's lines.
+The factory SHALL behave as this line says: When `preset remove` is applied, it takes NAME out of `presets`, removes each choice that names it, drops it from the lock, deletes the files only it shipped, runs the sync, and prints the lines "What preset remove prints" gives.
 
 #### Scenario: Preset remove applies
 
 - **WHEN** `preset remove` is applied
-- **THEN** it takes NAME out of `presets`, removes each choice that names it, uninstalls its package unless another listed preset is in the same package, deletes the files only it shipped, runs the sync, and prints `removed NAME from presets in .claude/factory.yaml`, `removed K choices from .claude/factory.choices.yaml` when K is above 0, and the sync's lines.
+- **THEN** it takes NAME out of `presets`, removes each choice that names it, drops it from the lock, deletes the files only it shipped, runs the sync, and prints the lines "What preset remove prints" gives.
 
 ### Requirement: Preset remove declined, outside a terminal, dry run, or yes
 
-The factory SHALL behave as this line says: When `preset remove` is answered no, run outside a terminal, or run with `--dry-run`, it behaves as lines 35, 36, and 38 say for `preset add`, with nothing uninstalled on a no. With `--yes`, a value that goes back to one the repository chose against takes that value, and nothing is written into `.claude/factory.yaml`.
+The factory SHALL behave as this line says: When `preset remove` is answered no, run outside a terminal, or run with `--dry-run`, it behaves as lines 35, 36, and 38 say for `preset add`, with nothing changed on a no. With `--yes`, a value that goes back to one the repository chose against takes that value, and nothing is written into `.claude/factory.yaml`.
 
 #### Scenario: Preset remove declined, outside a terminal, dry run, or yes
 
 - **WHEN** `preset remove` is answered no, run outside a terminal, or run with `--dry-run`
-- **THEN** it behaves as lines 35, 36, and 38 say for `preset add`, with nothing uninstalled on a no. With `--yes`, a value that goes back to one the repository chose against takes that value, and nothing is written into `.claude/factory.yaml`.
+- **THEN** it behaves as lines 35, 36, and 38 say for `preset add`, with nothing changed on a no. With `--yes`, a value that goes back to one the repository chose against takes that value, and nothing is written into `.claude/factory.yaml`.
 
 ### Requirement: A preset not listed
 
@@ -402,15 +357,6 @@ The factory SHALL behave as this line says: When `factory sync` finds a choice n
 - **WHEN** `factory sync` finds a choice naming a preset not in `presets`, or one that no longer sets that key
 - **THEN** it drops the choice and prints `dropped the choice for KEY: REASON`, with REASON `NAME is no longer in presets` or `NAME no longer sets it`.
 
-### Requirement: Preset check lists the presets
-
-The factory SHALL behave as this line says: When `factory preset check` runs in a package's folder, it prints one line for each preset it finds, the root's and each subfolder's with a `factory-preset.yaml`, as `NAME` and what it ships, `N agents, M skills` or `no agents or skills`, and exits 0 when it finds no problem.
-
-#### Scenario: Preset check lists the presets
-
-- **WHEN** `factory preset check` runs in a package's folder
-- **THEN** it prints one line for each preset it finds, the root's and each subfolder's with a `factory-preset.yaml`, as `NAME` and what it ships, `N agents, M skills` or `no agents or skills`, and exits 0 when it finds no problem.
-
 ### Requirement: Preset check names each problem
 
 The factory SHALL behave as this line says: When a preset has a problem of lines 24 to 27, `preset check` prints `FILE: KEY: MESSAGE` for each and exits 1. MESSAGE is line 24's with `. Remove it, and set it in each repository that wants it`, line 25's with `. Remove it, and list each preset in the repositories that use this one`, line 26's with `. Remove it: only a repository can leave a plugin out`, and line 27's as `factory config check` words it.
@@ -422,30 +368,12 @@ The factory SHALL behave as this line says: When a preset has a problem of lines
 
 ### Requirement: A plugin the package doesn't ship
 
-The factory SHALL behave as this line says: When a preset's plugin names an agent or a skill that no preset in the same package ships, `preset check` prints `FILE: KEY: NAME: not shipped here, so each repository that uses this preset must provide it`, and doesn't fail on it. A name that starts with `factory-` is the factory's own and gets no line.
+The factory SHALL behave as this line says: When a preset's plugin names an agent or a skill that no preset in the same repository ships, `preset check` prints `FILE: KEY: NAME: not shipped here, so each repository that uses this preset must provide it`, and doesn't fail on it. A name that starts with `factory-` is the factory's own and gets no line.
 
 #### Scenario: A plugin the package doesn't ship
 
-- **WHEN** a preset's plugin names an agent or a skill that no preset in the same package ships
+- **WHEN** a preset's plugin names an agent or a skill that no preset in the same repository ships
 - **THEN** `preset check` prints `FILE: KEY: NAME: not shipped here, so each repository that uses this preset must provide it`, and doesn't fail on it. A name that starts with `factory-` is the factory's own and gets no line.
-
-### Requirement: No preset to check
-
-The factory SHALL behave as this line says: When `preset check` runs where there is no `package.json`, or no `factory-preset.yaml` at the root or in a subfolder, it prints `No preset here: no factory-preset.yaml beside a package.json` and exits 1.
-
-#### Scenario: No preset to check
-
-- **WHEN** `preset check` runs where there is no `package.json`, or no `factory-preset.yaml` at the root or in a subfolder
-- **THEN** it prints `No preset here: no factory-preset.yaml beside a package.json` and exits 1.
-
-### Requirement: Deps names a preset update
-
-The factory SHALL behave as this line says: When `factory deps` lists a Dependabot pull request that updates a preset's package, it says the update needs a sync, as it says for the factory's own.
-
-#### Scenario: Deps names a preset update
-
-- **WHEN** `factory deps` lists a Dependabot pull request that updates a preset's package
-- **THEN** it says the update needs a sync, as it says for the factory's own.
 
 ### Requirement: Preset changes
 
@@ -454,22 +382,121 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Preset changes
 
 - **WHEN** `factory preset changes REF` runs
-- **THEN** it compares the lock at git REF with the working tree's, and prints the comment of Proposed docs. It starts with `PACKAGE V1 → V2` for each preset package whose version changed. `Changes here:` has a line for each setting whose value in effect changed (`KEY: OLD → NEW`, adding `, now from NAME` when its source changed), each list item added or removed (`KEY: + ITEM` or `KEY: − ITEM`, adding `, which wrote PATH` when the item's agent or skill file was written), and each other file written or deleted. `Needs a choice:` has a line for each disagreement that is not chosen yet in the working tree's lock and was not one at REF. `Doesn't apply here:` has a line for each setting an updated preset changed whose value in effect did not, saying which layer's value applies. It ends with the `factory preset choices` line when `Needs a choice:` has a line. A section with no line is left out, and when nothing changed it prints `Nothing changes here.`
+- **THEN** it compares the lock at git REF with the working tree's, and prints the comment of Proposed docs. It starts with `NAME OLD → NEW` for each preset whose commit moved, as "Preset changes names commits" says. `Changes here:` has a line for each setting whose value in effect changed (`KEY: OLD → NEW`, adding `, now from NAME` when its source changed), each list item added or removed (`KEY: + ITEM` or `KEY: − ITEM`, adding `, which wrote PATH` when the item's agent or skill file was written), and each other file written or deleted. `Needs a choice:` has a line for each disagreement that is not chosen yet in the working tree's lock and was not one at REF. `Doesn't apply here:` has a line for each setting an updated preset changed whose value in effect did not, saying which layer's value applies. It ends with the `factory preset choices` line when `Needs a choice:` has a line. A section with no line is left out, and when nothing changed it prints `Nothing changes here.`
 
-### Requirement: The deps skill on a preset update
-
-The factory SHALL behave as this line says: When `factory-deps` shepherds a pull request that updates a preset, it runs `factory sync`, commits what it wrote, and comments what `factory preset changes` prints for the default branch, as it does for an update of the factory.
-
-#### Scenario: The deps skill on a preset update
-
-- **WHEN** `factory-deps` shepherds a pull request that updates a preset
-- **THEN** it runs `factory sync`, commits what it wrote, and comments what `factory preset changes` prints for the default branch, as it does for an update of the factory.
-
-### Requirement: Doctor's preset lines
+### Requirement: A preset's name
 
 The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: Doctor's preset lines
+#### Scenario: A preset's name
+
+- **WHEN** `.claude/factory.yaml` lists a name under `presets`
+- **THEN** A name under `presets` is `OWNER/NAME` or `OWNER/NAME//FOLDER`, where OWNER may hold more `/`. A name that starts with `@` gets the line the draft shows under Q2, and any other shape `presets: "X" is not a preset's name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER`.
+
+### Requirement: Preset add reads the repository
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Preset add reads the repository
+
+- **WHEN** `factory preset add NAME` runs
+- **THEN** `factory preset add NAME` downloads the newest commit of the repository's default branch, with git, into `~/.cache/software-factory/`, and reads `factory-preset.yaml` at its root or in FOLDER. With none there it prints `NAME: no factory-preset.yaml in OWNER/NAME`, or `no FOLDER/factory-preset.yaml`, and exits 1. A repository of the same owner that cannot be read gets `NAME: OWNER/NAME could not be read: ` and git's last line.
+
+### Requirement: The summary's heading
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The summary's heading
+
+- **WHEN** `factory preset add` prints its summary
+- **THEN** Its summary is headed `NAME at COMMIT, from MONTH DAY, would change these settings here:`, from the commit's committer date in UTC, as `November 20`, or `November 20, 2025` when it is not this year.
+
+### Requirement: The summary's runs lines
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The summary's runs lines
+
+- **WHEN** a command in effect after the add has this preset as its source
+- **THEN** After `writes`, the summary has one `runs` line for each command in effect after the add whose source is this preset: the command, a comma, and when it runs: `in the review` for `pr-review.commands`, `at the gate` for `commands.gate`, `before each commit` for `commands.before-commit`, `at the start of a cloud build` for `commands.build-setup`, and `as ` and the setting's key for any other.
+
+### Requirement: What preset add prints when applied
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: What preset add prints when applied
+
+- **WHEN** `Apply?` is answered `y`
+- **THEN** On `y` it prints `✓ Added NAME to .claude/factory.yaml, pinned at COMMIT in .claude/factory.lock.`, then `✓ Wrote FILE.` for the choices file when a choice was made and for each agent and skill.
+
+### Requirement: A preset of another owner
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A preset of another owner
+
+- **WHEN** `factory preset add` is given a preset of an owner other than `repository`'s
+- **THEN** A preset of an owner other than `repository`'s is read with no sign-in. Read so, its summary opens `NAME is public, and OWNER is not this repository's owner.` With `--yes` it is refused: `✗ NAME belongs to another owner, so a person adds it, at a terminal. Run it without --yes.` One that cannot be read so gets the `not found, or private` line the draft shows. Each exits 1 with nothing changed.
+
+### Requirement: Sync reads no preset's repository
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Sync reads no preset's repository
+
+- **WHEN** `factory sync` runs with presets
+- **THEN** `factory sync` reads no preset's repository. It combines the settings each preset has in the lock, and checks each file a preset ships against the lock's hash. One that is missing or edited is copied again from the cache, or downloaded again; when that fails, sync prints the third line under "A pin changed by hand" and exits 1.
+
+### Requirement: A preset not pinned yet
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A preset not pinned yet
+
+- **WHEN** `factory sync` finds a name in `presets` with no entry in the lock, or an entry whose name left `presets`
+- **THEN** A name in `presets` with no entry in the lock stops sync with `✗ presets: NAME is not pinned yet. Run: factory preset add NAME`. An entry whose name left `presets` is dropped, with its files.
+
+### Requirement: What preset remove prints
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: What preset remove prints
+
+- **WHEN** `factory preset remove NAME` is applied
+- **THEN** `factory preset remove NAME` reads only the repository's own files. It prints `✓ Removed NAME from .claude/factory.yaml and .claude/factory.lock.`, `✓ Removed N choices from .claude/factory.choices.yaml.` when it dropped any, and `✓ Deleted FILE.` for each.
+
+### Requirement: The check reads a preset whose commit changed
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The check reads a preset whose commit changed
+
+- **WHEN** the check runs on a pull request
+- **THEN** On a pull request, the check reads a preset's repository only for a preset whose commit differs from the base branch's lock. It fails with the first line under "A pin changed by hand" when the lock does not match that commit, and with the second when a preset's settings or hashes changed and its commit did not.
+
+### Requirement: Preset check lists each preset by its file
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Preset check lists each preset by its file
+
+- **WHEN** `factory preset check` runs
+- **THEN** `factory preset check` runs in any folder with a `factory-preset.yaml` in it or below it, needs no `package.json`, and lists each preset by its file's path. With none it prints `No preset here: no factory-preset.yaml in this folder or below it`.
+
+### Requirement: Preset changes names commits
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Preset changes names commits
+
+- **WHEN** `factory preset changes REF` runs
+- **THEN** `factory preset changes REF` heads its text `NAME OLD → NEW`, each seven characters, for each preset whose commit moved, and adds `- FILE, rewritten` for each file whose hash changed. Its other lines are today's.
+
+### Requirement: Doctor's line for each preset
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Doctor's line for each preset
 
 - **WHEN** `factory doctor` runs with presets
-- **THEN** it prints for each one `✓ NAME V is installed, as the lock records`, or a `✗` line with line 5's or line 6's message. When `.github/dependabot.yml` exists, it prints for each preset package `✓ PACKAGE has a Dependabot group of its own`, or `✗ PACKAGE has no Dependabot group of its own, so its updates may arrive with other packages` with line 42's fix. A stale lock is one `✗` line with the message of lines 4 to 7 or 69. These count toward doctor's result as its other checks do.
+- **THEN** `factory doctor` prints `✓ NAME is pinned at COMMIT` for each preset.

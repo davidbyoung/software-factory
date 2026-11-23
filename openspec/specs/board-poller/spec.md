@@ -2,7 +2,7 @@
 
 ## Purpose
 
-How the poller starts builds from the board: one pass for a scheduled run, the workflow `factory sync` writes for it, and the hourly cap on builds that the poller you host and the scheduled one both keep.
+How the poller starts builds from the board: one pass for a scheduled run, the schedule `factory sync` writes for it into `.github/workflows/factory.yml`, and the hourly cap on builds that the poller you host and the scheduled one both keep.
 
 ## Requirements
 
@@ -44,30 +44,30 @@ The factory SHALL behave as this line says: When `factory poller --once` runs, i
 
 ### Requirement: The scheduled workflow is written
 
-The factory SHALL behave as this line says: When `factory sync` runs with `builds.trigger: github-action`, it writes `.github/workflows/factory-poller.yml`, which runs `factory poller --once` every `builds.poll-minutes` minutes and can be run by hand.
+The factory SHALL behave as this line says: When `factory sync` runs with `builds.trigger: github-action`, it writes the poller's `cron` line into `.github/workflows/factory.yml`, whose poller job runs `factory poller --once` every `builds.poll-minutes` minutes and can be run by hand.
 
 #### Scenario: The scheduled workflow is written
 
 - **WHEN** `factory sync` runs with `builds.trigger: github-action`
-- **THEN** it writes `.github/workflows/factory-poller.yml`, which runs `factory poller --once` every `builds.poll-minutes` minutes and can be run by hand.
+- **THEN** it writes the poller's `cron` line into `.github/workflows/factory.yml`, whose poller job runs `factory poller --once` every `builds.poll-minutes` minutes and can be run by hand.
 
 ### Requirement: The scheduled workflow is deleted
 
-The factory SHALL behave as this line says: When `factory sync` runs with any other trigger, it deletes `.github/workflows/factory-poller.yml`.
+The factory SHALL behave as this line says: When `factory sync` runs with any other trigger, it writes no `cron` line for the poller into `.github/workflows/factory.yml`, and the poller's job is off.
 
 #### Scenario: The scheduled workflow is deleted
 
 - **WHEN** `factory sync` runs with any other trigger
-- **THEN** it deletes `.github/workflows/factory-poller.yml`.
+- **THEN** it writes no `cron` line for the poller into `.github/workflows/factory.yml`, and the poller's job is off.
 
 ### Requirement: Poller runs do not overlap
 
-The factory SHALL behave as this line says: When a poller run starts while the previous poller run is still running, it waits for that one to finish. Each build it starts is a separate run of the build workflow, so builds run in parallel.
+The factory SHALL behave as this line says: When a poller run starts while the previous poller run is still running, it waits for that one to finish. Each build it starts is a separate run of `factory.yml`, so builds run in parallel.
 
 #### Scenario: Poller runs do not overlap
 
 - **WHEN** a poller run starts while the previous poller run is still running
-- **THEN** it waits for that one to finish. Each build it starts is a separate run of the build workflow, so builds run in parallel.
+- **THEN** it waits for that one to finish. Each build it starts is a separate run of `factory.yml`, so builds run in parallel.
 
 ### Requirement: The hourly cap
 
