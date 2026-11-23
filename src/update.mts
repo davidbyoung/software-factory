@@ -329,7 +329,7 @@ export async function run(argv: string[]): Promise<number> {
     /^version: *(\S+) *$/m.exec(lockText() ?? "")?.[1] ?? manifest.version;
   const { load } = await import("js-yaml");
   const { parseName, pinsOf } = await import("./preset.mts");
-  const { fetchDeps, movePin, newestCommit, presetDiffers } =
+  const { fetchDeps, movePin, newestCommit, presetDiffers, whyUnread } =
     await import("./preset-fetch.mts");
   const { changes, presetDeps } = await import("./preset-commands.mts");
   const fetch = fetchDeps(settings.repository, settings.codeHost.type);
@@ -349,7 +349,13 @@ export async function run(argv: string[]): Promise<number> {
           repo: parseName(name).repo,
           commit,
         })),
-      newest: async (repo) => newestCommit(fetch, repo),
+      newest: async (repo) => {
+        try {
+          return newestCommit(fetch, repo);
+        } catch (e) {
+          throw new Error(whyUnread(e, repo, settings.repository));
+        }
+      },
       differs: async (pin, commit) =>
         presetDiffers(fetch, pin.name, pin.commit, commit),
       move: async (names, commit) => {

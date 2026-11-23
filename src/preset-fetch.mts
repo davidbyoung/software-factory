@@ -101,6 +101,12 @@ export class FetchError extends Error {}
 export const sameOwner = (repo: string, repository: string) =>
   repo.split("/")[0]!.toLowerCase() === repository.split("/")[0]!.toLowerCase();
 
+/** Why `repo` could not be read, as `factory update` says it mid-sentence. */
+export const whyUnread = (e: unknown, repo: string, repository: string) =>
+  sameOwner(repo, repository)
+    ? (e instanceof Error ? e.message : String(e)).replace(/\.+$/, "")
+    : "not found, or private";
+
 const TOKEN = "FACTORY_PRESET_TOKEN";
 
 /** The environment git reads a preset's repository with. One of the same

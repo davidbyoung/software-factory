@@ -25,6 +25,7 @@ import {
   shippedText,
   type FetchDeps,
   type Git,
+  whyUnread,
 } from "../src/preset-fetch.mts";
 import {
   ACME,
@@ -555,6 +556,22 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
     expect(faults).toHaveLength(1);
     expect(faults[0]).toMatch(
       /^\.claude\/factory\.lock: acme\/factory-config at 0123456 could not be read to check it: fatal: /,
+    );
+  });
+});
+
+describe("why a preset's repository could not be read, for factory update", () => {
+  const git = new FetchError("fatal: Could not read from remote repository.");
+
+  it("is git's last line, without its period, for a repository of the same owner", () => {
+    expect(whyUnread(git, "acme/factory-config", "acme/web")).toBe(
+      "fatal: Could not read from remote repository",
+    );
+  });
+
+  it("is not found, or private, for another owner's, which is read with no sign-in", () => {
+    expect(whyUnread(git, "foo/old-presets", "acme/web")).toBe(
+      "not found, or private",
     );
   });
 });
