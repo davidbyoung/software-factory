@@ -405,7 +405,7 @@ export function githubCodeHost(o: {
     async forBranch(branch) {
       const open = await t.rest<{ number: number }[]>(
         "GET",
-        `${API}/pulls?head=${owner}:${branch}&state=open`,
+        `${API}/pulls?head=${owner}:${encodeURIComponent(branch)}&state=open`,
       );
       return open[0]?.number ?? null;
     },

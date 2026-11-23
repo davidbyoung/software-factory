@@ -755,4 +755,10 @@ describe("the newest pull request from a branch", () => {
     await p.lastForBranch("fix+54&more");
     expect(calls[0]).toContain("head=acme:fix%2B54%26more&state=all");
   });
+
+  it("finds the open pull request of a branch whose name has + or &", async () => {
+    const { p, calls } = pulls([[/pulls\?head=/, []]]);
+    await p.forBranch("fix+54&more");
+    expect(calls[0]).toContain("head=acme:fix%2B54%26more&state=open");
+  });
 });
