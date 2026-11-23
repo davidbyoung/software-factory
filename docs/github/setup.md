@@ -71,14 +71,14 @@ machine, which is all the [quick start](../quick-start.md) needs.
 
 It then asks only what your parts need:
 
-| Question                              | Asked when you chose                                                                         | What you do                                                                                                 |
-| ------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Which board                           | A board                                                                                      | Choose a new one, made with the factory's columns, or a Project you already have                            |
-| Which files may merge without you     | Pull requests that merge themselves                                                          | Type their patterns, such as `docs/**`. Start with a short list                                             |
-| Where the poller runs                 | Builds that start from the board                                                             | Choose a schedule on GitHub Actions or a server you host. [Builds in the cloud](../builds.md) compares them |
-| The token `claude setup-token` prints | The review, and builds in the cloud                                                          | It runs the command for you. Follow what it says, then paste the token it prints                            |
-| A GitHub access token                 | A board, builds in the cloud, and pull requests that merge themselves                        | It opens GitHub's page with the right scopes checked. Choose an expiry, generate the token, and paste it    |
-| The token your `.npmrc` reads         | Nothing: it asks whenever `.npmrc` reads one ([Private npm packages](#private-npm-packages)) | Paste a token that can only read from your registry                                                         |
+| Question                              | Asked when you chose                                                                         | What you do                                                                                                                                      |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Which board                           | A board                                                                                      | Choose a new one, made with the factory's columns, or a Project you already have                                                                 |
+| Which files may merge without you     | Pull requests that merge themselves                                                          | Type their patterns, such as `docs/**`. Start with a short list                                                                                  |
+| Where the poller runs                 | Builds that start from the board                                                             | Choose a schedule on GitHub Actions or a server you host. [Builds in the cloud](../builds.md) compares them                                      |
+| The token `claude setup-token` prints | The review, and builds in the cloud                                                          | It runs the command for you. Follow what it says, then paste the token it prints, as it is: init joins a token the terminal wrapped across lines |
+| A GitHub access token                 | A board, builds in the cloud, and pull requests that merge themselves                        | It opens GitHub's page with the right scopes checked. Choose an expiry, generate the token, and paste it                                         |
+| The token your `.npmrc` reads         | Nothing: it asks whenever `.npmrc` reads one ([Private npm packages](#private-npm-packages)) | Paste a token that can only read from your registry                                                                                              |
 
 A token is typed into a masked prompt and goes straight to your
 repository's secrets on GitHub. It is never printed or written to a file.

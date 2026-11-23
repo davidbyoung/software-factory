@@ -489,6 +489,18 @@ describe("factory init, a first run with every part", () => {
     });
   });
 
+  it("joins a pasted token that wrapped across lines, and trims its ends", async () => {
+    const setup = firstSetup();
+    setup.answers!.secret = [
+      `${AGENT.slice(0, 10)}\n${AGENT.slice(10)} `,
+      ` ${GOOD}\r\n`,
+    ];
+    const r = init(setup);
+    await r.run();
+    expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
+    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(GOOD);
+  });
+
   it("opens the page that makes the token, with the scopes the parts need", async () => {
     const r = first();
     await r.run();

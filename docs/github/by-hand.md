@@ -313,7 +313,9 @@ and to Contents and Pull requests for auto-merge. The board token must be
 classic.
 
 To set them in one go, run the lines for your parts and paste each value
-when asked. `claude setup-token` prints the first value, and the other
+when asked. `claude setup-token` prints the first value; the terminal may wrap it
+across lines, so join it into one line before you paste it, since a
+line break left in it fails every run that uses it. The other
 three lines can all take the same GitHub token:
 
 ```bash

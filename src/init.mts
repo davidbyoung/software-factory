@@ -267,6 +267,10 @@ function boardShape(s: Settings | null): {
 
 /** The repository and code host a remote's address names, or null for one
  * on a code host the factory does not support. */
+/** A pasted secret, joined where the terminal wrapped it: a token holds
+ * no space or line break, and one copied from a wrapped line does. */
+const pasted = (value: string) => value.replace(/\s+/g, "");
+
 export function parseRemote(
   url: string,
   tools: Registry = TOOLS,
@@ -473,7 +477,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     for (;;) {
       for (const part of step.parts.slice(from)) {
         const value = part.masked
-          ? await d.ask.secret(part.prompt)
+          ? pasted(await d.ask.secret(part.prompt))
           : (await d.ask.input(part.prompt, "")).trim();
         if (!value) {
           d.out(`${step.skipped} ${AGAIN}`);
@@ -1135,7 +1139,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     if (step.get && "command" in step.get)
       await d.interactive(step.get.command);
     for (;;) {
-      const value = await d.ask.secret(step.prompt);
+      const value = pasted(await d.ask.secret(step.prompt));
       if (!value) {
         d.out(`${step.skipped} ${AGAIN}`);
         break;
@@ -1176,7 +1180,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       d.out(
         `${a.name} isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.`,
       );
-    const value = await d.ask.secret(prompt);
+    const value = pasted(await d.ask.secret(prompt));
     if (!value) {
       d.out(
         `No ${a.name} stored. The factory's workflows fail at npm ci until it is. ${AGAIN}`,
