@@ -338,7 +338,11 @@ migration-reviewer: skipped, only a comment changed.
 ```
 
 Every matched reviewer ends up with either a run or a line like that. You
-read the skips when you read the pull request.
+read the skips when you read the pull request. A
+[small change](workflow.md#sizing-the-work-to-the-change) is the
+exception: it runs only the reviewers the small path names, and its pull
+request says it took the small path instead of listing each reviewer it
+skipped.
 
 **Write the description as a condition.** "Reviews database migrations"
 says what the agent is. "Use when a change adds or alters a migration's
