@@ -134,7 +134,11 @@ discovering it at push time.
   when you host it (`builds.trigger: own-server`) or at its next scheduled
   pass (`github-action`), the same run that
   `npx --no-install factory build N` starts by hand. A local build starts by telling a session to work the
-  issue.
+  issue. Where `npx --no-install factory config get builds.trigger` prints
+  `manual`, no poller runs and a card moved to Ready starts nothing: a
+  build starts only when the owner tells a session to work the issue or
+  runs `factory build N`, so wherever these rules or a skill say Ready
+  starts a build, read it as that.
   The poller starts only a ticket with the factory label, which refinement
   and `factory ticket ready` add. It skips a card whose blocker is open
   and starts it at its first pass after the blocker closes. A card moves only forward on its own,
@@ -164,6 +168,10 @@ A pull request merges itself only when the merge-policy workflow labels it
 `merge-automatic` and every gate passes on its newest commit,
 `Review verdict` included. The agents' own rules always wait for the
 owner. Its `Who merges` status in the checks list says which, and why.
+Where `.claude/factory.yaml` sets no `auto-merge`, no merge-policy
+workflow runs: no pull request gets either label or a `Who merges`
+status, and every one waits for the owner, so wherever these rules or a
+skill name them, read it as "waits for the owner".
 
 Agents never merge, enable auto-merge, or add the `verdict-override`
 label, the owner's pass of the verdict for one commit; `factory pr label`
@@ -205,9 +213,10 @@ reach it.
 
 ## Issues that wait on another
 
-A build order stated only in prose is one nothing reads: the poller starts
-a build within minutes of a card moving to Ready, and it and `factory-build`
-stop only on a recorded relationship. So whoever opens or refines an issue records each
+A build order stated only in prose is one nothing reads: a build starts
+whenever the owner approves it, within minutes of a card moving to Ready
+where a poller runs, and the poller and `factory-build` stop only on a
+recorded relationship. So whoever opens or refines an issue records each
 blocker as a blocked-by relationship, and says why in the issue's
 body (under Decisions, for a refined issue).
 

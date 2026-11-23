@@ -28,7 +28,8 @@ the ticket system writes it in prose, such as `#12`, which
 - **Local:** the owner tells a session to work an issue by its key. The
   card stays where it is until the claim moves it.
 
-- **GitHub Actions:** the owner moves the issue's card to Ready on the
+- **GitHub Actions:** where a poller runs (`builds.trigger` is not
+  `manual`), the owner moves the issue's card to Ready on the
   board, and the poller posts a start comment and dispatches
   "Factory build" with the issue's key; or a person runs
   `npx --no-install factory build N`, or "Run workflow" on the Actions
@@ -483,11 +484,12 @@ can wake later, waits for the review with
 `npx --no-install factory pr state PR --wait` instead, and does not start
 `factory pr watch`. Work the review with the `factory-address-review` skill.
 
-The merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from
+Where the settings set `auto-merge`, the merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from
 the files it changes, and turns auto-merge on for `merge-automatic` ones, which
 then merge themselves once every gate passes. Never enable auto-merge,
 merge, or add the `verdict-override` label yourself. In the report, say which
-label the pull request got, so the owner knows whether it waits for them.
+label the pull request got, so the owner knows whether it waits for them;
+with no `auto-merge`, no label comes, and say it waits for the owner.
 
 ## 7. Report
 
