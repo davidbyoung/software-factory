@@ -27,6 +27,13 @@ describe("bareTags", () => {
     expect(bareTags(text)).toEqual([]);
   });
 
+  it("refuses a tag after an HTML comment that holds a fence line", () => {
+    const text = ["<!--", "```", "-->", "Use <slug> here."].join("\n");
+    expect(bareTags(text)).toEqual([
+      { tag: "<slug>", line: "Use <slug> here." },
+    ]);
+  });
+
   it("passes a tag on any line of a fenced block, not only its first", () => {
     const text = ["```text", "one", "two", "<your text>", "```"].join("\n");
     expect(bareTags(text)).toEqual([]);

@@ -84,12 +84,12 @@ export type BareTag = { tag: string; line: string };
  * each remaining tag stays on its own line. */
 function withoutCode(text: string): string {
   const blank = (s: string) => s.replace(/[^\n]/g, " ");
-  const fenced = fencedLines(text);
-  return text
+  const uncommented = text.replace(/<!--[\s\S]*?-->/g, blank);
+  const fenced = fencedLines(uncommented);
+  return uncommented
     .split("\n")
     .map((line, i) => (fenced[i] ? blank(line) : line))
     .join("\n")
-    .replace(/<!--[\s\S]*?-->/g, blank)
     .replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, blank);
 }
 
