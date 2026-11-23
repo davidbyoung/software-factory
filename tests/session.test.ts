@@ -1,6 +1,10 @@
 // Whether a cloud session runs: is there work, and are its tokens set. The
 // work is asked first, with the workflow's own token, so a repository with
 // no build token gets no run that fails for want of one.
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { foundLine, ready, workOf, type Ready } from "../src/session.mts";
 import { memoryCodeHost, type PullSeed } from "./memory-code-host.ts";
@@ -128,5 +132,60 @@ describe("the work a kind's check finds", () => {
     await expect(found("review", []).work()).rejects.toThrow(
       "Usage: factory session ready",
     );
+  });
+});
+
+// The command itself, in this repository's checkout: a build's check asks
+// the code host nothing, so it runs with no network.
+describe("factory session ready, as the workflow's step runs it", () => {
+  const CLI = join(import.meta.dirname, "..", "bin", "factory.js");
+  function step(args: string[], env: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), "factory-session-"));
+    const output = join(dir, "output");
+    const r = spawnSync("node", [CLI, "session", ...args], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GITHUB_EVENT_NAME: "workflow_dispatch",
+        FACTORY_BUILD_TOKEN_SET: "",
+        FACTORY_CLAUDE_SET: "",
+        GITHUB_OUTPUT: output,
+        ...env,
+      },
+    });
+    let wrote = "";
+    try {
+      wrote = readFileSync(output, "utf8");
+    } catch {
+      // The step wrote no output.
+    }
+    rmSync(dir, { recursive: true, force: true });
+    return { code: r.status, out: r.stdout, err: r.stderr, wrote };
+  }
+
+  it("tells the next steps to run when both tokens are set", () => {
+    expect(
+      step(["ready", "build"], {
+        FACTORY_BUILD_TOKEN_SET: "true",
+        FACTORY_CLAUDE_SET: "true",
+      }),
+    ).toMatchObject({ code: 0, wrote: "ran=true\n" });
+  });
+
+  it("fails a build with no build token, and tells the next steps not to run", () => {
+    expect(step(["ready", "build"], { FACTORY_CLAUDE_SET: "true" })).toEqual({
+      code: 1,
+      out: "::error::No build token: set the secret FACTORY_BUILD_TOKEN, or FACTORY_BOARD_TOKEN.\n",
+      err: "",
+      wrote: "ran=false\n",
+    });
+  });
+
+  it("exits 2 with its usage for a kind it does not know", () => {
+    expect(step(["ready", "nothing"], {})).toMatchObject({
+      code: 2,
+      err: "Usage: factory session ready build|conflicts|deps|review [PR REVIEW]\n",
+      wrote: "",
+    });
   });
 });

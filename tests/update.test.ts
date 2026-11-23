@@ -1,6 +1,7 @@
 // `factory update`: the factory to its newest release and each preset to
 // its newest commit, by hand in the working tree, or as one pull request
 // for each in the Updates job.
+import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -420,5 +421,20 @@ describe("the settings factory update reads", () => {
     expect(said).toEqual([
       expect.stringContaining("code-host.branch-name: is required"),
     ]);
+  });
+});
+
+describe("factory update, the command, in the factory's own repository", () => {
+  it("reads the settings, the lock, and its pins, and finds nothing to move", () => {
+    const r = spawnSync(
+      "node",
+      [join(import.meta.dirname, "..", "bin", "factory.js"), "update"],
+      { encoding: "utf8" },
+    );
+    expect({ code: r.status, out: r.stdout, err: r.stderr }).toEqual({
+      code: 0,
+      out: "✓ Nothing to update: the factory runs from its source here.\n",
+      err: "",
+    });
   });
 });
