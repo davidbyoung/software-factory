@@ -131,6 +131,8 @@ export function install(download, deps) {
     `${deps.name}@${version}`,
   ]);
   if (npm.status === 0) {
+    // A folder with no copy in it was cut short, and would refuse the move.
+    if (!deps.exists(entry)) deps.remove(dir);
     try {
       deps.rename(staging, dir);
     } catch {

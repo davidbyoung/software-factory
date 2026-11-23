@@ -221,10 +221,31 @@ describe("install", () => {
       calls: [
         `mkdir ${staging}`,
         `npm install --prefix ${staging} --no-save --no-audit --no-fund ${NAME}@0.2.0`,
+        `remove ${download.dir}`,
         `rename ${staging} ${download.dir}`,
         `remove ${staging}`,
       ],
     });
+  });
+
+  it("replaces a folder left there with no copy in it", () => {
+    let stale = true;
+    const files = new Set<string>();
+    const why = install(download, {
+      name: NAME,
+      pid: 42,
+      npm: () => ({ status: 0, output: "added 41 packages in 3s" }),
+      mkdir: () => {},
+      rename: () => {
+        if (stale) throw new Error("ENOTEMPTY");
+        files.add(download.entry);
+      },
+      remove: (path) => {
+        if (path === download.dir) stale = false;
+      },
+      exists: (path) => files.has(path),
+    });
+    expect(why).toBeNull();
   });
 
   it("uses the copy another command put there first", () => {
