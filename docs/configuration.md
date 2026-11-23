@@ -1355,7 +1355,8 @@ pr-review:
   under it (`pr-review: {}`), and `factory sync` then turns the review's
   job on in `.github/workflows/factory-review.yml`. While it is off,
   each pull request's "Review verdict" status passes, reading "The
-  automated review is off".
+  automated review is off". `factory config get pr-review` prints `on`
+  or `off`.
   [Setting up on GitHub](github/setup.md) has what it needs there.
 - **`commands` is what the reviewer may run** to confirm something it
   suspects, beyond reading the code and commenting. It doesn't run them on

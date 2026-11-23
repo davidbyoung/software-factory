@@ -30,8 +30,8 @@ works the review of its push as `factory-address-review` section 0 says.
 ## The conflict sweep
 
 Run as "the conflict sweep", by the workflow that starts after each push
-to the default branch and nightly. It ran `factory pr conflicts` first,
-which is steps 1 to 3 below, and starts a session only when it exits 0.
+to the default branch and nightly. It ran `factory session ready conflicts` first,
+which is steps 1 to 3 below, and starts a session only when it finds one.
 Read what it read again, since time has passed. It finds every pull request that conflicts with
 the default branch and sends each through "A conflict with the default branch" and then its review.
 

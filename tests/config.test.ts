@@ -1894,6 +1894,19 @@ describe("main", () => {
       expect(await get(BARE, key)).toEqual({ code: 0, out: ["none"], err: [] });
     });
 
+    it("prints whether the automated review is on, for pr-review", async () => {
+      expect(await get(BARE, "pr-review")).toEqual({
+        code: 0,
+        out: ["off"],
+        err: [],
+      });
+      expect(await get(`${BARE}pr-review:\n`, "pr-review")).toEqual({
+        code: 0,
+        out: ["on"],
+        err: [],
+      });
+    });
+
     it("prints npm install for commands.relock when it is not set", async () => {
       expect((await get(BARE, "commands.relock")).out).toEqual(["npm install"]);
     });

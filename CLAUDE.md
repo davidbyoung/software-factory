@@ -107,8 +107,9 @@ pull request gets a `merge-automatic` or `merge-manual` label or a
 ## Spec track: this repository
 
 `specs` is `openspec` here. A ticket gets the `spec` label when it changes
-what a factory user sees: a command's output or exit, a setting, or which
-files the factory writes into their repository and where. The text of
+what a factory user sees: a command's output or exit, a setting, which
+files the factory writes into their repository and where, or when a job
+of the workflows their two files call runs. The text of
 its skills, agents, rules, and review instructions is not spec-tracked,
 since prose has no test to map a scenario to: a change to it goes through
 the fresh-agent trace in "Changing the process" instead. `openspec/specs/` holds a spec for

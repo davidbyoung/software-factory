@@ -30,8 +30,8 @@ When it prints nothing, `commands.gate` is not set, and no fix here could
 be checked: do nothing for any pull request, open no issue, and say so
 once in the report.
 
-A run started by the workflow ran `factory deps --any` first, which exits
-0 when a Dependabot pull request is open, and starts a session only then.
+A run started by the workflow ran `factory session ready deps` first, and
+starts a session only when a Dependabot pull request is open.
 Read the list again, since time has passed.
 
 ```bash

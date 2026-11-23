@@ -22,7 +22,7 @@ the last review's failure, so ask for a fresh read of the same commit
 (`factory pr review-again N`); the reviewer
 reads your replies and posts a new verdict. Never add the `verdict-override`
 label, never enable auto-merge, and never merge: the override is the
-owner's alone, and the merge-policy workflow decides auto-merge.
+owner's alone, and the merge policy decides auto-merge.
 
 **The repository will not merge with an unresolved thread.** Every thread
 ends in one of three states, and only the first two are yours to reach:
@@ -125,9 +125,9 @@ request through `factory pr`.
 
 The workflow starts one run for each submitted review and passes the pull
 request and the review's ID ("the owner's review REVIEW_ID on #N"). It
-ran `factory pr review-pending N REVIEW_ID` first, which is steps 1 to 3
+ran `factory session ready review N REVIEW_ID` first, which is steps 1 to 3
 below without the hand-off to a watching local session, and starts a
-session only when it exits 0. Read what it read again, since time has
+session only when the review has something to work. Read what it read again, since time has
 passed.
 
 1. **Closed or merged:** stop.
@@ -172,7 +172,7 @@ passed.
    `git pull --no-rebase`, run the gate again, and push. Then reply and
    resolve.
 5. **When the Claude review runs on the push,** that is, the review is on
-   (`factory config get pr-review` prints its settings, not `off`), and the
+   (`factory config get pr-review` prints `on`), and the
    pull request is not a draft, not Dependabot's, not from a fork, and not
    `dirty`, run this skill from section 0, past its note on a run started by the owner's review: wait for the review of the
    push, and work it as a whole, its preamble through

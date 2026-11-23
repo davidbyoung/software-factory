@@ -1670,6 +1670,12 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     for (const line of siteLines(s.site)) d.out(line);
     return 0;
   }
+  // A block that turns a part on by being written, so its key prints
+  // which.
+  if (command === "pr-review") {
+    d.out(s.prReview ? "on" : "off");
+    return 0;
+  }
   const v =
     command.startsWith("site") && !s.site ? undefined : lookup(s, command);
   if (command === "site.pages" && s.site?.pages === null) {

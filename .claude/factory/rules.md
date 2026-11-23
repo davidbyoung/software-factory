@@ -112,14 +112,16 @@ discovering it at push time.
   it with `--release`. A run in GitHub Actions, which nothing can wake
   later, works its review under `factory-address-review`, waiting with
   `factory pr state N --wait`, and does not run it, since
-  nothing can wake it once it stops.
+  nothing can wake it once it stops. A pull request `factory update`
+  opened was built by no session: its review waits for the owner, who
+  merges it or tells a session to work it with `factory-address-review`.
 - **A pull request that resolves an issue closes it.** When asked to open
   one, start the body with the line `factory ticket link N`
   prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
   prints each one.
 - **After pushing, check for review automatically.** Where the automated
-  review is on, which is where `factory config get pr-review` prints its
-  settings and not `off`, it reviews every push to a PR that is marked
+  review is on, which is where `factory config get pr-review` prints `on`,
+  it reviews every push to a PR that is marked
   ready. If an open PR exists for the branch, wait for the review of that
   push, then work it with the `factory-address-review` skill
   without being asked. If no PR exists yet, say so in one line: review begins
