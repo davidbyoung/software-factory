@@ -100,12 +100,4 @@ export function addressOf(n: Npmrc, name: string): string {
 export const privateRegistries = (n: Npmrc) =>
   n.registries.filter((r) => bare(r) !== bare(PUBLIC_REGISTRY));
 
-/** The registry `.npmrc` sends a package's scope to, or null. */
-export function npmrcRegistry(text: string | null, pkg: string): string | null {
-  if (!text || !pkg.startsWith("@")) return null;
-  const scope = pkg.split("/")[0]!;
-  const found = entries(text).find((e) => e.key === `${scope}:registry`);
-  return found ? found.value : null;
-}
-
 export { bare as bareRegistry };

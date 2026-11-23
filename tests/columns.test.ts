@@ -229,7 +229,6 @@ describe("tickets.columns and tickets.fields in the settings", () => {
     );
     installAcme(
       root,
-      "1.4.0",
       [
         "version: 2",
         "tickets:",

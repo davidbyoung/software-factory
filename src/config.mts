@@ -38,6 +38,10 @@ import {
 
 export class SettingsError extends Error {}
 
+/** A name under `presets` that is no preset's, or is not pinned yet:
+ * `factory sync` and the preset commands print it with their mark. */
+export class PresetsError extends SettingsError {}
+
 /** What a plugin does, in the order `factory plugins` prints them. */
 export const ROLES = [
   "refiner",
@@ -1125,13 +1129,14 @@ export type Deps = {
   /** The text of `.npmrc` at the root, or null. Read from disk unless
    * given. */
   readNpmrc?: () => string | null;
-  /** Where presets are installed from. */
+  /** The repository's root, where the lock and `.npmrc` are read. */
   root?: string;
   /** Which of the settings files differ from the last commit. */
   changed?: () => string[];
-  /** A package's installed version: null when it is not installed, and
-   * undefined where there is no node_modules to look in. */
-  installed?: (pkg: string) => string | null | undefined;
+  /** The text of the lock that pins each preset to a commit, with its
+   * settings and its files' hashes, or null when there is none. Read from
+   * the root unless given, and only when `presets` names one. */
+  readLock?: () => string | null;
 };
 
 export const NO_DEPENDENCIES =
@@ -1160,7 +1165,8 @@ const readOrNull = (path: string) => {
 export type Resolved = {
   settings: Settings;
   resolution: import("./preset.mts").Resolution;
-  presets: import("./preset.mts").Found[];
+  /** Each preset listed, as the lock pins it. */
+  presets: import("./preset.mts").Pinned[];
   /** `.claude/factory.yaml` as written, and its text. */
   own: Record<string, unknown>;
   ownText: string;
@@ -1206,9 +1212,10 @@ function needsQuotes(e: unknown, text: string): string | null {
 }
 
 /** The settings combined from the factory's defaults, each preset in
- * `presets`, and `.claude/factory.yaml`, as `factory sync` combines them
- * into the lock. `factoryFile` and `ownFile` say which preset files are
- * kept back: the factory's own, and the repository's own. */
+ * `presets` as the lock pins it, and `.claude/factory.yaml`, as
+ * `factory sync` combines them into the lock. No preset's repository is
+ * read. `factoryFile` and `ownFile` say which preset files are kept back:
+ * the factory's own, and the repository's own. */
 export async function resolveFiles(
   d: Deps,
   {
@@ -1237,32 +1244,40 @@ export async function resolveFiles(
   const names = isObj(own) ? strings(top.presets, "presets") : [];
   const twice = names.find((n, i) => names.indexOf(n) !== i);
   if (twice) throw new SettingsError(`presets: ${twice} is listed twice`);
-  const root = d.root ?? repoRoot();
-  const presets: import("./preset.mts").Found[] = [];
+  const pins = names.length
+    ? P.pinsOf(
+        d.readLock
+          ? d.readLock()
+          : readOrNull(join(d.root ?? repoRoot(), P.LOCK_FILE)),
+        load,
+      )
+    : [];
+  const presets: import("./preset.mts").Pinned[] = [];
   const layers: import("./preset.mts").Layer[] = [];
-  const ships = new Map<string, [string, string][]>();
+  const ships = new Map<string, Record<string, string>>();
   for (const name of names) {
-    let found: import("./preset.mts").Found;
     try {
-      found = P.findPreset(root, name);
+      P.parseName(name);
     } catch (e) {
-      if (e instanceof P.PresetError) throw new SettingsError(e.message);
+      if (e instanceof P.PresetError) throw new PresetsError(e.message);
       throw e;
     }
-    let raw: unknown;
-    try {
-      raw = load(readFileSync(join(found.dir, P.PRESET_FILE), "utf8"));
-    } catch (e) {
-      throw new SettingsError(`${name}: ${(e as Error).message}`);
-    }
-    const fault = P.presetFaults(raw)[0];
+    const pin = pins.find((p) => p.name === name);
+    if (!pin)
+      throw new PresetsError(
+        `presets: ${name} is not pinned yet. Run: factory preset add ${name}`,
+      );
+    const fault = P.presetFaults({ version: 2, ...pin.settings })[0];
     if (fault)
       throw new SettingsError(`${name}: ${fault.key}: ${fault.message}`);
-    // The version is the preset file's own, and never the repository's.
-    const { version: _, ...settings } = raw as Record<string, unknown>;
-    presets.push(found);
-    layers.push({ name, raw: settings });
-    ships.set(name, P.shipped(found.dir));
+    const odd = Object.keys(pin.files).find((f) => !P.isShippedPath(f));
+    if (odd)
+      throw new SettingsError(
+        `${P.LOCK_FILE}: ${name}: ${odd} is not an agent's or a skill's path`,
+      );
+    presets.push(pin);
+    layers.push({ name, raw: pin.settings });
+    ships.set(name, pin.files);
   }
   layers.push({ name: P.OWN, raw: top });
   const choicesText = d.readChoices?.() ?? null;
@@ -1339,12 +1354,6 @@ export async function staleOf(d: Deps): Promise<string | null> {
     own,
     choices: d.readChoices?.() ?? null,
     changed: d.changed ?? (() => []),
-    installed:
-      d.installed ??
-      ((pkg) =>
-        existsSync(join(root, "node_modules"))
-          ? (P.findPackage(root, pkg)?.version ?? null)
-          : undefined),
     load,
     npmrcNames: (await import("./npmrc.mts")).readNpmrc(
       d.readNpmrc
@@ -1404,7 +1413,8 @@ export const settingsPath = (
 
 /** The settings of the checkout at `root`, read from its lock, or from
  * the lock FACTORY_LOCK names without checking it is current, or from the
- * settings file FACTORY_SETTINGS names with no lock at all. */
+ * settings file FACTORY_SETTINGS names with no lock at all: no lock pins
+ * a preset for that file, so it can list none. */
 export const defaultDeps = (
   root = repoRoot(),
   env: Record<string, string | undefined> = process.env,
@@ -1415,6 +1425,13 @@ export const defaultDeps = (
     env.FACTORY_SETTINGS
       ? null
       : readOrNull(join(root, ".claude/factory.choices.yaml")),
+  readLock: () => {
+    if (env.FACTORY_SETTINGS)
+      throw new SettingsError(
+        "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
+      );
+    return readOrNull(join(root, ".claude/factory.lock"));
+  },
   lock: env.FACTORY_LOCK
     ? { read: () => readOrNull(env.FACTORY_LOCK!), check: false }
     : env.FACTORY_SETTINGS
