@@ -170,22 +170,15 @@ export async function main(
   }
 }
 
-/** The factory's package and each preset's the lock records, whose
- * updates each need a sync. */
-async function syncedPackages(root: string): Promise<string[]> {
+/** The factory's package, whose update needs a sync. */
+async function syncedPackages(): Promise<string[]> {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { PACKAGE } = await import("./sync.mts");
-  const { readLock, splitName, LOCK_FILE } = await import("./preset.mts");
-  const { load } = await import("js-yaml");
-  const own = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8"))
-    .name as string;
-  try {
-    const lock = readLock(readFileSync(join(root, LOCK_FILE), "utf8"), load);
-    return [own, ...new Set(lock.presets.map((p) => splitName(p.name).pkg))];
-  } catch {
-    return [own];
-  }
+  return [
+    JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8"))
+      .name as string,
+  ];
 }
 
 /** `factory deps`. */
@@ -203,6 +196,6 @@ export async function run(argv: string[] = []): Promise<number> {
         ...branchDeps(repoRoot()),
         host: () => p.defaultBranch(),
       }),
-    await syncedPackages(repoRoot()),
+    await syncedPackages(),
   );
 }
