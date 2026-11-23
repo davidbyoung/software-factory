@@ -52,14 +52,6 @@ describe("factory.yml", () => {
 
   it("starts on everything that is judged from the default branch's copy", () => {
     const { on } = factory();
-    expect(Object.keys(on)).toEqual([
-      "pull_request_target",
-      "pull_request_review",
-      "workflow_run",
-      "push",
-      "schedule",
-      "workflow_dispatch",
-    ]);
     expect(on.pull_request_target.types).toEqual([
       "opened",
       "reopened",

@@ -2,12 +2,7 @@
 // folders, the repository's lock, and the environment alone: the launcher
 // in bin/factory.js only carries it out.
 import { describe, expect, it } from "vitest";
-import {
-  cacheRoot,
-  chooseEntry,
-  install,
-  lastNpmError,
-} from "../bin/launch.js";
+import { chooseEntry, install, lastNpmError } from "../bin/launch.js";
 
 const NAME = "@acme/factory";
 const GLOBAL = "/usr/lib/node_modules/@acme/factory";
@@ -168,18 +163,6 @@ describe("chooseEntry", () => {
         files: ["/pkg/src/cli.mts", "/pkg/dist/cli.mjs"],
       }),
     ).toEqual({ run: "/pkg/src/cli.mts" });
-  });
-});
-
-describe("cacheRoot", () => {
-  it("is ~/.cache/software-factory", () => {
-    expect(cacheRoot({}, "/home/sam")).toBe(CACHE);
-  });
-
-  it("follows XDG_CACHE_HOME when it is set", () => {
-    expect(cacheRoot({ XDG_CACHE_HOME: "/var/cache" }, "/home/sam")).toBe(
-      "/var/cache/software-factory",
-    );
   });
 });
 

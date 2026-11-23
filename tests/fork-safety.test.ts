@@ -567,21 +567,3 @@ describe("this repository's workflows", () => {
 // keeps a fork's code from the secrets. The two jobs of review.yml that
 // run with a pull request's code checked out, or act on its author's word,
 // each keep theirs.
-describe("review.yml's fork guards", () => {
-  const { jobs } = load(
-    readFileSync(
-      join(import.meta.dirname, "..", ".github/workflows/review.yml"),
-      "utf8",
-    ),
-  ) as { jobs: Record<string, { if?: string }> };
-
-  it("runs the Claude review only on a pull request from this repository", () => {
-    expect(jobs.review!.if).toContain(
-      "github.event.pull_request.head.repo.full_name == github.repository",
-    );
-  });
-
-  it("enables auto-merge only on Dependabot's own pull requests", () => {
-    expect(jobs.dependabot!.if).toContain("github.actor == 'dependabot[bot]'");
-  });
-});

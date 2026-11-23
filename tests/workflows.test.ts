@@ -138,94 +138,267 @@ describe("what the three files are called with", () => {
   });
 });
 
+/** A GitHub Actions expression, evaluated as GitHub does for what the
+ * workflows use: `==`, `!=`, `&&`, `||`, `!`, parentheses, text in single
+ * quotes, a path into the contexts, and `contains`, `format`, and
+ * `fromJSON`. A path that leads nowhere is empty text. */
+function evaluate(expression: string, context: Record<string, unknown>) {
+  const tokens =
+    expression.match(/'(?:[^']|'')*'|&&|\|\||==|!=|[!(),]|[A-Za-z_][\w.-]*/g) ??
+    [];
+  let at = 0;
+  const next = () => tokens[at++]!;
+  const truthy = (v: unknown) => v !== "" && v !== false && v != null;
+  const primary = (): unknown => {
+    const token = next();
+    if (token === "(") {
+      const inside = or();
+      next();
+      return inside;
+    }
+    if (token === "!") return !truthy(primary());
+    if (token.startsWith("'")) return token.slice(1, -1).replaceAll("''", "'");
+    if (tokens[at] === "(") {
+      next();
+      const args: unknown[] = [];
+      while (tokens[at] !== ")") {
+        args.push(or());
+        if (tokens[at] === ",") next();
+      }
+      next();
+      if (token === "fromJSON") return JSON.parse(String(args[0]));
+      if (token === "format")
+        return String(args[0]).replace(/\{(\d+)\}/g, (_, i) =>
+          String(args[Number(i) + 1] ?? ""),
+        );
+      if (token === "contains")
+        return Array.isArray(args[0])
+          ? args[0].includes(args[1])
+          : String(args[0]).includes(String(args[1]));
+      throw new Error(`no function ${token}`);
+    }
+    return (
+      token
+        .split(".")
+        .reduce<unknown>(
+          (value, key) => (value as Record<string, unknown> | undefined)?.[key],
+          context,
+        ) ?? ""
+    );
+  };
+  const comparison = (): unknown => {
+    const left = primary();
+    if (tokens[at] === "==" || tokens[at] === "!=") {
+      const equal = next() === "==";
+      return (left === primary()) === equal;
+    }
+    return left;
+  };
+  const and = (): unknown => {
+    let value = comparison();
+    while (tokens[at] === "&&") {
+      next();
+      const right = comparison();
+      value = truthy(value) ? right : value;
+    }
+    return value;
+  };
+  const or = (): unknown => {
+    let value = and();
+    while (tokens[at] === "||") {
+      next();
+      const right = and();
+      value = truthy(value) ? value : right;
+    }
+    return value;
+  };
+  return truthy(or());
+}
+
 describe("which job an event starts", () => {
-  const { jobs } = run;
-  const on = (job: string) => jobs[job]!.if!.replace(/\s+/g, " ");
-
-  it("checks the files on a push only: a pull request's check is review.yml's", () => {
-    expect(on("check")).toBe("github.event_name == 'push'");
+  const EVERY_PART = "review board auto-merge poller dependabot";
+  const pull = (o: { login?: string; from?: string } = {}) => ({
+    number: 7,
+    user: { login: o.login ?? "dana" },
+    head: { repo: { full_name: o.from ?? "acme/site" } },
+  });
+  /** The jobs of run.yml whose `if` holds for an event, with every part
+   * on unless `parts` says otherwise. */
+  const started = (
+    event: Record<string, unknown>,
+    inputs: Record<string, string> = {},
+  ) => {
+    const { name, ...payload } = event;
+    const context = {
+      github: {
+        event_name: name,
+        event: { repository: { default_branch: "main" }, ...payload },
+        repository: "acme/site",
+        ref_name: event.ref ?? "main",
+      },
+      inputs: {
+        parts: EVERY_PART,
+        job: "",
+        ticket: "",
+        "override-label": "verdict-override",
+        ...inputs,
+      },
+    };
+    return Object.entries(run.jobs)
+      .filter(([, job]) => evaluate(job.if!, context))
+      .map(([id]) => id);
+  };
+  const target = (action: string, more: Record<string, unknown> = {}) => ({
+    name: "pull_request_target",
+    action,
+    pull_request: pull(),
+    ...more,
   });
 
-  it("records the verdict when the pull request's own workflow finishes, and on the pull request's events, a label only when it is the override", () => {
-    expect(on("verdict")).toContain(
-      "github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'",
+  it("reads an expression as GitHub does", () => {
+    const context = { a: { b: "x" }, list: "one two" };
+    expect(evaluate("a.b == 'x' && (a.c == '' || a.b != 'x')", context)).toBe(
+      true,
     );
-    expect(on("verdict")).toContain(
-      `contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action)`,
+    expect(evaluate('!contains(fromJSON(\'["x", "y"]\'), a.b)', context)).toBe(
+      false,
     );
-    expect(on("verdict")).toContain(
-      "(github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == inputs.override-label",
+    expect(evaluate("contains(format(' {0} ', list), ' two ')", context)).toBe(
+      true,
     );
-  });
-
-  it.each([
-    ["merge-policy", " auto-merge "],
-    ["board", " board "],
-    ["poller", " poller "],
-    ["dependencies", " dependabot "],
-  ])("skips %s unless its part is on", (job, part) => {
-    expect(on(job)).toMatch(
-      new RegExp(
-        `^contains\\(format\\(' \\{0\\} ', inputs\\.parts\\), '${part}'\\) &&`,
-      ),
-    );
-  });
-
-  it("starts the verdict, a build, an answer, the sweep, and updates whatever the parts", () => {
-    for (const job of ["verdict", "build", "answer", "conflicts", "updates"])
-      expect(on(job)).not.toContain("inputs.parts");
-  });
-
-  it("tells the schedules apart by their text, and takes any other for the poller", () => {
-    expect(on("board")).toContain("github.event.schedule == '0 7 * * *'");
-    expect(on("conflicts")).toContain("github.event.schedule == '0 9 * * *'");
-    for (const job of ["dependencies", "updates"])
-      expect(on(job)).toContain("github.event.schedule == '0 1,13,19 * * *'");
-    expect(on("poller")).toContain(
-      "github.event.schedule != '0 1,13,19 * * *' && github.event.schedule != '0 7 * * *' && github.event.schedule != '0 9 * * *'",
-    );
-  });
-
-  it.each([
-    ["board", "board"],
-    ["poller", "poller"],
-    ["answer", "review"],
-    ["conflicts", "conflicts"],
-    ["dependencies", "dependencies"],
-    ["updates", "updates"],
-  ])("starts %s by hand when the job asked for is %s", (job, asked) => {
-    expect(on(job)).toContain(
-      `github.event_name == 'workflow_dispatch' && inputs.job == '${asked}'`,
+    expect(evaluate("contains(format(' {0} ', list), ' tw ')", context)).toBe(
+      false,
     );
   });
 
-  it("starts a build by hand for the job build, or for a ticket alone", () => {
-    expect(on("build")).toBe(
-      "github.event_name == 'workflow_dispatch' && (inputs.job == 'build' || (inputs.job == '' && inputs.ticket != ''))",
+  it.each<[string, Record<string, unknown>, string[]]>([
+    ["a push to the default branch", { name: "push" }, ["check", "conflicts"]],
+    ["a push to another branch", { name: "push", ref: "feature" }, ["check"]],
+    [
+      "a pull request opened",
+      target("opened"),
+      ["verdict", "merge-policy", "board"],
+    ],
+    [
+      "a push to a pull request",
+      target("synchronize"),
+      ["verdict", "merge-policy"],
+    ],
+    [
+      "a pull request marked ready",
+      target("ready_for_review"),
+      ["verdict", "merge-policy", "board"],
+    ],
+    ["a pull request made a draft", target("converted_to_draft"), ["board"]],
+    ["a pull request closed", target("closed"), ["board"]],
+    [
+      "the override label added",
+      target("labeled", { label: { name: "verdict-override" } }),
+      ["verdict"],
+    ],
+    ["another label added", target("labeled", { label: { name: "bug" } }), []],
+    [
+      "a pull request of Dependabot's opened",
+      { ...target("opened"), pull_request: pull({ login: "dependabot[bot]" }) },
+      ["verdict"],
+    ],
+    [
+      "a fork's pull request opened",
+      { ...target("opened"), pull_request: pull({ from: "mallory/site" }) },
+      ["verdict"],
+    ],
+    [
+      "the pull request's own workflow finishing",
+      { name: "workflow_run", workflow_run: { event: "pull_request" } },
+      ["verdict"],
+    ],
+    [
+      "another workflow of that name finishing on a push",
+      { name: "workflow_run", workflow_run: { event: "push" } },
+      [],
+    ],
+    [
+      "a review submitted",
+      { name: "pull_request_review", pull_request: pull() },
+      ["answer"],
+    ],
+    [
+      "a review submitted on a fork's pull request",
+      {
+        name: "pull_request_review",
+        pull_request: pull({ from: "mallory/site" }),
+      },
+      [],
+    ],
+    [
+      "01:00, 13:00, and 19:00",
+      { name: "schedule", schedule: "0 1,13,19 * * *" },
+      ["dependencies", "updates"],
+    ],
+    ["07:00", { name: "schedule", schedule: "0 7 * * *" }, ["board"]],
+    ["09:00", { name: "schedule", schedule: "0 9 * * *" }, ["conflicts"]],
+    [
+      "the poller's own schedule",
+      { name: "schedule", schedule: "*/5 * * * *" },
+      ["poller"],
+    ],
+    [
+      "the poller's schedule on the hour",
+      { name: "schedule", schedule: "0 * * * *" },
+      ["poller"],
+    ],
+  ])("on %s, starts %j", (_, event, jobs) => {
+    expect(started(event)).toEqual(jobs);
+  });
+
+  it.each<[Record<string, string>, string[]]>([
+    [{ job: "build", ticket: "12" }, ["build"]],
+    [{ ticket: "12" }, ["build"]],
+    [{ job: "review", pr: "7", review: "9" }, ["answer"]],
+    [{ job: "conflicts" }, ["conflicts"]],
+    [{ job: "dependencies" }, ["dependencies"]],
+    [{ job: "updates" }, ["updates"]],
+    [{ job: "board" }, ["board"]],
+    [{ job: "poller" }, ["poller"]],
+    [{ job: "polish" }, ["unknown"]],
+    [{}, []],
+  ])("by hand with %j, starts %j", (inputs, jobs) => {
+    expect(started({ name: "workflow_dispatch" }, inputs)).toEqual(jobs);
+  });
+
+  it("starts no job a part turns off, and still the verdict, a build, an answer, the sweep, and updates", () => {
+    const off = { parts: "" };
+    expect(started(target("opened"), off)).toEqual(["verdict"]);
+    expect(
+      started({ name: "schedule", schedule: "0 1,13,19 * * *" }, off),
+    ).toEqual(["updates"]);
+    expect(started({ name: "schedule", schedule: "0 7 * * *" }, off)).toEqual(
+      [],
     );
+    expect(started({ name: "schedule", schedule: "*/5 * * * *" }, off)).toEqual(
+      [],
+    );
+    expect(
+      started({ name: "workflow_dispatch" }, { ...off, job: "board" }),
+    ).toEqual([]);
+    expect(started({ name: "push" }, off)).toEqual(["check", "conflicts"]);
+  });
+
+  it("takes the override label's name from what the repository's file passes", () => {
+    const renamed = target("labeled", { label: { name: "ship it" } });
+    expect(started(renamed, { "override-label": "ship it" })).toEqual([
+      "verdict",
+    ]);
+    expect(started(renamed)).toEqual([]);
   });
 
   it("fails one job, naming it, for a job it does not have", () => {
-    expect(on("unknown")).toBe(
-      `github.event_name == 'workflow_dispatch' && inputs.job != '' && !contains(fromJSON('["build", "review", "conflicts", "dependencies", "updates", "board", "poller"]'), inputs.job)`,
-    );
     const { dir } = sandbox();
-    const r = runScript(jobs.unknown!.steps![0]!.run!, dir, { JOB: "polish" });
+    const r = runScript(run.jobs.unknown!.steps![0]!.run!, dir, {
+      JOB: "polish",
+    });
     expect(r.status).toBe(1);
     expect(r.stdout).toContain("::error::Unknown job polish.");
-  });
-
-  it("answers a review, and syncs the board, only for a pull request from this repository", () => {
-    for (const job of ["answer", "board", "merge-policy"])
-      expect(on(job)).toContain(
-        "github.event.pull_request.head.repo.full_name == github.repository",
-      );
-  });
-
-  it("sweeps on a push only to the default branch", () => {
-    expect(on("conflicts")).toContain(
-      "github.event_name == 'push' && github.ref_name == github.event.repository.default_branch",
-    );
   });
 });
 
@@ -579,12 +752,31 @@ describe("a session", () => {
     expect(config).toContain("email = noreply@anthropic.com");
   });
 
-  it("exports each Claude credential only when its secret is set, the subscription's first", () => {
+  it("gives the session one Claude credential: the subscription's when both are set, and neither input's own variable", () => {
     const script = step(sessionJob, "Run the session").run!;
-    expect(script).toContain(
-      'if [ -n "$OAUTH_TOKEN_INPUT" ]; then\n  export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN_INPUT"\nelif [ -n "$API_KEY_INPUT" ]; then\n  export ANTHROPIC_API_KEY="$API_KEY_INPUT"\nfi',
+    const seen = (env: Record<string, string>) => {
+      const { dir } = sandbox({
+        claude:
+          'echo "oauth=${CLAUDE_CODE_OAUTH_TOKEN-none} key=${ANTHROPIC_API_KEY-none} inputs=${OAUTH_TOKEN_INPUT-none},${API_KEY_INPUT-none}" > "$RUNNER_TEMP/seen"\necho "{}"',
+      });
+      const r = runScript(script, dir, {
+        MINUTES: "1",
+        PROMPT: "p",
+        MODEL: "",
+        ...env,
+      });
+      expect(r.status).toBe(0);
+      return readFileSync(join(dir, "seen"), "utf8").trim();
+    };
+    expect(seen({ OAUTH_TOKEN_INPUT: "sub", API_KEY_INPUT: "key" })).toBe(
+      "oauth=sub key=none inputs=none,none",
     );
-    expect(script).toContain("unset OAUTH_TOKEN_INPUT API_KEY_INPUT");
+    expect(seen({ OAUTH_TOKEN_INPUT: "", API_KEY_INPUT: "key" })).toBe(
+      "oauth=none key=key inputs=none,none",
+    );
+  });
+
+  it("installs a pinned version of Claude Code", () => {
     expect(step(sessionJob, "Install Claude Code").run).toMatch(
       /@anthropic-ai\/claude-code@\d+\.\d+\.\d+$/,
     );
