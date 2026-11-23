@@ -598,6 +598,11 @@ this repository's own reviewer, reads a changed page as that person.
 
 - **A page says who it is for and what they will have at the end,** in its
   first lines.
+- **Write a command the reader runs as `factory ...`,** the global
+  install [The CLI](cli.md) says to run them from. `npx --no-install
+factory` is for text a skill, hook, workflow, or session reads, such as
+  a `CLAUDE.md` line a page shows. A test fails on a fenced command line
+  in a page a reader follows that starts with it.
 - **Lead with the command that does it.** The same steps by hand go on a
   page of their own, linked once. A step that runs a skill shows its slash
   command, such as `/factory-refine 12`, not only words to say to a

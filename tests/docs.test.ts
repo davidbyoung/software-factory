@@ -166,6 +166,26 @@ function isSetting(path: string): boolean {
  * path under it, or with a value, as `builds.trigger: manual`, and its entry
  * is the longest of `entries` its path starts with. Code blocks and headings
  * are not read. */
+/** Each line in a fenced code block that runs the factory as
+ * `npx --no-install factory`, the form a skill or hook uses, where a page a
+ * reader follows writes `factory`, the global install. */
+export function npxCommandLines(text: string): string[] {
+  const found: string[] = [];
+  let fence: string | null = null;
+  for (const line of text.split("\n")) {
+    const opener = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (opener) {
+      if (fence === null) fence = opener;
+      else if (opener[0] === fence[0] && opener.length >= fence.length)
+        fence = null;
+      continue;
+    }
+    if (fence !== null && /^\s*(\$ )?npx --no-install factory\b/.test(line))
+      found.push(line.trim());
+  }
+  return found;
+}
+
 export function unlinkedSettings(text: string, entries: string[]): string[] {
   const prose = text
     .replace(/^\s*```[\s\S]*?^\s*```/gm, "")
@@ -359,6 +379,25 @@ describe("unmarked", () => {
     expect(
       unmarked("| `factory init` | Sets up | Planned |", planned, true),
     ).toEqual([]);
+  });
+});
+
+describe("npxCommandLines", () => {
+  it("finds a command line in a fence that runs the factory through npx", () => {
+    const page = [
+      "Run `npx --no-install factory sync` in prose.",
+      "```bash",
+      "npx --no-install factory sync",
+      "factory doctor",
+      "```",
+      "```console",
+      "$ npx --no-install factory status",
+      "```",
+    ].join("\n");
+    expect(npxCommandLines(page)).toEqual([
+      "npx --no-install factory sync",
+      "$ npx --no-install factory status",
+    ]);
   });
 });
 
@@ -578,6 +617,15 @@ describe("the docs", () => {
       .filter((page) => page !== CONFIGURATION)
       .flatMap((page) =>
         unlinkedSettings(read(page), entries).map((line) => `${page}: ${line}`),
+      );
+    expect(found).toEqual([]);
+  });
+
+  it("write factory, not npx --no-install factory, in a command a reader runs", () => {
+    const found = pages()
+      .filter((page) => page !== "docs/developing.md")
+      .flatMap((page) =>
+        npxCommandLines(read(page)).map((line) => `${page}: ${line}`),
       );
     expect(found).toEqual([]);
   });
