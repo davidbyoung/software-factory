@@ -199,6 +199,9 @@ export type CodeHost = {
 
   /** The address of a pull request's page. */
   address(pull: number): string;
+  /** Where git reads a repository on this code host, named as owner/name,
+   * from: the address it clones, and the host's name. */
+  remote(repository: string): { url: string; host: string };
 
   /** Who the code host's command-line tool is signed in as. Rejects with
    * NotSignedInError when it is signed in as nobody, or refused. */

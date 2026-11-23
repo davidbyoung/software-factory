@@ -2,12 +2,15 @@
 // the package into the repository, the two workflow files that call the
 // factory's own workflows, the agents and skills its presets ship, its hook
 // entries into `.claude/settings.json`, the rules' import into `CLAUDE.md`,
-// and `.claude/factory.lock`: the factory's version, the presets, the
-// settings in effect, and the files it wrote. Every other command reads
-// the settings from the lock.
+// and `.claude/factory.lock`: the factory's version, the commit each preset
+// is pinned to, the settings in effect, and the files it wrote. Every other
+// command reads the settings from the lock.
 //
 //   factory sync           # write what differs
 //   factory sync --check   # write nothing; exit 1 naming what differs
+//   factory sync --check --against COMMIT
+//                          # and check each pin that differs from the
+//                          # lock at COMMIT against its preset's repository
 //
 // A copy is the source, byte for byte but for the rules' numbers the
 // settings give. Edit the source in the package, never the copy. The two
@@ -45,16 +48,30 @@ import {
   RULE_NUMBERS,
   staleOf,
   defaultDeps,
+  PresetsError,
   type Resolved,
   type Settings,
 } from "./config.mts";
 import {
   CHOICES_FILE,
   choicesText,
+  fileHash,
+  pinLines,
+  pinsOf,
+  scalar,
   settingsHash,
   staleChoices,
+  yamlDump,
+  type Pinned,
   type Replaced,
 } from "./preset.mts";
+import {
+  fetchDeps,
+  fileAt,
+  pinFaults,
+  shippedText,
+  type FetchDeps,
+} from "./preset-fetch.mts";
 import {
   branchDeps,
   CANNOT_TELL,
@@ -446,7 +463,8 @@ export function withoutImport(text: string): string | null {
 
 export type LockParts = {
   version: string;
-  presets: { name: string; version: string }[];
+  /** The `presets` block, as `pinLines` writes it. */
+  presets: string[];
   hash: string;
   /** The variables `.npmrc`'s sign-in lines read. */
   npmrcVariables: string[];
@@ -456,31 +474,13 @@ export type LockParts = {
   files: string[];
 };
 
-/** A key or a value as YAML: plain where it reads back as the same text,
- * quoted as JSON otherwise. */
-const scalar = (v: unknown) =>
-  typeof v === "string" &&
-  /^[A-Za-z0-9_./][A-Za-z0-9_./ -]*$/.test(v) &&
-  !/ $/.test(v) &&
-  !/^(true|false|null|yes|no|on|off|~|[-+.\d][\d._eE+-]*)$/i.test(v)
-    ? v
-    : JSON.stringify(v);
-
 export function lockText(l: LockParts): string {
   const replaced = Object.entries(l.overridden);
   return [
     "# Written by `factory sync`: the factory's version, the presets, the",
     "# settings in effect, and the files it wrote. Do not edit.",
     `version: ${l.version}`,
-    ...(l.presets.length
-      ? [
-          "presets:",
-          ...l.presets.flatMap((p) => [
-            `  - name: ${JSON.stringify(p.name)}`,
-            `    version: ${scalar(p.version)}`,
-          ]),
-        ]
-      : ["presets: []"]),
+    ...l.presets,
     `settings-hash: ${l.hash}`,
     ...(l.npmrcVariables.length
       ? ["npmrc-variables:", ...l.npmrcVariables.map((n) => `  - ${n}`)]
@@ -537,20 +537,26 @@ export type Plan = {
   remove: string[];
   /** A line for each preset file left as it is. */
   kept: string[];
+  /** Each preset's file whose copy is missing or is not what the lock
+   * records, and that could not be copied again from its preset. */
+  unrestored: { path: string; preset: string }[];
   /** A line for each choice dropped. */
   dropped: string[];
 };
 
 /** What a sync of `root` from `pkg` writes and deletes, in a repository
- * whose default branch is `branch`. */
+ * whose default branch is `branch`. `restore` gives the text of a file a
+ * preset ships, or null when its repository cannot be read; without it no
+ * copy is restored. */
 export async function plan(
   pkg: string,
   root: string,
   r: Resolved,
   branch: string,
   systems?: Registry["tickets"],
+  restore?: (pin: Pinned, path: string) => string | null,
 ): Promise<Plan> {
-  const { load } = await import("js-yaml");
+  const { load, dump } = await import("js-yaml");
   const { explainLines, markerOf } = await import("./explain.mts");
   const s = r.settings;
   const manifest = JSON.parse(readFileSync(join(pkg, "package.json"), "utf8"));
@@ -585,15 +591,31 @@ export async function plan(
   };
   write.set(FACTORY_FILE, factoryWorkflow(workflows));
   write.set(REVIEW_FILE, reviewWorkflow(workflows));
+  const files = [...write.keys()];
   // A preset's agent or skill, unless the factory's own file or one the
-  // repository wrote itself is at its path: those always stay.
+  // repository wrote itself is at its path: those always stay. The copy
+  // here is kept while it is what the lock records, so no preset's
+  // repository is read for it.
   const previous = lockedFiles(read(LOCK), load);
   const kept: string[] = [];
-  for (const [to, { from, source }] of r.resolution.files) {
+  const unrestored: Plan["unrestored"] = [];
+  for (const [to, { from, hash }] of r.resolution.files) {
     if (write.has(to)) kept.push(`kept ${to}, the factory's own, over ${from}`);
     else if (existsSync(join(root, to)) && !previous.includes(to))
       kept.push(`kept ${to}, this repository's own, over ${from}`);
-    else write.set(to, readFileSync(source, "utf8"));
+    else {
+      const copy = read(to);
+      const text =
+        copy !== null && fileHash(copy) === hash
+          ? copy
+          : (restore?.(
+              r.presets.find((p) => p.name === from)!,
+              to,
+            ) ?? null);
+      if (text === null) unrestored.push({ path: to, preset: from });
+      else write.set(to, text);
+      files.push(to);
+    }
   }
   write.set(
     SETTINGS_JSON,
@@ -605,9 +627,6 @@ export async function plan(
     ),
   );
   write.set(CLAUDE_MD, withImport(read(CLAUDE_MD)));
-  const files = [...write.keys()].filter(
-    (p) => p !== SETTINGS_JSON && p !== CLAUDE_MD,
-  );
 
   // A choice whose preset is gone, or no longer sets its key, is dropped.
   const stale = staleChoices(
@@ -633,7 +652,7 @@ export async function plan(
     LOCK,
     lockText({
       version: manifest.version,
-      presets: r.presets.map((p) => ({ name: p.name, version: p.version })),
+      presets: pinLines(r.presets, yamlDump(dump)),
       hash: settingsHash(r.ownText, chosen),
       npmrcVariables: npmrc.names,
       settings,
@@ -642,12 +661,13 @@ export async function plan(
     }),
   );
   remove.unshift(
-    ...previous.filter((p) => !write.has(p) && existsSync(join(root, p))),
+    ...previous.filter((p) => !files.includes(p) && existsSync(join(root, p))),
   );
   return {
     write,
     remove: remove.filter((p) => existsSync(join(root, p))),
     kept,
+    unrestored,
     dropped: stale.map((c) => `dropped the choice for ${c.key}: ${c.reason}`),
   };
 }
@@ -663,6 +683,7 @@ export function differences(root: string, p: Plan): string[] {
   // The lock comes last, as it records everything before it.
   return [
     ...changed.filter((path) => path !== LOCK),
+    ...p.unrestored.map((u) => u.path),
     ...p.remove,
     ...changed.filter((path) => path === LOCK),
   ];
@@ -684,10 +705,22 @@ export async function main(
     /** Whether a person ran it, so a sync that changes nothing says so;
      * `init` and the preset commands run it inside their own output. */
     announce?: boolean;
+    /** What reads a preset's repository, for these settings: to copy a
+     * file again, and to check a pin. Without it neither is done. */
+    fetch?: (s: Settings) => FetchDeps;
+    /** A file's text at a git revision, or null when it has none there. */
+    show?: (ref: string, path: string) => string | null;
   },
 ): Promise<number> {
   const check = argv.includes("--check");
   const paint = d.paint ?? plain;
+  const fail = paint("red", "✗");
+  const againstAt = argv.indexOf("--against");
+  const against = againstAt < 0 ? null : argv[againstAt + 1];
+  if (againstAt >= 0 && (!check || !against)) {
+    d.err("Usage: factory sync [--check [--against COMMIT]]");
+    return 2;
+  }
   let r: Resolved;
   try {
     if (check) {
@@ -704,7 +737,8 @@ export async function main(
       return 1;
     }
   } catch (e) {
-    d.err(e instanceof Error ? e.message : String(e));
+    const message = e instanceof Error ? e.message : String(e);
+    d.err(e instanceof PresetsError ? `${fail} ${message}` : message);
     return 1;
   }
   // Nothing is written with a guessed name: a push trigger that names the
@@ -714,7 +748,29 @@ export async function main(
     d.err(CANNOT_TELL);
     return 1;
   }
-  const p = await plan(d.pkg, d.root, r, branch);
+  const fetch = d.fetch?.(r.settings);
+  if (against) {
+    if (!fetch) throw new Error("sync --check --against needs fetch");
+    const { load } = await import("js-yaml");
+    const faults = pinFaults(
+      fetch,
+      r.presets,
+      pinsOf(d.show?.(against, LOCK) ?? null, load),
+      load,
+    );
+    for (const fault of faults) d.err(`${fail} ${fault}`);
+    if (faults.length) return 1;
+  }
+  // The check reads no network: a copy that is not what the lock records
+  // is one of the files that differ.
+  const p = await plan(
+    d.pkg,
+    d.root,
+    r,
+    branch,
+    undefined,
+    check || !fetch ? undefined : (pin, path) => shippedText(fetch, pin, path),
+  );
   const differ = differences(d.root, p);
   if (check) {
     if (differ.length === 0) {
@@ -727,6 +783,13 @@ export async function main(
     );
     for (const path of differ) d.err(`  ${path}`);
     d.err("Run factory sync and commit what it writes.");
+    return 1;
+  }
+  if (p.unrestored.length) {
+    for (const { path, preset } of p.unrestored)
+      d.err(
+        `${fail} ${path} was edited or deleted, and ${preset} could not be read to restore it. Restore it with: git checkout -- ${path}`,
+      );
     return 1;
   }
   for (const line of [...p.kept, ...p.dropped]) d.out(line);
@@ -757,6 +820,8 @@ export const syncDeps = (root: string) => ({
     defaultBranch(branchDeps(root, process.env, async () => s)),
   out: (line: string) => console.log(line),
   err: (line: string) => console.error(line),
+  fetch: (s: Settings) => fetchDeps(s.repository, s.codeHost.type),
+  show: (ref: string, path: string) => fileAt(root, ref, path),
 });
 
 /** `announce` is false when `init` runs the sync inside its own output. */

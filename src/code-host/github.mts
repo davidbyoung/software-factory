@@ -701,6 +701,10 @@ export function githubCodeHost(o: {
       return fromLinkingPages(pages, o.repository, skip);
     },
     address: (n) => `https://github.com/${o.repository}/pull/${n}`,
+    remote: (repository) => ({
+      url: `https://github.com/${repository}.git`,
+      host: "github.com",
+    }),
 
     async signedInAs() {
       try {

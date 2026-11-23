@@ -1,11 +1,13 @@
-// Presets: npm packages of settings, agents, and skills that several
-// repositories share. `.claude/factory.yaml` names them under `presets`,
-// and `factory sync` combines the factory's defaults, each preset in the
-// order listed, and the repository's own settings into the lock, with
-// where each value came from. Every other command reads the lock.
+// Presets: folders of settings, agents, and skills, each in a repository
+// on the code host, that several repositories share. `.claude/factory.yaml`
+// names them under `presets`, and the lock pins each to one commit, with
+// its settings and a hash of each file it ships. `factory sync` combines
+// the factory's defaults, each preset in the order listed, and the
+// repository's own settings into the lock, with where each value came
+// from. Every other command reads the lock.
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { join, relative, sep } from "node:path";
 import { DEFAULT_CODE_HOST } from "./code-host/index.mts";
 import {
   OWN_HEADING,
@@ -40,58 +42,121 @@ export function stable(v: unknown): string {
   return JSON.stringify(v) ?? "undefined";
 }
 
-// ---------------------------------------------------------------- Finding
-
-/** A preset's package and the folder in it: `@acme/p/node` is the folder
- * `node` of the package `@acme/p`. */
-export function splitName(name: string): { pkg: string; folder: string } {
-  const parts = name.split("/");
-  const n = name.startsWith("@") ? 2 : 1;
-  return {
-    pkg: parts.slice(0, n).join("/"),
-    folder: parts.slice(n).join("/"),
-  };
-}
-
-/** A package's folder and version, found as Node finds it from `root`, or
- * null when it is not installed. */
-export function findPackage(
-  root: string,
-  pkg: string,
-): { dir: string; version: string } | null {
-  for (let at = root; ; at = dirname(at)) {
-    const manifest = join(at, "node_modules", pkg, "package.json");
-    if (existsSync(manifest)) {
-      const { version } = JSON.parse(readFileSync(manifest, "utf8"));
-      return { dir: dirname(manifest), version: String(version) };
-    }
-    if (dirname(at) === at) return null;
-  }
-}
-
-export type Found = {
-  name: string;
-  pkg: string;
-  folder: string;
-  /** The preset's own folder, which holds its file. */
-  dir: string;
-  version: string;
-};
+// ---------------------------------------------------------------- Naming
 
 export class PresetError extends Error {}
 
-/** The preset NAME as installed from `root`. Throws a PresetError saying
- * what to do when it is not installed, or is no preset. */
-export function findPreset(root: string, name: string): Found {
-  const { pkg, folder } = splitName(name);
-  const found = findPackage(root, pkg);
-  if (!found) throw new PresetError(`${name}: not installed. Run: npm ci`);
-  const dir = folder ? join(found.dir, folder) : found.dir;
+/** A name that is no preset's, which `factory sync` prints with its mark. */
+export class PresetNameError extends PresetError {}
+
+const SEGMENT = /^(?!\.{1,2}$)[\w.-]+$/;
+
+/** A preset's repository and the folder in it: `acme/config//node` is the
+ * folder `node` of the repository `acme/config`. The repository's owner may
+ * hold more than one part. Throws for a name of any other shape. */
+export function parseName(name: string): { repo: string; folder: string } {
+  if (name.startsWith("@"))
+    throw new PresetNameError(
+      `presets: ${JSON.stringify(name)} is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.`,
+    );
+  const at = name.indexOf("//");
+  const repo = at < 0 ? name : name.slice(0, at);
+  const folder = at < 0 ? null : name.slice(at + 2);
+  const parts = repo.split("/");
+  if (
+    parts.length < 2 ||
+    !parts.every((p) => SEGMENT.test(p)) ||
+    (folder !== null && !folder.split("/").every((p) => SEGMENT.test(p)))
+  )
+    throw new PresetNameError(
+      `presets: ${JSON.stringify(name)} is not a preset's name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER`,
+    );
+  return { repo, folder: folder ?? "" };
+}
+
+/** A repository's owner, as a message names it: all of its name but the
+ * last part. */
+export const ownerOf = (repo: string) => repo.slice(0, repo.lastIndexOf("/"));
+
+/** The first seven characters of a commit, as every line shows one. */
+export const short = (commit: string) => commit.slice(0, 7);
+
+// ---------------------------------------------------------------- Reading
+
+/** A preset as the lock pins it: one commit of its repository, its
+ * settings as its file had them there, less `version`, and the hash of
+ * each agent and skill it ships, by the file's path in a repository that
+ * follows it. */
+export type Pinned = {
+  name: string;
+  commit: string;
+  settings: Obj;
+  files: Record<string, string>;
+};
+
+/** `sha256:` and the hex SHA-256 of a file's text, read as UTF-8 as the
+ * sync writes it. */
+export const fileHash = (text: string) =>
+  `sha256:${createHash("sha256").update(text).digest("hex")}`;
+
+/** Where a file a preset ships is in the preset's own folder, from its
+ * path in a repository that follows it. */
+export const shippedFrom = (to: string) => to.replace(/^\.claude\//, "");
+
+/** Whether a path is one a preset's file is written to: an agent's file,
+ * or a file in a skill's folder. */
+export const isShippedPath = (path: string) =>
+  /^\.claude\/(agents\/[^/]+\.md|skills\/[^/]+\/.+)$/.test(path) &&
+  !path.split("/").includes("..");
+
+/** The preset NAME as a checkout of its repository holds it: its settings
+ * and the hashes of what it ships. Throws a PresetError when the checkout
+ * has no preset file for it, or the file is not one a preset can be. */
+export function readPreset(
+  checkout: string,
+  name: string,
+  load: (text: string) => unknown,
+): Pick<Pinned, "settings" | "files"> {
+  const { repo, folder } = parseName(name);
+  const dir = folder ? join(checkout, folder) : checkout;
   if (!existsSync(join(dir, PRESET_FILE)))
     throw new PresetError(
-      `${name}: no ${PRESET_FILE} in node_modules/${pkg}${folder ? `/${folder}` : ""}`,
+      `${name}: no ${folder ? `${folder}/` : ""}${PRESET_FILE} in ${repo}`,
     );
-  return { name, pkg, folder, dir, version: found.version };
+  let raw: unknown;
+  try {
+    raw = load(readFileSync(join(dir, PRESET_FILE), "utf8"));
+  } catch (e) {
+    throw new PresetError(`${name}: ${(e as Error).message}`);
+  }
+  const fault = presetFaults(raw)[0];
+  if (fault) throw new PresetError(`${name}: ${fault.key}: ${fault.message}`);
+  // The version is the preset file's own, and never the repository's.
+  const { version: _, ...settings } = raw as Obj;
+  return {
+    settings,
+    files: Object.fromEntries(
+      shipped(dir).map(([to, from]) => [
+        to,
+        fileHash(readFileSync(from, "utf8")),
+      ]),
+    ),
+  };
+}
+
+/** A preset's own files in `dir`: its preset file and everything under the
+ * `agents/` and `skills/` beside it, each by its path in the folder, with
+ * the hash of its text. */
+export function ownFiles(dir: string): Record<string, string> {
+  const paths = [
+    ...(existsSync(join(dir, PRESET_FILE)) ? [PRESET_FILE] : []),
+    ...["agents", "skills"].flatMap((sub) =>
+      walk(join(dir, sub)).map((f) => `${sub}/${f}`),
+    ),
+  ];
+  return Object.fromEntries(
+    paths.map((p) => [p, fileHash(readFileSync(join(dir, p), "utf8"))]),
+  );
 }
 
 function walk(dir: string, base = dir): string[] {
@@ -284,8 +349,8 @@ export type Resolution = {
   /** The keys each preset sets, for telling a stale choice. */
   setBy: Map<string, Set<string>>;
   /** Each agent or skill file a preset ships that is written, by its path
-   * in the repository: the file it comes from and its preset. */
-  files: Map<string, { from: string; source: string }>;
+   * in the repository: its preset, and the hash the lock pins it at. */
+  files: Map<string, { from: string; hash: string }>;
   /** `kept PATH, ... over NAME` for each preset file not written. */
   kept: string[];
 };
@@ -333,9 +398,9 @@ export type Combine = {
   factoryFile?: (path: string) => boolean;
   /** Whether a path is a file the repository wrote itself. */
   ownFile?: (path: string) => boolean;
-  /** Each preset's shipped files, by its name. */
-  ships?: Map<string, [string, string][]>;
-  read?: (file: string) => string;
+  /** The hash of each file a preset ships, by the preset's name and the
+   * file's path in the repository. */
+  ships?: Map<string, Record<string, string>>;
 };
 
 /** The layers combined, the later over the earlier, with
@@ -515,24 +580,15 @@ export function combine(c: Combine): Resolution {
   ) as Obj;
 
   // The files the presets ship: the factory's own and the repository's own
-  // stay, and two presets' files are chosen as a single value is.
+  // stay, and two presets' files are chosen as a single value is. A file
+  // is shown as its path in its preset's repository.
   const byPath = new Map<string, Entry[]>();
   for (const l of c.layers)
-    for (const [to, from] of c.ships?.get(l.name) ?? [])
+    for (const [to, hash] of Object.entries(c.ships?.get(l.name) ?? {}))
       byPath.set(to, [
         ...(byPath.get(to) ?? []),
-        { layer: l.name, value: from },
+        { layer: l.name, value: hash },
       ]);
-  const read = c.read ?? ((f: string) => readFileSync(f, "utf8"));
-  const pkgPath = (file: string) => {
-    const at = file.lastIndexOf(`${sep}node_modules${sep}`);
-    return at < 0
-      ? file
-      : file
-          .slice(at + 14)
-          .split(sep)
-          .join("/");
-  };
   for (const [to, es] of byPath) {
     const last = es.at(-1)!.layer;
     if (c.factoryFile?.(to)) {
@@ -543,13 +599,11 @@ export function combine(c: Combine): Resolution {
       r.kept.push(`kept ${to}, this repository's own, over ${last}`);
       continue;
     }
-    const winner = single(
-      to,
-      es,
-      (v) => read(String(v)),
-      (e) => pkgPath(String(e.value)),
-    );
-    r.files.set(to, { from: winner.layer, source: String(winner.value) });
+    const winner = single(to, es, stable, (e) => {
+      const { folder } = parseName(e.layer);
+      return `${folder ? `${folder}/` : ""}${shippedFrom(to)}`;
+    });
+    r.files.set(to, { from: winner.layer, hash: String(winner.value) });
   }
   return r;
 }
@@ -581,7 +635,7 @@ export function choicesText(choices: Record<string, string>): string | null {
   if (!keys.length) return null;
   return [
     ...CHOICES_HEADER,
-    ...keys.map((k) => `${k}: ${JSON.stringify(choices[k])}`),
+    ...keys.map((k) => `${k}: ${scalar(choices[k])}`),
     "",
   ].join("\n");
 }
@@ -619,29 +673,12 @@ export const staleMessages = {
   earlier: `${LOCK_FILE} is from an earlier version of the factory. Run: ${SYNC}`,
   changed: (file: string) =>
     `${file} changed since the last sync. Run: ${SYNC}`,
-  notInstalled: (name: string) =>
-    `${name} is in ${LOCK_FILE} but not installed. Run: npm ci`,
-  /** An older install is behind a pull: npm ci brings it up. A newer one
-   * is an update: the sync records it. */
-  version: (name: string, installed: string, locked: string) =>
-    `${name} is ${installed} in node_modules but ${locked} in ${LOCK_FILE}. Run: ${older(installed, locked) ? "npm ci" : SYNC}`,
   unreadable: `${LOCK_FILE} can't be read. Run: ${SYNC}`,
 };
 
-/** Whether version `a` is older than `b`, number by number. */
-function older(a: string, b: string): boolean {
-  const pa = a.split(/[.-]/).map(Number);
-  const pb = b.split(/[.-]/).map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const [x, y] = [pa[i] ?? 0, pb[i] ?? 0];
-    if (x !== y) return x < y;
-  }
-  return false;
-}
-
 export type Lock = {
   version: string;
-  presets: { name: string; version: string }[];
+  presets: Pinned[];
   hash: string | null;
   /** The variables `.npmrc`'s sign-in lines read at the last sync. */
   npmrcVariables: string[];
@@ -651,17 +688,28 @@ export type Lock = {
 };
 
 /** The lock's text read as YAML. A lock from an earlier release has no
- * `settings`, and reads with it null. */
+ * `settings`, and reads with it null. A preset it records without a commit
+ * is one an earlier release wrote, and is left out. */
 export function readLock(text: string, load: (t: string) => unknown): Lock {
   const o = load(text);
   const d = isObj(o) ? o : {};
   return {
     version: String(d.version ?? ""),
     presets: Array.isArray(d.presets)
-      ? d.presets.filter(isObj).map((p) => ({
-          name: String(p.name),
-          version: String(p.version),
-        }))
+      ? d.presets
+          .filter(isObj)
+          .filter((p) => typeof p.commit === "string" && p.commit)
+          .map((p) => ({
+            name: String(p.name),
+            commit: String(p.commit),
+            settings: isObj(p.settings) ? p.settings : {},
+            files: Object.fromEntries(
+              Object.entries(isObj(p.files) ? p.files : {}).map(([k, v]) => [
+                k,
+                String(v),
+              ]),
+            ),
+          }))
       : [],
     hash: typeof d["settings-hash"] === "string" ? d["settings-hash"] : null,
     npmrcVariables: Array.isArray(d["npmrc-variables"])
@@ -675,6 +723,103 @@ export function readLock(text: string, load: (t: string) => unknown): Lock {
   };
 }
 
+/** A lock a merge left with conflict markers, with the first side of each
+ * conflict. */
+function firstSides(text: string): string {
+  let side: "none" | "first" | "other" = "none";
+  return text
+    .split("\n")
+    .filter((line) => {
+      if (line.startsWith("<<<<<<<")) side = "first";
+      else if (side !== "none" && /^(\|{7}|={7})/.test(line)) side = "other";
+      else if (line.startsWith(">>>>>>>")) side = "none";
+      else return side !== "other";
+      return false;
+    })
+    .join("\n");
+}
+
+/** The presets a lock pins. A lock with conflict markers is read with the
+ * first side of each conflict, and one that still can't be read pins
+ * none. */
+export function pinsOf(
+  text: string | null,
+  load: (t: string) => unknown,
+): Pinned[] {
+  if (text === null) return [];
+  for (const t of [text, firstSides(text)])
+    try {
+      return readLock(t, load).presets;
+    } catch {
+      // The next reading, or none.
+    }
+  return [];
+}
+
+/** A key or a value as YAML: plain where it reads back as the same text,
+ * quoted as JSON otherwise. */
+export const scalar = (v: unknown) =>
+  typeof v === "string" &&
+  /^[A-Za-z0-9_./][A-Za-z0-9_./ -]*$/.test(v) &&
+  !/ $/.test(v) &&
+  !/^(true|false|null|yes|no|on|off|~|[-+.\d][\d._eE+-]*)$/i.test(v)
+    ? v
+    : JSON.stringify(v);
+
+/** js-yaml's `dump` as the lock writes a preset's settings: no line is
+ * folded, and nothing is written as a reference to an earlier value. */
+export const yamlDump =
+  (dump: (v: unknown, o?: object) => string) => (v: unknown) =>
+    dump(v, { lineWidth: -1, noRefs: true });
+
+/** The lock's `presets` block. `dump` writes a value as YAML. */
+export function pinLines(
+  pins: Pinned[],
+  dump: (v: unknown) => string,
+): string[] {
+  if (!pins.length) return ["presets: []"];
+  const under = (key: string, lines: string[]) =>
+    lines.length
+      ? [`    ${key}:`, ...lines.map((l) => `      ${l}`)]
+      : [`    ${key}: {}`];
+  return [
+    "presets:",
+    ...pins.flatMap((p) => [
+      `  - name: ${scalar(p.name)}`,
+      `    commit: ${scalar(p.commit)}`,
+      ...under(
+        "settings",
+        Object.keys(p.settings).length
+          ? dump(p.settings).trimEnd().split("\n")
+          : [],
+      ),
+      ...under(
+        "files",
+        Object.entries(p.files).map(([f, h]) => `${scalar(f)}: ${h}`),
+      ),
+    ]),
+  ];
+}
+
+/** A lock's text with `pins` as the presets it pins and everything else
+ * as it was, for `factory sync` to bring the rest in step with. */
+export function withPins(
+  text: string | null,
+  pins: Pinned[],
+  dump: (v: unknown) => string,
+): string {
+  const block = pinLines(pins, dump);
+  const lines = text === null ? [""] : text.split("\n");
+  const start = lines.findIndex((l) => /^presets:/.test(l));
+  if (start < 0) return [...block, ...lines].join("\n");
+  const after = lines.findIndex((l, i) => i > start && /^\S/.test(l));
+  return [
+    ...lines.slice(0, start),
+    ...block,
+    ...(after < 0 ? [""] : lines.slice(after)),
+  ].join("\n");
+}
+
 export type StaleDeps = {
   lock: string | null;
   own: string | null;
@@ -682,17 +827,14 @@ export type StaleDeps = {
   /** The files of the two that differ from the last commit, for naming the
    * one that changed. */
   changed: () => string[];
-  /** A package's installed version, null when it is not installed, or
-   * undefined when there is no node_modules to look in. */
-  installed: (pkg: string) => string | null | undefined;
   load: (t: string) => unknown;
   /** The variables `.npmrc`'s sign-in lines read now. */
   npmrcNames?: string[];
 };
 
-/** Why the lock is stale, the first of: missing, from an earlier release,
- * a settings file changed, a preset not installed, a preset at another
- * version. Null when it is current. */
+/** Why the lock is stale, the first of: missing, unreadable, from an
+ * earlier release, a settings file changed, `.npmrc`'s variables changed.
+ * Null when it is current. */
 export function staleReason(d: StaleDeps): string | null {
   if (d.lock === null) return staleMessages.missing;
   let lock: Lock;
@@ -713,14 +855,5 @@ export function staleReason(d: StaleDeps): string | null {
   if (refused) return refused;
   if (names.join("\n") !== lock.npmrcVariables.join("\n"))
     return staleMessages.changed(NPMRC);
-  for (const p of lock.presets) {
-    const v = d.installed(splitName(p.name).pkg);
-    if (v === null) return staleMessages.notInstalled(p.name);
-  }
-  for (const p of lock.presets) {
-    const v = d.installed(splitName(p.name).pkg);
-    if (typeof v === "string" && v !== p.version)
-      return staleMessages.version(p.name, v, p.version);
-  }
   return null;
 }

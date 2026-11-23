@@ -1,6 +1,8 @@
 // `factory sync` with presets: the lock it writes, the agents and skills
-// it copies, the files it keeps back, and the choices it drops.
+// it copies and restores, the pins it checks, the files it keeps back, and
+// the choices it drops.
 import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { load } from "js-yaml";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -12,27 +14,43 @@ import {
   resolveFiles,
   type Settings,
 } from "../src/config.mts";
-import { settingsHash } from "../src/preset.mts";
+import { fileHash, pinsOf, settingsHash } from "../src/preset.mts";
+import { runGit, type Git } from "../src/preset-fetch.mts";
 import { lockedFiles, main, PACKAGE } from "../src/sync.mts";
 import { staleOf } from "../src/config.mts";
 import {
   ACME,
+  ACME_SETTINGS,
+  CACHE,
   deps,
+  fetching,
+  HOST,
   install,
   installAcme,
+  lockPin,
   NODE,
+  NODE_SETTINGS,
   own,
+  publish,
   put,
   read,
+  remoteOf,
   repo,
 } from "./preset-fixture.ts";
 
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-async function sync(argv: string[] = []) {
+/** One sync, recording each call it makes to git for a preset. `base` is
+ * the lock at the commit `--against` names. */
+async function sync(argv: string[] = [], base: string | null = null) {
   const out: string[] = [];
   const err: string[] = [];
+  const git: string[][] = [];
+  const recording: Git = (args, o) => {
+    git.push(args);
+    return runGit(args, o);
+  };
   const code = await main(argv, {
     root,
     pkg: PACKAGE,
@@ -41,14 +59,26 @@ async function sync(argv: string[] = []) {
     defaultBranch: async () => "main",
     out: (l) => out.push(l),
     err: (l) => err.push(l),
+    fetch: (s) => ({ ...fetching(s.repository), git: recording }),
+    show: (ref, path) => (ref === "BASE" && path === LOCK ? base : null),
   });
-  return { code, out, err };
+  return { code, out, err, git };
 }
 
 const LOCK = ".claude/factory.lock";
+const DEPS = ".claude/agents/node-deps-reviewer.md";
+const REPO = "acme/factory-config";
+let commit = "";
 const acme = (body: string[] = []) => {
   root = repo(own([ACME, NODE], body));
-  installAcme(root);
+  commit = installAcme(root);
+};
+const short = () => commit.slice(0, 7);
+
+/** This machine without the commit, and the preset's repository gone. */
+const unreachable = () => {
+  rmSync(join(CACHE, "presets", HOST, REPO), { recursive: true, force: true });
+  rmSync(remoteOf(REPO), { recursive: true, force: true });
 };
 
 describe("the lock factory sync writes", () => {
@@ -70,10 +100,6 @@ describe("the lock factory sync writes", () => {
       "files",
     ]);
     const lock = load(text) as Record<string, unknown>;
-    expect(lock.presets).toEqual([
-      { name: ACME, version: "1.4.0" },
-      { name: NODE, version: "1.4.0" },
-    ]);
     expect(lock["settings-hash"]).toBe(
       settingsHash(read(root, ".claude/factory.yaml"), null),
     );
@@ -81,6 +107,68 @@ describe("the lock factory sync writes", () => {
     expect(
       (lock.overridden as Record<string, unknown>)["rules.small-change-lines"],
     ).toEqual([{ from: ACME, value: 40 }]);
+  });
+
+  it("holds for each preset its name, its commit in full, its settings as its file had them without the version, and a hash of each file it ships", async () => {
+    acme();
+    await sync();
+    expect(
+      (load(read(root, LOCK)!) as Record<string, unknown>).presets,
+    ).toEqual([
+      {
+        name: ACME,
+        commit,
+        settings: (({ version: _, ...rest }) => rest)(
+          load(ACME_SETTINGS) as Record<string, unknown>,
+        ),
+        files: {
+          ".claude/agents/acme-security-reviewer.md": fileHash("security\n"),
+        },
+      },
+      {
+        name: NODE,
+        commit,
+        settings: (({ version: _, ...rest }) => rest)(
+          load(NODE_SETTINGS) as Record<string, unknown>,
+        ),
+        files: { [DEPS]: fileHash("deps\n") },
+      },
+    ]);
+    expect(commit).toMatch(/^[0-9a-f]{40}$/);
+  });
+
+  it("writes each pin as the name, the commit, the settings, and each file with sha256: and its hash", async () => {
+    root = repo(own(["foo/presets//bar"]));
+    const at = install(root, "foo/presets", {
+      bar: {
+        settings: "version: 2\nrules:\n  review-rounds: 3\n",
+        agents: { "bar-reviewer": "bar\n" },
+      },
+    });
+    await sync();
+    const lines = read(root, LOCK)!.split("\n");
+    const start = lines.indexOf("presets:");
+    expect(lines.slice(start, start + 8)).toEqual([
+      "presets:",
+      "  - name: foo/presets//bar",
+      `    commit: ${at}`,
+      "    settings:",
+      "      rules:",
+      "        review-rounds: 3",
+      "    files:",
+      `      .claude/agents/bar-reviewer.md: ${fileHash("bar\n")}`,
+    ]);
+    expect(fileHash("bar\n")).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("hashes a file a preset ships that loses to the repository's own", async () => {
+    acme();
+    put(root, DEPS, "mine\n");
+    await sync();
+    expect(pinsOf(read(root, LOCK), load)[1]!.files).toEqual({
+      [DEPS]: fileHash("deps\n"),
+    });
+    expect(lockedFiles(read(root, LOCK), load)).not.toContain(DEPS);
   });
 
   it("writes an empty list of presets where there are none", async () => {
@@ -120,17 +208,17 @@ describe("the lock factory sync writes", () => {
     expect(used(locked)).toEqual(used(resolved.settings));
   });
 
-  it("lists only files under files, not the presets' names", async () => {
+  it("lists only files under files, not what a preset's pin holds", async () => {
     acme();
     await sync();
     const files = lockedFiles(read(root, LOCK), load);
-    expect(files).not.toContain(`name: "${ACME}"`);
     expect(
       files.every((f) => f.startsWith(".claude/") || f.startsWith(".github/")),
     ).toBe(true);
+    expect(files.filter((f) => f === DEPS)).toEqual([DEPS]);
   });
 
-  it("reads the files of a lock with conflict markers, so it still deletes what no preset ships", async () => {
+  it("reads the pins and the files of a lock with conflict markers, so it still deletes what no preset ships", async () => {
     acme();
     await sync();
     const text = read(root, LOCK)!.replace(
@@ -141,7 +229,10 @@ describe("the lock factory sync writes", () => {
     put(root, ".claude/factory.yaml", own([ACME]));
     const r = await sync();
     expect(r.code).toBe(0);
-    expect(r.out).toContain("deleted .claude/agents/node-deps-reviewer.md");
+    expect(r.out).toContain(`deleted ${DEPS}`);
+    expect(pinsOf(read(root, LOCK), load).map((p) => p.commit)).toEqual([
+      commit,
+    ]);
   });
 
   it("fails the check, naming the fix, when the lock is stale", async () => {
@@ -156,34 +247,131 @@ describe("the lock factory sync writes", () => {
   });
 });
 
+describe("a name under presets, at factory sync", () => {
+  it("stops the sync, with its mark, when it is an npm package's", async () => {
+    root = repo(own(['"@acme/factory-preset"']));
+    const r = await sync();
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      '✗ presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.',
+    ]);
+    expect(read(root, LOCK)).toBeNull();
+  });
+
+  it("stops the sync, naming preset add, when the lock has no pin for it", async () => {
+    root = repo(own(["foo/presets//bar"]));
+    const r = await sync();
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      "✗ presets: foo/presets//bar is not pinned yet. Run: factory preset add foo/presets//bar",
+    ]);
+    expect(read(root, LOCK)).toBeNull();
+  });
+
+  it("drops a pin whose name left presets, with the files only it shipped", async () => {
+    acme();
+    await sync();
+    put(root, ".claude/factory.yaml", own([ACME]));
+    const r = await sync();
+    expect(r.out).toContain(`deleted ${DEPS}`);
+    expect(read(root, DEPS)).toBeNull();
+    expect(pinsOf(read(root, LOCK), load).map((p) => p.name)).toEqual([ACME]);
+    expect(read(root, ".claude/agents/acme-security-reviewer.md")).toBe(
+      "security\n",
+    );
+  });
+});
+
 describe("the agents and skills factory sync copies from presets", () => {
-  it("writes each, lists it in the lock, and deletes it once no preset ships it", async () => {
+  it("writes each and lists it in the lock", async () => {
     acme();
     const r = await sync();
-    expect(r.out).toContain("wrote .claude/agents/node-deps-reviewer.md");
-    expect(read(root, ".claude/agents/node-deps-reviewer.md")).toBe("deps\n");
-    expect(read(root, LOCK)).toContain(
-      "  - .claude/agents/node-deps-reviewer.md",
-    );
-    put(root, ".claude/factory.yaml", own([ACME]));
-    const again = await sync();
-    expect(again.out).toContain("deleted .claude/agents/node-deps-reviewer.md");
-    expect(read(root, ".claude/agents/node-deps-reviewer.md")).toBeNull();
+    expect(r.out).toContain(`wrote ${DEPS}`);
+    expect(read(root, DEPS)).toBe("deps\n");
+    expect(read(root, LOCK)).toContain(`  - ${DEPS}`);
+  });
+
+  it("reads no preset's repository, nor the cache, while each copy is what the lock records", async () => {
+    acme();
+    await sync();
+    unreachable();
+    put(root, ".claude/factory.yaml", own([ACME, NODE], ["specs: none"]));
+    const r = await sync();
+    expect(r.code).toBe(0);
+    expect(r.git).toEqual([]);
+    expect(r.out).toEqual([`wrote ${LOCK}`]);
+  });
+
+  it("copies an edited or deleted file again from the cache, with no download", async () => {
+    acme();
+    await sync();
+    put(root, DEPS, "edited by hand\n");
+    rmSync(join(root, ".claude/agents/acme-security-reviewer.md"));
+    const r = await sync();
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual([
+      "wrote .claude/agents/acme-security-reviewer.md",
+      `wrote ${DEPS}`,
+    ]);
+    expect(read(root, DEPS)).toBe("deps\n");
+    expect(r.git).toEqual([]);
+  });
+
+  it("downloads the pinned commit again when this machine has never fetched it", async () => {
+    acme();
+    await sync();
+    rmSync(join(CACHE, "presets", HOST, REPO), { recursive: true });
+    publish(REPO, { "": { settings: "version: 2\n" } });
+    put(root, DEPS, "edited by hand\n");
+    const r = await sync();
+    expect(r.code).toBe(0);
+    expect(read(root, DEPS)).toBe("deps\n");
+    expect(r.git.map((args) => args[0])).toEqual(["init", "fetch", "checkout"]);
+    expect(r.git[1]!.at(-1)).toBe(commit);
+  });
+
+  it("stops, naming the file, the preset, and the way back, when the copy cannot be restored", async () => {
+    acme();
+    await sync();
+    unreachable();
+    put(root, DEPS, "edited by hand\n");
+    put(root, ".claude/factory.yaml", own([ACME, NODE], ["specs: none"]));
+    const before = read(root, LOCK);
+    const r = await sync();
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      `✗ ${DEPS} was edited or deleted, and ${NODE} could not be read to restore it. Restore it with: git checkout -- ${DEPS}`,
+    ]);
+    expect(r.out).toEqual([]);
+    expect(read(root, LOCK)).toBe(before);
+    expect(read(root, DEPS)).toBe("edited by hand\n");
+  });
+
+  it("does not restore a copy from a commit that holds another text than the lock records", async () => {
+    acme();
+    await sync();
+    const pins = pinsOf(read(root, LOCK), load);
+    lockPin(root, { ...pins[1]!, files: { [DEPS]: fileHash("other\n") } });
+    const r = await sync();
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      `✗ ${DEPS} was edited or deleted, and ${NODE} could not be read to restore it. Restore it with: git checkout -- ${DEPS}`,
+    ]);
   });
 
   it("keeps a file the repository wrote itself, saying so", async () => {
     acme();
-    put(root, ".claude/agents/node-deps-reviewer.md", "mine\n");
+    put(root, DEPS, "mine\n");
     const r = await sync();
     expect(r.out).toContain(
-      `kept .claude/agents/node-deps-reviewer.md, this repository's own, over ${NODE}`,
+      `kept ${DEPS}, this repository's own, over ${NODE}`,
     );
-    expect(read(root, ".claude/agents/node-deps-reviewer.md")).toBe("mine\n");
+    expect(read(root, DEPS)).toBe("mine\n");
   });
 
   it("keeps the factory's own file at a path a preset ships, saying so", async () => {
     root = repo(own([ACME]));
-    install(root, ACME, "1.0.0", {
+    install(root, ACME, {
       "": {
         settings: "version: 2\n",
         agents: { "factory-test-reviewer": "imposter\n" },
@@ -199,6 +387,171 @@ describe("the agents and skills factory sync copies from presets", () => {
   });
 });
 
+describe("factory sync --check with presets", () => {
+  const MATCH = "✓ The factory's files match the settings.";
+
+  it("passes with no repository to read while each copy is what the lock records", async () => {
+    acme();
+    await sync();
+    unreachable();
+    const r = await sync(["--check"]);
+    expect(r).toEqual({ code: 0, out: [MATCH], err: [], git: [] });
+  });
+
+  it.each([
+    ["edited", () => put(root, DEPS, "edited by hand\n")],
+    ["deleted", () => rmSync(join(root, DEPS))],
+  ])(
+    "fails on a copy that was %s, downloading nothing to compare it with",
+    async (_how, change) => {
+      acme();
+      await sync();
+      rmSync(join(CACHE, "presets", HOST, REPO), { recursive: true });
+      change();
+      const r = await sync(["--check"]);
+      expect(r.code).toBe(1);
+      expect(r.err).toEqual([
+        "✗ 1 of the factory's files doesn't match the settings:",
+        `  ${DEPS}`,
+        "Run factory sync and commit what it writes.",
+      ]);
+      expect(r.git).toEqual([]);
+    },
+  );
+
+  it("takes --against only with --check and a commit", async () => {
+    acme();
+    for (const argv of [
+      ["--against", "BASE"],
+      ["--check", "--against"],
+    ]) {
+      const r = await sync(argv);
+      expect(r.code).toBe(2);
+      expect(r.err).toEqual([
+        "Usage: factory sync [--check [--against COMMIT]]",
+      ]);
+    }
+  });
+});
+
+describe("factory sync --check --against the base branch's commit", () => {
+  const MATCH = "✓ The factory's files match the settings.";
+  const AGAINST = ["--check", "--against", "BASE"];
+  /** The lock on the base branch, then both pins moved to a newer commit
+   * in the working tree, synced. */
+  const moved = async () => {
+    acme();
+    await sync();
+    const base = read(root, LOCK)!;
+    commit = installAcme(
+      root,
+      ACME_SETTINGS.replace("small-change-lines: 40", "small-change-lines: 35"),
+    );
+    await sync();
+    return base;
+  };
+
+  it("reads no repository when no pin's commit differs from the base lock's", async () => {
+    acme();
+    await sync();
+    unreachable();
+    const r = await sync(AGAINST, read(root, LOCK));
+    expect(r).toEqual({ code: 0, out: [MATCH], err: [], git: [] });
+  });
+
+  it("passes a moved pin that holds what its commit holds, reading that commit alone", async () => {
+    const base = await moved();
+    rmSync(join(CACHE, "presets", HOST, REPO), { recursive: true });
+    const r = await sync(AGAINST, base);
+    expect(r).toMatchObject({ code: 0, out: [MATCH], err: [] });
+    expect(r.git.filter((args) => args[0] === "fetch")).toHaveLength(1);
+    expect(r.git.find((args) => args[0] === "fetch")!.at(-1)).toBe(commit);
+  });
+
+  it("reads only the preset whose commit moved", async () => {
+    acme();
+    await sync();
+    const base = read(root, LOCK)!;
+    const other = install(root, "foo/presets", {
+      bar: { settings: "version: 2\n" },
+    });
+    put(root, ".claude/factory.yaml", own([ACME, NODE, "foo/presets//bar"]));
+    await sync();
+    rmSync(join(CACHE, "presets", HOST), { recursive: true });
+    rmSync(remoteOf(REPO), { recursive: true });
+    const r = await sync(AGAINST, base);
+    expect(r).toMatchObject({ code: 0, err: [] });
+    expect(
+      r.git.filter((args) => args[0] === "fetch").map((args) => args.at(-1)),
+    ).toEqual([other]);
+  });
+
+  it("takes every pin as new when the base commit has no lock", async () => {
+    acme();
+    await sync();
+    rmSync(join(CACHE, "presets", HOST, REPO), { recursive: true });
+    const r = await sync(AGAINST, null);
+    expect(r).toMatchObject({ code: 0, err: [] });
+    expect(r.git.filter((args) => args[0] === "fetch")).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      "settings",
+      (text: string) =>
+        text.replace("small-change-lines: 35", "small-change-lines: 99"),
+    ],
+    [
+      "hashes",
+      (text: string) =>
+        text.replace(fileHash("security\n"), fileHash("mine\n")),
+    ],
+  ])(
+    "fails when a moved pin's %s are not what its commit holds",
+    async (_what, change) => {
+      const base = await moved();
+      put(root, LOCK, change(read(root, LOCK)!));
+      const r = await sync(AGAINST, base);
+      expect(r.code).toBe(1);
+      expect(r.err).toEqual([
+        `✗ .claude/factory.lock: ${ACME} at ${short()} does not match what that commit holds. Run: factory update`,
+      ]);
+      expect(r.out).toEqual([]);
+    },
+  );
+
+  it.each([
+    [
+      "settings",
+      (text: string) =>
+        text.replace(
+          "    settings:\n      rules:\n        small-change-lines: 30",
+          "    settings:\n      rules:\n        small-change-lines: 31",
+        ),
+    ],
+    [
+      "hashes",
+      (text: string) => text.replace(fileHash("deps\n"), fileHash("mine\n")),
+    ],
+  ])(
+    "fails when a pin's %s changed and its commit did not, reading no repository",
+    async (_what, change) => {
+      acme();
+      await sync();
+      const base = read(root, LOCK)!;
+      const changed = change(base);
+      expect(changed).not.toBe(base);
+      put(root, LOCK, changed);
+      const r = await sync(AGAINST, base);
+      expect(r.code).toBe(1);
+      expect(r.err).toEqual([
+        `✗ .claude/factory.lock: the settings or files recorded for ${NODE} changed, and its commit did not. Restore the lock from the default branch, then run: factory sync`,
+      ]);
+      expect(r.git).toEqual([]);
+    },
+  );
+});
+
 describe("the choices factory sync drops", () => {
   it("drops a choice whose preset is no longer listed, deleting the emptied file", async () => {
     acme();
@@ -206,7 +559,7 @@ describe("the choices factory sync drops", () => {
     put(
       root,
       ".claude/factory.choices.yaml",
-      `rules.small-change-lines: "${ACME}"\n`,
+      `rules.small-change-lines: ${ACME}\n`,
     );
     const r = await sync();
     expect(r.out).toContain(
@@ -220,14 +573,14 @@ describe("the choices factory sync drops", () => {
     put(
       root,
       ".claude/factory.choices.yaml",
-      `rules.small-change-lines: "${NODE}"\ncommands.gate: "${ACME}"\n`,
+      `rules.small-change-lines: ${NODE}\ncommands.gate: ${ACME}\n`,
     );
     const r = await sync();
     expect(r.out).toContain(
       `dropped the choice for commands.gate: ${ACME} no longer sets it`,
     );
     expect(read(root, ".claude/factory.choices.yaml")).toContain(
-      `rules.small-change-lines: "${NODE}"`,
+      `rules.small-change-lines: ${NODE}`,
     );
   });
 });

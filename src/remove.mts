@@ -42,19 +42,17 @@ export type RemoveDeps = {
 };
 
 /** The agents and skills the lock lists that presets shipped, a skill as
- * its folder, and the packages of the presets it records. */
-async function presetParts(
-  root: string,
-): Promise<{ files: string[]; packages: string[] }> {
+ * its folder. */
+async function presetFiles(root: string): Promise<string[]> {
   const at = join(root, LOCK);
-  if (!existsSync(at)) return { files: [], packages: [] };
+  if (!existsSync(at)) return [];
   const { load } = await import("js-yaml");
-  const { readLock, splitName } = await import("./preset.mts");
+  const { readLock } = await import("./preset.mts");
   let lock: ReturnType<typeof readLock>;
   try {
     lock = readLock(readFileSync(at, "utf8"), load);
   } catch {
-    return { files: [], packages: [] };
+    return [];
   }
   const files = new Set<string>();
   for (const f of lock.files) {
@@ -63,10 +61,7 @@ async function presetParts(
     if (agent) files.add(f);
     else if (skill) files.add(`.claude/skills/${skill[1]}`);
   }
-  return {
-    files: [...files].filter((p) => existsSync(join(root, p))),
-    packages: [...new Set(lock.presets.map((p) => splitName(p.name).pkg))],
-  };
+  return [...files].filter((p) => existsSync(join(root, p)));
 }
 
 /** What is left of a credential kept on the machine: its secrets, among
@@ -164,8 +159,7 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
   };
   const tools = inUse(d.tools, chosen);
 
-  const shipped = await presetParts(d.root);
-  const deletes = [...factoryFiles(d.root), ...shipped.files];
+  const deletes = [...factoryFiles(d.root), ...(await presetFiles(d.root))];
   const changes: Unconfigured[] = tools.flatMap(
     (t) => t.setup.unconfigure?.(context) ?? [],
   );
