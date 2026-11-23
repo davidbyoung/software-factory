@@ -174,7 +174,7 @@ status, and every one waits for the owner, so wherever these rules or a
 skill name them, read it as "waits for the owner".
 
 Agents never merge, enable auto-merge, or add the `verdict-override`
-label, the owner's pass of the verdict for one commit; `factory pr label`
+label, an approver's pass of the verdict for one commit; `factory pr label`
 and `factory ticket label` refuse it, and the guard hook stops the ordinary
 ways of adding it around them. Both workflows run from the default branch's copy,
 so a pull request cannot change how it is judged, and changes to them are
