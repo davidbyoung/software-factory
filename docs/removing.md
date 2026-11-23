@@ -20,7 +20,9 @@ hook, label, and setting.
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
-  and one "Follow-ups" ticket.
+  one "Follow-ups" ticket; and, on a public repository on GitHub, the
+  Actions policy named "Software factory", which lets the factory's
+  workflow run.
 - **On your board,** if you have one: three fields, Session, Runs in, and
   Cost, which `factory init` adds when the board lacks
   them, and the board's own Status, which the sync sets. `init` adds the
@@ -52,6 +54,10 @@ hand, grouped by the tool it belongs to: secrets, the rule that requires
 the review's verdict, labels, the board's fields, and a token kept on your
 machine. Each tool you use adds its own lines to that list. It
 commits nothing. Review the changes, commit them on a branch, and merge.
+
+It does not name the "Software factory" policy that `factory init` adds
+on a public repository on GitHub. Delete that one by hand too, in the
+repository's Settings, under Actions, Policies.
 
 If your settings file is gone or cannot be read, it says so, removes what
 it finds, and names what the tools it ships with leave behind.

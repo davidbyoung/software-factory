@@ -38,8 +38,7 @@ checked for drift, which is more machinery than loading them from the
 package. A cloud build starts from a fresh checkout, and what is
 committed to the repository is what it reads, so the instructions a
 build follows are the ones the pull request shows. The choice is not
-forced: loading them from the package would also work, and would mean
-one version for every repository.
+forced: loading them from the package would also work.
 
 It has one real benefit. Every version of the instructions your sessions
 followed is in your repository's history, beside the code they built, and
@@ -155,13 +154,14 @@ of each.
 
 ## Three version numbers
 
-They are separate on purpose.
+The factory, the settings file, and the comment markers each have a
+version.
 
-| Number              | Where it is                                  | Changes when                         |
-| ------------------- | -------------------------------------------- | ------------------------------------ |
-| The factory's       | `factory.lock` and the two workflow files    | Every release                        |
-| The settings file's | `version:` at the top of `factory.yaml`      | A key is renamed or moved            |
-| The markers'        | In the comments the factory posts on tickets | The format of those comments changes |
+| Number                                | Where it is                                  | Changes when                         |
+| ------------------------------------- | -------------------------------------------- | ------------------------------------ |
+| The factory's, the one the lock names | `factory.lock` and the two workflow files    | Every release                        |
+| The settings file's                   | `version:` at the top of `factory.yaml`      | A key is renamed or moved            |
+| The comment markers'                  | In the comments the factory posts on tickets | The format of those comments changes |
 
 - **Below `1.0.0`, a release may change anything**, and its notes say what.
   `1.0.0` comes when a second repository has run on the factory for a while

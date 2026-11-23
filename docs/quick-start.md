@@ -28,7 +28,9 @@ Once on your machine, for every repository you use it in:
 npm install -g @davidbyoung/software-factory
 ```
 
-Nothing is installed in your repository. Once it is set up, it names the
+Nothing is installed in your repository, unless you choose a spec tool
+that npm installs in step 2 ([`specs`](configuration.md#specs) says
+what). Once it is set up, it names the
 version of the factory it uses, and `factory` runs that version there
 ([Updating](updating.md#what-happens)).
 
@@ -41,16 +43,22 @@ its commands.
 factory init
 ```
 
-It shows what it found and asks which optional parts you want. Three
-start checked: "An automated review of every pull request", "A board",
-and "Builds in the cloud". For this first ticket, uncheck those three:
+It shows what it found, then asks two things first: how a build names
+its branch, and which spec tool you use. If you are unsure, press Enter
+for the first and choose None for the second.
+
+Next it asks which optional parts you want. Three start checked: "An
+automated review of every pull request", "A board", and "Builds in the
+cloud". For this first ticket, uncheck those three:
 each needs a token or a secret you set up later, and this page needs
 none. Keep them checked instead if you want the full setup now. It then
 lists everything it will do, and
 once you tell it to go ahead, writes your settings file,
 `.claude/factory.yaml`, and the instructions and checks your coding agent
-follows. It commits nothing. [What it changes](removing.md) lists every
-file.
+follows. On a public repository it also adds a policy that lets the
+factory's workflow run, which needs admin rights on the repository
+([A public repository](github/setup.md#a-public-repository)). It commits
+nothing. [What it changes](removing.md) lists every file.
 
 **It worked when** the checks `init` prints last all show ✓, or `-` for a
 part you left off. `factory doctor` runs them again at any time.

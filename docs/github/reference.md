@@ -73,15 +73,17 @@ gave it. Stop and delete it.
 `factory sync` writes two workflow files under `.github/workflows/`,
 always, whichever parts are on:
 
-| File                 | What its jobs do                                                                                                                              |
+| File                 | What the jobs it calls do                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `factory.yml`        | Everything that is judged from your default branch's copy, so a pull request cannot change how it is judged                                   |
 | `factory-review.yml` | What has to read a pull request's own code: the check that the factory's files are in step, the automated review, and Dependabot's auto-merge |
 
-Neither holds the jobs themselves. Each has one job, which calls a
+Neither file holds those jobs. Each has one calling job, which calls a
 workflow in the factory's own repository, `davidbyoung/software-factory`,
 at the version your `.claude/factory.lock` names, so an update changes
-one line of each. What `factory sync` writes into them comes from your
+one line of each. The jobs in the table below are the ones in the
+factory's workflow that it calls. What `factory sync` writes into the
+two files comes from your
 settings: your default branch, which parts are on, the poller's
 schedule, each session's minutes, and the names of your own secrets.
 
@@ -100,7 +102,7 @@ UTC.
 | The board sync             | `factory.yml`                                      | The factory's commands, pull request events, and 07:00                        | [`tickets.board`](../configuration.md#tickets) is set                 |
 | The poller                 | `factory.yml`                                      | Every [`builds.poll-minutes`](../configuration.md#builds) minutes, or by hand | `builds.trigger` is `github-action`                                   |
 | A build                    | `factory.yml`                                      | The poller, `factory build N`, or by hand                                     | Always                                                                |
-| Answering your review      | `factory.yml`                                      | A review you submit on a pull request, or by hand                             | Something of an approver's is in it                                   |
+| Answering your review      | `factory.yml`                                      | A review you submit on a pull request, or by hand                             | The review is by someone who can write to the repository              |
 | The conflict sweep         | `factory.yml`                                      | A push to the default branch, 09:00, or by hand                               | A pull request conflicts with the default branch                      |
 | Dependabot's pull requests | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                           | `.github/dependabot.yml` exists, and one of its pull requests is open |
 | Updates                    | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                           | Always                                                                |
@@ -124,7 +126,7 @@ What the less obvious ones do:
   It is a script, and runs no session.
 
 In a pull request's list of checks, a job's name follows the name of the
-file's own job: `review / Factory files in step` and
+file's calling job: `review / Factory files in step` and
 `review / Claude review` from `factory-review.yml`, and
 `factory / Record the verdict` from `factory.yml`. "Review verdict" and
 "Who merges" are statuses, and keep those names.
@@ -388,14 +390,17 @@ factory.
   token has no user.
 - **The squash merge on your default branch is signed by GitHub,** whether
   or not the build's own commits were.
-- **The factory does not work inside a Claude cloud session,** such as
-  Claude Code on the web. Its commands need GitHub's GraphQL API, which
-  is closed there. `factory build N` still works from such a session,
-  since it only asks GitHub to start a workflow. Such a session is a
-  machine of its own, so put the install line,
-  `npm install -g @davidbyoung/software-factory`, in its environment's
-  setup: without the command, the factory's hooks stop the session's
-  commands.
+- **Only part of the factory works inside a Claude cloud session,** such
+  as Claude Code on the web. Such a session is a machine of its own, so
+  put the install line, `npm install -g @davidbyoung/software-factory`,
+  in its environment's setup: without the command, the factory's hooks
+  stop the session's commands. With it, the hooks run, and the commands
+  that read only the repository work, such as `factory sync`,
+  `factory config check`, and `factory gate`. The commands that need
+  GitHub's GraphQL API, which is closed there, still do not: the board
+  commands, `factory status`, and the ticket commands.
+  `factory build N` works, since it only asks GitHub to start a
+  workflow.
 - **Untested against a real organization: a board one owns.** It is read
   the same way as a person's. The token needs access to the
   organization's projects, which an organization's settings can refuse a

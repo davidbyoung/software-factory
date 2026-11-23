@@ -103,12 +103,18 @@ repository: a second repository on the same Jira site asks for nothing.
 
 ### In a session on another machine
 
-| Where the session runs          | What you do                                                                                                                                                                                                                                                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A server you reach over SSH     | Run `factory init` there. With no browser on the server, open the address it prints on your own machine, make the token, and paste it into the server's terminal                                                                                                                                             |
-| A Codespace                     | On GitHub, under your account's Settings, Codespaces, add `FACTORY_JIRA_EMAIL` and `FACTORY_JIRA_TOKEN` as secrets, with the repository selected. Make the token at [Atlassian's API token page](https://id.atlassian.com/manage-profile/security/api-tokens)                                                |
-| A dev container on your machine | Run `factory init` inside it, as on a server                                                                                                                                                                                                                                                                 |
-| Claude Code on the web          | In the environment's settings, where you choose it for a session, add `FACTORY_JIRA_EMAIL` and `FACTORY_JIRA_TOKEN` as environment variables. Make the token as in the Codespace row. Put the line that installs the factory, `npm install -g @davidbyoung/software-factory`, in the environment's setup too |
+Every such machine needs the factory installed first:
+
+```bash
+npm install -g @davidbyoung/software-factory
+```
+
+| Where the session runs          | What you do                                                                                                                                                                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A server you reach over SSH     | Run `factory init` there. With no browser on the server, open the address it prints on your own machine, make the token, and paste it into the server's terminal                                                                                              |
+| A Codespace                     | On GitHub, under your account's Settings, Codespaces, add `FACTORY_JIRA_EMAIL` and `FACTORY_JIRA_TOKEN` as secrets, with the repository selected. Make the token at [Atlassian's API token page](https://id.atlassian.com/manage-profile/security/api-tokens) |
+| A dev container on your machine | Run `factory init` inside it, as on a server                                                                                                                                                                                                                  |
+| Claude Code on the web          | In the environment's settings, where you choose it for a session, add `FACTORY_JIRA_EMAIL` and `FACTORY_JIRA_TOKEN` as environment variables. Make the token as in the Codespace row. Put the install line above in the environment's setup too               |
 
 A session with neither the file nor the variables says so as it starts,
 in the state of the tickets it shows you, and names

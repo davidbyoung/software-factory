@@ -92,8 +92,9 @@ secret, makes the signing key, allows auto-merge on the repository, and
 requires the review's verdict before a merge to your default branch. On
 a public repository it also adds [a policy](#a-public-repository) that
 lets the factory's workflow run. It commits nothing, and installs
-nothing in your repository. [What it changes](../removing.md) lists
-every file.
+nothing in your repository but a spec tool you chose that npm installs
+([`specs`](../configuration.md#specs) says what). [What it
+changes](../removing.md) lists every file.
 
 **It worked when** the checks it prints last all show ✓, or `-` for a part
 you left off.
@@ -241,11 +242,12 @@ set.
 
 Read `${GITHUB_TOKEN}` in the token line. In the workflows it is their own
 token, which can read the packages that give this repository access, so
-`init` asks for nothing and you skip step 2. On your machine, set
-`GITHUB_TOKEN` to a personal access token with the `read:packages` scope.
-Dependabot has no token of its own for it: in step 4, store that personal
-access token with `gh secret set PACKAGES_TOKEN --app dependabot`, and
-name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
+there is no registry token to make or to store for Actions: skip steps 2
+and 3. On your machine, set `GITHUB_TOKEN` to a personal access token
+with the `read:packages` scope. Dependabot has no token of its own for
+it: where step 3 would have `init` store one, store that personal access
+token yourself, with `gh secret set PACKAGES_TOKEN --app dependabot`,
+and in step 4 name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
 
 ### 2. Make a read-only token
 

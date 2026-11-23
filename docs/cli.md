@@ -32,11 +32,19 @@ and that is the one that runs there:
 | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | A repository whose `.claude/factory.lock` names a version | That version. The first time, npm downloads it, and a line says so                |
 | A repository not set up yet, or outside any repository    | The version installed on your machine                                             |
-| Anywhere, as `factory update`                             | The version installed on your machine, which hands the sync to the newest release |
+| When you run `factory update`, in any directory           | The version installed on your machine, which hands the sync to the newest release |
+| With `FACTORY_VERSION` set to a release                   | That release, for that one command, whatever the lock names                       |
 
 ```text
 Downloading the factory 0.3.0, which this repository names. This happens once.
 ```
+
+`FACTORY_VERSION=0.3.0 factory init` runs that one `init` at 0.3.0.
+`factory update` sets the variable itself for its sync, and
+[Updating](updating.md#naming-every-column) uses it where a release needs
+a setting before it can sync. A run in the cloud installs the version the
+repository names:
+[What a job installs](github/reference.md#what-a-job-installs).
 
 Each version it downloads is kept in `~/.cache/software-factory/`, or
 under `$XDG_CACHE_HOME` when that is set, and the folder is safe to

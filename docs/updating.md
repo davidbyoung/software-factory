@@ -10,9 +10,15 @@ The others need lines in your settings file that it doesn't have:
 [Moving to settings version 2](#moving-to-settings-version-2) and
 [Naming build branches](#naming-build-branches), for every repository, and
 [Naming every column](#naming-every-column), for a repository whose
-settings have a [`tickets.board`](configuration.md#tickets). A fifth,
-[Labeling your open tickets](#labeling-your-open-tickets), asks nothing
-of most repositories, but is worth reading.
+settings have a [`tickets.board`](configuration.md#tickets). Two more,
+[Labeling your open tickets](#labeling-your-open-tickets) and
+[A spec for every visible change](#a-spec-for-every-visible-change), ask
+nothing of most repositories, but are worth reading.
+
+A repository coming from an old release takes them in order. Move to one
+install first. If `factory update` then stops with a settings error, the
+section for that error says what to add, and then you run
+`factory update` again.
 
 ## What happens
 
@@ -151,11 +157,15 @@ this release, and do these steps in the repository's checkout.
    ```
 
 2. **If you follow a preset,** it was an npm package and is now a
-   repository. Put what the package held, its `factory-preset.yaml`,
-   `agents/`, and `skills/`, at the root of a repository on your code
-   host ([Writing a preset](presets.md#writing-a-preset)). Then
+   repository. Create that repository on your code host, put what the
+   package held, its `factory-preset.yaml`, `agents/`, and `skills/`, at
+   its root, and push it
+   ([Writing a preset](presets.md#writing-a-preset)). Then
    `npm uninstall` the package, and delete its name from
-   [`presets`](configuration.md#presets) in `.claude/factory.yaml`.
+   [`presets`](configuration.md#presets) in `.claude/factory.yaml`. If
+   the update in step 3 then stops on a setting the preset supplied,
+   write that setting in `.claude/factory.yaml` until step 4 adds the
+   preset again.
 3. **Update:**
 
    ```bash
@@ -171,17 +181,39 @@ this release, and do these steps in the repository's checkout.
    `.github/workflows/factory-review.yml`, deletes the workflow files
    they replace, and rewrites the factory's other files.
 
+   If it stops instead, the line it prints names what your settings
+   lack. Follow the section for that line, and then run `factory update`
+   again: [Moving to settings version 2](#moving-to-settings-version-2)
+   for a line that says `version: must be 2`,
+   [Naming every column](#naming-every-column) for one that says
+   [`tickets.columns`](configuration.md#ticketscolumns) is required, and
+   [Naming build branches](#naming-build-branches) for one that says
+   [`code-host.branch-name`](configuration.md#code-host) is required.
+
 4. **Add the preset again,** by its repository's name, with
    [`factory preset add`](presets.md#adding-a-preset).
 5. **Tidy what the old install left:**
-   - If nothing is left in `package.json`, delete it, with
-     `package-lock.json` and the `node_modules/` line in `.gitignore`.
+   - If `package.json` lists no dependencies and nothing else of yours,
+     delete it, with `package-lock.json` and the `node_modules/` line in
+     `.gitignore`.
    - If `.github/dependabot.yml` has a group for the factory or for a
      preset, delete the group, and its name from any other group's
      `exclude-patterns`. Dependabot no longer sees either.
-     [Dependency bots](github/reference.md#dependency-bots) has the one
-     line to add when Dependabot updates your workflow files.
-6. **Commit all of it on a branch,** and open a pull request.
+     [Dependency bots](github/reference.md#dependency-bots) has the
+     `ignore` entry to add to the `github-actions` update when
+     Dependabot updates your workflow files.
+6. **Commit all of it on a branch,** and open a pull request. Two of its
+   checks behave differently on this one pull request, since your
+   default branch still holds the old workflows:
+   - "Review verdict" stays waiting where the automated review is on,
+     because the old workflow that posts it listens for a review workflow
+     this pull request deletes. Read the review yourself, then add the
+     [`verdict-override`](configuration.md#code-hostlabels) label to
+     merge.
+   - "Factory files in step" is now named
+     `review / Factory files in step`. If a rule of your repository
+     requires it by name, change the name there
+     ([Workflows](github/reference.md#workflows)).
 
 **It worked when** the pull request's checks pass, and `factory doctor`
 shows the version the repository names:
@@ -201,7 +233,9 @@ Until you do, every command that reads the settings stops with:
 ```
 
 So `factory update` cannot sync to that release until the file is moved.
-On a branch:
+From step 1 until step 4, no other `factory` command works in the
+repository, since the version the lock still names refuses a version 2
+file. On a branch:
 
 1. Edit `.claude/factory.yaml` as the table and the example below show.
    A row applies only when your file has that key.
@@ -211,8 +245,8 @@ On a branch:
    runs, such as `npm run check`.
 3. Once `commands.gate` holds the gate, change the gate's prose in your
    `CLAUDE.md` to point at `factory gate`, so the two cannot differ.
-4. Run `factory update` again, then `factory config check`, and commit
-   what changed.
+4. Run `factory update`, then `factory config check`, and commit what
+   changed.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory sync --check` passes.
@@ -303,6 +337,10 @@ plugins:
           - db/migrations/**
 ```
 
+The `code-host` block is not in the table, since nothing moved into it:
+`code-host.branch-name` is new, from
+[Naming build branches](#naming-build-branches).
+
 A file moved only partway says which key is left:
 `before-commit: moved to commands.before-commit`, or
 `plugins: must be grouped by phase: refine, build, test, conflicts`.
@@ -353,11 +391,17 @@ stops with one of these, the second naming the states you left out:
 
 So the update to that release cannot sync: `factory update`
 ([Doing it yourself](#doing-it-yourself)) stops with the same line. On a
-branch, from your repository's root, run:
+branch, from your repository's root, run `factory init` at the new
+release:
 
 ```bash
-factory init
+FACTORY_VERSION=$(npm view @davidbyoung/software-factory version) factory init
 ```
+
+A plain `factory init` would run the release you are leaving, which the
+lock still names. `npm view` prints the newest release, and
+`FACTORY_VERSION` runs this one command at the release it names
+([Which version runs](cli.md#which-version-runs)).
 
 Init keeps everything your settings already say and adds only the
 missing states. It shows the whole block it saves, the states you had
@@ -413,11 +457,17 @@ already pushed keep their names, and their pull requests carry on as
 before.
 
 So the update to that release cannot sync: `factory update` stops with
-the same line. On a branch, from your repository's root, run:
+the same line. On a branch, from your repository's root, run
+`factory init` at the new release:
 
 ```bash
-factory init
+FACTORY_VERSION=$(npm view @davidbyoung/software-factory version) factory init
 ```
+
+A plain `factory init` would run the release you are leaving, which the
+lock still names. `npm view` prints the newest release, and
+`FACTORY_VERSION` runs this one command at the release it names
+([Which version runs](cli.md#which-version-runs)).
 
 Init keeps everything your settings already say, so it asks again only
 what they lack: how a build names its branch, offering `{ticket}`. Press

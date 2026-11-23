@@ -355,9 +355,9 @@ names each file.
   is told so when a session starts.
 - **One version for everyone.** The repository names the version, in
   `.claude/factory.lock`, and each person's `factory` command runs that
-  one. After an update merges, each person pulls, and nobody runs
-  `npm ci` or installs anything: the command downloads the new version
-  the first time it runs.
+  one. After an update merges, each person pulls, and nobody installs
+  the factory again: the command downloads the new version the first
+  time it runs.
 - **One session per ticket.** A session claims a ticket before it starts,
   and a second one is told who holds it.
 - **Only labeled tickets are the factory's.** A teammate who works a
@@ -367,8 +367,10 @@ names each file.
 - **One person merges updates.** An update changes the instructions
   everyone's sessions follow, so it always waits for a person.
   [Updating](updating.md) describes it.
-- **Check your coding agent's plan** covers the way your team would use
-  this, including builds that run without anyone watching.
+- **Check your coding agent's plan.** Read its terms to see that it
+  covers the way your team would use the factory, including builds that
+  run without anyone watching: nobody has tested that it does
+  ([What nobody has tested](limitations.md#what-nobody-has-tested)).
 
 ## What it does to your repository, in short
 

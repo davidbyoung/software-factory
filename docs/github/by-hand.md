@@ -164,7 +164,7 @@ it, two of them with similar names, and `sync` writes all three:
 
    The review's job installs your project with `npm ci` when your
    repository's root has a `package-lock.json`, and chooses the model
-   from `FACTORY_BUILD_MODEL` ([Variables](reference.md#workflows)) when
+   from `FACTORY_BUILD_MODEL` ([Variables](reference.md#who-a-cloud-session-acts-as)) when
    it is set.
 
 4. **Optionally, write `.github/review-notes.md`:** what a reviewer must

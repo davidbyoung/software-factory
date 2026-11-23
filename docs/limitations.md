@@ -28,7 +28,8 @@ as a code host's billing or what its workflows can see, are in
   such as Claude Code on the web starts without the factory, and the
   factory's hooks stop its commands until it is there. Put the install
   line in the setup of the environment the session runs in:
-  `npm install -g @davidbyoung/software-factory`. On GitHub,
+  `npm install -g @davidbyoung/software-factory`. The hooks then run,
+  and the commands that read only the repository work. On GitHub,
   [the reference](github/reference.md#limits) says what still does not
   work there.
 - **A preset names no versions of the factory.** A preset has no version
