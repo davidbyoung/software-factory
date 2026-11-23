@@ -1,76 +1,194 @@
 # Updating
 
 **When a new version is released, a pull request appears in your
-repository. You read it and merge it.** That is all you have to do.
+repository. You read it and merge it.** That is all you have to do, and
+nobody installs anything afterward.
 
-Three releases ask more of you, because they need lines in your
-settings file that it doesn't have: [Moving to settings version
-2](#moving-to-settings-version-2) and [Naming build
-branches](#naming-build-branches), for every repository, and [Naming
-every column](#naming-every-column), for a repository whose settings
-have a [`tickets.board`](configuration.md#tickets). A fourth,
+Four releases ask more of you. One changes how the factory is installed:
+[Moving to one install on your machine](#moving-to-one-install-on-your-machine).
+The others need lines in your settings file that it doesn't have:
+[Moving to settings version 2](#moving-to-settings-version-2) and
+[Naming build branches](#naming-build-branches), for every repository, and
+[Naming every column](#naming-every-column), for a repository whose
+settings have a [`tickets.board`](configuration.md#tickets). A fifth,
 [Labeling your open tickets](#labeling-your-open-tickets), asks nothing
 of most repositories, but is worth reading.
 
 ## What happens
 
-1. Dependabot's weekly run finds the new version and opens one pull
-   request for it, as it does for any package. Its group for the factory
-   ([on GitHub](github/reference.md#dependency-bots)) keeps the pull
-   request to the factory alone.
-2. `factory-deps`, which already looks after Dependabot's pull requests,
-   runs `factory sync` on its branch and adds what it wrote as a second
-   commit. Until it has, CI's `factory sync --check` fails.
+Your repository names one exact version of the factory, in three files
+the factory writes and you commit: `.claude/factory.lock`, which also
+holds every setting in effect, and the two workflow files,
+`.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`.
+Every `factory` command run there, on any machine and in the cloud, runs
+that version.
+
+1. The factory's update job runs in your repository three times a day, at
+   01:00, 13:00, and 19:00 UTC. It asks the factory's own repository for
+   its newest release, and when your repository names an older one, it
+   opens one pull request.
+2. That pull request raises the version and holds every file the new
+   version's [`factory sync`](cli.md#setting-up) wrote, the command that
+   writes the factory's files into your repository.
 3. You read it and merge it. It never merges itself, whatever your
    [`auto-merge`](configuration.md#auto-merge) settings allow.
-4. Everyone working on the repository, you included, pulls and runs
-   `npm ci`, as after any dependency change.
+4. The next time anyone runs `factory` in the repository, it downloads
+   that version, once, and says so:
+
+   ```text
+   Downloading the factory 0.3.0, which this repository names. This happens once.
+   ```
+
+The job needs [builds in the cloud](github/setup.md), since it pushes a
+branch and opens a pull request with the build's token. Without them,
+[do it yourself](#doing-it-yourself).
 
 ## What the pull request holds
 
-- **The new version**, in `package.json`, the lockfile, and
-  `.claude/factory.lock`. The lock also holds every setting in effect, so
-  a release that changes a default shows in its diff.
-- **The factory's files, rewritten.** Its skills, agents, rules, and CI
-  workflows live in your repository, so the diff shows exactly which
-  instruction changed.
-- **A comment from `factory-deps`** listing the files the sync changed,
-  and anything the release notes say to do by hand, first.
+- **The new version**, in `.claude/factory.lock`,
+  `.github/workflows/factory.yml`, and
+  `.github/workflows/factory-review.yml`. The lock also holds every
+  setting in effect, so a release that changes a default shows in its
+  diff.
+- **The factory's files, rewritten.** Its skills, agents, and rules live
+  in your repository, so the diff shows exactly which instruction
+  changed.
+- **A description** that names the two versions, lists the other files
+  the sync changed, and links the release's notes, which say first
+  anything to do by hand:
+
+  ```text
+  The factory 0.2.0 → 0.3.0
+
+  Changes here:
+  - .claude/skills/factory-build/SKILL.md, rewritten
+  - .claude/factory/rules.md, rewritten
+  - .github/workflows/factory.yml, rewritten
+  - .github/workflows/factory-review.yml, rewritten
+
+  Release notes: https://github.com/davidbyoung/software-factory/releases/tag/v0.3.0
+  ```
 
 An update changes the instructions your sessions follow and the code that
 runs with your tokens. Read it as carefully as you would read code.
 
-A new version of a [preset](presets.md) arrives the same way, with a
-comment saying what it changes in this repository:
+A change to a [preset](presets.md) arrives the same way, as a pull
+request of its own:
 [When a preset changes](presets.md#when-a-preset-changes).
 
 ## Doing it yourself
 
-To update now instead of waiting for Dependabot:
+To update now instead of waiting for the job, or in a repository without
+builds in the cloud:
 
 ```bash
-npm install --save-dev @davidbyoung/software-factory@latest
-factory sync
+factory update
 ```
 
-Commit both on a branch and open a pull request. To see whether you are
-behind without changing anything:
+It raises the repository to the newest release of the factory and moves
+each preset to its newest commit, then syncs:
 
-```bash
-factory doctor
+```text
+The factory 0.2.0 → 0.3.0
+acme/factory-config 3f2a91c → 8d04e7b
+acme/factory-config//node is at its newest commit, 3f2a91c.
+✓ Wrote 9 files. Commit them on a branch and open a pull request.
+```
+
+With nothing to do, it changes nothing:
+
+```text
+✓ Nothing to update: the factory is 0.3.0, the newest release, and both presets are at their newest commits.
+```
+
+To see whether you are behind without changing anything, run
+`factory doctor`. When you are, its line for the factory reads:
+
+```text
+? The factory 0.2.0. 0.3.0 is released: merge its pull request, or run factory update
 ```
 
 ## Staying on a version, or going back
 
-- **To stay where you are,** close the update pull request. Dependabot
-  opens a new one for the next release.
+- **To stay where you are,** close the update's pull request. The job
+  does not open it again, and opens a new one for the next release.
 - **To go back,** revert the update's pull request. The version and the
-  files go back together.
+  files go back together, and `factory` runs the older version again.
+  The job does not open that version again either. It opens a pull
+  request for the next release, and `factory update` takes you to the
+  newest whenever you choose.
 
-## Without Dependabot
+## The `factory` command on your machine
 
-Update by hand as above. `factory-deps` and its workflows are written only
-once `.github/dependabot.yml` exists.
+The command you installed once, in the [quick start](quick-start.md#1-install),
+only starts the version each repository names
+([Which version runs](cli.md#which-version-runs)), so it rarely needs
+updating itself. It keeps each version it downloads in
+`~/.cache/software-factory/`, or under `$XDG_CACHE_HOME` when that is
+set, and the folder is safe to delete. Update it when you set a new
+repository up, since `factory init` sets a repository up with the
+version installed:
+
+```bash
+npm install -g @davidbyoung/software-factory@latest
+```
+
+## Moving to one install on your machine
+
+This is for a repository whose `package.json` lists
+`@davidbyoung/software-factory`. Each such repository installed the
+factory for itself and holds about ten workflow files. Now the factory
+is installed once on a machine, and a repository holds two. The update
+job does not make this move: close the pull request Dependabot opens for
+this release, and do these steps in the repository's checkout.
+
+1. **Install the factory on your machine,** and take it out of the
+   repository:
+
+   ```bash
+   npm install -g @davidbyoung/software-factory@latest
+   npm uninstall @davidbyoung/software-factory
+   ```
+
+2. **If you follow a preset,** it was an npm package and is now a
+   repository. Put what the package held, its `factory-preset.yaml`,
+   `agents/`, and `skills/`, at the root of a repository on your code
+   host ([Writing a preset](presets.md#writing-a-preset)). Then
+   `npm uninstall` the package, and delete its name from
+   [`presets`](configuration.md#presets) in `.claude/factory.yaml`.
+3. **Update:**
+
+   ```bash
+   factory update
+   ```
+
+   ```text
+   The factory 0.1.15 → 0.3.0
+   ✓ Wrote 21 files and deleted 12. Commit them on a branch and open a pull request.
+   ```
+
+   It writes `.github/workflows/factory.yml` and
+   `.github/workflows/factory-review.yml`, deletes the workflow files
+   they replace, and rewrites the factory's other files.
+
+4. **Add the preset again,** by its repository's name, with
+   [`factory preset add`](presets.md#adding-a-preset).
+5. **Tidy what the old install left:**
+   - If nothing is left in `package.json`, delete it, with
+     `package-lock.json` and the `node_modules/` line in `.gitignore`.
+   - If `.github/dependabot.yml` has a group for the factory or for a
+     preset, delete the group, and its name from any other group's
+     `exclude-patterns`. Dependabot no longer sees either.
+     [Dependency bots](github/reference.md#dependency-bots) has the one
+     line to add when Dependabot updates your workflow files.
+6. **Commit all of it on a branch,** and open a pull request.
+
+**It worked when** the pull request's checks pass, and `factory doctor`
+shows the version the repository names:
+
+```text
+✓ The factory 0.3.0, the newest release
+```
 
 ## Moving to settings version 2
 
@@ -82,8 +200,8 @@ Until you do, every command that reads the settings stops with:
 .claude/factory.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md
 ```
 
-So `factory-deps` cannot run `factory sync` on that release's pull request,
-and its checks fail until the file is moved. On the pull request's branch:
+So `factory update` cannot sync to that release until the file is moved.
+On a branch:
 
 1. Edit `.claude/factory.yaml` as the table and the example below show.
    A row applies only when your file has that key.
@@ -92,10 +210,9 @@ and its checks fail until the file is moved. On the pull request's branch:
    `CLAUDE.md` names as the check before a task is done, usually what CI
    runs, such as `npm run check`.
 3. Once `commands.gate` holds the gate, change the gate's prose in your
-   `CLAUDE.md` to point at `npx --no-install factory gate`, so the two
-   cannot differ.
-4. Run `factory config check`, then `factory sync`, and commit what
-   changed.
+   `CLAUDE.md` to point at `factory gate`, so the two cannot differ.
+4. Run `factory update` again, then `factory config check`, and commit
+   what changed.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory sync --check` passes.
@@ -234,14 +351,11 @@ stops with one of these, the second naming the states you left out:
 .claude/factory.yaml: tickets.columns: building and done have no column: give each a column, a list of columns, or none, or run factory init to choose them
 ```
 
-So on the factory's update pull request, `factory-deps`, which opens
-and finishes it ([What happens](#what-happens)), cannot run
-`factory sync`. It stops and opens an issue in your repository quoting
-the line. Check out the pull request's branch, and from your
-repository's root run:
+So the update to that release cannot sync: `factory update`
+([Doing it yourself](#doing-it-yourself)) stops with the same line. On a
+branch, from your repository's root, run:
 
 ```bash
-gh pr checkout 123   # the update pull request's number
 factory init
 ```
 
@@ -276,10 +390,9 @@ out, the factory used the name in the table in
 to keep things as they were. If your board has no column of that name,
 write one of your columns, or `none`.
 
-Then run `factory sync`, which rewrites the factory's files for the new
-version, commit what changed, `.claude/factory.yaml` included, and push.
-The pull request's checks run again, and you close the issue
-`factory-deps` opened.
+Then run `factory update` again, which rewrites the factory's files for
+the new version, commit what changed, `.claude/factory.yaml` included,
+and open a pull request.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory sync --check` passes.
@@ -299,13 +412,10 @@ session chose. The pattern you choose names new builds only: branches
 already pushed keep their names, and their pull requests carry on as
 before.
 
-So on the factory's update pull request, `factory-deps` cannot run
-`factory sync`. It stops and opens an issue in your repository quoting
-the line. Check out the pull request's branch, and from your
-repository's root run:
+So the update to that release cannot sync: `factory update` stops with
+the same line. On a branch, from your repository's root, run:
 
 ```bash
-gh pr checkout 123   # the update pull request's number
 factory init
 ```
 
@@ -326,9 +436,8 @@ code-host:
 ```
 
 Keep the quotes: without them, YAML reads `{ticket}` as a map rather
-than as text. Then run `factory sync`, commit what changed,
-`.claude/factory.yaml` included, and push. The pull request's checks run
-again, and you close the issue `factory-deps` opened.
+than as text. Then run `factory update` again, commit what changed,
+`.claude/factory.yaml` included, and open a pull request.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory ticket branch 12` prints the
@@ -338,31 +447,9 @@ branch a build of ticket 12 would push.
 
 From this release the factory works only on tickets with its label
 ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
-Before it, every open ticket was the factory's, so the update labels
-each open ticket, and no card changes column. With Dependabot, the
-update does it for you. Without it, you run one command before you
-merge, below.
-
-`factory-deps` labels them on the update pull request, before you
-merge, and says so in the comment that lists the files the sync
-changed:
-
-```text
-Labeled 14 open tickets factory. From this version the factory acts
-only on tickets with that label. Every open ticket had it in effect
-before, so nothing moves. Remove the label from any ticket the factory
-shouldn't touch: #4, #31, #35, #40, #41, #44, #47, #50, #51, #53, #54,
-#57, #61, #63.
-```
-
-Read the list. For a ticket the factory shouldn't touch, remove the
-label in your ticket system, before or after you merge: the factory then
-leaves it where it is. Only the first update that has the label labels
-anything, so a ticket you took the label off stays without it.
-
-If you update without Dependabot, as [Without
-Dependabot](#without-dependabot) describes, run this on the branch that
-installs the new version, after `factory sync`, before you merge:
+Before it, every open ticket was the factory's, so you label each open
+ticket once, before you merge the update, and no card changes column.
+Run this on the update's branch, after `factory update`:
 
 ```console
 $ factory ticket adopt --all-open
@@ -372,6 +459,10 @@ labeled #4, #31, #35, #40, #41, #44, #47, #50, #51, #53, #54, #57, #61, #63
 
 Running it again labels nothing, and says
 `✓ 14 open tickets carry factory; none needed it`.
+
+Read the list. For a ticket the factory shouldn't touch, remove the
+label in your ticket system, before or after you merge: the factory then
+leaves it where it is.
 
 If you renamed the label under
 [`tickets.labels`](configuration.md#ticketslabels) and host your own
@@ -402,43 +493,47 @@ use, and writes your answer; choosing OpenSpec installs it.
 
 ## The commands
 
-| Command          | When                                                       |
-| ---------------- | ---------------------------------------------------------- |
-| `factory sync`   | After you edit `.claude/factory.yaml`, to apply the change |
-| `factory doctor` | To see whether you are behind, or why something is off     |
+| Command          | When                                                           |
+| ---------------- | -------------------------------------------------------------- |
+| `factory update` | To move to the newest release now, without waiting for the job |
+| `factory sync`   | After you edit `.claude/factory.yaml`, to apply the change     |
+| `factory doctor` | To see whether you are behind, or why something is off         |
 
-`factory sync` rewrites the factory's files to match your
-settings and the installed version.
+`factory sync` rewrites the factory's files to match your settings and
+the version your repository names. It never changes that version:
+`factory update` does.
 
 ## On a team
 
 Decide who merges updates, and tell them these pull requests are theirs.
 An update changes how everyone's sessions behave, so one person should
-read each one. After it merges, everyone pulls and runs `npm ci`. Until
-they do, `factory doctor` and the start of each session
-tell them their installed version is behind the repository's; the
-session's start also says so, naming `npm ci`, when `node_modules` does
-not match `package-lock.json`.
+read each one. After it merges, everyone pulls, and the next `factory`
+command each person runs downloads the new version, once. Nobody
+installs anything, and nobody can be left on an older version than the
+repository names.
 
 ## When something goes wrong
 
-| What you see                                                                          | What happened                                                         | What to do                                                                 |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| CI fails with "of the factory's files don't match the settings"                       | A factory file was edited by hand, or settings changed without a sync | Run `factory sync` and commit the result                                   |
-| `factory doctor` says your installed version is older than the repository's           | You pulled an update and have not installed it                        | Run `npm ci`                                                               |
-| A command stops with `version: must be 2`                                             | The update changed the shape of the settings file                     | [Move the file](#moving-to-settings-version-2)                             |
-| A command stops with `tickets.columns: is required` or `have no column`               | The update needs a column named for every state                       | [Name every column](#naming-every-column)                                  |
-| A command stops with `code-host.branch-name: is required`                             | The update needs the pattern a build names its branch by              | [Name build branches](#naming-build-branches)                              |
-| A command stops with `.claude/factory.lock is from an earlier version of the factory` | The update's sync has not run on this checkout                        | Run `factory sync` and commit the result                                   |
-| A command stops with `.claude/factory.yaml changed since the last sync`               | The settings changed without a sync                                   | Run `factory sync` and commit the result                                   |
-| The update pull request conflicts with your default branch                            | Something else changed the same file                                  | `factory-deps` resolves it on its next run, or close it and update by hand |
-| `factory status` leaves out a ticket you expected                                     | It doesn't carry the factory label                                    | Add the label, or run `factory ticket adopt N`                             |
+| What you see                                                                                   | What happened                                                                                     | What to do                                                                               |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| CI fails with "of the factory's files don't match the settings"                                | A factory file was edited by hand, or settings changed without a sync                             | Run `factory sync` and commit the result                                                 |
+| A command stops with `This repository names the factory 0.3.0, and it could not be downloaded` | npm could not fetch that version, and the line ends with npm's reason                             | Fix what npm names, such as the network or a registry setting, and run the command again |
+| A command stops with `.claude/factory.lock names the factory ..., which is not a release`      | The lock's `version` line holds something other than a released version, as after an edit by hand | Run `factory update`                                                                     |
+| A session's commands stop with `The factory is not installed on this machine`                  | This machine has no `factory` command                                                             | Install it once, as the line says: `npm install -g @davidbyoung/software-factory`        |
+| A command stops with `version: must be 2`                                                      | The update changed the shape of the settings file                                                 | [Move the file](#moving-to-settings-version-2)                                           |
+| A command stops with `tickets.columns: is required` or `have no column`                        | The update needs a column named for every state                                                   | [Name every column](#naming-every-column)                                                |
+| A command stops with `code-host.branch-name: is required`                                      | The update needs the pattern a build names its branch by                                          | [Name build branches](#naming-build-branches)                                            |
+| A command stops with `.claude/factory.lock is from an earlier version of the factory`          | The update's sync has not run on this checkout                                                    | Run `factory sync` and commit the result                                                 |
+| A command stops with `.claude/factory.yaml changed since the last sync`                        | The settings changed without a sync                                                               | Run `factory sync` and commit the result                                                 |
+| The update pull request conflicts with your default branch                                     | Something else changed the same file                                                              | Close it, and run `factory update` on a new branch                                       |
+| `factory status` leaves out a ticket you expected                                              | It doesn't carry the factory label                                                                | Add the label, or run `factory ticket adopt N`                                           |
 
 ## Never edit a factory file
 
 Every file named `factory-...`, and the factory's rules, are written by
 the factory. An edit made to one would be lost on the next update, so CI
-fails when one differs from what the installed version would write.
+fails when one differs from what the version your repository names would
+write.
 
 To change what the factory does:
 

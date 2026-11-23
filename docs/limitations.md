@@ -20,8 +20,23 @@ as a code host's billing or what its workflows can see, are in
   either; the design leaves room. The skills are written for one coding
   agent, Claude Code. [The glossary](glossary.md) says which tool each
   word means today.
-- **It needs Node and a `package.json`,** even in a repository written in
-  another language.
+- **It needs Node on each machine,** 22.18 or later, even for a
+  repository written in another language. Nothing of Node's goes in the
+  repository
+  ([A repository that is not JavaScript](existing-repo.md#a-repository-that-is-not-javascript)).
+- **A cloud session of your coding agent's own is a machine too.** One
+  such as Claude Code on the web starts without the factory, and the
+  factory's hooks stop its commands until it is there. Put the install
+  line in the setup of the environment the session runs in:
+  `npm install -g @davidbyoung/software-factory`. On GitHub,
+  [the reference](github/reference.md#limits) says what still does not
+  work there.
+- **A preset names no versions of the factory.** A preset has no version
+  of its own, and says nowhere which factory it was written for. One
+  that uses a setting your version does not know stops
+  `factory preset add`, and fails the check on its update's pull
+  request, with that setting's name
+  ([Writing a preset](presets.md#making-the-repository)).
 - **A build never changes the coding agent's settings files,** which hold
   the hooks that guard the run. It may write the factory's other files
   there. A change to those settings is a person's to make.
@@ -49,11 +64,11 @@ as a code host's billing or what its workflows can see, are in
   asks the code host, so a stale one gives a stale answer: the commit hook
   then guards the old branch and not the new one. After the rename, run
   that command in each checkout, then `factory sync`, which writes the
-  name into two workflows.
+  name into `.github/workflows/factory.yml`.
 - **One lock file is rebuilt for you after a conflict,** the one
   [`commands.relock`](configuration.md#commandsrelock) rebuilds, npm's by
-  default. A second, such as another package manager's beside the
-  factory's own, needs a [resolver](plugins.md#resolver) of yours.
+  default. A second, such as another package manager's beside npm's,
+  needs a [resolver](plugins.md#resolver) of yours.
 - **On a board with no refining column, a ticket cannot be sent back to the
   backlog by moving its card.** The card already shows in the backlog column
   while a ticket is being refined, so the move says nothing.
@@ -90,7 +105,7 @@ as a code host's billing or what its workflows can see, are in
   person's, but the factory has only run against a person's.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
-- **A factory update reaching a repository through its dependency bot.**
+- **A factory update reaching a repository through the update job.**
 - **Glob patterns standing in for today's regular expressions** in the
   merge policy. They could match differently. The switch compares the old and new
   decision on recent pull requests.

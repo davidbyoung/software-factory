@@ -227,10 +227,12 @@ does the migration a major version asks for, and opens a ticket for
 anything it cannot fix.
 
 **When to use it.** When dependency pull requests are stuck, or from the
-job in the cloud that runs it for you. It is written, with its two
-workflows, only to a repository that has a `.github/dependabot.yml`. A
+job in the cloud that runs it for you. It is written, and its two jobs
+run, only in a repository that has a `.github/dependabot.yml`. A
 security update GitHub opens in a repository without that file waits for
-you: nothing moves it along or lets it merge itself.
+you: nothing moves it along or lets it merge itself. An update of the
+factory itself, or of a preset, is not Dependabot's: the factory's own
+update job opens it ([Updating](updating.md)).
 
 **What it never does.** Merge. Make only the changes CI caught when a
 migration guide calls for more.

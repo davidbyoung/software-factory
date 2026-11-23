@@ -1,19 +1,22 @@
 # What it changes, and removing it
 
 What the factory adds to your repository, your code host, and your board,
-and how to undo it. Read this before you install, and again if you decide
-to take it out. On GitHub with Claude Code,
+and how to undo it. Read this before you set it up, and again if you
+decide to take it out. On GitHub with Claude Code,
 [the reference](github/reference.md#what-setup-adds) names every file,
 hook, label, and setting.
 
 ## What it adds
 
 - **In your repository:** its settings file, `.claude/factory.yaml`, and a
-  lock file beside it; its own skills, agents, rules, and CI workflows, all
-  named `factory-...`; one line in your agent's instructions file that
+  lock file beside it; its own skills, agents, and rules, all named
+  `factory-...`; two CI workflow files, `factory.yml` and
+  `factory-review.yml`; one line in your agent's instructions file that
   imports its rules; and a few hooks in your agent's settings that guard
-  every session. If you had no `package.json`, you made a small one to install the factory
-  with.
+  every session. Nothing is installed there: no `package.json` entry and
+  no `node_modules/`.
+- **On your machine:** the `factory` command, installed once, and the
+  versions of the factory it downloads, in `~/.cache/software-factory/`.
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
@@ -31,8 +34,9 @@ Your code, your tickets, and your pull requests. Your own skills, agents,
 plugins, and CI workflows, which the factory never writes to.
 
 One file belongs to you, and removing the factory leaves it: the review
-notes you write for the automated review. The review's workflow is the
-factory's: every sync rewrites it, and removing the factory deletes it.
+notes you write for the automated review. The two workflow files are
+the factory's: every sync rewrites them, and removing the factory
+deletes them.
 
 ## Removing it
 
@@ -40,18 +44,7 @@ factory's: every sync rewrites it, and removing the factory deletes it.
 factory remove
 ```
 
-```bash
-npm uninstall @davidbyoung/software-factory
-```
-
-If you installed the `factory` command on your machine and no longer want
-it anywhere:
-
-```bash
-npm uninstall -g @davidbyoung/software-factory
-```
-
-The first command shows every file it will delete or change and asks
+It shows every file it will delete or change and asks
 before changing anything. It then deletes the factory's files, takes its
 hooks and its import line out of the files it shares with your coding
 agent, and prints what is left outside the repository for you to remove by
@@ -63,14 +56,22 @@ commits nothing. Review the changes, commit them on a branch, and merge.
 If your settings file is gone or cannot be read, it says so, removes what
 it finds, and names what the tools it ships with leave behind.
 
-It leaves `package.json`, `package-lock.json`, `node_modules/` in your
-`.gitignore`, and the setting that turns off your agent's lines naming
-itself in commits and pull requests. The second command takes the
-factory's entry out of `package.json`; delete the rest if nothing else
-uses them, as [the reference](github/reference.md#what-setup-adds) says
-for each. If you delete `package.json` and remove the `.gitignore` line,
-delete the `node_modules/` folder too, and any file setup made that is now
-empty, such as `.gitignore` or `.claude/settings.json`.
+It leaves the setting that turns off your agent's lines naming itself in
+commits and pull requests, as
+[the reference](github/reference.md#what-setup-adds) says. If setup
+installed a spec tool with npm, it also leaves that tool's
+`package.json` entry and the `node_modules/` line in your `.gitignore`:
+remove them with npm if nothing else uses them.
+
+The `factory` command stays on your machine, for your other
+repositories. If you no longer want it anywhere:
+
+```bash
+npm uninstall -g @davidbyoung/software-factory
+```
+
+Then delete `~/.cache/software-factory/`, where it kept each version it
+downloaded.
 
 ## Before you remove it
 
@@ -93,5 +94,5 @@ Each optional part can be turned off by itself. Remove its key from
 factory sync
 ```
 
-That deletes the CI workflows only that part uses. Delete its secret
-afterward.
+That turns the part's job off in the two workflow files. Delete its
+secret afterward.

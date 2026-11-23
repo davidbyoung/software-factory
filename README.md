@@ -4,7 +4,8 @@
 
 > **Early, and not yet for general use.** This is below 1.0: it changes
 > weekly, and any minor version may break what the one before it did,
-> without notice. Pin an exact version if you try it.
+> without notice. A repository stays on one exact version until you merge
+> an update.
 
 You already ask an AI assistant to write code. The hard part is everything
 around it: saying clearly what you want, checking it built that, getting it
@@ -77,8 +78,8 @@ added without changing the rest. Today each has one choice:
 
 [The quick start](docs/quick-start.md) takes you from nothing to a first
 built pull request. Refining and building a ticket on your machine needs
-only the package: no board, no secrets, and nothing to host. Everything
-else is optional and comes later.
+only the `factory` command, installed once: no board, no secrets, and
+nothing to host. Everything else is optional and comes later.
 
 ## What it holds to
 

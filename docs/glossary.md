@@ -53,9 +53,10 @@ other session builds the same one.
 machine. You start one with a command, or by moving a ticket to Ready on
 your board.
 
-**Copied files.** The factory's skills, agents, rules, and CI workflows,
-written into your repository by `factory sync`. You do not
-edit them.
+**Copied files.** The factory's skills, agents, and rules, written into
+your repository by `factory sync`. You do not edit them. The same
+command writes two short CI workflow files, which call the factory's own
+jobs at the version your repository names.
 
 **Default branch.** The branch your pull requests merge into, often
 called `main`. The factory reads its name from your checkout or your code
@@ -79,9 +80,10 @@ commits.
 **Local session.** A session on your own machine.
 
 **Lock.** The file `.claude/factory.lock`, which `factory sync` writes:
-the factory's version, the presets, every setting in effect, and the files
-it copied. Every command reads its settings from it. You commit it and
-never edit it.
+the factory's version, each preset and the commit it is pinned to, every
+setting in effect, and the files it copied. Every command reads its
+settings from it, and the `factory` command runs the version it names.
+You commit it and never edit it.
 
 **Marker.** A hidden line in a comment the factory posts on a ticket,
 recording what happened. The board is worked out from these.
@@ -95,10 +97,11 @@ does, in the repository. Optional.
 build for each ticket moved to Ready, on a server you host or on a
 schedule in the cloud.
 
-**Preset.** An npm package of settings, and of any agents and skills they
-name, that several repositories share. A repository lists it under
-[`presets`](configuration.md#presets), and `factory sync` combines it with
-the repository's own settings. [Presets](presets.md) says how.
+**Preset.** A folder of settings in a repository on your code host, with
+any agents and skills they name, that several repositories share. A
+repository lists it under [`presets`](configuration.md#presets), and
+`factory sync` combines it with the repository's own settings.
+[Presets](presets.md) says how.
 
 **Refine.** To turn a ticket into acceptance criteria, settling the
 decisions with you along the way.

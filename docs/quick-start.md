@@ -16,22 +16,21 @@ A word you do not know is in the [glossary](glossary.md).
 - Node 22.18 or later.
 
 [What you need](github/setup.md#what-you-need) names the supported tools
-and how to check each. A repository with no `package.json` works too:
-[read this first](existing-repo.md#a-repository-that-is-not-javascript).
+and how to check each. Your repository can be written in any language:
+[A repository that is not JavaScript](existing-repo.md#a-repository-that-is-not-javascript)
+says what that takes.
 
 ## 1. Install
 
-Once on your machine, so you can type `factory`:
+Once on your machine, for every repository you use it in:
 
 ```bash
 npm install -g @davidbyoung/software-factory
 ```
 
-Then in your repository, which keeps its own version:
-
-```bash
-npm install --save-dev @davidbyoung/software-factory
-```
+Nothing is installed in your repository. Once it is set up, it names the
+version of the factory it uses, and `factory` runs that version there
+([Updating](updating.md#what-happens)).
 
 **It worked when** `factory`, run in your repository, prints the list of
 its commands.
