@@ -370,6 +370,11 @@ Each line gets a verdict, as a review finding does:
 "It's only a few lines" is not a reason. Neither is the percentage: the bar
 is whether a regression would go unnoticed, not the number.
 
+**On a small change** ("Small changes" in `.claude/factory/rules.md`),
+list the uncovered lines and give no verdict that asks for a test: the
+small path gives a bug fix one test that reproduces the defect, and any
+other small change one that checks it, and that test stands.
+
 A test written for a coverage line follows the same rules as any other. It
 asserts behavior, not that the line ran, and it fails when the code it covers
 is broken, which the prover, the skill
