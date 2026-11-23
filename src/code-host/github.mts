@@ -359,6 +359,14 @@ async function found<T>(what: string, call: Promise<T>): Promise<T> {
   }
 }
 
+/** One Actions policy: which workflow files it covers, and its rules. */
+type EventPolicy = {
+  conditions?: {
+    workflow_path?: { include: string[]; exclude: string[] };
+  } | null;
+  rules?: { type: string; parameters?: { allowed_events?: string[] } }[] | null;
+};
+
 export function githubCodeHost(o: {
   transport: Transport;
   repository: string;
@@ -384,6 +392,15 @@ export function githubCodeHost(o: {
     return fromGraph(result.data.repository.pullRequest.reviewThreads.nodes);
   }
 
+  /** A repository's Actions policies, as its list names them: what each
+   * holds is on its own page. */
+  const policies = async () =>
+    (
+      await t.rest<{
+        policies: { id: number; name: string; enforcement: string }[];
+      }>("GET", `${API}/actions/policies?per_page=100`)
+    ).policies;
+
   return {
     get: async (n) =>
       pullOf(
@@ -398,6 +415,26 @@ export function githubCodeHost(o: {
       });
       return made.number;
     },
+    async close(pull) {
+      await t.rest("PATCH", `${API}/pulls/${pull}`, {
+        fields: { state: "closed" },
+      });
+    },
+    // The newest release that is neither a draft nor a prerelease.
+    async newestRelease(repository) {
+      try {
+        const release = await t.rest<{ tag_name: string }>(
+          "GET",
+          `repos/${repository}/releases/latest`,
+        );
+        return release.tag_name;
+      } catch (error) {
+        if (statusOf(error) === 404) return null;
+        throw error;
+      }
+    },
+    releasePage: (repository, tag) =>
+      `https://github.com/${repository}/releases/tag/${tag}`,
     listOpen: async () =>
       (await list<RestPull>(`${API}/pulls?state=open&per_page=100`)).map(
         pullOf,
@@ -737,6 +774,53 @@ export function githubCodeHost(o: {
           ],
         },
       });
+    },
+    async eventAllowed(file, event) {
+      if ((await t.rest<{ private: boolean }>("GET", API)).private)
+        return "open";
+      for (const { id, enforcement } of await policies()) {
+        if (enforcement !== "active") continue;
+        const policy = await t.rest<EventPolicy>(
+          "GET",
+          `${API}/actions/policies/${id}`,
+        );
+        const path = policy.conditions?.workflow_path;
+        const covers =
+          !path ||
+          ((path.include.length === 0 ||
+            path.include.includes("~ALL") ||
+            path.include.includes(file)) &&
+            !path.exclude.includes(file));
+        const lists = (policy.rules ?? []).some(
+          (rule) =>
+            rule.type === "restrict_action_events" &&
+            rule.parameters?.allowed_events?.includes(event),
+        );
+        if (covers && lists) return "allowed";
+      }
+      return "blocked";
+    },
+    // The rule lets through only the events it lists, so a policy for
+    // every workflow would stop the repository's others: it names the file.
+    async allowEvents(rule, file, events) {
+      const existing = (await policies()).find((p) => p.name === rule);
+      await t.rest(
+        existing ? "PUT" : "POST",
+        `${API}/actions/policies${existing ? `/${existing.id}` : ""}`,
+        {
+          body: {
+            name: rule,
+            enforcement: "active",
+            conditions: { workflow_path: { include: [file], exclude: [] } },
+            rules: [
+              {
+                type: "restrict_action_events",
+                parameters: { allowed_events: events },
+              },
+            ],
+          },
+        },
+      );
     },
     async addSigningKey(title, key) {
       try {

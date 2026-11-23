@@ -173,6 +173,8 @@ type Setup = {
   boards?: { number: number; title: string; columns: string[] }[];
   signingNeedsScope?: boolean;
   rulesRefused?: string;
+  eventsHeld?: boolean;
+  eventsRefused?: string;
   createRefused?: string;
   files?: Record<string, string>;
   tokens?: Record<string, { account: string; scopes: string[] | null }>;
@@ -268,6 +270,8 @@ function init(setup: Setup) {
     },
     signingNeedsScope: setup.signingNeedsScope,
     rulesRefused: setup.rulesRefused,
+    eventsHeld: setup.eventsHeld,
+    eventsRefused: setup.eventsRefused,
     isPrivate: setup.private,
     defaultBranch: setup.defaultBranch ?? undefined,
     ownerIsOrganization: setup.organization,
@@ -1260,6 +1264,52 @@ describe("factory init, repository rules", () => {
       'Could not require "Review verdict": Upgrade to GitHub Pro or make this repository public',
     );
     expect(r.out.join("\n")).toContain("Every check passed");
+  });
+});
+
+describe("factory init, the events the factory's workflow starts on", () => {
+  const ROW =
+    '  Policy   Let .github/workflows/factory.yml run on pull_request_target, as the policy "Software factory"';
+  const answers = { checkbox: [[]], confirm: [true] };
+
+  it("plans the policy and adds it where the code host holds the event back", async () => {
+    const r = init({ eventsHeld: true, answers });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(ROW);
+    expect(r.out).toContain(
+      "✓ Allowed pull_request_target for .github/workflows/factory.yml.",
+    );
+    expect(r.out.indexOf(ROW)).toBeLessThan(
+      r.out.indexOf(
+        "✓ Allowed pull_request_target for .github/workflows/factory.yml.",
+      ),
+    );
+    expect(
+      await r.host.codeHost.eventAllowed(
+        ".github/workflows/factory.yml",
+        "workflow_run",
+      ),
+    ).toBe("allowed");
+  });
+
+  it("leaves it to do by hand, saying where, when the policy cannot be added", async () => {
+    const r = init({
+      eventsHeld: true,
+      eventsRefused: "Resource not accessible",
+      answers,
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).not.toContain("✓ Allowed pull_request_target");
+    expect(r.out.join("\n")).toMatch(
+      /\d+\. Let \.github\/workflows\/factory\.yml run on pull_request_target: your repository's Settings, Actions, Policies/,
+    );
+  });
+
+  it("plans nothing where the code host holds nothing back", async () => {
+    const r = init({ answers });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).not.toContain("Policy");
+    expect(r.host.log.filter((l) => l.startsWith("allowEvents"))).toEqual([]);
   });
 });
 

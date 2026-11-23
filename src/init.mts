@@ -80,6 +80,7 @@ import {
   type Part,
 } from "./parts.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
+import { FACTORY_EVENTS, FACTORY_FILE, HELD_EVENT } from "./workflow-files.mts";
 import {
   RULE,
   type Check,
@@ -1007,6 +1008,17 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       "Rules",
       `Require "${REVIEW_VERDICT}" before a merge to the default branch, as the rule "${RULE}"`,
     );
+  // A code host may hold a workflow's events back in a repository anyone
+  // can read. One that cannot say gets no row, and doctor's line instead.
+  const eventsHeld =
+    (await codeHost
+      .eventAllowed(FACTORY_FILE, HELD_EVENT)
+      .catch(() => null)) === "blocked";
+  if (eventsHeld)
+    planRow(
+      "Policy",
+      `Let ${FACTORY_FILE} run on ${HELD_EVENT}, as the policy "${RULE}"`,
+    );
   if (installing)
     planRow(
       "Install",
@@ -1241,11 +1253,22 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         ),
       );
 
+  let eventsLeft: string | null = null;
+  if (eventsHeld)
+    await codeHost.allowEvents(RULE, FACTORY_FILE, FACTORY_EVENTS).then(
+      () => d.out(`✓ Allowed ${HELD_EVENT} for ${FACTORY_FILE}.`),
+      (e) => {
+        d.out(`Could not allow ${HELD_EVENT}: ${message(e)}. Carrying on.`);
+        eventsLeft = `Let ${FACTORY_FILE} run on ${HELD_EVENT}: your repository's Settings, Actions, Policies`;
+      },
+    );
+
   // What is left for you.
   d.out("");
   if (deletable.length)
     d.out(`You can now delete these secrets: ${deletable.join(", ")}`);
   const left: string[] = installFailed ? [installFailed] : [];
+  if (eventsLeft) left.push(eventsLeft);
   const app = codeHost.reviewAppPage();
   if (parts.has("review") && app)
     left.push(`Install the app the review posts through: ${app}`);

@@ -68,6 +68,13 @@ export type MemoryCodeHostOptions = {
   signingNeedsScope?: boolean;
   /** Why requiring a check fails, as for a plan without rulesets. */
   rulesRefused?: string;
+  /** Whether the code host holds a workflow's events back until a policy
+   * lets them through, as for a repository anyone can read. */
+  eventsHeld?: boolean;
+  /** Why letting a workflow start on its events fails. */
+  eventsRefused?: string;
+  /** The newest release's tag, by repository. */
+  releases?: Record<string, string>;
   /** When a comment is posted, for its createdAt. */
   now?: () => string;
 };
@@ -84,6 +91,7 @@ export function memoryCodeHost(
   const settings = {
     autoMerge: false,
     rules: [] as { name: string; check: string }[],
+    events: [] as { rule: string; file: string; events: string[] }[],
     signingKeys: [] as { title: string; key: string }[],
     signingNeedsScope: options.signingNeedsScope ?? false,
   };
@@ -204,6 +212,16 @@ export function memoryCodeHost(
     },
     // A list does not work out whether each one merges, on GitHub or here:
     // a command reads that with `get`.
+    async close(n) {
+      called("close", String(n));
+      get(n).state = "closed";
+    },
+    async newestRelease(repository) {
+      called("newestRelease", repository);
+      return options.releases?.[repository] ?? null;
+    },
+    releasePage: (repository, tag) =>
+      `https://code.example/${repository}/releases/${tag}`,
     async listOpen() {
       called("listOpen");
       return [...pulls.values()]
@@ -443,6 +461,23 @@ export function memoryCodeHost(
       if (options.rulesRefused) throw new Error(options.rulesRefused);
       if (!settings.rules.some((r) => r.name === rule))
         settings.rules.push({ name: rule, check });
+    },
+    async eventAllowed(file, event) {
+      called("eventAllowed", file, event);
+      if (!options.eventsHeld) return "open";
+      return settings.events.some(
+        (e) => e.file === file && e.events.includes(event),
+      )
+        ? "allowed"
+        : "blocked";
+    },
+    async allowEvents(rule, file, events) {
+      called("allowEvents", rule, file);
+      if (options.eventsRefused) throw new Error(options.eventsRefused);
+      settings.events = [
+        ...settings.events.filter((e) => e.rule !== rule),
+        { rule, file, events: [...events] },
+      ];
     },
     async addSigningKey(title, key) {
       called("addSigningKey", title);

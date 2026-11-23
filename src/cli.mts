@@ -149,6 +149,11 @@ export const COMMANDS: Command[] = [
     run: async (argv) => (await import("./sync.mts")).run(argv),
   },
   {
+    words: ["update"],
+    args: "[--pull-requests]",
+    run: async (argv) => (await import("./update.mts")).run(argv),
+  },
+  {
     words: ["init"],
     args: "",
     run: async (argv) => (await import("./init.mts")).run(argv),
@@ -381,6 +386,10 @@ const USAGE: [string, [string, string][]][] = [
       ["plugins [ROLE]", "List the plugins the factory uses, by role"],
       ["site compare", "Picture a website's pages before and after a change"],
       ["site stop", "End the sites compare --keep left running"],
+      [
+        "update",
+        "Raise the factory and each preset to its newest, without waiting for the job",
+      ],
       ["remove", "Take the factory out of this repository"],
     ],
   ],
@@ -394,7 +403,7 @@ const USAGE: [string, [string, string][]][] = [
         "preset choose KEY PRESET",
         "Record one of those choices without questions",
       ],
-      ["preset check", "Check a preset's own package before publishing it"],
+      ["preset check", "Check a preset's own repository before releasing it"],
       ["preset changes REF", "See what a preset update changed since REF"],
     ],
   ],
