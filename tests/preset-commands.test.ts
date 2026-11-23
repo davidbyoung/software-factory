@@ -658,7 +658,7 @@ describe("factory preset choices and choose", () => {
       [
         "# Written by `factory preset add`, `remove`, and `choices`: which preset",
         "# wins where two presets set the same thing. Change it with",
-        "# `npx --no-install factory preset choices`.",
+        "# `factory preset choices`.",
         `rules.small-change-lines: "${NODE}"`,
         `rules.review-rounds: "${ACME}"`,
         "",
@@ -799,7 +799,7 @@ describe("factory preset changes", () => {
       "- commands.gate, which your .claude/factory.yaml sets",
       "",
       "To choose, on this branch:",
-      "  npx --no-install factory preset choices",
+      "  factory preset choices",
     ]);
   });
 
@@ -841,7 +841,7 @@ describe("factory doctor's preset lines", () => {
     expect(lines).toEqual([
       {
         state: "fail",
-        text: `${ACME} is 1.5.0 in node_modules but 1.4.0 in .claude/factory.lock. Run: npx --no-install factory sync`,
+        text: `${ACME} is 1.5.0 in node_modules but 1.4.0 in .claude/factory.lock. Run: factory sync`,
       },
     ]);
     put(
@@ -855,7 +855,7 @@ describe("factory doctor's preset lines", () => {
     );
     expect(changed[0]).toEqual({
       state: "fail",
-      text: ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync",
+      text: ".claude/factory.yaml changed since the last sync. Run: factory sync",
     });
   });
 });
@@ -899,9 +899,7 @@ describe("the factory-deps skill on a preset update", () => {
     );
     const step = skill.split("## 4. ")[1]!.split("\n## ")[0]!;
     expect(step).toMatch(/^An update of the factory or a preset/);
-    expect(step).toContain("npx --no-install factory sync");
-    expect(step).toContain(
-      "npx --no-install factory preset changes origin/DEFAULT",
-    );
+    expect(step).toContain("factory sync");
+    expect(step).toContain("factory preset changes origin/DEFAULT");
   });
 });

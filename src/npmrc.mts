@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const NPMRC = ".npmrc";
-const SYNC = "npx --no-install factory sync";
+const SYNC = "factory sync";
 const PUBLIC_REGISTRY = "https://registry.npmjs.org/";
 const SIGN_IN = /:(_authToken|_auth|_password|username)$/;
 /** npm's own pattern (`@npmcli/config`'s `env-replace.js`): an odd run of

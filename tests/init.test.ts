@@ -2873,7 +2873,7 @@ describe("the tokens .npmrc reads", () => {
       "  Settings       none yet",
       "  Board          none yet",
       "",
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: npx --no-install factory sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: factory sync",
     ]);
     expect(r.read(".claude/factory.yaml")).toBeNull();
   });

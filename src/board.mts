@@ -13,8 +13,8 @@
 //            writes what changed
 //
 // Locally, to see what it would set without writing anything:
-//   npx --no-install factory board --dry-run
-//   npx --no-install factory board --dry-run --fixture DIR --now ISO
+//   factory board --dry-run
+//   factory board --dry-run --fixture DIR --now ISO
 // The second reads repo.json, as collect saves it, and board.json, the
 // board's recorded GraphQL pages, from DIR instead of GitHub.
 //

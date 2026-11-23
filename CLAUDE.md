@@ -20,7 +20,7 @@ Run the gate before reporting the task as done:
 
 ```bash
 npm run format                  # auto-format with Prettier
-npx --no-install factory gate   # commands.gate in .claude/factory.yaml
+factory gate   # commands.gate in .claude/factory.yaml
 ```
 
 The gate here is `npm run check`: format, types, specs, the factory's
@@ -33,8 +33,8 @@ before every `git commit` and blocks the commit if one fails.
 The other commands the factory's skills run here:
 
 ```bash
-npx --no-install factory test-one PATH "NAME"   # one unit test, by commands.test-one
-npx --no-install factory specs check            # the spec check, after an OpenSpec change
+factory test-one PATH "NAME"   # one unit test, by commands.test-one
+factory specs check            # the spec check, after an OpenSpec change
 npm run pack-check                              # pack, install into an empty repository, and run it there
 npm run site-check                              # the site comparison against the sample sites, with a browser
 ```
@@ -112,11 +112,11 @@ files the factory writes into their repository and where. The text of
 its skills, agents, rules, and review instructions is not spec-tracked,
 since prose has no test to map a scenario to: a change to it goes through
 the fresh-agent trace in "Changing the process" instead. `openspec/specs/` holds a spec for
-each capability a ticket has changed, as `npx --no-install factory specs
+each capability a ticket has changed, as `factory specs
 list` prints them; behavior with none gets one when a ticket next changes
 it. The docs stay the reader's guide, and a spec change updates them in
 the same pull request. The factory's spec check,
-`npx --no-install factory specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
+`factory specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
 itself, and so does the `spec:validate` script the gate and CI run.
 
 ## Refining: this repository

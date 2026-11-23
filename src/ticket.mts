@@ -3,15 +3,15 @@
 // it, check the claim still holds, stop, post a refinement marker, note what
 // the session spent, and add a line to the follow-ups issue.
 //
-//   npx --no-install factory ticket claim N
-//   npx --no-install factory ticket still-live N
-//   npx --no-install factory ticket stop N "one-line reason"
-//   npx --no-install factory ticket end N
-//   npx --no-install factory ticket refining|waiting N
-//   npx --no-install factory ticket refined N [--check] [--before-file FILE]
-//   npx --no-install factory follow-up FILE "what is wrong"
-//   npx --no-install factory ticket ready N
-//   npx --no-install factory ticket cost N
+//   factory ticket claim N
+//   factory ticket still-live N
+//   factory ticket stop N "one-line reason"
+//   factory ticket end N
+//   factory ticket refining|waiting N
+//   factory ticket refined N [--check] [--before-file FILE]
+//   factory follow-up FILE "what is wrong"
+//   factory ticket ready N
+//   factory ticket cost N
 //
 // And the reads and writes the skills make, through the ticket interface
 // (`tickets/`), so no skill calls a ticket system itself:
@@ -799,7 +799,7 @@ const STEPS = new Set([
 ]);
 
 const USAGE =
-  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
+  "Usage: factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
 
 /** The commands that record something on a ticket, after each of which
  * the board sync runs, since no ticket system tells the code host. */

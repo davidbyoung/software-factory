@@ -534,7 +534,7 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps(lock({ hash: settingsHash("old", null) }));
     await stops(
       d,
-      ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync",
+      ".claude/factory.yaml changed since the last sync. Run: factory sync",
     );
   });
 
@@ -545,7 +545,7 @@ describe("reading the settings from the lock", () => {
     });
     await stops(
       d,
-      ".claude/factory.choices.yaml changed since the last sync. Run: npx --no-install factory sync",
+      ".claude/factory.choices.yaml changed since the last sync. Run: factory sync",
     );
   });
 
@@ -557,7 +557,7 @@ describe("reading the settings from the lock", () => {
     });
     await stops(
       d,
-      `${ACME} is 1.5.0 in node_modules but 1.4.0 in .claude/factory.lock. Run: npx --no-install factory sync`,
+      `${ACME} is 1.5.0 in node_modules but 1.4.0 in .claude/factory.lock. Run: factory sync`,
     );
   });
 
@@ -575,10 +575,7 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps(
       "settings:\n<<<<<<< HEAD\n  a: 1\n=======\n  a: 2\n>>>>>>> b\n",
     );
-    await stops(
-      d,
-      ".claude/factory.lock can't be read. Run: npx --no-install factory sync",
-    );
+    await stops(d, ".claude/factory.lock can't be read. Run: factory sync");
   });
 
   it("stops, naming npm ci, when a preset the lock lists is not installed", async () => {
@@ -595,16 +592,13 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps("# old\nversion: 0.4.0\nfiles:\n  - a\n");
     await stops(
       d,
-      ".claude/factory.lock is from an earlier version of the factory. Run: npx --no-install factory sync",
+      ".claude/factory.lock is from an earlier version of the factory. Run: factory sync",
     );
   });
 
   it("stops when there is no lock", async () => {
     const { d } = lockDeps(null);
-    await stops(
-      d,
-      ".claude/factory.lock is missing. Run: npx --no-install factory sync",
-    );
+    await stops(d, ".claude/factory.lock is missing. Run: factory sync");
   });
 
   it("names the first reason in order: missing, earlier, changed, not installed, another version", () => {

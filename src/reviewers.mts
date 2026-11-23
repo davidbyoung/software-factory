@@ -4,7 +4,7 @@
 // SubagentStart and SubagentStop hooks in .claude/settings.json run it with
 // the hook's input on stdin:
 //
-//   npx --no-install factory reviewers start|stop
+//   factory reviewers start|stop
 //
 // It records only reviewers, the agents defined in the repository's
 // .claude/agents/ folder, and only while the session's cost clock runs on
@@ -197,7 +197,7 @@ export function resultText(run: ReviewerRun, now: Date): string {
 }
 
 /** The comment: a table for the owner, then each row's hidden copy for
- * `npx --no-install factory status`. It carries no cost marker: the session's next cost
+ * `factory status`. It carries no cost marker: the session's next cost
  * note already includes what the reviewers spent. */
 export function entryForRuns(
   session: string,

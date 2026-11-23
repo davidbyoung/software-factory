@@ -199,7 +199,7 @@ export async function main(
   return 0;
 }
 
-/** Runs `npx --no-install factory ticket ARGS` in the current directory. */
+/** Runs `factory ticket ARGS` in the current directory. */
 const factoryTicket: Run = (args) =>
   new Promise((resolve) => {
     execFile(

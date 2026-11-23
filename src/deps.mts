@@ -2,8 +2,8 @@
 // The open Dependabot pull requests, oldest first, and what each needs, for
 // the factory-deps skill's steps 0 and 1.
 //
-//   npx --no-install factory deps
-//   npx --no-install factory deps --any   # exits 0 when one is open, 1 when none, 2 when it could not tell
+//   factory deps
+//   factory deps --any   # exits 0 when one is open, 1 when none, 2 when it could not tell
 //
 // A failed read exits 1 with the error, or 2 with `--any`.
 import { reachOf, repoRoot } from "./config.mts";

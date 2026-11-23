@@ -25,13 +25,13 @@ file, and never commit. `factory site compare` writes under
 `node_modules/.cache/factory/site/`; that is fine. Anything else you write, a
 Playwright driver or notes, goes in a directory from `mktemp -d`.
 
-The repository's settings are printed by `npx --no-install factory config get
+The repository's settings are printed by `factory config get
 site`: its design guide, its `max-pages`, and the rest.
 
 ## 1. Compare
 
 ```bash
-npx --no-install factory site compare --keep
+factory site compare --keep
 ```
 
 Read its table: each page and view that changed, with the pixels and the rows.
@@ -47,7 +47,7 @@ pass.
 ## 2. Read what changed
 
 Read the before and after pictures of what changed, side by side, with the
-Read tool: at most `max-pages` pages (`npx --no-install factory config get
+Read tool: at most `max-pages` pages (`factory config get
 site.max-pages`), the most changed first and any the ticket names. Say which
 pages you left out. The third picture has what changed outlined.
 
@@ -128,7 +128,7 @@ with the folder, quoting the lines you rely on.
 
 ## 7. Clean up
 
-Whatever happened, run `npx --no-install factory site stop`.
+Whatever happened, run `factory site stop`.
 
 ## Report
 

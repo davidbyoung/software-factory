@@ -15,7 +15,7 @@ preset, before it lands.
 
 Every command below goes through `factory deps`, `factory ticket`, or
 `factory pr`. The default branch's name is what
-`npx --no-install factory default-branch` prints, and the commands below
+`factory default-branch` prints, and the commands below
 write it as DEFAULT.
 
 ## 0. The queue, and each one's state
@@ -23,7 +23,7 @@ write it as DEFAULT.
 First, check that the settings name a gate:
 
 ```bash
-npx --no-install factory config get commands.gate
+factory config get commands.gate
 ```
 
 When it prints nothing, `commands.gate` is not set, and no fix here could
@@ -35,7 +35,7 @@ A run started by the workflow ran `factory deps --any` first, which exits
 Read the list again, since time has passed.
 
 ```bash
-npx --no-install factory deps
+factory deps
 ```
 
 It lists the open Dependabot pull requests, oldest first, and for each
@@ -69,10 +69,10 @@ would only start CI again.
 A `dirty` state is a conflict, almost always in the lock file, and
 blocks the merge. Check the branch out (step 3), merge `origin/DEFAULT`,
 take the default branch's lock file, run `commands.relock`, the command
-`npx --no-install factory config get commands.relock` prints, so the bump
+`factory config get commands.relock` prints, so the bump
 is reapplied on top of it, and commit the merge. Any other conflicted file
 that matches the `files` of a resolver
-(`npx --no-install factory plugins resolver`) is that resolver's, and a
+(`factory plugins resolver`) is that resolver's, and a
 conflict in `.claude/factory.lock` is resolved first, by `factory sync`, as
 "Merge" in the `factory-resolve-conflicts` skill says.
 
@@ -88,14 +88,14 @@ git fetch origin HEAD_REF && git switch HEAD_REF
 
 Install what the branch's lock file lists, the way the repository's
 `CLAUDE.md` says to install, which is `npm ci` for npm. Then
-run the gate, `npx --no-install factory gate`, and the end-to-end suite
+run the gate, `factory gate`, and the end-to-end suite
 where the repository has one, as its `CLAUDE.md` says to run it, with what
 it needs, such as a browser, installed first.
 
 Read the failing job's log too, since a failure can be specific to CI:
 
 ```bash
-npx --no-install factory pr failed N
+factory pr failed N
 ```
 
 It prints what a failed check wrote about itself, and each failed job's
@@ -114,7 +114,7 @@ the project to the new version. It never:
 If the only fix is one of those, or needs a decision about how the site
 should look or behave, stop and open an issue (step 6).
 
-Run the gate again (`npx --no-install factory gate`), then commit one coherent
+Run the gate again (`factory gate`), then commit one coherent
 change whose message describes the defect, and push to the same branch.
 No attribution trailer naming an AI assistant. Never push to the default
 branch and never force push.
@@ -122,7 +122,7 @@ branch and never force push.
 Wait for the checks of the new head, up to 20 minutes:
 
 ```bash
-timeout 1200 npx --no-install factory pr wait-checks N
+timeout 1200 factory pr wait-checks N
 ```
 
 It waits until GitHub shows the pushed commit as the pull request's head,
@@ -143,7 +143,7 @@ the sync right after `npm ci` on its branch, before step 3's gate: until it
 runs, every `factory` command stops on the stale lock and names it.
 
 ```bash
-npx --no-install factory sync
+factory sync
 ```
 
 When the sync itself fails on the settings after the update, the release
@@ -167,7 +167,7 @@ factory, the files the sync changed and the release notes' steps to do by
 hand, first; for a preset, what this prints, as it stands:
 
 ```bash
-npx --no-install factory preset changes origin/DEFAULT
+factory preset changes origin/DEFAULT
 ```
 
 For the factory, then label the tickets it works on, which it does only
@@ -176,7 +176,7 @@ on the first update that has the factory label, the one whose old
 
 ```bash
 git show origin/DEFAULT:.claude/factory.lock > old.lock
-npx --no-install factory ticket adopt --all-open --since-lock old.lock
+factory ticket adopt --all-open --since-lock old.lock
 ```
 
 When it prints a `labeled` line, start that one comment with this
@@ -218,11 +218,11 @@ can be started without this run, and link it from the pull request:
 
 ```bash
 TITLE="Dependabot #N: what fails"
-EXISTING=$(npx --no-install factory ticket list --title "$TITLE" | cut -f1 | head -1)
+EXISTING=$(factory ticket list --title "$TITLE" | cut -f1 | head -1)
 if [ -n "$EXISTING" ]; then
-  npx --no-install factory ticket comment "$EXISTING" --body-file issue.md
+  factory ticket comment "$EXISTING" --body-file issue.md
 else
-  npx --no-install factory ticket open --title "$TITLE" --body-file issue.md
+  factory ticket open --title "$TITLE" --body-file issue.md
 fi
 ```
 
@@ -238,7 +238,7 @@ Comment on every pull request this run changed, starting the body with
 `<!-- factory-deps -->` so the next run can find it:
 
 ```bash
-npx --no-install factory pr comment N --body-file comment.md
+factory pr comment N --body-file comment.md
 ```
 
 Say what was done (updated, fixed and how, migrated), the state of its

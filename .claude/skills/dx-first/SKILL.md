@@ -17,9 +17,7 @@ wrong. On #29, picturing `factory preset add` and a preset update changed
 how presets combine, what the user is asked, and where their choices are
 saved, after requirements had settled some of these differently.
 
-The ticket is N throughout. `factory ticket` commands are run as
-`npx --no-install factory ticket`, as every skill runs them; the draft
-itself writes commands the way the docs do (step 1).
+The ticket is N throughout.
 
 ## 0. Where the draft lives
 
@@ -45,24 +43,22 @@ in the session").
 ## 1. Read
 
 ```bash
-npx --no-install factory ticket view N
+factory ticket view N
 ```
 
 Then read:
 
-- the code the ticket touches and the spec `npx --no-install factory specs list`
+- the code the ticket touches and the spec `factory specs list`
   prints for each capability it touches;
 - the docs pages next to the one the draft will change, and the page it
   changes, if there is one;
 - "Writing for the factory" in `docs/developing.md`.
 
-The draft follows the docs' conventions, not the session's. Commands are
-written `factory ...`, the global install `docs/cli.md` describes, not
-the `npx --no-install factory` form the skills use. On #29 the draft wrote
-every command the skills' way and the owner had to catch it.
+The draft follows the docs' conventions, not the session's: a command is
+written `factory ...`, the one install `docs/cli.md` describes.
 
 Run on its own, post the `refining` marker first, so the card shows the
-ticket is being worked: `npx --no-install factory ticket refining N`.
+ticket is being worked: `factory ticket refining N`.
 Invoked from refinement, it has already been posted.
 
 ## 2. Recommend one design
@@ -115,9 +111,9 @@ When the draft turns up work another ticket should own, propose it to the
 owner, and once agreed open it:
 
 - a change a user would see gets its own ticket, with
-  `npx --no-install factory ticket open`;
+  `factory ticket open`;
 - a finding gets a line on the follow-ups ticket, with
-  `npx --no-install factory follow-up FILE "..."`, as "Follow-ups" in
+  `factory follow-up FILE "..."`, as "Follow-ups" in
   `.claude/factory/rules.md` says.
 
 The draft marks that work _Planned_, naming the ticket, as "Writing for
@@ -159,9 +155,9 @@ about behavior.
 When the owner says to save:
 
 ```bash
-npx --no-install factory ticket view N --field body > .dx-first/N/body.md
+factory ticket view N --field body > .dx-first/N/body.md
 # edit body.md, then
-npx --no-install factory ticket edit N --body-file .dx-first/N/body.md
+factory ticket edit N --body-file .dx-first/N/body.md
 ```
 
 Add a `## Proposed docs` section to the body, after the owner's text and
@@ -205,15 +201,15 @@ and the draft goes out as one comment on the ticket instead of a page:
   can tell the round waiting is this draft.
 
 ```bash
-npx --no-install factory ticket comment N --body-file .dx-first/N/comment.md
-npx --no-install factory ticket waiting N
+factory ticket comment N --body-file .dx-first/N/comment.md
+factory ticket waiting N
 ```
 
 Then stop: refinement stops with it.
 
 **A later run,** by `/dx-first N` or by refinement through `CLAUDE.md`,
 reads the replies since the newest draft comment: the comments
-`npx --no-install factory ticket answers N` prints after it. Only those
+`factory ticket answers N` prints after it. Only those
 are answers.
 
 - **A reply that says to save,** or the owner approving the ticket, saves

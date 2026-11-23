@@ -18,7 +18,7 @@ posts it from the marker at the end of each review summary: success only
 when the review said ready. A push starts the next commit without one. When
 a round ends with rejections only and nothing to push, the verdict stays at
 the last review's failure, so ask for a fresh read of the same commit
-(`npx --no-install factory pr review-again N`); the reviewer
+(`factory pr review-again N`); the reviewer
 reads your replies and posts a new verdict. Never add the `verdict-override`
 label, never enable auto-merge, and never merge: the override is the
 owner's alone, and the merge-policy workflow decides auto-merge.
@@ -42,10 +42,10 @@ fix yourself.**
 ## The scripts
 
 Everything here that reads or changes a pull request goes through
-`npx --no-install factory pr`. It exits nonzero with the error when a read
+`factory pr`. It exits nonzero with the error when a read
 fails: a failed read, never an empty answer.
 
-The default branch's name is what `npx --no-install factory default-branch`
+The default branch's name is what `factory default-branch`
 prints. A command below writes it as DEFAULT.
 
 ## 0. Is there anything to review yet
@@ -61,8 +61,8 @@ commit, the owner's review bodies still to answer, the unresolved review
 threads, every check, and the coverage service's comment.
 
 ```bash
-npx --no-install factory pr state        # the branch's pull request
-npx --no-install factory pr state N --wait
+factory pr state        # the branch's pull request
+factory pr state N --wait
 ```
 
 `no open pull request for this branch` means no review exists and none is
@@ -86,7 +86,7 @@ the head's review has posted, or its run has failed, and every check has
 finished; a run in GitHub Actions, which nothing can wake later,
 uses that, and a local one is woken by
 `watch-pr` instead. Read the summary in full with
-`npx --no-install factory pr comment-view ID`, by the ID
+`factory pr comment-view ID`, by the ID
 the report names.
 
 A run that failed or was cancelled has posted nothing; say so rather than
@@ -133,7 +133,7 @@ passed.
 2. **Read that review** and its comments:
 
    ```bash
-   npx --no-install factory pr review N REVIEW_ID
+   factory pr review N REVIEW_ID
    ```
 
    It prints the review's author and body, and each comment it left on a
@@ -181,7 +181,7 @@ passed.
    reviews started.
 6. **Only the latest push's run goes on.** In step 5's loop only, before
    working a Claude review and again before each push it makes, compare the pull request's head with your
-   last commit (`npx --no-install factory pr view N --field head`). If
+   last commit (`factory pr view N --field head`). If
    another run has pushed since, stop: its push starts the next Claude
    review, and that run works it, open threads included. A push of approver
    fixes in step 4 that is refused is still pulled and pushed again.
@@ -208,12 +208,12 @@ does not hide an approver's unanswered review body. Thread replies do not count 
 not answer a review body. The report lists these as "approver review bodies
 to answer", and marks an unresolved thread "approver's turn" when its last
 comment is an approver's without the marker. Read a review body in full
-with `npx --no-install factory pr review N ID`.
+with `factory pr review N ID`.
 
 ### Each approver comment
 
 A comment with a `replyTo` is a reply in an existing thread: read
-the whole thread first (`npx --no-install factory pr threads N --all`
+the whole thread first (`factory pr threads N --all`
 lists every thread with its comments, resolved or not),
 to see whether it follows a pushback of yours.
 
@@ -248,7 +248,7 @@ comments, so the threads carry no marker of their own.
 The unresolved threads, each with its comments in full:
 
 ```bash
-npx --no-install factory pr threads N
+factory pr threads N
 ```
 
 Work every thread it lists, whoever opened it. Keep each thread's
@@ -273,10 +273,10 @@ A review that says ready is not a ready pull request. Wait until **every**
 check on the head commit has finished, not only the review:
 
 ```bash
-npx --no-install factory pr state N --wait
+factory pr state N --wait
 ```
 
-In a local session, `npx --no-install factory pr watch N` (see `.claude/factory/rules.md`) already
+In a local session, `factory pr watch N` (see `.claude/factory/rules.md`) already
 wakes the session on a failure and when every check has finished, so this
 wait is not needed.
 
@@ -286,7 +286,7 @@ never report a check you have not seen finish.
 For each failed check, read the failing job's log and find the failure:
 
 ```bash
-npx --no-install factory pr failed N
+factory pr failed N
 ```
 
 It prints each failed job's name and the end of its log, and what a failed
@@ -315,8 +315,8 @@ Coverage is read from the settings, under `commands.coverage`: the command
 that measures it, and where its lcov report lands.
 
 ```bash
-npx --no-install factory config get commands.coverage.run
-npx --no-install factory config get commands.coverage.report
+factory config get commands.coverage.run
+factory config get commands.coverage.report
 ```
 
 **Skip this whole section when they print `none`,** a coverage service's
@@ -331,7 +331,7 @@ so a missing comment is normal, not a failed upload.
 
 The report names the bot's comment's ID, if there is one, and lists the
 service's patch and project checks among the checks. Read the comment
-with `npx --no-install factory pr comment-view ID`.
+with `factory pr comment-view ID`.
 
 The comment's red cross on patch coverage is not the status check. Say which
 one failed, if either did. Unless the default branch's ruleset requires
@@ -344,7 +344,7 @@ report CI uploads: run the coverage command, the first of the two above,
 then
 
 ```bash
-npx --no-install factory pr uncovered origin/DEFAULT REPORT
+factory pr uncovered origin/DEFAULT REPORT
 ```
 
 which prints each uncovered (`MISS`) or partly covered (`PART`) line in the
@@ -379,7 +379,7 @@ the one reason the list above does not hold.
 A test written for a coverage line follows the same rules as any other. It
 asserts behavior, not that the line ran, and it fails when the code it covers
 is broken, which the prover, the skill
-`npx --no-install factory plugins prover` prints, proves for a test written
+`factory plugins prover` prints, proves for a test written
 after the code. A test that only executes a line pads the number and locks nothing
 in.
 
@@ -400,8 +400,8 @@ Never accept or reject from reading alone. Each finding gets evidence:
 - **A claim about the codebase** gets a grep or a file read at the cited line.
 - **A finding that would reverse a choice** also gets the recorded reason:
   read the commit message, the pull request's body, and the Decisions of
-  each ticket `npx --no-install factory pr closes PR` prints, with
-  `npx --no-install factory ticket view N`, before accepting it. A session without the build context has only these. If
+  each ticket `factory pr closes PR` prints, with
+  `factory ticket view N`, before accepting it. A session without the build context has only these. If
   the finding conflicts with a recorded decision and the evidence does not
   settle it, reply with both and leave the thread open for the owner.
 
@@ -421,7 +421,7 @@ a rejection, not a puzzle to work around.
 - Re-run the real workload, not just the fixture: for the extractor that means
   the real corpus, and the output should be unchanged unless the fix was
   meant to change it.
-- Then run the gate, `npx --no-install factory gate`: the commands the
+- Then run the gate, `factory gate`: the commands the
   settings list under `commands.gate`, such as a formatter, a type or
   static check, a linter, and the tests. Do not invent a gate, and do not
   skip one.
@@ -437,7 +437,7 @@ run tells its own words from an approver's (section 0a). Put it at the end of
 the body; an automatic footer may follow it.
 
 ```bash
-npx --no-install factory pr reply N COMMENT_ID --body-file reply.md
+factory pr reply N COMMENT_ID --body-file reply.md
 ```
 
 The script adds the marker when the body lacks it.
@@ -450,7 +450,7 @@ The script adds the marker when the body lacks it.
 Then resolve it:
 
 ```bash
-npx --no-install factory pr resolve N COMMENT_ID
+factory pr resolve N COMMENT_ID
 ```
 
 Resolve accepted and rejected threads alike, with one exception: **an
@@ -470,7 +470,7 @@ For summary-only findings there is no thread, so collect their verdicts and
 post one PR comment at the end:
 
 ```bash
-npx --no-install factory pr comment N --body-file comment.md
+factory pr comment N --body-file comment.md
 ```
 
 ## 5. Commit and push
@@ -493,7 +493,7 @@ machine signs with, which is a local verification gap rather than a bad
 commit. After pushing, confirm the host agrees:
 
 ```bash
-npx --no-install factory pr unverified N
+factory pr unverified N
 ```
 
 It prints each commit the code host does not show as signed, with the
@@ -558,7 +558,7 @@ again. Add whether the tests are good enough to make a swap verifiable.
 First, note what this round of work cost, on the pull request:
 
 ```bash
-npx --no-install factory pr cost PR
+factory pr cost PR
 ```
 
 It posts what the session spent at API list prices since its last note, or

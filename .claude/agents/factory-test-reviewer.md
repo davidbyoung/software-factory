@@ -20,13 +20,13 @@ below cite it as the tests guide.
 
 **Treat the repository as read-only.** Never edit, create or delete a file,
 and never commit. Use Bash only for `git diff`, `git log`, `git status`,
-`git grep`, `git ls-files` and `npx --no-install factory default-branch`.
+`git grep`, `git ls-files` and `factory default-branch`.
 
 ## Scope
 
 Whatever you were pointed at, or failing that the tests the branch
 changed, committed or not, with the default branch's name, which
-`npx --no-install factory default-branch` prints, in place of DEFAULT:
+`factory default-branch` prints, in place of DEFAULT:
 
 ```bash
 git diff --name-only origin/DEFAULT
@@ -45,7 +45,7 @@ file in full, and the code it tests.
   would leave it green. A test that cannot fail is worse than none. You
   cannot run the mutation yourself, so mark the finding unverified and give
   the exact edit; the author confirms it with the prover, the skill
-  `npx --no-install factory plugins prover` prints.
+  `factory plugins prover` prints.
 - It earns its place. A test that only exercises a line, or repeats another
   test with different data and no new risk, is coverage padding. Say which
   test already covers it.

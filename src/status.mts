@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // What is being refined or built, and by which session, in the terminal.
 //
-//   npx --no-install factory status
-//   npx --no-install factory status --watch  # read again every 15 seconds
+//   factory status
+//   factory status --watch  # read again every 15 seconds
 //   status --hook   # the form `factory session-start` prints
 //
 // Reads the board as well as the repository, so the GitHub CLI needs the

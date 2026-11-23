@@ -485,7 +485,7 @@ describe("factory guard commit", () => {
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain(
-        ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync",
+        ".claude/factory.yaml changed since the last sync. Run: factory sync",
       );
       expect(ran()).toEqual([]);
     });

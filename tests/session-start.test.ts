@@ -142,7 +142,7 @@ describe("the session-start hook", () => {
 
   it("prints why the lock is stale, and the session starts", async () => {
     const message =
-      ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync";
+      ".claude/factory.yaml changed since the last sync. Run: factory sync";
     const { status, text } = await hook(onDevelop, message);
     expect(status).toBe(0);
     expect(text).toContain(message);

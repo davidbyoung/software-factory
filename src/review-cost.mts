@@ -11,7 +11,7 @@
 // summary, no figure, or a failed call, it logs why and exits 0.
 //
 //   EXECUTION_FILE=... PR=N SHA=... GITHUB_REPOSITORY=owner/name \
-//     npx --no-install factory review cost
+//     factory review cost
 import { readFileSync } from "node:fs";
 import { openCodeHost, type CodeHost } from "./code-host/index.mts";
 import { CI_BOT, hasCostMarker } from "./lib/work-status.mts";

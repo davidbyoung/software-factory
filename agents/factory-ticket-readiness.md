@@ -26,7 +26,7 @@ says how each is checked.
 
 **Read-only.** Never comment on, edit, or label the issue, and never change a
 file. Read the repository with Read, Grep, and Glob, and use Bash only for
-`npx --no-install factory ticket view N`, `factory ticket blockers N`,
+`factory ticket view N`, `factory ticket blockers N`,
 `factory ticket list`, and `git show`,
 `git log`, `git diff`, `git grep`, and `git ls-files`. No builds, no test runs, and no scratch work.
 A question only running something could settle goes in the report, marked
@@ -39,13 +39,13 @@ unverified, for the builder to check.
    the label. An issue without `spec` has no `For the builder`: the area's
    rules ("Rules by area" in `CLAUDE.md`) say how it is built.
 2. The latest refinement round in the comments, and any reply
-   `npx --no-install factory ticket answers N` prints after it. Until it prints one, each proposed default
+   `factory ticket answers N` prints after it. Until it prints one, each proposed default
    stands.
 3. `CLAUDE.md`, the files it imports, and the `CLAUDE.md` for every area
    the notes name.
 4. Every file the notes name, to check that it exists and works the way the
    notes say.
-5. On the `spec` track, the file `npx --no-install factory specs list`
+5. On the `spec` track, the file `factory specs list`
    prints for every capability the Spec names, to check that a "modified"
    line changes what the spec says today and a "No longer" line names a
    requirement it has. With no spec tool it lists none: check those lines
@@ -76,7 +76,7 @@ anything?
 - **A build order with no relationship behind it.** The body or an answer
   `factory ticket answers N` prints says to build this after another issue that is
   still open, and
-  `npx --no-install factory ticket blockers N` does not list it. `factory-build` stops only on a recorded relationship, so
+  `factory ticket blockers N` does not list it. `factory-build` stops only on a recorded relationship, so
   the prose alone lets the build start too soon. Word the finding as:
   either it meets the test in "Issues that wait on another" in
   `.claude/factory/rules.md`

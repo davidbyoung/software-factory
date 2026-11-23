@@ -1189,11 +1189,7 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
     out.push(title, ...lines);
   });
   if (choice.length)
-    out.push(
-      "",
-      "To choose, on this branch:",
-      "  npx --no-install factory preset choices",
-    );
+    out.push("", "To choose, on this branch:", "  factory preset choices");
   for (const line of out) d.out(line);
   return 0;
 }

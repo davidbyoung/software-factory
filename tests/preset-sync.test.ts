@@ -151,7 +151,7 @@ describe("the lock factory sync writes", () => {
     const r = await sync(["--check"]);
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".claude/factory.yaml changed since the last sync. Run: npx --no-install factory sync",
+      ".claude/factory.yaml changed since the last sync. Run: factory sync",
     ]);
   });
 });

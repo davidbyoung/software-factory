@@ -10,7 +10,7 @@ written only in a ticket's text is one nothing reads. This skill finds the
 blockers that are missing, records the ones the owner approves, and shows
 which tickets can start now, those that unblock the most first.
 
-Every ticket is read and written through `npx --no-install factory ticket`,
+Every ticket is read and written through `factory ticket`,
 never `gh` or a ticket system's API, so the skill works with any ticket
 system the factory has an adapter for. It never reads or writes the
 board's Priority field: that is the owner's business priority, not a
@@ -22,7 +22,7 @@ tickets.
 ## 0. Can the ticket system record blockers?
 
 ```bash
-npx --no-install factory ticket supports blockers
+factory ticket supports blockers
 ```
 
 When it prints `no`, say the ticket system records no blockers, and stop.
@@ -47,8 +47,8 @@ Read each open ticket's title and body, and its comments where they say
 why it waits on another:
 
 ```bash
-npx --no-install factory ticket list --json
-npx --no-install factory ticket view M
+factory ticket list --json
+factory ticket view M
 ```
 
 A ticket waits on another when building it first would break it, or
@@ -81,7 +81,7 @@ in a message when there are more, answered with the numbers to keep.
 For each kept proposal, record it, then say why:
 
 ```bash
-npx --no-install factory ticket block N --by M     # or: unblock N --by M
+factory ticket block N --by M     # or: unblock N --by M
 ```
 
 The reason is one line: "#N waits on #M: reason." or "#N no longer waits
@@ -93,7 +93,7 @@ Otherwise it is a comment on the waiting ticket, and the body is left
 alone, since the owner may already have approved it:
 
 ```bash
-npx --no-install factory ticket comment N --body-file reason.md
+factory ticket comment N --body-file reason.md
 ```
 
 ## 4. Report

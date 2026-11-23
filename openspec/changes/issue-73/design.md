@@ -41,7 +41,7 @@ A preset is unpinned (named, not in the lock), pinned, or behind. An update's pu
 
 ## Risks and rollback
 
-Every repository's CI now depends on the factory's repository and npm at run time, where it depended on npm at install. A broken `run.yml` breaks each repository only once it merges that release's pull request, and reverting that pull request restores it. After a release, the owner tries it first from `davidbyoung/cfi`, his other repository, which is outside the build.
+Every repository's CI now depends on the factory's repository and npm at run time, where it depended on npm at install. A broken `run.yml` breaks each repository only once it merges that release's pull request, and reverting that pull request restores it. After a release, the owner tries it first from his other repository, which is outside the build.
 
 ## Dependencies
 

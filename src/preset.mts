@@ -22,7 +22,7 @@ export const CHOICES_FILE = ".claude/factory.choices.yaml";
 export const LOCK_FILE = ".claude/factory.lock";
 /** The layer name of the repository's own settings. */
 export const OWN = SETTINGS_FILE;
-export const SYNC = "npx --no-install factory sync";
+export const SYNC = "factory sync";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
@@ -572,7 +572,7 @@ export function markText(source: Source | undefined): string | null {
 export const CHOICES_HEADER = [
   "# Written by `factory preset add`, `remove`, and `choices`: which preset",
   "# wins where two presets set the same thing. Change it with",
-  "# `npx --no-install factory preset choices`.",
+  "# `factory preset choices`.",
 ];
 
 /** The choices file's text, or null when it holds no choice. */

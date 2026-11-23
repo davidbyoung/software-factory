@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Post the "Review verdict" commit status from a GitHub Actions event.
 //
-//   npx --no-install factory review verdict    # reads GITHUB_EVENT_NAME and _PATH
+//   factory review verdict    # reads GITHUB_EVENT_NAME and _PATH
 //
 // Runs from main's copy, on two events: the Claude review finishing
 // (workflow_run), and the pull request itself (pull_request_target: opened,

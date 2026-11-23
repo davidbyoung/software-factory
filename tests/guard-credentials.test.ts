@@ -60,7 +60,7 @@ describe("factory guard credentials", () => {
       "Bash",
       {
         command:
-          'npx --no-install factory pr comment 67 --body "Say where ~/.config/software-factory/credentials.yaml lives"',
+          'factory pr comment 67 --body "Say where ~/.config/software-factory/credentials.yaml lives"',
       },
     ],
     [

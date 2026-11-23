@@ -37,7 +37,7 @@ path is read from the rules, so the file never restates them.
 ## 2. Start one fresh agent
 
 The branch is the current one, and its base is the default branch on
-`origin`, whose name `npx --no-install factory default-branch` prints,
+`origin`, whose name `factory default-branch` prints,
 unless the pull request says otherwise. Start one
 `general-purpose` agent, and give it only this:
 
@@ -67,11 +67,11 @@ trace tests.
 The agent's report is the result, unedited.
 
 **When the branch has an open pull request,** which
-`npx --no-install factory pr state` names on its first line, post the
+`factory pr state` names on its first line, post the
 report there, so the owner reads it before merging:
 
 ```bash
-npx --no-install factory pr comment N --body-file trace.md
+factory pr comment N --body-file trace.md
 ```
 
 Otherwise give it in the session.

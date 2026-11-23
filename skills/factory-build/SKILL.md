@@ -9,7 +9,7 @@ The issue is the spec. Everything a conversation would have settled has to
 be in it or in the repository's rules, so read it as one and stop when it
 is not.
 
-Every ticket is read and written through `npx --no-install factory ticket`,
+Every ticket is read and written through `factory ticket`,
 and every pull request's conversation through `factory pr`, so the skill
 works whatever the ticket system. A command that cannot read exits
 nonzero with the error: that is a failed read, never an empty answer.
@@ -17,11 +17,11 @@ nonzero with the error: that is a failed read, never an empty answer.
 Every command a build runs is the settings' own: the gate, one test, an
 end-to-end spec, and the spec check each have a `factory` command below
 that runs what `.claude/factory.yaml` lists under `commands` and `specs`.
-The default branch's name is what `npx --no-install factory default-branch`
+The default branch's name is what `factory default-branch`
 prints, and the commands below write it as DEFAULT. N is the ticket's key,
 as the ticket system gives it, such as `12` or `PROJ-12`, and TICKET is how
 the ticket system writes it in prose, such as `#12`, which
-`npx --no-install factory ticket view N --field ref` prints.
+`factory ticket view N --field ref` prints.
 
 ## How a build starts
 
@@ -32,7 +32,7 @@ the ticket system writes it in prose, such as `#12`, which
   `manual`), the owner moves the issue's card to Ready on the
   board, and the poller posts a start comment and dispatches
   "Factory build" with the issue's key; or a person runs
-  `npx --no-install factory build N`, or "Run workflow" on the Actions
+  `factory build N`, or "Run workflow" on the Actions
   tab. The two are the same run. The run's prompt says so. There is no
   start check, since only someone with write access can dispatch a
   workflow: go straight to the claim, which names the run and who started
@@ -49,7 +49,7 @@ approved, and before setup, a branch, or any other work, including the
 rest of step 0:
 
 ```bash
-npx --no-install factory ticket claim N
+factory ticket claim N
 ```
 
 It checks the issue's blockers, posts the claim, waits 5 seconds, reads
@@ -80,7 +80,7 @@ issue, whatever the reason: a question only the owner can answer, a
 missing owner step, "already done", or a gate that would not pass.
 
 ```bash
-npx --no-install factory ticket stop N "one-line reason"
+factory ticket stop N "one-line reason"
 ```
 
 It posts the stopped comment only while this session's claim is still
@@ -92,7 +92,7 @@ not a stop.
 name a gate:
 
 ```bash
-npx --no-install factory config get commands.gate
+factory config get commands.gate
 ```
 
 When it prints nothing, stop as above, saying `commands.gate` is not set,
@@ -101,7 +101,7 @@ so the build would have no way to check its work.
 **Before opening the pull request,** check the claim once more:
 
 ```bash
-npx --no-install factory ticket still-live N
+factory ticket still-live N
 ```
 
 `not live` means something ended the claim, such as the nightly sync
@@ -127,7 +127,7 @@ as that section
 says.
 
 ```bash
-npx --no-install factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
+factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
 ```
 
 FILE is the file or page the follow-up is about, and leads its line. The
@@ -141,8 +141,8 @@ one branch, in order, one commit per line, and the line is checked off in
 the body (`- [ ]` to `- [x]`) once its commit is in:
 
 ```bash
-npx --no-install factory ticket view N --field body > body.md   # check the line, then
-npx --no-install factory ticket edit N --body-file body.md
+factory ticket view N --field body > body.md   # check the line, then
+factory ticket edit N --body-file body.md
 ```
 
 A line that says "Needs a decision" is built only when the issue's
@@ -152,9 +152,9 @@ gets it added, and stays unchecked the same way. Step 3's reviewers run
 once, on the whole branch, sized as "Small changes" in
 `.claude/factory/rules.md` sizes
 a follow-ups build. The pull request lists each line with its commit. It
-starts with the line `npx --no-install factory ticket link N` prints only
+starts with the line `factory ticket link N` prints only
 when every line is checked; otherwise it starts with the line
-`npx --no-install factory ticket link N --part` prints, and the unchecked
+`factory ticket link N --part` prints, and the unchecked
 lines wait there for the next build. The sync reads that line as a
 partial build of the follow-ups, so a pull request that only links a line
 it added there names the issue any other way.
@@ -162,7 +162,7 @@ it added there names the issue any other way.
 ## 0. Read the issue
 
 ```bash
-npx --no-install factory ticket view N
+factory ticket view N
 ```
 
 It prints the title, state, labels, body, and each comment with its ID
@@ -178,7 +178,7 @@ counts only for an issue that has:
   its criteria.
 
 Without either, run the refiner, the skill
-`npx --no-install factory plugins refiner` prints, and stop: no claim, and
+`factory plugins refiner` prints, and stop: no claim, and
 nothing to release. Do not guess at what content should say or how a page
 should behave.
 
@@ -197,9 +197,9 @@ Otherwise, claim it now ("The claim"), then read on.
 - **Approved while a comment round waits on the owner:** the newest
   refinement marker on the issue is `<!-- work-status: waiting -->`.
   Approval means the round's defaults stand, along with the replies
-  `npx --no-install factory ticket answers N` prints: any approver's, as
+  `factory ticket answers N` prints: any approver's, as
   refinement reads them. After the claim, first invoke the refiner, the skill
-  `npx --no-install factory plugins refiner` prints, with the Skill tool,
+  `factory plugins refiner` prints, with the Skill tool,
   giving it the issue's key and the words "approved while
   waiting: fold the approvers' replies into the body, post no marker". For
   `factory-refine` that is its steps 4 and 5: it folds the replies in and
@@ -207,7 +207,7 @@ Otherwise, claim it now ("The claim"), then read on.
   can read:
 
   ```bash
-  npx --no-install factory ticket refined N --check
+  factory ticket refined N --check
   ```
 
   It prints `sound` and posts nothing. When it prints what the body is
@@ -240,17 +240,17 @@ and look for it on `origin`:
 
 ```bash
 git fetch origin
-npx --no-install factory ticket branch N          # prints BRANCH
+factory ticket branch N          # prints BRANCH
 git ls-remote --exit-code origin refs/heads/BRANCH
 ```
 
 Give `ls-remote` the full ref: `--heads origin 12` also matches
 `feature/someone/12`. Exit 2 means `origin` has no such branch: go on.
 Exit 0 means an earlier build's branch is there, and its newest pull
-request decides, from `npx --no-install factory pr for-branch BRANCH`:
+request decides, from `factory pr for-branch BRANCH`:
 
 - **`#M merged`,** and the commit `ls-remote` printed is
-  `npx --no-install factory pr view M --field head`: its work is on the
+  `factory pr view M --field head`: its work is on the
   default branch. Delete it with `git push origin --delete BRANCH`, say
   `Branch BRANCH's pull request #M merged; replacing it.`, and go on.
 - **`#M open`:** stop ("The claim") with
@@ -280,7 +280,7 @@ The spec tool's copy of the issue, as the branch's first commit. Nothing
 in it is new; the thinking was done at refinement.
 
 ```bash
-npx --no-install factory specs new N
+factory specs new N
 ```
 
 With no spec tool it prints `- No spec tool (specs: none): each ticket
@@ -306,7 +306,7 @@ report.
 Read the `CLAUDE.md` for the area first ("Rules by area" in `CLAUDE.md`).
 
 **A builder plugin:** list them with
-`npx --no-install factory plugins builder`, which prints each one's
+`factory plugins builder`, which prints each one's
 labels. When the issue carries one of a builder's labels, invoke that skill
 with the Skill tool to build it, in place of the steps below up to the
 reviewers. The reviewers still run on what it built, the test reviewers
@@ -333,16 +333,16 @@ content follows that path.
 - Write the test first, where there is a defect to reproduce or a behavior
   to add, and watch it fail before making the change, as the area's rules
   for tests say ("Rules by area" in `CLAUDE.md`). One test runs alone with
-  `npx --no-install factory test-one FILE NAME`.
+  `factory test-one FILE NAME`.
 - A small change takes the path in "Small changes" in
   `.claude/factory/rules.md` instead of the next two items.
 - Prove each new test can fail, by its red run or the prover, the skill
-  `npx --no-install factory plugins prover` prints, and have each test
-  reviewer, the agents `npx --no-install factory plugins test-reviewer`
+  `factory plugins prover` prints, and have each test
+  reviewer, the agents `factory plugins test-reviewer`
   prints, read them: one listed with `files` only when the change touches
   a file that matches them.
 - **The repository's own reviewers** are listed by
-  `npx --no-install factory plugins reviewer`, each with its
+  `factory plugins reviewer`, each with its
   `files`. A reviewer is considered when a file the branch changed matches
   one of its `files`. Whether it applies is decided from the agent's own
   description. Each considered reviewer ends with either a run, its
@@ -368,8 +368,8 @@ spec tool.
 Then fold the spec in, as the last commit before the pull request:
 
 ```bash
-npx --no-install factory specs finish N
-npx --no-install factory specs check
+factory specs finish N
+factory specs check
 ```
 
 With no spec tool, both print the `- No spec tool` line, and there is
@@ -380,7 +380,7 @@ nothing to commit.
 Run the gate:
 
 ```bash
-npx --no-install factory gate
+factory gate
 ```
 
 It runs each command under `commands.gate` in the settings, in order, and
@@ -388,8 +388,8 @@ stops at the first that fails. When it says `commands.gate is not set`,
 stop: a build cannot finish until the settings name a gate.
 
 Run the end-to-end specs the change added or changed. Where
-`npx --no-install factory config get commands.end-to-end` prints a
-command, run each with `npx --no-install factory end-to-end FILE`, and a
+`factory config get commands.end-to-end` prints a
+command, run each with `factory end-to-end FILE`, and a
 new one ten times, with `--times 10` after FILE. Where it prints `none`,
 run them the way the repository's `CLAUDE.md` says, or say there is no
 end-to-end suite. CI runs the full suite on the draft (step 6).
@@ -404,14 +404,14 @@ draft: a draft gets no automated review, so the pushes that follow cost
 nothing until it is ready. Run `still-live` first ("The claim").
 
 ```bash
-npx --no-install factory pr open --title "..." --body-file pr-N.md
+factory pr open --title "..." --body-file pr-N.md
 ```
 
 It opens a draft from the current branch into the default branch and
 prints the pull request's number.
 
 Start the body with the link text
-`npx --no-install factory ticket link N` prints, which closes the ticket
+`factory ticket link N` prints, which closes the ticket
 when the pull request merges, then what changed and how it was
 verified, including each new test's red run or mutation check, and what
 each reviewer found and what was done about it.
@@ -431,7 +431,7 @@ still list every difference, and say in the
 section that the images are missing; the build does not stop for them.
 
 ```bash
-npx --no-install factory pr closes PR
+factory pr closes PR
 ```
 
 That has to print N, unless the pull request builds only part of the
@@ -441,7 +441,7 @@ not register; fix the body.
 Then note what the build cost, on the pull request:
 
 ```bash
-npx --no-install factory pr cost PR
+factory pr cost PR
 ```
 
 The claim started the session's cost clock; this posts what the session
@@ -472,8 +472,8 @@ previous commit, or a suite that is about to fail. A failure is fixed on
 the draft first, where a push costs no review.
 
 ```bash
-npx --no-install factory pr wait-checks PR   # prints the conclusion
-npx --no-install factory pr ready PR         # only after success or no checks
+factory pr wait-checks PR   # prints the conclusion
+factory pr ready PR         # only after success or no checks
 ```
 
 `factory pr ready` enforces commit signatures: when git is set to sign, it
@@ -482,7 +482,7 @@ refuses while GitHub shows a commit on the pull request as not verified.
 That triggers the review. In a local session, start the watcher "Branching,
 pushing, and review" in `.claude/factory/rules.md` describes. A run in GitHub Actions, which nothing
 can wake later, waits for the review with
-`npx --no-install factory pr state PR --wait` instead, and does not start
+`factory pr state PR --wait` instead, and does not start
 `factory pr watch`. Work the review with the `factory-address-review` skill.
 
 Where the settings list a file under `auto-merge.allow`, the merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from

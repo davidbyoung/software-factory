@@ -567,7 +567,7 @@ describe("the factory's core", () => {
       await plan(PACKAGE, root, await resolved(settings()), "main")
     ).write.get(".claude/skills/factory-trace/SKILL.md");
     expect(trace).toContain(".claude/change-types.md");
-    expect(trace).toContain("npx --no-install factory pr comment");
+    expect(trace).toContain("factory pr comment");
     expect(
       (await plan(PACKAGE, root, await resolved(settings()), "main")).write.get(
         ".claude/factory/rules.md",

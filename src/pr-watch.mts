@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Wait until a pull request needs its session's attention, say why, and exit.
 //
-//   npx --no-install factory pr watch N             # run in the background
-//   npx --no-install factory pr watch N --release   # stop claiming the pull request
+//   factory pr watch N             # run in the background
+//   factory pr watch N --release   # stop claiming the pull request
 //
 // Each event is reported once, so a check judged fine as-is does not wake the
 // session again. Run it again after working what it reported, until it prints

@@ -184,7 +184,7 @@ describe("a name sync refuses", () => {
     const r = await sync();
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".npmrc reads ${GITHUB_PACKAGES_TOKEN} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: npx --no-install factory sync",
+      ".npmrc reads ${GITHUB_PACKAGES_TOKEN} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: factory sync",
     ]);
     expect(read(root, LOCK)).toBeNull();
   });
@@ -194,7 +194,7 @@ describe("a name sync refuses", () => {
     const r = await sync();
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: npx --no-install factory sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: factory sync",
     ]);
     expect(read(root, LOCK)).toBeNull();
   });
@@ -216,7 +216,7 @@ describe("the lock and .npmrc", () => {
     const r = await sync(["--check"]);
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      ".npmrc changed since the last sync. Run: npx --no-install factory sync",
+      ".npmrc changed since the last sync. Run: factory sync",
     ]);
   });
 
@@ -226,7 +226,7 @@ describe("the lock and .npmrc", () => {
     put(root, ".npmrc", NPMRC.replace("NPM_TOKEN", "HOME"));
     const r = await sync(["--check"]);
     expect(r.err).toEqual([
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: npx --no-install factory sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: factory sync",
     ]);
   });
 
