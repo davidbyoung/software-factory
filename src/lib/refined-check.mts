@@ -3,18 +3,16 @@
 // factory's own refiner as for a plugin's. It reads headings only, never
 // what a section says.
 
+import { fencedLines } from "./fences.mts";
+
 /** The body's lines outside its fenced code blocks, so a sample body in a
  * code block is not read as the ticket's own. */
 function proseLines(body: string): string[] {
-  const out: string[] = [];
-  let fence: string | null = null;
-  for (const line of body.split(/\r?\n/)) {
-    const mark = /^\s*(```+|~~~+)/.exec(line)?.[1];
-    if (fence === null && mark) fence = mark[0];
-    else if (fence !== null && mark?.[0] === fence) fence = null;
-    else if (fence === null) out.push(line.trimEnd());
-  }
-  return out;
+  const fenced = fencedLines(body);
+  return body
+    .split(/\r?\n/)
+    .filter((_, i) => !fenced[i])
+    .map((line) => line.trimEnd());
 }
 
 /** The lines under the heading `heading`, or null when the body has no such

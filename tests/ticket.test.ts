@@ -549,6 +549,31 @@ const without = (body: string, ...patterns: RegExp[]) =>
     .filter((line) => !patterns.some((p) => p.test(line)))
     .join("\n");
 
+describe("a refined body with a sample in nested fences", () => {
+  it("does not read a heading inside a longer fence as the body's own", async () => {
+    quiet();
+    const body = [
+      "What and why.",
+      "",
+      "## Decisions",
+      "",
+      "- One.",
+      "",
+      "````md",
+      "A sample body, quoting a fence:",
+      "```",
+      "## Acceptance criteria",
+      "",
+      "- a sample's line",
+      "````",
+    ].join("\n");
+    const { d } = deps([{ number: 7, body }]);
+
+    expect(await main(["refined", "7", "--check"], d)).toBe(1);
+    expect(errors.join("\n")).toContain("missing: ## Acceptance criteria");
+  });
+});
+
 describe("refinement markers", () => {
   it("puts a closing comment's text before the refined sentence, on a sound ticket", async () => {
     const { d, out, memory } = deps([{ number: 7, body: PLAIN_BODY }]);
