@@ -14,6 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CodeHost } from "./code-host/types.mts";
+import type { Settings } from "./config.mts";
 
 /** One preset as the lock pins it. */
 export type PresetPin = {
@@ -282,10 +283,27 @@ export async function main(argv: string[], d: UpdateDeps): Promise<number> {
 /** The factory's newest release could not be read. */
 export class NoRelease extends Error {}
 
+/** The settings as the files have them now, or null once `err` has said
+ * what is wrong with them. The lock is not asked: the sync this command
+ * runs writes it from these files. */
+export async function settingsNow(
+  root: string,
+  err: (line: string) => void,
+): Promise<Settings | null> {
+  const { filesDeps, loadSettings, SettingsError } =
+    await import("./config.mts");
+  try {
+    return await loadSettings(filesDeps(root));
+  } catch (e) {
+    if (!(e instanceof SettingsError)) throw e;
+    err(e.message);
+    return null;
+  }
+}
+
 /** `factory update [--pull-requests]`. */
 export async function run(argv: string[]): Promise<number> {
-  const { loadSettings, repoRoot, SETTINGS_FILE } =
-    await import("./config.mts");
+  const { repoRoot, SETTINGS_FILE } = await import("./config.mts");
   const { LOCK, PACKAGE, launcherPath } = await import("./sync.mts");
   const { openCodeHost } = await import("./code-host/index.mts");
   const { branchDeps, needDefaultBranch } =
@@ -299,7 +317,8 @@ export async function run(argv: string[]): Promise<number> {
   const manifest = JSON.parse(
     readFileSync(join(PACKAGE, "package.json"), "utf8"),
   ) as { name: string; version: string };
-  const settings = await loadSettings();
+  const settings = await settingsNow(root, (line) => console.error(line));
+  if (!settings) return 1;
   const host = openCodeHost(settings.repository, settings.codeHost.type);
   const home = manifest.name.replace(/^@/, "");
   const lockText = () =>

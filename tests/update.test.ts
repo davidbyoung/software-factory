@@ -1,8 +1,18 @@
 // `factory update`: the factory to its newest release and each preset to
 // its newest commit, by hand in the working tree, or as one pull request
 // for each in the Updates job.
-import { describe, expect, it } from "vitest";
-import { main, type PresetPin, type UpdateDeps } from "../src/update.mts";
+import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  main,
+  settingsNow,
+  type PresetPin,
+  type UpdateDeps,
+} from "../src/update.mts";
+import { writeSettings } from "./locked.ts";
+import { CODE_HOST_YAML } from "./settings-fixture.ts";
 
 const pin = (name: string, commit: string): PresetPin => ({
   name,
@@ -346,5 +356,32 @@ describe("factory update --pull-requests", () => {
       "✓ Nothing to update: the factory is 0.3.0, the newest release, and both presets are at their newest commits.",
     ]);
     expect(u.calls).toEqual([]);
+  });
+});
+
+describe("the settings factory update reads", () => {
+  let repo: string;
+  afterEach(() => rmSync(repo, { recursive: true, force: true }));
+  const withSettings = (settings: string) => {
+    repo = mkdtempSync(join(tmpdir(), "factory-update-"));
+    writeSettings(repo, settings);
+  };
+
+  it("reads the settings file as it is now, edited since the last sync", async () => {
+    withSettings(`version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`);
+    appendFileSync(join(repo, ".claude/factory.yaml"), "pr-review:\n");
+    const said: string[] = [];
+    const settings = await settingsNow(repo, (l) => said.push(l));
+    expect(said).toEqual([]);
+    expect(settings?.prReview).not.toBeNull();
+  });
+
+  it("says what the settings lack in one line, and reads none", async () => {
+    withSettings("version: 2\nrepository: o/r\ncode-host:\n  type: github\n");
+    const said: string[] = [];
+    expect(await settingsNow(repo, (l) => said.push(l))).toBeNull();
+    expect(said).toEqual([
+      expect.stringContaining("code-host.branch-name: is required"),
+    ]);
   });
 });
