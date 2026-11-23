@@ -146,7 +146,7 @@ fact in the owner's text, and named, is not a change to §1.
 owner is a `dx-first` draft when its comment ends
 `<!-- dx-first: draft -->`. When `factory-build` folds an approved round
 and that round is a draft, run `dx-first` to save the draft with the
-owner's replies folded in, then fold and check the body as
+approvers' replies folded in, then fold and check the body as
 `factory-refine` does. When the owner asks a session to build a ticket
 whose draft waits and whose body has no criteria yet, `factory-build`
 runs refinement and stops, as it does for any such ticket: that request

@@ -196,11 +196,12 @@ Otherwise, claim it now ("The claim"), then read on.
   key with no value given, release the claim and say so.
 - **Approved while a comment round waits on the owner:** the newest
   refinement marker on the issue is `<!-- work-status: waiting -->`.
-  Approval means the round's defaults stand, along with the owner's
-  replies. After the claim, first invoke the refiner, the skill
+  Approval means the round's defaults stand, along with the replies
+  `npx --no-install factory ticket answers N` prints: any approver's, as
+  refinement reads them. After the claim, first invoke the refiner, the skill
   `npx --no-install factory plugins refiner` prints, with the Skill tool,
   giving it the issue's key and the words "approved while
-  waiting: fold the owner's replies into the body, post no marker". For
+  waiting: fold the approvers' replies into the body, post no marker". For
   `factory-refine` that is its steps 4 and 5: it folds the replies in and
   reads the result for readiness. Then check that the body is one a build
   can read:

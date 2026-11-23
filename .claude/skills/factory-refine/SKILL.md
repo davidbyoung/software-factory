@@ -67,7 +67,7 @@ owner's own move. Run `ready` only after the `refined`
 marker is posted: `refined` resets Ready, so a `refined` posted after the
 move puts the card back In refinement before the poller starts it. When
 `factory-build` invokes this skill for an approved round, with the words
-"approved while waiting: fold the owner's replies into the body, post no
+"approved while waiting: fold the approvers' replies into the body, post no
 marker", it runs steps 4 and 5 only and posts none of these.
 
 ## 0. Read
