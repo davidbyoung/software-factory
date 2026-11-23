@@ -42,8 +42,12 @@ its commands.
 factory init
 ```
 
-It shows what it found and asks which optional parts you want. For this
-first ticket, uncheck every part. It then lists everything it will do, and
+It shows what it found and asks which optional parts you want. Three
+start checked: "An automated review of every pull request", "A board",
+and "Builds in the cloud". For this first ticket, uncheck those three:
+each needs a token or a secret you set up later, and this page needs
+none. Keep them checked instead if you want the full setup now. It then
+lists everything it will do, and
 once you tell it to go ahead, writes your settings file,
 `.claude/factory.yaml`, and the instructions and checks your coding agent
 follows. It commits nothing. [What it changes](removing.md) lists every

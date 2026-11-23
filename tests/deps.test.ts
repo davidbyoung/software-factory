@@ -75,13 +75,13 @@ describe("nextStep", () => {
     });
 
     expect(nextStep(failing, "main")).toBe(
-      "merge main (step 2); fix E2E (step 3); migrate (step 4)",
+      "merge main (step 2); fix E2E (step 3); migrate (step 5)",
     );
   });
 
   it("names the default branch in the merge step, whatever it is called", () => {
     expect(nextStep(bump({ mergeableState: "dirty" }), "develop")).toBe(
-      "merge develop (step 2); migrate (step 4)",
+      "merge develop (step 2); migrate (step 5)",
     );
   });
 
@@ -223,7 +223,7 @@ describe("main", () => {
       "  major; head dependabot/jsdom at abcdef1; mergeable dirty; auto-merge on",
       "  checks: failed E2E",
       "  earlier shepherd comments: 1",
-      "  next: merge main (step 2); fix E2E (step 3); migrate (step 4)",
+      "  next: merge main (step 2); fix E2E (step 3); migrate (step 5)",
     ]);
   });
 

@@ -137,7 +137,18 @@ describe("checkFields", () => {
     .nodes as BoardField[];
 
   it("accepts the board as set up", () => {
-    expect(checkFields(fields).status.id).toBe("F_status");
+    expect(checkFields(fields, DEFAULT_BOARD, "Status").status.id).toBe(
+      "F_status",
+    );
+  });
+
+  it("reads the columns from the field the ticket system names", () => {
+    const renamed = fields.map((f) =>
+      f.name === "Status" ? { ...f, name: "Estado" } : f,
+    );
+    expect(checkFields(renamed, DEFAULT_BOARD, "Estado").status.id).toBe(
+      "F_status",
+    );
   });
 
   it("requires Local and Actions under Runs in", () => {
@@ -148,12 +159,14 @@ describe("checkFields", () => {
           : f,
       );
 
-    expect(() => checkFields(without("Actions"))).toThrow(
+    expect(() =>
+      checkFields(without("Actions"), DEFAULT_BOARD, "Status"),
+    ).toThrow(
       "The board: the Runs in field lacks Actions: name another field in tickets.fields.runs-in, or set it to none.",
     );
-    expect(() => checkFields(without("Local"))).toThrow(
-      "the Runs in field lacks Local",
-    );
+    expect(() =>
+      checkFields(without("Local"), DEFAULT_BOARD, "Status"),
+    ).toThrow("the Runs in field lacks Local");
   });
 
   it("names every problem at once", () => {
@@ -169,7 +182,7 @@ describe("checkFields", () => {
               : f,
       );
 
-    expect(() => checkFields(broken)).toThrow(
+    expect(() => checkFields(broken, DEFAULT_BOARD, "Status")).toThrow(
       "The board: the Status field lacks Ready (tickets.columns.ready); the Runs in field is not a single select: name another field in tickets.fields.runs-in, or set it to none; the Cost field is not a Number: name another field in tickets.fields.cost, or set it to none.",
     );
   });

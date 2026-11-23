@@ -23,7 +23,7 @@ import { CODE_HOST_YAML } from "./settings-fixture";
 const LAUNCHER = new URL("../bin/factory.js", import.meta.url).pathname;
 const MAIN_BLOCK = "main is checked out";
 const GATE_BLOCK = "the gate failed";
-const OVERRIDE_BLOCK = "is the owner's label";
+const OVERRIDE_BLOCK = "is an approver's label";
 
 // A repository on main with a worktree beside it on a feature branch, the
 // layout a local session builds in. Its `origin/HEAD` says main is the
@@ -386,7 +386,7 @@ describe("factory guard commit", () => {
           checkCommit({ cwd: repo, tool_input: { command } }, () => {});
 
         expect(await check('gh pr edit 5 --add-label "owner: pass"')).toContain(
-          "is the owner's label",
+          "is an approver's label",
         );
         expect(
           await check("gh pr edit 5 --add-label verdict-override"),

@@ -265,6 +265,10 @@ function boardShape(s: Settings | null): {
   return { columns, fields };
 }
 
+/** A pasted secret, joined where the terminal wrapped it: a token holds
+ * no space or line break, and one copied from a wrapped line does. */
+const pasted = (value: string) => value.replace(/\s+/g, "");
+
 /** The repository and code host a remote's address names, or null for one
  * on a code host the factory does not support. */
 export function parseRemote(
@@ -473,7 +477,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     for (;;) {
       for (const part of step.parts.slice(from)) {
         const value = part.masked
-          ? await d.ask.secret(part.prompt)
+          ? pasted(await d.ask.secret(part.prompt))
           : (await d.ask.input(part.prompt, "")).trim();
         if (!value) {
           d.out(`${step.skipped} ${AGAIN}`);
@@ -1135,7 +1139,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     if (step.get && "command" in step.get)
       await d.interactive(step.get.command);
     for (;;) {
-      const value = await d.ask.secret(step.prompt);
+      const value = pasted(await d.ask.secret(step.prompt));
       if (!value) {
         d.out(`${step.skipped} ${AGAIN}`);
         break;
@@ -1176,7 +1180,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       d.out(
         `${a.name} isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.`,
       );
-    const value = await d.ask.secret(prompt);
+    const value = pasted(await d.ask.secret(prompt));
     if (!value) {
       d.out(
         `No ${a.name} stored. The factory's workflows fail at npm ci until it is. ${AGAIN}`,
@@ -1291,25 +1295,16 @@ async function terminalAsk(): Promise<Ask> {
   };
 }
 
-export async function run(argv: string[]): Promise<number> {
-  const terminal = noTerminal("init");
-  if (terminal) {
-    console.log(terminal);
-    return 1;
-  }
-  let root: string;
-  try {
-    root = repoRoot();
-  } catch {
-    console.log(
-      "This is not a git repository. Run it in your repository's checkout.",
-    );
-    return 1;
-  }
+/** The dependencies `run` gives `main`, for the repository at `root`. Its
+ * colors follow `stream`, the terminal init prints to. */
+export async function initDeps(
+  root: string,
+  stream: NodeJS.WritableStream = process.stdout,
+): Promise<InitDeps> {
   const manifest = JSON.parse(
     readFileSync(join(PACKAGE, "package.json"), "utf8"),
   ) as { name: string; version: string };
-  const d: InitDeps = {
+  return {
     root,
     ask: await terminalAsk(),
     out: (l) => console.log(l),
@@ -1382,10 +1377,28 @@ export async function run(argv: string[]): Promise<number> {
       }
     },
     checks: () => doctorChecks(doctorDeps(root)),
-    paint: painter(colorOn()),
+    paint: painter(colorOn(stream)),
     packageName: manifest.name,
     packageVersion: manifest.version,
   };
+}
+
+export async function run(argv: string[]): Promise<number> {
+  const terminal = noTerminal("init");
+  if (terminal) {
+    console.log(terminal);
+    return 1;
+  }
+  let root: string;
+  try {
+    root = repoRoot();
+  } catch {
+    console.log(
+      "This is not a git repository. Run it in your repository's checkout.",
+    );
+    return 1;
+  }
+  const d = await initDeps(root);
   try {
     return await main(argv, d);
   } catch (e) {

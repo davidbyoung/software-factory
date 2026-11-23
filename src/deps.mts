@@ -59,7 +59,7 @@ export function nextStep(
     steps.push(`fix ${failing(bump).join(", ")} (step 3)`);
   if (synced.some((name) => bump.title.includes(name)))
     steps.push("sync (step 4)");
-  if (bump.major) steps.push("migrate (step 4)");
+  if (bump.major) steps.push("migrate (step 5)");
   return steps.length > 0 ? steps.join("; ") : "nothing: waits on its merge";
 }
 

@@ -67,7 +67,7 @@ owner's own move. Run `ready` only after the `refined`
 marker is posted: `refined` resets Ready, so a `refined` posted after the
 move puts the card back In refinement before the poller starts it. When
 `factory-build` invokes this skill for an approved round, with the words
-"approved while waiting: fold the owner's replies into the body, post no
+"approved while waiting: fold the approvers' replies into the body, post no
 marker", it runs steps 4 and 5 only and posts none of these.
 
 ## 0. Read
@@ -444,6 +444,9 @@ on the owner.
 Say which issue, which defaults the owner changed, what the readiness
 check found, each blocked-by relationship recorded and on which issue, and
 that it now waits on the owner, its card staying In refinement until it
-moves to Ready: moving it there builds it in GitHub Actions, which a local
-session does with `ready` when the owner asks it to, and telling a local
-session to work it builds it there.
+is approved. Where `npx --no-install factory config get builds.trigger`
+prints `manual`, say the owner approves it by telling a session to build
+it, since moving the card starts nothing. Otherwise say moving it to
+Ready builds it in GitHub Actions, which a local session does with
+`ready` when the owner asks it to, and that telling a local session to
+work it builds it there.

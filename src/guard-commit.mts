@@ -225,7 +225,7 @@ export async function checkCommit(
   if (/\bgh\s/.test(raw) && /label/i.test(raw)) {
     const name = await overrideName(cwd);
     if (addsOverride(raw, name))
-      return `"${name}" is the owner's label. Ask them to add it.`;
+      return `"${name}" is an approver's label. Ask one to add it.`;
   }
 
   const calls = gitCalls(blankQuoted(raw), cwd);

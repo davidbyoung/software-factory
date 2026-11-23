@@ -138,9 +138,11 @@ serves both, and carries out what `chooseEntry` in `bin/launch.js` picks, in
 this order:
 
 1. The source in the repository it was run from: the first folder at or
-   above the current directory that has `.git`, when it has
-   `packages/factory/package.json` with this package's name. So a git
-   worktree runs its own copy, not the one `npx` finds up the tree.
+   above the current directory that has `.git`, when that is this
+   package's own repository: its `package.json` has this package's name.
+   So a git worktree runs its own copy, not the one `npx` finds up the
+   tree. A global `factory` picks this rule up after a release and a
+   global reinstall.
 2. The copy that repository installed, when that is not this one, so a
    global install runs the repository's own version.
 3. Nothing, with a line saying how to install it, when this copy is outside
@@ -515,14 +517,14 @@ one file.
 
 ## Checking a change
 
-| Check                  | What it proves                                                                                                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`. A new test is seen failing before it is trusted                                |
-| `factory sync --check` | The copies match the source                                                                                                                                                |
-| Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host             |
-| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                         |
-| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`) |
-| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                           |
+| Check                  | What it proves                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`, which only a build that deleted well-covered code may lower, saying so. A new test is seen failing before it is trusted |
+| `factory sync --check` | The copies match the source                                                                                                                                                                                         |
+| Pack and install       | CI packs the folder, installs it into an empty scratch repository, and runs `sync`, `config check`, and one read-only command there. It works outside its host                                                      |
+| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                                                                  |
+| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`)                                          |
+| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                                                                    |
 
 The skills are instructions, and instructions cannot be unit tested. The
 last row is the only real proof that a change to one still works.
@@ -596,6 +598,11 @@ this repository's own reviewer, reads a changed page as that person.
 
 - **A page says who it is for and what they will have at the end,** in its
   first lines.
+- **Write a command the reader runs as `factory ...`,** the global
+  install [The CLI](cli.md) says to run them from. `npx --no-install
+factory` is for text a skill, hook, workflow, or session reads, such as
+  a `CLAUDE.md` line a page shows. A test fails on a fenced command line
+  in a page a reader follows that starts with it.
 - **Lead with the command that does it.** The same steps by hand go on a
   page of their own, linked once. A step that runs a skill shows its slash
   command, such as `/factory-refine 12`, not only words to say to a

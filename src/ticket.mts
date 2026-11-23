@@ -85,6 +85,7 @@ import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
 import { openTickets } from "./tickets/index.mts";
 import {
   GROUPS,
+  NotFoundError,
   compareKeys,
   need,
   supports,
@@ -120,6 +121,9 @@ export type Deps = {
   env: Record<string, string | undefined>;
   sleep: (ms: number) => Promise<unknown>;
   out: (line: string) => void;
+  /** The follow-ups ticket this clone last opened, which GitHub may not
+   * list for a few seconds after. */
+  followUpStore: { read: () => Key | null; write: (key: Key) => void };
   /** Where this checkout remembers the claim it posted on each issue. */
   claimStore: {
     read: (issue: Key) => string | null;
@@ -352,6 +356,22 @@ export function withLine(body: string, line: string): string {
   return `${body.trimEnd()}\n${line.trim()}\n`;
 }
 
+/** The follow-ups ticket this clone last opened, when it is still open and
+ * still carries the label, read directly: a list made seconds after it was
+ * opened can leave it out, and opening a second one breaks the one-ticket
+ * rule. */
+async function lastOpened(label: string, d: Ctx) {
+  const key = d.followUpStore.read();
+  if (key === null) return null;
+  try {
+    const t = await d.tickets.read(key);
+    return t.finishedAt === null && t.labels.includes(label) ? t : null;
+  } catch (error) {
+    if (error instanceof NotFoundError) return null;
+    throw error;
+  }
+}
+
 /** Adds a line to the open follow-ups issue, or opens the issue when none
  * is open. The file leads the line, so each one names what it is about. */
 async function followUp(file: string, text: string, d: Ctx) {
@@ -360,7 +380,8 @@ async function followUp(file: string, text: string, d: Ctx) {
   const open = (await d.tickets.listUnfinished()).filter((t) =>
     t.labels.includes(label),
   );
-  const [first] = open.sort((a, b) => compareKeys(a.key, b.key));
+  const [listed] = open.sort((a, b) => compareKeys(a.key, b.key));
+  const first = listed ?? (await lastOpened(label, d));
   if (first) {
     const issue = await d.tickets.read(first.key);
     await d.tickets.writeBody(first.key, withLine(issue.body, line));
@@ -377,6 +398,7 @@ async function followUp(file: string, text: string, d: Ctx) {
     labels: [label, factory],
     body,
   });
+  d.followUpStore.write(made);
   return `opened ${d.tickets.ref(made)}`;
 }
 
@@ -473,7 +495,7 @@ async function moveToReady(issue: Key, d: Ctx) {
   const item = read.items.get(issue);
   if (!item) throw new Error(`${ref} is not on the board.`);
   if (item.status !== null && sameName(item.status, ready)) return;
-  const fields = checkFields(read.fields, d.config);
+  const fields = checkFields(read.fields, d.config, read.columnField);
   const option = fields.status.options?.find((o) => sameName(o.name, ready));
   try {
     await board.move(item.itemId, option?.name ?? ready);
@@ -973,6 +995,10 @@ async function command(argv: string[], deps: Deps): Promise<number> {
   }
 }
 
+function followUpPath() {
+  return join(commonDir(), "work-follow-up");
+}
+
 function claimPath(issue: Key) {
   return join(commonDir(), `work-claim-${issue}`);
 }
@@ -1002,6 +1028,13 @@ export async function run(argv: string[]): Promise<number> {
     clock: { read: readClock, write: writeClock },
     measure: (session, since) =>
       measureSession(projectsDir(process.env), session, since),
+    followUpStore: {
+      read: () =>
+        existsSync(followUpPath())
+          ? readFileSync(followUpPath(), "utf8").trim() || null
+          : null,
+      write: (key) => writeFileSync(followUpPath(), key),
+    },
     claimStore: {
       read: (issue) => {
         const path = claimPath(issue);

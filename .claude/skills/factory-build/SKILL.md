@@ -28,7 +28,8 @@ the ticket system writes it in prose, such as `#12`, which
 - **Local:** the owner tells a session to work an issue by its key. The
   card stays where it is until the claim moves it.
 
-- **GitHub Actions:** the owner moves the issue's card to Ready on the
+- **GitHub Actions:** where a poller runs (`builds.trigger` is not
+  `manual`), the owner moves the issue's card to Ready on the
   board, and the poller posts a start comment and dispatches
   "Factory build" with the issue's key; or a person runs
   `npx --no-install factory build N`, or "Run workflow" on the Actions
@@ -195,11 +196,12 @@ Otherwise, claim it now ("The claim"), then read on.
   key with no value given, release the claim and say so.
 - **Approved while a comment round waits on the owner:** the newest
   refinement marker on the issue is `<!-- work-status: waiting -->`.
-  Approval means the round's defaults stand, along with the owner's
-  replies. After the claim, first invoke the refiner, the skill
+  Approval means the round's defaults stand, along with the replies
+  `npx --no-install factory ticket answers N` prints: any approver's, as
+  refinement reads them. After the claim, first invoke the refiner, the skill
   `npx --no-install factory plugins refiner` prints, with the Skill tool,
   giving it the issue's key and the words "approved while
-  waiting: fold the owner's replies into the body, post no marker". For
+  waiting: fold the approvers' replies into the body, post no marker". For
   `factory-refine` that is its steps 4 and 5: it folds the replies in and
   reads the result for readiness. Then check that the body is one a build
   can read:
@@ -483,11 +485,12 @@ can wake later, waits for the review with
 `npx --no-install factory pr state PR --wait` instead, and does not start
 `factory pr watch`. Work the review with the `factory-address-review` skill.
 
-The merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from
+Where the settings list a file under `auto-merge.allow`, the merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from
 the files it changes, and turns auto-merge on for `merge-automatic` ones, which
 then merge themselves once every gate passes. Never enable auto-merge,
 merge, or add the `verdict-override` label yourself. In the report, say which
-label the pull request got, so the owner knows whether it waits for them.
+label the pull request got, so the owner knows whether it waits for them;
+with none listed, no label comes, and say it waits for the owner.
 
 ## 7. Report
 

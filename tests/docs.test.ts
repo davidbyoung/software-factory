@@ -1,5 +1,6 @@
 // What a reader of the docs is told about what is not built, and how they
 // are told to run the command.
+import { fencedLines } from "../src/lib/fences.mts";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import { load } from "js-yaml";
@@ -159,6 +160,20 @@ function isSetting(path: string): boolean {
   return parts.every((part, i) =>
     SETTINGS_KEYS[parts.slice(0, i).join(".")]?.includes(part),
   );
+}
+
+/** Each line in a fenced code block that runs the factory as
+ * `npx --no-install factory`, the form a skill or hook uses, where a page a
+ * reader follows writes `factory`, the global install. */
+export function npxCommandLines(text: string): string[] {
+  const fenced = fencedLines(text);
+  return text
+    .split(/\r?\n/)
+    .filter(
+      (line, i) =>
+        fenced[i] && /^\s*(\$ )?npx --no-install factory\b/.test(line),
+    )
+    .map((line) => line.trim());
 }
 
 /** Each settings key `text` names in backticks whose first mention is not a
@@ -359,6 +374,36 @@ describe("unmarked", () => {
     expect(
       unmarked("| `factory init` | Sets up | Planned |", planned, true),
     ).toEqual([]);
+  });
+});
+
+describe("npxCommandLines", () => {
+  it("finds a command line in a fence that runs the factory through npx", () => {
+    const page = [
+      "Run `npx --no-install factory sync` in prose.",
+      "```bash",
+      "npx --no-install factory sync",
+      "factory doctor",
+      "```",
+      "```console",
+      "$ npx --no-install factory status",
+      "```",
+    ].join("\n");
+    expect(npxCommandLines(page)).toEqual([
+      "npx --no-install factory sync",
+      "$ npx --no-install factory status",
+    ]);
+  });
+
+  it("reads a shorter fence quoted inside a longer one as still inside", () => {
+    const page = [
+      "````md",
+      "```",
+      "npx --no-install factory sync",
+      "````",
+      "npx --no-install factory doctor",
+    ].join("\n");
+    expect(npxCommandLines(page)).toEqual(["npx --no-install factory sync"]);
   });
 });
 
@@ -578,6 +623,15 @@ describe("the docs", () => {
       .filter((page) => page !== CONFIGURATION)
       .flatMap((page) =>
         unlinkedSettings(read(page), entries).map((line) => `${page}: ${line}`),
+      );
+    expect(found).toEqual([]);
+  });
+
+  it("write factory, not npx --no-install factory, in a command a reader runs", () => {
+    const found = pages()
+      .filter((page) => page !== "docs/developing.md")
+      .flatMap((page) =>
+        npxCommandLines(read(page)).map((line) => `${page}: ${line}`),
       );
     expect(found).toEqual([]);
   });

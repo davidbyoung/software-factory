@@ -27,6 +27,27 @@ describe("bareTags", () => {
     expect(bareTags(text)).toEqual([]);
   });
 
+  it("refuses a tag after an HTML comment that holds a fence line", () => {
+    const text = ["<!--", "```", "-->", "Use <slug> here."].join("\n");
+    expect(bareTags(text)).toEqual([
+      { tag: "<slug>", line: "Use <slug> here." },
+    ]);
+  });
+
+  it("passes a tag on any line of a fenced block, not only its first", () => {
+    const text = ["```text", "one", "two", "<your text>", "```"].join("\n");
+    expect(bareTags(text)).toEqual([]);
+  });
+
+  it("closes a fence only with one of its own character at least as long", () => {
+    const text = ["````md", "```", "<inside>", "```", "````", "<outside>"].join(
+      "\n",
+    );
+    expect(bareTags(text).map((t) => t.tag)).toEqual(["<outside>"]);
+    const tilde = ["```md", "~~~", "<inside>", "```", "<outside>"].join("\n");
+    expect(bareTags(tilde).map((t) => t.tag)).toEqual(["<outside>"]);
+  });
+
   it("passes the tags GitHub renders on purpose, open and closed", () => {
     const text =
       "<details><summary>More</summary>a<br>H<sub>2</sub>O x<sup>2</sup> <kbd>Esc</kbd></details>";

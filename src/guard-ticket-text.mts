@@ -16,6 +16,7 @@
 // GitHub serves a pull request's conversation comments, and its body, as
 // an issue's, so those paths are read too; `gh pr` and `pulls/N` are not.
 
+import { fencedLines } from "./lib/fences.mts";
 import { PR_LABELS, sameLabel } from "./labels.mts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -83,12 +84,12 @@ export type BareTag = { tag: string; line: string };
  * each remaining tag stays on its own line. */
 function withoutCode(text: string): string {
   const blank = (s: string) => s.replace(/[^\n]/g, " ");
-  return text
-    .replace(/<!--[\s\S]*?-->/g, blank)
-    .replace(
-      /^([ \t]*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n\1\2[^\n]*|$)/gm,
-      blank,
-    )
+  const uncommented = text.replace(/<!--[\s\S]*?-->/g, blank);
+  const fenced = fencedLines(uncommented);
+  return uncommented
+    .split("\n")
+    .map((line, i) => (fenced[i] ? blank(line) : line))
+    .join("\n")
     .replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, blank);
 }
 
@@ -289,13 +290,13 @@ export function refuseBareTags(text: string): void {
   if (tags.length > 0) throw new Error(refusal(tags));
 }
 
-/** The owner's pass of the review verdict for one commit, which no agent
+/** An approver's pass of the review verdict for one commit, which no agent
  * adds ("What merges without the owner" in rules.md), by its key or by
  * `name`, the name the settings give it. */
 export function refuseOverride(label: string, name: string): void {
   const given = label.trim();
   if ([PR_LABELS["verdict-override"], name].some((n) => sameLabel(n, given)))
     throw new Error(
-      `Refused: the ${name} label is the owner's pass of the review verdict, which an agent never adds.`,
+      `Refused: the ${name} label is an approver's pass of the review verdict, which an agent never adds.`,
     );
 }

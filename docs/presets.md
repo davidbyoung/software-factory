@@ -206,7 +206,8 @@ of the factory does ([Updating](updating.md#what-happens)):
    value it names is the one in effect. To choose differently, check out
    the pull request's branch, run `factory preset choices`,
    and push the `.claude/factory.choices.yaml` and `.claude/factory.lock`
-   it wrote.
+   it wrote. **It worked when** the pull request's checks pass again and
+   `factory config explain` shows the value you chose.
 4. Read the pull request and merge it. A preset update never merges
    itself, whatever your [`auto-merge`](configuration.md#auto-merge)
    settings allow.
@@ -244,7 +245,14 @@ Apply? [y/N]
 ```
 
 Keeping 30 writes `small-change-lines: 30` into your `factory.yaml`, since
-no preset provides it anymore. Then the command uninstalls the package,
+no preset provides it anymore:
+
+```yaml
+rules:
+  small-change-lines: 30
+```
+
+Then the command uninstalls the package,
 takes it out of `presets`, deletes the agents and skills the preset
 shipped, and syncs. A file your repository wrote itself is never deleted.
 
@@ -276,7 +284,8 @@ plugins:
         off: true
 ```
 
-**It worked when** [`factory plugins`](plugins.md) no
+Then run `factory sync`, as for any change to your settings, and commit
+both files. **It worked when** [`factory plugins`](plugins.md) no
 longer lists it.
 
 A value a preset adds to a list of values, such as a command in

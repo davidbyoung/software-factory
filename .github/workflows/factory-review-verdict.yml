@@ -2,7 +2,7 @@ name: Factory review verdict
 
 # Posts the "Review verdict" commit status, which records what the Claude
 # review concluded about one commit: success only when its summary for that
-# commit says ready, or the owner overrode it. `factory review verdict`
+# commit says ready, or an approver overrode it. `factory review verdict`
 # holds every rule.
 #
 # Both triggers run this file and the script from main, so a pull request

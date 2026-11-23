@@ -111,8 +111,9 @@ what a factory user sees: a command's output or exit, a setting, or which
 files the factory writes into their repository and where. The text of
 its skills, agents, rules, and review instructions is not spec-tracked,
 since prose has no test to map a scenario to: a change to it goes through
-the fresh-agent trace in "Changing the process" instead. `openspec/specs/` starts empty;
-behavior the factory already has gets a spec when a ticket next changes
+the fresh-agent trace in "Changing the process" instead. `openspec/specs/` holds a spec for
+each capability a ticket has changed, as `npx --no-install factory specs
+list` prints them; behavior with none gets one when a ticket next changes
 it. The docs stay the reader's guide, and a spec change updates them in
 the same pull request. The factory's spec check,
 `npx --no-install factory specs check`, sets `DO_NOT_TRACK=1` for OpenSpec
@@ -145,7 +146,7 @@ fact in the owner's text, and named, is not a change to §1.
 owner is a `dx-first` draft when its comment ends
 `<!-- dx-first: draft -->`. When `factory-build` folds an approved round
 and that round is a draft, run `dx-first` to save the draft with the
-owner's replies folded in, then fold and check the body as
+approvers' replies folded in, then fold and check the body as
 `factory-refine` does. When the owner asks a session to build a ticket
 whose draft waits and whose body has no criteria yet, `factory-build`
 runs refinement and stops, as it does for any such ticket: that request

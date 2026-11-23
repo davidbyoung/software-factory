@@ -74,12 +74,12 @@ plugins:
       skill: acme-refine
 ```
 
-| Step        | What happens                                                                                                                                                                                                                                                                                                                                                     |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Called**  | When you run `/factory-refine N` in a session: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                 |
-| **Handed**  | The ticket's key. From `factory-build`, for a round of questions you approved while it waited on your answers, also the words "approved while waiting: fold the owner's replies into the body, post no marker". They tell the refiner to write your replies into the ticket's body and to post no [marker](glossary.md), the hidden comment line the board reads |
-| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                                                                                                                                                                    |
-| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                                                                                                                                                                    |
+| Step        | What happens                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Called**  | When you run `/factory-refine N` in a session: `factory-refine` hands over to it before doing anything. By `factory-build`, on a ticket that has no criteria yet, or one you approved while its questions waited                                                                                                                                                                                             |
+| **Handed**  | The ticket's key. From `factory-build`, for a round of questions you approved while it waited on your answers, also the words "approved while waiting: fold the approvers' replies into the body, post no marker". They tell the refiner to write the replies of anyone who can write to the repository into the ticket's body and to post no [marker](glossary.md), the hidden comment line the board reads |
+| **Returns** | A ticket a build can start from: everything in the list below                                                                                                                                                                                                                                                                                                                                                |
+| **Then**    | The ticket waits for your approval, and the build reads what the refiner left                                                                                                                                                                                                                                                                                                                                |
 
 **What a refiner must deliver.** The board and the build read these, so a
 refiner that leaves one out leaves a ticket that cannot be built.
@@ -338,7 +338,11 @@ migration-reviewer: skipped, only a comment changed.
 ```
 
 Every matched reviewer ends up with either a run or a line like that. You
-read the skips when you read the pull request.
+read the skips when you read the pull request. A
+[small change](workflow.md#sizing-the-work-to-the-change) is the
+exception: it runs only the reviewers the small path names, and its pull
+request says it took the small path instead of listing each reviewer it
+skipped.
 
 **Write the description as a condition.** "Reviews database migrations"
 says what the agent is. "Use when a change adds or alters a migration's
