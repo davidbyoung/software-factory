@@ -227,7 +227,8 @@ describe("factory preset add", () => {
       // and the review is on with its commands.
       "wrote .claude/skills/factory-address-review/SKILL.md",
       "wrote .claude/factory/rules.md",
-      "wrote .github/workflows/factory-claude-review.yml",
+      "wrote .github/workflows/factory.yml",
+      "wrote .github/workflows/factory-review.yml",
       "wrote .claude/agents/node-deps-reviewer.md",
       "wrote .claude/factory.choices.yaml",
       "wrote .claude/factory.lock",
@@ -486,7 +487,8 @@ describe("factory preset remove", () => {
       // The copies the settings change: two rounds again, and no review.
       "wrote .claude/skills/factory-address-review/SKILL.md",
       "wrote .claude/factory/rules.md",
-      "deleted .github/workflows/factory-claude-review.yml",
+      "wrote .github/workflows/factory.yml",
+      "wrote .github/workflows/factory-review.yml",
       "deleted .claude/agents/node-deps-reviewer.md",
       "wrote .claude/factory.lock",
     ]);

@@ -226,44 +226,46 @@ describe("workflowOutput", () => {
   });
 });
 
-// The merge-policy and verdict workflows run main's copy of themselves and
-// of the factory's command, never a pull request's: pull_request_target with
-// the default checkout, which is the base branch.
-describe.each(["factory-merge-policy.yml", "factory-review-verdict.yml"])(
-  "workflows/%s",
-  (file) => {
-    const workflow = load(
-      readFileSync(new URL(`../workflows/${file}`, import.meta.url), "utf8"),
-    ) as {
-      on: Record<string, unknown>;
-      jobs: Record<string, { steps: { uses?: string; with?: object }[] }>;
-    };
+// The merge policy and the verdict run the default branch's copy of
+// themselves and of the factory's command, never a pull request's: jobs of
+// run.yml that start on pull_request_target, with the default checkout,
+// which is the base branch.
+const run = load(
+  readFileSync(
+    new URL("../.github/workflows/run.yml", import.meta.url),
+    "utf8",
+  ),
+) as {
+  jobs: Record<
+    string,
+    {
+      if: string;
+      steps: { id?: string; uses?: string; with?: object; run?: string }[];
+    }
+  >;
+};
 
-    it("runs on pull_request_target, never pull_request", () => {
-      expect(Object.keys(workflow.on)).toContain("pull_request_target");
-      expect(Object.keys(workflow.on)).not.toContain("pull_request");
-    });
+describe.each(["merge-policy", "verdict"])("run.yml's %s job", (name) => {
+  const job = run.jobs[name]!;
 
-    it("checks out the base branch, not the pull request", () => {
-      const checkouts = Object.values(workflow.jobs).flatMap((j) =>
-        j.steps.filter((s) => s.uses?.startsWith("actions/checkout")),
-      );
-      expect(checkouts).toHaveLength(1);
-      expect(checkouts[0].with).toBeUndefined();
-    });
-  },
-);
+  it("starts on pull_request_target, never pull_request", () => {
+    expect(job.if).toContain("github.event_name == 'pull_request_target'");
+    expect(job.if).not.toContain("github.event_name == 'pull_request'");
+  });
 
-describe("workflows/factory-merge-policy.yml", () => {
-  const workflow = load(
-    readFileSync(
-      new URL("../workflows/factory-merge-policy.yml", import.meta.url),
-      "utf8",
-    ),
-  ) as { jobs: Record<string, { steps: { id?: string; run?: string }[] }> };
-  const classify = Object.values(workflow.jobs)
-    .flatMap((j) => j.steps)
-    .find((s) => s.id === "classify")!;
+  it("checks out the base branch, not the pull request", () => {
+    const checkouts = job.steps.filter((s) =>
+      s.uses?.startsWith("actions/checkout"),
+    );
+    expect(checkouts).toHaveLength(1);
+    expect(checkouts[0]!.with).toBeUndefined();
+  });
+});
+
+describe("run.yml's merge-policy job", () => {
+  const classify = run.jobs["merge-policy"]!.steps.find(
+    (s) => s.id === "classify",
+  )!;
 
   it("labels with the name the command gives, not its key", () => {
     const output = workflowOutput(

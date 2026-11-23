@@ -35,14 +35,14 @@ const withTrigger = (
 describe("the scheduled poller's workflow, in doctor", () => {
   it("fails when GitHub has switched it off, saying how to switch it on", async () => {
     const c = withTrigger("github-action", {
-      "factory-poller.yml": "disabled",
+      "factory.yml": "disabled",
     });
 
     expect(await setup.checks!(c)).toEqual([
       {
         state: "fail",
-        text: "factory-poller.yml is disabled",
-        fix: "Enable it on the Actions tab, or run: gh workflow enable factory-poller.yml",
+        text: "factory.yml is disabled",
+        fix: "Enable it on the Actions tab, or run: gh workflow enable factory.yml",
       },
     ]);
   });
@@ -51,16 +51,16 @@ describe("the scheduled poller's workflow, in doctor", () => {
     expect(await setup.checks!(withTrigger("github-action"))).toEqual([
       {
         state: "off",
-        text: "factory-poller.yml is not on the default branch yet",
+        text: "factory.yml is not on the default branch yet",
       },
     ]);
   });
 
   it("passes while it runs", async () => {
-    const c = withTrigger("github-action", { "factory-poller.yml": "active" });
+    const c = withTrigger("github-action", { "factory.yml": "active" });
 
     expect(await setup.checks!(c)).toEqual([
-      { state: "pass", text: "factory-poller.yml is enabled" },
+      { state: "pass", text: "factory.yml is enabled" },
     ]);
   });
 

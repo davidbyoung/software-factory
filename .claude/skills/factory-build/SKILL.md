@@ -30,8 +30,8 @@ the ticket system writes it in prose, such as `#12`, which
 
 - **GitHub Actions:** where a poller runs (`builds.trigger` is not
   `manual`), the owner moves the issue's card to Ready on the
-  board, and the poller posts a start comment and dispatches
-  "Factory build" with the issue's key; or a person runs
+  board, and the poller posts a start comment and starts a build, a run
+  of the "Factory" workflow, with the issue's key; or a person runs
   `factory build N`, or "Run workflow" on the Actions
   tab. The two are the same run. The run's prompt says so. There is no
   start check, since only someone with write access can dispatch a
@@ -485,7 +485,7 @@ can wake later, waits for the review with
 `factory pr state PR --wait` instead, and does not start
 `factory pr watch`. Work the review with the `factory-address-review` skill.
 
-Where the settings list a file under `auto-merge.allow`, the merge-policy workflow labels the pull request `merge-automatic` or `merge-manual` from
+Where the settings list a file under `auto-merge.allow`, the merge policy labels the pull request `merge-automatic` or `merge-manual` from
 the files it changes, and turns auto-merge on for `merge-automatic` ones, which
 then merge themselves once every gate passes. Never enable auto-merge,
 merge, or add the `verdict-override` label yourself. In the report, say which

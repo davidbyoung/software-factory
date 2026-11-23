@@ -117,11 +117,14 @@ discovering it at push time.
   one, start the body with the line `factory ticket link N`
   prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
   prints each one.
-- **After pushing, check for review automatically.** The `Claude review`
-  workflow reviews every push to a PR. If an open PR exists for the branch,
-  wait for the review of that push, then work it with the `factory-address-review` skill
+- **After pushing, check for review automatically.** Where the automated
+  review is on, which is where `factory config get pr-review` prints its
+  settings and not `off`, it reviews every push to a PR that is marked
+  ready. If an open PR exists for the branch, wait for the review of that
+  push, then work it with the `factory-address-review` skill
   without being asked. If no PR exists yet, say so in one line: review begins
-  when the user opens one.
+  when the user opens one. Where the review is off, none comes: a push is
+  done once its checks pass.
 - **A conflict with the default branch is fixed through the `factory-resolve-conflicts` skill.** Its
   sweep runs after each merge into the default branch and nightly, on every ready pull
   request that conflicts, and a session working a pull request with
@@ -130,7 +133,7 @@ discovering it at push time.
 - **An issue is built in GitHub Actions by moving its card to Ready** on
   the board, the GitHub Project whose number
   `factory config get tickets.board` prints: the
-  poller dispatches the "Factory build" workflow, within about a minute
+  poller starts a build, a run of the "Factory" workflow, within about a minute
   when you host it (`builds.trigger: own-server`) or at its next scheduled
   pass (`github-action`), the same run that
   `factory build N` starts by hand. A local build starts by telling a session to work the
@@ -146,7 +149,7 @@ discovering it at push time.
   which goes to Backlog: a
   build that ends without a merge stays In progress, and a finished
   refinement stays In refinement, both "Waiting on you", and nothing
-  retries on its own. The board-sync workflow alone writes Status,
+  retries on its own. The board sync alone writes Status,
   Session, and Runs in, with one exception: a local session moves the
   card to Ready with `factory ticket ready N` when the
   owner asks it to. `factory status` shows the
@@ -164,21 +167,21 @@ discovering it at push time.
 
 ## What merges without the owner
 
-A pull request merges itself only when the merge-policy workflow labels it
+A pull request merges itself only when the merge policy labels it
 `merge-automatic` and every gate passes on its newest commit,
 `Review verdict` included. The agents' own rules always wait for the
 owner. Its `Who merges` status in the checks list says which, and why.
-Where `.claude/factory.yaml` lists no file under `auto-merge.allow`, no
-merge-policy workflow runs: no pull request gets either label or a `Who merges`
+Where `.claude/factory.yaml` lists no file under `auto-merge.allow`, the
+merge policy does not run: no pull request gets either label or a `Who merges`
 status, and every one waits for the owner, so wherever these rules or a
 skill name them, read it as "waits for the owner".
 
 Agents never merge, enable auto-merge, or add the `verdict-override`
 label, an approver's pass of the verdict for one commit; `factory pr label`
 and `factory ticket label` refuse it, and the guard hook stops the ordinary
-ways of adding it around them. Both workflows run from the default branch's copy,
-so a pull request cannot change how it is judged, and changes to them are
-always the owner's.
+ways of adding it around them. The merge policy and the verdict run from
+the default branch's copy, so a pull request cannot change how it is judged,
+and changes to them are always the owner's.
 
 ## Spec track
 
@@ -310,12 +313,12 @@ finding the builder left undone is not a follow-up either.
 
 ## Changing the process
 
-The factory's skills, agents, rules, review instructions, and workflows
-under `.claude/` and `.github/` are copies, written by `factory sync` from
-the factory's package. Change the source in the package, run
-`factory sync`, and commit both: the gate and CI fail
-when a copy differs from what `sync` writes from its source and the
-settings.
+The factory's skills, agents, rules, and review instructions under
+`.claude/` and `.github/` are copies, and its two workflow files are
+written from the settings, all by `factory sync` from the factory's
+package. Change the source in the package, run `factory sync`, and commit
+both: the gate and CI fail when a file differs from what `sync` writes
+from its source and the settings.
 
 A rule written for the change in front of its author can be wrong for
 every other kind. Once, the step that adds the `spec` label kept adding

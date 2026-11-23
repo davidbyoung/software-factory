@@ -12,7 +12,9 @@ import {
   SETTINGS_KEYS,
   ROLE_SHAPE,
   ROLES,
+  SESSION_MINUTES,
 } from "../src/config.mts";
+import { reviewWorkflow } from "../src/workflow-files.mts";
 
 const PACKAGE = ".";
 const CLI = "docs/cli.md";
@@ -657,9 +659,25 @@ describe("the docs", () => {
   });
 
   it("ship a review workflow that reads either credential init can store", () => {
-    const workflow = read("workflows/factory-claude-review.yml");
-    expect(workflow).toContain("secrets.CLAUDE_CODE_OAUTH_TOKEN");
-    expect(workflow).toContain("secrets.ANTHROPIC_API_KEY");
+    const written = load(
+      reviewWorkflow({
+        version: "1.0.0",
+        branch: "main",
+        parts: ["review"],
+        pollMinutes: null,
+        ref: (key) => key,
+        minutes: { ...SESSION_MINUTES },
+        overrideLabel: "verdict-override",
+        secrets: [],
+      }),
+    ) as { jobs: { review: { secrets: Record<string, string> } } };
+    expect(written.jobs.review.secrets).toMatchObject({
+      "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
+      "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
+    });
+    const review = read(".github/workflows/review.yml");
+    expect(review).toContain("secrets.claude-token");
+    expect(review).toContain("secrets.claude-api-key");
   });
 
   it("carry no banner saying the pages are not built", () => {

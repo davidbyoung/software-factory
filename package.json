@@ -21,8 +21,6 @@
     "agents",
     "rules.md",
     "review.md",
-    "workflows",
-    "actions",
     "poller.Dockerfile",
     ".claude-plugin",
     "docs",

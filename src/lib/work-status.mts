@@ -598,7 +598,7 @@ export function watchOf(
   if (trigger === "github-action")
     return {
       minutes: pollMinutes + 15,
-      flag: "not started, is the factory-poller workflow running?",
+      flag: "not started, is the poller's job in factory.yml running?",
     };
   return { minutes: 5, flag: "not started, is the poller running?" };
 }

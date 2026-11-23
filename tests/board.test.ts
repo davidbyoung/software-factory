@@ -711,23 +711,34 @@ describe("a build in GitHub Actions", () => {
   });
 });
 
-describe("workflows/factory-board-sync.yml", () => {
-  const workflow = loadYaml(
-    readFileSync(
-      new URL("../workflows/factory-board-sync.yml", import.meta.url),
-      "utf8",
+describe("run.yml's board job", () => {
+  const job = (
+    loadYaml(
+      readFileSync(
+        new URL("../.github/workflows/run.yml", import.meta.url),
+        "utf8",
+      ),
+    ) as {
+      jobs: {
+        board: { if: string; steps: { uses?: string; with?: object }[] };
+      };
+    }
+  ).jobs.board;
+  const condition = job.if.replace(/\s+/g, " ");
+  const events = [
+    ...new Set(
+      [...condition.matchAll(/github\.event_name == '(\w+)'/g)].map(
+        (m) => m[1],
+      ),
     ),
-  ) as {
-    on: Record<string, unknown>;
-    jobs: { sync: { if: string; steps: { uses?: string; with?: object }[] } };
-  };
+  ];
 
   // A pull_request run uses the pull request's own copy of the sync with
   // FACTORY_BOARD_TOKEN, so an unreviewed edit to the sync could rewrite the board.
-  it("runs main's copy of the sync on pull request events", () => {
-    expect(Object.keys(workflow.on)).toContain("pull_request_target");
-    expect(Object.keys(workflow.on)).not.toContain("pull_request");
-    const checkout = workflow.jobs.sync.steps.find((s) =>
+  it("runs the default branch's copy of the sync on pull request events", () => {
+    expect(events).toContain("pull_request_target");
+    expect(events).not.toContain("pull_request");
+    const checkout = job.steps.find((s) =>
       s.uses?.startsWith("actions/checkout"),
     );
     expect(checkout).toBeDefined();
@@ -737,7 +748,7 @@ describe("workflows/factory-board-sync.yml", () => {
   });
 
   it("runs when the factory starts it, on pull request events, and nightly, never on a ticket's own events", () => {
-    expect(Object.keys(workflow.on).sort()).toEqual([
+    expect([...events].sort()).toEqual([
       "pull_request_target",
       "schedule",
       "workflow_dispatch",
@@ -745,10 +756,6 @@ describe("workflows/factory-board-sync.yml", () => {
   });
 
   it("still skips Dependabot's pull requests, and forks'", () => {
-    const condition = workflow.jobs.sync.if.replace(/\s+/g, " ");
-    expect(condition).toContain(
-      "github.event_name != 'pull_request_target' ||",
-    );
     expect(condition).toContain(
       "github.event.pull_request.user.login != 'dependabot[bot]'",
     );

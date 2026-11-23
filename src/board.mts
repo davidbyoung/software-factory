@@ -5,7 +5,7 @@
 // `factory ticket ready` sets Status to Ready when the owner asks a local
 // session to, and the rules read that as the owner's own move.
 //
-// In .github/workflows/factory-board-sync.yml it runs in two steps, so the board's
+// In the board job of the factory's run.yml it runs in two steps, so the board's
 // token reaches only the second:
 //   collect  with the workflow's token: posts the comments a closed pull
 //            request or the nightly run calls for, then saves the repository

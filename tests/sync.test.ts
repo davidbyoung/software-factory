@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
+import { parse } from "yaml";
 import { resolveFiles, type Resolved } from "../src/config.mts";
 import {
   factoryHooks,
@@ -22,11 +23,10 @@ import {
   withoutHooks,
   main,
   PACKAGE,
-  NEEDS,
+  partsOn,
   plan,
-  withDefaultBranch,
-  withRunName,
 } from "../src/sync.mts";
+import { FACTORY_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
 import { TOOLS } from "../src/tools.mts";
@@ -102,53 +102,49 @@ beforeEach(() => {
   put(pkg, "agents/factory-reader.md", "reader\n");
   put(pkg, "rules.md", "rules\n");
   put(pkg, "review.md", "review\n");
-  put(pkg, "workflows/factory-board-sync.yml", "board\n");
-  put(pkg, "workflows/factory-merge-policy.yml", "merge\n");
-  put(pkg, "workflows/factory-check.yml", CHECK);
-  put(pkg, "workflows/factory-claude-review.yml", "ci review\n");
-  put(pkg, "workflows/factory-build.yml", build(1));
-  put(pkg, "actions/factory-agent/action.yml", "agent\n");
-  for (const name of ["review", "deps"])
-    put(pkg, `workflows/factory-${name}.yml`, workflow(1));
-  put(pkg, "workflows/factory-conflicts.yml", conflicts(1));
   put(pkg, "skills/factory-design/SKILL.md", "design\n");
   put(pkg, "agents/factory-ui-reviewer.md", "ui\n");
   put(pkg, "agents/factory-e2e-reviewer.md", "e2e\n");
   put(pkg, "skills/factory-deps/SKILL.md", "deps\n");
-  put(pkg, "workflows/factory-deps-auto-merge.yml", "deps merge\n");
-  put(
-    pkg,
-    "workflows/factory-poller.yml",
-    'on:\n  schedule:\n    - cron: "*/5 * * * *"\n',
-  );
 });
 
-/** A session workflow with its two time lines, as the package's are. */
-const workflow = (minutes: number) =>
-  [
-    "jobs:",
-    "  run:",
-    `    timeout-minutes: ${minutes + 10}`,
-    "    steps:",
-    "      - uses: ./.github/actions/factory-agent",
-    "        with:",
-    `          minutes: ${minutes}`,
-    "",
-  ].join("\n");
+type Called = {
+  uses: string;
+  with: Record<string, unknown>;
+  secrets: Record<string, string>;
+};
+type FactoryFile = {
+  "run-name": string;
+  on: { push: { branches: string[] }; schedule: { cron: string }[] };
+  permissions: Record<string, string>;
+  jobs: { factory: Called };
+};
+type ReviewFile = {
+  permissions: Record<string, string>;
+  jobs: { review: Called };
+};
 
-/** The build workflow: a session workflow whose run is named for its
- * ticket. */
-const RUN_NAME = 'run-name: "Build #${{ inputs.ticket }}"';
-const build = (minutes: number) => `${RUN_NAME}\n${workflow(minutes)}`;
-
-/** A push trigger as the package's two workflows that have one write it:
- * the source names main, and the sync writes the default branch's name. */
-const pushTo = (branch: string) =>
-  ["on:", "  push:", `    branches: [${branch}]`, ""].join("\n");
-const CHECK = pushTo("main");
-/** The conflicts workflow: a session workflow with a push trigger. */
-const conflicts = (minutes: number, branch = "main") =>
-  pushTo(branch) + workflow(minutes);
+/** The two workflow files a sync wrote, read as YAML. */
+const factoryFile = (text = read(FACTORY_FILE)) => parse(text!) as FactoryFile;
+const reviewFile = (text = read(REVIEW_FILE)) => parse(text!) as ReviewFile;
+/** The parts that are on, as each file passes them. */
+const partsIn = () => {
+  const listed = (called: Called) =>
+    String(called.with.parts).split(" ").filter(Boolean);
+  return {
+    factory: listed(factoryFile().jobs.factory),
+    review: listed(reviewFile().jobs.review),
+  };
+};
+/** What factory.yml passes that sets a session's minutes or its job's
+ * limit. */
+const minutesIn = () =>
+  Object.fromEntries(
+    Object.entries(factoryFile().jobs.factory.with).filter(([key]) =>
+      /-(minutes|limit)$/.test(key),
+    ),
+  );
+const HOME = "davidbyoung/software-factory/.github/workflows";
 
 const SITE = { site: { start: "npm start", url: "http://localhost:$PORT" } };
 const DESIGN = ".claude/skills/factory-design/SKILL.md";
@@ -156,11 +152,8 @@ const UI = ".claude/agents/factory-ui-reviewer.md";
 const E2E = ".claude/agents/factory-e2e-reviewer.md";
 const END_TO_END = { commands: { "end-to-end": "npx e2e $FILE" } };
 const DEPENDABOT = ".github/dependabot.yml";
-const DEPS = [
-  ".claude/skills/factory-deps/SKILL.md",
-  ".github/workflows/factory-deps.yml",
-  ".github/workflows/factory-deps-auto-merge.yml",
-];
+const DEPS = ".claude/skills/factory-deps/SKILL.md";
+const BOARD = { tickets: { board: 3, columns: FACTORY_COLUMNS } };
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -172,7 +165,6 @@ describe("factory sync", () => {
     expect(read(".claude/agents/factory-reader.md")).toBe("reader\n");
     expect(read(".claude/factory/rules.md")).toBe("rules\n");
     expect(read(".github/factory-review.md")).toBe("review\n");
-    expect(read(".github/workflows/factory-check.yml")).toBe(CHECK);
     expect(read("CLAUDE.md")).toBe("@.claude/factory/rules.md\n");
 
     const hooks = JSON.parse(read(".claude/settings.json")!).hooks;
@@ -210,27 +202,54 @@ describe("factory sync", () => {
     expect(lock).toContain("  - .claude/skills/factory-build/SKILL.md");
   });
 
-  it("writes the build workflow and the agent action, always, and locks both", async () => {
-    expect((await sync([], settings())).code).toBe(0);
+  it.each([
+    ["no part on", {}],
+    [
+      "every part on",
+      { ...FULL, "pr-review": null, builds: { trigger: "github-action" } },
+    ],
+  ])("writes both workflow files, and locks them, with %s", async (_, raw) => {
+    const r = await sync([], settings(raw));
 
-    expect(read(".github/workflows/factory-build.yml")).toBe(build(230));
-    expect(read(".github/actions/factory-agent/action.yml")).toBe("agent\n");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain(`wrote ${FACTORY_FILE}`);
+    expect(r.out).toContain(`wrote ${REVIEW_FILE}`);
+    expect(Object.keys(factoryFile().jobs)).toEqual(["factory"]);
+    expect(Object.keys(reviewFile().jobs)).toEqual(["review"]);
     const lock = read(".claude/factory.lock")!;
-    expect(lock).toContain("  - .github/workflows/factory-build.yml");
-    expect(lock).toContain("  - .github/actions/factory-agent/action.yml");
+    expect(lock).toContain(`  - ${FACTORY_FILE}`);
+    expect(lock).toContain(`  - ${REVIEW_FILE}`);
   });
 
-  it("writes the review and conflict workflows, always, and locks them", async () => {
-    expect((await sync([], settings())).code).toBe(0);
+  it("writes nothing else under .github/ but the review's instructions", async () => {
+    await sync([], settings());
 
-    for (const name of ["review", "conflicts"]) {
-      expect(read(`.github/workflows/factory-${name}.yml`)).toContain(
-        "uses: ./.github/actions/factory-agent",
-      );
-      expect(read(".claude/factory.lock")).toContain(
-        `  - .github/workflows/factory-${name}.yml`,
-      );
-    }
+    const { files } = parse(read(".claude/factory.lock")!) as {
+      files: string[];
+    };
+    expect(files.filter((path) => path.startsWith(".github/"))).toEqual([
+      ".github/factory-review.md",
+      FACTORY_FILE,
+      REVIEW_FILE,
+    ]);
+    expect(existsSync(join(root, ".github/actions"))).toBe(false);
+  });
+
+  it("calls the factory's workflows at the package's version", async () => {
+    await sync();
+
+    expect(factoryFile().jobs.factory.uses).toBe(`${HOME}/run.yml@v1.2.3`);
+    expect(reviewFile().jobs.review.uses).toBe(`${HOME}/review.yml@v1.2.3`);
+  });
+
+  it("calls the copies in the same commit where the repository is the package itself", async () => {
+    root = pkg;
+    await sync();
+
+    expect(factoryFile().jobs.factory.uses).toBe("./.github/workflows/run.yml");
+    expect(reviewFile().jobs.review.uses).toBe(
+      "./.github/workflows/review.yml",
+    );
   });
 
   it("writes the design skill, and locks it, only where there is a site", async () => {
@@ -294,29 +313,31 @@ describe("factory sync", () => {
     expect(read(E2E)).toBeNull();
   });
 
-  it("writes the deps skill and both deps workflows only where Dependabot is set up", async () => {
+  it("writes the deps skill, and turns the dependabot part on, only where Dependabot is set up", async () => {
     expect((await sync([], settings())).code).toBe(0);
-    for (const path of DEPS) expect(read(path)).toBeNull();
+    expect(read(DEPS)).toBeNull();
+    expect(partsIn()).toEqual({ factory: [], review: [] });
 
     put(root, DEPENDABOT, "version: 2\n");
     expect((await sync([], settings())).code).toBe(0);
-    for (const path of DEPS) {
-      expect(read(path)).not.toBeNull();
-      expect(read(".claude/factory.lock")).toContain(`  - ${path}`);
-    }
+    expect(read(DEPS)).toBe("deps\n");
+    expect(read(".claude/factory.lock")).toContain(`  - ${DEPS}`);
+    expect(partsIn()).toEqual({
+      factory: ["dependabot"],
+      review: ["dependabot"],
+    });
   });
 
-  it("removes the deps skill and workflows when Dependabot is taken out, and the check then passes", async () => {
+  it("removes the deps skill, and turns the part off, when Dependabot is taken out, and the check then passes", async () => {
     put(root, DEPENDABOT, "version: 2\n");
     await sync([], settings());
     rmSync(join(root, DEPENDABOT));
 
     const r = await sync([], settings());
 
-    for (const path of DEPS) {
-      expect(read(path)).toBeNull();
-      expect(r.out).toContain(`deleted ${path}`);
-    }
+    expect(read(DEPS)).toBeNull();
+    expect(r.out).toContain(`deleted ${DEPS}`);
+    expect(partsIn()).toEqual({ factory: [], review: [] });
     expect((await sync(["--check"], settings())).code).toBe(0);
   });
 
@@ -328,16 +349,50 @@ describe("factory sync", () => {
     expect(read(DESIGN)).toBeNull();
   });
 
-  it("deletes an action the lock lists that the package no longer has", async () => {
-    put(pkg, "actions/factory-gone/action.yml", "gone\n");
-    await sync();
-    expect(read(".github/actions/factory-gone/action.yml")).toBe("gone\n");
+  describe("in a repository a release that copied the workflows synced", () => {
+    const COPIED = [
+      ".github/workflows/factory-board-sync.yml",
+      ".github/workflows/factory-build.yml",
+      ".github/workflows/factory-check.yml",
+      ".github/workflows/factory-claude-review.yml",
+      ".github/workflows/factory-conflicts.yml",
+      ".github/workflows/factory-deps-auto-merge.yml",
+      ".github/workflows/factory-deps.yml",
+      ".github/workflows/factory-merge-policy.yml",
+      ".github/workflows/factory-poller.yml",
+      ".github/workflows/factory-review-verdict.yml",
+      ".github/actions/factory-agent/action.yml",
+    ];
+    // That release wrote a file at factory-review.yml's path too.
+    beforeEach(() => {
+      const locked = [...COPIED, REVIEW_FILE];
+      for (const path of locked) put(root, path, "copied\n");
+      put(
+        root,
+        ".claude/factory.lock",
+        ["version: 1.0.0", "files:", ...locked.map((p) => `  - ${p}`), ""].join(
+          "\n",
+        ),
+      );
+    });
 
-    rmSync(join(pkg, "actions/factory-gone"), { recursive: true });
-    const r = await sync();
+    it("deletes each copied workflow, and the agent action, that its lock lists", async () => {
+      const r = await sync();
 
-    expect(r.out).toContain("deleted .github/actions/factory-gone/action.yml");
-    expect(read(".github/actions/factory-gone/action.yml")).toBeNull();
+      for (const path of COPIED) {
+        expect(r.out).toContain(`deleted ${path}`);
+        expect(read(path)).toBeNull();
+      }
+      expect((await sync(["--check"])).code).toBe(0);
+    });
+
+    it("overwrites factory-review.yml, which that lock also lists", async () => {
+      const r = await sync();
+
+      expect(r.out).toContain(`wrote ${REVIEW_FILE}`);
+      expect(r.out).not.toContain(`deleted ${REVIEW_FILE}`);
+      expect(reviewFile().jobs.review.uses).toBe(`${HOME}/review.yml@v1.2.3`);
+    });
   });
 
   it("changes nothing when run again", async () => {
@@ -430,33 +485,65 @@ describe("factory sync", () => {
     expect(read("keep.md")).toBe("mine\n");
   });
 
-  it("writes the board sync only with tickets.board, and the merge policy only with auto-merge", async () => {
-    await sync([], settings());
+  it.each([
+    ["review", "pr-review is written", { "pr-review": null }],
+    ["board", "tickets.board is set", BOARD],
+    [
+      "auto-merge",
+      "auto-merge.allow lists a file",
+      { "auto-merge": { allow: ["docs/**"] } },
+    ],
+    [
+      "poller",
+      "builds.trigger is github-action",
+      { ...BOARD, builds: { trigger: "github-action" } },
+    ],
+  ])(
+    "turns the %s part on in both files only while %s",
+    async (part, _, raw) => {
+      await sync([], settings());
+      expect(partsIn().factory).not.toContain(part);
+      expect(partsIn().review).not.toContain(part);
 
-    expect(read(".github/workflows/factory-board-sync.yml")).toBeNull();
-    expect(read(".github/workflows/factory-merge-policy.yml")).toBeNull();
-    expect(read(".github/workflows/factory-check.yml")).toBe(CHECK);
-  });
+      await sync([], settings(raw));
+      expect(partsIn().factory).toContain(part);
+      expect(partsIn().review).toContain(part);
 
-  it("writes the scheduled poller only with the github-action trigger, and deletes it once the trigger changes", async () => {
-    const scheduled = {
-      tickets: { board: 3, columns: FACTORY_COLUMNS },
-      builds: { trigger: "github-action" },
-    };
-    await sync([], settings());
-    expect(read(".github/workflows/factory-poller.yml")).toBeNull();
+      await sync([], settings());
+      expect(partsIn().factory).not.toContain(part);
+      expect(partsIn().review).not.toContain(part);
+    },
+  );
 
-    await sync([], settings(scheduled));
-    expect(read(".github/workflows/factory-poller.yml")).toContain("cron:");
-
+  it("passes every part that is on, in the order the factory's workflows list them", async () => {
+    put(root, DEPENDABOT, "version: 2\n");
     await sync(
       [],
       settings({
-        tickets: { board: 3, columns: FACTORY_COLUMNS },
-        builds: { trigger: "own-server" },
+        builds: { trigger: "github-action" },
+        "auto-merge": { allow: ["docs/**"] },
+        ...BOARD,
+        "pr-review": null,
       }),
     );
-    expect(read(".github/workflows/factory-poller.yml")).toBeNull();
+
+    const every = ["review", "board", "auto-merge", "poller", "dependabot"];
+    expect(partsIn()).toEqual({ factory: every, review: every });
+  });
+
+  it("schedules the poller only with the github-action trigger, and takes its line out once the trigger changes", async () => {
+    const crons = () => factoryFile().on.schedule.map((s) => s.cron);
+    await sync([], settings(BOARD));
+    expect(crons()).toHaveLength(3);
+
+    await sync(
+      [],
+      settings({ ...BOARD, builds: { trigger: "github-action" } }),
+    );
+    expect(crons()).toHaveLength(4);
+
+    await sync([], settings({ ...BOARD, builds: { trigger: "own-server" } }));
+    expect(crons()).toHaveLength(3);
   });
 
   it.each([
@@ -471,70 +558,46 @@ describe("factory sync", () => {
       await sync(
         [],
         settings({
-          tickets: { board: 3, columns: FACTORY_COLUMNS },
+          ...BOARD,
           builds: { trigger: "github-action", "poll-minutes": minutes },
         }),
       );
 
-      expect(read(".github/workflows/factory-poller.yml")).toBe(
-        `on:\n  schedule:\n    - cron: "${cron}"\n`,
-      );
+      expect(factoryFile().on.schedule.at(-1)).toEqual({ cron });
     },
   );
 
-  describe("the override's name in the verdict workflow", () => {
-    const VERDICT = "        github.event.label.name == 'verdict-override'))\n";
-    const COPY = ".github/workflows/factory-review-verdict.yml";
+  describe("the override's name in factory.yml", () => {
     const named = (name: string) =>
       settings({
         "code-host": { ...CODE_HOST, labels: { "verdict-override": name } },
       });
 
-    it("writes the name code-host.labels gives it, a quote doubled", async () => {
-      put(pkg, "workflows/factory-review-verdict.yml", VERDICT);
+    it("passes the name code-host.labels gives it", async () => {
       await sync([], named("owner's pass"));
 
-      expect(read(COPY)).toBe(
-        "        github.event.label.name == 'owner''s pass'))\n",
+      expect(factoryFile().jobs.factory.with["override-label"]).toBe(
+        "owner's pass",
       );
     });
 
-    it("writes the workflow word for word with the default", async () => {
-      put(pkg, "workflows/factory-review-verdict.yml", VERDICT);
+    it("passes none with the default, which the factory's workflow has", async () => {
       await sync([], settings());
 
-      expect(read(COPY)).toBe(VERDICT);
+      expect(factoryFile().jobs.factory.with).not.toHaveProperty(
+        "override-label",
+      );
     });
 
-    it("fails the check while the copy names another", async () => {
-      put(pkg, "workflows/factory-review-verdict.yml", VERDICT);
+    it("fails the check, naming the file, while it passes another", async () => {
       await sync([], settings());
 
       const r = await sync(["--check"], named("owner-pass"));
 
       expect(r.code).toBe(1);
-      expect(r.err).toContain(`  ${COPY}`);
+      expect(r.err).toContain(`  ${FACTORY_FILE}`);
+      expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
     });
-
-    it("stops, naming the workflow, when its label line is gone", async () => {
-      put(pkg, "workflows/factory-review-verdict.yml", "verdict\n");
-      await expect(sync([], named("owner-pass"))).rejects.toThrow(
-        "workflows/factory-review-verdict.yml: expected one match",
-      );
-    });
-  });
-
-  it("writes the CI review only while pr-review is written, and deletes it once it is gone", async () => {
-    await sync([], settings());
-    expect(read(".github/workflows/factory-claude-review.yml")).toBeNull();
-
-    await sync([], settings({ "pr-review": null }));
-    expect(read(".github/workflows/factory-claude-review.yml")).toBe(
-      "ci review\n",
-    );
-
-    await sync([], settings());
-    expect(read(".github/workflows/factory-claude-review.yml")).toBeNull();
   });
 });
 
@@ -577,52 +640,25 @@ describe("the factory's core", () => {
 });
 
 describe("factory sync: how long each session may run", () => {
-  // The deps workflow is written only where Dependabot is set up.
-  beforeEach(() => put(root, DEPENDABOT, "version: 2\n"));
+  it("passes no minutes with the defaults, which the factory's workflow has", async () => {
+    await sync([], settings());
 
-  const KINDS: [string, string, number][] = [
-    ["factory-build.yml", "build", 230],
-    ["factory-conflicts.yml", "conflicts", 110],
-    ["factory-review.yml", "review", 50],
-    ["factory-deps.yml", "dependencies", 50],
-  ];
-  it.each(KINDS)(
-    "writes %s with the %s default, and 10 more for its job",
-    async (file, kind, minutes) => {
-      await sync([], settings());
-      expect(read(`.github/workflows/${file}`)).toBe(
-        kind === "conflicts"
-          ? conflicts(minutes)
-          : kind === "build"
-            ? build(minutes)
-            : workflow(minutes),
-      );
-    },
-  );
-
-  it.each(KINDS)(
-    "writes %s with the minutes the settings give %s",
-    async (file, kind) => {
-      await sync([], settings({ "session-minutes": { [kind]: 400 } }));
-      expect(read(`.github/workflows/${file}`)).toBe(
-        kind === "conflicts"
-          ? conflicts(400)
-          : kind === "build"
-            ? build(400)
-            : workflow(400),
-      );
-    },
-  );
-
-  it("stops, naming the workflow, when a session workflow has no line to set", async () => {
-    put(pkg, "workflows/factory-review.yml", "jobs: {}\n");
-
-    await expect(sync([], settings())).rejects.toThrow(
-      "workflows/factory-review.yml: expected one line matching",
-    );
+    expect(minutesIn()).toEqual({});
   });
 
-  it("fails the check, naming the workflow, when the setting changed and sync did not run", async () => {
+  it.each(["build", "conflicts", "review", "dependencies"])(
+    "passes the minutes the settings give %s, and 10 more for its job",
+    async (kind) => {
+      await sync([], settings({ "session-minutes": { [kind]: 400 } }));
+
+      expect(minutesIn()).toEqual({
+        [`${kind}-minutes`]: 400,
+        [`${kind}-limit`]: 410,
+      });
+    },
+  );
+
+  it("fails the check, naming the file, when the setting changed and sync did not run", async () => {
     await sync([], settings());
 
     const r = await sync(
@@ -631,8 +667,8 @@ describe("factory sync: how long each session may run", () => {
     );
 
     expect(r.code).toBe(1);
-    expect(r.err).toContain("  .github/workflows/factory-review.yml");
-    expect(r.err).not.toContain("  .github/workflows/factory-build.yml");
+    expect(r.err).toContain(`  ${FACTORY_FILE}`);
+    expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 });
 
@@ -740,39 +776,24 @@ describe("factory sync: the numbers the rules use", () => {
   });
 });
 
-describe("factory sync: the default branch in the push triggers", () => {
-  const CHECK_COPY = ".github/workflows/factory-check.yml";
-  const CONFLICTS_COPY = ".github/workflows/factory-conflicts.yml";
-  const pushBranches = (text: string | null | undefined) =>
-    (load(text ?? "") as { on: { push: { branches: string[] } } }).on.push
-      .branches;
+describe("factory sync: the default branch in the push trigger", () => {
+  const pushBranches = () => factoryFile().on.push.branches;
 
-  it("writes the default branch's name, and nothing else, into both push triggers", async () => {
+  it("writes the default branch's name into factory.yml's push trigger", async () => {
     expect((await sync([], settings(), "develop")).code).toBe(0);
 
-    expect(read(CHECK_COPY)).toBe(pushTo("develop"));
-    expect(read(CONFLICTS_COPY)).toBe(conflicts(110, "develop"));
+    expect(pushBranches()).toEqual(["develop"]);
   });
 
-  it("finds the one push trigger in each of the real package's two workflows", async () => {
-    const written = (
-      await plan(PACKAGE, root, await resolved(settings()), "develop")
-    ).write;
-
-    expect(pushBranches(written.get(CHECK_COPY))).toEqual(["develop"]);
-    expect(pushBranches(written.get(CONFLICTS_COPY))).toEqual(["develop"]);
-  });
-
-  it("fails the check, naming both copies, when the default branch differs from what they hold", async () => {
+  it("fails the check, naming the one file that holds it, when the default branch differs", async () => {
     await sync([], settings(), "main");
 
     const r = await sync(["--check"], settings(), "develop");
 
     expect(r.code).toBe(1);
     expect(r.err).toEqual([
-      "✗ 2 of the factory's files don't match the settings:",
-      `  ${CHECK_COPY}`,
-      `  ${CONFLICTS_COPY}`,
+      "✗ 1 of the factory's files doesn't match the settings:",
+      `  ${FACTORY_FILE}`,
       "Run factory sync and commit what it writes.",
     ]);
   });
@@ -785,7 +806,7 @@ describe("factory sync: the default branch in the push triggers", () => {
       "Could not tell the default branch. Run: git remote set-head origin --auto",
     ]);
     expect(r.out).toEqual([]);
-    expect(read(CHECK_COPY)).toBeNull();
+    expect(read(FACTORY_FILE)).toBeNull();
     expect(read("CLAUDE.md")).toBeNull();
   });
 
@@ -800,55 +821,20 @@ describe("factory sync: the default branch in the push triggers", () => {
     ]);
   });
 
-  it("stops, naming the workflow, when it has no push trigger to set", async () => {
-    put(pkg, "workflows/factory-check.yml", "on:\n  pull_request:\n");
+  it("quotes a name that YAML would not read as plain text", async () => {
+    await sync([], settings(), "feat#1");
 
-    await expect(sync([], settings())).rejects.toThrow(
-      "workflows/factory-check.yml: expected one branches line, to set the push trigger's branch",
-    );
+    expect(pushBranches()).toEqual(["feat#1"]);
   });
 
-  it("names the build's run without # for a ticket system that writes a key as it is", () => {
-    expect(withRunName(build(1), (key) => key, "w.yml")).toBe(
-      `run-name: "Build \${{ inputs.ticket }}"\n${workflow(1)}`,
-    );
-  });
+  it("writes a name with a slash in it as it is", async () => {
+    await sync([], settings(), "release/2.x");
 
-  it("stops when the build workflow has no run-name line", () => {
-    expect(() => withRunName(workflow(1), (key) => key, "w.yml")).toThrow(
-      "w.yml: expected one run-name line, to name the build",
-    );
-  });
-
-  it("stops when a workflow has more than one branches line", () => {
-    expect(() =>
-      withDefaultBranch(pushTo("main") + pushTo("main"), "develop", "w.yml"),
-    ).toThrow("w.yml: expected one branches line");
-  });
-
-  it("quotes a name that YAML would not read as plain text", () => {
-    expect(
-      pushBranches(withDefaultBranch(pushTo("main"), "feat#1", "w.yml")),
-    ).toEqual(["feat#1"]);
-  });
-
-  it("writes a name with a slash in it as it is", () => {
-    expect(withDefaultBranch(pushTo("main"), "release/2.x", "w.yml")).toBe(
-      pushTo("release/2.x"),
-    );
-  });
-
-  it("leaves the other workflows as the package has them", async () => {
-    await sync([], settings(), "develop");
-
-    expect(read(".github/workflows/factory-build.yml")).toBe(build(230));
+    expect(read(FACTORY_FILE)).toContain("    branches: [release/2.x]\n");
   });
 });
 
 describe("factory sync --check", () => {
-  // The deps workflow is written only where Dependabot is set up.
-  beforeEach(() => put(root, DEPENDABOT, "version: 2\n"));
-
   it("exits 1 naming the copy that differs by one character, and writes nothing", async () => {
     await sync();
     put(root, ".claude/factory/rules.md", "rulez\n");
@@ -891,28 +877,47 @@ describe("factory sync --check", () => {
     );
   });
 
-  it("exits 1 naming the agent action or the build workflow when either differs", async () => {
+  it("exits 1 naming each workflow file that differs from what the settings write", async () => {
     await sync();
-    put(root, ".github/actions/factory-agent/action.yml", "agentt\n");
-    put(root, ".github/workflows/factory-build.yml", "buildd\n");
+    put(root, FACTORY_FILE, "changed\n");
+    put(root, REVIEW_FILE, "changed\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
-    expect(r.err).toContain("  .github/actions/factory-agent/action.yml");
-    expect(r.err).toContain("  .github/workflows/factory-build.yml");
+    expect(r.err).toEqual([
+      "✗ 2 of the factory's files don't match the settings:",
+      `  ${FACTORY_FILE}`,
+      `  ${REVIEW_FILE}`,
+      "Run factory sync and commit what it writes.",
+    ]);
   });
 
-  it("exits 1 naming each of the review, conflict, and dependency workflows that differs", async () => {
+  it("exits 1 naming both workflow files when a part was turned on and sync did not run", async () => {
     await sync();
-    for (const name of ["review", "conflicts", "deps"])
-      put(root, `.github/workflows/factory-${name}.yml`, "changed\n");
+    put(root, DEPENDABOT, "version: 2\n");
 
     const r = await sync(["--check"]);
 
     expect(r.code).toBe(1);
-    for (const name of ["review", "conflicts", "deps"])
-      expect(r.err).toContain(`  .github/workflows/factory-${name}.yml`);
+    expect(r.err).toContain(`  ${FACTORY_FILE}`);
+    expect(r.err).toContain(`  ${REVIEW_FILE}`);
+  });
+
+  it("exits 1 naming both workflow files when the factory's version changed and sync did not run", async () => {
+    await sync();
+    put(pkg, "package.json", '{"name": "@o/factory", "version": "1.3.0"}');
+
+    const r = await sync(["--check"]);
+
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      "✗ 3 of the factory's files don't match the settings:",
+      `  ${FACTORY_FILE}`,
+      `  ${REVIEW_FILE}`,
+      "  .claude/factory.lock",
+      "Run factory sync and commit what it writes.",
+    ]);
   });
 
   it("exits 1 before a sync and 0 after it", async () => {
@@ -1012,7 +1017,7 @@ describe("factoryHooks", () => {
   });
 });
 
-describe("factory sync: the ticket system's secrets in the workflows", () => {
+describe("factory sync: the ticket system in the workflow files", () => {
   const NAMES = ["FAKE_TICKETS_EMAIL", "FAKE_TICKETS_TOKEN"];
   /** The registry with a ticket system that reads a credential, under
    * GitHub's name so the settings take it as they stand. */
@@ -1027,84 +1032,66 @@ describe("factory sync: the ticket system's secrets in the workflows", () => {
     "pr-review": { commands: [] },
     builds: { trigger: "github-action" },
   });
+  /** The text of the two workflow files, by path. */
   const workflows = async (systems?: typeof withCredential) => {
-    put(root, DEPENDABOT, "version: 2\n");
     const p = await plan(PACKAGE, root, await resolved(EVERY), "main", systems);
     return new Map(
-      [...p.write].filter(([path]) => path.startsWith(".github/workflows/")),
+      [FACTORY_FILE, REVIEW_FILE].map((path) => [path, p.write.get(path)!]),
     );
   };
-  type Job = {
-    env?: Record<string, string>;
-    steps?: { uses?: string; run?: string }[];
-  };
-  const jobs = (text: string) =>
-    Object.entries((load(text) as { jobs: Record<string, Job> }).jobs);
-  const runsFactory = (job: Job) =>
-    (job.steps ?? []).some(
-      (s) =>
-        /\bnpm ci\b/.test(s.run ?? "") ||
-        s.uses === "./.github/actions/factory-agent",
+  /** The one secret that carries the repository's own, by name. */
+  const extra = (names: string[]) =>
+    `\${{ format('{{${names.map((n, i) => `"${n}":{${i}}`).join(",")}}}', ${names.map((n) => `toJSON(secrets.${n})`).join(", ")}) }}`;
+
+  it("names a build's run by the ticket as GitHub writes it", async () => {
+    await sync();
+
+    expect(factoryFile()["run-name"]).toBe(
+      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || '' }}",
     );
-  const SEVEN = [
-    "factory-board-sync",
-    "factory-build",
-    "factory-review",
-    "factory-conflicts",
-    "factory-deps",
-    "factory-poller",
-    "factory-claude-review",
-  ];
+  });
 
-  it.each(SEVEN)(
-    "sets each secret in every job of %s that runs the factory",
-    async (name) => {
-      const text = (await workflows(withCredential)).get(
-        `.github/workflows/${name}.yml`,
-      )!;
-      const picked = jobs(text).filter(([, j]) => runsFactory(j));
-      expect(picked.length).toBeGreaterThan(0);
-      for (const [, job] of picked)
-        for (const n of NAMES)
-          expect(job.env?.[n]).toBe(`\${{ secrets.${n} }}`);
-    },
-  );
+  it("passes each of the ticket system's secrets, by name, from both files", async () => {
+    const written = await workflows(withCredential);
 
-  it.each(["factory-check", "factory-review-verdict", "factory-merge-policy"])(
-    "sets none in %s, which opens no ticket system",
-    async (name) => {
-      const text = (await workflows(withCredential)).get(
-        `.github/workflows/${name}.yml`,
-      )!;
-      expect(text).not.toContain("FAKE_TICKETS");
-    },
-  );
+    expect(
+      factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets.extra,
+    ).toBe(extra(NAMES));
+    expect(reviewFile(written.get(REVIEW_FILE)).jobs.review.secrets.extra).toBe(
+      extra(NAMES),
+    );
+  });
 
-  it("only adds lines, each an env line for a secret", async () => {
+  it("passes none for GitHub's tickets, which read the workflow's own token", async () => {
+    const written = await workflows();
+
+    expect(
+      factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets,
+    ).not.toHaveProperty("extra");
+    expect(
+      reviewFile(written.get(REVIEW_FILE)).jobs.review.secrets,
+    ).not.toHaveProperty("extra");
+  });
+
+  it("adds one line to each file, and changes no other", async () => {
     const before = await workflows();
     for (const [path, text] of await workflows(withCredential)) {
       const was = before.get(path)!.split("\n");
-      const added: string[] = [];
-      let i = 0;
-      for (const l of text.split("\n"))
-        if (l === was[i]) i++;
-        else added.push(l);
-      expect(i).toBe(was.length);
-      for (const l of added)
-        expect(l).toMatch(
-          /^ {4}env:$|^ {6}FAKE_TICKETS_\w+: \$\{\{ secrets\.FAKE_TICKETS_\w+ \}\}$/,
-        );
+      const added = text.split("\n").filter((line) => !was.includes(line));
+      expect(added).toEqual([`      extra: ${extra(NAMES)}`]);
+      expect(text.split("\n").filter((line) => !added.includes(line))).toEqual(
+        was,
+      );
     }
   });
 
-  it("writes a name the .npmrc also reads once", async () => {
+  it("writes a name the .npmrc also reads once, after .npmrc's own", async () => {
     put(root, ".npmrc", "//npm.example/:_authToken=${FAKE_TICKETS_TOKEN}\n");
-    const text = (await workflows(withCredential)).get(
-      ".github/workflows/factory-build.yml",
-    )!;
-    expect(text.match(/^ +FAKE_TICKETS_TOKEN:/gm)?.length).toBe(
-      jobs(text).filter(([, j]) => runsFactory(j)).length,
-    );
+    const written = await workflows(withCredential);
+
+    expect(
+      factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets.extra,
+    ).toBe(extra(["FAKE_TICKETS_TOKEN", "FAKE_TICKETS_EMAIL"]));
   });
 
   const settingsJson = async (systems?: typeof withCredential) =>
@@ -1132,14 +1119,18 @@ describe("factory sync: the ticket system's secrets in the workflows", () => {
   });
 });
 
-describe("the board sync's workflow", () => {
-  const needs = NEEDS["workflows/factory-board-sync.yml"]!;
+describe("the board part", () => {
   const with_ = (board: number | null, statuses: boolean) =>
-    ({ tickets: { board, statuses } }) as unknown as Settings;
+    ({
+      prReview: null,
+      tickets: { board, statuses },
+      autoMerge: { allow: [] },
+      builds: { trigger: "manual" },
+    }) as unknown as Settings;
 
-  it("is written with a board, or with a ticket system that has statuses of its own", () => {
-    expect(needs(with_(1, false), () => false)).toBe(true);
-    expect(needs(with_(null, true), () => false)).toBe(true);
-    expect(needs(with_(null, false), () => false)).toBe(false);
+  it("is on with a board, or with a ticket system that has statuses of its own", () => {
+    expect(partsOn(with_(1, false), () => false)).toEqual(["board"]);
+    expect(partsOn(with_(null, true), () => false)).toEqual(["board"]);
+    expect(partsOn(with_(null, false), () => false)).toEqual([]);
   });
 });

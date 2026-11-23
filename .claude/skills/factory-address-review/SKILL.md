@@ -5,8 +5,9 @@ description: Address a pull request's review until it can merge: the Claude revi
 
 # Handling a pull request review
 
-A Claude reviewer runs in GitHub Actions on every push to a pull request that is not a draft
-(`.github/workflows/factory-claude-review.yml`, instructions in
+Where the automated review is on, a Claude reviewer runs in GitHub Actions
+on every push to a pull request that is not a draft (the review job of
+`.github/workflows/factory-review.yml`, instructions in
 `.github/factory-review.md`). It leaves inline review threads, some with
 one-click ```suggestion blocks, and one summary comment per push. The point
 of this skill is that the user does not have to relay messages between it
@@ -170,9 +171,10 @@ passed.
    means another run, working another review, pushed first: pull with
    `git pull --no-rebase`, run the gate again, and push. Then reply and
    resolve.
-5. **When the Claude review runs on the push,** that is, the pull request
-   is not a draft, not Dependabot's, not from a fork
-   (`factory-claude-review.yml`), and not `dirty`, run this skill from section 0, past its note on a run started by the owner's review: wait for the review of the
+5. **When the Claude review runs on the push,** that is, the review is on
+   (`factory config get pr-review` prints its settings, not `off`), and the
+   pull request is not a draft, not Dependabot's, not from a fork, and not
+   `dirty`, run this skill from section 0, past its note on a run started by the owner's review: wait for the review of the
    push, and work it as a whole, its preamble through
    section 8, reporting as section 8 lays out. Otherwise no review is
    coming: work the review threads that already exist, and end with the

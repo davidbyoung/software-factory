@@ -1,0 +1,263 @@
+# One unattended Claude Code session, for the four jobs of run.yml that run
+# one: a build, an answer to a review, the conflict sweep, and Dependabot's
+# pull requests. A repository's own factory.yml reaches it through run.yml,
+# so everything here runs in that repository, on its default branch's copy.
+#
+# It asks whether there is work before it looks for a token, with the
+# workflow's own token (`factory session ready`), so a repository with no
+# build token gets no run that fails for want of one. The session acts as
+# whoever owns the build token, on GitHub and in git: the workflow's own
+# token is never used for the work, since GitHub starts no CI for a pull
+# request that token opened.
+name: Factory session
+
+on:
+  workflow_call:
+    inputs:
+      kind:
+        description: "Which session: build, review, conflicts, or deps"
+        required: true
+        type: string
+      check-args:
+        description: What the kind's check takes after its name, such as a pull request's and a review's numbers
+        type: string
+        default: ""
+      prompt:
+        description: What the session is told
+        required: true
+        type: string
+      minutes:
+        description: How long the session may run. The shell stops it then, so that the job's last steps still run before the job's own limit.
+        required: true
+        type: number
+      limit:
+        description: The job's own limit, in minutes
+        required: true
+        type: number
+      end-ticket:
+        description: The ticket whose claim is released when the run ends without a pull request, for a build
+        type: string
+        default: ""
+    secrets:
+      build-token:
+        required: false
+      claude-token:
+        required: false
+      claude-api-key:
+        required: false
+      signing-key:
+        required: false
+      extra:
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  session:
+    name: Run the session
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.limit }}
+    steps:
+      # The workflow's token stands in only so that a missing build token is
+      # named by the check below, not by the checkout.
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.build-token || github.token }}
+
+      - name: Read what the repository installs with
+        id: node
+        run: |
+          if [ -f package.json ] && jq -e '.engines.node' package.json > /dev/null; then
+            echo "file=package.json" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f package-lock.json ]; then echo "lock=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ${{ steps.node.outputs.file }}
+          node-version: ${{ steps.node.outputs.file == '' && '22' || '' }}
+          cache: ${{ steps.node.outputs.lock == 'true' && 'npm' || '' }}
+
+      # The version the repository's lock names, or the checkout itself in
+      # the factory's own repository.
+      - name: Install the factory
+        id: install
+        run: |
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
+            npm ci
+            npm link
+            echo "own=true" >> "$GITHUB_OUTPUT"
+          else
+            version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::.claude/factory.lock names no release of the factory. Run factory sync, and commit what it writes."
+              exit 1
+            fi
+            npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
+          fi
+          echo "installed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether there is work, then the tokens
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_BUILD_TOKEN_SET: ${{ secrets.build-token != '' }}
+          FACTORY_CLAUDE_SET: ${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}
+          KIND: ${{ inputs.kind }}
+          ARGS: ${{ inputs.check-args }}
+        run: |
+          # ARGS is numbers the workflow wrote, split into words on purpose.
+          # shellcheck disable=SC2086
+          factory session ready "$KIND" $ARGS
+
+      # The secrets the repository's .npmrc and ticket system read, which
+      # its factory.yml passes as one JSON object. Each value is masked
+      # before any later step can print it.
+      - name: Take the repository's own secrets
+        if: steps.gate.outputs.ran == 'true'
+        env:
+          EXTRA: ${{ secrets.extra }}
+        run: |
+          [ -n "$EXTRA" ] || exit 0
+          end="FACTORY_$(openssl rand -hex 8)"
+          for name in $(jq -r 'to_entries[] | select(.value != "") | .key' <<< "$EXTRA"); do
+            value="$(jq -r --arg name "$name" '.[$name]' <<< "$EXTRA")"
+            while IFS= read -r line; do
+              [ -z "$line" ] || echo "::add-mask::$line"
+            done <<< "$value"
+            { echo "$name<<$end"; echo "$value"; echo "$end"; } >> "$GITHUB_ENV"
+          done
+
+      - name: Install the repository's dependencies
+        if: steps.gate.outputs.ran == 'true' && steps.node.outputs.lock == 'true' && steps.install.outputs.own != 'true'
+        run: npm ci
+
+      - name: Run the build's setup commands
+        if: steps.gate.outputs.ran == 'true'
+        run: |
+          factory config get commands.build-setup > "$RUNNER_TEMP/build-setup"
+          while IFS= read -r command; do
+            echo "::group::$command"
+            bash -eo pipefail -c "$command" < /dev/null
+            echo "::endgroup::"
+          done < "$RUNNER_TEMP/build-setup"
+
+      # Claude is the author. The committer is the account that owns the build
+      # token, by its no-reply address, which GitHub ties to the account: it
+      # must be, for a signature by that account's key to show as verified.
+      - name: Set git's name and email
+        if: steps.gate.outputs.ran == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.build-token }}
+        run: |
+          user="$(gh api user)"
+          login="$(jq -r .login <<< "$user")"
+          git config --global user.name "$(jq -r '.name // .login' <<< "$user")"
+          git config --global user.email "$(jq -r .id <<< "$user")+$login@users.noreply.github.com"
+          git config --global author.name "Claude"
+          git config --global author.email "noreply@anthropic.com"
+
+      # The key goes to a file under RUNNER_TEMP, which the runner empties when
+      # the job ends, readable only by the runner's user. Nothing taken from it
+      # is echoed: GitHub masks the secret, and the script prints no part of it.
+      - name: Set up commit signing
+        if: steps.gate.outputs.ran == 'true'
+        env:
+          SIGNING_KEY_INPUT: ${{ secrets.signing-key }}
+        run: |
+          if [ -z "$SIGNING_KEY_INPUT" ]; then
+            echo "No signing key: this build's commits will be unsigned."
+            exit 0
+          fi
+          key_file="$RUNNER_TEMP/factory-signing-key"
+          (umask 077; printf '%s\n' "$SIGNING_KEY_INPUT" > "$key_file")
+          chmod 600 "$key_file"
+          git config --global gpg.format ssh
+          git config --global user.signingkey "$key_file"
+          git config --global commit.gpgsign true
+
+      # A factory release changes this pin.
+      - name: Install Claude Code
+        if: steps.gate.outputs.ran == 'true'
+        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
+
+      # The session may switch the checkout to another branch, so the
+      # checkout goes back to this commit after it, for the last step.
+      - name: Record the commit the session starts on
+        if: steps.gate.outputs.ran == 'true'
+        run: git rev-parse HEAD > "$RUNNER_TEMP/factory-start-commit"
+
+      # Exactly one Claude credential reaches the session: the subscription
+      # token when it is set, and the API key otherwise.
+      - name: Run the session
+        if: steps.gate.outputs.ran == 'true'
+        env:
+          MINUTES: ${{ inputs.minutes }}
+          GH_TOKEN: ${{ secrets.build-token }}
+          PROMPT: ${{ inputs.prompt }}
+          MODEL: ${{ vars.FACTORY_BUILD_MODEL }}
+          OAUTH_TOKEN_INPUT: ${{ secrets.claude-token }}
+          API_KEY_INPUT: ${{ secrets.claude-api-key }}
+          # Tells the permission hook this is an unattended run, which it
+          # answers for a write under .claude/.
+          FACTORY_UNATTENDED: "1"
+        run: |
+          if [ -n "$OAUTH_TOKEN_INPUT" ]; then
+            export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN_INPUT"
+          elif [ -n "$API_KEY_INPUT" ]; then
+            export ANTHROPIC_API_KEY="$API_KEY_INPUT"
+          fi
+          unset OAUTH_TOKEN_INPUT API_KEY_INPUT
+          args=(-p "$PROMPT" --max-turns 1000
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Agent,Task,Skill"
+            --output-format stream-json --verbose)
+          if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
+          # One line for each thing the session says and each tool it runs,
+          # then the turns, minutes, and cost.
+          # The shell stops the session after MINUTES, so that a build that runs
+          # out of time ends as a failed step and the job's last step still runs.
+          timeout --kill-after=30s "${MINUTES}m" claude "${args[@]}" | jq --unbuffered -r '
+            if .type == "assistant" then
+              .message.content[]?
+              | if .type == "text" then .text | gsub("\\s*\\n\\s*"; " ")
+                elif .type == "tool_use" then
+                  "> \(.name): \((.input | to_entries | first | .value) // "" | tostring | gsub("\\s*\\n\\s*"; " ") | .[0:200])"
+                else empty end
+            elif .type == "system" and .subtype == "permission_denied" then
+              "Denied: \(.tool_name): \((.decision_reason // .message // "") | tostring | gsub("\\s*\\n\\s*"; " ") | .[0:200])"
+            elif .type == "result" then
+              "Finished (\(.subtype)): \(.num_turns) turns, \((.duration_ms / 60000) | floor) minutes, $\(.total_cost_usd) at API list prices.",
+              (.permission_denials[]? | "Denied: \(.tool_name): \((.tool_input | to_entries | first | .value) // "" | tostring | gsub("\\s*\\n\\s*"; " ") | .[0:200])")
+            else empty end'
+
+      - name: Put the checkout back on the commit the session started on
+        if: always() && steps.gate.outputs.ran == 'true'
+        run: |
+          file="$RUNNER_TEMP/factory-start-commit"
+          if [ -f "$file" ]; then
+            start="$(cat "$file")"
+            # A session that updated a dependency leaves node_modules ahead
+            # of the restored files.
+            changed=false
+            if [ -f package-lock.json ]; then
+              git diff --quiet "$start" -- package-lock.json || changed=true
+            fi
+            git checkout --force --detach "$start"
+            if [ "$changed" = true ]; then npm ci; fi
+          fi
+
+      # A run that ends without a pull request releases its claim, so that a
+      # failed run does not hold its ticket for 24 hours. It runs whatever
+      # happened before, once the factory was installed.
+      - name: Release the claim if no pull request was opened
+        if: always() && inputs.end-ticket != '' && steps.install.outputs.installed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.build-token }}
+          TICKET: ${{ inputs.end-ticket }}
+        run: factory ticket end "$TICKET"

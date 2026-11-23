@@ -5,13 +5,13 @@ description: Move every open Dependabot pull request one step closer to merged: 
 
 # Shepherding Dependabot pull requests
 
-A minor or patch bump already has auto-merge on, set by
-`factory-deps-auto-merge.yml`, so it merges by itself once its checks are
+A minor or patch bump already has auto-merge on, set by the factory's
+job for Dependabot's pull requests, so it merges by itself once its checks are
 green. The job here is to get it there. A major bump never has
-auto-merge, and neither does a bump of the factory itself or of a preset
-the settings list, and this skill never turns it on or merges anything:
-the owner reads a major's migration, and every update of the factory or a
-preset, before it lands.
+auto-merge, and this skill never turns it on or merges anything: the
+owner reads a major's migration before it lands. Dependabot does not
+update the factory or a preset: the factory's own Updates job opens those
+pull requests, and they are not this skill's.
 
 Every command below goes through `factory deps`, `factory ticket`, or
 `factory pr`. The default branch's name is what
@@ -52,8 +52,7 @@ in the report and the next one starts.
 
 - **Major or not:** the title's "from X to Y". A different leading number
   is a major. The npm group ("Bump the npm group") is minor and patch
-  only; the factory's own group carries every update type, so read its
-  versions the same way.
+  only.
 - **Checks still running, or whether it can merge is still `unknown`:** leave it for
   the next run.
 - **Two earlier shepherd comments already report a fix that did not turn
@@ -134,65 +133,18 @@ running after 20 minutes: leave the bump for the next run.
 If one still fails, try once more in the same run. A second failure is the
 end for this run: comment what was tried and leave it for the next one.
 
-## 4. An update of the factory or a preset
+## 4. A pull request that names the factory
 
-A pull request that bumps `@davidbyoung/software-factory`, or the package
-of a preset `.claude/factory.lock` lists, gets steps 2 and 3, the files
-the new version writes, and, for a major, step 5's migration. `factory deps` says `sync (step 4)` for each. Run
-the sync right after `npm ci` on its branch, before step 3's gate: until it
-runs, every `factory` command stops on the stale lock and names it.
-
-```bash
-factory sync
-```
-
-When the sync itself fails on the settings after the update, the release
-needs lines the settings don't have, as version 2 and naming every
-column do.
-Stop (step 6), and say the settings are the owner's to change, naming the
-release's section of the factory's `docs/updating.md`, such as "Moving to
-settings version 2" or "Naming every column". Never edit
-`.claude/factory.yaml`.
-When it fails on `.npmrc` instead, refusing a variable a sign-in line
-reads, stop the same way and say the name is the owner's to change:
-renaming it renames the secret and every developer's variable. Never edit
-`.npmrc`.
-
-Commit what the sync wrote as a second commit, "Sync the factory's files to
-VERSION" or "Sync the settings to PACKAGE VERSION", and push. The push changes workflows, so it needs a token with
-the `workflow` scope, such as the build token; a refused push is a stop
-(step 6), with GitHub's error. Until then CI's `factory sync --check` fails, which is
-the sign the commit is missing. Then comment on the pull request: for the
-factory, the files the sync changed and the release notes' steps to do by
-hand, first; for a preset, what this prints, as it stands:
-
-```bash
-factory preset changes origin/DEFAULT
-```
-
-For the factory, then label the tickets it works on, which it does only
-on the first update that has the factory label, the one whose old
-`.claude/factory.lock` lacks the label's setting:
-
-```bash
-git show origin/DEFAULT:.claude/factory.lock > old.lock
-factory ticket adopt --all-open --since-lock old.lock
-```
-
-When it prints a `labeled` line, start that one comment with this
-paragraph, before the files the sync changed:
-LIST is that line's tickets, COUNT how many, and NAME the label its last
-line names:
-
-```markdown
-**Labeled COUNT open tickets `NAME`.** From this version the factory acts
-only on tickets with that label. Every open ticket had it in effect
-before, so nothing moves. Remove the label from any ticket the factory
-shouldn't touch: LIST.
-```
-
-Never enable auto-merge, never approve and never merge: it waits for the
-owner, whatever its size.
+Where `.github/dependabot.yml` watches `github-actions`, Dependabot may
+open a pull request that raises the factory's version in
+`.github/workflows/factory.yml` or `.github/workflows/factory-review.yml`.
+`factory deps` says `leave (step 4)` for it. Do nothing to it: no step 2,
+no step 3, and no comment. Raising the version there without the files
+that version writes fails "Factory files in step", it never has
+auto-merge, and the Updates job's own pull request, which holds both,
+replaces it. Say in the report (step 7) that the owner can close it, and
+that an `ignore` entry for `davidbyoung/software-factory` in
+`.github/dependabot.yml` stops the next one.
 
 ## 5. Majors
 

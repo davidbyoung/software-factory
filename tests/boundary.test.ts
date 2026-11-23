@@ -148,10 +148,15 @@ export function factoryAfterCdIn(text: string): string[] {
     .map((line) => line.trim());
 }
 
+/** The factory's own workflows, which the two files `factory sync` writes
+ * into a repository call. */
+const WORKFLOWS = ["run.yml", "review.yml", "session.yml"].map((file) =>
+  join(PACKAGE, ".github/workflows", file),
+);
+
 const instructionFiles = () => [
-  ...["skills", "agents", "workflows"].flatMap((d) =>
-    filesUnder(join(PACKAGE, d)),
-  ),
+  ...["skills", "agents"].flatMap((d) => filesUnder(join(PACKAGE, d))),
+  ...WORKFLOWS,
   join(PACKAGE, "rules.md"),
   join(PACKAGE, "review.md"),
 ];
@@ -619,7 +624,9 @@ describe("the boundaries", () => {
       expect.arrayContaining([
         "skills/factory-build/SKILL.md",
         "agents/factory-test-reviewer.md",
-        "workflows/factory-build.yml",
+        ".github/workflows/run.yml",
+        ".github/workflows/review.yml",
+        ".github/workflows/session.yml",
         "rules.md",
         "review.md",
       ]),
@@ -658,11 +665,8 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
-  it("no skill, agent, rule, review, workflow, or action in the package runs a spec tool itself", () => {
-    const found = [
-      ...instructionFiles(),
-      ...filesUnder(join(PACKAGE, "actions")),
-    ].flatMap((path) =>
+  it("no skill, agent, rule, review, or workflow in the package runs a spec tool itself", () => {
+    const found = instructionFiles().flatMap((path) =>
       specToolCallsIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
     );
     expect(found).toEqual([]);

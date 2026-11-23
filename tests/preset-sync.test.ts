@@ -231,23 +231,3 @@ describe("the choices factory sync drops", () => {
     );
   });
 });
-
-describe("the dependency auto-merge workflow factory sync writes", () => {
-  it("holds back an update of each preset's package, as it does the factory's", async () => {
-    acme();
-    put(root, ".github/dependabot.yml", "version: 2\nupdates: []\n");
-    await sync();
-    const workflow = load(
-      read(root, ".github/workflows/factory-deps-auto-merge.yml")!,
-    ) as { jobs: { enable: { steps: { name: string; if?: string }[] } } };
-    const step = workflow.jobs.enable.steps.find(
-      (s) => s.name === "Enable auto-merge",
-    )!;
-    const held = [
-      ...step.if!.matchAll(
-        /!contains\(steps\.meta\.outputs\.dependency-names, '([^']+)'\)/g,
-      ),
-    ].map((m) => m[1]);
-    expect(held).toEqual(["davidbyoung/software-factory", ACME]);
-  });
-});
