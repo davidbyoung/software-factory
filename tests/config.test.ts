@@ -39,6 +39,7 @@ describe("parseSettings", () => {
         type: "github",
         options: {},
         board: null,
+        statuses: false,
         columns: {
           backlog: ["Backlog"],
           refining: ["In refinement"],
@@ -54,7 +55,7 @@ describe("parseSettings", () => {
           "acceptance-criteria": null,
           "for-the-builder": null,
         },
-        labels: { spec: "spec", "follow-up": "follow-up" },
+        labels: { spec: "spec", "follow-up": "follow-up", factory: "factory" },
       },
       codeHost: {
         type: "github",
@@ -65,7 +66,12 @@ describe("parseSettings", () => {
           "verdict-override": "verdict-override",
         },
       },
-      builds: { trigger: "manual", runner: "github-actions", pollMinutes: 5 },
+      builds: {
+        trigger: "manual",
+        runner: "github-actions",
+        pollMinutes: 5,
+        maxPerHour: 20,
+      },
       specs: "none",
       specCheck: null,
       commands: {
@@ -455,7 +461,12 @@ describe("parseSettings", () => {
         ...MINIMAL,
         builds: { trigger: "manual", runner: "github-actions" },
       }).builds,
-    ).toEqual({ trigger: "manual", runner: "github-actions", pollMinutes: 5 });
+    ).toEqual({
+      trigger: "manual",
+      runner: "github-actions",
+      pollMinutes: 5,
+      maxPerHour: 20,
+    });
   });
 
   it("fails on a runner other than GitHub Actions, naming the one supported", () => {
@@ -471,6 +482,28 @@ describe("parseSettings", () => {
       parse({ ...MINIMAL, builds: { trigger: "github-action" } }).builds
         .trigger,
     ).toBe("github-action");
+  });
+
+  it("caps builds at 20 an hour when builds.max-per-hour is not set", () => {
+    expect(parse(MINIMAL).builds.maxPerHour).toBe(20);
+  });
+
+  it.each(["manual", "own-server", "github-action"])(
+    "takes builds.max-per-hour with the %s trigger",
+    (trigger) => {
+      expect(
+        parse({ ...MINIMAL, builds: { trigger, "max-per-hour": 5 } }).builds
+          .maxPerHour,
+      ).toBe(5);
+    },
+  );
+
+  it.each([0, -1, 2.5, "20"])("fails on builds.max-per-hour %s", (max) => {
+    expect(() =>
+      parse({ ...MINIMAL, builds: { "max-per-hour": max } }),
+    ).toThrow(
+      ".claude/factory.yaml: builds.max-per-hour: must be a whole number, 1 or more",
+    );
   });
 
   it("checks the board every 5 minutes when builds.poll-minutes is not set", () => {
@@ -548,6 +581,7 @@ describe("parseSettings", () => {
       expect(s.tickets.labels).toEqual({
         spec: "spec",
         "follow-up": "follow-up",
+        factory: "factory",
       });
       expect(s.codeHost.labels).toEqual({
         "merge-automatic": "merge-automatic",
@@ -563,6 +597,7 @@ describe("parseSettings", () => {
       expect(s.tickets.labels).toEqual({
         spec: "needs-spec",
         "follow-up": "follow-up",
+        factory: "factory",
       });
       expect(s.codeHost.labels["merge-manual"]).toBe("needs owner");
       expect(s.codeHost.labels["merge-automatic"]).toBe("merge-automatic");
@@ -570,8 +605,8 @@ describe("parseSettings", () => {
 
     it.each([
       [
-        labeled({ factory: "x" }),
-        ".claude/factory.yaml: tickets.labels.factory: unknown key",
+        labeled({ "merge-manual": "x" }),
+        ".claude/factory.yaml: tickets.labels.merge-manual: unknown key",
       ],
       [
         labeled(undefined, { spec: "x" }),
@@ -598,6 +633,24 @@ describe("parseSettings", () => {
     it("counts a default name, and names the key the file sets", () => {
       expect(() => parse(labeled({ spec: "follow-up" }))).toThrow(
         '.claude/factory.yaml: tickets.labels.spec: "follow-up" is already tickets.labels.follow-up. Give each label its own name',
+      );
+    });
+
+    it("takes the factory label's name", () => {
+      expect(
+        parse(labeled({ factory: "built-by-factory" })).tickets.labels.factory,
+      ).toBe("built-by-factory");
+    });
+
+    it("puts the factory label after follow-up in the order a clash names", () => {
+      expect(() => parse(labeled({ factory: "spec" }))).toThrow(
+        '.claude/factory.yaml: tickets.labels.factory: "spec" is already tickets.labels.spec. Give each label its own name',
+      );
+      expect(() =>
+        parse(labeled({ "follow-up": "x" }, { "merge-manual": "X" })),
+      ).toThrow("code-host.labels.merge-manual");
+      expect(() => parse(labeled({ "follow-up": "x", factory: "X" }))).toThrow(
+        '.claude/factory.yaml: tickets.labels.factory: "X" is already tickets.labels.follow-up. Give each label its own name',
       );
     });
 
@@ -649,6 +702,53 @@ describe("parseSettings", () => {
           ".claude/factory.yaml: tickets.labels.spec: Fake Tickets doesn't allow a space in a label",
         );
       });
+    });
+  });
+
+  describe("a ticket system with statuses of its own", () => {
+    const built = {
+      ...BUILT,
+      tickets: { ...BUILT.tickets, fake: [] },
+      statuses: ["fake"],
+    };
+    const parseWith = (raw: unknown) => parseSettings(raw, () => true, built);
+    const COLUMNS = {
+      backlog: "To Do",
+      refining: "none",
+      ready: "Selected",
+      building: "In Progress",
+      review: "none",
+      done: ["Done", "Released"],
+    };
+
+    it("needs tickets.columns with no board", () => {
+      expect(() =>
+        parseWith({ ...MINIMAL, tickets: { type: "fake" } }),
+      ).toThrow(
+        ".claude/factory.yaml: tickets.columns: is required with tickets.type: fake: run factory init to choose which status shows each state",
+      );
+    });
+
+    it("takes tickets.columns with no board", () => {
+      const s = parseWith({
+        ...MINIMAL,
+        tickets: { type: "fake", columns: COLUMNS },
+      });
+      expect(s.tickets.statuses).toBe(true);
+      expect(s.tickets.columns.done).toEqual(["Done", "Released"]);
+    });
+
+    it("names each state left out, as with a board", () => {
+      expect(() =>
+        parseWith({
+          ...MINIMAL,
+          tickets: { type: "fake", columns: { ...COLUMNS, done: undefined } },
+        }),
+      ).toThrow("tickets.columns: done has no column");
+    });
+
+    it("leaves GitHub Issues without statuses, so no board needs no columns", () => {
+      expect(parse(MINIMAL).tickets.statuses).toBe(false);
     });
   });
 
@@ -1254,6 +1354,7 @@ describe("factory config explain", () => {
         labels:
           spec: spec                                                               # default
           follow-up: follow-up                                                     # default
+          factory: factory                                                         # default
       code-host:
         type: github
         branch-name: "{ticket}"
@@ -1265,6 +1366,7 @@ describe("factory config explain", () => {
         trigger: manual                                                            # default
         runner: github-actions                                                     # default
         # poll-minutes: only with trigger github-action
+        max-per-hour: 20                                                           # default
       specs:
         type: openspec
         check: npx --no-install openspec validate --all --strict --no-interactive  # default

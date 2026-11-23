@@ -101,10 +101,11 @@ yours in them and stop.
 The poller is a small program of the factory's. It runs on a server you
 host, reading your board once a minute and never exiting, or as one pass
 at a time on a schedule in the cloud. Each time it reads the board, for
-each ticket in Ready with no open blocker it:
+each ticket in Ready with the factory label and no open blocker, in the
+order the ready column shows them, top first, it:
 
-1. posts a comment on the ticket saying a build is starting, carrying a
-   marker;
+1. records a start note on the ticket, saying a build is starting, which
+   GitHub shows as a comment;
 2. starts a build of that ticket in the cloud, from your default branch.
 
 ```bash
@@ -133,6 +134,25 @@ checkout, and needs only the token.
 | `FACTORY_BOARD_TOKEN`  | An access token that can read the board, comment, and start a build |
 | `FACTORY_READY_COLUMN` | The column that approves a build                                    |
 
+Two more are optional, and needed only where your settings differ from
+the defaults. A poller set up before them keeps working:
+
+| Variable               | What it is                                                                          | Without it |
+| ---------------------- | ----------------------------------------------------------------------------------- | ---------- |
+| `FACTORY_LABEL`        | The name [`tickets.labels.factory`](configuration.md#ticketslabels) gives the label | `factory`  |
+| `FACTORY_MAX_PER_HOUR` | What [`builds.max-per-hour`](configuration.md#builds) says                          | 20         |
+
+`factory board check` prints each one that differs, for you to copy:
+
+```text
+? label      built-by-factory: the poller needs FACTORY_LABEL set to "built-by-factory"
+? builds     40 an hour: the poller needs FACTORY_MAX_PER_HOUR set to 40
+```
+
+A `FACTORY_MAX_PER_HOUR` that isn't a whole number of 1 or more logs
+`not polling: FACTORY_MAX_PER_HOUR must be a whole number, 1 or more` and
+starts nothing.
+
 The repository, the board's number, and the ready column repeat what your
 settings file says, because the poller cannot read it. The ready column
 is the one [`tickets.columns.ready`](configuration.md#ticketscolumns)
@@ -156,8 +176,13 @@ account is not supported yet.
 
 ### Its limits
 
-- **It starts at most 20 builds an hour,** counted from the start comments
-  it posted, so a restart or a scheduled pass still knows them. A ticket
+- **It builds only tickets with the factory label**
+  ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
+  A ticket without it sits in Ready and nothing starts it.
+- **It starts at most 20 builds an hour,** or what
+  [`builds.max-per-hour`](configuration.md#builds) says (on a server you
+  host, what `FACTORY_MAX_PER_HOUR` says), counted from the start notes
+  it recorded, so a restart or a scheduled pass still knows them. A ticket
   past that waits, and the poller's log says so. Each build may run as long as
   [`session-minutes`](configuration.md#session-minutes) allows, so several
   can run at once: each pays for its own minutes, and the cloud runner

@@ -8,7 +8,9 @@ settings file that it doesn't have: [Moving to settings version
 2](#moving-to-settings-version-2) and [Naming build
 branches](#naming-build-branches), for every repository, and [Naming
 every column](#naming-every-column), for a repository whose settings
-have a [`tickets.board`](configuration.md#tickets).
+have a [`tickets.board`](configuration.md#tickets). A fourth,
+[Labeling your open tickets](#labeling-your-open-tickets), asks nothing
+of most repositories, but is worth reading.
 
 ## What happens
 
@@ -332,6 +334,54 @@ again, and you close the issue `factory-deps` opened.
 `✓ The settings are valid.`, and `factory ticket branch 12` prints the
 branch a build of ticket 12 would push.
 
+## Labeling your open tickets
+
+From this release the factory works only on tickets with its label
+([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
+Before it, every open ticket was the factory's, so the update labels
+each open ticket, and no card changes column. With Dependabot, the
+update does it for you. Without it, you run one command before you
+merge, below.
+
+`factory-deps` labels them on the update pull request, before you
+merge, and says so in the comment that lists the files the sync
+changed:
+
+```text
+Labeled 14 open tickets factory. From this version the factory acts
+only on tickets with that label. Every open ticket had it in effect
+before, so nothing moves. Remove the label from any ticket the factory
+shouldn't touch: #4, #31, #35, #40, #41, #44, #47, #50, #51, #53, #54,
+#57, #61, #63.
+```
+
+Read the list. For a ticket the factory shouldn't touch, remove the
+label in your ticket system, before or after you merge: the factory then
+leaves it where it is. Only the first update that has the label labels
+anything, so a ticket you took the label off stays without it.
+
+If you update without Dependabot, as [Without
+Dependabot](#without-dependabot) describes, run this on the branch that
+installs the new version, after `factory sync`, before you merge:
+
+```console
+$ factory ticket adopt --all-open
+labeled #4, #31, #35, #40, #41, #44, #47, #50, #51, #53, #54, #57, #61, #63
+✓ 14 open tickets carry factory
+```
+
+Running it again labels nothing, and says
+`✓ 14 open tickets carry factory; none needed it`.
+
+If you renamed the label under
+[`tickets.labels`](configuration.md#ticketslabels) and host your own
+[poller](builds.md#the-poller), set `FACTORY_LABEL` to the new name where
+the poller's other variables are set, before you merge
+([What it reads from its environment](builds.md#what-it-reads-from-its-environment)).
+
+**It worked when** `factory status` lists the tickets it listed before
+the update, less any you took the label off.
+
 ## A spec for every visible change
 
 From this release, a change your users will see, and that isn't small,
@@ -382,6 +432,7 @@ not match `package-lock.json`.
 | A command stops with `.claude/factory.lock is from an earlier version of the factory` | The update's sync has not run on this checkout                        | Run `factory sync` and commit the result                                   |
 | A command stops with `.claude/factory.yaml changed since the last sync`               | The settings changed without a sync                                   | Run `factory sync` and commit the result                                   |
 | The update pull request conflicts with your default branch                            | Something else changed the same file                                  | `factory-deps` resolves it on its next run, or close it and update by hand |
+| `factory status` leaves out a ticket you expected                                     | It doesn't carry the factory label                                    | Add the label, or run `factory ticket adopt N`                             |
 
 ## Never edit a factory file
 

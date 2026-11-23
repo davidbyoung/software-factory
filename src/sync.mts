@@ -74,14 +74,15 @@ type Has = (path: string) => boolean;
  * repository turns it on, by its path in the package: a skill's folder, an
  * agent's file, or a workflow's file. Everything else is the factory's
  * core, called by its own steps, and is written to every repository. */
-const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
+export const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
   "skills/factory-design": (s) => s.site !== null,
   "agents/factory-ui-reviewer.md": (s) => s.site !== null,
   "agents/factory-e2e-reviewer.md": (s) => s.commands.endToEnd !== null,
   "skills/factory-deps": (_, has) => has(DEPENDABOT),
   "workflows/factory-deps.yml": (_, has) => has(DEPENDABOT),
   "workflows/factory-deps-auto-merge.yml": (_, has) => has(DEPENDABOT),
-  "workflows/factory-board-sync.yml": (s) => s.tickets.board !== null,
+  "workflows/factory-board-sync.yml": (s) =>
+    s.tickets.board !== null || s.tickets.statuses,
   "workflows/factory-merge-policy.yml": (s) => s.autoMerge.allow.length > 0,
   "workflows/factory-claude-review.yml": (s) => s.prReview !== null,
   "workflows/factory-poller.yml": (s) => s.builds.trigger === "github-action",

@@ -355,6 +355,10 @@ names each file.
   version and the repository's disagree.
 - **One session per ticket.** A session claims a ticket before it starts,
   and a second one is told who holds it.
+- **Only labeled tickets are the factory's.** A teammate who works a
+  ticket by hand removes the factory label first, and the factory leaves
+  its card where they put it
+  ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
 - **One person merges updates.** An update changes the instructions
   everyone's sessions follow, so it always waits for a person.
   [Updating](updating.md) describes it.

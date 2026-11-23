@@ -78,15 +78,6 @@ The factory SHALL behave as this line says: When `factory ticket list` runs, it 
 - **WHEN** `factory ticket list` runs
 - **THEN** it lists tickets by key, letters first and then the number as a number: `OPS-3`, `PROJ-9`, `PROJ-12`. On GitHub that is number order.
 
-### Requirement: The poller starts in key order
-
-The factory SHALL behave as this line says: When the poller finds several tickets Ready, it starts them in line 8's order.
-
-#### Scenario: The poller starts in key order
-
-- **WHEN** the poller finds several tickets Ready
-- **THEN** it starts them in line 8's order.
-
 ### Requirement: A comment ID is text
 
 The factory SHALL behave as this line says: When `factory ticket comment` posts, it prints the comment's ID as the ticket system gives it, as text.

@@ -36,6 +36,9 @@ export type Runner = {
   /** Starts a build of the ticket, by its key, on the branch. The runner
    * may answer before the run exists, so `findBuild` finds it. */
   startBuild(ticket: Key, branch: string): Promise<void>;
+  /** Starts the board sync on the branch, so the board follows what a
+   * command just recorded. */
+  startSync(branch: string): Promise<void>;
   /** The page of the build named `runName`, such as `Build #12`, started at
    * or after `since`, in milliseconds, or null when none shows yet. */
   findBuild(runName: string, since: number): Promise<string | null>;

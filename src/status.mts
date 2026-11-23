@@ -90,12 +90,12 @@ const RUN_STATUSES = new Set(["In refinement", "In progress", "In review"]);
 export function cardRuns(issue: Issue, derived: Derived): ReviewerRun[] {
   if (!RUN_STATUSES.has(derived.status)) return [];
   const kind = derived.status === "In refinement" ? "refining" : "claim";
-  const began = markedComments(issue.comments)
+  const began = markedComments(issue.record)
     .filter((m) => m.marker.kind === kind)
-    .at(-1)?.createdAt;
+    .at(-1)?.at;
   if (!began) return [];
   const latest = new Map<string, ReviewerRun>();
-  for (const run of issue.comments.flatMap(parseRuns)) {
+  for (const run of issue.record.flatMap(parseRuns)) {
     if (Date.parse(run.start) < Date.parse(began)) continue;
     const seen = latest.get(run.reviewer);
     if (!seen || Date.parse(run.start) >= Date.parse(seen.start))
@@ -569,7 +569,7 @@ export function formatRows(
   if (withClosed && closed.length > 0)
     lines.push(
       "",
-      `${paint("Closed in the last 24 hours:", style, "dim")} ${closed
+      `${paint("Done in the last 24 hours:", style, "dim")} ${closed
         .map((r) =>
           paint(
             render(
@@ -624,13 +624,18 @@ async function snapshotLines(
     run: (id) => source.runner.runPage(id),
   };
   const [tickets, pulls] = await Promise.all([
-    readAll(source.tickets, { board: target.board !== null }),
+    readAll(source.tickets, {
+      board: target.board !== null,
+      label: target.factory,
+    }),
     source.pulls.open({ checks: true }),
   ]);
   const snapshot = toSnapshot(
     tickets,
     linkPulls(pulls, source.tickets, source.own),
     now,
+    [],
+    target.columns,
   );
   const board = boardOf(tickets);
   const blockers = new Map<Key, Key[]>();

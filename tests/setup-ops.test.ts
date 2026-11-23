@@ -384,7 +384,7 @@ describe("the board's setup operations, on GitHub", () => {
         { data: { createProjectV2: { projectV2: { number: 7 } } } },
       ],
     ]);
-    expect(await board.create("site")).toBe(7);
+    expect(await board.create!("site")).toBe(7);
     const create = calls.find((c) => c.line.includes("CreateBoard"))!.line;
     expect(create).toContain("owner=O_1");
     expect(create).toContain("repo=R_1");
@@ -421,7 +421,7 @@ describe("the board's setup operations, on GitHub", () => {
       [/updateProjectV2Field/, { data: {} }],
     ]);
     expect(
-      await board.addColumns(3, ["Backlog", "In progress", "Done"]),
+      await board.addColumns!(3, ["Backlog", "In progress", "Done"]),
     ).toEqual(["Backlog"]);
     const update = calls.find((c) =>
       c.line.includes("updateProjectV2Field"),
@@ -464,7 +464,7 @@ describe("the board's setup operations, on GitHub", () => {
     const { board, calls } = boards([
       [/StatusField\(/, status([{ id: "a", name: "Backlog" }])],
     ]);
-    expect(await board.addColumns(3, ["Backlog"])).toEqual([]);
+    expect(await board.addColumns!(3, ["Backlog"])).toEqual([]);
     expect(calls).toHaveLength(1);
   });
 });
@@ -493,7 +493,7 @@ describe("the board's fields, on GitHub", () => {
       board: null,
     }).board!;
     expect(
-      await board.addFields(9, [
+      await board.addFields!(9, [
         { name: "Session", type: "text" },
         { name: "Runs in", type: "select", options: ["Local", "Actions"] },
         { name: "Cost", type: "number" },

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { asIssue, type GithubIssue } from "./ticket-fixture.ts";
 import { painter } from "../src/lib/color.mts";
 import {
   age,
@@ -36,12 +37,20 @@ import { CODE_HOST } from "./settings-fixture";
 
 /** The sync fixture's tickets and cards in the in-memory adapter, and its
  * open pull requests. `fail` makes the tickets' list fail. */
-function fixtureSource(fail?: Error): {
+function fixtureSource(
+  fail?: Error,
+  unlabeled: string[] = [],
+): {
   source: Deps["source"];
   open: ReturnType<typeof vi.fn>;
 } {
-  const mem = memoryTickets(saved.tickets as Ticket[], {
-    fail: fail ? { listOpen: fail } : {},
+  const tickets = (saved.tickets as Ticket[]).map((t) =>
+    unlabeled.includes(t.key)
+      ? { ...t, labels: t.labels.filter((l) => l !== "factory") }
+      : t,
+  );
+  const mem = memoryTickets(tickets, {
+    fail: fail ? { read: fail } : {},
   });
   for (const item of toBoard(
     boardPages as BoardPage[],
@@ -64,15 +73,16 @@ const NOW = new Date("2026-11-09T12:00:00Z");
 /** How GitHub, and the in-memory adapter, write a ticket. */
 const REF = (key: string) => `#${key}`;
 const LINKS_IN = memoryTickets().tickets.linksIn;
-const issue = (number: number, over: Partial<Issue> = {}): Issue => ({
-  key: String(number),
-  title: `Issue ${number}`,
-  state: "open",
-  closedAt: null,
-  labels: [],
-  comments: [],
-  ...over,
-});
+const issue = (number: number, over: Partial<GithubIssue> = {}): Issue =>
+  asIssue({
+    key: String(number),
+    title: `Issue ${number}`,
+    state: "open",
+    closedAt: null,
+    labels: [],
+    comments: [],
+    ...over,
+  });
 const pull = (
   number: number,
   over: Partial<PullRequest> = {},
@@ -534,7 +544,7 @@ describe("formatRows", () => {
   it("prints the closed list after the groups", () => {
     const lines = plainLines([issue(1), closedIssue(3)], []);
 
-    expect(lines.at(-1)).toBe("Closed in the last 24 hours: #3");
+    expect(lines.at(-1)).toBe("Done in the last 24 hours: #3");
   });
 
   it("leaves the closed list out of the hook's form", () => {
@@ -553,7 +563,7 @@ describe("formatRows", () => {
     expect(plainLines([closedIssue(3)], [])).toEqual([
       "Nothing open.",
       "",
-      "Closed in the last 24 hours: #3",
+      "Done in the last 24 hours: #3",
     ]);
   });
 
@@ -603,7 +613,7 @@ describe("formatRows in a terminal", () => {
     expect(lines.join("\n")).toContain(p("blueBright", issueLink(1, "#1")));
     expect(lines).toContainEqual(expect.stringContaining(p("dim", "1h")));
     expect(lines.at(-1)).toBe(
-      `${p("dim", "Closed in the last 24 hours:")} ${p("blueBright", issueLink(3, "#3"))}`,
+      `${p("dim", "Done in the last 24 hours:")} ${p("blueBright", issueLink(3, "#3"))}`,
     );
   });
 
@@ -931,7 +941,11 @@ describe("main in a terminal", () => {
     ],
   ])("links %s", async (_what, url) => {
     const mem = memoryTickets([
-      { number: 1, comments: [claimed("actions", "123456789")] },
+      {
+        number: 1,
+        labels: ["factory"],
+        comments: [claimed("actions", "123456789")],
+      },
     ]);
     const out: string[] = [];
     const d: Deps = {
@@ -961,7 +975,9 @@ describe("main in a terminal", () => {
 
 describe("main, for a Ready card", () => {
   it("flags one that has not started, but not one that waits on an open blocker", async () => {
-    const mem = memoryTickets([{ number: 1 }, { number: 2 }, { number: 5 }]);
+    const mem = memoryTickets(
+      [1, 2, 5].map((number) => ({ number, labels: ["factory"] })),
+    );
     for (const n of [1, 2])
       mem.card(n, { status: "Ready", updatedAt: "2026-11-09T11:00:00Z" });
     mem.blockers.set("2", ["5"]);
@@ -1073,7 +1089,7 @@ describe("main --hook", () => {
     expect(out[0]).toBe("## Work in progress");
     expect(open).toHaveBeenCalledWith({ checks: true });
     expect(out.join("\n")).toContain("#16");
-    expect(out.join("\n")).not.toContain("Closed in the last 24 hours");
+    expect(out.join("\n")).not.toContain("Done in the last 24 hours");
     expect(out.join("\n")).not.toContain("\x1B");
     expect(out.join("\n")).toContain("A local build opened its pull request");
   });
@@ -1547,5 +1563,30 @@ describe("sessionCell", () => {
         pulls: [],
       }),
     ).toBe("actions 123456789");
+  });
+});
+
+describe("tickets without the factory label", () => {
+  it("lists only tickets with the label, with no line about the others", async () => {
+    const run = async (unlabeled: string[]) => {
+      const out: string[] = [];
+      await main([], {
+        source: fixtureSource(undefined, unlabeled).source,
+        settings: fakeSettings,
+        env: {},
+        now: () => NOW,
+        out: (l) => out.push(l),
+        sleep: async () => {},
+        write: () => {},
+        onInterrupt: () => {},
+        style: () => ({ color: false, width: 200 }),
+      });
+      return out.join("\n");
+    };
+
+    expect(await run([])).toMatch(/#15\b/);
+    const without = await run(["15"]);
+    expect(without).not.toMatch(/#15\b/);
+    expect(without).not.toMatch(/label/i);
   });
 });

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { entryOf } from "../src/tickets/record-comments.mts";
 import { load as loadYaml } from "js-yaml";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -8,6 +9,7 @@ import {
   main,
   nightlyComments,
   planSync,
+  DEFAULT_BOARD,
   type Deps,
   type PullSource,
   type Saved,
@@ -194,12 +196,14 @@ describe("closedPullComments", () => {
       followUps.map(String),
       DEFAULT_COLUMNS,
       (key) => `#${key}`,
+      [...closes, ...followUps].map(String),
     );
 
   it("releases each issue a pull request closed without merging would have closed", () => {
     expect(closed(event(false), [16], [])).toEqual([
       {
         issue: "16",
+        entry: expect.objectContaining({ tellsPerson: true }),
         body: expect.stringMatching(
           /^Pull request #40 was closed without merging\. The card stays In progress, waiting on you\.[\s\S]*work-status: released/,
         ),
@@ -567,13 +571,13 @@ describe("Cost", () => {
     const s = snapshot();
     s.issues
       .find((i) => i.key === "12")!
-      .comments.push(marker("5.96", "acme-builds"));
+      .record.push(entryOf(marker("5.96", "acme-builds"))!);
     expect(costWrites(s, 12)).toEqual([{ field: "Cost", number: 0.18 }]);
   });
 
   it("sets the subscription share of the markers on the issue and on a merged or closed pull request that builds it", () => {
     const s = snapshot();
-    s.issues.find((i) => i.key === "12")!.comments.push(marker("5.96"));
+    s.issues.find((i) => i.key === "12")!.record.push(entryOf(marker("5.96"))!);
     s.donePulls = [
       {
         number: 90,
@@ -629,7 +633,7 @@ describe("Cost", () => {
 
   it("writes nothing when the card already holds the sum", () => {
     const s = snapshot();
-    s.issues.find((i) => i.key === "12")!.comments.push(marker("5.96"));
+    s.issues.find((i) => i.key === "12")!.record.push(entryOf(marker("5.96"))!);
     const withCost = BOARD();
     withCost.items.get("12")!.cost = 0.18;
     expect(
@@ -641,12 +645,14 @@ describe("Cost", () => {
     const saved: Saved = structuredClone(SAVED);
     saved.tickets
       .find((t) => t.key === "12")!
-      .comments.push({
-        id: "999",
-        createdAt: "2026-11-09T09:00:00Z",
-        body: "<!-- cost: 250 session=s -->\n<!-- agent -->",
-        author: "acme",
-      });
+      .record.push(
+        entryOf({
+          id: "999",
+          createdAt: "2026-11-09T09:00:00Z",
+          body: "<!-- cost: 250 session=s -->\n<!-- agent -->",
+          author: "acme",
+        })!,
+      );
     const { d, files, mem } = deps(seeded(), { GH_TOKEN: "t" });
     files["in.json"] = JSON.stringify(saved);
 
@@ -666,7 +672,9 @@ describe("a build in GitHub Actions", () => {
   };
   const withClaim = (): Saved => {
     const saved: Saved = structuredClone(SAVED);
-    saved.tickets.find((t) => t.key === "12")!.comments.push(actionsClaim);
+    saved.tickets
+      .find((t) => t.key === "12")!
+      .record.push(entryOf(actionsClaim)!);
     return saved;
   };
 
@@ -679,8 +687,8 @@ describe("a build in GitHub Actions", () => {
       RUN_PAGE,
     ).find((p) => p.key === "12")!;
 
+    expect(plan.column).toBe("In progress");
     expect(plan.writes).toEqual([
-      { field: "Status", optionName: "In progress" },
       {
         field: "Session",
         text: "https://github.com/acme/widgets/actions/runs/123456789",
@@ -715,6 +723,14 @@ describe("workflows/factory-board-sync.yml", () => {
     ).toBeUndefined();
   });
 
+  it("runs when the factory starts it, on pull request events, and nightly, never on a ticket's own events", () => {
+    expect(Object.keys(workflow.on).sort()).toEqual([
+      "pull_request_target",
+      "schedule",
+      "workflow_dispatch",
+    ]);
+  });
+
   it("still skips Dependabot's pull requests, and forks'", () => {
     const condition = workflow.jobs.sync.if.replace(/\s+/g, " ");
     expect(condition).toContain(
@@ -726,5 +742,183 @@ describe("workflows/factory-board-sync.yml", () => {
     expect(condition).toContain(
       "github.event.pull_request.head.repo.full_name == github.repository",
     );
+  });
+});
+
+describe("tickets without the factory label", () => {
+  const unlabel = (saved: Saved, key: string) => {
+    const t = saved.tickets.find((x) => x.key === key)!;
+    t.labels = t.labels.filter((l) => l !== "factory");
+  };
+
+  it("writes nothing to the card of a ticket without the label, and leaves it where it is", async () => {
+    const saved: Saved = structuredClone(SAVED);
+    unlabel(saved, "15");
+    unlabel(saved, "18");
+    const { d, files, mem, out } = deps(seeded(), { GH_TOKEN: "t" });
+    files["in.json"] = JSON.stringify(saved);
+    const before = structuredClone(mem.board.get("15"));
+
+    expect(await main(["apply", "--in", "in.json"], d)).toBe(0);
+    expect(mem.writes.filter((w) => w.itemId === "PVTI_15")).toEqual([]);
+    expect(mem.board.get("15")).toEqual(before);
+    // #18 was not on the board, and is not added.
+    expect(mem.board.has("18")).toBe(false);
+    expect(out.filter((l) => /#1[58]\b/.test(l))).toEqual([]);
+  });
+
+  it("reads only labeled tickets when it collects", async () => {
+    const mem = seeded();
+    for (const key of ["15", "18"]) {
+      const t = mem.state.get(key)!;
+      t.labels = t.labels.filter((l) => l !== "factory");
+    }
+    const { d, written } = deps(mem, { GH_TOKEN: "t" });
+
+    expect(await main(["collect", "--out", "repo.json"], d)).toBe(0);
+    const keys = (JSON.parse(written["repo.json"]) as Saved).tickets.map(
+      (t) => t.key,
+    );
+    expect(keys).not.toContain("15");
+    expect(keys).not.toContain("18");
+    expect(keys).toContain("12");
+  });
+
+  it("posts no comment on a ticket without the label when a pull request that closes it is closed", () => {
+    expect(
+      closedPullComments(
+        {
+          action: "closed",
+          pull_request: { number: 90, merged: false, body: "Closes #15" },
+        },
+        { closes: ["15"], partOf: [] },
+        [],
+        DEFAULT_COLUMNS,
+        (k) => `#${k}`,
+        [],
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("a merged pull request", () => {
+  const merged = (mem = seeded(), dryRun = false) => {
+    const { pulls } = fakePulls({ 40: ["16"] });
+    const r = deps(mem, {}, pulls);
+    r.files["event.json"] = JSON.stringify({
+      action: "closed",
+      pull_request: { number: 40, merged: true, body: "Closes #16" },
+    });
+    const argv = [
+      "collect",
+      "--out",
+      "o.json",
+      "--event",
+      "event.json",
+      "--event-name",
+      "pull_request_target",
+      ...(dryRun ? ["--dry-run"] : []),
+    ];
+    return { ...r, run: () => main(argv, r.d) };
+  };
+
+  it("finishes the labeled ticket it closes, and saves it as done", async () => {
+    const r = merged();
+
+    expect(await r.run()).toBe(0);
+    expect(r.mem.state.get("16")!.finishedAt).not.toBeNull();
+    const saved = JSON.parse(r.written["o.json"]) as Saved;
+    const plan = planSync(
+      toSnapshot(saved.tickets, saved.pulls, NOW, saved.donePulls),
+      BOARD(),
+      RUN_PAGE,
+    ).find((p) => p.key === "16")!;
+    expect(plan.derived.status).toBe("Done");
+    expect(plan.column).toBe("Done");
+  });
+
+  it("posts nothing on GitHub, which shows the merge itself", async () => {
+    const r = merged();
+    const before = r.mem.comments(16).length;
+
+    await r.run();
+    expect(r.mem.comments(16)).toHaveLength(before);
+  });
+
+  it("changes nothing with --dry-run, and says what it would do", async () => {
+    const r = merged(seeded(), true);
+
+    await r.run();
+    expect(r.mem.state.get("16")!.finishedAt).toBeNull();
+    expect(r.out).toContain("would finish #16: pull request #40 merged");
+  });
+
+  it("leaves a ticket without the label alone", async () => {
+    const mem = seeded();
+    const t = mem.state.get("16")!;
+    t.labels = t.labels.filter((l) => l !== "factory");
+    const r = merged(mem);
+
+    await r.run();
+    expect(r.mem.state.get("16")!.finishedAt).toBeNull();
+  });
+});
+
+describe("a card in a done column", () => {
+  it("is left in any column tickets.columns.done lists, whatever the ticket's state", () => {
+    const board = BOARD();
+    board.fields
+      .find((f) => f.name === "Status")!
+      .options!.push({ id: "O_Released", name: "Released" });
+    board.items.get("12")!.status = "Released";
+    const cfg = {
+      ...DEFAULT_BOARD,
+      columns: { ...DEFAULT_BOARD.columns, Done: ["Done", "Released"] },
+    };
+    const plan = planSync(
+      toSnapshot(SAVED.tickets, SAVED.pulls, NOW, SAVED.donePulls),
+      board,
+      RUN_PAGE,
+      cfg,
+    ).find((p) => p.key === "12")!;
+
+    expect(plan.derived.status).toBe("Done");
+    expect(plan.column).toBeNull();
+  });
+});
+
+describe("the sync's own notes", () => {
+  it("records a nightly clear through the ticket system, with no hidden text in its comment", async () => {
+    const mem = memoryTickets(
+      [
+        {
+          key: "PROJ-1",
+          labels: ["factory"],
+          record: [
+            {
+              id: "e-1",
+              at: "2026-11-07T09:00:00Z",
+              author: "acme",
+              text: "Building this in a local session, s.",
+              markers: ["<!-- work-status: claim local s -->"],
+            },
+          ],
+        },
+      ],
+      { strict: true },
+    );
+    const { d } = deps(mem);
+
+    expect(
+      await main(["collect", "--out", "o.json", "--event-name", "schedule"], d),
+    ).toBe(0);
+    const [comment] = mem.comments("PROJ-1");
+    expect(comment.body).toMatch(
+      /^Cleared the claim from 2026-11-07 09:00 UTC/,
+    );
+    expect(comment.body).not.toContain("<!--");
+    expect(mem.state.get("PROJ-1")!.record.at(-1)!.markers).toEqual([
+      "<!-- work-status: cleared -->",
+    ]);
   });
 });

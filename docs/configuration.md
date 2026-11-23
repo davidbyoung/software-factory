@@ -245,7 +245,7 @@ tickets:
   [`tickets.labels`](#ticketslabels). Most repositories leave it out.
 
 Without a board, `factory status` still shows every ticket's state, which
-the factory keeps in comments on the ticket. Builds then start only when
+the factory records on the ticket. Builds then start only when
 you run `/factory-build N` in a session.
 
 One board can show tickets from several repositories. Give each
@@ -321,6 +321,14 @@ factory's own names:
   ```
 
   `ready` takes one column, since only a ticket you approved goes there.
+
+  A list for `done` keeps the columns that come after the merge, which
+  are your team's: the factory moves a merged ticket to the first column
+  in the list, here Done, and never moves one out of any of them.
+
+  ```yaml
+  done: [Done, UAT, Released]
+  ```
 
 - **A ticket never stays in the ready column unless you approved it.**
   With `building: none`, a ticket being built would stay in ready's
@@ -447,7 +455,7 @@ you confirm them.
 
 #### `tickets.labels`
 
-The names of the two labels the factory puts on tickets. Most
+The names of the three labels the factory puts on tickets. Most
 repositories never set them: leave the block out, and the factory uses
 the default names. To rename a label on pull requests instead, see
 [`code-host.labels`](#code-hostlabels).
@@ -467,6 +475,7 @@ tickets:
 | ----------- | ------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `spec`      | `spec`       | A change your users will see, so [refinement writes a Spec](workflow.md#a-change-your-users-will-see) into the ticket |
 | `follow-up` | `follow-up`  | The one [follow-ups ticket](workflow.md#follow-ups)                                                                   |
+| `factory`   | `factory`    | A ticket the factory works on: [Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)          |
 
 - **Write only the keys you change.** A key you leave out keeps its
   default name. `factory init` doesn't ask about labels, and doesn't write
@@ -488,7 +497,11 @@ To rename a label:
    it. The factory finds tickets only by the name in your settings and
    never renames a label, so until you do, it doesn't see them: a
    follow-ups ticket still labeled `follow-up` is ignored, and the next
-   follow-up a session records opens a new one.
+   follow-up a session records opens a new one. Renaming `factory` hides
+   every ticket that carries the old name until you rename the label on
+   GitHub too. If you
+   host the poller, also set `FACTORY_LABEL` to the new name
+   ([Builds](builds.md#what-it-reads-from-its-environment)).
 3. Check the file and sync, as for every setting:
 
    ```console
@@ -683,6 +696,7 @@ builds:
 | `trigger`      | What notices you moved a ticket to Ready on the board | `manual`, `own-server`, `github-action` | `manual`         |
 | `runner`       | Where a build in the cloud runs                       | `github-actions`                        | `github-actions` |
 | `poll-minutes` | With `github-action`, how often it checks the board   | 5, 10, 15, 30, or 60                    | 5                |
+| `max-per-hour` | How many builds the poller starts in any one hour     | A whole number, 1 or more               | 20               |
 
 The three triggers:
 
@@ -708,7 +722,8 @@ marks it "not started": after 5 minutes with `own-server`, and after
 `poll-minutes` plus 15 minutes with `github-action`.
 
 `factory config check` stops on `poll-minutes` with any trigger but
-`github-action`, and on any value but the five above.
+`github-action`, and on any value but the five above. It stops on a
+`max-per-hour` that isn't a whole number of 1 or more.
 
 ### `specs`
 

@@ -18,6 +18,9 @@ export type Built = {
     tickets: Readonly<Record<string, LabelFault>>;
     codeHost: Readonly<Record<string, LabelFault>>;
   };
+  /** The ticket systems with statuses of their own, which
+   * `tickets.columns` then maps whether or not there is a board. */
+  statuses: readonly string[];
 };
 
 export type LabelFault = (name: string) => string | null;
@@ -31,6 +34,7 @@ export const BUILT: Built = {
       "npx --no-install openspec validate --all --strict --no-interactive",
   },
   labelFaults: { tickets: {}, codeHost: {} },
+  statuses: [],
 };
 
 /** The words every command fails with for a name that is not built, such

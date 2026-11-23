@@ -56,6 +56,7 @@
 // printed.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { load as parseYaml } from "js-yaml";
 import { setTimeout as sleep } from "node:timers/promises";
 import { sessionIdentity } from "./lib/gh.mts";
 import { openCodeHost } from "./code-host/index.mts";
@@ -64,7 +65,8 @@ import type { Runner } from "./runner/types.mts";
 import { loadSettings, targetOf, type Settings } from "./config.mts";
 import {
   AGENT_MARK,
-  commentBody,
+  entryFor,
+  sessionTotal,
   sameName,
   reviewingPulls,
   workState,
@@ -77,7 +79,7 @@ import { missingParts } from "./lib/refined-check.mts";
 import { labelOf, shownLabels, type Labels } from "./labels.mts";
 import { commonDir, readClock, writeClock, type Clock } from "./lib/clock.mts";
 import { costNote, measureSession, projectsDir } from "./lib/usage.mts";
-import type { Measured } from "./lib/usage.mts";
+import type { CostNote, Measured } from "./lib/usage.mts";
 import { boardConfigOf, checkFields, type BoardConfig } from "./board.mts";
 import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
 import { openTickets } from "./tickets/index.mts";
@@ -86,6 +88,7 @@ import {
   compareKeys,
   need,
   supports,
+  type Entry,
   type Group,
   type Key,
   type Ticket,
@@ -110,6 +113,8 @@ export type Deps = {
   /** The runner the settings name, which says whether this session is in
    * one of its runs. */
   runner: (repository: string, name: string) => Pick<Runner, "thisRun">;
+  /** Starts the board sync on the default branch, through the runner. */
+  startSync: (repository: string, settings: Settings) => Promise<void>;
   /** The factory's settings, read once when the command starts. */
   settings: () => Promise<Settings>;
   env: Record<string, string | undefined>;
@@ -156,31 +161,56 @@ export type { Clock };
 export async function readComments(
   c: { tickets: Tickets },
   issue: Key,
-): Promise<IssueComment[]> {
-  return (await c.tickets.read(issue)).comments;
+): Promise<Entry[]> {
+  return c.tickets.record.read(issue);
 }
 
 /** What a cost note needs: the session's clock and what it spent. */
 export type CostDeps = Pick<Deps, "env" | "clock" | "now" | "measure">;
 
-/** The cost note for what this session spent since its clock started, and
- * the clock restarted from now. `on` is where the note is posted, as
- * written in prose. */
-export function takeCost(on: string, d: CostDeps): string {
+/** A cost note, and the clock restart to make once it is posted, so a note
+ * that fails to post leaves the clock where it was. */
+export type TakenCost = { note: CostNote; restart: () => void };
+
+/** The cost note for what this session spent since its clock started. `on`
+ * is where the note is posted, as written in prose. With `total`, the
+ * session's total already recorded on the ticket, the note holds the new
+ * total. */
+export function takeCost(on: string, d: CostDeps, total?: number): TakenCost {
   const session = d.env.CLAUDE_CODE_SESSION_ID ?? "";
   if (!session)
-    return costNote(
-      { ok: false, reason: "CLAUDE_CODE_SESSION_ID is not set" },
-      on,
-      session,
-    );
+    return {
+      note: costNote(
+        { ok: false, reason: "CLAUDE_CODE_SESSION_ID is not set" },
+        on,
+        session,
+      ),
+      restart: () => {},
+    };
   const clock = d.clock.read(session);
   const now = d.now().toISOString();
-  const note = costNote(measure(d, session, clock?.start ?? null), on, session);
-  // Only claim and refining choose the issue: a note posted elsewhere, such
-  // as on a pull request, keeps the clock's.
-  d.clock.write(session, { issue: clock ? clock.issue : null, start: now });
-  return note;
+  const note = costNote(
+    measure(d, session, clock?.start ?? null),
+    on,
+    session,
+    total,
+  );
+  return {
+    note,
+    // Only claim and refining choose the issue: a note posted elsewhere,
+    // such as on a pull request, keeps the clock's.
+    restart: () =>
+      d.clock.write(session, { issue: clock ? clock.issue : null, start: now }),
+  };
+}
+
+/** The cost note for a ticket: the session's running total on it. */
+async function ticketCost(issue: Key, d: Ctx): Promise<TakenCost> {
+  const session = d.env.CLAUDE_CODE_SESSION_ID ?? "";
+  const total = session
+    ? sessionTotal(await d.tickets.record.read(issue), session)
+    : 0;
+  return takeCost(d.tickets.ref(issue), d, total);
 }
 
 function measure(d: CostDeps, session: string, since: string | null): Measured {
@@ -201,7 +231,7 @@ function startClock(issue: Key, d: Deps) {
 }
 
 async function post(c: Ctx, issue: Key, kind: CommentKind) {
-  return c.tickets.comment(issue, commentBody(kind, c.config.columns));
+  return c.tickets.record.add(issue, entryFor(kind, c.config.columns));
 }
 
 /** The ticket as a comment names it. */
@@ -210,8 +240,8 @@ const named = (c: { tickets: Tickets }, key: Key) => ({
   ref: c.tickets.ref(key),
 });
 
-async function remove(c: Ctx, commentId: string) {
-  await c.tickets.deleteComment(commentId);
+async function remove(c: Ctx, entryId: string) {
+  await c.tickets.record.remove(entryId);
 }
 
 /** What the ticket waits on that is still open; none when the ticket
@@ -227,7 +257,7 @@ export async function openBlockers(
 
 /** The outcome of a claim, as `factory-build` reads it. */
 export function claimOutcome(
-  comments: IssueComment[],
+  comments: Entry[],
   mine: string,
 ): "claimed" | `held by ${string}` {
   const { live } = workState(comments);
@@ -267,7 +297,7 @@ async function claim(issue: Key, who: Identity, d: Ctx) {
 
   const mine = await post(d, issue, { kind: "claim", who });
   await d.sleep(5000);
-  let comments: IssueComment[];
+  let comments: Entry[];
   try {
     comments = await readComments(d, issue);
   } catch (error) {
@@ -279,6 +309,7 @@ async function claim(issue: Key, who: Identity, d: Ctx) {
   if (outcome === "claimed") {
     d.claimStore.write(issue, mine);
     startClock(issue, d);
+    await adoptNamed(d, issue);
   } else await remove(d, mine);
   return outcome;
 }
@@ -298,7 +329,7 @@ async function end(
   d: Ctx,
 ): Promise<"released" | "kept" | "not live"> {
   const ticket = await d.tickets.read(issue);
-  const live = workState(ticket.comments).live;
+  const live = workState(ticket.record).live;
   const stored = d.claimStore.read(issue);
   const mine =
     live !== null &&
@@ -326,7 +357,7 @@ export function withLine(body: string, line: string): string {
 async function followUp(file: string, text: string, d: Ctx) {
   const line = `- [ ] ${file}: ${text}`;
   const label = d.labels.tickets["follow-up"];
-  const open = (await d.tickets.listOpen()).filter((t) =>
+  const open = (await d.tickets.listUnfinished()).filter((t) =>
     t.labels.includes(label),
   );
   const [first] = open.sort((a, b) => compareKeys(a.key, b.key));
@@ -339,19 +370,98 @@ async function followUp(file: string, text: string, d: Ctx) {
     'Small problems noticed while doing other work, one line each, built together once the owner approves this issue. See "Follow-ups" in `.claude/factory/rules.md`.\n',
     line,
   );
+  const factory = d.labels.tickets.factory;
+  for (const l of [label, factory]) await d.tickets.ensureLabel(l);
   const made = await d.tickets.open({
     title: "Follow-ups",
-    labels: [label],
+    labels: [label, factory],
     body,
   });
   return `opened ${d.tickets.ref(made)}`;
+}
+
+/** Adds the factory label to the ticket, creating the label first where
+ * the ticket system needs that. */
+async function labelFactory(c: Ctx, issue: Key) {
+  const name = c.labels.tickets.factory;
+  await c.tickets.ensureLabel(name);
+  await c.tickets.addLabel(issue, name);
+}
+
+/** A ticket named to a session becomes the factory's: it gets the label,
+ * and the session says so. */
+async function adoptNamed(c: Ctx, issue: Key) {
+  const ticket = await c.tickets.read(issue);
+  if (ticket.labels.includes(c.labels.tickets.factory)) return;
+  await labelFactory(c, issue);
+  const ref = c.tickets.ref(issue);
+  c.out(
+    `${ref} had no factory label: added it, so the factory now tracks ${ref}`,
+  );
+}
+
+const ADOPT_USAGE =
+  "Usage: factory ticket adopt N... | factory ticket adopt --all-open [--since-lock FILE]";
+
+/** Whether the lock an update replaces already has the factory label's
+ * setting, which every version before the label lacks. */
+function lockHasLabel(text: string): boolean {
+  const lock = parseYaml(text) as {
+    settings?: { tickets?: { labels?: Record<string, unknown> } };
+  } | null;
+  return lock?.settings?.tickets?.labels?.factory !== undefined;
+}
+
+/** `factory ticket adopt`: labels the tickets named, or every one not
+ * finished, and prints those it labeled and how many carry the label. */
+async function adopt(args: string[], c: Ctx): Promise<number> {
+  const all = args.includes("--all-open");
+  const lock = option(args, "--since-lock");
+  const keys = args.filter(
+    (a, i) => !a.startsWith("--") && args[i - 1] !== "--since-lock",
+  );
+  if (!all && keys.length === 0) {
+    console.error(ADOPT_USAGE);
+    return 2;
+  }
+  const name = c.labels.tickets.factory;
+  if (all && lock !== undefined) {
+    let text: string | null = null;
+    try {
+      text = c.readFile(lock);
+    } catch {
+      text = null;
+    }
+    if (text !== null && lockHasLabel(text)) {
+      c.out(`✓ nothing to label: ${lock} already has tickets.labels.factory`);
+      return 0;
+    }
+  }
+  const tickets = all
+    ? (await c.tickets.listUnfinished())
+        .map((t) => ({ key: t.key, labels: t.labels }))
+        .sort((a, b) => compareKeys(a.key, b.key))
+    : await Promise.all(
+        keys.map(async (k) => {
+          const t = await c.tickets.read(c.tickets.key(k));
+          return { key: t.key, labels: t.labels };
+        }),
+      );
+  const lacking = tickets.filter((t) => !t.labels.includes(name));
+  for (const t of lacking) await labelFactory(c, t.key);
+  if (lacking.length)
+    c.out(`labeled ${lacking.map((t) => c.tickets.ref(t.key)).join(", ")}`);
+  const count = tickets.length;
+  const what = `${count}${all ? " open" : ""} ticket${count === 1 ? "" : "s"} ${count === 1 ? "carries" : "carry"} ${name}`;
+  c.out(`✓ ${what}${lacking.length === 0 ? "; none needed it" : ""}`);
+  return 0;
 }
 
 /** Set the card's Status to Ready, as the owner would. */
 async function moveToReady(issue: Key, d: Ctx) {
   const ref = d.tickets.ref(issue);
   const found = await d.tickets.read(issue);
-  if (found.state !== "open") throw new Error(`${ref} is closed.`);
+  if (found.finishedAt !== null) throw new Error(`${ref} is closed.`);
   if (d.board === null) throw new Error("The settings name no board.");
   const ready = d.config.columns.Ready?.[0] ?? null;
   if (ready === null)
@@ -366,9 +476,7 @@ async function moveToReady(issue: Key, d: Ctx) {
   const fields = checkFields(read.fields, d.config);
   const option = fields.status.options?.find((o) => sameName(o.name, ready));
   try {
-    await board.set(item.itemId, [
-      { field: fields.status.name, optionName: option?.name ?? ready },
-    ]);
+    await board.move(item.itemId, option?.name ?? ready);
   } catch (error) {
     if (/INSUFFICIENT_SCOPES|required scopes/i.test(String(error)))
       throw new Error(
@@ -409,7 +517,7 @@ export function formatTicket(
 ): string[] {
   const lines = [
     `${ref} ${t.title}`,
-    `state: ${t.state}`,
+    `state: ${stateOf(t)}`,
     `labels: ${shownLabels(t.labels, names).join(", ") || "(none)"}`,
     "",
     t.body.trimEnd() || "(no body)",
@@ -417,6 +525,9 @@ export function formatTicket(
   for (const c of t.comments) lines.push("", ...formatComment(c));
   return lines;
 }
+
+/** A ticket's state as `view` prints it. */
+const stateOf = (t: Ticket) => (t.finishedAt === null ? "open" : "closed");
 
 /** One comment as `view` prints it: a line naming it, then its body. */
 export function formatComment(c: TicketComment): string[] {
@@ -512,7 +623,8 @@ async function ticketCommand(
       else if (field === "labels")
         shownLabels(ticket.labels, names).forEach(d.out);
       else if (field === "ref") d.out(t.ref(ticket.key));
-      else d.out(String(ticket[field as "title" | "state" | "body"]));
+      else if (field === "state") d.out(stateOf(ticket));
+      else d.out(String(ticket[field as "title" | "body"]));
       return 0;
     }
     case "answers": {
@@ -530,7 +642,7 @@ async function ticketCommand(
       const given = option(args, "--label");
       const label = given === undefined ? undefined : labelOf(names, given);
       const title = option(args, "--title");
-      const kept = (await t.listOpen())
+      const kept = (await t.listUnfinished())
         .filter((x) => label === undefined || x.labels.includes(label))
         .filter((x) => title === undefined || x.title === title)
         .sort((a, b) => compareKeys(a.key, b.key));
@@ -590,15 +702,14 @@ async function ticketCommand(
       const body = d.readFile(file);
       refuseBareTags(title);
       refuseBareTags(body);
-      d.out(
-        String(
-          await t.open({
-            title,
-            body,
-            labels: options(args, "--label").map((l) => labelOf(names, l)),
-          }),
-        ),
-      );
+      const labels = [
+        ...new Set([
+          ...options(args, "--label").map((l) => labelOf(names, l)),
+          names.factory,
+        ]),
+      ];
+      for (const l of labels) await t.ensureLabel(l);
+      d.out(String(await t.open({ title, body, labels })));
       return 0;
     }
     case "label": {
@@ -613,6 +724,7 @@ async function ticketCommand(
         d.out((await history.wasRemoved(ticket, named(was))) ? "yes" : "no");
       } else if (add !== undefined) {
         refuseOverride(add, d.labels.codeHost["verdict-override"]);
+        await t.ensureLabel(labelOf(names, add));
         await t.addLabel(ticket, labelOf(names, add));
         d.out("added");
       } else {
@@ -665,9 +777,43 @@ const STEPS = new Set([
 ]);
 
 const USAGE =
-  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
+  "Usage: npx --no-install factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
+
+/** The commands that record something on a ticket, after each of which
+ * the board sync runs, since no ticket system tells the code host. */
+const RECORDING = new Set([
+  "claim",
+  "refining",
+  "waiting",
+  "refined",
+  "stop",
+  "end",
+  "ready",
+  "cost",
+  "adopt",
+  "open",
+  "follow-up",
+]);
 
 export async function main(argv: string[], deps: Deps): Promise<number> {
+  const code = await command(argv, deps);
+  if (code !== 0 || !RECORDING.has(argv[0] ?? "")) return code;
+  try {
+    const settings = await deps.settings();
+    // The sync's workflow is written only where there is a board to sync.
+    if (settings.tickets.board === null && !settings.tickets.statuses)
+      return code;
+    await deps.startSync(targetOf(settings, deps.env).repository, settings);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    deps.out(
+      `? the board updates at the nightly sync: couldn't start factory-board-sync (${reason})`,
+    );
+  }
+  return code;
+}
+
+async function command(argv: string[], deps: Deps): Promise<number> {
   const [command, first, ...rest] = argv;
   try {
     // `supports` answers before anything is read: it names the groups.
@@ -697,6 +843,8 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       d.out(supports(d.tickets, first as Group) ? "yes" : "no");
       return 0;
     }
+    if (command === "adopt")
+      return await adopt(first === undefined ? rest : [first, ...rest], d);
     if (command === "follow-up") {
       if (!first || !rest[0]) throw new Error(USAGE);
       d.out(await followUp(first, rest[0], d));
@@ -731,13 +879,17 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
           d.out("not live; posted nothing");
           return 3;
         }
-        await post(d, issue, {
-          kind: "stopped",
-          where: who.where,
-          issue: named(d, issue),
-          reason: rest[0],
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "stopped",
+            where: who.where,
+            issue: named(d, issue),
+            reason: rest[0],
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         d.out("released");
         return 0;
       }
@@ -745,26 +897,36 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         d.out(await end(issue, who, d));
         return 0;
       case "ready":
+        await adoptNamed(d, issue);
         await moveToReady(issue, d);
         d.out("ready");
         return 0;
       case "refining":
+        await adoptNamed(d, issue);
         await post(d, issue, { kind: "refining", who });
         startClock(issue, d);
         break;
       case "waiting":
-        await post(d, issue, {
-          kind: "waiting",
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "waiting",
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         break;
       case "cost":
         // Read first: a number that is no ticket leaves the clock.
         await d.tickets.read(issue);
-        await post(d, issue, {
-          kind: "cost",
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "cost",
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         break;
       case "refined": {
         // A body the build could not read gets no marker, whoever wrote it.
@@ -784,12 +946,16 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
         }
         const at = rest.indexOf("--before-file");
         const before = at === -1 ? undefined : d.readFile(rest[at + 1]);
-        await post(d, issue, {
-          kind: "refined",
-          issue: named(d, issue),
-          before,
-          cost: takeCost(d.tickets.ref(issue), d),
-        });
+        {
+          const taken = await ticketCost(issue, d);
+          await post(d, issue, {
+            kind: "refined",
+            issue: named(d, issue),
+            before,
+            cost: taken.note,
+          });
+          taken.restart();
+        }
         break;
       }
       default:
@@ -820,6 +986,13 @@ export async function run(argv: string[]): Promise<number> {
     signedInAs: (repository, codeHost) =>
       openCodeHost(repository, codeHost).signedInAs(),
     runner: (repository, name) => openRunner(repository, name),
+    startSync: async (repository, settings) => {
+      const branch = await openCodeHost(
+        repository,
+        settings.codeHost.type,
+      ).defaultBranch();
+      await openRunner(repository, settings.builds.runner).startSync(branch);
+    },
     settings: () => loadSettings(),
     env: process.env,
     sleep,

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { asIssue } from "./ticket-fixture.ts";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
@@ -47,14 +48,15 @@ const DISPATCH =
 
 describe("selectToStart", () => {
   it("starts Ready tickets in key order, letters first and then the number as a number", () => {
-    const ready = (key: string) => ({
-      key,
-      title: key,
-      state: "open" as const,
-      closedAt: null,
-      labels: [],
-      comments: [],
-    });
+    const ready = (key: string) =>
+      asIssue({
+        key,
+        title: key,
+        state: "open" as const,
+        closedAt: null,
+        labels: [],
+        comments: [],
+      });
     const card = (key: string): [string, BoardItem] => [
       key,
       {
@@ -102,7 +104,7 @@ describe("selectToStart", () => {
     });
     const snapshot = {
       issues: [
-        {
+        asIssue({
           key: "30",
           title: "A failed start",
           state: "open" as const,
@@ -112,7 +114,7 @@ describe("selectToStart", () => {
             comment(1, 2, commentBody({ kind: "started", marker: "st_1" })),
             comment(2, 3, fireFailed),
           ],
-        },
+        }),
       ],
       pulls: [],
     };
@@ -525,7 +527,9 @@ describe("tick", () => {
     await tick(d, state);
 
     expect(comments()).toEqual([]);
-    expect(logs).toContain("#12 waits: 20 builds started in the last hour");
+    expect(logs).toContain(
+      "#12 waits: 20 builds started in the last hour (builds.max-per-hour)",
+    );
   });
 
   it("counts the start comments on tickets still open", async () => {
@@ -636,6 +640,8 @@ describe("onceSettings", () => {
       board: 7,
       ready: "Ready",
       followUp: "follow-up",
+      factory: "factory",
+      maxPerHour: 20,
       ticketSystem: { type: "github", options: {}, own: true },
     });
   });
@@ -706,7 +712,12 @@ describe("onceSettings", () => {
 });
 
 describe("the ticket system the poller opens", () => {
-  const CONFIG = { owner: "acme", number: 7, githubToken: "ghp_x" };
+  const CONFIG = {
+    owner: "acme",
+    number: 7,
+    githubToken: "ghp_x",
+    maxPerHour: 20,
+  };
   const fake = (opened: (Record<string, string> | undefined)[]) =>
     withFakeTickets(TOOLS, memoryTickets([]).tickets, false, {
       credential: true,
@@ -780,7 +791,12 @@ describe("the ticket system the poller opens", () => {
 
 describe("once", () => {
   const TOKEN = { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN };
-  const settings = { board: 1, ready: "Ready", followUp: "follow-up" };
+  const settings = {
+    board: 1,
+    ready: "Ready",
+    followUp: "follow-up",
+    factory: "factory",
+  };
 
   it("starts each Ready ticket and returns 0", async () => {
     const { d, dispatches } = setup({}, TOKEN);
@@ -856,7 +872,9 @@ describe("once", () => {
     async (given, said) => {
       const { d, calls, logs } = setup({}, TOKEN);
 
-      expect(await once({ ...given, followUp: "follow-up" }, d)).toBe(1);
+      expect(
+        await once({ ...given, followUp: "follow-up", factory: "factory" }, d),
+      ).toBe(1);
       expect(calls).toEqual([]);
       expect(logs).toEqual([said]);
     },
@@ -902,5 +920,153 @@ describe("poller.Dockerfile", () => {
         "m",
       ),
     );
+  });
+});
+
+describe("tickets without the factory label", () => {
+  /** The recorded pages with the factory label taken off ticket 12. */
+  const unlabeled = () => {
+    const page = structuredClone(repoPages[0]) as {
+      data: {
+        repository: {
+          open: {
+            nodes: { number: number; labels: { nodes: { name: string }[] } }[];
+          };
+        };
+      };
+    };
+    for (const node of page.data.repository.open.nodes)
+      if (node.number === 12)
+        node.labels.nodes = node.labels.nodes.filter(
+          (l) => l.name !== "factory",
+        );
+    return page;
+  };
+
+  it("starts no build of a Ready ticket without the label, and logs nothing for it", async () => {
+    const { d, state, logs, comments, dispatches } = setup({
+      repoPage: unlabeled(),
+    });
+
+    await tick(d, state);
+
+    expect(dispatches()).toEqual([]);
+    expect(comments()).toEqual([]);
+    expect(logs.filter((l) => l.includes("#12"))).toEqual([]);
+  });
+
+  it("finds the label by the name FACTORY_LABEL gives it", async () => {
+    const renamed = JSON.parse(
+      JSON.stringify(repoPages[0]).replaceAll(
+        '{"name":"factory"}',
+        '{"name":"built-by-factory"}',
+      ),
+    );
+    const { d, state, dispatches } = setup(
+      { repoPage: renamed },
+      { ...ENV, FACTORY_LABEL: "built-by-factory" },
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).toEqual([{ ref: "trunk", inputs: { ticket: "12" } }]);
+  });
+});
+
+describe("the hourly cap's setting", () => {
+  it("starts no more than FACTORY_MAX_PER_HOUR says", async () => {
+    const { d, state, dispatches, logs } = setup(
+      withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
+      { ...ENV, FACTORY_MAX_PER_HOUR: "2" },
+    );
+
+    await tick(d, state);
+
+    expect(dispatches()).toHaveLength(2);
+    expect(logs).toContainEqual(
+      expect.stringMatching(
+        /waits: 2 builds started in the last hour \(builds\.max-per-hour\)$/,
+      ),
+    );
+  });
+
+  it.each(["0", "two", "1.5"])(
+    "polls nothing with FACTORY_MAX_PER_HOUR %s, and says why",
+    async (max) => {
+      const { d, state, calls, logs } = setup(
+        {},
+        {
+          ...ENV,
+          FACTORY_MAX_PER_HOUR: max,
+        },
+      );
+
+      await tick(d, state);
+
+      expect(calls).toEqual([]);
+      expect(logs).toEqual([
+        "not polling: FACTORY_MAX_PER_HOUR must be a whole number, 1 or more",
+      ]);
+    },
+  );
+
+  it("passes builds.max-per-hour to a scheduled pass", async () => {
+    const { d, dispatches } = setup(
+      withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
+      { FACTORY_BOARD_TOKEN: ENV.FACTORY_BOARD_TOKEN },
+    );
+
+    await once(
+      {
+        board: 1,
+        ready: "Ready",
+        followUp: "follow-up",
+        factory: "factory",
+        maxPerHour: 3,
+      },
+      d,
+    );
+    expect(dispatches()).toHaveLength(3);
+  });
+});
+
+describe("the board's order", () => {
+  it("starts Ready tickets by their cards' rank, then by key", () => {
+    const ready = (key: string) =>
+      asIssue({
+        key,
+        title: key,
+        state: "open" as const,
+        closedAt: null,
+        labels: [],
+        comments: [],
+      });
+    const card = (key: string, rank: number): [string, BoardItem] => [
+      key,
+      {
+        itemId: `I_${key}`,
+        key,
+        status: "Ready",
+        updatedAt: "2026-11-09T12:00:00Z",
+        session: "",
+        runsIn: "",
+        rank,
+      },
+    ];
+    const keys = ["5", "9", "12", "30"];
+    const board: Board = {
+      projectId: "P",
+      fields: [],
+      items: new Map([
+        card("5", 2),
+        card("9", 0),
+        card("12", 1),
+        card("30", 1),
+      ]),
+    };
+
+    expect(
+      selectToStart({ issues: keys.map(ready), pulls: [] }, board),
+    ).toEqual(["9", "12", "30", "5"]);
   });
 });

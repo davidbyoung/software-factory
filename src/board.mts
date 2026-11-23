@@ -34,6 +34,7 @@ import {
   columnsOf,
   fieldNamesOf,
   loadSettings,
+  MAX_PER_HOUR,
   type Settings,
 } from "./config.mts";
 import {
@@ -46,7 +47,7 @@ import {
   statusOfColumn,
   type Columns,
   type StateKey,
-  commentBody,
+  entryFor,
   derive,
   issueCost,
   toClear,
@@ -64,11 +65,13 @@ import { openCodeHost } from "./code-host/index.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
 import { fixtureBoard, openTickets, refOf } from "./tickets/index.mts";
 import { linkPulls, ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
+import { renderEntry } from "./tickets/record-comments.mts";
 import {
   need,
   readAll,
   type Key,
   type Links,
+  type NewEntry,
   type Ticket,
   type Tickets,
   type Write,
@@ -91,6 +94,8 @@ export type BoardConfig = {
   fields: FieldNames;
   /** The name of the follow-ups ticket's label. */
   followUp: string;
+  /** The name of the label on every ticket the factory works on. */
+  factory: string;
 };
 
 export const DEFAULT_FIELDS: FieldNames = {
@@ -102,6 +107,7 @@ export const DEFAULT_BOARD: BoardConfig = {
   columns: DEFAULT_COLUMNS,
   fields: DEFAULT_FIELDS,
   followUp: TICKET_LABELS["follow-up"],
+  factory: TICKET_LABELS.factory,
 };
 
 /** The columns and fields the settings name. */
@@ -110,6 +116,7 @@ export function boardConfigOf(s: Settings): BoardConfig {
     columns: columnsOf(s),
     fields: fieldNamesOf(s),
     followUp: s.tickets.labels["follow-up"],
+    factory: s.tickets.labels.factory,
   };
 }
 
@@ -385,6 +392,30 @@ export function boardReport(
     const [mark, color] = MARKS[r.state];
     return `  ${color ? paint(color, mark) : mark} ${r.key.padEnd(10)} ${r.text}`;
   };
+  // A poller you host has no settings file, so it is told what differs
+  // from the defaults, as it is told the ready column.
+  const hosted = settings.builds.trigger === "own-server";
+  const poller: string[] = [];
+  if (hosted && cfg.factory !== TICKET_LABELS.factory)
+    poller.push(
+      "",
+      "tickets.labels",
+      row({
+        state: "unknown",
+        key: "label",
+        text: `${cfg.factory}: the poller needs FACTORY_LABEL set to "${cfg.factory}"`,
+      }),
+    );
+  if (hosted && settings.builds.maxPerHour !== MAX_PER_HOUR)
+    poller.push(
+      "",
+      "builds",
+      row({
+        state: "unknown",
+        key: "builds",
+        text: `${settings.builds.maxPerHour} an hour: the poller needs FACTORY_MAX_PER_HOUR set to ${settings.builds.maxPerHour}`,
+      }),
+    );
   return [
     board.title ? `Board ${number}, "${board.title}"` : `Board ${number}`,
     "",
@@ -393,6 +424,7 @@ export function boardReport(
     "",
     "tickets.fields",
     ...rows.fields.map(row),
+    ...poller,
   ];
 }
 
@@ -403,6 +435,9 @@ export type Plan = {
   /** The cost markers' sum as subscription dollars, or null when there are
    * none. */
   cost: number | null;
+  /** The column to move the card to, or null when it stays. */
+  column: string | null;
+  /** The factory's own fields to write. */
   writes: Write[];
   /** The column the card sits in when no state names it: the sync leaves
    * such a card alone. */
@@ -444,22 +479,19 @@ export function planSync(
       item?.status != null &&
       statusOfColumn(item.status, cfg.columns) === null
     )
-      return { ...base, writes: [], unmapped: item.status };
+      return { ...base, column: null, writes: [], unmapped: item.status };
     const session = actionsRunLink(derived, runPage) ?? derived.session;
     const runsIn = derived.runsIn;
     const column = columnFor(derived.status, cfg.columns);
     const option = fields.status.options?.find((o) => sameName(o.name, column));
     const writes: Write[] = [];
-    if (
+    const move =
       item?.status == null ||
       !columnsFor(derived.status, cfg.columns).some((c) =>
         sameName(item.status!, c),
       )
-    )
-      writes.push({
-        field: fields.status.name,
-        optionName: option?.name ?? column,
-      });
+        ? (option?.name ?? column)
+        : null;
     if (fields.session && (item?.session ?? "") !== session)
       writes.push(
         session
@@ -485,7 +517,7 @@ export function planSync(
           ? { field: fields.cost.name, clear: true }
           : { field: fields.cost.name, number: cost },
       );
-    return { ...base, writes };
+    return { ...base, column: move, writes };
   });
 }
 
@@ -496,12 +528,23 @@ export function logLine(plan: Plan, ref: (key: Key) => string): string {
     return `${name} card is in "${plan.unmapped}", which no state names (left alone)`;
   const cost = plan.cost === null ? "(empty)" : plan.cost.toFixed(2);
   const values = `Status=${d.status}, Session=${d.session || "(empty)"}, Runs in=${d.runsIn || "(empty)"}, Cost=${cost}`;
-  if (plan.writes.length === 0) return `${name} ${values} (unchanged)`;
+  if (plan.writes.length === 0 && plan.column === null)
+    return `${name} ${values} (unchanged)`;
   const added = plan.itemId ? "" : "added to the board; ";
-  return `${name} ${values} (${added}set ${plan.writes.map((w) => w.field).join(", ")})`;
+  const set = [
+    ...(plan.column === null ? [] : ["Status"]),
+    ...plan.writes.map((w) => w.field),
+  ];
+  return `${name} ${values} (${added}set ${set.join(", ")})`;
 }
 
-export type Comment = { issue: Key; body: string };
+/** A note the sync records on a ticket, and how GitHub shows it. */
+export type Comment = { issue: Key; entry: NewEntry; body: string };
+
+const note = (issue: Key, c: CommentKind, columns: Columns): Comment => {
+  const entry = entryFor(c, columns);
+  return { issue, entry, body: renderEntry(entry) };
+};
 
 type PullEvent = {
   action: string;
@@ -517,10 +560,12 @@ export function closedPullComments(
   openFollowUps: Key[],
   columns: Columns,
   ref: (key: Key) => string,
+  /** The tickets with the factory label: no other gets a comment. */
+  labeled: Key[],
 ): Comment[] {
   if (event.action !== "closed") return [];
   const pull = event.pull_request;
-  const { closes } = links;
+  const closes = links.closes.filter((k) => labeled.includes(k));
   const closedKind = (issue: Key): CommentKind => ({
     kind: "pull-closed",
     issue: { key: issue, ref: ref(issue) },
@@ -529,19 +574,19 @@ export function closedPullComments(
   const comments: Comment[] = [];
   if (!pull.merged)
     for (const issue of closes)
-      comments.push({ issue, body: commentBody(closedKind(issue), columns) });
+      comments.push(note(issue, closedKind(issue), columns));
   for (const followUps of openFollowUps) {
     if (closes.includes(followUps) || !links.partOf.includes(followUps))
       continue;
-    comments.push({
-      issue: followUps,
-      body: commentBody(
+    comments.push(
+      note(
+        followUps,
         pull.merged
           ? { kind: "follow-ups-merged", pull: pull.number }
           : closedKind(followUps),
         columns,
       ),
-    });
+    );
   }
   return comments;
 }
@@ -560,15 +605,13 @@ export function nightlyComments(
     if (!clear) return [];
     const named = { key: issue.key, ref: ref(issue.key) };
     return [
-      {
-        issue: issue.key,
-        body: commentBody(
-          clear.kind === "claim"
-            ? { kind: "cleared-claim", issue: named, since: clear.since }
-            : { kind: "cleared-start", issue: named, since: clear.since },
-          columns,
-        ),
-      },
+      note(
+        issue.key,
+        clear.kind === "claim"
+          ? { kind: "cleared-claim", issue: named, since: clear.since }
+          : { kind: "cleared-start", issue: named, since: clear.since },
+        columns,
+      ),
     ];
   });
 }
@@ -586,6 +629,8 @@ export type PullSource = {
   open(options: { costs: boolean }): Promise<PullRequest[]>;
   linking(skip: number[]): Promise<PullRequest[]>;
   closes(pull: number): Promise<Key[]>;
+  /** The address of a pull request's page, for the merge's note. */
+  address?(pull: number): string;
 };
 
 export type Deps = {
@@ -628,14 +673,34 @@ async function postAll(comments: Comment[], d: Ctx, dryRun: boolean) {
       d.out(`would comment on ${d.tickets.ref(c.issue)}: ${first}`);
       continue;
     }
-    await d.tickets.comment(c.issue, c.body);
+    await d.tickets.record.add(c.issue, c.entry);
     d.out(`commented on ${d.tickets.ref(c.issue)}: ${first}`);
+  }
+}
+
+/** Each ticket a merged pull request closed: its merge recorded, and the
+ * ticket finished in its ticket system, so the sync then moves it to the
+ * first done column. */
+async function finishAll(keys: Key[], pull: number, d: Ctx, dryRun: boolean) {
+  for (const key of keys) {
+    const line = `${d.tickets.ref(key)}: pull request #${pull} merged`;
+    if (dryRun) {
+      d.out(`would finish ${line}`);
+      continue;
+    }
+    const link = d.pulls.address?.(pull) ?? `#${pull}`;
+    await d.tickets.record.add(
+      key,
+      entryFor({ kind: "merged", pull, link }, d.config.columns),
+    );
+    await d.tickets.finish(key);
+    d.out(`finished ${line}`);
   }
 }
 
 async function read(d: Ctx): Promise<Saved> {
   const [tickets, open] = await Promise.all([
-    readAll(d.tickets),
+    readAll(d.tickets, { label: d.config.factory }),
     d.pulls.open({ costs: true }),
   ]);
   const pulls = linkPulls(open, d.tickets, d.own);
@@ -651,8 +716,20 @@ async function read(d: Ctx): Promise<Saved> {
   return { tickets, pulls, donePulls };
 }
 
-const snapshotOf = (saved: Saved, now: Date): RepoSnapshot =>
-  toSnapshot(saved.tickets, saved.pulls, now, saved.donePulls);
+/** What the sync works from: the saved tickets with the factory label,
+ * whichever version of the factory saved them. */
+const snapshotOf = (
+  saved: Saved,
+  now: Date,
+  cfg: BoardConfig = DEFAULT_BOARD,
+): RepoSnapshot =>
+  toSnapshot(
+    saved.tickets.filter((t) => t.labels.includes(cfg.factory)),
+    saved.pulls,
+    now,
+    saved.donePulls,
+    cfg.columns,
+  );
 
 async function collect(
   d: Ctx,
@@ -664,14 +741,15 @@ async function collect(
   },
 ): Promise<Saved> {
   let saved = await read(d);
-  let snapshot = snapshotOf(saved, d.now());
+  let snapshot = snapshotOf(saved, d.now(), d.config);
 
   if (opts.eventName === "pull_request_target" && opts.event) {
     const event = JSON.parse(d.readFile(opts.event)) as PullEvent;
     if (event.action === "closed") {
+      const labeled = snapshot.issues.map((i) => i.key);
       const followUps = snapshot.issues
         .filter(
-          (i) => i.state === "open" && i.labels.includes(d.config.followUp),
+          (i) => i.finishedAt === null && i.labels.includes(d.config.followUp),
         )
         .map((i) => i.key);
       const links = ticketsOf(
@@ -688,11 +766,16 @@ async function collect(
         followUps,
         d.config.columns,
         (k) => d.tickets.ref(k),
+        labeled,
       );
       await postAll(comments, d, opts.dryRun);
-      if (comments.length && !opts.dryRun) {
+      const done = event.pull_request.merged
+        ? links.closes.filter((k) => labeled.includes(k))
+        : [];
+      await finishAll(done, event.pull_request.number, d, opts.dryRun);
+      if ((comments.length || done.length) && !opts.dryRun) {
         saved = await read(d);
-        snapshot = snapshotOf(saved, d.now());
+        snapshot = snapshotOf(saved, d.now(), d.config);
       }
     }
   }
@@ -730,16 +813,17 @@ async function apply(
   for (const line of inspected.lines)
     if (line.text.startsWith("skipped")) d.out(`${line.label} ${line.text}`);
   const plans = planSync(
-    snapshotOf(saved, d.now()),
+    snapshotOf(saved, d.now(), d.config),
     board,
     d.runPage,
     d.config,
   );
   for (const plan of plans) {
     d.out(logLine(plan, d.ref));
-    if (!write || plan.writes.length === 0) continue;
+    if (!write || (plan.writes.length === 0 && plan.column === null)) continue;
     const itemId = plan.itemId ?? (await write.add(plan.key));
-    await write.set(itemId, plan.writes);
+    if (plan.column !== null) await write.move(itemId, plan.column);
+    if (plan.writes.length) await write.set(itemId, plan.writes);
   }
 }
 

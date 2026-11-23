@@ -135,8 +135,9 @@ discovering it at push time.
   pass (`github-action`), the same run that
   `npx --no-install factory build N` starts by hand. A local build starts by telling a session to work the
   issue.
-  The poller skips a card whose blocker is open and starts it at its first
-  pass after the blocker closes. A card moves only forward on its own,
+  The poller starts only a ticket with the factory label, which refinement
+  and `factory ticket ready` add. It skips a card whose blocker is open
+  and starts it at its first pass after the blocker closes. A card moves only forward on its own,
   except the follow-ups issue when a pull request merged part of it,
   which goes to Backlog: a
   build that ends without a merge stays In progress, and a finished

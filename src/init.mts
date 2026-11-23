@@ -1017,10 +1017,13 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
 
   // The board first, since the settings name its number.
   if (parts.has("board") && boardOps) {
+    const { create, addColumns, addFields } = boardOps;
     const creating = board === "new";
     while (board === "new") {
       try {
-        board = await boardOps.create(name);
+        if (!create)
+          throw new Error("this ticket system cannot create a board");
+        board = await create(name);
         d.out(`Created board ${board}, "${name}".`);
       } catch (e) {
         d.out(`Could not create a board: ${message(e)}`);
@@ -1035,11 +1038,28 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
           doc.setIn(["tickets", "columns", key], name);
       try {
         const shape = boardShape(standing());
-        const columns = await boardOps.addColumns(board, shape.columns);
-        const fields = await boardOps.addFields(board, shape.fields);
+        const columns = addColumns
+          ? await addColumns(board, shape.columns)
+          : [];
+        const fields = addFields ? await addFields(board, shape.fields) : [];
         const added = [...columns, ...fields];
         if (added.length)
           d.out(`Added to board ${board}: ${added.join(", ")}.`);
+        // A ticket system that cannot add them leaves them to the owner.
+        if (!addColumns) {
+          const has = await boardOps.columns(board);
+          const lacking = shape.columns.filter(
+            (c) => !has.some((h) => h.toLowerCase() === c.toLowerCase()),
+          );
+          if (lacking.length)
+            d.out(
+              `Add these columns to board ${board} by hand: ${lacking.join(", ")}.`,
+            );
+        }
+        if (!addFields && shape.fields.length)
+          d.out(
+            `Add any of these fields board ${board} lacks, by hand: ${shape.fields.map((f) => f.name).join(", ")}.`,
+          );
       } catch (e) {
         d.out(
           `Could not give board ${board} its columns and fields: ${message(e)}`,

@@ -2034,6 +2034,28 @@ describe("factory init, the column step", () => {
     expect(r.out).toContain("Added to board 3: Session, Runs in, Cost.");
   });
 
+  it("names the fields to add by hand on a ticket system that cannot add them", async () => {
+    const r = shop({ select: ["yes"] });
+    delete r.tickets.tickets.board!.addFields;
+    await r.run();
+    expect(r.out).toContain(
+      "Add any of these fields board 3 lacks, by hand: Session, Runs in, Cost.",
+    );
+  });
+
+  it("names the columns to add by hand on a ticket system that cannot add them", async () => {
+    const r = shop({
+      select: ["change", ADD, "yes"],
+      checkbox: [["refining"]],
+    });
+    delete r.tickets.tickets.board!.addColumns;
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "Add these columns to board 3 by hand: In refinement.",
+    );
+    expect(r.out).toContain("Added to board 3: Session, Runs in, Cost.");
+  });
+
   it("changes the states you pick, offers each state's choices, and adds a column you ask for", async () => {
     const r = shop({
       select: ["change", ADD, "yes"],

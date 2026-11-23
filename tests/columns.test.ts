@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => vi.restoreAllMocks());
+import { asIssue, type GithubIssue } from "./ticket-fixture.ts";
 import {
   boardConfigOf,
   boardReport,
@@ -63,17 +64,18 @@ const marked = (id: number, minute: number, marker: string) => ({
 });
 const issue = (
   number: number,
-  comments: Issue["comments"] = [],
-  over: Partial<Issue> = {},
-): Issue => ({
-  key: String(number),
-  title: `Issue ${number}`,
-  state: "open",
-  closedAt: null,
-  labels: [],
-  comments,
-  ...over,
-});
+  comments: GithubIssue["comments"] = [],
+  over: Partial<GithubIssue> = {},
+): Issue =>
+  asIssue({
+    key: String(number),
+    title: `Issue ${number}`,
+    state: "open",
+    closedAt: null,
+    labels: [],
+    comments,
+    ...over,
+  });
 
 /** GitHub's stock board, and the mapping a repository writes for it. */
 const STOCK_YAML = {
@@ -467,12 +469,10 @@ describe("what the sync writes", () => {
       STOCK_CONFIG,
     );
     const status = (n: number) =>
-      plans
-        .find((p) => p.key === String(n))!
-        .writes.find((w) => w.field === "Status");
-    expect(status(1)).toBeUndefined();
-    expect(status(2)).toEqual({ field: "Status", optionName: "In Progress" });
-    expect(status(3)).toEqual({ field: "Status", optionName: "Done" });
+      plans.find((p) => p.key === String(n))!.column;
+    expect(status(1)).toBeNull();
+    expect(status(2)).toBe("In Progress");
+    expect(status(3)).toBe("Done");
   });
 
   it("writes none of a card's fields while it sits in a column no state names", () => {
@@ -490,7 +490,8 @@ describe("what the sync writes", () => {
   it("places a card that has no Status", () => {
     const board = withCards(stockBoard(), [[1, null, at(0)]]);
     const [plan] = planSync(snapshot(issue(1)), board, RUN_PAGE, STOCK_CONFIG);
-    expect(plan.writes).toEqual([{ field: "Status", optionName: "Todo" }]);
+    expect(plan.column).toBe("Todo");
+    expect(plan.writes).toEqual([]);
   });
 });
 
@@ -576,7 +577,8 @@ describe("the optional fields", () => {
       RUN_PAGE,
       config({ session: null }),
     );
-    expect(plan.writes.map((w) => w.field)).toEqual(["Status"]);
+    expect(plan.column).not.toBeNull();
+    expect(plan.writes).toEqual([]);
   });
 });
 
@@ -732,6 +734,7 @@ describe("the sentences that name a column", () => {
       [],
       STOCK_COLUMNS,
       REF,
+      ["7"],
     );
     expect(closed.body).toContain("Tell a session to build #7");
     const claimed = issue(7, [
@@ -833,6 +836,7 @@ describe("factory ticket ready", () => {
       openPulls: async () => [],
       signedInAs: async () => "dave",
       runner: () => ({ thisRun: () => null }),
+      startSync: async () => {},
       settings: async () => settings,
       env: { CLAUDE_CODE_SESSION_ID: "s" },
       sleep: async () => {},
@@ -1074,6 +1078,53 @@ describe("factory board check", () => {
     expect(rowOf(report(yaml, fullBoard(SIX)), "ready")).toBe(
       '  ? ready      Ready: the poller needs FACTORY_READY_COLUMN set to "Ready"',
     );
+  });
+
+  it("names the poller's label and cap where the settings differ from the defaults", () => {
+    const lines = report(
+      {
+        builds: { trigger: "own-server", "max-per-hour": 40 },
+        tickets: {
+          board: 7,
+          columns: FACTORY_COLUMNS,
+          labels: { factory: "built-by-factory" },
+        },
+      },
+      fullBoard(SIX),
+    );
+    expect(lines.slice(-6)).toEqual([
+      "",
+      "tickets.labels",
+      '  ? label      built-by-factory: the poller needs FACTORY_LABEL set to "built-by-factory"',
+      "",
+      "builds",
+      "  ? builds     40 an hour: the poller needs FACTORY_MAX_PER_HOUR set to 40",
+    ]);
+  });
+
+  it("names neither at their defaults, nor without a poller to host", () => {
+    const own = report(
+      {
+        builds: { trigger: "own-server" },
+        tickets: { board: 7, columns: FACTORY_COLUMNS },
+      },
+      fullBoard(SIX),
+    );
+    const scheduled = report(
+      {
+        builds: { trigger: "github-action", "max-per-hour": 40 },
+        tickets: {
+          board: 7,
+          columns: FACTORY_COLUMNS,
+          labels: { factory: "x" },
+        },
+      },
+      fullBoard(SIX),
+    );
+    for (const lines of [own, scheduled]) {
+      expect(lines).not.toContain("tickets.labels");
+      expect(lines).not.toContain("builds");
+    }
   });
 
   it("fails a missing Status field, prints the states without a mark, and no extra column", async () => {
@@ -1341,13 +1392,11 @@ describe("a state with a list of columns", () => {
     ]);
     const plans = planSync(snap, board, RUN_PAGE, CONFIG);
     const status = (n: number) =>
-      plans
-        .find((p) => p.key === String(n))!
-        .writes.find((w) => w.field === "Status");
-    expect(status(1)).toEqual({ field: "Status", optionName: "In Progress" });
-    expect(status(2)).toBeUndefined();
-    expect(status(3)).toBeUndefined();
-    expect(status(4)).toBeUndefined();
+      plans.find((p) => p.key === String(n))!.column;
+    expect(status(1)).toBe("In Progress");
+    expect(status(2)).toBeNull();
+    expect(status(3)).toBeNull();
+    expect(status(4)).toBeNull();
   });
 
   it("prints a list's row joined by commas, and reports each listed name the board lacks", () => {

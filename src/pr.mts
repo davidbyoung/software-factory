@@ -533,8 +533,9 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         if (!pr || !d.cost) throw new Error(USAGE);
         // Read first: a number that is no pull request leaves the clock.
         await p.get(pr);
-        const note = takeCost(`#${pr}`, d.cost);
-        await p.comment(pr, commentBody({ kind: "cost", cost: note }));
+        const taken = takeCost(`#${pr}`, d.cost);
+        await p.comment(pr, commentBody({ kind: "cost", cost: taken.note }));
+        taken.restart();
         d.out("posted");
         return 0;
       }

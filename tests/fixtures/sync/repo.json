@@ -3,9 +3,7 @@
     {
       "key": "10",
       "title": "Refining in a local session",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -14,14 +12,22 @@
           "body": "Text.\n\n<!-- work-status: refining local 359bd84e -->\n<!-- agent -->",
           "author": "acme"
         }
+      ],
+      "finishedAt": null,
+      "record": [
+        {
+          "id": "1000",
+          "at": "2026-11-09T08:00:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: refining local 359bd84e -->"]
+        }
       ]
     },
     {
       "key": "11",
       "title": "A round waits on the owner",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -36,14 +42,29 @@
           "body": "Text.\n\n<!-- work-status: waiting -->\n<!-- agent -->",
           "author": "acme"
         }
+      ],
+      "finishedAt": null,
+      "record": [
+        {
+          "id": "1001",
+          "at": "2026-11-09T08:00:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: refining cloud cse_01Ab3x -->"]
+        },
+        {
+          "id": "1002",
+          "at": "2026-11-09T08:05:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: waiting -->"]
+        }
       ]
     },
     {
       "key": "12",
       "title": "Moved to Ready after refinement",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -58,14 +79,29 @@
           "body": "Text.\n\n<!-- work-status: refined -->\n<!-- agent -->",
           "author": "acme"
         }
+      ],
+      "finishedAt": null,
+      "record": [
+        {
+          "id": "1003",
+          "at": "2026-11-09T08:00:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: refining local 359bd84e -->"]
+        },
+        {
+          "id": "1004",
+          "at": "2026-11-09T08:10:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: refined -->"]
+        }
       ]
     },
     {
       "key": "13",
       "title": "Ready from before a failed fire",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -80,14 +116,29 @@
           "body": "Text.\n\n<!-- work-status: released -->\n<!-- agent -->",
           "author": "acme"
         }
+      ],
+      "finishedAt": null,
+      "record": [
+        {
+          "id": "1005",
+          "at": "2026-11-09T08:30:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: started cloud st_0123456789ab -->"]
+        },
+        {
+          "id": "1006",
+          "at": "2026-11-09T08:31:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: released -->"]
+        }
       ]
     },
     {
       "key": "14",
       "title": "The poller started a build",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -96,14 +147,22 @@
           "body": "Text.\n\n<!-- work-status: started cloud st_aaaaaaaaaaaa -->\n<!-- agent -->",
           "author": "acme"
         }
+      ],
+      "finishedAt": null,
+      "record": [
+        {
+          "id": "1007",
+          "at": "2026-11-09T08:40:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: started cloud st_aaaaaaaaaaaa -->"]
+        }
       ]
     },
     {
       "key": "15",
       "title": "A cloud build claimed it",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -118,14 +177,29 @@
           "body": "Text.\n\n<!-- work-status: claim cloud cse_01Ab3x -->\n<!-- agent -->",
           "author": "acme"
         }
+      ],
+      "finishedAt": null,
+      "record": [
+        {
+          "id": "1008",
+          "at": "2026-11-09T08:40:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: started cloud st_bbbbbbbbbbbb -->"]
+        },
+        {
+          "id": "1009",
+          "at": "2026-11-09T08:41:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: claim cloud cse_01Ab3x -->"]
+        }
       ]
     },
     {
       "key": "16",
       "title": "A local build opened its pull request",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -134,23 +208,31 @@
           "body": "Text.\n\n<!-- work-status: claim local 359bd84e -->\n<!-- agent -->",
           "author": "acme"
         }
+      ],
+      "finishedAt": null,
+      "record": [
+        {
+          "id": "1010",
+          "at": "2026-11-09T08:20:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: claim local 359bd84e -->"]
+        }
       ]
     },
     {
       "key": "18",
       "title": "Not on the board yet",
-      "state": "open",
-      "closedAt": null,
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
-      "comments": []
+      "comments": [],
+      "finishedAt": null,
+      "record": []
     },
     {
       "key": "17",
       "title": "Merged this morning",
-      "state": "closed",
-      "closedAt": "2026-11-09T09:30:00Z",
-      "labels": [],
+      "labels": ["factory"],
       "body": "",
       "comments": [
         {
@@ -158,6 +240,16 @@
           "createdAt": "2026-11-09T08:00:00Z",
           "body": "Text.\n\n<!-- work-status: claim cloud cse_01Zz9y -->\n<!-- agent -->",
           "author": "acme"
+        }
+      ],
+      "finishedAt": "2026-11-09T09:30:00Z",
+      "record": [
+        {
+          "id": "1011",
+          "at": "2026-11-09T08:00:00Z",
+          "author": "acme",
+          "text": "Text.",
+          "markers": ["<!-- work-status: claim cloud cse_01Zz9y -->"]
         }
       ]
     }

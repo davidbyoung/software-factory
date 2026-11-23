@@ -19,6 +19,45 @@ Everything a session does, it does as you: through your account on the
 code host and your coding agent's subscription, on your machine or in the
 cloud. No step needs a service of the factory's own.
 
+## Which tickets are the factory's
+
+The factory works only on tickets that carry its label, a label named
+`factory`, which the factory creates the first time it needs it.
+Everything else is left alone: the factory doesn't add it to the board,
+move its card, fill in its fields, comment on it, or build it, and
+`factory status` doesn't list it. A ticket without the label that is
+already on your board, because you or your board's own automation put
+it there, stays where it is. That way a board you share with
+people who work by hand stays theirs. You can give the label another
+name under [`tickets.labels`](configuration.md#ticketslabels).
+
+A ticket gets the label in one of three ways:
+
+- **The factory opens it.** Every ticket the factory opens carries the
+  label, such as the follow-ups ticket.
+- **You add it,** in your ticket system as you would any label, or from
+  a terminal with `factory ticket adopt 12`.
+- **You name it in a session.** Running `/factory-refine 12` or
+  `/factory-build 12` on a ticket without the label adds it, even one you
+  took the label off, and the session says so:
+
+  ```text
+  #12 had no factory label: added it, so the factory now tracks #12
+  ```
+
+**Removing the label hands a ticket back.** The factory leaves its card
+in the column it's in, with its fields as they were, and nothing builds
+it. To work a ticket by hand, remove the label first. While a ticket has
+the label, the factory keeps its card in the column the ticket's state
+calls for, which it works out from what sessions record on the ticket,
+each time the [board sync](#the-board) runs. It keeps two moves of yours: to Ready, which
+approves a build, and back to Backlog. Drag a labeled card anywhere
+else and the next sync moves it back.
+
+If you installed the factory before the label existed, the update that
+brings it labels every open ticket once:
+[Labeling your open tickets](updating.md#labeling-your-open-tickets).
+
 ## The six states
 
 A ticket is always in one of six states. They are fixed: you cannot add one
@@ -39,7 +78,7 @@ is approved. A board without a `ready` column approves a build by running
 | ready    | Ready         | You approved it for a build from the board                                    |
 | building | In progress   | A session has claimed it, or a build ended without a pull request merging     |
 | review   | In review     | A pull request that closes it is open                                         |
-| done     | Done          | The ticket is closed                                                          |
+| done     | Done          | Its pull request merged, you closed it, or it is in a column `done` lists     |
 
 ```text
 backlog → refining → ready → building → review → done
@@ -49,13 +88,13 @@ backlog → refining → ready → building → review → done
 
 ## Who moves a ticket
 
-| Move               | Who                                                                        |
-| ------------------ | -------------------------------------------------------------------------- |
-| backlog → refining | The session you run `/factory-refine N` in                                 |
-| refining → ready   | **You**, by moving the card, or by running `/factory-build N` in a session |
-| ready → building   | The session that claims it                                                 |
-| building → review  | Opening the pull request                                                   |
-| review → done      | The merge, which closes the ticket                                         |
+| Move               | Who                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| backlog → refining | The session you run `/factory-refine N` in                                                          |
+| refining → ready   | **You**, by moving the card, or by running `/factory-build N` in a session                          |
+| ready → building   | The session that claims it                                                                          |
+| building → review  | Opening the pull request                                                                            |
+| review → done      | The merge: the factory moves the ticket to the first done column, and closes it if it is still open |
 
 Approving a ticket is the only move a person has to make. A session moves
 the card to Ready only when you ask it to, as your own move.
@@ -75,14 +114,25 @@ These hold in every repository. They are not settings.
   a [reviewer](plugins.md#reviewer), not a column. A
   [plugin](plugins.md#the-roles) can take over a step, such as refining a
   ticket or proving a test, where the step stands.
-- **One session holds a ticket at a time.** The claim is a comment on the
+- **The factory's work ends at the merge.** A ticket in any column
+  [`tickets.columns.done`](configuration.md#ticketscolumns) lists is done,
+  and the factory never moves it out of them. A team with columns after
+  Done lists them all, and moves tickets through them itself:
+
+  ```yaml
+  tickets:
+    columns:
+      done: [Done, UAT, Released]
+  ```
+
+- **One session holds a ticket at a time.** The claim is recorded on the
   ticket. A second session that tries is told who holds it and stops.
 
 ## The board
 
 The factory writes four fields of the board: its Status, and three of its
-own. Anything you type into the
-last three is overwritten on the next sync.
+own, Session, Runs in, and Cost. Anything you type into those three is
+overwritten on the next sync.
 
 | Field   | Shows                                                                                 |
 | ------- | ------------------------------------------------------------------------------------- |
@@ -91,10 +141,14 @@ last three is overwritten on the next sync.
 | Runs in | Whether that session is on a machine or in the cloud                                  |
 | Cost    | An estimate of what refining and building the ticket used, summed across its sessions |
 
-Sessions never write the board directly. They post marker comments on the
-ticket, and one job in the cloud, the board sync, reads those and sets the
-fields.
-That is why a ticket's history survives even if the board is rebuilt.
+Sessions never write the board directly. They record what they did on
+the ticket, such as claiming it or what it cost, and then start the
+**board sync**, a workflow in your repository's CI that reads what is
+recorded on every labeled ticket and sets the board to match. On GitHub
+what they record is comments on the ticket. The sync also runs when a
+pull request opens, closes, or merges, and once a night to catch
+anything else, such as a ticket you closed by hand. Because the record is
+on the ticket, its history survives even if the board is rebuilt.
 
 `factory status` prints the same picture in a terminal.
 

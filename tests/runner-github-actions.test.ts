@@ -40,6 +40,16 @@ describe("starting a build", () => {
     ]);
   });
 
+  it("starts the board sync on the branch", async () => {
+    const { r, calls } = runner([[/factory-board-sync/, {}]]);
+
+    await r.startSync("main");
+
+    expect(calls).toEqual([
+      "api -X POST repos/acme/widgets/actions/workflows/factory-board-sync.yml/dispatches -f ref=main",
+    ]);
+  });
+
   it("fails with GitHub's own error when the dispatch is refused", async () => {
     const refused = new HttpError(403, "x", "Resource not accessible");
     const { r } = runner([[DISPATCH, refused]]);

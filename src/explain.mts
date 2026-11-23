@@ -129,6 +129,7 @@ export async function explainLines(
   if (s.builds.trigger === "github-action")
     put(["builds", "poll-minutes"], s.builds.pollMinutes);
   else comment(1, "poll-minutes: only with trigger github-action");
+  put(["builds", "max-per-hour"], s.builds.maxPerHour);
   if (s.specs === "openspec") {
     block(["specs"]);
     put(["specs", "type"], s.specs);

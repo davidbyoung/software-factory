@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  entryOf,
+  markersIn,
+  recordOf,
+} from "../src/tickets/record-comments.mts";
+import { asIssue, type GithubIssue } from "./ticket-fixture.ts";
+import {
   commentBody,
   derive,
   issueCost,
@@ -11,6 +17,7 @@ import {
   parseRuns,
   toClear,
   toSnapshot,
+  doneAt,
   workState,
   type CommentKind,
   type Issue,
@@ -42,18 +49,25 @@ const said = (minute: number, marker: string, id = nextId++): IssueComment => ({
   author: "acme",
   body: `Text.\n\n<!-- work-status: ${marker} -->\n${AGENT}`,
 });
+/** The markers a comment's body carries, read as GitHub's adapter reads
+ * them, then parsed. */
+const bodyMarkers = (body: string) =>
+  parseMarkers(markersIn({ id: "1", createdAt: at(0), author: "acme", body }));
+/** The work state of comments, read as GitHub's adapter reads them. */
+const stateOf = (comments: IssueComment[]) => workState(recordOf(comments));
 const LINKS_IN = memoryTickets().tickets.linksIn;
 /** Ticket 7 as a comment names it. */
 const SEVEN = { key: "7", ref: "#7" };
-const issue = (over: Partial<Issue> = {}): Issue => ({
-  key: "7",
-  title: "An issue",
-  state: "open",
-  closedAt: null,
-  labels: [],
-  comments: [],
-  ...over,
-});
+const issue = (over: Partial<GithubIssue> = {}): Issue =>
+  asIssue({
+    key: "7",
+    title: "An issue",
+    state: "open",
+    closedAt: null,
+    labels: [],
+    comments: [],
+    ...over,
+  });
 const pull = (over: Partial<PullRequest> = {}): PullRequest => ({
   number: 50,
   createdAt: at(30),
@@ -98,17 +112,17 @@ describe("parseMarkers", () => {
     ["partial", { kind: "partial" }],
   ])("reads %s", (marker, expected) => {
     expect(
-      parseMarkers(`Hi.\n\n<!-- work-status: ${marker} -->\n${AGENT}`),
+      bodyMarkers(`Hi.\n\n<!-- work-status: ${marker} -->\n${AGENT}`),
     ).toEqual([expected]);
   });
 
   it("ignores a marker in a comment without the agent mark", () => {
-    expect(parseMarkers("<!-- work-status: released -->")).toEqual([]);
+    expect(bodyMarkers("<!-- work-status: released -->")).toEqual([]);
   });
 
   it("ignores a marker that shares its line with other text", () => {
     expect(
-      parseMarkers(`See <!-- work-status: released --> here.\n${AGENT}`),
+      bodyMarkers(`See <!-- work-status: released --> here.\n${AGENT}`),
     ).toEqual([]);
   });
 
@@ -121,7 +135,7 @@ describe("parseMarkers", () => {
       AGENT,
     ].join("\n");
 
-    expect(parseMarkers(body)).toEqual([{ kind: "cleared" }]);
+    expect(bodyMarkers(body)).toEqual([{ kind: "cleared" }]);
   });
 
   it("keeps a tilde fence open across a backtick line", () => {
@@ -133,19 +147,19 @@ describe("parseMarkers", () => {
       AGENT,
     ].join("\n");
 
-    expect(parseMarkers(body)).toEqual([]);
+    expect(bodyMarkers(body)).toEqual([]);
   });
 
   it("ignores a marker that ends a line of other text", () => {
-    expect(
-      parseMarkers(`See <!-- work-status: released -->\n${AGENT}`),
-    ).toEqual([]);
+    expect(bodyMarkers(`See <!-- work-status: released -->\n${AGENT}`)).toEqual(
+      [],
+    );
   });
 
   it("rejects an unknown kind", () => {
-    expect(
-      parseMarkers(`<!-- work-status: claim moon x -->\n${AGENT}`),
-    ).toEqual([]);
+    expect(bodyMarkers(`<!-- work-status: claim moon x -->\n${AGENT}`)).toEqual(
+      [],
+    );
   });
 });
 
@@ -154,25 +168,25 @@ describe("workState", () => {
     const older = said(1, "claim local aaa", 9);
     const newer = said(2, "claim local bbb", 3);
 
-    expect(workState([newer, older]).live?.id).toBe("9");
+    expect(stateOf([newer, older]).live?.id).toBe("9");
   });
 
   it("makes the oldest claim live when none was", () => {
     const first = said(1, "claim local aaa", 2);
     const second = said(1, "claim local bbb", 3);
 
-    expect(workState([first, second]).live?.id).toBe("2");
+    expect(stateOf([first, second]).live?.id).toBe("2");
   });
 
   it("orders claims posted in the same second as the ticket system returned them, never by their IDs", () => {
     expect(
-      workState([said(1, "claim local b", 9), said(1, "claim local a", 8)]).live
+      stateOf([said(1, "claim local b", 9), said(1, "claim local a", 8)]).live
         ?.id,
     ).toBe("9");
   });
 
   it("never counts a claim posted while another was live, even after a release", () => {
-    const state = workState([
+    const state = stateOf([
       said(1, "claim local aaa", 1),
       said(2, "claim local bbb", 2),
       said(3, "released", 3),
@@ -183,7 +197,7 @@ describe("workState", () => {
   });
 
   it("keeps the newest claim that was ever live after a rebuild", () => {
-    const state = workState([
+    const state = stateOf([
       said(1, "claim local aaa", 1),
       said(2, "released", 2),
       said(3, "claim local bbb", 3),
@@ -193,24 +207,24 @@ describe("workState", () => {
   });
 
   it("lets a claim that never counted turn live once the live one is deleted", () => {
-    expect(workState([said(2, "claim local bbb", 2)]).live?.id).toBe("2");
+    expect(stateOf([said(2, "claim local bbb", 2)]).live?.id).toBe("2");
   });
 
   it.each(["released", "cleared"])("ends the live claim on %s", (end) => {
-    expect(workState([said(1, "claim local a"), said(2, end)]).live).toBeNull();
+    expect(stateOf([said(1, "claim local a"), said(2, end)]).live).toBeNull();
   });
 
   it.each(["claim local a", "released", "cleared", "refining local x"])(
     "ends a start on %s",
     (marker) => {
       expect(
-        workState([said(1, "started actions st_1"), said(2, marker)]).start,
+        stateOf([said(1, "started actions st_1"), said(2, marker)]).start,
       ).toBeNull();
     },
   );
 
   it("keeps a start that nothing followed", () => {
-    expect(workState([said(1, "started actions st_1", 5)]).start?.id).toBe("5");
+    expect(stateOf([said(1, "started actions st_1", 5)]).start?.id).toBe("5");
   });
 });
 
@@ -526,7 +540,7 @@ describe("derive: a card moves only forward on its own", () => {
     ];
     const followUps = issue({ labels: ["follow-up"], comments });
 
-    expect(workState(comments).live).toBeNull();
+    expect(stateOf(comments).live).toBeNull();
     expect(
       derive(followUps, { status: "In review", updatedAt: at(1) }, []),
     ).toMatchObject({ status: "Backlog", session: "", since: at(2) });
@@ -534,7 +548,7 @@ describe("derive: a card moves only forward on its own", () => {
 
   it("ends a start on a partial merge", () => {
     expect(
-      workState([said(1, "started actions st_1"), said(2, "partial")]).start,
+      stateOf([said(1, "started actions st_1"), said(2, "partial")]).start,
     ).toBeNull();
   });
 
@@ -875,7 +889,7 @@ describe("commentBody", () => {
   it("writes a marker its own parser reads", () => {
     const body = commentBody({ kind: "claim", who: local });
 
-    expect(parseMarkers(body)).toEqual([
+    expect(bodyMarkers(body)).toEqual([
       { kind: "claim", where: "local", id: "359bd84e" },
     ]);
   });
@@ -1021,7 +1035,7 @@ describe("toSnapshot", () => {
   });
 
   it("names a deleted account's comment ghost", () => {
-    expect(snapshotOf([page()]).issues[0].comments[0].author).toBe("ghost");
+    expect(snapshotOf([page()]).issues[0].comments![0].author).toBe("ghost");
   });
 });
 
@@ -1107,6 +1121,7 @@ describe("toBoard", () => {
         session: "a",
         runsIn: "",
         cost: null,
+        rank: 0,
       },
     ]);
     expect(board.fields).toHaveLength(1);
@@ -1241,12 +1256,15 @@ describe("parseRuns", () => {
     start: at(1),
     result: "passed",
   };
-  const comment = (body: string): IssueComment => ({
-    id: "1",
-    createdAt: at(1),
-    author: "acme",
-    body,
-  });
+  /** The comment as GitHub's adapter reads it into the record. */
+  const comment = (body: string) =>
+    entryOf({ id: "1", createdAt: at(1), author: "acme", body }) ?? {
+      id: "1",
+      at: at(1),
+      author: "acme",
+      text: body,
+      markers: [],
+    };
 
   it("reads each row's hidden copy from a reviewer-runs comment", () => {
     expect(
@@ -1270,5 +1288,43 @@ describe("parseRuns", () => {
     expect(
       parseRuns(comment(`<!-- reviewer-runs session=s -->\n${row}`)),
     ).toEqual([]);
+  });
+});
+
+describe("when a ticket became done", () => {
+  const COLUMNS = {
+    ...DEFAULT_COLUMNS,
+    Done: ["Done", "Released"] as const,
+  };
+  const inColumn = (status: string, updatedAt: string) =>
+    ({
+      ...issue(),
+      card: {
+        itemId: "I_7",
+        key: "7",
+        status,
+        updatedAt,
+        session: "",
+        runsIn: "",
+      },
+    }) as Issue;
+
+  it("keeps a ticket moved to any done column in the last day, by its card's time", () => {
+    const now = new Date(at(60));
+    expect(
+      toSnapshot([inColumn("Released", at(30))], [], now, [], COLUMNS).issues,
+    ).toHaveLength(1);
+  });
+
+  it("drops one moved there over a day ago", () => {
+    const now = new Date(Date.parse(at(30)) + 25 * 60 * 60 * 1000);
+    expect(
+      toSnapshot([inColumn("Released", at(30))], [], now, [], COLUMNS).issues,
+    ).toEqual([]);
+  });
+
+  it("takes a merge the factory recorded over the card's time", () => {
+    const merged = issue({ comments: [said(50, "merged")] });
+    expect(doneAt(merged, { status: "Done", updatedAt: at(1) })).toBe(at(50));
   });
 });

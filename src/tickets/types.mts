@@ -28,17 +28,56 @@ export type BoardItem = {
   runsIn: string;
   /** The Cost field, which only the sync writes. */
   cost?: number | null;
+  /** Its place in the board's own order, as the board shows it unsorted:
+   * lower first. Cards the adapter cannot order share one rank. */
+  rank?: number;
+};
+
+/** One thing the factory recorded on a ticket, such as a claim or a cost:
+ * its visible text and the marker lines that say what it means. */
+export type Entry = {
+  /** Opaque, as a comment's ID is. */
+  id: string;
+  at: string;
+  author: string;
+  text: string;
+  /** Each a line such as `<!-- work-status: claim local abc -->`. */
+  markers: string[];
+};
+
+/** An entry to record. `tellsPerson` says a person has to read it, such as
+ * a stop that waits on them; an adapter that can keep the record hidden
+ * comments only for those. */
+export type NewEntry = {
+  text: string;
+  markers: string[];
+  tellsPerson: boolean;
+};
+
+/** Where the factory keeps what it did on a ticket. */
+export type RecordOps = {
+  /** Returns the entry's ID. */
+  add(ticket: Key, entry: NewEntry): Promise<string>;
+  /** Replaces an entry; NotFoundError when it is gone. */
+  update(id: string, entry: NewEntry): Promise<void>;
+  /** NotFoundError when the entry is gone. */
+  remove(id: string): Promise<void>;
+  /** Oldest first. */
+  read(ticket: Key): Promise<Entry[]>;
 };
 
 export type Ticket = {
   key: Key;
   title: string;
-  state: "open" | "closed";
-  closedAt: string | null;
+  /** When the ticket system marked it finished, such as GitHub closing it,
+   * or null while it has not. */
+  finishedAt: string | null;
   labels: string[];
   body: string;
   /** Oldest first, in the order the ticket system keeps them. */
   comments: TicketComment[];
+  /** What the factory recorded on it, oldest first. */
+  record: Entry[];
   /** The ticket's card, when "Read everything at once" was asked for the
    * board and the adapter has one; null when it is not on the board. */
   card?: BoardItem | null;
@@ -76,22 +115,24 @@ export type BoardOps = {
   read(): Promise<Board>;
   /** Puts the ticket on the board, and returns its card's ID. */
   add(ticket: Key): Promise<string>;
-  /** Writes the fields of a card already on the board. */
+  /** Moves a card already on the board to the column of that name. */
+  move(itemId: string, column: string): Promise<void>;
+  /** Writes the factory's own fields of a card already on the board. */
   set(itemId: string, writes: Write[]): Promise<void>;
   /** The open boards the repository's owner has. */
   list(): Promise<{ number: number; title: string }[]>;
   /** Creates a board under the repository's owner, linked to the
-   * repository, and returns its number. */
-  create(title: string): Promise<number>;
+   * repository, and returns its number. Optional. */
+  create?(title: string): Promise<number>;
   /** Board `number`'s columns, its Status field's options in the board's
    * order, or none when it has no Status field. */
   columns(number: number): Promise<string[]>;
   /** Gives board `number` each of `columns` it lacks, the columns in that
    * order before any other it has, and returns the ones it added. */
-  addColumns(number: number, columns: string[]): Promise<string[]>;
+  addColumns?(number: number, columns: string[]): Promise<string[]>;
   /** Gives board `number` each of `fields` it lacks, by name, and returns
    * the names of the ones it added. */
-  addFields(number: number, fields: NewField[]): Promise<string[]>;
+  addFields?(number: number, fields: NewField[]): Promise<string[]>;
 };
 
 /** A board field to add: text, a number, or a single select with its
@@ -169,13 +210,12 @@ export type Tickets = {
   ref(ticket: Key): string;
   /** The ticket, or NotFoundError when there is none. */
   read(ticket: Key): Promise<Ticket>;
-  /** Every open ticket, however many there are. */
-  listOpen(): Promise<TicketSummary[]>;
-  /** Every open ticket and the 30 closed ones most recently updated, as
-   * `read` returns each, with its card when `board` is asked and the
-   * adapter has the board group. Optional: `readAll` in `index.mts` builds
-   * it from `listOpen` and `read` when an adapter does not. */
-  readAll?(options?: { board?: boolean }): Promise<Ticket[]>;
+  /** Every ticket not finished, whatever its labels, however many. */
+  listUnfinished(): Promise<TicketSummary[]>;
+  /** Every ticket with the label `label`, when given, that is not finished,
+   * and the 30 with it finished most recently, as `read` returns each, with
+   * its card when `board` is asked and the adapter has the board group. */
+  readAll(options?: { board?: boolean; label?: string }): Promise<Ticket[]>;
   writeBody(ticket: Key, body: string): Promise<void>;
   writeTitle(ticket: Key, title: string): Promise<void>;
   /** Returns the comment's ID. The body is posted as given. */
@@ -186,6 +226,9 @@ export type Tickets = {
   deleteComment(id: string): Promise<void>;
   /** Returns the new ticket's key. */
   open(ticket: NewTicket): Promise<Key>;
+  /** Creates the label where the ticket system needs one to exist before
+   * it is used; nothing where it does not. */
+  ensureLabel(label: string): Promise<void>;
   addLabel(ticket: Key, label: string): Promise<void>;
   removeLabel(ticket: Key, label: string): Promise<void>;
   /** Whether a comment by `author` may decide on a ticket: an answer to a
@@ -200,6 +243,13 @@ export type Tickets = {
   linksIn(body: string): Links;
   /** The address of the ticket's page. */
   address(ticket: Key): string;
+  /** Marks the ticket finished in the ticket system, once the pull request
+   * that closes it merged: GitHub closes it if it is open. */
+  finish(ticket: Key): Promise<void>;
+  /** Whether the ticket system has statuses of its own, which
+   * `tickets.columns` then maps whatever `tickets.board` says. */
+  statuses: boolean;
+  record: RecordOps;
   board?: BoardOps;
   blockers?: BlockerOps;
   labelHistory?: LabelHistoryOps;
@@ -278,20 +328,11 @@ const GROUP_KEYS = {
 } as const;
 type GroupKey<G extends Group> = (typeof GROUP_KEYS)[G];
 
-/** "Read everything at once" from the list and the single reads, for an
- * adapter that does not override it. It returns the open tickets: a list of
- * open tickets cannot name the closed ones. */
-export async function readAll(
+/** "Read everything at once": the adapter's own. */
+export const readAll = (
   tickets: Tickets,
-  options: { board?: boolean } = {},
-): Promise<Ticket[]> {
-  if (tickets.readAll) return tickets.readAll(options);
-  const open = await tickets.listOpen();
-  const read = await Promise.all(open.map((t) => tickets.read(t.key)));
-  if (!options.board || !tickets.board) return read;
-  const board = await tickets.board.read();
-  return read.map((t) => ({ ...t, card: board.items.get(t.key) ?? null }));
-}
+  options: { board?: boolean; label?: string } = {},
+): Promise<Ticket[]> => tickets.readAll(options);
 
 /** The cards `readAll` carried, as a Board, for the code that reads one. */
 export function boardOf(tickets: Ticket[]): Board {

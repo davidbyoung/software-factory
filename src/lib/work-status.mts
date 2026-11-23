@@ -5,17 +5,26 @@
 // cannot disagree. It reads tickets as the ticket interface returns them
 // (`tickets/types.mts`) and never calls a ticket system itself.
 import { TICKET_LABELS } from "../labels.mts";
+import {
+  AGENT_MARK,
+  CI_BOT,
+  MERGED_MARKER,
+  linesOutsideFences,
+  renderEntry,
+} from "../tickets/record-comments.mts";
 import type {
   Board,
   BoardItem,
+  Entry,
   Key,
+  NewEntry,
   Ticket,
   TicketComment,
 } from "../tickets/types.mts";
+import type { CostNote } from "./usage.mts";
 
 export type { Board, BoardField, BoardItem } from "../tickets/types.mts";
-
-export const AGENT_MARK = "<!-- agent -->";
+export { AGENT_MARK, CI_BOT };
 
 export const STATUSES = [
   "Backlog",
@@ -106,40 +115,21 @@ export type Marker =
   | { kind: "claim"; where: MarkedWhere; id: string }
   | { kind: "released" }
   | { kind: "cleared" }
-  | { kind: "partial" };
+  | { kind: "partial" }
+  | { kind: "merged" };
 
 export type IssueComment = TicketComment;
 
-/** A comment carrying a marker, in the order the rules read them. */
-export type Marked = IssueComment & { marker: Marker };
+/** An entry carrying a marker, in the order the rules read them. */
+export type Marked = Entry & { marker: Marker };
 
 const MARKER_LINE =
-  /^<!-- work-status: (?:(refining|claim) (local|cloud|actions) (\S+)|started (cloud|actions) (\S+)|(waiting|refined|released|cleared|partial)) -->$/;
+  /^<!-- work-status: (?:(refining|claim) (local|cloud|actions) (\S+)|started (cloud|actions) (\S+)|(waiting|refined|released|cleared|partial|merged)) -->$/;
 
-/** A comment's lines outside fenced code blocks, trimmed. */
-function linesOutsideFences(body: string): string[] {
-  const lines: string[] = [];
-  let fence: string | null = null;
-  for (const raw of body.split(/\r?\n/)) {
-    const line = raw.trim();
-    const opener = /^(`{3,}|~{3,})/.exec(line)?.[1];
-    if (opener) {
-      if (fence === null) fence = opener;
-      else if (opener[0] === fence[0] && opener.length >= fence.length)
-        fence = null;
-      continue;
-    }
-    if (fence === null) lines.push(line);
-  }
-  return lines;
-}
-
-/** The markers in one comment: each on a line of its own, outside a fenced
- * code block, in a comment that also carries the agent mark. */
-export function parseMarkers(body: string): Marker[] {
-  if (!body.includes(AGENT_MARK)) return [];
+/** The work-status markers among an entry's marker lines. */
+export function parseMarkers(markers: string[]): Marker[] {
   const found: Marker[] = [];
-  for (const line of linesOutsideFences(body)) {
+  for (const line of markers) {
     const match = MARKER_LINE.exec(line);
     if (!match) continue;
     const [, session, where, id, startWhere, started, bare] = match;
@@ -154,7 +144,7 @@ export function parseMarkers(body: string): Marker[] {
     } else {
       found.push({
         kind: bare as
-          "waiting" | "refined" | "released" | "cleared" | "partial",
+          "waiting" | "refined" | "released" | "cleared" | "partial" | "merged",
       });
     }
   }
@@ -165,9 +155,6 @@ export function parseMarkers(body: string): Marker[] {
 // prices: `<!-- cost: 3.41 session=ID -->` from a session,
 // `<!-- cost: 0.92 -->` from the pull request review's summary.
 
-/** The account the pull request review's summary is posted from. */
-export const CI_BOT = "github-actions[bot]";
-
 const COST_LINE = /^<!-- cost: (\d+(?:\.\d+)?)(?: session=\S+)? -->$/;
 
 /** Whether a body already carries a cost marker, read as `parseCosts` reads
@@ -177,10 +164,10 @@ export function hasCostMarker(body: string): boolean {
   return linesOutsideFences(body).some((line) => COST_LINE.test(line));
 }
 
-/** The cost markers in one comment, read as markers are: each on a line of
- * its own, outside a fenced code block. A comment counts when it carries the
- * agent mark, whoever posted it, as a claim or a release does, or when the
- * pull request review's bot posted it. */
+/** The cost markers in one pull request comment, read as markers are: each
+ * on a line of its own, outside a fenced code block. A comment counts when
+ * it carries the agent mark, whoever posted it, or when the pull request
+ * review's bot posted it. */
 export function parseCosts(comment: IssueComment): number[] {
   if (!comment.body.includes(AGENT_MARK) && comment.author !== CI_BOT)
     return [];
@@ -190,21 +177,38 @@ export function parseCosts(comment: IssueComment): number[] {
   });
 }
 
-/** The issue's Cost: every cost marker on it and on each pull request, open,
- * merged, or closed, that builds it, to the cent. Null when there are none. */
+const TOTAL_LINE = /^<!-- cost-total: (\d+(?:\.\d+)?) session=(\S+) -->$/;
+
+/** A session's newest running total on the ticket, or 0 with none. */
+export function sessionTotal(record: Entry[], session: string): number {
+  let total = 0;
+  for (const entry of record)
+    for (const line of entry.markers) {
+      const match = TOTAL_LINE.exec(line);
+      if (match && match[2] === session) total = Number(match[1]);
+    }
+  return total;
+}
+
+/** The issue's Cost, to the cent: each session's newest running total on
+ * it, added up, and every `cost:` marker on it and on each pull request,
+ * open, merged, or closed, that builds it. Null when there are none. */
 export function issueCost(issue: Issue, pulls: PullRequest[]): number | null {
-  const comments = [
-    ...issue.comments,
-    ...pulls
-      .filter(
-        (pull) =>
-          pull.closes.includes(issue.key) || pull.partOf.includes(issue.key),
-      )
-      .flatMap((pull) => pull.comments ?? []),
-  ];
-  const costs = comments.flatMap((c) => parseCosts(c));
-  if (costs.length === 0) return null;
-  return Math.round(costs.reduce((a, b) => a + b, 0) * 100) / 100;
+  const totals = new Map<string, number>();
+  const costs: number[] = [];
+  for (const entry of issue.record)
+    for (const line of entry.markers) {
+      const total = TOTAL_LINE.exec(line);
+      if (total) totals.set(total[2], Number(total[1]));
+      const cost = COST_LINE.exec(line);
+      if (cost) costs.push(Number(cost[1]));
+    }
+  for (const pull of pulls)
+    if (pull.closes.includes(issue.key) || pull.partOf.includes(issue.key))
+      for (const c of pull.comments ?? []) costs.push(...parseCosts(c));
+  const all = [...totals.values(), ...costs];
+  if (all.length === 0) return null;
+  return Math.round(all.reduce((a, b) => a + b, 0) * 100) / 100;
 }
 
 // Reviewer runs, which the SubagentStart and SubagentStop hooks record in one
@@ -233,14 +237,10 @@ export function runLine(run: ReviewerRun): string {
   return `<!-- reviewer-run: ${JSON.stringify(run)} -->`;
 }
 
-/** The runs in a reviewer-runs comment the agents posted. */
-export function parseRuns(comment: IssueComment): ReviewerRun[] {
-  if (
-    !comment.body.includes(REVIEWER_RUNS_MARK) ||
-    !comment.body.includes(AGENT_MARK)
-  )
-    return [];
-  return linesOutsideFences(comment.body).flatMap((line) => {
+/** The runs in a session's reviewer-runs entry. */
+export function parseRuns(entry: Entry): ReviewerRun[] {
+  if (!entry.markers.some((m) => m.startsWith(REVIEWER_RUNS_MARK))) return [];
+  return entry.markers.flatMap((line) => {
     const match = RUN_LINE.exec(line);
     if (!match) return [];
     try {
@@ -264,17 +264,17 @@ export const isStuck = (run: ReviewerRun, now: Date) =>
   run.result === "running" &&
   now.getTime() - Date.parse(run.start) > STUCK_AFTER_MS;
 
-// Comments with the same time keep the order the ticket system returned
+// Entries with the same time keep the order the ticket system returned
 // them in: the sort is stable, and their IDs are opaque.
-function byTime(a: IssueComment, b: IssueComment): number {
-  return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+function byTime(a: Entry, b: Entry): number {
+  return Date.parse(a.at) - Date.parse(b.at);
 }
 
-export function markedComments(comments: IssueComment[]): Marked[] {
-  return [...comments]
+export function markedComments(record: Entry[]): Marked[] {
+  return [...record]
     .sort(byTime)
-    .flatMap((comment) =>
-      parseMarkers(comment.body).map((marker) => ({ ...comment, marker })),
+    .flatMap((entry) =>
+      parseMarkers(entry.markers).map((marker) => ({ ...entry, marker })),
     );
 }
 
@@ -291,7 +291,7 @@ export type WorkState = {
 /** A claim is live when it was posted while no other claim was, and no
  * release or clear has followed. A claim posted while another was live never
  * counts, so a losing run that crashes before deleting it blocks nothing. */
-export function workState(comments: IssueComment[]): WorkState {
+export function workState(comments: Entry[]): WorkState {
   let live: Marked | null = null;
   let lastLive: Marked | null = null;
   let start: Marked | null = null;
@@ -345,7 +345,10 @@ export type PullRequest = {
 };
 
 /** A ticket as the rules read it: its body is not needed. */
-export type Issue = Omit<Ticket, "body" | "card"> & { body?: string };
+export type Issue = Omit<Ticket, "body" | "card" | "comments"> & {
+  body?: string;
+  comments?: TicketComment[];
+};
 
 export type Derived = {
   status: Status;
@@ -416,6 +419,23 @@ function claimSession(
   };
 }
 
+/** When the ticket became done: the merge the factory recorded, else its
+ * card's last move while in a done column, else when the ticket system
+ * finished it. Undefined while it is not done; null when it is done and
+ * nothing records when. */
+export function doneAt(
+  issue: Pick<Issue, "record" | "finishedAt">,
+  card: BoardCard | null,
+): string | null | undefined {
+  const merged = markedComments(issue.record)
+    .filter((m) => m.marker.kind === "merged")
+    .at(-1);
+  if (merged) return merged.at;
+  if (card?.status === "Done") return card.updatedAt;
+  if (issue.finishedAt !== null) return issue.finishedAt;
+  return undefined;
+}
+
 /** An issue's Status is the first rule that applies: Done, In review,
  * In progress, Ready, In refinement, Backlog. */
 export function derive(
@@ -425,14 +445,15 @@ export function derive(
   columns: Columns = DEFAULT_COLUMNS,
   followUp: string = TICKET_LABELS["follow-up"],
 ): Derived {
-  const work = workState(issue.comments);
-  const marked = markedComments(issue.comments);
+  const work = workState(issue.record);
+  const marked = markedComments(issue.record);
 
-  if (issue.state === "closed") {
+  const done = doneAt(issue, card);
+  if (done !== undefined) {
     return {
       status: "Done",
       ...claimSession(work.lastLive),
-      since: issue.closedAt,
+      since: done,
       pulls: [],
     };
   }
@@ -454,7 +475,7 @@ export function derive(
     return {
       status: "In progress",
       ...claimSession(work.live),
-      since: work.live.createdAt,
+      since: work.live.at,
       pulls: [],
     };
   }
@@ -465,14 +486,14 @@ export function derive(
       status: "In progress",
       session: `${where}, starting`,
       runsIn: runsIn(where),
-      since: work.start.createdAt,
+      since: work.start.at,
       pulls: [],
     };
   }
 
   if (card?.status === "Ready" && card.updatedAt) {
     const reset = marked.filter((m) => READY_RESETS.has(m.marker.kind)).at(-1);
-    if (!reset || Date.parse(card.updatedAt) > Date.parse(reset.createdAt)) {
+    if (!reset || Date.parse(card.updatedAt) > Date.parse(reset.at)) {
       return {
         status: "Ready",
         session: "",
@@ -509,7 +530,7 @@ export function derive(
   const ownerBacklog =
     card?.status === "Backlog" &&
     card.updatedAt !== null &&
-    Date.parse(card.updatedAt) > Date.parse(newest.createdAt) &&
+    Date.parse(card.updatedAt) > Date.parse(newest.at) &&
     !(newest.marker.kind === "waiting" || newest.marker.kind === "refined"
       ? sameName(
           columnFor("In refinement", columns),
@@ -530,21 +551,21 @@ export function derive(
         status: "In refinement",
         session: sessionText(newest.marker.where, newest.marker.id),
         runsIn: runsIn(newest.marker.where),
-        since: newest.createdAt,
+        since: newest.at,
         pulls: [],
       };
     case "waiting":
     case "refined":
       return ownerBacklog
         ? backlog(ownerBacklog)
-        : waitingOn("In refinement", newest.createdAt);
+        : waitingOn("In refinement", newest.at);
     case "released":
     case "cleared":
       return ownerBacklog
         ? backlog(ownerBacklog)
-        : waitingOn("In progress", newest.createdAt);
+        : waitingOn("In progress", newest.at);
     case "partial":
-      return backlog(ownerBacklog ?? newest.createdAt);
+      return backlog(ownerBacklog ?? newest.at);
     default:
       return backlog(card?.updatedAt ?? null);
   }
@@ -610,16 +631,16 @@ export function toClear(
   since: string;
 } | null {
   if (
-    issue.state !== "open" ||
+    issue.finishedAt !== null ||
     reviewingPulls(issue, pulls, followUp).length > 0
   )
     return null;
-  const work = workState(issue.comments);
+  const work = workState(issue.record);
   const old = (m: Marked | null) =>
-    m !== null && now.getTime() - Date.parse(m.createdAt) > 24 * HOUR;
-  if (old(work.live)) return { kind: "claim", since: work.live!.createdAt };
+    m !== null && now.getTime() - Date.parse(m.at) > 24 * HOUR;
+  if (old(work.live)) return { kind: "claim", since: work.live!.at };
   if (old(work.start)) {
-    return { kind: "start", since: work.start!.createdAt };
+    return { kind: "start", since: work.start!.at };
   }
   return null;
 }
@@ -645,12 +666,12 @@ export type Named = { key: Key; ref: string };
 
 export type CommentKind =
   | { kind: "refining"; who: Identity }
-  | { kind: "waiting"; cost?: string }
+  | { kind: "waiting"; cost?: CostNote }
   | {
       kind: "refined";
       issue: Named;
       before?: string;
-      cost?: string;
+      cost?: CostNote;
     }
   | { kind: "started"; marker: string }
   | {
@@ -665,14 +686,15 @@ export type CommentKind =
       where: SessionKind;
       issue: Named;
       reason: string;
-      cost?: string;
+      cost?: CostNote;
     }
-  | { kind: "cost"; cost: string }
+  | { kind: "cost"; cost: CostNote }
   | { kind: "ended"; issue: Named }
   | { kind: "cleared-claim"; issue: Named; since: string }
   | { kind: "cleared-start"; issue: Named; since: string }
   | { kind: "follow-ups-merged"; pull: number }
-  | { kind: "pull-closed"; issue: Named; pull: number };
+  | { kind: "pull-closed"; issue: Named; pull: number }
+  | { kind: "merged"; pull: number; link: string };
 
 function sessionPhrase(who: Identity): string {
   if (who.where === "actions") {
@@ -698,32 +720,50 @@ const again = (issue: Named, columns: Columns) => {
   return `Move it to ${ready} to try again.`;
 };
 
-export function commentBody(
+/** What the factory records for each kind, and whether a person has to
+ * read it: a stop that waits on someone, refinement's closing note, and
+ * the merge's note do; a claim, a start, or a cost does not. */
+export function entryFor(
   c: CommentKind,
   columns: Columns = DEFAULT_COLUMNS,
-): string {
-  const mark = (marker: string, sentence: string) =>
-    `${sentence}\n\n<!-- work-status: ${marker} -->\n${AGENT_MARK}`;
-  // A session's cost note goes after what the comment says.
-  const withCost = (text: string, cost: string | undefined) =>
-    cost ? `${text}\n\n${cost}` : text;
+): NewEntry {
+  const markers = (marker: string, cost?: CostNote) =>
+    [cost?.marker, `<!-- work-status: ${marker} -->`].filter(
+      (m): m is string => !!m,
+    );
+  const entry = (
+    marker: string,
+    text: string,
+    tellsPerson: boolean,
+    cost?: CostNote,
+  ): NewEntry => ({ text, markers: markers(marker, cost), tellsPerson });
+  // A session's cost note goes after what the entry says.
+  const withCost = (text: string, cost: CostNote | undefined) =>
+    cost ? `${text}\n\n${cost.text}` : text;
   const WAITING = waiting(columns);
   const ready = columns.Ready?.[0] ?? null;
   switch (c.kind) {
     case "cost":
-      return `${c.cost}\n${AGENT_MARK}`;
+      return {
+        text: c.cost.text,
+        markers: c.cost.marker ? [c.cost.marker] : [],
+        tellsPerson: false,
+      };
     case "refining":
-      return mark(
+      return entry(
         `refining ${c.who.where} ${c.who.id}`,
         `Refining this issue ${sessionPhrase(c.who)}`,
+        false,
       );
     case "waiting":
-      return mark(
+      return entry(
         "waiting",
         withCost(
           "Refinement is waiting on you: the questions are in the comment above.",
           c.cost,
         ),
+        false,
+        c.cost,
       );
     case "refined": {
       const sentence =
@@ -731,23 +771,31 @@ export function commentBody(
           ? `Refinement is done. This board has no column for approving a build: tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`.`
           : `Refinement is done. The card stays ${cardAt("In refinement", columns)} until it moves to ${ready}, which starts a build in GitHub Actions: move it there, or ask this session to. To build it on your machine instead, tell a local session to work ${c.issue.ref}.`;
       const before = c.before?.trimEnd();
-      const lead = [before, c.cost].filter(Boolean).join("\n\n");
-      return mark("refined", lead ? `${lead}\n\n${sentence}` : sentence);
+      const lead = [before, c.cost?.text].filter(Boolean).join("\n\n");
+      return entry(
+        "refined",
+        lead ? `${lead}\n\n${sentence}` : sentence,
+        true,
+        c.cost,
+      );
     }
     case "started":
-      return mark(
+      return entry(
         `started actions ${c.marker}`,
         `Starting a build in GitHub Actions: the card moved to ${ready ?? "Ready"}.`,
+        false,
       );
     case "dispatch-failed":
-      return mark(
+      return entry(
         "released",
         `Could not start a build in GitHub Actions: GitHub answered ${c.status} (${c.reason}). ${WAITING} ${again(c.issue, columns)}`,
+        true,
       );
     case "claim":
-      return mark(
+      return entry(
         `claim ${c.who.where} ${c.who.id}`,
         `Building this ${sessionPhrase(c.who)}`,
+        false,
       );
     case "stopped": {
       const head = `Stopped without a pull request: ${c.reason}. ${WAITING}`;
@@ -755,37 +803,59 @@ export function commentBody(
         c.where === "actions"
           ? `Run \`factory build ${c.issue.key}\` to try again${ready === null ? "." : `, or move it to ${ready}.`}`
           : `Tell a session to work ${c.issue.ref} again${ready === null ? "." : `, or move it to ${ready} to build it in GitHub Actions.`}`;
-      return mark("released", withCost(`${head} ${tail}`, c.cost));
+      return entry(
+        "released",
+        withCost(`${head} ${tail}`, c.cost),
+        true,
+        c.cost,
+      );
     }
     case "ended":
-      return mark(
+      return entry(
         "released",
         `The run ended without a pull request. ${WAITING} ${again(c.issue, columns)}`,
+        true,
       );
     case "cleared-claim":
-      return mark(
+      return entry(
         "cleared",
         `Cleared the claim from ${utc(c.since)}: no pull request after 24 hours, so that session has stopped. ${WAITING} ${again(c.issue, columns)}`,
+        true,
       );
     case "cleared-start":
-      return mark(
+      return entry(
         "cleared",
         `Cleared the build started ${utc(c.since)}: no claim or pull request after 24 hours. ${WAITING} ${again(c.issue, columns)}`,
+        true,
       );
     case "follow-ups-merged":
-      return mark(
+      return entry(
         "partial",
         `Pull request #${c.pull} merged part of these follow-ups. The unchecked lines wait for the next build; the card is back in ${columnFor("Backlog", columns)}.`,
+        false,
       );
     case "pull-closed":
-      return mark(
+      return entry(
         "released",
         ready === null
           ? `Pull request #${c.pull} was closed without merging. ${WAITING} Tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`, to rebuild it, or ask a session to refine it first.`
           : `Pull request #${c.pull} was closed without merging. ${WAITING} Move it to ${ready} to rebuild it, or ask a session to refine it first.`,
+        true,
       );
+    case "merged":
+      return {
+        text: `Merged in pull request #${c.pull}: ${c.link}`,
+        markers: [MERGED_MARKER],
+        tellsPerson: true,
+      };
   }
 }
+
+/** The entry as GitHub posts it, as a comment. */
+export const commentBody = (
+  c: CommentKind,
+  columns: Columns = DEFAULT_COLUMNS,
+): string => renderEntry(entryFor(c, columns));
 
 export type RepoSnapshot = {
   issues: Issue[];
@@ -804,13 +874,26 @@ export function toSnapshot(
   pulls: PullRequest[],
   now: Date,
   donePulls: PullRequest[] = [],
+  columns: Columns = DEFAULT_COLUMNS,
 ): RepoSnapshot {
   const day = 24 * HOUR;
-  const issues = tickets.filter(
-    (t) =>
-      t.state === "open" ||
-      (t.closedAt !== null && now.getTime() - Date.parse(t.closedAt) <= day),
-  );
+  const issues = tickets.filter((t) => {
+    const card = (t as Partial<Ticket>).card ?? null;
+    const done = doneAt(
+      t,
+      card
+        ? {
+            status:
+              card.status === null
+                ? null
+                : statusOfColumn(card.status, columns),
+            updatedAt: card.updatedAt,
+          }
+        : null,
+    );
+    if (done === undefined) return true;
+    return done !== null && now.getTime() - Date.parse(done) <= day;
+  });
   return {
     issues,
     pulls,

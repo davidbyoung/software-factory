@@ -52,7 +52,10 @@ npx --no-install factory ticket claim N
 ```
 
 It checks the issue's blockers, posts the claim, waits 5 seconds, reads
-the comments back, and prints one line:
+the comments back, and prints one line of outcome. A ticket without the
+factory label gets it on a claim, and a line saying so comes first; a
+`?` line after the outcome says the board sync did not start, which
+changes nothing here. The outcome is one of:
 
 - **`claimed`:** go on.
 - **`held by SESSION`:** another session holds the issue. Stop and post

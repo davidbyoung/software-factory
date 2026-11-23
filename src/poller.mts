@@ -22,14 +22,19 @@
 // the runner, each over the `fetch` transport, since it runs with no `gh`.
 import { TICKET_LABELS } from "./labels.mts";
 import { randomBytes } from "node:crypto";
-import { columnsOf, loadSettings, type Settings } from "./config.mts";
+import {
+  columnsOf,
+  loadSettings,
+  MAX_PER_HOUR,
+  type Settings,
+} from "./config.mts";
 import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import {
   DEFAULT_COLUMNS,
   cardOf,
   type Columns,
-  commentBody,
+  entryFor,
   derive,
   markedComments,
   toSnapshot,
@@ -57,7 +62,7 @@ import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
-export const FIRE_LIMIT = 20;
+export const FIRE_LIMIT = MAX_PER_HOUR;
 const FIRE_TIMEOUT_MS = 30_000;
 
 /** The open issues the shared derivation puts in Ready, in key order. */
@@ -70,7 +75,7 @@ export function selectToStart(
   return snapshot.issues
     .filter(
       (issue) =>
-        issue.state === "open" &&
+        issue.finishedAt === null &&
         derive(
           issue,
           cardOf(board, issue.key, columns),
@@ -80,7 +85,10 @@ export function selectToStart(
         ).status === "Ready",
     )
     .map((issue) => issue.key)
-    .sort(compareKeys);
+    .sort((a, b) => {
+      const rank = (k: Key) => board.items.get(k)?.rank ?? 0;
+      return rank(a) - rank(b) || compareKeys(a, b);
+    });
 }
 
 export function startMarker(): string {
@@ -120,16 +128,20 @@ export function dispatchFailure(error: unknown): {
  * restart, neither of which keeps it in memory. */
 export function recentStarts(issues: RepoSnapshot["issues"], now: number) {
   return issues
-    .flatMap((issue) => markedComments(issue.comments))
+    .flatMap((issue) => markedComments(issue.record))
     .filter((m) => m.marker.kind === "started")
-    .map((m) => Date.parse(m.createdAt))
+    .map((m) => Date.parse(m.at))
     .filter((at) => now - at < HOUR);
 }
 
 /** Whether another fire fits in the rolling hour, given when the recent ones
  * went out. */
-export function capAllows(fired: number[], now: number): boolean {
-  return fired.filter((at) => now - at < HOUR).length < FIRE_LIMIT;
+export function capAllows(
+  fired: number[],
+  now: number,
+  max: number = FIRE_LIMIT,
+): boolean {
+  return fired.filter((at) => now - at < HOUR).length < max;
 }
 
 /** A minute between reads, and ten once ten in a row have failed. */
@@ -141,11 +153,13 @@ export type Config = {
   owner: string;
   number: number;
   githubToken: string;
+  /** How many builds it starts in any one hour. */
+  maxPerHour: number;
 };
 
 export function readConfig(
   env: Record<string, string | undefined>,
-): Config | { missing: string[] } {
+): Config | { missing: string[] } | { wrong: string } {
   const names = [
     "FACTORY_BOARD_OWNER",
     "FACTORY_BOARD_NUMBER",
@@ -154,10 +168,17 @@ export function readConfig(
   ];
   const missing = names.filter((name) => !env[name]?.trim());
   if (missing.length) return { missing };
+  const max = env.FACTORY_MAX_PER_HOUR?.trim();
+  const maxPerHour = max ? Number(max) : FIRE_LIMIT;
+  if (!/^\d+$/.test(String(maxPerHour)) || maxPerHour < 1)
+    return {
+      wrong: "FACTORY_MAX_PER_HOUR must be a whole number, 1 or more",
+    };
   return {
     owner: env.FACTORY_BOARD_OWNER!,
     number: Number(env.FACTORY_BOARD_NUMBER),
     githubToken: env.FACTORY_BOARD_TOKEN!,
+    maxPerHour,
   };
 }
 
@@ -218,7 +239,10 @@ export async function sources(d: Deps, c: Config) {
 
 async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
   const [read, open] = await Promise.all([
-    tickets.readAll!({ board: true }),
+    tickets.readAll({
+      board: true,
+      label: d.env.FACTORY_LABEL?.trim() || TICKET_LABELS.factory,
+    }),
     codeHost.open(),
   ]);
   return {
@@ -226,6 +250,8 @@ async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
       read,
       linkPulls(open, tickets, (d.ticketSystem ?? HOSTED).own),
       new Date(d.now()),
+      [],
+      columnsFrom(d.env),
     ),
     board: boardOf(read),
   };
@@ -251,6 +277,11 @@ export async function tick(d: Deps, state: State): Promise<void> {
   const config = readConfig(d.env);
   if ("missing" in config) {
     d.log(`not polling: ${config.missing.join(", ")} not set`);
+    state.failuresInARow += 1;
+    return;
+  }
+  if ("wrong" in config) {
+    d.log(`not polling: ${config.wrong}`);
     state.failuresInARow += 1;
     return;
   }
@@ -310,16 +341,18 @@ export async function tick(d: Deps, state: State): Promise<void> {
       );
       continue;
     }
-    if (!capAllows(fired, d.now())) {
-      d.log(`${ref} waits: ${FIRE_LIMIT} builds started in the last hour`);
+    if (!capAllows(fired, d.now(), config.maxPerHour)) {
+      d.log(
+        `${ref} waits: ${config.maxPerHour} builds started in the last hour (builds.max-per-hour)`,
+      );
       continue;
     }
 
     const marker = d.marker();
     try {
-      await tickets.comment(
+      await tickets.record.add(
         issue,
-        commentBody({ kind: "started", marker }, columns),
+        entryFor({ kind: "started", marker }, columns),
       );
     } catch (error) {
       d.log(`${ref} not started: the start comment failed (${String(error)})`);
@@ -333,9 +366,9 @@ export async function tick(d: Deps, state: State): Promise<void> {
     }
     d.log(`${ref} dispatch failed: ${outcome.status} (${outcome.reason})`);
     try {
-      await tickets.comment(
+      await tickets.record.add(
         issue,
-        commentBody(
+        entryFor(
           {
             kind: "dispatch-failed",
             issue: { key: issue, ref },
@@ -359,6 +392,10 @@ export type OnceSettings = {
   ready: string | null;
   /** The name of the follow-ups ticket's label. */
   followUp: string;
+  /** The name of the label on every ticket the factory works on. */
+  factory: string;
+  /** How many builds it starts in any one hour; 20 unless given. */
+  maxPerHour?: number;
   /** The settings' ticket system; the default one when not given. */
   ticketSystem?: Deps["ticketSystem"];
 };
@@ -368,6 +405,8 @@ export function onceSettings(s: Settings): OnceSettings {
     board: s.tickets.board,
     ready: columnsOf(s).Ready?.[0] ?? null,
     followUp: s.tickets.labels["follow-up"],
+    factory: s.tickets.labels.factory,
+    maxPerHour: s.builds.maxPerHour,
     ticketSystem: {
       type: s.tickets.type,
       options: s.tickets.options,
@@ -398,6 +437,8 @@ export async function once(s: OnceSettings, d: Deps): Promise<number> {
     FACTORY_BOARD_NUMBER: String(s.board),
     FACTORY_READY_COLUMN: s.ready,
     FACTORY_FOLLOW_UP_LABEL: s.followUp,
+    FACTORY_LABEL: s.factory,
+    FACTORY_MAX_PER_HOUR: String(s.maxPerHour ?? FIRE_LIMIT),
   };
   const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
   await tick(
