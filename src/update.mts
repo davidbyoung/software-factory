@@ -119,20 +119,25 @@ async function survey(d: UpdateDeps) {
     repos.set(pin.repo, [...(repos.get(pin.repo) ?? []), pin]);
   for (const [repo, pins] of repos) {
     let head: string;
+    const unreadable = (pin: PresetPin, e: unknown) =>
+      unread.push(
+        `? ${pin.name} could not be read: ${message(e).replace(/\.+$/, "")}. To stop following it: factory preset remove ${pin.name}`,
+      );
     try {
       head = await d.presets.newest(repo);
     } catch (e) {
-      for (const pin of pins)
-        unread.push(
-          `? ${pin.name} could not be read: ${message(e)}. To stop following it: factory preset remove ${pin.name}`,
-        );
+      for (const pin of pins) unreadable(pin, e);
       continue;
     }
     const moved: PresetPin[] = [];
     for (const pin of pins)
-      if (pin.commit !== head && (await d.presets.differs(pin, head)))
-        moved.push(pin);
-      else current.push(pin.name);
+      try {
+        if (pin.commit !== head && (await d.presets.differs(pin, head)))
+          moved.push(pin);
+        else current.push(pin.name);
+      } catch (e) {
+        unreadable(pin, e);
+      }
     if (!moved.length) continue;
     const slug = `${BRANCHES}${repo.replaceAll("/", "-")}`;
     units.push({

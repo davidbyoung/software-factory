@@ -32,6 +32,8 @@ type Setup = {
   heads?: Record<string, string | Error>;
   /** The presets whose own files differ at the newest commit. */
   changed?: string[];
+  /** The presets whose two commits cannot be compared, and why. */
+  uncompared?: Record<string, Error>;
   /** What the sync prints, by the version it runs at. */
   synced?: string[];
   /** The last pull request of a branch. */
@@ -67,7 +69,11 @@ function update(o: Setup = {}) {
         if (head instanceof Error) throw head;
         return head;
       },
-      differs: async (p) => (o.changed ?? []).includes(p.name),
+      differs: async (p) => {
+        const why = o.uncompared?.[p.name];
+        if (why) throw why;
+        return (o.changed ?? []).includes(p.name);
+      },
       move: async (names, commit) => {
         calls.push(`move ${names.join(",")} ${commit.slice(0, 7)}`);
       },
@@ -192,6 +198,25 @@ describe("factory update, by hand", () => {
     ]);
   });
 
+  it("says which preset it could not compare, and still updates the factory and the rest", async () => {
+    const u = update({
+      pins: [pin("acme/gone", OLD), TWO[0]!],
+      uncompared: {
+        "acme/gone": new Error(
+          "fatal: remote error: upload-pack: not our ref 3f2a91c.",
+        ),
+      },
+      changed: ["acme/factory-config"],
+    });
+    expect(await u.run()).toBe(0);
+    expect(u.out).toEqual([
+      "? acme/gone could not be read: fatal: remote error: upload-pack: not our ref 3f2a91c. To stop following it: factory preset remove acme/gone",
+      "The factory 0.2.0 → 0.3.0",
+      "acme/factory-config 3f2a91c → 8d04e7b",
+      "✓ Wrote 2 files and deleted 1. Commit them on a branch and open a pull request.",
+    ]);
+  });
+
   it("moves presets only in the factory's own repository, which runs its source", async () => {
     const u = update({
       own: true,
@@ -230,6 +255,18 @@ describe("factory update, by hand", () => {
 
 describe("factory update --pull-requests", () => {
   const PR = ["--pull-requests"];
+
+  it("still opens the factory's pull request when a preset's commits cannot be compared", async () => {
+    const u = update({
+      pins: [pin("acme/gone", OLD)],
+      uncompared: { "acme/gone": new Error("fatal: not our ref 3f2a91c") },
+    });
+    expect(await u.run(PR)).toBe(0);
+    expect(u.out).toEqual([
+      "✓ Opened #41, Update the factory to 0.3.0",
+      "? acme/gone could not be read: fatal: not our ref 3f2a91c. To stop following it: factory preset remove acme/gone",
+    ]);
+  });
 
   it("opens one pull request for the factory and one for each preset repository, each from the default branch", async () => {
     const u = update({
