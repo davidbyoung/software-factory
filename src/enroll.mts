@@ -16,6 +16,7 @@ import type { CodeHost } from "./code-host/types.mts";
 import { PROPERTY } from "./init-org.mts";
 import { CONTEXT } from "./review-verdict.mts";
 import { RULE } from "./setup.mts";
+import { statusOf } from "./tickets/transport.mts";
 
 export type Enroll = {
   repository: string;
@@ -35,6 +36,14 @@ export type Enroll = {
 const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
+/** Whether a refusal to set a property's value means the repository's
+ * owner defines no property of that name. A repository's values do not
+ * say: one with no value yet is left out of them, as an undefined one is. */
+function noSuchProperty(error: unknown): boolean {
+  const status = statusOf(error);
+  return status === 404 || status === 422;
+}
+
 /** Whose token the workflow's step says the run holds. */
 export function holds(env: Record<string, string | undefined>): Enroll["as"] {
   if (env.FACTORY_APP_TOKEN_SET === "true") return "app";
@@ -48,19 +57,20 @@ export async function enroll(o: Enroll): Promise<string[]> {
   const notRequired = `? "${CONTEXT}" is not required before a merge to ${o.branch}, and this run's token cannot require it. An admin of ${o.repository} runs: factory init`;
 
   if (o.as === "app") {
-    const properties = await o.codeHost.properties().catch(() => ({}));
-    if (PROPERTY in properties) {
-      if (properties[PROPERTY] === "on") return [];
-      try {
-        await o.codeHost.setProperty(PROPERTY, "on");
-      } catch (error) {
-        return [
-          `? Could not set ${PROPERTY} to "on" for ${o.repository}: ${message(error)}. An owner of ${owner} sets it under the organization's Settings, Custom properties.`,
-        ];
-      }
+    const properties: Record<string, unknown> = await o.codeHost
+      .properties()
+      .catch(() => ({}));
+    if (properties[PROPERTY] === "on") return [];
+    try {
+      await o.codeHost.setProperty(PROPERTY, "on");
       return [
         `✓ Set ${PROPERTY} to "on" for ${o.repository}, so ${owner}'s rule requires "${CONTEXT}" here.`,
       ];
+    } catch (error) {
+      if (!noSuchProperty(error))
+        return [
+          `? Could not set ${PROPERTY} to "on" for ${o.repository}: ${message(error)}. An owner of ${owner} sets it under the organization's Settings, Custom properties.`,
+        ];
     }
   }
 

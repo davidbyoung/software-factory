@@ -15,6 +15,7 @@ import type {
 } from "../src/code-host/types.mts";
 import { NeedsScopeError } from "../src/code-host/types.mts";
 import type { PullRequest } from "../src/lib/work-status.mts";
+import { HttpError } from "../src/tickets/transport.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
 
 export const REPOSITORY = "acme/widgets";
@@ -72,6 +73,8 @@ export type MemoryCodeHostOptions = {
   properties?: Record<string, string | string[] | null>;
   /** Why setting a property's value fails. */
   propertyRefused?: string;
+  /** The status it fails with, when the code host answers with one. */
+  propertyRefusedStatus?: number;
   /** The checks the owner's own rules require on the default branch of a
    * repository whose property has that value. */
   ownerRules?: { check: string; property: string; value: string }[];
@@ -499,6 +502,12 @@ export function memoryCodeHost(
     },
     async setProperty(name, value) {
       called("setProperty", name, value);
+      if (options.propertyRefused && options.propertyRefusedStatus)
+        throw new HttpError(
+          options.propertyRefusedStatus,
+          `${options.propertyRefused} (HTTP ${options.propertyRefusedStatus})`,
+          options.propertyRefused,
+        );
       if (options.propertyRefused) throw new Error(options.propertyRefused);
       settings.properties[name] = value;
     },

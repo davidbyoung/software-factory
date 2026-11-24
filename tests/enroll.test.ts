@@ -66,6 +66,15 @@ describe("under the organization's app", () => {
     },
   );
 
+  it("turns the property on for a repository with no value for it yet, which the code host leaves out of the repository's values", async () => {
+    const { lines, host } = run("app", { properties: {}, ownerRules: RULE });
+
+    expect(await lines()).toEqual([
+      '✓ Set software-factory to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
+    ]);
+    expect(host.settings.properties["software-factory"]).toBe("on");
+  });
+
   it("prints nothing, and sets nothing, where the property is already on", async () => {
     const { lines, wrote } = run("app", {
       properties: { "software-factory": "on" },
@@ -76,20 +85,29 @@ describe("under the organization's app", () => {
     expect(wrote()).toEqual([]);
   });
 
-  it("says an admin runs init where the organization has no such property", async () => {
-    const { lines, wrote } = run("app", { properties: { team: "web" } });
-
-    expect(await lines()).toEqual([NOT_REQUIRED]);
-    expect(wrote()).toEqual([]);
+  /** An organization that defines no such property, as the code host
+   * answers an attempt to set one. */
+  const undefinedProperty = (status: number): MemoryCodeHostOptions => ({
+    properties: { team: "web" },
+    propertyRefused: status === 404 ? "Not Found" : "Validation Failed",
+    propertyRefusedStatus: status,
   });
 
+  it.each([404, 422])(
+    "says an admin runs init where the organization has no such property, which the code host answers with %s",
+    async (status) => {
+      const { lines, host } = run("app", undefinedProperty(status));
+
+      expect(await lines()).toEqual([NOT_REQUIRED]);
+      expect(host.settings.properties).toEqual({ team: "web" });
+    },
+  );
+
   it("prints nothing where there is no such property and the repository's own rule already requires the verdict", async () => {
-    const { lines, host, wrote } = run("app");
+    const { lines, host } = run("app", undefinedProperty(404));
     await host.codeHost.requireCheck("Software factory", "Review verdict");
-    host.log.length = 0;
 
     expect(await lines()).toEqual([]);
-    expect(wrote()).toEqual([]);
   });
 
   it("gives the code host's reason, and who sets it by hand, when the value is refused", async () => {
@@ -104,12 +122,26 @@ describe("under the organization's app", () => {
     expect(host.settings.properties["software-factory"]).toBe("off");
   });
 
-  it("takes a property it cannot read for one the organization does not have", async () => {
+  it("gives the reason for a refusal with any other status too, such as a token that may not set it", async () => {
     const { lines } = run("app", {
-      fail: { properties: new Error("404 Not Found") },
+      propertyRefused: "Resource not accessible by integration",
+      propertyRefusedStatus: 403,
     });
 
-    expect(await lines()).toEqual([NOT_REQUIRED]);
+    expect(await lines()).toEqual([
+      '? Could not set software-factory to "on" for acme/web: Resource not accessible by integration (HTTP 403). An owner of acme sets it under the organization\'s Settings, Custom properties.',
+    ]);
+  });
+
+  it("tries to set the property all the same when the repository's values cannot be read", async () => {
+    const { lines, host } = run("app", {
+      fail: { properties: new Error("gh api: Server Error (HTTP 500)") },
+    });
+
+    expect(await lines()).toEqual([
+      '✓ Set software-factory to "on" for acme/web, so acme\'s rule requires "Review verdict" here.',
+    ]);
+    expect(host.settings.properties["software-factory"]).toBe("on");
   });
 });
 
