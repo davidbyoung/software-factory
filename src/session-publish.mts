@@ -13,7 +13,7 @@ import { basename, join } from "node:path";
 import type { CodeHost } from "./code-host/index.mts";
 import { checkBundle, type BundleAnswer } from "./handoff/bundle.mts";
 import type { RunFile } from "./handoff/index.mts";
-import { otherLinked } from "./handoff/links.mts";
+import { commitsFault, textFault, type Commit } from "./handoff/links.mts";
 import {
   allow,
   readRequests,
@@ -26,7 +26,6 @@ import { AGENT_MARK, commentBody } from "./lib/work-status.mts";
 import {
   main as prMain,
   newestRuns,
-  NO_CHECKS_MS,
   PASSED,
   withAgentMark,
   type Deps as PrDeps,
@@ -56,6 +55,10 @@ export function recordedTicket(body: string): string | null {
 export const ANSWERS = 4;
 
 const CI_MS = 60 * 60 * 1000;
+/** How long a commit with no run on it is given for one to start. */
+const START_MS = 10 * 60 * 1000;
+/** How long a sign-in is used: one lasts an hour. */
+const SIGN_IN_MS = 45 * 60 * 1000;
 const POLL_MS = 15 * 1000;
 
 export type PublishDeps = {
@@ -78,8 +81,8 @@ export type PublishDeps = {
   session: string;
   /** Whether the claim this run made is still the ticket's. */
   claimed(): Promise<boolean>;
-  /** The message of each commit the bundle adds, from the clone. */
-  messages(clone: string, tip: string): string[];
+  /** The commits the bundle adds, from the clone. */
+  commits(clone: string, tip: string): Commit[];
   /** The reviews that ask for changes a pull request is answered after. */
   reviewRounds: number;
   now(): number;
@@ -120,8 +123,7 @@ async function tell(d: PublishDeps, text: string): Promise<void> {
   else if (d.run.ticket !== null) await d.tickets.comment(d.run.ticket, body);
 }
 
-/** The bundle's answer, with a commit that closes another ticket refused:
- * a squash merge puts each commit's message in its own. */
+/** What the bundle holds, or why it is not pushed. */
 function checked(d: PublishDeps, clone: string): BundleAnswer {
   const answer = checkBundle({
     repo: clone,
@@ -132,25 +134,71 @@ function checked(d: PublishDeps, clone: string): BundleAnswer {
     ...(d.run.pull === null ? {} : { published: d.run.base }),
   });
   if ("refused" in answer) return answer;
-  for (const message of d.messages(clone, answer.tip)) {
-    const other = otherLinked(d, message);
-    if (other)
-      return {
-        refused: `a commit's message links ${other}, which is not this run's`,
-      };
-  }
-  return answer;
+  const fault = commitsFault(d, d.commits(clone, answer.tip));
+  return fault ? { refused: fault } : answer;
 }
 
-async function refuse(d: PublishDeps, why: string): Promise<number> {
-  const page = d.runner.thisRun(d.pr.env ?? {})?.page;
+const isOpen = ({ argv }: Asked) => argv[0] === "pr" && argv[1] === "open";
+const isStop = ({ argv }: Asked) =>
+  argv[0] === "ticket" && (argv[1] === "stop" || argv[1] === "end");
+
+/** Why nothing of the session's is pushed, found before anything is, since a
+ * branch pushed with nothing to show for it is work nobody sees. */
+async function faultBefore(
+  d: PublishDeps,
+  asked: Asked[],
+  mine: ThisRun,
+): Promise<string | null> {
+  const { run } = d;
+  if (run.pull !== null) {
+    const now = await d.codeHost.get(run.pull);
+    if (now.state !== "open") return `#${run.pull} is not open any more`;
+    if (now.head.sha !== run.base)
+      return `#${run.pull} has a newer commit than the one the session worked from`;
+    return null;
+  }
+  const opens = asked.filter(isOpen);
+  if (opens.length === 0) return "the session asked for no pull request";
+  for (const one of opens) {
+    const may = allow(one, mine);
+    if ("refused" in may) return may.refused;
+    const fault = textFault(
+      d,
+      [...one.argv, ...Object.values(one.files)].join("\n\n"),
+    );
+    if (fault) return `the pull request ${fault}`;
+  }
+  return null;
+}
+
+/** Says that nothing was pushed, and why. A conflict's run also marks the
+ * commit, so the sweep does not start another on it. */
+async function refuse(d: PublishDeps, why: string): Promise<void> {
   const lines = [
     `Not pushed: ${why}${why.includes(" changes ") ? ", which a build in the cloud can't push" : ""}.`,
-    `Build this ticket on your computer: tell a session to work it.${page ? ` The commits are in the run: ${page}` : ""}`,
+    `Build this ticket on your computer: tell a session to work it.${inRun(d, "The commits are in the run")}`,
   ];
   lines.forEach((line) => d.out(line));
-  await tell(d, lines.join("\n"));
-  return 1;
+  const mark =
+    d.run.kind === "conflict"
+      ? `\n\n<!-- conflict-stop head=${d.run.base} -->`
+      : "";
+  await tell(d, `${lines.join("\n")}${mark}`);
+}
+
+/** Where to read more, when the run has a page. */
+function inRun(d: PublishDeps, what: string): string {
+  const page = d.runner.thisRun(d.pr.env ?? {})?.page;
+  return page ? ` ${what}: ${page}` : "";
+}
+
+/** What the session's job says of how it ended, or null when none of what it
+ * left arrived. */
+function endedFile(d: PublishDeps): { dropped: string[] } | null {
+  const file = join(d.dir, "out/ended.json");
+  return existsSync(file)
+    ? (JSON.parse(readFileSync(file, "utf8")) as { dropped: string[] })
+    : null;
 }
 
 /** The open tickets a run of this kind opened for the same pull request, by
@@ -230,6 +278,39 @@ export async function nextAnswer(d: PublishDeps, pull: number): Promise<void> {
   d.out(`Started an answer to #${pull}.`);
 }
 
+/** The commits, pushed, or null when there are none or they are refused. */
+async function pushed(
+  d: PublishDeps,
+  asked: Asked[],
+  mine: ThisRun,
+): Promise<{ tip: string | null; refused: boolean }> {
+  const none = { tip: null, refused: false };
+  if (!existsSync(join(d.dir, "out/build.bundle"))) {
+    if (!endedFile(d)?.dropped.includes("build.bundle")) return none;
+    await refuse(d, "its commits are not a file of at most 20 MB");
+    return { tip: null, refused: true };
+  }
+  // A session that stopped says so itself, and its run keeps its commits.
+  if (d.run.pull === null && !asked.some(isOpen) && asked.some(isStop))
+    return none;
+  let why = await faultBefore(d, asked, mine);
+  if (why === null) {
+    const clone = d.clone();
+    const answer = checked(d, clone);
+    if ("refused" in answer) why = answer.refused;
+    else
+      try {
+        d.push(clone, answer.tip, d.run.branch);
+        d.out(`Pushed ${answer.commits} commits to ${d.run.branch}.`);
+        return { tip: answer.tip, refused: false };
+      } catch (error) {
+        why = `the code host refused it: ${(error as Error).message}`;
+      }
+  }
+  await refuse(d, why);
+  return { tip: null, refused: true };
+}
+
 export async function publish(d: PublishDeps): Promise<number> {
   const { run } = d;
   const requests = join(d.dir, "out/request.json");
@@ -246,35 +327,14 @@ export async function publish(d: PublishDeps): Promise<number> {
     d.out("The claim ended before this run did, so nothing is published.");
     return 1;
   }
-
-  let pull = run.pull;
-  let tip: string | null = null;
-  if (existsSync(join(d.dir, "out/build.bundle"))) {
-    // Found after the push, it would leave a branch with no pull request.
-    for (const { argv, files } of asked) {
-      if (argv[0] !== "pr" || argv[1] !== "open") continue;
-      const other = otherLinked(
-        d,
-        [...argv, ...Object.values(files)].join("\n\n"),
-      );
-      if (other)
-        return refuse(
-          d,
-          `the pull request links ${other}, which is not this run's`,
-        );
-    }
-    const clone = d.clone();
-    const answer = checked(d, clone);
-    if ("refused" in answer) return refuse(d, answer.refused);
-    try {
-      d.push(clone, answer.tip, run.branch);
-    } catch (error) {
-      return refuse(d, `the code host refused it: ${(error as Error).message}`);
-    }
-    tip = answer.tip;
-    d.out(`Pushed ${answer.commits} commits to ${run.branch}.`);
+  if (d.session === "success" && endedFile(d) === null) {
+    const why = `What the session left did not arrive, so nothing was done with it.${inRun(d, "Its run")}`;
+    d.out(why);
+    await tell(d, why);
+    return 1;
   }
 
+  let pull = run.pull;
   const threads = pull === null ? [] : await d.codeHost.threads(pull);
   const mine: ThisRun = {
     kind: run.kind,
@@ -285,7 +345,12 @@ export async function publish(d: PublishDeps): Promise<number> {
     base: run.base,
     opened: await openedBefore(d),
   };
-  let failed = false;
+  const { tip, refused } = await pushed(d, asked, mine);
+  // What it says of commits that were not pushed is not true, so only what
+  // stands without them is done.
+  if (refused)
+    asked = asked.filter((a) => isStop(a) || a.argv[0] === "follow-up");
+  let failed = refused;
   for (const one of asked) {
     const may = allow(one, { ...mine, pull });
     if ("refused" in may) {
@@ -293,14 +358,16 @@ export async function publish(d: PublishDeps): Promise<number> {
       continue;
     }
     try {
-      if (may.argv[0] === "pr" && may.argv[1] === "open") {
+      if (isOpen(may)) {
         if (tip === null) throw new Error("there is no commit to open it for");
         pull = await open(d, may);
         d.out(`Opened #${pull}.`);
         continue;
       }
       const { argv, readFile } = filesOf(may);
-      const says = /^(?:pr|ticket) comment$/.test(argv.slice(0, 2).join(" "));
+      const says = /^(?:(?:pr|ticket) comment|ticket open)$/.test(
+        argv.slice(0, 2).join(" "),
+      );
       const read = (path: string) =>
         says ? marked(readFile(path)) : readFile(path);
       const code =
@@ -320,14 +387,22 @@ export async function publish(d: PublishDeps): Promise<number> {
     }
   }
   await postCost(d, pull);
-  if (d.session !== "success" && tip === null) {
-    const page = d.runner.thisRun(d.pr.env ?? {})?.page;
+  if (d.session !== "success" && tip === null && !refused) {
     d.out("The session did not finish.");
     await tell(
       d,
-      `The session did not finish, and nothing of its was pushed.${page ? ` Its run: ${page}` : ""}`,
+      `The session did not finish, and nothing of its was pushed.${inRun(d, "Its run")}`,
     );
   }
+  const said = asked.some(
+    (a) => isStop(a) || (a.argv[0] === "ticket" && a.argv[1] === "comment"),
+  );
+  if (run.kind === "build" && d.session === "success" && tip === null)
+    if (!refused && !said)
+      await tell(
+        d,
+        `The session ended with nothing to push, and did not say why.${inRun(d, "Its run")}`,
+      );
   if (pull !== null && tip !== null) await settle(d, pull, tip);
   return failed ? 1 : 0;
 }
@@ -357,24 +432,41 @@ export async function postCost(
   else if (d.run.ticket !== null) await d.tickets.comment(d.run.ticket, body);
 }
 
-type Ci = "passed" | "failed" | "not finished";
+type Ci = "passed" | "failed" | "not finished" | "not started";
 
-/** How CI ended on the commit, waited for up to `CI_MS`. A commit that no
- * run has started on after a few minutes has no CI. */
+/** How CI ended on the commit, waited for up to `CI_MS`. The factory's own
+ * check runs on every pull request, so no run at all means something kept
+ * them from starting, and not that there is no CI. */
 async function ciOn(d: PublishDeps, tip: string): Promise<Ci> {
   const start = d.now();
+  let signedIn = start;
   for (;;) {
-    const runs = newestRuns(await d.runner.runs(tip));
     const waited = d.now() - start;
-    if (runs.length === 0 && waited >= NO_CHECKS_MS) return "passed";
-    if (runs.length > 0 && runs.every((r) => r.status === "completed"))
-      return runs.every((r) => PASSED.includes(r.conclusion ?? ""))
-        ? "passed"
-        : "failed";
+    if (d.now() - signedIn >= SIGN_IN_MS) {
+      await d.signIn();
+      signedIn = d.now();
+    }
+    try {
+      const runs = newestRuns(await d.runner.runs(tip));
+      if (runs.length === 0 && waited >= START_MS) return "not started";
+      if (runs.length > 0 && runs.every((r) => r.status === "completed"))
+        return runs.every((r) => PASSED.includes(r.conclusion ?? ""))
+          ? "passed"
+          : "failed";
+    } catch (error) {
+      d.out(`Could not read CI: ${(error as Error).message}`);
+    }
     if (waited >= CI_MS) return "not finished";
     await d.sleep(POLL_MS);
   }
 }
+
+const WAITS: Partial<Record<Ci, string>> = {
+  "not finished":
+    "CI has not finished after an hour, so this stays as it is until a person looks.",
+  "not started":
+    "No check has started on this commit, so it stays as it is until a person looks.",
+};
 
 /** Waits for CI on the commit, then marks the pull request ready or starts
  * the next answer. */
@@ -387,19 +479,15 @@ async function settle(
   await d.signIn();
   d.out(`CI ${ci}.`);
   if (ci === "failed") return nextAnswer(d, pull);
-  if (ci === "not finished") {
-    await d.codeHost.comment(
-      pull,
-      withAgentMark(
-        "CI has not finished after an hour, so this stays as it is until a person looks.",
-      ),
-    );
+  const waits = WAITS[ci];
+  if (waits) {
+    await d.codeHost.comment(pull, withAgentMark(waits));
     return;
   }
   const now = await d.codeHost.get(pull);
   if (!now.isDraft) return;
-  if (now.body.includes(OWNER_MARK)) {
-    d.out("It stays a draft for its owner to mark ready.");
+  if (!now.body.includes(CLOUD_MARK) || now.body.includes(OWNER_MARK)) {
+    d.out("It stays a draft for a person to mark ready.");
     return;
   }
   // A person may have pushed while this waited, and that commit's CI is not

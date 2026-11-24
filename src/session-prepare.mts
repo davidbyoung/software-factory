@@ -248,8 +248,23 @@ function bundles(run: RunFile, dir: string, git: PrepareDeps["git"]): void {
   git(["bundle", "create", "-q", join(dir, "work.bundle"), home, work]);
 }
 
-/** The run handed over, or null with the reason printed. */
+/** The run handed over, or null with the reason printed. A build that fails
+ * here releases its ticket. */
 export async function prepare(
+  kind: Kind,
+  id: string,
+  d: PrepareDeps,
+): Promise<RunFile | null> {
+  try {
+    return await handOver(kind, id, d);
+  } catch (error) {
+    if (kind === "build")
+      await d.ticket(["end", d.tickets.key(id)], d).catch(() => {});
+    throw error;
+  }
+}
+
+async function handOver(
   kind: Kind,
   id: string,
   d: PrepareDeps,

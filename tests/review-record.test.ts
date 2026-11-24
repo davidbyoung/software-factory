@@ -68,7 +68,7 @@ describe("the review's schema", () => {
 describe("readAnswer", () => {
   const whole = answer({
     findings: [finding(), finding({ line: null, severity: "Low" })],
-    rejections: [{ thread: 901, body: "It still fails." }],
+    rejections: [{ thread: 901, body: "It  still fails." }],
   });
 
   it("reads an answer of the schema's shape", () => {
@@ -423,7 +423,7 @@ describe("recordReview", () => {
       const w = world(rejects(901), { pull: { threads: [thread(901)] } });
 
       await w.go();
-      expect(w.threads()[0].says).toEqual(["Bug", "It still fails."]);
+      expect(w.threads()[0].says).toEqual(["Bug", "It  still fails."]);
       expect(w.comments()).toEqual([
         `Ready to merge.\n\nAdds a thing.\n\n${MARKS("ready")}`,
       ]);
@@ -443,7 +443,7 @@ describe("recordReview", () => {
       await w.go();
       expect(w.threads()[0].says).toEqual(["Bug"]);
       expect(w.comments()).toEqual([
-        `Ready to merge.\n\nAdds a thing.\n\nOn thread 901:\n\nIt still fails.\n\n${MARKS("ready")}`,
+        `Ready to merge.\n\nAdds a thing.\n\nOn thread 901:\n\nIt  still fails.\n\n${MARKS("ready")}`,
       ]);
     });
   });

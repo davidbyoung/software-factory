@@ -192,6 +192,11 @@ export function githubActionsRunner(o: {
         ...(env.GITHUB_ACTOR ? { startedBy: env.GITHUB_ACTOR } : {}),
       };
     },
+    // https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs
+    skipsRuns: (text) =>
+      /\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]|^skip-checks:\s*true/im.test(
+        text,
+      ),
     async runs(sha): Promise<Run[]> {
       const answer = await t.rest<{ workflow_runs: RestRun[] }>(
         "GET",

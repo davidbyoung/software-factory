@@ -1,8 +1,11 @@
+import { randomBytes } from "node:crypto";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -11,7 +14,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openCodeHost } from "../src/code-host/index.mts";
-import { handed, HANDOFF, type RunFile } from "../src/handoff/index.mts";
+import {
+  handed,
+  HANDOFF,
+  handoffIn,
+  intercept,
+  type RunFile,
+} from "../src/handoff/index.mts";
 import { readRequests } from "../src/handoff/requests.mts";
 import { main as prMain } from "../src/pr.mts";
 import { memoryCodeHost } from "./memory-code-host";
@@ -57,6 +66,13 @@ const factory = (...args: string[]) =>
     env: { [HANDOFF]: dir, PATH: "/usr/bin:/bin", HOME: dir },
   });
 
+/** The folder, for a build that has opened no pull request. */
+const build = () => {
+  const run = { ...RUN, kind: "build", pull: null };
+  writeFileSync(join(dir, "in/run.json"), JSON.stringify(run));
+  return dir;
+};
+
 const asked = () =>
   readRequests(readFileSync(join(dir, "out/request.json"), "utf8"));
 
@@ -84,6 +100,30 @@ describe("a factory command in a session in the cloud", () => {
     );
     expect(factory("ticket", "label", "12", "--add", "spec").status).toBe(1);
     expect(() => asked()).toThrow();
+  });
+
+  it("is told at once when a comment's text would be refused", () => {
+    writeFileSync(join(dir, "r.md"), "It needs a <slug> here.");
+    const wrong = factory("pr", "comment", "31", "--body-file", "r.md");
+    expect(wrong.status).toBe(1);
+    expect(wrong.stdout).toContain("✗ Can't ask for this. ");
+    expect(wrong.stdout).toContain("<slug>");
+    expect(() => asked()).toThrow();
+  });
+
+  it("is told at once when its pull request would close another ticket", () => {
+    const out: string[] = [];
+    const code = intercept(
+      ["pr", "open", "--title", "Fix it", "--body-file", "b.md"],
+      handoffIn({ [HANDOFF]: build() })!,
+      (line) => out.push(line),
+      () => "Fixes #13",
+      (text) => (text.includes("#13") ? "links #13" : undefined),
+    );
+    expect(code).toBe(1);
+    expect(out).toEqual([
+      "✗ Can't ask for this. factory pr open: it links #13",
+    ]);
   });
 
   it.each([
@@ -126,20 +166,24 @@ describe("factory pr push and pull", () => {
   const git = (cwd: string, ...args: string[]) =>
     execFileSync(
       "git",
-      ["-c", "user.name=a", "-c", "user.email=a@example.com", ...args],
+      ["-c", `user.name=${who.name}`, "-c", `user.email=${who.email}`, ...args],
       { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     ).trim();
+  let who = RUN.committer;
   let work: string;
   /** A repository on a branch, one commit past `base`. */
   beforeEach(() => {
     work = join(dir, "work");
     git(dir, "init", "-q", "-b", "trunk", work);
+    who = RUN.committer;
     git(work, "commit", "-q", "--allow-empty", "-m", "first");
     const base = git(work, "rev-parse", "HEAD");
+    git(work, "update-ref", "refs/remotes/origin/trunk", base);
     writeFileSync(join(dir, "in/run.json"), JSON.stringify({ ...RUN, base }));
     git(work, "switch", "-q", "-c", "12-add-a-thing");
   });
-  const commit = () => git(work, "commit", "-q", "--allow-empty", "-m", "work");
+  const commit = (message = "work") =>
+    git(work, "commit", "-q", "--allow-empty", "-m", message);
   const asked = async (
     step: string,
     env: Record<string, string>,
@@ -158,6 +202,7 @@ describe("factory pr push and pull", () => {
         return ["push", "pull"].includes(args[0]) ? "" : git(work, ...args);
       },
       remote: async () => "upstream",
+      tickets: async () => ({ tickets: memoryTickets([]).tickets, own: true }),
       env,
     });
     return { code, out, ran };
@@ -175,6 +220,39 @@ describe("factory pr push and pull", () => {
       join(dir, "out/build.bundle"),
     );
     expect(heads).toBe(`${git(work, "rev-parse", "HEAD")} HEAD`);
+  });
+
+  it.each(["Fixes #13", "Add a file [skip ci]"])(
+    "hands nothing over with a commit that says %s, and says so at once",
+    async (message) => {
+      commit(message);
+      const r = await asked("push", { [HANDOFF]: dir });
+      expect(r.code).not.toBe(0);
+      expect(existsSync(join(dir, "out/build.bundle"))).toBe(false);
+    },
+  );
+
+  it("hands nothing over in another's name", async () => {
+    who = { name: "The Owner", email: "owner@example.com" };
+    commit();
+    expect((await asked("push", { [HANDOFF]: dir })).code).not.toBe(0);
+    expect(existsSync(join(dir, "out/build.bundle"))).toBe(false);
+  });
+
+  it("leaves out what was merged in from the default branch", async () => {
+    commit();
+    git(work, "switch", "-q", "trunk");
+    writeFileSync(join(work, "big.txt"), randomBytes(200_000));
+    git(work, "add", "-A");
+    git(work, "commit", "-q", "-m", "a big file");
+    git(work, "update-ref", "refs/remotes/origin/trunk", "trunk");
+    git(work, "switch", "-q", "12-add-a-thing");
+    git(work, "merge", "-q", "--no-edit", "trunk");
+
+    const r = await asked("push", { [HANDOFF]: dir });
+
+    expect(r.out).toEqual(["Handed over 2 commits on 12-add-a-thing."]);
+    expect(statSync(join(dir, "out/build.bundle")).size).toBeLessThan(10_000);
   });
 
   it("fails a session that committed nothing", async () => {

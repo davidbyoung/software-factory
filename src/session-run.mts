@@ -24,7 +24,12 @@ import {
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { CloudSession, SessionCommand } from "./agent/types.mts";
-import { HANDOFF, type RunFile } from "./handoff/index.mts";
+import {
+  AUTHOR,
+  BUNDLE_LIMIT,
+  HANDOFF,
+  type RunFile,
+} from "./handoff/index.mts";
 
 type Env = Record<string, string | undefined>;
 
@@ -52,7 +57,6 @@ export type SessionDeps = {
   out(line: string): void;
 };
 
-const LIMIT = 20_000_000;
 const MAX_TURNS = 1000;
 
 /** The environment without anything the session has no use for: the
@@ -74,8 +78,8 @@ export function sessionEnv(env: Env, run: RunFile, dir: string): Env {
     PLAYWRIGHT_BROWSERS_PATH:
       env.PLAYWRIGHT_BROWSERS_PATH ??
       join(env.HOME ?? homedir(), ".cache/ms-playwright"),
-    GIT_AUTHOR_NAME: "Claude",
-    GIT_AUTHOR_EMAIL: "noreply@anthropic.com",
+    GIT_AUTHOR_NAME: AUTHOR.name,
+    GIT_AUTHOR_EMAIL: AUTHOR.email,
     GIT_COMMITTER_NAME: run.committer.name,
     GIT_COMMITTER_EMAIL: run.committer.email,
     GIT_CONFIG_NOSYSTEM: "1",
@@ -84,13 +88,15 @@ export function sessionEnv(env: Env, run: RunFile, dir: string): Env {
 }
 
 /** Copies a file the session left, only if it is an ordinary one: a link
- * would be followed by whatever reads it next, outside the sandbox. */
+ * would be followed by whatever reads it next, outside the sandbox. Gives
+ * the names of those it left behind. */
 export function collect(
   from: string,
   to: string,
   names: string[],
   out: (line: string) => void,
-): void {
+): string[] {
+  const dropped: string[] = [];
   mkdirSync(to, { recursive: true });
   for (const name of names) {
     const path = join(from, name);
@@ -98,15 +104,18 @@ export function collect(
     if (!found) continue;
     if (!found.isFile()) {
       out(`Left ${name} behind: it is not an ordinary file.`);
+      dropped.push(name);
       continue;
     }
-    if (found.size > LIMIT) {
+    if (found.size > BUNDLE_LIMIT) {
       out(`Left ${name} behind: it is larger than 20 MB.`);
+      dropped.push(name);
       continue;
     }
     copyFileSync(path, join(to, name));
     chmodSync(join(to, name), 0o600);
   }
+  return dropped;
 }
 
 export async function runSession(d: SessionDeps): Promise<number> {
@@ -186,7 +195,15 @@ export async function runSession(d: SessionDeps): Promise<number> {
   const cost = costIn(lines);
   mkdirSync(at("clean"), { recursive: true });
   if (cost) writeFileSync(at("clean/cost.json"), JSON.stringify(cost));
-  collect(at("out"), at("clean"), ["build.bundle", "request.json"], d.out);
+  const dropped = collect(
+    at("out"),
+    at("clean"),
+    ["build.bundle", "request.json"],
+    d.out,
+  );
+  // There whatever the session did, so Publish can tell nothing left from
+  // nothing that arrived.
+  writeFileSync(at("clean/ended.json"), JSON.stringify({ dropped }));
   const answer = d.schema ? answerIn(lines) : undefined;
   if (d.schema && answer === undefined) {
     d.out("The session gave no answer in the shape it was asked for.");

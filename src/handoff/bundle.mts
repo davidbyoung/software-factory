@@ -5,9 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { statSync } from "node:fs";
 import { devNull } from "node:os";
-
-/** The most a bundle may hold. */
-const LIMIT = 20_000_000;
+import { BUNDLE_LIMIT } from "./index.mts";
 
 const LINK = "120000";
 const SUBMODULE = "160000";
@@ -119,7 +117,7 @@ function check(git: Git, o: BundleCheck): { tip: string; commits: number } {
   const trunk = `refs/heads/${o.defaultBranch}`;
   const size = statSync(o.bundle, { throwIfNoEntry: false })?.size;
   if (size === undefined) throw new Refused("it handed over no commits");
-  if (size > LIMIT) throw new Refused("it is larger than 20 MB");
+  if (size > BUNDLE_LIMIT) throw new Refused("it is larger than 20 MB");
   const listed = git("bundle", "list-heads", o.bundle);
   const heads = listed.out.trim().split("\n").filter(Boolean);
   if (!listed.ok || heads.length === 0) throw new Refused("it is not a bundle");

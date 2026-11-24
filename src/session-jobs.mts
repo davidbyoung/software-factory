@@ -9,6 +9,7 @@
 //
 // `session-prepare.mts`, `session-run.mts`, and `session-publish.mts` hold
 // what each does. FACTORY_RUN names the folder a job works in.
+import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import {
   appendFileSync,
@@ -42,6 +43,7 @@ import {
   publish,
   type PublishDeps,
 } from "./session-publish.mts";
+import { COMMITS, commitsIn } from "./handoff/links.mts";
 import { runSession } from "./session-run.mts";
 import {
   claimHere,
@@ -175,6 +177,15 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
   return 0;
 }
 
+/** Has the runner take nothing this process prints as a command to it, since
+ * what a session wrote is printed here. */
+function quietly(): void {
+  if (!process.env.GITHUB_ACTIONS) return;
+  const token = randomBytes(16).toString("hex");
+  out(`::stop-commands::${token}`);
+  process.on("exit", () => out(`::${token}::`));
+}
+
 /** One line for each thing the agent says and each tool it runs, then how
  * it ended. */
 export function shown(line: string): string[] {
@@ -218,6 +229,7 @@ async function runTheSession(env: Env): Promise<number> {
   const run = JSON.parse(
     readFileSync(join(dir, "in/run.json"), "utf8"),
   ) as RunFile;
+  quietly();
   if (existsSync(join(dir, "in/cache")))
     cpSync(join(dir, "in/cache"), join(dir, "cache"), { recursive: true });
   const schema =
@@ -316,15 +328,18 @@ async function publishDeps(env: Env): Promise<PublishDeps> {
         await readComments({ tickets: w.tickets }, run.ticket),
         run.claim,
       ) === "claimed",
-    messages: (clone, tip) =>
-      git(clone, [
-        "log",
-        "--format=%B%x00",
-        tip,
-        "--not",
-        run.base,
-        `refs/heads/${run.defaultBranch}`,
-      ]).split("\0"),
+    commits: (clone, tip) =>
+      commitsIn(
+        git(clone, [
+          "log",
+          "-z",
+          COMMITS,
+          tip,
+          "--not",
+          run.base,
+          `refs/heads/${run.defaultBranch}`,
+        ]),
+      ),
     session: env.CONCLUSION ?? "failure",
     reviewRounds: w.settings.rules.reviewRounds,
     now: Date.now,
@@ -372,13 +387,19 @@ async function record(d: PublishDeps, env: Env): Promise<number> {
     answer !== null &&
     (answer.verdict === "changes" ||
       answer.findings.some((f) => f.severity !== "Low"));
-  if (changes && env.GITHUB_OUTPUT)
+  // A newer commit has a review of its own coming.
+  const current =
+    changes &&
+    d.run.pull !== null &&
+    (await d.codeHost.get(d.run.pull)).head.sha === d.run.base;
+  if (current && env.GITHUB_OUTPUT)
     appendFileSync(env.GITHUB_OUTPUT, "next=true\n");
   return code;
 }
 
 async function runPublish(env: Env): Promise<number> {
   const d = await publishDeps(env);
+  quietly();
   if (d.run.kind === "review") return record(d, env);
   try {
     return await publish(d);

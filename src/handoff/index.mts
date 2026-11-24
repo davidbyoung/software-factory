@@ -9,6 +9,7 @@
 //   FACTORY_HANDOFF/out/build.bundle  the commits, from `factory pr push`
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { refuseBareTags } from "../guard-ticket-text.mts";
 import { replaying, type Call, type On } from "./replay.mts";
 import {
   allow,
@@ -43,6 +44,12 @@ export type RunFile = {
   /** Who a session's commits are committed by. */
   committer: { name: string; email: string };
 };
+
+/** Who writes a session's commits. */
+export const AUTHOR = { name: "Claude", email: "noreply@anthropic.com" };
+
+/** The most bytes of commits a session may hand over. */
+export const BUNDLE_LIMIT = 20_000_000;
 
 type Env = Record<string, string | undefined>;
 
@@ -121,6 +128,30 @@ const waits = (argv: string[]) =>
     argv[1] === "watch" ||
     (argv[1] === "state" && argv.includes("--wait")));
 
+const POSTED = /^(?:ticket (?:comment|edit|open)|pr (?:comment|open))$/;
+
+/** Why Publish would leave out what a command posts, by its text. */
+function textRefused(
+  asked: Asked,
+  argv: string[],
+  fault: (text: string) => string | undefined,
+): string | null {
+  const name = argv.slice(0, 2).join(" ");
+  if (!POSTED.test(name)) return null;
+  const title = argv[argv.indexOf("--title") + 1];
+  const texts = [
+    ...(argv.includes("--title") ? [title] : []),
+    ...Object.values(asked.files),
+  ];
+  try {
+    texts.forEach(refuseBareTags);
+  } catch (error) {
+    return (error as Error).message;
+  }
+  const found = name === "pr open" ? fault(texts.join("\n\n")) : undefined;
+  return found ? `factory pr open: it ${found}` : null;
+}
+
 /** What a session's command does in place of reaching anything: the exit
  * code, or null for one that runs as it does anywhere else. */
 export function intercept(
@@ -128,6 +159,7 @@ export function intercept(
   h: Handoff,
   out: (line: string) => void,
   readFile: (path: string) => string = (path) => readFileSync(path, "utf8"),
+  fault: (text: string) => string | undefined = () => undefined,
 ): number | null {
   if (waits(argv)) {
     out(ENDS_HERE);
@@ -154,8 +186,10 @@ export function intercept(
   const run = h.run();
   // Told now, the session can ask again; Publish would only leave it out.
   const may = allow(asked, { ...run, comments: null, opened: [] });
-  if ("refused" in may) {
-    out(`✗ Can't ask for this. ${may.refused}`);
+  const refused =
+    "refused" in may ? may.refused : textRefused(asked, argv, fault);
+  if (refused) {
+    out(`✗ Can't ask for this. ${refused}`);
     return 1;
   }
   h.add(asked);

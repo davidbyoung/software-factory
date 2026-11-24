@@ -481,7 +481,13 @@ export async function main(argv: string[]): Promise<number> {
   try {
     if (process.env.FACTORY_HANDOFF) {
       const { handoffIn, intercept } = await import("./handoff/index.mts");
-      const code = intercept(argv, handoffIn()!, (line) => console.log(line));
+      const h = handoffIn()!;
+      const fault =
+        argv[0] === "pr" && argv[1] === "open"
+          ? await (await import("./handoff/links.mts")).sessionFault(h.run())
+          : undefined;
+      const say = (line: string) => console.log(line);
+      const code = intercept(argv, h, say, undefined, fault);
       if (code !== null) return code;
     }
     return (await found.command.run(found.rest)) ?? 0;

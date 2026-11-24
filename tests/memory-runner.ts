@@ -103,6 +103,7 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     buildsPage: () => "https://runner.example/builds",
     runPage,
     thisRun: () => options.thisRun ?? null,
+    skipsRuns: (text) => text.includes("[skip ci]"),
     async runs(sha) {
       called("runs", sha);
       return (runs.get(sha) ?? []).map((r) => ({ ...r }));

@@ -44,7 +44,9 @@ function markersOf(run: ThisRun): string[] {
 }
 
 const TITLE = 200;
+const WORD = 1000;
 const BODY = 60_000;
+const PULL_BODY = 20_000;
 const COMMANDS = 200;
 
 /** The flags whose value is a file the command reads. */
@@ -101,12 +103,9 @@ export function ask(argv: string[], readFile: (path: string) => string): Asked {
  * taken out, so a session cannot post one that a command takes as a record.
  * One in code stays readable and stops being a comment. */
 export function withoutMarkers(text: string): string {
-  // Taking one out can join what is around it into another.
-  const without = (part: string): string => {
-    while (part.includes("<!--"))
-      part = part.replace(/<!--[\s\S]*?(?:-->|$)/g, "");
-    return part;
-  };
+  // A space in place of each, since taking one out could join what is around
+  // it into another.
+  const without = (part: string) => part.replace(/<!--[\s\S]*?(?:-->|$)/g, " ");
   return text
     .split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/)
     .map((part, i) =>
@@ -122,6 +121,8 @@ type Rule = {
    * flag with its own. */
   words: ((word: string, run: ThisRun) => boolean)[];
   flags?: Record<string, "file" | "title" | "alone">;
+  /** The flags it cannot do without. */
+  needs?: string[];
   when?: (run: ThisRun) => boolean;
 };
 
@@ -133,28 +134,36 @@ const ownPull = (word: string, run: ThisRun) => word === String(run.pull);
 const ownThread = (word: string, run: ThisRun) =>
   run.comments === null || run.comments.some((id) => String(id) === word);
 const BODY_FILE = { "--body-file": "file" } as const;
+const BODIED = { flags: BODY_FILE, needs: ["--body-file"] };
+const TITLED = ["--title", "--body-file"];
 
 const RULES: Record<string, Rule> = {
-  "ticket comment": { words: [ownOrOpened], flags: BODY_FILE },
-  "ticket edit": { words: [ownTicket], flags: BODY_FILE },
+  "ticket comment": { words: [ownOrOpened], ...BODIED },
+  "ticket edit": { words: [ownTicket], ...BODIED },
   "ticket stop": { words: [ownTicket, any] },
   "ticket end": { words: [ownTicket] },
   "ticket open": {
     words: [],
     flags: { "--title": "title", ...BODY_FILE },
+    needs: TITLED,
     when: (run) => run.kind === "conflict" || run.kind === "dependency",
   },
   "follow-up": { words: [any, any] },
   "pr open": {
     words: [],
     flags: { "--title": "title", ...BODY_FILE, "--draft": "alone" },
+    needs: TITLED,
     when: (run) => run.kind === "build" && run.pull === null,
   },
-  "pr reply": { words: [ownPull, ownThread], flags: BODY_FILE },
+  "pr reply": { words: [ownPull, ownThread], ...BODIED },
   "pr resolve": { words: [ownPull, ownThread] },
-  "pr comment": { words: [ownPull], flags: BODY_FILE },
+  "pr comment": { words: [ownPull], ...BODIED },
   "pr review-again": { words: [ownPull] },
 };
+
+/** A word as one line, so it cannot pass for a line of its own. */
+const oneLine = (word: string, most = WORD) =>
+  withoutMarkers(word).replace(/\s+/g, " ").trim().slice(0, most);
 
 /** The command as Publish may run it, or why it may not. */
 export function allow(asked: Asked, run: ThisRun): Asked | { refused: string } {
@@ -184,7 +193,7 @@ export function allow(asked: Asked, run: ThisRun): Asked | { refused: string } {
     if (takes) {
       const value = rest[++i];
       if (value === undefined) return refuse(`${word} has no value`);
-      if (takes === "title") argv.push(word, value.slice(0, TITLE));
+      if (takes === "title") argv.push(word, oneLine(value, TITLE));
       else {
         if (!Object.hasOwn(asked.files, value))
           return refuse(`${value} was not handed over`);
@@ -193,7 +202,8 @@ export function allow(asked: Asked, run: ThisRun): Asked | { refused: string } {
           name === "pr comment"
             ? markersOf(run).filter((marker) => text.includes(marker))
             : [];
-        files[value] = [withoutMarkers(text).slice(0, BODY), ...kept].join(
+        const most = name === "pr open" ? PULL_BODY : BODY;
+        files[value] = [withoutMarkers(text).slice(0, most), ...kept].join(
           "\n",
         );
         argv.push(word, value);
@@ -204,9 +214,11 @@ export function allow(asked: Asked, run: ThisRun): Asked | { refused: string } {
     const check = rule.words[at++];
     if (!check) return refuse("it takes fewer words");
     if (!check(word, run)) return refuse(`${word} is not this run's`);
-    argv.push(withoutMarkers(word));
+    argv.push(oneLine(word));
   }
   if (at < rule.words.length) return refuse("it takes more words");
+  for (const flag of rule.needs ?? [])
+    if (!argv.includes(flag)) return refuse(`it needs ${flag}`);
   return { argv, files };
 }
 

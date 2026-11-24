@@ -170,6 +170,20 @@ describe("a build", () => {
     expect(w.stops).toEqual([]);
   });
 
+  it("releases its ticket when it fails after the claim", async () => {
+    const w = world();
+    const ran: string[][] = [];
+    const { ticket } = w.d;
+    w.d.ticket = (argv, on) => (ran.push(argv), ticket(argv, on));
+    w.d.claimOf = () => {
+      throw new Error("the disk is full");
+    };
+    await expect(prepare("build", "12", w.d)).rejects.toThrow(
+      "the disk is full",
+    );
+    expect(ran.at(-1)).toEqual(["end", "12"]);
+  });
+
   it("is stopped when an earlier build's work is on its branch", async () => {
     pushed("12-work");
     const w = world();

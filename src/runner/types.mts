@@ -53,6 +53,8 @@ export type Runner = {
   /** How many times `startAnswer` has started one for the pull request,
    * which was opened at `since`. */
   answersTo(pull: number, since: string): Promise<number>;
+  /** Whether a commit with this text starts no run. */
+  skipsRuns(text: string): boolean;
   /** The folder in a repository whose files say what the runner runs. */
   workflowsFolder: string;
   /** The page of the build named `runName`, such as `Build #12`, started at

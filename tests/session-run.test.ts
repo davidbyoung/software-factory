@@ -159,8 +159,21 @@ describe("a session in the cloud", () => {
 
     expect(readdirSync(join(dir, "clean")).sort()).toEqual([
       "build.bundle",
+      "ended.json",
       "request.json",
     ]);
+  });
+
+  it("says which of them it left behind, for being too large", async () => {
+    const w = world(() =>
+      writeFileSync(join(dir, "out/build.bundle"), Buffer.alloc(20_000_001)),
+    );
+
+    await runSession(w.d);
+
+    expect(
+      JSON.parse(readFileSync(join(dir, "clean/ended.json"), "utf8")),
+    ).toEqual({ dropped: ["build.bundle"] });
   });
 
   it("hands on what the agent says it cost", async () => {

@@ -25,7 +25,7 @@
 // read exits 1 with the error; `review-pending` and `conflicts`, which a
 // workflow's only-if gate reads 0 as work and 1 as none, exit 2 on a failed read.
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { loadSettings, reachOf, repoRoot } from "./config.mts";
 import { branchDeps, repositoryRemote } from "./lib/default-branch.mts";
@@ -44,7 +44,8 @@ import {
   type Review,
   type Thread,
 } from "./code-host/index.mts";
-import { handoffIn } from "./handoff/index.mts";
+import { BUNDLE_LIMIT, handoffIn } from "./handoff/index.mts";
+import { COMMITS, commitsFault, commitsIn } from "./handoff/links.mts";
 import { openRunner, type Run, type Runner } from "./runner/index.mts";
 import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
 import { labelOf, PR_LABELS, type Labels } from "./labels.mts";
@@ -656,10 +657,28 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         const branch = d.git(["branch", "--show-current"]).trim();
         const h = handoffIn(d.env ?? {});
         if (h) {
-          const range = `${h.run().base}..HEAD`;
-          const n = Number(d.git(["rev-list", "--count", range]));
+          const run = h.run();
+          // What was merged in from the default branch is there already.
+          const main = `origin/${run.defaultBranch}`;
+          const range = ["HEAD", "--not", run.base, main];
+          const n = Number(d.git(["rev-list", "--count", ...range]));
           if (n === 0) throw new Error("There is no commit to hand over.");
-          d.git(["bundle", "create", "-q", h.bundle, range]);
+          if (!d.tickets)
+            throw new Error("No ticket system to read links with.");
+          const { tickets } = await d.tickets();
+          const fault = commitsFault(
+            { codeHost: p, runner: d.runner, tickets, run },
+            commitsIn(d.git(["log", "-z", COMMITS, ...range])),
+          );
+          if (fault)
+            throw new Error(
+              `Nothing is handed over: ${fault}. Change that commit, then run this again.`,
+            );
+          d.git(["bundle", "create", "-q", h.bundle, ...range]);
+          if (statSync(h.bundle).size > BUNDLE_LIMIT)
+            throw new Error(
+              "Nothing is handed over: its commits are larger than 20 MB.",
+            );
           d.out(`Handed over ${n} commit${n === 1 ? "" : "s"} on ${branch}.`);
           return 0;
         }
