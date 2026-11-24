@@ -912,6 +912,8 @@ describe("the job that runs the agent", () => {
   it("runs its steps in this order", () => {
     expect(names(sessionJob)).toEqual([
       "Take what was handed over",
+      "Wait for it to be listed",
+      "Take what was handed over again",
       "Lay out the default branch",
       "Read what the repository installs with",
       "Set up Node",

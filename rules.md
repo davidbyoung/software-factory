@@ -178,7 +178,8 @@ them.
 - **The folder it starts in is the default branch,** with the rules, skills,
   and settings it follows, and it cannot change it. The branch it works on is
   in `../work`, already checked out. Every command runs there, after
-  `cd ../work`, and every change is made there, a skill's or a rule's too.
+  `cd ../work`, and every change is made there. A file under `.claude/` is
+  written by a command, since the file tools refuse it.
 - **It is claimed and branched already.** A skill's steps that claim a
   ticket, name a branch, look for an earlier one, or check one out are done.
 - **A `factory` command that reads** answers from what was handed over. One
@@ -187,9 +188,9 @@ them.
 - **A `factory` command that writes** prints `Asked:`. It is done after the
   session ends, if it is one this run may make, so nothing waits for its
   result. A number that is not known yet, such as the pull request's after
-  `factory pr open`, is left out. `factory pr ready` is done once CI has
-  passed, so a session asks for it at the end unless the pull request is one
-  its owner marks ready.
+  `factory pr open`, is left out. The pull request is marked ready once CI
+  has passed. One its owner marks ready is opened with
+  `factory pr open --draft` in place of skipping that step.
 - **Commits are handed over with `factory pr push`,** once, at the end.
   Nothing is pushed, fetched, or pulled with git, and nothing is signed. A
   commit that changes a file under `.github/workflows/` is refused, with the

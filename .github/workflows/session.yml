@@ -192,7 +192,21 @@ jobs:
     env:
       FACTORY_RUN: ${{ github.workspace }}
     steps:
+      # GitHub does not always list an artifact as soon as it has it.
       - name: Take what was handed over
+        id: take
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: in-${{ inputs.kind }}
+          path: in
+
+      - name: Wait for it to be listed
+        if: steps.take.outcome == 'failure'
+        run: sleep 20
+
+      - name: Take what was handed over again
+        if: steps.take.outcome == 'failure'
         uses: actions/download-artifact@v7
         with:
           name: in-${{ inputs.kind }}
@@ -410,4 +424,5 @@ jobs:
         env:
           FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
           FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          CONCLUSION: ${{ needs.session.result }}
         run: factory session publish

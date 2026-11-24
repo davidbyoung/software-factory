@@ -161,6 +161,7 @@ function world(
   const out: string[] = [];
   const run: RunFile = {
     version: 1,
+    remote: "https://github.com/acme/widgets.git",
     kind: "review",
     repository: REPOSITORY,
     defaultBranch: "main",

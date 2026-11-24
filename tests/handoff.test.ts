@@ -22,6 +22,7 @@ const RUN: RunFile = {
   version: 1,
   kind: "answer",
   repository: "acme/widgets",
+  remote: "https://github.com/acme/widgets.git",
   defaultBranch: "trunk",
   base: "a".repeat(40),
   branch: "12-add-a-thing",
@@ -73,6 +74,28 @@ describe("a factory command in a session in the cloud", () => {
       { argv: ["pr", "resolve", "31", "901"], files: {} },
     ]);
   });
+
+  it("is told at once when it can't be asked for, so it can ask again", () => {
+    const wrong = factory("pr", "resolve", "31", "901", "902");
+    expect(wrong.status).toBe(1);
+    expect(wrong.stdout).toBe(
+      "✗ Can't ask for this. factory pr resolve 31: it takes fewer words\n",
+    );
+    expect(factory("ticket", "label", "12", "--add", "spec").status).toBe(1);
+    expect(() => asked()).toThrow();
+  });
+
+  it.each([
+    ["ticket", "cost", "12"],
+    ["pr", "cost", "31"],
+    ["pr", "ready", "31"],
+  ])(
+    "is not kept for what Publish does itself, as factory %s %s",
+    (...args) => {
+      expect(factory(...args).status).toBe(0);
+      expect(() => asked()).toThrow();
+    },
+  );
 
   it("finds its ticket claimed", () => {
     expect(factory("ticket", "claim", "12").stdout).toBe("claimed\n");

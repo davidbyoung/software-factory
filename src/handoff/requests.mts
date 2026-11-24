@@ -14,8 +14,9 @@ export type ThisRun = {
   kind: Kind;
   ticket: string | null;
   pull: number | null;
-  /** The comments that start this pull request's threads. */
-  comments: number[];
+  /** The comments that start this pull request's threads, or null in the
+   * session itself, which Publish checks again. */
+  comments: number[] | null;
   branch: string;
   /** The commit the run started from. */
   base: string;
@@ -118,7 +119,7 @@ type Rule = {
   /** The words after the command's name: a check for each value, and each
    * flag with its own. */
   words: ((word: string, run: ThisRun) => boolean)[];
-  flags?: Record<string, "file" | "title">;
+  flags?: Record<string, "file" | "title" | "alone">;
   when?: (run: ThisRun) => boolean;
 };
 
@@ -128,7 +129,7 @@ const ownOrOpened = (word: string, run: ThisRun) =>
   word === run.ticket || run.opened.includes(word);
 const ownPull = (word: string, run: ThisRun) => word === String(run.pull);
 const ownThread = (word: string, run: ThisRun) =>
-  run.comments.some((id) => String(id) === word);
+  run.comments === null || run.comments.some((id) => String(id) === word);
 const BODY_FILE = { "--body-file": "file" } as const;
 
 const RULES: Record<string, Rule> = {
@@ -144,7 +145,7 @@ const RULES: Record<string, Rule> = {
   "follow-up": { words: [any, any] },
   "pr open": {
     words: [],
-    flags: { "--title": "title", ...BODY_FILE },
+    flags: { "--title": "title", ...BODY_FILE, "--draft": "alone" },
     when: (run) => run.kind === "build" && run.pull === null,
   },
   "pr reply": { words: [ownPull, ownThread], flags: BODY_FILE },
@@ -174,6 +175,10 @@ export function allow(asked: Asked, run: ThisRun): Asked | { refused: string } {
     const takes = Object.hasOwn(rule.flags ?? {}, word)
       ? rule.flags![word]
       : undefined;
+    if (takes === "alone") {
+      argv.push(word);
+      continue;
+    }
     if (takes) {
       const value = rest[++i];
       if (value === undefined) return refuse(`${word} has no value`);

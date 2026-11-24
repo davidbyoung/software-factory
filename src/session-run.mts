@@ -139,6 +139,10 @@ export async function runSession(d: SessionDeps): Promise<number> {
     `refs/handoff/home:refs/remotes/origin/${run.defaultBranch}`,
     "refs/handoff/work:refs/handoff/work",
   ]);
+  // Commands tell the repository by its remote. Nothing can be read from it
+  // here.
+  for (const copy of ["home", "work"])
+    d.git(at(copy), ["remote", "add", "origin", run.remote]);
   d.git(at("work"), [
     "symbolic-ref",
     "refs/remotes/origin/HEAD",
@@ -162,7 +166,6 @@ export async function runSession(d: SessionDeps): Promise<number> {
     work: at("work"),
     out: at("out"),
     cache: at("cache"),
-    read: [at("in")],
     readOnly: [at("in"), at("home"), ...d.install],
     hosts: d.hosts,
     maxTurns: MAX_TURNS,

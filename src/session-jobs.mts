@@ -310,6 +310,7 @@ async function publishDeps(env: Env): Promise<PublishDeps> {
         run.base,
         `refs/heads/${run.defaultBranch}`,
       ]).split("\0"),
+    session: env.CONCLUSION ?? "failure",
     reviewRounds: w.settings.rules.reviewRounds,
     now: Date.now,
     sleep,

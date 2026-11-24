@@ -484,8 +484,9 @@ refuses while GitHub shows a commit on the pull request as not verified.
 
 That triggers the review. In a local session, start the watcher "Branching,
 pushing, and review" in `.claude/factory/rules.md` describes, and work the
-review with the `factory-address-review` skill. A session in the cloud asks
-for `factory pr ready` and ends: its run waits for CI, and then does it.
+review with the `factory-address-review` skill. A session in the cloud ends
+before this step: its run waits for CI, and then marks the pull request
+ready.
 
 Where the settings list a file under `auto-merge.allow`, the merge policy labels the pull request `merge-automatic` or `merge-manual` from
 the files it changes, and turns auto-merge on for `merge-automatic` ones, which

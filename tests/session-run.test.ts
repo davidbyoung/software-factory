@@ -71,6 +71,7 @@ beforeEach(() => {
     version: 1,
     kind: "answer",
     repository: "acme/widgets",
+    remote: "https://github.com/acme/widgets.git",
     defaultBranch: "trunk",
     base,
     branch: "12-work",
@@ -133,6 +134,9 @@ describe("a session in the cloud", () => {
     expect(git(work, "rev-parse", "--abbrev-ref", "origin/HEAD")).toBe(
       "origin/trunk",
     );
+    expect(git(work, "remote", "get-url", "origin")).toBe(
+      "https://github.com/acme/widgets.git",
+    );
   });
 
   it("cannot write what it was handed, where it starts, or the factory", async () => {
@@ -178,6 +182,7 @@ describe("a session in the cloud", () => {
   it("starts with the default branch's dependencies", async () => {
     const source = join(dir, "source");
     git(dir, "clone", "-q", source, join(dir, "home"));
+    git(join(dir, "home"), "remote", "remove", "origin");
     mkdirSync(join(dir, "home/node_modules"));
     writeFileSync(join(dir, "home/node_modules/a.js"), "a");
     const w = world(() => {});
@@ -274,7 +279,6 @@ describe("how Claude Code is confined", () => {
     work: "/s/work",
     out: "/s/out",
     cache: "/s/cache",
-    read: ["/s/in"],
     readOnly: ["/s/in", "/s/home"],
     hosts: ["repo.example.com"],
     maxTurns: 10,
@@ -321,6 +325,11 @@ describe("how Claude Code is confined", () => {
   it("edits only its branch and what it hands over", () => {
     const edits = allowed(session).filter((t) => /Edit|Write/.test(t));
     expect(edits).toEqual(["Edit(//s/work/**)", "Edit(//s/out/**)"]);
+  });
+
+  it("names no folder with --add-dir, in which it could write no skill", () => {
+    const { args } = sessionCommand(session, "/s/settings.json");
+    expect(args).not.toContain("--add-dir");
   });
 
   it("edits nothing when it is to answer", () => {

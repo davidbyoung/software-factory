@@ -11,7 +11,7 @@
 //   factory pr wait-checks N        # every check on HEAD
 //   factory pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
 //   factory pr conflicts            # the pull requests the conflict sweep takes
-//   factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready]
+//   factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft]
 //   factory pr view N --field FIELD # one field of a pull request
 //   factory pr review N REVIEW      # a review's author, body, and line comments
 //   factory pr comments N [--from-approvers]  # conversation comments, or only an approver's
@@ -349,7 +349,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
+const USAGE = `Usage: factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);

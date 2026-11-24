@@ -37,6 +37,9 @@ import type { Tickets } from "./tickets/types.mts";
  * themselves. No session can write it: its text loses every hidden marker. */
 export const CLOUD_MARK = "<!-- factory: cloud-build -->";
 
+/** Marks one the session left for its owner to mark ready. */
+export const OWNER_MARK = "<!-- factory: owner-marks-ready -->";
+
 /** The answers a pull request gets, whatever asked for them. */
 export const ANSWERS = 4;
 
@@ -59,6 +62,8 @@ export type PublishDeps = {
   /** Pushes a commit from the clone to a branch, forward only, and throws
    * in the code host's words. */
   push(clone: string, commit: string, branch: string): void;
+  /** How the session's job ended. */
+  session: string;
   /** Whether the claim this run made is still the ticket's. */
   claimed(): Promise<boolean>;
   /** The message of each commit the bundle adds, from the clone. */
@@ -167,7 +172,13 @@ async function open(d: PublishDeps, asked: Asked): Promise<number> {
     );
   return d.codeHost.create({
     title: withoutMarkers(at("--title")),
-    body: `${body.trimEnd()}\n\n${CLOUD_MARK}\n`,
+    body: [
+      body.trimEnd(),
+      "",
+      CLOUD_MARK,
+      ...(asked.argv.includes("--draft") ? [OWNER_MARK] : []),
+      "",
+    ].join("\n"),
     head: d.run.branch,
     base: d.run.defaultBranch,
     draft: true,
@@ -258,16 +269,7 @@ export async function publish(d: PublishDeps): Promise<number> {
     opened: await openedBefore(d),
   };
   let failed = false;
-  let wantsReady = false;
   for (const one of asked) {
-    // It is done once CI has passed, below. A session that leaves a pull
-    // request for its owner to mark ready does not ask.
-    if (one.argv[0] === "pr" && one.argv[1] === "ready") {
-      wantsReady = true;
-      continue;
-    }
-    // What the session spent is posted from its own job's count.
-    if (one.argv[1] === "cost") continue;
     const may = allow(one, { ...mine, pull });
     if ("refused" in may) {
       d.out(`Refused: ${may.refused}`);
@@ -301,7 +303,15 @@ export async function publish(d: PublishDeps): Promise<number> {
     }
   }
   await postCost(d, pull);
-  if (pull !== null && tip !== null) await settle(d, pull, tip, wantsReady);
+  if (d.session !== "success" && tip === null) {
+    const page = d.runner.thisRun(d.pr.env ?? {})?.page;
+    d.out("The session did not finish.");
+    await tell(
+      d,
+      `The session did not finish, and nothing of its was pushed.${page ? ` Its run: ${page}` : ""}`,
+    );
+  }
+  if (pull !== null && tip !== null) await settle(d, pull, tip);
   return failed ? 1 : 0;
 }
 
@@ -355,7 +365,6 @@ async function settle(
   d: PublishDeps,
   pull: number,
   tip: string,
-  wantsReady: boolean,
 ): Promise<void> {
   const ci = await ciOn(d, tip);
   await d.signIn();
@@ -372,8 +381,8 @@ async function settle(
   }
   const now = await d.codeHost.get(pull);
   if (!now.isDraft) return;
-  if (!wantsReady) {
-    d.out("The session left it a draft for its owner.");
+  if (now.body.includes(OWNER_MARK)) {
+    d.out("It stays a draft for its owner to mark ready.");
     return;
   }
   // A person may have pushed while this waited, and that commit's CI is not

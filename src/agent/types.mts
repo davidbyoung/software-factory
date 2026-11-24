@@ -30,8 +30,6 @@ export type CloudSession = {
   out: string;
   /** The package manager's cache. */
   cache: string;
-  /** Folders it may read beside the one it starts in. */
-  read: string[];
   /** Folders no command of its may write. */
   readOnly: string[];
   /** Hosts its commands may reach, besides the package registry. */

@@ -26,8 +26,6 @@ export function sandboxSettings(s: CloudSession): object {
       },
       filesystem: {
         allowWrite: [s.work, s.out, s.cache],
-        // A folder named to the session with --add-dir is writable unless
-        // it is listed here.
         denyWrite: s.readOnly,
       },
     },
@@ -47,7 +45,9 @@ export function sandboxSettings(s: CloudSession): object {
 
 const READ_TOOLS = ["Bash", "Read", "Glob", "Grep", "Skill"];
 
-/** The command that starts the session, with the settings in `file`. */
+/** The command that starts the session, with the settings in `file`. It
+ * names no folder with --add-dir, which would keep the session from writing
+ * a skill, an agent, or a command in one. */
 export function sessionCommand(s: CloudSession, file: string): SessionCommand {
   const tools = s.schema
     ? READ_TOOLS
@@ -68,7 +68,6 @@ export function sessionCommand(s: CloudSession, file: string): SessionCommand {
       // The default branch's, which the session starts in.
       "--setting-sources",
       "project",
-      ...[s.work, s.out, ...s.read].flatMap((dir) => ["--add-dir", dir]),
       "--allowedTools",
       tools.join(","),
       "--max-turns",

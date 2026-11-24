@@ -95,7 +95,7 @@ const TICKET_ARGS: Record<string, string> = {
 const PR_ARGS: Record<string, string> = {
   state: "[N] [--wait]",
   threads: "N [--all]",
-  open: "--title TITLE --body-file FILE [--base BRANCH] [--ready]",
+  open: "--title TITLE --body-file FILE [--base BRANCH] [--ready|--draft]",
   view: "N --field FIELD",
   review: "N REVIEW",
   reply: "N COMMENT --body-file FILE",

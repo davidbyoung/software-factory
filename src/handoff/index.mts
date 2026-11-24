@@ -10,7 +10,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { replaying, type Call, type On } from "./replay.mts";
-import { ask, isWrite, type Asked, type Kind } from "./requests.mts";
+import { allow, ask, isWrite, type Asked, type Kind } from "./requests.mts";
 
 export const HANDOFF = "FACTORY_HANDOFF";
 
@@ -18,6 +18,8 @@ export type RunFile = {
   version: 1;
   kind: Kind;
   repository: string;
+  /** Where git reads the repository from. */
+  remote: string;
   defaultBranch: string;
   /** The commit the work copy starts at. */
   base: string;
@@ -119,7 +121,20 @@ export function intercept(
     return 0;
   }
   if (!isWrite(argv)) return null;
-  h.add(ask(argv, readFile));
+  // Publish does these itself, whatever the session asks.
+  if (command === "cost" || (group === "pr" && command === "ready")) {
+    out(`Asked: factory ${argv.slice(0, 2).join(" ")}`);
+    return 0;
+  }
+  const asked = ask(argv, readFile);
+  const run = h.run();
+  // Told now, the session can ask again; Publish would only leave it out.
+  const may = allow(asked, { ...run, comments: null, opened: [] });
+  if ("refused" in may) {
+    out(`✗ Can't ask for this. ${may.refused}`);
+    return 1;
+  }
+  h.add(asked);
   out(`Asked: factory ${argv.slice(0, 3).join(" ")}`);
   return 0;
 }

@@ -10,6 +10,7 @@ import {
   ANSWERS,
   CLOUD_MARK,
   nextAnswer,
+  OWNER_MARK,
   publish,
   type PublishDeps,
 } from "../src/session-publish.mts";
@@ -90,6 +91,7 @@ function world(
     version: 1,
     kind: "build",
     repository: REPOSITORY,
+    remote: "https://github.com/acme/widgets.git",
     defaultBranch: "trunk",
     base,
     branch: "12-add",
@@ -132,6 +134,7 @@ function world(
       git: () => "",
       remote: async () => "origin",
     },
+    session: "success",
     reviewRounds: 2,
     now: () => (at += 60_000),
     sleep: async () => {},
@@ -324,7 +327,6 @@ describe("the next answer", () => {
     green.runs![tip][0].conclusion = "success";
     const w = world({ kind: "answer", pull: 31 }, { pulls, runner: green });
 
-    asks({ argv: ["pr", "ready", "31"], files: {} });
     await publish(w.d);
 
     expect(w.host.pull(31).isDraft).toBe(false);
@@ -367,7 +369,6 @@ describe("the next answer", () => {
       { pulls: draftAt("f".repeat(40)), runner: green },
     );
 
-    asks({ argv: ["pr", "ready", "31"], files: {} });
     await publish(w.d);
 
     expect(w.host.pull(31).isDraft).toBe(true);
@@ -412,7 +413,7 @@ describe("a pull request whose CI passed", () => {
         {
           number: 31,
           isDraft: true,
-          body: CLOUD_MARK,
+          body: `${CLOUD_MARK}\n${OWNER_MARK}`,
           head: { sha: tip, branch: "12-add", repository: REPOSITORY },
         },
       ],
@@ -437,7 +438,38 @@ describe("a pull request whose CI passed", () => {
     const w = world({ kind: "answer", pull: 31 }, passed());
     await publish(w.d);
     expect(w.host.pull(31).isDraft).toBe(true);
-    expect(w.out).toContain("The session left it a draft for its owner.");
+    expect(w.out).toContain("It stays a draft for its owner to mark ready.");
+  });
+});
+
+describe("a pull request its session leaves to the owner", () => {
+  it.each([
+    [["--draft"], true],
+    [[], false],
+  ])("opened with %j is marked so: %s", async (flags, marked) => {
+    commits();
+    asks({ ...OPEN, argv: [...OPEN.argv, ...flags] });
+    const w = world();
+    await publish(w.d);
+    const [pull] = await w.host.codeHost.listOpen();
+    expect(pull.body.includes(OWNER_MARK)).toBe(marked);
+  });
+});
+
+describe("a session that did not finish", () => {
+  it("is told to the pull request it was for, so it does not wait unseen", async () => {
+    const w = world({ kind: "answer", pull: 31 }, { pulls: [{ number: 31 }] });
+    w.d.session = "failure";
+    await publish(w.d);
+    expect((await w.host.codeHost.comments(31))[0].body).toContain(
+      "The session did not finish, and nothing of its was pushed.",
+    );
+  });
+
+  it("says nothing of one that finished with nothing to push", async () => {
+    const w = world({ kind: "answer", pull: 31 }, { pulls: [{ number: 31 }] });
+    await publish(w.d);
+    expect(await w.host.codeHost.comments(31)).toEqual([]);
   });
 });
 
