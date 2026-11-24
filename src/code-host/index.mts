@@ -12,6 +12,7 @@ import {
   githubServes,
 } from "./github.mts";
 import type { CodeHost, OrganizationHost } from "./types.mts";
+import { handed } from "../handoff/index.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
@@ -45,12 +46,15 @@ export function openCodeHost(
   run: Gh = gh,
 ): CodeHost {
   if (type !== "github") throw new Error(unsupportedCodeHost(type));
-  return githubCodeHost({
-    transport: ghTransport(run),
-    repository,
-    cli: run,
-    token: ghToken,
-  });
+  return handed(
+    "codeHost",
+    githubCodeHost({
+      transport: ghTransport(run),
+      repository,
+      cli: run,
+      token: ghToken,
+    }),
+  );
 }
 
 /** Each code host an organization can be set up on, by the name

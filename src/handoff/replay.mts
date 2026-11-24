@@ -21,9 +21,16 @@ export type Call = {
 
 /** A read that was not made ahead. */
 export class NotHandedError extends Error {
-  constructor(on: On, call: string, args: unknown[]) {
-    const what = args.length ? ` of ${args.map(String).join(" ")}` : "";
-    super(`The ${LABEL[on]}'s ${call}${what} was not handed to this run`);
+  constructor(on: On, call: string, args: unknown[], ticket: string | null) {
+    const words = args.filter((a) => typeof a !== "object").join(" ");
+    const what =
+      on === "tickets" && call === "read"
+        ? `Ticket ${words}`
+        : `The ${LABEL[on]}'s ${call}${words ? ` of ${words}` : ""}`;
+    const stop = ticket
+      ? `, or stop with: factory ticket stop ${ticket} "needs ${what[0].toLowerCase()}${what.slice(1)}"`
+      : "";
+    super(`✗ ${what} was not handed to this run. Go on without it${stop}`);
     this.name = "NotHandedError";
   }
 }
@@ -128,6 +135,7 @@ export function replaying<K extends On>(
   on: K,
   real: Adapters[K],
   calls: Call[],
+  ticket: string | null = null,
 ): Adapters[K] {
   const found = new Map<string, Call>();
   for (const c of calls)
@@ -137,7 +145,7 @@ export function replaying<K extends On>(
     return async (...args: unknown[]) => {
       const known = given(args);
       const hit = found.get(keyOf(on, call, known));
-      if (!hit) throw new NotHandedError(on, call, known);
+      if (!hit) throw new NotHandedError(on, call, known, ticket);
       if (!hit.error) return unpack(hit.value);
       if (!hit.error.missing) throw new Error(hit.error.message);
       const error = new NotFoundError("It");

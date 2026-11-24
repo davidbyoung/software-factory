@@ -485,6 +485,11 @@ export async function main(argv: string[]): Promise<number> {
     return 2;
   }
   try {
+    if (process.env.FACTORY_HANDOFF) {
+      const { handoffIn, intercept } = await import("./handoff/index.mts");
+      const code = intercept(argv, handoffIn()!, (line) => console.log(line));
+      if (code !== null) return code;
+    }
     return (await found.command.run(found.rest)) ?? 0;
   } catch (e) {
     // A ticket system's credential to fix is one line, with no stack.

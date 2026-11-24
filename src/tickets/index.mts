@@ -16,6 +16,7 @@ import type { OpenOptions, OpenTarget } from "./github-open.mts";
 import { statusOf } from "./transport.mts";
 import { CredentialError, need, type Key, type Tickets } from "./types.mts";
 import { join, split, type FieldMapping } from "../ticket-fields.mts";
+import { handed } from "../handoff/index.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
@@ -158,7 +159,7 @@ export async function openTickets(
   systems?: Registry["tickets"],
 ): Promise<Opened> {
   const { env, ...rest } = opts;
-  const tickets = await openSystem(
+  const opened = await openSystem(
     systems ?? (await import("../tools.mts")).TOOLS.tickets,
     settings.tickets.type,
     settings.tickets.options,
@@ -167,6 +168,7 @@ export async function openTickets(
     { ...rest, fieldNames: fieldNamesOf(settings) },
     env,
   );
+  const tickets = handed("tickets", opened, env);
   const mapping = settings.tickets.ticketFields;
   return {
     tickets: Object.values(mapping).some((v) => v !== null)
