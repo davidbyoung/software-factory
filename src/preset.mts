@@ -83,13 +83,14 @@ export const short = (commit: string) => commit.slice(0, 7);
 
 // ---------------------------------------------------------------- Reading
 
-/** A preset as the lock pins it: one commit of its repository, its
- * settings as its file had them there, less `version`, and the hash of
- * each agent and skill it ships, by the file's path in a repository that
- * follows it. */
+/** A preset as the lock pins it: one commit of its repository, whether
+ * the repository holds an organization's poller there, its settings as its
+ * file had them there, less `version`, and the hash of each agent and
+ * skill it ships, by the file's path in a repository that follows it. */
 export type Pinned = {
   name: string;
   commit: string;
+  poller: boolean;
   settings: Obj;
   files: Record<string, string>;
 };
@@ -702,6 +703,7 @@ export function readLock(text: string, load: (t: string) => unknown): Lock {
           .map((p) => ({
             name: String(p.name),
             commit: String(p.commit),
+            poller: p.poller === true,
             settings: isObj(p.settings) ? p.settings : {},
             files: Object.fromEntries(
               Object.entries(isObj(p.files) ? p.files : {}).map(([k, v]) => [
@@ -760,6 +762,14 @@ export function pinsOf(
   return [];
 }
 
+/** The repository whose poller starts the builds of one that follows
+ * `pins`: the first preset's that holds an organization's poller, or
+ * undefined when none does. */
+export function pollerOf(pins: Pinned[]): string | undefined {
+  const pin = pins.find((p) => p.poller);
+  return pin && parseName(pin.name).repo;
+}
+
 /** A key or a value as YAML: plain where it reads back as the same text,
  * quoted as JSON otherwise. */
 export const scalar = (v: unknown) =>
@@ -791,6 +801,7 @@ export function pinLines(
     ...pins.flatMap((p) => [
       `  - name: ${scalar(p.name)}`,
       `    commit: ${scalar(p.commit)}`,
+      `    poller: ${p.poller}`,
       ...under(
         "settings",
         Object.keys(p.settings).length

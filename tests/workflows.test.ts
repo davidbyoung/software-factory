@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { SESSION_MINUTES } from "../src/config.mts";
+import { POLLER_FILE, pollerWorkflow } from "../src/workflow-files.mts";
 
 type Step = {
   id?: string;
@@ -1026,5 +1027,190 @@ describe("review.yml", () => {
       contents: "read",
       "pull-requests": "read",
     });
+  });
+});
+
+describe("poller.yml, which an organization's factory-poller.yml calls", () => {
+  const poller = read("poller.yml");
+  const { jobs } = poller;
+  const TOKEN = "${{ steps.app.outputs.token }}";
+  const calling = (version = "0.4.0") =>
+    pollerWorkflow({ owner: "acme", version, pollMinutes: 30 });
+  const started = (event: { name: string; schedule?: string }) =>
+    Object.entries(jobs)
+      .filter(([, job]) =>
+        evaluate(job.if!, {
+          github: {
+            event_name: event.name,
+            event: { schedule: event.schedule },
+          },
+        }),
+      )
+      .map(([id]) => id);
+  /** A checkout of the repository that holds the preset, with the file
+   * that calls this one. */
+  const checkout = (file: string, commands: Record<string, string> = {}) => {
+    const box = sandbox(commands);
+    mkdirSync(join(box.dir, ".github/workflows"), { recursive: true });
+    writeFileSync(join(box.dir, POLLER_FILE), file);
+    return box;
+  };
+
+  it("takes one secret, the app's key, which is not required, and no input", () => {
+    expect(poller.on.workflow_call).toEqual({
+      secrets: { "app-key": { required: false } },
+    });
+    expect(poller.permissions).toEqual({ contents: "read" });
+  });
+
+  it.each<[string, { name: string; schedule?: string }, string[]]>([
+    [
+      "a schedule of minutes",
+      { name: "schedule", schedule: "*/30 * * * *" },
+      ["poller"],
+    ],
+    [
+      "the schedule on the hour",
+      { name: "schedule", schedule: "0 * * * *" },
+      ["poller"],
+    ],
+    ["01:00", { name: "schedule", schedule: "0 1 * * *" }, ["updates"]],
+    ["a run by hand", { name: "workflow_dispatch" }, ["updates"]],
+  ])("on %s, starts %j", (_, event, ids) => {
+    expect(started(event)).toEqual(ids);
+  });
+
+  it("tells the two schedules of the file that calls it apart, as that file is written", () => {
+    const [own, updates] = (
+      parse(calling()).on.schedule as { cron: string }[]
+    ).map(({ cron }) => started({ name: "schedule", schedule: cron }));
+    expect([own, updates]).toEqual([["poller"], ["updates"]]);
+  });
+
+  it("makes one pass at a time over the preset beside the file that calls it", () => {
+    const job = jobs.poller!;
+    expect(job.concurrency).toEqual({
+      group: "factory-poller",
+      "cancel-in-progress": false,
+    });
+    expect(step(job, "Start the Ready tickets")).toMatchObject({
+      run: "factory poller --once --preset factory-preset.yaml",
+      env: { FACTORY_BOARD_TOKEN: TOKEN },
+    });
+  });
+
+  it.each(["poller", "updates"])(
+    "%s acts with a token of the app's for every repository it is installed on, made once the key is seen to reach the run",
+    (id) => {
+      const job = jobs[id]!;
+      const token = step(job, "Make the app's token");
+      expect(token).toMatchObject({
+        id: "app",
+        uses: "actions/create-github-app-token@v3",
+      });
+      expect(token.with).toEqual({
+        "client-id": "${{ vars.FACTORY_APP_CLIENT_ID }}",
+        "private-key": "${{ secrets.app-key }}",
+        owner: "${{ github.repository_owner }}",
+      });
+      const order = names(job);
+      expect(order.indexOf("Check the app's key reaches the repository")).toBe(
+        order.indexOf("Make the app's token") - 1,
+      );
+      expect(order.indexOf("Make the app's token")).toBeLessThan(
+        order.length - 1,
+      );
+    },
+  );
+
+  it("fails, saying who sets the organization up, when the key or the client ID does not reach the run", () => {
+    const check = step(
+      jobs.poller!,
+      "Check the app's key reaches the repository",
+    );
+    expect(check.env).toEqual({
+      APP_KEY_SET: "${{ secrets.app-key != '' }}",
+      CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
+    });
+    const run = (env: Record<string, string>) =>
+      runScript(check.run!, sandbox().dir, {
+        GITHUB_REPOSITORY: "acme/factory-config",
+        GITHUB_REPOSITORY_OWNER: "acme",
+        GITHUB_SERVER_URL: "https://github.com",
+        ...env,
+      });
+
+    expect(run({ APP_KEY_SET: "true", CLIENT_ID: "Iv23li" }).status).toBe(0);
+    for (const env of [
+      { APP_KEY_SET: "false", CLIENT_ID: "Iv23li" },
+      { APP_KEY_SET: "true", CLIENT_ID: "" },
+    ]) {
+      const r = run(env);
+      expect(r.status).toBe(1);
+      expect(r.stdout).toBe(
+        "::error::FACTORY_APP_PRIVATE_KEY or FACTORY_APP_CLIENT_ID does not reach acme/factory-config. An owner of acme runs: factory init --org https://github.com/acme\n",
+      );
+    }
+  });
+
+  it("installs the release the file that calls it names", () => {
+    const install = step(jobs.poller!, "Install the factory");
+    const { dir, calls } = checkout(calling("0.4.0"), { npm: "" });
+
+    expect(runScript(install.run!, dir).status).toBe(0);
+    expect(calls()).toEqual([
+      "npm install --global --no-audit --no-fund @davidbyoung/software-factory@0.4.0",
+    ]);
+    expect(step(jobs.updates!, "Install the factory").run).toBe(install.run);
+  });
+
+  it("installs nothing, naming the file, when it names no release", () => {
+    const install = step(jobs.poller!, "Install the factory");
+    const { dir, calls } = checkout(
+      calling().replace("poller.yml@v0.4.0", "poller.yml@main"),
+      { npm: "" },
+    );
+
+    const r = runScript(install.run!, dir);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toBe(
+      "::error::.github/workflows/factory-poller.yml names no release of the factory after poller.yml@v.\n",
+    );
+    expect(calls()).toEqual([]);
+  });
+
+  it("checks out with the app's token, so the update's branch is pushed as the app", () => {
+    const job = jobs.updates!;
+    expect(step(job, "Checkout the default branch").with).toEqual({
+      "fetch-depth": 0,
+      token: TOKEN,
+    });
+    expect(names(job).indexOf("Make the app's token")).toBeLessThan(
+      names(job).indexOf("Checkout the default branch"),
+    );
+    expect(job.concurrency).toEqual({
+      group: "factory-poller-updates",
+      "cancel-in-progress": false,
+    });
+  });
+
+  it("commits as the app's bot, then opens the update's pull request with the app's token", () => {
+    const open = step(jobs.updates!, "Open the pull request");
+    expect(open.env).toEqual({
+      GH_TOKEN: TOKEN,
+      APP_SLUG: "${{ steps.app.outputs.app-slug }}",
+    });
+    const { dir, calls } = sandbox({ gh: "echo 4242", git: "", factory: "" });
+
+    const r = runScript(open.run!, dir, {
+      APP_SLUG: "software-factory-for-acme",
+    });
+    expect(r.status).toBe(0);
+    expect(calls()).toEqual([
+      "gh api /users/software-factory-for-acme[bot] --jq .id",
+      "git config --global user.name software-factory-for-acme[bot]",
+      "git config --global user.email 4242+software-factory-for-acme[bot]@users.noreply.github.com",
+      "factory update --pull-requests",
+    ]);
   });
 });

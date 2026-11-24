@@ -22,6 +22,7 @@ import {
   type PresetDeps,
 } from "../src/preset-commands.mts";
 import { main as syncMain, PACKAGE } from "../src/sync.mts";
+import { POLLER_FILE, pollerWorkflow } from "../src/workflow-files.mts";
 import {
   ACME,
   CACHE,
@@ -263,6 +264,7 @@ describe("factory preset add", () => {
     expect(pins[1]).toEqual({
       name: NODE,
       commit: newest,
+      poller: false,
       settings: { rules: { "review-rounds": 5 } },
       files: { [DEPS]: fileHash(read(root, DEPS)!) },
     });
@@ -999,6 +1001,75 @@ describe("factory preset check", () => {
       "factory-preset.yaml: plugins.build.reviewers: acme-docs-reader: not shipped here, so each repository that uses this preset must provide it",
     );
     expect(r.out.join("\n")).not.toContain("factory-test-reviewer");
+  });
+
+  describe("beside an organization's poller", () => {
+    const withPoller = (builds: string[], pollMinutes: number) =>
+      checkIn({
+        "": {
+          settings: ["version: 2", ...builds, ""].join("\n"),
+          others: {
+            [POLLER_FILE]: pollerWorkflow({
+              owner: "acme",
+              version: "0.4.0",
+              pollMinutes,
+            }),
+          },
+        },
+      });
+    const EVERY_30 = [
+      "builds:",
+      "  trigger: github-action",
+      "  poll-minutes: 30",
+    ];
+
+    it("fails when the file's first cron line is not the one builds.poll-minutes gives, saying what to write", async () => {
+      const r = await withPoller(EVERY_30, 5);
+      expect(r.out).toEqual([
+        '✗ .github/workflows/factory-poller.yml runs on "*/5 * * * *", and builds.poll-minutes is 30. Write "*/30 * * * *" there.',
+      ]);
+      expect(r.code).toBe(1);
+    });
+
+    it("reads a preset that sets no interval as every 5 minutes", async () => {
+      const r = await withPoller([], 30);
+      expect(r.out).toEqual([
+        '✗ .github/workflows/factory-poller.yml runs on "*/30 * * * *", and builds.poll-minutes is 5. Write "*/5 * * * *" there.',
+      ]);
+      expect(r.code).toBe(1);
+    });
+
+    it.each<[string, string[], number]>([
+      ["the interval the preset sets", EVERY_30, 30],
+      ["every 5 minutes, with none set", [], 5],
+      [
+        "the hour, for 60",
+        ["builds:", "  trigger: github-action", "  poll-minutes: 60"],
+        60,
+      ],
+    ])(
+      "passes when the file runs on %s, whatever its later cron lines",
+      async (_, builds, minutes) => {
+        const r = await withPoller(builds, minutes);
+        expect(r.out).toEqual(["factory-preset.yaml   no agents or skills"]);
+        expect(r.code).toBe(0);
+      },
+    );
+
+    it("fails for a file with no cron line", async () => {
+      const r = await checkIn({
+        "": {
+          settings: "version: 2\n",
+          others: {
+            [POLLER_FILE]: "name: Factory poller\non:\n  workflow_dispatch:\n",
+          },
+        },
+      });
+      expect(r.out).toEqual([
+        '✗ .github/workflows/factory-poller.yml has no cron line, and builds.poll-minutes is 5. Write - cron: "*/5 * * * *" under schedule there.',
+      ]);
+      expect(r.code).toBe(1);
+    });
   });
 
   it("says there is no preset where no folder here or below has a preset file", async () => {

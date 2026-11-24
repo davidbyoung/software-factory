@@ -277,6 +277,47 @@ export function toBoard(pages: BoardPage[], repository: string): Board {
   };
 }
 
+/** Each card's repository and column, and nothing else of the board. */
+const READY_QUERY = `
+query ReadyRepositories($owner: String!, $number: Int!, $after: String) {
+  owner: repositoryOwner(login: $owner) {
+    ... on ProjectV2Owner {
+      projectV2(number: $number) {
+        items(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            content {
+              ... on Issue { state repository { nameWithOwner } }
+            }
+            status: fieldValueByName(name: "Status") {
+              ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+type ReadyPage = {
+  data: {
+    owner: {
+      projectV2: {
+        items: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: {
+            content: {
+              state?: string;
+              repository?: { nameWithOwner: string };
+            } | null;
+            status: { name?: string } | null;
+          }[];
+        };
+      } | null;
+    } | null;
+  };
+};
+
 const ADD_CARD =
   "mutation AddCard($project: ID!, $content: ID!) { addProjectV2ItemById(input: {projectId: $project, contentId: $content}) { item { id } } }";
 const CLEAR_FIELD =
@@ -698,6 +739,29 @@ export function githubTickets(o: GithubOptions): Tickets {
             await t.graphql(SET_OPTION, { ...base, option: option.id });
           }
         }
+      },
+      async readyRepositories(number, column) {
+        const found = new Set<string>();
+        let after: string | null = null;
+        do {
+          const page: ReadyPage = await t.graphql<ReadyPage>(READY_QUERY, {
+            owner: o.boardOwner ?? repoOwner,
+            number,
+            after,
+          });
+          const items = page.data.owner?.projectV2?.items;
+          if (!items) throw new Error("The Project could not be read.");
+          for (const { content, status } of items.nodes)
+            if (
+              content?.state === "OPEN" &&
+              content.repository &&
+              status?.name !== undefined &&
+              sameName(status.name, column)
+            )
+              found.add(content.repository.nameWithOwner);
+          after = items.pageInfo.hasNextPage ? items.pageInfo.endCursor : null;
+        } while (after);
+        return [...found];
       },
       async list() {
         const answer = await t.graphql<{

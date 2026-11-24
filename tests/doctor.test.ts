@@ -94,6 +94,9 @@ function doctor(o: {
   ticketGroups?: Group[];
   ticketsFail?: NonNullable<Parameters<typeof memoryTickets>[1]>["fail"];
   env?: Record<string, string | undefined>;
+  /** The repository whose poller starts the builds, as the lock's pins
+   * give it to the settings. */
+  pollerIn?: string;
 }) {
   /** Each check's line, without its heading's indent; `printed` is the
    * output as printed, headings included. */
@@ -134,7 +137,10 @@ function doctor(o: {
   const d: DoctorDeps = {
     settings: async () => {
       if (o.invalid) throw new SettingsError(o.invalid);
-      return settings(o.raw, tools);
+      const s = settings(o.raw, tools);
+      return o.pollerIn
+        ? { ...s, builds: { ...s.builds, pollerIn: o.pollerIn } }
+        : s;
     },
     outOfStep: async () => {
       if (o.noDefaultBranch) throw new NoDefaultBranch();
@@ -968,5 +974,90 @@ describe("factory doctor, a credential kept on the machine", () => {
     expect(r.lines).toEqual([
       `✗ ${r.path} is not valid YAML. Fix or delete it. Run factory init`,
     ]);
+  });
+});
+
+describe("factory doctor, where the organization's poller starts the builds", () => {
+  const ORG = "acme/factory-config";
+  /** Doctor in a repository whose builds that repository's poller starts,
+   * with the state of each workflow there, and of this repository's own. */
+  const run = async (
+    there: Record<string, "active" | "disabled"> | Error,
+    pollerIn: string | undefined = ORG,
+  ) => {
+    const opened: string[] = [];
+    const { run, printed } = doctor({
+      raw: { builds: { trigger: "github-action" } },
+      pollerIn,
+      tools: (base) => ({
+        ...base,
+        runner: {
+          "github-actions": {
+            ...base.runner["github-actions"]!,
+            open: (repository) => {
+              opened.push(repository);
+              return memoryRunner({
+                secrets: { FACTORY_BOARD_TOKEN: "ghp_x" },
+                workflows:
+                  repository !== ORG
+                    ? { "factory.yml": "active" }
+                    : there instanceof Error
+                      ? {}
+                      : there,
+                fail:
+                  repository === ORG && there instanceof Error
+                    ? { workflowState: there }
+                    : {},
+              }).runner;
+            },
+          },
+        },
+      }),
+    });
+    const code = await run();
+    return {
+      code,
+      lines: section(printed, "GitHub Actions").filter((l) => /\.yml/.test(l)),
+      opened,
+    };
+  };
+
+  it("says its workflow is enabled there, in place of this repository's own workflow", async () => {
+    const r = await run({ "factory-poller.yml": "active" });
+    expect(r.lines).toEqual([
+      "✓ factory-poller.yml is enabled in acme/factory-config",
+    ]);
+    expect(r.code).toBe(0);
+    expect(r.opened).toEqual(["acme/site", ORG]);
+  });
+
+  it("fails when it is disabled there, naming that repository's Actions tab", async () => {
+    const r = await run({ "factory-poller.yml": "disabled" });
+    expect(r.lines).toEqual([
+      "✗ factory-poller.yml is disabled in acme/factory-config: Enable it on the Actions tab of acme/factory-config",
+    ]);
+    expect(r.code).toBe(1);
+  });
+
+  it("fails when the default branch there no longer has it", async () => {
+    const r = await run({});
+    expect(r.lines).toEqual([
+      "✗ factory-poller.yml is not on the default branch of acme/factory-config: An owner of acme runs factory init --org again",
+    ]);
+    expect(r.code).toBe(1);
+  });
+
+  it("cannot tell, and fails nothing, when that repository's workflows cannot be read", async () => {
+    const r = await run(new Error("HTTP 404: Not Found"));
+    expect(r.lines).toEqual([
+      "? Could not tell whether factory-poller.yml is enabled in acme/factory-config: HTTP 404: Not Found",
+    ]);
+    expect(r.code).toBe(0);
+  });
+
+  it("checks this repository's own workflow where no other repository's poller starts its builds", async () => {
+    const r = await run({}, "");
+    expect(r.lines).toEqual(["✓ factory.yml is enabled"]);
+    expect(r.opened).toEqual(["acme/site"]);
   });
 });

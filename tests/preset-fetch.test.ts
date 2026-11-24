@@ -329,6 +329,7 @@ describe("a preset at one commit", () => {
     expect(pinAt(fetching(), ACME, commit, load)).toEqual({
       name: ACME,
       commit,
+      poller: false,
       settings: { rules: { "review-rounds": 3 } },
       files: {
         ".claude/agents/a.md": fileHash("one\n"),
@@ -338,6 +339,30 @@ describe("a preset at one commit", () => {
     expect(pinAt(fetching(), NODE, commit, load).files).toEqual({
       ".claude/agents/n.md": fileHash("node\n"),
     });
+  });
+
+  it("says whether the commit's repository holds an organization's poller, for a preset in any folder of it", () => {
+    root = repo(own([]));
+    const commit = publish(REPO, {
+      "": {
+        settings: "version: 2\n",
+        others: {
+          ".github/workflows/factory-poller.yml": "name: Factory poller\n",
+        },
+      },
+      node: { settings: "version: 2\n" },
+    });
+    expect(pinAt(fetching(), ACME, commit, load).poller).toBe(true);
+    expect(pinAt(fetching(), NODE, commit, load).poller).toBe(true);
+    const without = publish(REPO, {
+      node: {
+        settings: "version: 2\n",
+        others: {
+          ".github/workflows/factory-poller.yml": "name: Factory poller\n",
+        },
+      },
+    });
+    expect(pinAt(fetching(), NODE, without, load).poller).toBe(false);
   });
 
   it("says where it looked when the commit holds no preset file", () => {
@@ -457,6 +482,7 @@ describe("moving a preset's pin in the lock", () => {
     expect(moved).toEqual({
       name: ACME,
       commit: next,
+      poller: false,
       settings: { rules: { "review-rounds": 4 } },
       files: { ".claude/agents/a.md": fileHash("two\n") },
     });
@@ -510,6 +536,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
   it.each([
     ["settings", { settings: { rules: { "review-rounds": 9 } } }],
     ["hashes", { files: { ".claude/agents/a.md": fileHash("mine\n") } }],
+    ["poller's record", { poller: true }],
   ])(
     "names a new pin whose %s are not what its commit holds",
     (_what, change) => {
@@ -534,6 +561,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
   it.each([
     ["settings", { settings: { rules: { "review-rounds": 9 } } }],
     ["hashes", { files: { ".claude/agents/a.md": fileHash("mine\n") } }],
+    ["poller's record", { poller: true }],
   ])(
     "names a pin whose %s changed while its commit did not",
     (_what, change) => {

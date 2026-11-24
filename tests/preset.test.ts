@@ -318,7 +318,13 @@ describe("what a preset can't do", () => {
     files: Record<string, string> = {},
   ) => {
     root = repo(own([ACME]));
-    lockPin(root, { name: ACME, commit: "1".repeat(40), settings, files });
+    lockPin(root, {
+      name: ACME,
+      commit: "1".repeat(40),
+      poller: false,
+      settings,
+      files,
+    });
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([expected]);

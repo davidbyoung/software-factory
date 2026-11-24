@@ -192,6 +192,10 @@ export type Settings = {
     runner: string;
     /** How often the scheduled poller checks the board. */
     pollMinutes: (typeof POLL_MINUTES)[number];
+    /** The repository whose scheduled poller starts the builds here, when
+     * it is not this one: a preset's that holds its organization's poller.
+     * The lock's pins say so, never the settings file. */
+    pollerIn?: string;
     /** How many builds either poller starts in any one hour. */
     maxPerHour: number;
   };
@@ -1292,9 +1296,12 @@ export async function resolveFiles(
   const exists = (path: string) => d.exists(path) || resolution.files.has(path);
   let settings: Settings;
   try {
-    settings = parseSettings(isObj(own) ? resolution.raw : own, exists, BUILT, {
-      partial,
-    });
+    settings = withPoller(
+      parseSettings(isObj(own) ? resolution.raw : own, exists, BUILT, {
+        partial,
+      }),
+      P.pollerOf(presets),
+    );
   } catch (e) {
     throw e instanceof SettingsError ? fromPreset(e, resolution) : e;
   }
@@ -1308,6 +1315,14 @@ export async function resolveFiles(
     choicesText,
     exists,
   };
+}
+
+/** The settings with the repository whose poller starts their builds,
+ * which stands in for their own only when a schedule starts them. */
+function withPoller(s: Settings, pollerIn: string | undefined): Settings {
+  return pollerIn && s.builds.trigger === "github-action"
+    ? { ...s, builds: { ...s.builds, pollerIn } }
+    : s;
 }
 
 /** A fault the settings' check found in a value a preset gave, named by
@@ -1386,7 +1401,13 @@ async function fromLock(
     throw new SettingsError(`${P.LOCK_FILE}: ${(e as Error).message}`);
   }
   if (!parsed.settings) throw new SettingsError(P.staleMessages.earlier);
-  return { settings: parseSettings(parsed.settings, d.exists), text };
+  return {
+    settings: withPoller(
+      parseSettings(parsed.settings, d.exists),
+      P.pollerOf(parsed.presets),
+    ),
+    text,
+  };
 }
 
 /** The lines of the lock's `settings` block, as `factory config explain`
@@ -1726,7 +1747,7 @@ export function targetOf(
     board: env.FACTORY_BOARD_NUMBER
       ? Number(env.FACTORY_BOARD_NUMBER)
       : s.tickets.board,
-    watch: watchOf(s.builds.trigger, s.builds.pollMinutes),
+    watch: watchOf(s.builds.trigger, s.builds.pollMinutes, s.builds.pollerIn),
     columns: columnsOf(s),
     followUp: s.tickets.labels["follow-up"],
     factory: s.tickets.labels.factory,

@@ -111,7 +111,7 @@ export function partsOn(s: Settings, has: Has): Part[] {
     ["review", s.prReview !== null],
     ["board", s.tickets.board !== null || s.tickets.statuses],
     ["auto-merge", s.autoMerge.allow.length > 0],
-    ["poller", s.builds.trigger === "github-action"],
+    ["poller", s.builds.trigger === "github-action" && !s.builds.pollerIn],
     ["dependabot", has(DEPENDABOT)],
   ];
   return on.filter(([, is]) => is).map(([part]) => part);
@@ -583,7 +583,9 @@ export async function plan(
     branch,
     parts: partsOn(s, has),
     pollMinutes:
-      s.builds.trigger === "github-action" ? s.builds.pollMinutes : null,
+      s.builds.trigger === "github-action" && !s.builds.pollerIn
+        ? s.builds.pollMinutes
+        : null,
     ref: refOf(s.tickets.type),
     minutes: s.sessionMinutes,
     overrideLabel: s.codeHost.labels["verdict-override"],

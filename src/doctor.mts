@@ -20,7 +20,7 @@ import {
   staleOf,
   type Settings,
 } from "./config.mts";
-import { lockedVersion } from "./preset.mts";
+import { lockedVersion, ownerOf } from "./preset.mts";
 import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
@@ -39,6 +39,7 @@ import {
   NoDefaultBranch,
 } from "./lib/default-branch.mts";
 import { differences, launcherPath, LOCK, PACKAGE, plan } from "./sync.mts";
+import { POLLER_FILE } from "./workflow-files.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
 import { machineState, type MachineState } from "./lib/credentials.mts";
@@ -293,6 +294,14 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
         (await tool!.setup.checks?.({ ...context(on), secrets })) ?? [],
       ),
     );
+  if (s.builds.pollerIn)
+    out.push({
+      ...(await pollerCheck(
+        d.tools.runner[chosen.runner]!.open(s.builds.pollerIn),
+        s.builds.pollerIn,
+      )),
+      group: runner!.label,
+    });
   if (reachable)
     out.push(
       ...under(
@@ -318,6 +327,34 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     .map((c, i) => [c, i] as const)
     .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
     .map(([c]) => c);
+}
+
+/** Whether an organization's poller, the scheduled workflow in
+ * `repository` that starts this repository's builds, is switched on. */
+async function pollerCheck(runner: Runner, repository: string): Promise<Check> {
+  const file = POLLER_FILE.split("/").at(-1)!;
+  let state: Awaited<ReturnType<Runner["workflowState"]>>;
+  try {
+    state = await runner.workflowState(file);
+  } catch (e) {
+    return {
+      state: "unknown",
+      text: `Could not tell whether ${file} is enabled in ${repository}: ${message(e)}`,
+    };
+  }
+  if (state === "active")
+    return { state: "pass", text: `${file} is enabled in ${repository}` };
+  return state === "disabled"
+    ? {
+        state: "fail",
+        text: `${file} is disabled in ${repository}`,
+        fix: `Enable it on the Actions tab of ${repository}`,
+      }
+    : {
+        state: "fail",
+        text: `${file} is not on the default branch of ${repository}`,
+        fix: `An owner of ${ownerOf(repository)} runs factory init --org again`,
+      };
 }
 
 /** The one line on the credential this machine holds, with its fix in

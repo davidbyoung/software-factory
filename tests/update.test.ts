@@ -7,11 +7,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  checkoutKind,
   main,
+  pollerRepository,
   settingsNow,
+  updatePoller,
+  type PollerDeps,
   type PresetPin,
   type UpdateDeps,
 } from "../src/update.mts";
+import { TOOLS } from "../src/tools.mts";
+import { pollerWorkflow } from "../src/workflow-files.mts";
 import { writeSettings } from "./locked.ts";
 import { CODE_HOST_YAML } from "./settings-fixture.ts";
 
@@ -394,6 +400,222 @@ describe("factory update --pull-requests", () => {
       "✓ Nothing to update: the factory is 0.3.0, the newest release, and both presets are at their newest commits.",
     ]);
     expect(u.calls).toEqual([]);
+  });
+});
+
+describe("factory update, where an organization's poller is", () => {
+  const PR = ["--pull-requests"];
+  const fileAt = (version: string) =>
+    pollerWorkflow({ owner: "acme", version, pollMinutes: 30 });
+
+  function poller(
+    o: {
+      newest?: string | Error;
+      text?: string;
+      last?: { number: number; state: "open" | "closed" | "merged" };
+      open?: { number: number; branch: string }[];
+    } = {},
+  ) {
+    const out: string[] = [];
+    const calls: string[] = [];
+    const bodies: string[] = [];
+    let text = o.text ?? fileAt("0.4.0");
+    const d: PollerDeps = {
+      read: () => text,
+      write: (next) => {
+        calls.push("write");
+        text = next;
+      },
+      newestRelease: async () => {
+        if (o.newest instanceof Error) throw o.newest;
+        return o.newest ?? "0.5.0";
+      },
+      git: (args) => {
+        calls.push(`git ${args.join(" ")}`);
+        return args[0] === "status"
+          ? " M .github/workflows/factory-poller.yml\n"
+          : "";
+      },
+      defaultBranch: async () => "main",
+      pulls: {
+        lastForBranch: async (branch) =>
+          branch === "factory-update/factory-0.5.0" ? (o.last ?? null) : null,
+        create: async (pull) => {
+          calls.push(
+            `open ${pull.head} into ${pull.base}: ${pull.title}${pull.draft ? " (draft)" : ""}`,
+          );
+          bodies.push(pull.body);
+          return 9;
+        },
+        listOpen: async () =>
+          (o.open ?? []).map(({ number, branch }) => ({
+            number,
+            head: { branch },
+          })),
+        comment: async (pull, body) => {
+          calls.push(`comment ${pull}: ${body}`);
+          return 1;
+        },
+        close: async (pull) => {
+          calls.push(`close ${pull}`);
+        },
+      },
+      releaseNotes: (version) => `https://example.com/releases/v${version}`,
+      out: (line) => out.push(line),
+    };
+    return {
+      run: (argv: string[] = []) => updatePoller(argv, d),
+      out,
+      calls,
+      bodies,
+      text: () => text,
+    };
+  }
+
+  it.each<[string[], "repository" | "poller" | null]>([
+    [
+      [".claude/factory.yaml", ".github/workflows/factory-poller.yml"],
+      "repository",
+    ],
+    [[".github/workflows/factory-poller.yml"], "poller"],
+    [[], null],
+  ])(
+    "is the checkout with that file and no settings: %j is %s",
+    (files, kind) => {
+      expect(checkoutKind((path) => files.includes(path))).toBe(kind);
+    },
+  );
+
+  it("opens one pull request that rewrites the version after poller.yml@v, as an update of the factory does", async () => {
+    const u = poller();
+
+    expect(await u.run(PR)).toBe(0);
+    expect(u.out).toEqual(["✓ Opened #9, Update the factory to 0.5.0"]);
+    expect(u.calls).toEqual([
+      "git fetch origin main",
+      "git switch -C factory-update/factory-0.5.0 origin/main",
+      "write",
+      "git status --porcelain",
+      "git add -A",
+      "git commit -m Update the factory to 0.5.0",
+      "git push -u origin factory-update/factory-0.5.0",
+      "open factory-update/factory-0.5.0 into main: Update the factory to 0.5.0",
+      "git switch --detach origin/main",
+    ]);
+    expect(u.text()).toBe(fileAt("0.5.0"));
+    expect(u.bodies).toEqual([
+      [
+        "The factory 0.4.0 → 0.5.0",
+        "",
+        "Changes here:",
+        "- .github/workflows/factory-poller.yml, rewritten",
+        "",
+        "Release notes: https://example.com/releases/v0.5.0",
+      ].join("\n"),
+    ]);
+  });
+
+  it("leaves the cron line and everything else of the file as it was", async () => {
+    const edited = fileAt("0.4.0").replace("*/30 * * * *", "*/15 * * * *");
+    const u = poller({ text: edited });
+
+    await u.run(PR);
+
+    expect(u.text()).toBe(
+      fileAt("0.5.0").replace("*/30 * * * *", "*/15 * * * *"),
+    );
+  });
+
+  it.each<[{ number: number; state: "open" | "closed" | "merged" }, string]>([
+    [
+      { number: 7, state: "open" },
+      "- #7, Update the factory to 0.5.0, is still open",
+    ],
+    [
+      { number: 7, state: "closed" },
+      "- Update the factory to 0.5.0 was closed, so it is not opened again",
+    ],
+  ])(
+    "opens none where that release's pull request is %j",
+    async (last, said) => {
+      const u = poller({ last });
+
+      expect(await u.run(PR)).toBe(0);
+      expect(u.out).toEqual([said]);
+      expect(u.calls).toEqual([]);
+    },
+  );
+
+  it("closes an older open pull request for the factory, naming the one that replaced it", async () => {
+    const u = poller({
+      open: [
+        { number: 5, branch: "factory-update/factory-0.4.5" },
+        { number: 6, branch: "tidy-readme" },
+      ],
+    });
+
+    await u.run(PR);
+
+    expect(u.calls.filter((c) => /^(comment|close)/.test(c))).toEqual([
+      "comment 5: Superseded by #9.",
+      "close 5",
+    ]);
+  });
+
+  it("prints the two versions and rewrites the file, by hand", async () => {
+    const u = poller();
+
+    expect(await u.run()).toBe(0);
+    expect(u.out).toEqual(["The factory 0.4.0 → 0.5.0"]);
+    expect(u.calls).toEqual(["write"]);
+    expect(u.text()).toBe(fileAt("0.5.0"));
+  });
+
+  it.each([[[]], [PR]])(
+    "changes nothing when the file names the newest release, or one newer, with %j",
+    async (argv) => {
+      for (const newest of ["0.4.0", "0.3.9"]) {
+        const u = poller({ newest });
+
+        expect(await u.run(argv)).toBe(0);
+        expect(u.out).toEqual([
+          "✓ Nothing to update: the factory is 0.4.0, the newest release.",
+        ]);
+        expect(u.calls).toEqual([]);
+      }
+    },
+  );
+
+  it("stops, changing nothing, when the newest release cannot be read", async () => {
+    const u = poller({ newest: new Error("HTTP 503") });
+
+    expect(await u.run(PR)).toBe(1);
+    expect(u.out).toEqual(["✗ The newest release could not be read: HTTP 503"]);
+    expect(u.calls).toEqual([]);
+  });
+
+  it("stops when the file names no release", async () => {
+    const u = poller({
+      text: fileAt("0.4.0").replace("poller.yml@v0.4.0", "poller.yml@main"),
+    });
+
+    expect(await u.run(PR)).toBe(1);
+    expect(u.out).toEqual([
+      "✗ .github/workflows/factory-poller.yml names no release of the factory after poller.yml@v. Write one there, such as poller.yml@v1.2.3.",
+    ]);
+    expect(u.calls).toEqual([]);
+  });
+
+  it("is the repository a run names, and the origin remote's otherwise", () => {
+    const { repositoryOf } = TOOLS.codeHost.github!;
+    const of = (env: Record<string, string>, remote: string | null) =>
+      pollerRepository(env, () => remote, repositoryOf);
+    const remote = "git@github.com:acme/factory-config.git";
+
+    expect(of({ GITHUB_REPOSITORY: "acme/other" }, remote)).toBe("acme/other");
+    expect(of({}, remote)).toBe("acme/factory-config");
+    expect(of({}, null)).toBeNull();
+    expect(of({}, "https://example.com/a/b.git")).toBeNull();
   });
 });
 

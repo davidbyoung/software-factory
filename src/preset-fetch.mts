@@ -30,6 +30,7 @@ import {
   yamlDump,
   type Pinned,
 } from "./preset.mts";
+import { POLLER_FILE } from "./workflow-files.mts";
 
 export type GitResult = { status: number; stdout: string; stderr: string };
 
@@ -258,7 +259,12 @@ export function pinAt(
   load: (text: string) => unknown,
 ): Pinned {
   const dir = fetchCommit(d, parseName(name).repo, commit);
-  return { name, commit, ...readPreset(dir, name, load) };
+  return {
+    name,
+    commit,
+    poller: existsSync(join(dir, POLLER_FILE)),
+    ...readPreset(dir, name, load),
+  };
 }
 
 /** The text of a file the preset pinned at `pin` ships, by its path in a
@@ -310,6 +316,7 @@ export function pinFaults(
   load: (text: string) => unknown,
 ): string[] {
   const same = (a: Pinned, b: Pinned) =>
+    a.poller === b.poller &&
     stable(a.settings) === stable(b.settings) &&
     stable(a.files) === stable(b.files);
   return pins.flatMap((pin) => {

@@ -291,6 +291,24 @@ describe("toRows", () => {
     },
   );
 
+  it("where the organization's poller starts the builds, asks after it by its repository, after its interval and 15 minutes", () => {
+    const { rows } = toRows(
+      { issues: [issue(1), issue(2)], pulls: [] },
+      board([
+        [1, "Ready", "2026-11-09T11:14:00Z"],
+        [2, "Ready", "2026-11-09T11:16:00Z"],
+      ]),
+      new Map(),
+      NOW,
+      { watch: watchOf("github-action", 30, "acme/factory-config"), ref: REF },
+    );
+
+    expect(rows.map((r) => r.flags)).toEqual([
+      ["not started, is the poller in acme/factory-config running?"],
+      [],
+    ]);
+  });
+
   it("with a hosted poller, flags a Ready card after 5 minutes, asking after the poller", () => {
     const { rows } = toRows(
       { issues: [issue(1), issue(2)], pulls: [] },

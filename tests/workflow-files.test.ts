@@ -9,6 +9,8 @@ import {
   FACTORY_EVENTS,
   factoryWorkflow,
   HELD_EVENT,
+  POLLER_FILE,
+  pollerWorkflow,
   reviewWorkflow,
   type WorkflowOptions,
 } from "../src/workflow-files.mts";
@@ -220,6 +222,66 @@ describe("both files", () => {
         secrets: ["NPM_TOKEN", "GITHUB_TOKEN"],
       }),
     );
+    expect(await format(text, { parser: "yaml" })).toBe(text);
+  });
+});
+
+describe("factory-poller.yml", () => {
+  const text = pollerWorkflow({
+    owner: "acme",
+    version: "0.4.0",
+    pollMinutes: 30,
+  });
+
+  it("is the file an organization's setup writes, word for word", () => {
+    expect(POLLER_FILE).toBe(".github/workflows/factory-poller.yml");
+    expect(text).toBe(
+      [
+        "# .github/workflows/factory-poller.yml, written by factory init --org.",
+        "# The one poller for acme's board. The cron line is yours to change, with",
+        "# builds.poll-minutes in factory-preset.yaml: factory preset check fails",
+        "# when the two differ.",
+        "name: Factory poller",
+        "on:",
+        "  schedule:",
+        '    - cron: "*/30 * * * *" # the poller',
+        '    - cron: "0 1 * * *" # updates',
+        "  workflow_dispatch:",
+        "permissions:",
+        "  contents: read",
+        "jobs:",
+        "  poller:",
+        "    uses: davidbyoung/software-factory/.github/workflows/poller.yml@v0.4.0",
+        "    secrets:",
+        "      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("calls the factory's poller.yml from one job, with the app's key as its one secret", () => {
+    const file = parse(text);
+    expect(Object.keys(file.jobs)).toEqual(["poller"]);
+    expect(file.jobs.poller.secrets).toEqual({
+      "app-key": "${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+    });
+    expect(file.permissions).toEqual({ contents: "read" });
+  });
+
+  it.each([
+    [5, "*/5 * * * *"],
+    [60, "0 * * * *"],
+  ])(
+    "polls every %s minutes on %s, before the updates' schedule",
+    (pollMinutes, cron) => {
+      const file = parse(
+        pollerWorkflow({ owner: "acme", version: "0.4.0", pollMinutes }),
+      );
+      expect(file.on.schedule).toEqual([{ cron }, { cron: "0 1 * * *" }]);
+    },
+  );
+
+  it("is written as Prettier would leave it", async () => {
     expect(await format(text, { parser: "yaml" })).toBe(text);
   });
 });

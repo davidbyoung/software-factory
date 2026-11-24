@@ -12,11 +12,13 @@ import {
   main as config,
   pluginsOf,
   resolveFiles,
+  targetOf,
   type Settings,
 } from "../src/config.mts";
 import { fileHash, pinsOf, settingsHash } from "../src/preset.mts";
 import { runGit, type Git } from "../src/preset-fetch.mts";
 import { lockedFiles, main, PACKAGE } from "../src/sync.mts";
+import { POLLER_FILE, pollerWorkflow } from "../src/workflow-files.mts";
 import { staleOf } from "../src/config.mts";
 import {
   ACME,
@@ -118,6 +120,7 @@ describe("the lock factory sync writes", () => {
       {
         name: ACME,
         commit,
+        poller: false,
         settings: (({ version: _, ...rest }) => rest)(
           load(ACME_SETTINGS) as Record<string, unknown>,
         ),
@@ -128,6 +131,7 @@ describe("the lock factory sync writes", () => {
       {
         name: NODE,
         commit,
+        poller: false,
         settings: (({ version: _, ...rest }) => rest)(
           load(NODE_SETTINGS) as Record<string, unknown>,
         ),
@@ -137,7 +141,7 @@ describe("the lock factory sync writes", () => {
     expect(commit).toMatch(/^[0-9a-f]{40}$/);
   });
 
-  it("writes each pin as the name, the commit, the settings, and each file with sha256: and its hash", async () => {
+  it("writes each pin as the name, the commit, whether its repository holds a poller, the settings, and each file with sha256: and its hash", async () => {
     root = repo(own(["foo/presets//bar"]));
     const at = install(root, "foo/presets", {
       bar: {
@@ -148,10 +152,11 @@ describe("the lock factory sync writes", () => {
     await sync();
     const lines = read(root, LOCK)!.split("\n");
     const start = lines.indexOf("presets:");
-    expect(lines.slice(start, start + 8)).toEqual([
+    expect(lines.slice(start, start + 9)).toEqual([
       "presets:",
       "  - name: foo/presets//bar",
       `    commit: ${at}`,
+      "    poller: false",
       "    settings:",
       "      rules:",
       "        review-rounds: 3",
@@ -159,6 +164,22 @@ describe("the lock factory sync writes", () => {
       `      .claude/agents/bar-reviewer.md: ${fileHash("bar\n")}`,
     ]);
     expect(fileHash("bar\n")).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("records that a preset's repository holds an organization's poller at the pinned commit, and reads it back with no network", async () => {
+    root = repo(own([ACME]));
+    install(root, REPO, {
+      "": {
+        settings: "version: 2\n",
+        others: { [POLLER_FILE]: "name: Factory poller\n" },
+      },
+    });
+    unreachable();
+    const r = await sync();
+    expect(r.code).toBe(0);
+    expect(r.git).toEqual([]);
+    expect(read(root, LOCK)!.split("\n")).toContain("    poller: true");
+    expect(pinsOf(read(root, LOCK), load)[0]!.poller).toBe(true);
   });
 
   it("hashes a file a preset ships that loses to the repository's own", async () => {
@@ -581,6 +602,81 @@ describe("the choices factory sync drops", () => {
     );
     expect(read(root, ".claude/factory.choices.yaml")).toContain(
       `rules.small-change-lines: ${NODE}`,
+    );
+  });
+});
+
+describe("a repository whose preset's repository runs the organization's poller", () => {
+  const EVERY_30 =
+    "version: 2\nbuilds:\n  trigger: github-action\n  poll-minutes: 30\n";
+  const FILE = pollerWorkflow({
+    owner: "acme",
+    version: "0.4.0",
+    pollMinutes: 30,
+  });
+  /** A repository that follows acme's preset, with or without the
+   * poller's file beside it, synced. */
+  const following = async (
+    poller: boolean,
+    body: string[] = [],
+    settings = EVERY_30,
+  ) => {
+    root = repo(own([ACME], body));
+    install(root, REPO, {
+      "": {
+        settings,
+        ...(poller ? { others: { [POLLER_FILE]: FILE } } : {}),
+      },
+    });
+    expect((await sync()).code).toBe(0);
+    const file = load(read(root, ".github/workflows/factory.yml")!) as {
+      on: { schedule: { cron: string }[] };
+      jobs: { factory: { with: { parts: string } } };
+    };
+    return {
+      crons: file.on.schedule.map((s) => s.cron),
+      parts: file.jobs.factory.with.parts.split(" "),
+      settings: await loadSettings(defaultDeps(root, {})),
+    };
+  };
+
+  it("gets no poller schedule of its own, and no poller among its parts", async () => {
+    const { crons, parts } = await following(true);
+    expect(crons).not.toContain("*/30 * * * *");
+    expect(crons).toHaveLength(3);
+    expect(parts).not.toContain("poller");
+  });
+
+  it("keeps its own schedule and part when that repository holds no poller", async () => {
+    const { crons, parts, settings } = await following(false);
+    expect(crons).toHaveLength(4);
+    expect(crons).toContain("*/30 * * * *");
+    expect(parts).toContain("poller");
+    expect(settings.builds.pollerIn).toBeUndefined();
+  });
+
+  it("reads that repository from the lock, and flags an unstarted ticket by asking after its poller", async () => {
+    const { settings } = await following(true);
+    expect(settings.builds.pollerIn).toBe(REPO);
+    expect(targetOf(settings, {}).watch).toEqual({
+      minutes: 45,
+      flag: "not started, is the poller in acme/factory-config running?",
+    });
+    expect(
+      (await resolveFiles(filesDeps(root, {}))).settings.builds.pollerIn,
+    ).toBe(REPO);
+  });
+
+  it("names no such repository once the settings here start builds another way", async () => {
+    const { crons, settings } = await following(
+      true,
+      ["builds:", "  trigger: own-server"],
+      "version: 2\nbuilds:\n  trigger: github-action\n",
+    );
+    expect(crons).toHaveLength(3);
+    expect(settings.builds.pollerIn).toBeUndefined();
+    expect(targetOf(settings, {}).watch?.flag).toBe(
+      "not started, is the poller running?",
     );
   });
 });

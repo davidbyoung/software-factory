@@ -228,3 +228,39 @@ export function reviewWorkflow(o: WorkflowOptions): string {
     ...extra(o.secrets),
   ].join("\n")}\n`;
 }
+
+export const POLLER_FILE = ".github/workflows/factory-poller.yml";
+
+/** The updates' schedule in the poller's file, which poller.yml tells from
+ * the poller's own by its text. */
+const POLLER_UPDATES = "0 1 * * *";
+
+/** `.github/workflows/factory-poller.yml`, in the repository that holds an
+ * organization's preset. It is that repository's to edit, so nothing
+ * writes it again but an update of the version it names. */
+export function pollerWorkflow(o: {
+  /** The organization whose board it reads. */
+  owner: string;
+  version: string;
+  pollMinutes: number;
+}): string {
+  return `${[
+    `# ${POLLER_FILE}, written by factory init --org.`,
+    `# The one poller for ${o.owner}'s board. The cron line is yours to change, with`,
+    "# builds.poll-minutes in factory-preset.yaml: factory preset check fails",
+    "# when the two differ.",
+    "name: Factory poller",
+    "on:",
+    "  schedule:",
+    `    - cron: "${pollerCron(o.pollMinutes)}" # the poller`,
+    `    - cron: "${POLLER_UPDATES}" # updates`,
+    "  workflow_dispatch:",
+    "permissions:",
+    "  contents: read",
+    "jobs:",
+    "  poller:",
+    `    uses: ${HOME}/poller.yml@v${o.version}`,
+    "    secrets:",
+    "      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+  ].join("\n")}\n`;
+}
