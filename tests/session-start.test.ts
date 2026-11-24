@@ -9,16 +9,21 @@ import {
   main,
   repositoryState,
 } from "../src/session-start.mts";
-import { branchDeps, CANNOT_TELL } from "../src/lib/default-branch.mts";
+import { branchDeps } from "../src/lib/default-branch.mts";
 
 // Clones of an origin, each with three local branches beside the default
 // one: one with two commits the default branch lacks, one squash-merged into
 // it, and one with no commits of its own. The origin's default branch is
 // main in one clone and develop in the other, which also has a local branch
-// called main with a commit develop lacks.
+// called main with a commit develop lacks. A third is a clone of acme/web
+// whose remote is called upstream.
 let root: string;
 let clone: string;
 let onDevelop: string;
+let fromUpstream: string;
+
+const CANNOT_TELL =
+  "Could not tell the default branch. Run: git remote set-head origin --auto";
 
 function cloned(name: string, base: string): string {
   const origin = join(root, `${name}.git`);
@@ -70,6 +75,11 @@ beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "session-start-"));
   clone = cloned("clone", "main");
   onDevelop = cloned("on-develop", "develop");
+  fromUpstream = cloned("from-upstream", "main");
+  execFileSync("git", ["remote", "rename", "origin", "upstream"], {
+    cwd: fromUpstream,
+    stdio: "pipe",
+  });
 });
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -78,7 +88,10 @@ const listed = (lines: string[]) => lines.filter((l) => l.startsWith("- "));
 
 describe("factory session-start", () => {
   it("lists only the branches with work not on origin/main", () => {
-    const lines = repositoryState(gitIn(clone), "main");
+    const lines = repositoryState(gitIn(clone), {
+      remote: "origin",
+      branch: "main",
+    });
     const at = lines.indexOf("Local branches with work not on origin/main:");
 
     expect(at).toBeGreaterThan(0);
@@ -91,7 +104,10 @@ describe("factory session-start", () => {
   });
 
   it("compares with the default branch, whatever it is called, and lists a branch called main like any other", () => {
-    const lines = repositoryState(gitIn(onDevelop), "develop");
+    const lines = repositoryState(gitIn(onDevelop), {
+      remote: "origin",
+      branch: "develop",
+    });
 
     expect(lines).toContain("Local branches with work not on origin/develop:");
     expect(listed(lines)).toEqual([
@@ -100,16 +116,37 @@ describe("factory session-start", () => {
     ]);
   });
 
-  it("names the fix, and lists no branch, when the default branch cannot be told", () => {
-    const lines = repositoryState(gitIn(clone), null);
+  it("fetches from the default branch's remote and compares with it, whatever the remote is called", () => {
+    const git = gitIn(fromUpstream);
+    const ran: string[] = [];
+    const lines = repositoryState(
+      (args) => {
+        ran.push(args.join(" "));
+        return git(args);
+      },
+      { remote: "upstream", branch: "main" },
+    );
 
-    expect(lines).toContain(CANNOT_TELL);
+    expect(ran[0]).toBe("fetch -q upstream main");
+    expect(lines).toContain("Local branches with work not on upstream/main:");
+    expect(listed(lines)).toEqual([
+      "- unfinished (2 commits not on upstream/main)",
+    ]);
+  });
+
+  it("prints the line it is given, and lists no branch, when the default branch cannot be told", () => {
+    const lines = repositoryState(gitIn(clone), CANNOT_TELL);
+
+    expect(lines.at(-1)).toBe(CANNOT_TELL);
     expect(listed(lines)).toEqual([]);
     expect(lines.join("\n")).not.toContain("Local branches with work");
   });
 
   it("opens with the checkout's state", () => {
-    const lines = repositoryState(gitIn(clone), "main");
+    const lines = repositoryState(gitIn(clone), {
+      remote: "origin",
+      branch: "main",
+    });
 
     expect(lines.slice(0, 3)).toEqual([
       "## Repository state at session start",
@@ -122,8 +159,14 @@ describe("factory session-start", () => {
 
 describe("the session-start hook", () => {
   /** The hook, run in `dir` with no workflow event and a code host that
-   * cannot be asked, and what it printed. */
-  const hook = async (dir: string, stale: string | null = null) => {
+   * cannot be asked, and what it printed. `repository` is the settings'
+   * `repository` line, which the remote at `address` is taken to be. */
+  const hook = async (
+    dir: string,
+    stale: string | null = null,
+    repository: string | null = null,
+    address = "",
+  ) => {
     const printed: string[] = [];
     const status = await main({
       dir,
@@ -132,6 +175,8 @@ describe("the session-start hook", () => {
         host: async () => {
           throw new Error("no code host");
         },
+        repository: async () => repository,
+        repositoryOf: async (a) => (a === address ? "acme/web" : null),
       },
       out: (text) => printed.push(text),
       tickets: async () => 0,
@@ -169,6 +214,29 @@ describe("the session-start hook", () => {
 
     expect(status).toBe(0);
     expect(text).toContain(CANNOT_TELL);
+    expect(text).not.toContain("Local branches with work");
+  });
+
+  it("compares each branch with the default branch of the remote that is the settings' repository", async () => {
+    const { status, text } = await hook(
+      fromUpstream,
+      null,
+      "acme/web",
+      join(root, "from-upstream.git"),
+    );
+
+    expect(status).toBe(0);
+    expect(text).toContain("Local branches with work not on upstream/main:");
+    expect(text).toContain("- unfinished (2 commits not on upstream/main)");
+  });
+
+  it("prints the line that names the repository, and compares no branch, where no remote is that repository's", async () => {
+    const { status, text } = await hook(clone, null, "acme/web");
+
+    expect(status).toBe(0);
+    expect(text).toContain(
+      "✗ repository: .claude/factory.yaml says acme/web, and no remote here is acme/web. Add the remote, or change the line and run factory sync.",
+    );
     expect(text).not.toContain("Local branches with work");
   });
 });

@@ -74,8 +74,8 @@ import {
 } from "./preset-fetch.mts";
 import {
   branchDeps,
-  CANNOT_TELL,
-  defaultBranch,
+  needDefaultBranch,
+  NoDefaultBranch,
 } from "./lib/default-branch.mts";
 
 /** The package's own folder: the parent of `src/`, or of `dist/` once
@@ -699,8 +699,9 @@ export async function main(
     settings: () => Promise<Resolved>;
     /** Why the lock is stale, or null when it is current. */
     stale: () => Promise<string | null>;
-    /** The repository's default branch, or null when it cannot be told. */
-    defaultBranch: (s: Settings) => Promise<string | null>;
+    /** The repository's default branch. It rejects with NoDefaultBranch
+     * when it cannot be told. */
+    defaultBranch: (s: Settings) => Promise<string>;
     out: (line: string) => void;
     err: (line: string) => void;
     paint?: Paint;
@@ -745,9 +746,12 @@ export async function main(
   }
   // Nothing is written with a guessed name: a push trigger that names the
   // wrong branch never runs.
-  const branch = await d.defaultBranch(r.settings);
-  if (branch === null) {
-    d.err(CANNOT_TELL);
+  let branch: string;
+  try {
+    branch = await d.defaultBranch(r.settings);
+  } catch (e) {
+    if (!(e instanceof NoDefaultBranch)) throw e;
+    d.err(e.message);
     return 1;
   }
   const fetch = d.fetch?.(r.settings);
@@ -819,7 +823,7 @@ export const syncDeps = (root: string) => ({
   settings: () => resolveFiles(filesDeps(root)),
   stale: () => staleOf(defaultDeps(root)),
   defaultBranch: (s: Settings) =>
-    defaultBranch(branchDeps(root, process.env, async () => s)),
+    needDefaultBranch(branchDeps(root, process.env, async () => s)),
   out: (line: string) => console.log(line),
   err: (line: string) => console.error(line),
   fetch: (s: Settings) => fetchDeps(s.repository, s.codeHost.type),

@@ -32,8 +32,10 @@ const { name } = JSON.parse(
   readFileSync(join(PACKAGE, "package.json"), "utf8"),
 );
 
+const REPOSITORY = "your-name/your-repo";
+
 /** The shortest settings file the configuration page gives. */
-const SETTINGS = `version: 2\nrepository: your-name/your-repo\n${CODE_HOST_YAML}\n`;
+const SETTINGS = `version: 2\nrepository: ${REPOSITORY}\n${CODE_HOST_YAML}\n`;
 
 function run(cmd: string, args: string[], cwd: string): string {
   console.log(`$ ${[cmd, ...args].join(" ")}`);
@@ -91,6 +93,18 @@ try {
   const repo = join(dir, "scratch");
   mkdirSync(join(repo, ".claude"), { recursive: true });
   run("git", ["init", "-q"], repo);
+  // The remote the settings name, and its default branch, as a clone has
+  // them: the sync reads the default branch from that remote.
+  run(
+    "git",
+    ["remote", "add", "origin", `https://github.com/${REPOSITORY}`],
+    repo,
+  );
+  run(
+    "git",
+    ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+    repo,
+  );
   writeFileSync(join(repo, ".claude/factory.yaml"), SETTINGS);
 
   for (const args of [

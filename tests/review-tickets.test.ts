@@ -18,6 +18,7 @@ function review(pull: PullSeed, tickets: Seed[], strict = false) {
     out: () => {},
     readFile: () => "",
     git: () => "",
+    remote: async () => "origin",
     tickets: async () => ({ tickets: memory.tickets, own: !strict }),
   };
   const out: string[] = [];

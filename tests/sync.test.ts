@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { parse } from "yaml";
 import { resolveFiles, type Resolved } from "../src/config.mts";
+import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import {
   factoryHooks,
   hasAnyFactoryHook,
@@ -68,8 +69,12 @@ const FULL = {
   "auto-merge": { allow: ["docs/**"] },
 };
 
+const NO_REMOTE =
+  "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.";
+
 /** A sync of the made-up package into the repository, whose default branch
- * is `branch`, or cannot be told when that is null. */
+ * is `branch`, or cannot be told when that is null, for the reason the
+ * line NO_REMOTE gives. */
 async function sync(
   argv: string[] = [],
   s = settings(FULL),
@@ -83,7 +88,10 @@ async function sync(
     pkg,
     settings: () => resolved(s),
     stale: async () => null,
-    defaultBranch: async () => branch,
+    defaultBranch: async () => {
+      if (branch === null) throw new NoDefaultBranch(NO_REMOTE);
+      return branch;
+    },
     out: (l) => out.push(l),
     err: (l) => err.push(l),
     ...extra,
@@ -798,13 +806,11 @@ describe("factory sync: the default branch in the push trigger", () => {
     ]);
   });
 
-  it("writes nothing, names the fix, and exits 1 when it cannot tell the default branch", async () => {
+  it("writes nothing, prints the lookup's line, and exits 1 when it cannot tell the default branch", async () => {
     const r = await sync([], settings(), null);
 
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([
-      "Could not tell the default branch. Run: git remote set-head origin --auto",
-    ]);
+    expect(r.err).toEqual([NO_REMOTE]);
     expect(r.out).toEqual([]);
     expect(read(FACTORY_FILE)).toBeNull();
     expect(read("CLAUDE.md")).toBeNull();
@@ -816,9 +822,7 @@ describe("factory sync: the default branch in the push trigger", () => {
     const r = await sync(["--check"], settings(), null);
 
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([
-      "Could not tell the default branch. Run: git remote set-head origin --auto",
-    ]);
+    expect(r.err).toEqual([NO_REMOTE]);
   });
 
   it("quotes a name that YAML would not read as plain text", async () => {

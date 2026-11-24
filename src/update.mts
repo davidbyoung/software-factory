@@ -19,6 +19,12 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CodeHost } from "./code-host/types.mts";
 import { SETTINGS_FILE, type Settings } from "./config.mts";
+import {
+  branchDeps,
+  needDefaultBranch,
+  NoDefaultBranch,
+  repositoryRemote,
+} from "./lib/default-branch.mts";
 import { POLLER_FILE } from "./workflow-files.mts";
 
 /** One preset as the lock pins it. */
@@ -56,6 +62,8 @@ export type UpdateDeps = {
   sync: (version: string | null) => Promise<{ code: number; lines: string[] }>;
   git: (args: string[]) => string;
   defaultBranch: () => Promise<string>;
+  /** The name of the repository's remote in the checkout. */
+  remote: () => Promise<string>;
   pulls: {
     lastForBranch: CodeHost["lastForBranch"];
     create: CodeHost["create"];
@@ -240,17 +248,27 @@ const factoryBody = (d: Opening, unit: Unit) =>
     `Release notes: ${d.releaseNotes(unit.version!)}`,
   ].join("\n");
 
-/** Commits the working tree on the unit's branch, opens its pull request
- * into `base`, closes an older one for the same thing, and leaves the
- * checkout off the branch. */
-async function open(d: Opening, unit: Unit, base: string, body: string) {
+/** The default branch, and the repository's remote that has it. */
+type Base = { remote: string; branch: string };
+
+const baseOf = async (
+  d: Pick<UpdateDeps, "defaultBranch" | "remote">,
+): Promise<Base> => ({
+  branch: await d.defaultBranch(),
+  remote: await d.remote(),
+});
+
+/** Commits the working tree on the unit's branch, pushes it, opens its
+ * pull request into `base`, closes an older one for the same thing, and
+ * leaves the checkout off the branch. */
+async function open(d: Opening, unit: Unit, base: Base, body: string) {
   d.git(["add", "-A"]);
   d.git(["commit", "-m", unit.title]);
-  d.git(["push", "-u", "origin", unit.branch]);
+  d.git(["push", "-u", base.remote, unit.branch]);
   const number = await d.pulls.create({
     title: unit.title,
     head: unit.branch,
-    base,
+    base: base.branch,
     body,
     draft: false,
   });
@@ -261,7 +279,7 @@ async function open(d: Opening, unit: Unit, base: string, body: string) {
     await d.pulls.comment(pull.number, `Superseded by #${number}.`);
     await d.pulls.close(pull.number);
   }
-  d.git(["switch", "--detach", `origin/${base}`]);
+  d.git(["switch", "--detach", `${base.remote}/${base.branch}`]);
 }
 
 async function asPullRequests(d: UpdateDeps): Promise<number> {
@@ -271,19 +289,20 @@ async function asPullRequests(d: UpdateDeps): Promise<number> {
     if (!unread.length) d.out(nothing(d.own, version, d.presets.pins()));
     return 0;
   }
-  const base = await d.defaultBranch();
+  const base = await baseOf(d);
+  const ref = `${base.remote}/${base.branch}`;
   let fetched = false;
   for (const unit of units) {
     if (await openedBefore(d, unit)) continue;
-    if (!fetched) d.git(["fetch", "origin", base]);
+    if (!fetched) d.git(["fetch", base.remote, base.branch]);
     fetched = true;
     // Each from the default branch, so no update rides on another.
-    d.git(["switch", "-C", unit.branch, `origin/${base}`]);
+    d.git(["switch", "-C", unit.branch, ref]);
     if (unit.move) await d.presets.move(unit.move.names, unit.move.commit);
     const synced = await d.sync(unit.version);
     if (synced.code !== 0) return synced.code;
     const body = unit.move
-      ? (await d.presets.changes(`origin/${base}`)).join("\n")
+      ? (await d.presets.changes(ref)).join("\n")
       : factoryBody(d, unit);
     await open(d, unit, base, body);
   }
@@ -305,6 +324,10 @@ export async function main(argv: string[], d: UpdateDeps): Promise<number> {
       d.out(`✗ The newest release could not be read: ${e.message}`);
       return 1;
     }
+    if (e instanceof NoDefaultBranch) {
+      d.out(e.message);
+      return 1;
+    }
     throw e;
   }
 }
@@ -319,7 +342,7 @@ export function checkoutKind(
 }
 
 export type PollerDeps = Opening &
-  Pick<UpdateDeps, "newestRelease" | "defaultBranch"> & {
+  Pick<UpdateDeps, "newestRelease" | "defaultBranch" | "remote"> & {
     /** The text of the poller's file in the checkout. */
     read: () => string;
     write: (text: string) => void;
@@ -361,9 +384,9 @@ export async function updatePoller(
     return 0;
   }
   if (await openedBefore(d, unit)) return 0;
-  const base = await d.defaultBranch();
-  d.git(["fetch", "origin", base]);
-  d.git(["switch", "-C", unit.branch, `origin/${base}`]);
+  const base = await baseOf(d);
+  d.git(["fetch", base.remote, base.branch]);
+  d.git(["switch", "-C", unit.branch, `${base.remote}/${base.branch}`]);
   rewrite();
   await open(d, unit, base, factoryBody(d, unit));
   return 0;
@@ -409,8 +432,6 @@ export async function run(argv: string[]): Promise<number> {
   const { LOCK, PACKAGE, launcherPath } = await import("./sync.mts");
   const { DEFAULT_CODE_HOST, openCodeHost } =
     await import("./code-host/index.mts");
-  const { branchDeps, needDefaultBranch } =
-    await import("./lib/default-branch.mts");
   const root = repoRoot();
   const has = (path: string) => existsSync(join(root, path));
   const kind = checkoutKind(has);
@@ -436,6 +457,7 @@ export async function run(argv: string[]): Promise<number> {
         ...branchDeps(root),
         host: () => host.defaultBranch(),
       }),
+    remote: () => repositoryRemote(branchDeps(root)),
     pulls: host,
     releaseNotes: (version: string) => host.releasePage(home, `v${version}`),
     out: (line: string) => console.log(line),

@@ -17,7 +17,7 @@ import {
   checkCommit,
   ownLauncher,
 } from "../src/guard-commit.mts";
-import { CANNOT_TELL, type Sources } from "../src/lib/default-branch.mts";
+import { branchDeps } from "../src/lib/default-branch.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 
 const LAUNCHER = new URL("../bin/factory.js", import.meta.url).pathname;
@@ -182,7 +182,10 @@ describe("factory guard commit", () => {
         checkCommit(
           { cwd: feature, tool_input: { command: `git push origin ${to}` } },
           () => {},
-          async () => "rel.1",
+          (top) => ({
+            ...branchDeps(top, {}),
+            git: () => ({ ok: true, out: "origin/rel.1\n" }),
+          }),
         );
 
       expect(await push("relx1")).toBeNull();
@@ -202,31 +205,62 @@ describe("factory guard commit", () => {
   });
 
   // Whether a checkout has `.claude/factory.yaml` decides which sources the
-  // guard lets answer, and what it does when none does. The sources are
-  // stood in for here, so no test asks a code host.
+  // guard lets answer, and what it does when none does. The code host is
+  // stood in for here, so no test asks one.
   describe("when the default branch cannot be told", () => {
     let repo: string;
 
-    /** The guard on a commit in a new checkout on main, with settings or
-     * without, whose default branch is what `answer` gives. */
-    async function guarded(settings: boolean, answer: string | null) {
+    /** The guard on a commit in a new checkout on main, with settings that
+     * name o/r or without, and these remotes: each a name, an address, and
+     * the branch its HEAD names, if any. A workflow run's event names
+     * `event`, if any, and the code host answers `host`, or cannot be
+     * asked. */
+    async function guarded(o: {
+      settings: boolean;
+      remotes?: [name: string, address: string, head?: string][];
+      event?: string;
+      host?: string;
+    }) {
       repo = mkdtempSync(join(tmpdir(), "guard-git-branch-"));
+      const git = (...args: string[]) =>
+        execFileSync("git", args, { cwd: repo, stdio: "pipe" });
       execFileSync("git", ["init", "-q", "-b", "main", repo]);
-      if (settings) {
+      for (const [name, address, head] of o.remotes ?? []) {
+        git("remote", "add", name, address);
+        if (head)
+          git(
+            "symbolic-ref",
+            `refs/remotes/${name}/HEAD`,
+            `refs/remotes/${name}/${head}`,
+          );
+      }
+      if (o.settings) {
         mkdirSync(join(repo, ".claude"));
         writeFileSync(
           join(repo, ".claude/factory.yaml"),
           `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`,
         );
       }
-      const asked: [string, Sources][] = [];
+      const env: Record<string, string> = {};
+      if (o.event) {
+        env.GITHUB_EVENT_PATH = join(repo, "event.json");
+        writeFileSync(
+          env.GITHUB_EVENT_PATH,
+          JSON.stringify({ repository: { default_branch: o.event } }),
+        );
+      }
+      let asked = 0;
       const block = await checkCommit(
         { cwd: repo, tool_input: { command: "git commit -m x" } },
         () => {},
-        async (top, sources) => {
-          asked.push([top, sources]);
-          return answer;
-        },
+        (top) => ({
+          ...branchDeps(top, env),
+          host: async () => {
+            asked += 1;
+            if (o.host === undefined) throw new Error("no code host");
+            return o.host;
+          },
+        }),
       );
       return { block, asked };
     }
@@ -234,28 +268,65 @@ describe("factory guard commit", () => {
     afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
     it("blocks the git command, naming the fix, in a checkout that has the factory's settings", async () => {
-      const { block, asked } = await guarded(true, null);
+      const { block, asked } = await guarded({
+        settings: true,
+        remotes: [["origin", "https://github.com/o/r.git"]],
+      });
 
       expect(block).toBe(
         "Could not tell the default branch. Run: git remote set-head origin --auto",
       );
-      expect(block).toBe(CANNOT_TELL);
-      expect(asked).toEqual([[realpathSync(repo), "all"]]);
+      expect(asked).toBe(1);
     });
 
     it("lets the command through in a checkout without settings, having read origin/HEAD alone", async () => {
-      const { block, asked } = await guarded(false, null);
+      const { block, asked } = await guarded({
+        settings: false,
+        remotes: [["origin", "https://github.com/o/r.git"]],
+        event: "main",
+        host: "main",
+      });
 
       expect(block).toBeNull();
-      expect(asked).toEqual([[realpathSync(repo), "origin-head"]]);
+      expect(asked).toBe(0);
     });
 
     it("still blocks a commit on the default branch in a checkout without settings whose origin/HEAD names it", async () => {
-      const { block } = await guarded(false, "main");
+      const { block } = await guarded({
+        settings: false,
+        remotes: [["origin", "https://github.com/o/r.git", "main"]],
+      });
 
       expect(block).toBe(
         "main is checked out. Create a branch from origin/main first.",
       );
+    });
+
+    it("reads the default branch from the remote that is the settings' repository, and names that remote, whatever it is called", async () => {
+      const { block } = await guarded({
+        settings: true,
+        remotes: [
+          ["origin", "git@github.com:dev/r.git", "develop"],
+          ["upstream", "git@github.com:o/r.git", "main"],
+        ],
+      });
+
+      expect(block).toBe(
+        "main is checked out. Create a branch from upstream/main first.",
+      );
+    });
+
+    it("blocks the git command with the line that names the repository, where no remote is the settings' repository", async () => {
+      const { block, asked } = await guarded({
+        settings: true,
+        remotes: [["origin", "git@github.com:dev/r.git", "main"]],
+        host: "main",
+      });
+
+      expect(block).toBe(
+        "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. origin is dev/r. Add the remote, or change the line and run factory sync.",
+      );
+      expect(asked).toBe(0);
     });
 
     it("lets a commit through, through the hook, in a checkout with no settings and no origin/HEAD", () => {
@@ -403,12 +474,17 @@ describe("factory guard commit", () => {
 
     function withLoader(settings: string) {
       repo = mkdtempSync(join(tmpdir(), "guard-git-settings-"));
+      const git = (...args: string[]) =>
+        execFileSync("git", args, { cwd: repo });
       execFileSync("git", ["init", "-q", "-b", "feature", repo]);
-      // With no origin remote, the default branch is git's own: set here, so
-      // the machine's own setting does not decide it.
-      execFileSync("git", ["config", "init.defaultBranch", "main"], {
-        cwd: repo,
-      });
+      // The remote the settings' `repository` line names, whose default
+      // branch is main.
+      git("remote", "add", "origin", "https://github.com/o/r.git");
+      git(
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/main",
+      );
       writeSettings(repo, settings);
     }
     const ran = () =>
@@ -463,12 +539,22 @@ describe("factory guard commit", () => {
       expect(r.stderr).toContain("SECOND-RAN");
     });
 
-    it("blocks a commit on git's own default branch in a checkout with settings and no origin remote", () => {
+    it("blocks a commit on the default branch of the remote the settings name", () => {
       withLoader(prints());
       execFileSync("git", ["checkout", "-q", "-b", "main"], { cwd: repo });
       const r = hook("git commit -m x", repo);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain(MAIN_BLOCK);
+    });
+
+    it("blocks a commit with the line that names the repository, in a checkout whose settings name a repository no remote has", () => {
+      withLoader(prints());
+      execFileSync("git", ["remote", "remove", "origin"], { cwd: repo });
+      const r = hook("git commit -m x", repo);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain(
+        "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.",
+      );
     });
 
     it("blocks the commit when the settings cannot be read", () => {

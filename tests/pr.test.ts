@@ -48,6 +48,7 @@ function pr(
       if (args.join(" ") === "rev-parse HEAD") return "deadbeef\n";
       throw new Error(`git ${args.join(" ")} is not set`);
     },
+    remote: async () => "origin",
     tickets: async () => ({
       tickets: memoryTickets([], { strict: options.strict }).tickets,
       own: !options.strict,
@@ -1323,6 +1324,32 @@ describe("what the skills run in place of the code host's and the runner's own t
       await main(["uncovered"], d);
 
       expect(asked).toEqual(["diff -U0 origin/trunk...HEAD"]);
+    });
+
+    it("compares with the default branch on the repository's remote, whatever it is called", async () => {
+      const { d, asked } = uncovered(FILES, DIFF, "trunk");
+
+      await main(["uncovered"], { ...d, remote: async () => "upstream" });
+
+      expect(asked).toEqual(["diff -U0 upstream/trunk...HEAD"]);
+    });
+
+    it("prints why and exits 1 when the repository's remote cannot be told", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { d, asked } = uncovered(FILES);
+      const line =
+        "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.";
+
+      expect(
+        await main(["uncovered"], {
+          ...d,
+          remote: async () => {
+            throw new Error(line);
+          },
+        }),
+      ).toBe(1);
+      expect(error).toHaveBeenCalledWith(line);
+      expect(asked).toEqual([]);
     });
 
     it("reads the report from LCOV when it is given", async () => {

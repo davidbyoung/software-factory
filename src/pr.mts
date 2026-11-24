@@ -25,7 +25,8 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
-import { loadSettings, reachOf } from "./config.mts";
+import { loadSettings, reachOf, repoRoot } from "./config.mts";
+import { branchDeps, repositoryRemote } from "./lib/default-branch.mts";
 import { openTickets } from "./tickets/index.mts";
 import { ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
 import { readClock, writeClock } from "./lib/clock.mts";
@@ -57,6 +58,10 @@ export type Deps = {
   out: (line: string) => void;
   readFile: (path: string) => string;
   git: (args: string[]) => string;
+  /** The name of the repository's remote in the checkout, for the base
+   * `uncovered` compares with. It rejects with why when no remote is the
+   * repository's. */
+  remote: () => Promise<string>;
   /** Milliseconds, for how long `wait-checks` has waited. */
   now?: () => number;
   /** For GITHUB_ACTIONS, which says GraphQL is open without asking. */
@@ -695,7 +700,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
           );
           return 1;
         }
-        const from = base ?? `origin/${await p.defaultBranch()}`;
+        const from = base ?? `${await d.remote()}/${await p.defaultBranch()}`;
         const diff = d.git(["diff", "-U0", `${from}...HEAD`]);
         const source = (path: string) => {
           try {
@@ -788,6 +793,7 @@ export function prDeps(
         maxBuffer: 256 << 20,
         stdio: ["ignore", "pipe", "pipe"],
       }),
+    remote: () => repositoryRemote(branchDeps(repoRoot())),
     env: process.env,
     tickets: async () => {
       const settings = await loadSettings();

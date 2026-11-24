@@ -16,6 +16,7 @@ import {
   type PresetPin,
   type UpdateDeps,
 } from "../src/update.mts";
+import { NoRemote } from "../src/lib/default-branch.mts";
 import { TOOLS } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
 import { writeSettings } from "./locked.ts";
@@ -54,12 +55,16 @@ type Setup = {
   status?: string;
   /** The sync's exit code. */
   syncCode?: number;
+  /** The name of the repository's remote, origin unless given, or why it
+   * cannot be told. */
+  remote?: string | Error;
 };
 
 function update(o: Setup = {}) {
   const out: string[] = [];
   const calls: string[] = [];
   const bodies: string[] = [];
+  const compared: string[] = [];
   let next = 41;
   const d: UpdateDeps = {
     hasSettings: () => o.settings ?? true,
@@ -84,12 +89,15 @@ function update(o: Setup = {}) {
       move: async (names, commit) => {
         calls.push(`move ${names.join(",")} ${commit.slice(0, 7)}`);
       },
-      changes: async () => [
-        "acme/factory-config 3f2a91c → 8d04e7b",
-        "",
-        "Changes here:",
-        "- x",
-      ],
+      changes: async (ref) => {
+        compared.push(ref);
+        return [
+          "acme/factory-config 3f2a91c → 8d04e7b",
+          "",
+          "Changes here:",
+          "- x",
+        ];
+      },
     },
     sync: async (version) => {
       calls.push(`sync ${version ?? "as locked"}`);
@@ -107,6 +115,10 @@ function update(o: Setup = {}) {
       return args[0] === "status" ? (o.status ?? "") : "";
     },
     defaultBranch: async () => "main",
+    remote: async () => {
+      if (o.remote instanceof Error) throw o.remote;
+      return o.remote ?? "origin";
+    },
     pulls: {
       lastForBranch: async (branch) => o.branches?.[branch] ?? null,
       create: async (pull) => {
@@ -132,7 +144,13 @@ function update(o: Setup = {}) {
     releaseNotes: (version) => `https://example.com/releases/v${version}`,
     out: (line) => out.push(line),
   };
-  return { run: (argv: string[] = []) => main(argv, d), out, calls, bodies };
+  return {
+    run: (argv: string[] = []) => main(argv, d),
+    out,
+    calls,
+    bodies,
+    compared,
+  };
 }
 
 const TWO = [
@@ -321,6 +339,35 @@ describe("factory update --pull-requests", () => {
     ]);
   });
 
+  it("fetches from, branches from, compares with, and pushes to the repository's remote, whatever it is called", async () => {
+    const u = update({
+      pins: [TWO[0]!],
+      changed: ["acme/factory-config"],
+      remote: "upstream",
+    });
+    expect(await u.run(PR)).toBe(0);
+    expect(u.calls.filter((c) => /upstream|origin/.test(c))).toEqual([
+      "git fetch upstream main",
+      "git switch -C factory-update/factory-0.3.0 upstream/main",
+      "git push -u upstream factory-update/factory-0.3.0",
+      "git switch --detach upstream/main",
+      "git switch -C factory-update/acme-factory-config-8d04e7b upstream/main",
+      "git push -u upstream factory-update/acme-factory-config-8d04e7b",
+      "git switch --detach upstream/main",
+    ]);
+    expect(u.compared).toEqual(["upstream/main"]);
+  });
+
+  it("prints the line that names the repository, and opens nothing, when no remote is the settings' repository", async () => {
+    const line =
+      "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.";
+    const u = update({ remote: new NoRemote(line) });
+
+    expect(await u.run(PR)).toBe(1);
+    expect(u.out).toEqual([line]);
+    expect(u.calls).toEqual([]);
+  });
+
   it("describes the factory's by its versions, each file the sync changed but the lock, and the release's notes", async () => {
     const u = update({
       status:
@@ -414,6 +461,7 @@ describe("factory update, where an organization's poller is", () => {
       text?: string;
       last?: { number: number; state: "open" | "closed" | "merged" };
       open?: { number: number; branch: string }[];
+      remote?: string;
     } = {},
   ) {
     const out: string[] = [];
@@ -437,6 +485,7 @@ describe("factory update, where an organization's poller is", () => {
           : "";
       },
       defaultBranch: async () => "main",
+      remote: async () => o.remote ?? "origin",
       pulls: {
         lastForBranch: async (branch) =>
           branch === "factory-update/factory-0.5.0" ? (o.last ?? null) : null,
@@ -485,6 +534,18 @@ describe("factory update, where an organization's poller is", () => {
       expect(checkoutKind((path) => files.includes(path))).toBe(kind);
     },
   );
+
+  it("fetches from, branches from, and pushes to the remote it is given", async () => {
+    const u = poller({ remote: "upstream" });
+
+    expect(await u.run(PR)).toBe(0);
+    expect(u.calls.filter((c) => /upstream|origin/.test(c))).toEqual([
+      "git fetch upstream main",
+      "git switch -C factory-update/factory-0.5.0 upstream/main",
+      "git push -u upstream factory-update/factory-0.5.0",
+      "git switch --detach upstream/main",
+    ]);
+  });
 
   it("opens one pull request that rewrites the version after poller.yml@v, as an update of the factory does", async () => {
     const u = poller();
