@@ -49,6 +49,7 @@ import {
   main as ticketMain,
   readComments,
   ticketDeps,
+  type Deps as TicketDeps,
 } from "./ticket.mts";
 import { openTickets } from "./tickets/index.mts";
 
@@ -257,6 +258,20 @@ async function runTheSession(env: Env): Promise<number> {
   });
 }
 
+/** What a ticket command Publish runs needs, with the claim Prepare made on
+ * another machine, which a stop goes by. */
+export function publishTicketDeps(
+  run: Pick<RunFile, "ticket" | "claim">,
+): TicketDeps {
+  return {
+    ...ticketDeps(),
+    claimStore: {
+      read: (key) => (key === run.ticket ? run.claim : null),
+      write: () => {},
+    },
+  };
+}
+
 async function publishDeps(env: Env): Promise<PublishDeps> {
   const w = await world(env);
   const dir = folder(env);
@@ -269,7 +284,7 @@ async function publishDeps(env: Env): Promise<PublishDeps> {
     dir,
     ticket: (argv, readFile) =>
       ticketMain(argv, {
-        ...ticketDeps(),
+        ...publishTicketDeps(run),
         readFile,
         out: (l) => out(`  ${l}`),
       }),

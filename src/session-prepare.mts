@@ -18,6 +18,7 @@ import type { Kind } from "./handoff/requests.mts";
 import { ticketsOf } from "./lib/pull-tickets.mts";
 import { AGENT_MARK } from "./lib/work-status.mts";
 import type { Runner } from "./runner/index.mts";
+import { recordedTicket } from "./session-publish.mts";
 import type { Tickets } from "./tickets/types.mts";
 
 /** The marker a review's summary carries. */
@@ -206,7 +207,7 @@ async function ofPull(
     d.tickets,
     d.ownLinks,
   );
-  const key = closes[0] ?? partOf[0] ?? null;
+  const key = recordedTicket(pull.body) ?? closes[0] ?? partOf[0] ?? null;
   return {
     version: 1,
     kind,

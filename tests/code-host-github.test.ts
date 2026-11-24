@@ -1765,3 +1765,48 @@ describe("an organization, on GitHub", () => {
     );
   });
 });
+
+describe("the tickets a text closes when it is merged, on GitHub", () => {
+  const host = () =>
+    githubCodeHost({
+      transport: ghTransport(async () => ""),
+      repository: "acme/widgets",
+    });
+
+  it.each([
+    ["Closes #13", "#13"],
+    ["closed #13", "#13"],
+    ["close #13", "#13"],
+    ["fix #13", "#13"],
+    ["Fixes #13", "#13"],
+    ["fixed #13", "#13"],
+    ["resolve #13", "#13"],
+    ["Resolves #13", "#13"],
+    ["RESOLVED #13", "#13"],
+    ["Closes: #13", "#13"],
+    ["Closes GH-13", "#13"],
+    ["fixes acme/widgets#13", "#13"],
+    ["fixes Acme/Widgets#13", "#13"],
+    ["fixes other/thing#13", "other/thing#13"],
+    ["fixes https://github.com/acme/widgets/issues/13", "#13"],
+    ["fixes http://github.com/other/thing/issues/13", "other/thing#13"],
+    ["Closes [the bug](https://github.com/acme/widgets/issues/13)", "#13"],
+    ["**Closes** #13", "#13"],
+    ["Add a thing, closes #13", "#13"],
+  ])("%s", (text, ref) => {
+    expect(host().closesIn(text)).toEqual([ref]);
+  });
+
+  it("are none in a text that only names one, or has another word", () => {
+    expect(
+      host().closesIn("See #13. Encloses #14. Fixes the #15 case. part of #16"),
+    ).toEqual([]);
+  });
+
+  it("are each named once, in order", () => {
+    expect(host().closesIn("Fixes #2, closes #1, fixes #2")).toEqual([
+      "#2",
+      "#1",
+    ]);
+  });
+});

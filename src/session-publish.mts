@@ -13,6 +13,7 @@ import { basename, join } from "node:path";
 import type { CodeHost } from "./code-host/index.mts";
 import { checkBundle, type BundleAnswer } from "./handoff/bundle.mts";
 import type { RunFile } from "./handoff/index.mts";
+import { otherLinked } from "./handoff/links.mts";
 import {
   allow,
   readRequests,
@@ -39,6 +40,17 @@ export const CLOUD_MARK = "<!-- factory: cloud-build -->";
 
 /** Marks one the session left for its owner to mark ready. */
 export const OWNER_MARK = "<!-- factory: owner-marks-ready -->";
+
+/** Records the ticket a build's pull request is for, which no session can
+ * write either: the pull request's own links are the session's words. */
+export const ticketMark = (key: string) => `<!-- factory: ticket ${key} -->`;
+
+/** The ticket a build in the cloud recorded on its pull request. */
+export function recordedTicket(body: string): string | null {
+  if (!body.includes(CLOUD_MARK)) return null;
+  const marks = [...body.matchAll(/<!-- factory: ticket (\S+) -->/g)];
+  return marks.at(-1)?.[1] ?? null;
+}
 
 /** The answers a pull request gets, whatever asked for them. */
 export const ANSWERS = 4;
@@ -121,17 +133,13 @@ function checked(d: PublishDeps, clone: string): BundleAnswer {
   });
   if ("refused" in answer) return answer;
   for (const message of d.messages(clone, answer.tip)) {
-    const other = othersLinked(d, message);
+    const other = otherLinked(d, message);
     if (other)
-      return { refused: `a commit's message closes ${d.tickets.ref(other)}` };
+      return {
+        refused: `a commit's message links ${other}, which is not this run's`,
+      };
   }
   return answer;
-}
-
-/** A ticket the text links that is not this run's. */
-function othersLinked(d: PublishDeps, text: string): string | undefined {
-  const { closes, partOf } = d.tickets.linksIn(text);
-  return [...closes, ...partOf].find((key) => key !== d.run.ticket);
 }
 
 async function refuse(d: PublishDeps, why: string): Promise<number> {
@@ -165,17 +173,13 @@ async function openedBefore(d: PublishDeps): Promise<string[]> {
 async function open(d: PublishDeps, asked: Asked): Promise<number> {
   const at = (flag: string) => asked.argv[asked.argv.indexOf(flag) + 1];
   const body = asked.files[at("--body-file")];
-  const other = othersLinked(d, body);
-  if (other)
-    throw new Error(
-      `the pull request's body links ${d.tickets.ref(other)}, which is not this run's`,
-    );
   return d.codeHost.create({
     title: withoutMarkers(at("--title")),
     body: [
       body.trimEnd(),
       "",
       CLOUD_MARK,
+      ...(d.run.ticket === null ? [] : [ticketMark(d.run.ticket)]),
       ...(asked.argv.includes("--draft") ? [OWNER_MARK] : []),
       "",
     ].join("\n"),
@@ -249,11 +253,14 @@ export async function publish(d: PublishDeps): Promise<number> {
     // Found after the push, it would leave a branch with no pull request.
     for (const { argv, files } of asked) {
       if (argv[0] !== "pr" || argv[1] !== "open") continue;
-      const other = othersLinked(d, Object.values(files).join("\n"));
+      const other = otherLinked(
+        d,
+        [...argv, ...Object.values(files)].join("\n\n"),
+      );
       if (other)
         return refuse(
           d,
-          `the pull request's body links ${d.tickets.ref(other)}, which is not this run's`,
+          `the pull request links ${other}, which is not this run's`,
         );
     }
     const clone = d.clone();

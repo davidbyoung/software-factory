@@ -210,6 +210,10 @@ export type CodeHost = {
   /** The tickets the pull request closes when it merges, by the code
    * host's own links: only tickets the code host keeps itself. */
   closes(pull: number): Promise<Key[]>;
+  /** Every ticket the code host would close for this text in a pull request
+   * or a commit on the default branch, in any wording it acts on, as it
+   * writes them: `#12`, or `owner/repo#4` for another repository's. */
+  closesIn(text: string): string[];
 
   /** The open pull requests, as the views and the sync read them: with
    * their check state when `checks` is asked, and their comments, for the

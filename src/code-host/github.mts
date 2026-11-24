@@ -422,6 +422,28 @@ const requiredStatus = (check: string, source?: StatusSource) => ({
   ...(source === "runner" ? { integration_id: ACTIONS_APP } : {}),
 });
 
+// https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue
+const CLOSING = new RegExp(
+  String.raw`(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)` +
+    String.raw`[\s:*_~"'(<\[]{0,20}(?:\[?[^\]\n]{0,200}\]\()?` +
+    String.raw`(?:(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+\/[\w.-]+)\/(?:issues|pull)\/(\d+)` +
+    String.raw`|([\w.-]+\/[\w.-]+)#(\d+)|(?:#|gh-)(\d+))`,
+  "gi",
+);
+
+/** What `CodeHost.closesIn` gives for a text in `repository`. It reads more
+ * wordings than GitHub does, since a missed one closes a ticket. */
+export function githubClosesIn(text: string, repository: string): string[] {
+  const found = [...text.matchAll(CLOSING)].map((m) => {
+    const of = m[1] ?? m[3];
+    const number = m[2] ?? m[4] ?? m[5];
+    return !of || of.toLowerCase() === repository.toLowerCase()
+      ? `#${number}`
+      : `${of}#${number}`;
+  });
+  return [...new Set(found)];
+}
+
 export function githubCodeHost(o: {
   transport: Transport;
   repository: string;
@@ -806,6 +828,7 @@ export function githubCodeHost(o: {
       } while (after);
       return fromLinkingPages(pages, o.repository, skip);
     },
+    closesIn: (text) => githubClosesIn(text, o.repository),
     address: (n) => `https://github.com/${o.repository}/pull/${n}`,
     remote: (repository) => ({
       url: `https://github.com/${repository}.git`,

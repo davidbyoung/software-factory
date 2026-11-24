@@ -14,6 +14,7 @@ import type {
   Review,
   Thread,
 } from "../src/code-host/types.mts";
+import { githubClosesIn } from "../src/code-host/github.mts";
 import { NeedsScopeError, NoRulesError } from "../src/code-host/types.mts";
 import type { PullRequest } from "../src/lib/work-status.mts";
 import { HttpError } from "../src/tickets/transport.mts";
@@ -478,6 +479,7 @@ export function memoryCodeHost(
       called("commits", n);
       return get(n).commits.map((c) => ({ ...c }));
     },
+    closesIn: (text) => githubClosesIn(text, REPOSITORY),
     async closes(n) {
       called("closes", n);
       return [...get(n).closes];

@@ -1,7 +1,11 @@
 // What a cloud session's log shows of the agent: one line for each thing it
 // says and each tool it runs, then how it ended.
 import { describe, expect, it } from "vitest";
-import { isJob, shown } from "../src/session-jobs.mts";
+import { isJob, publishTicketDeps, shown } from "../src/session-jobs.mts";
+import { main as ticketMain, ticketDeps } from "../src/ticket.mts";
+import { fakeSettings } from "./fake-gh";
+import { memoryRunner } from "./memory-runner";
+import { memoryTickets } from "./memory-tickets";
 
 const line = (value: unknown) => shown(JSON.stringify(value));
 const said = (...content: object[]) =>
@@ -94,6 +98,40 @@ describe("what the log shows of the agent", () => {
     ["a message with no content", { type: "assistant", message: {} }],
   ])("shows nothing for %s", (_, value) => {
     expect(line(value)).toEqual([]);
+  });
+});
+
+describe("a ticket command Publish runs for a session", () => {
+  const run = (tickets: ReturnType<typeof memoryTickets>["tickets"]) => ({
+    settings: fakeSettings,
+    open: async () => ({ tickets }),
+    openPulls: async () => [],
+    startSync: async () => {},
+    runner: () => memoryRunner().runner,
+    env: { GITHUB_ACTIONS: "true", GITHUB_RUN_ID: "555" },
+    sleep: async () => {},
+  });
+
+  it("stops the ticket by the claim Prepare made, on another machine", async () => {
+    const { tickets, comments } = memoryTickets([{ key: "12" }]);
+    const said: string[] = [];
+    await ticketMain(["claim", "12"], {
+      ...ticketDeps(),
+      ...run(tickets),
+      claimStore: { read: () => null, write: () => {} },
+      out: () => {},
+    });
+    const claim = (await tickets.record.read("12"))[0].id;
+
+    const code = await ticketMain(["stop", "12", "needs ticket 40"], {
+      ...publishTicketDeps({ ticket: "12", claim }),
+      ...run(tickets),
+      out: (line) => said.push(line),
+    });
+
+    expect(said).toEqual(["released"]);
+    expect(code).toBe(0);
+    expect(comments("12").at(-1)!.body).toContain("needs ticket 40");
   });
 });
 

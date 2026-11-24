@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { replaying, type Call } from "../src/handoff/replay.mts";
 import { main as prMain } from "../src/pr.mts";
 import { prepare, type PrepareDeps } from "../src/session-prepare.mts";
+import { CLOUD_MARK, ticketMark } from "../src/session-publish.mts";
 import { memoryCodeHost, REPOSITORY, type PullSeed } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets, type Seed } from "./memory-tickets";
@@ -200,6 +201,27 @@ describe("a run on a pull request", () => {
     base: { sha: "0".repeat(40), branch: "trunk", repository: REPOSITORY },
     closes: ["12"],
     ...over,
+  });
+
+  it("works on the ticket its build recorded, whatever else it would close", async () => {
+    const sha = pushed("12-work");
+    const w = world({
+      pulls: [
+        pull(sha, {
+          closes: ["13"],
+          body: `Fixes #13\n\n${CLOUD_MARK}\n${ticketMark("12")}`,
+        }),
+      ],
+    });
+    expect((await prepare("answer", "31", w.d))!.ticket).toBe("12");
+  });
+
+  it("works on the ticket a person's pull request closes, whatever mark it has", async () => {
+    const sha = pushed("12-work");
+    const w = world({
+      pulls: [pull(sha, { closes: ["12"], body: ticketMark("13") })],
+    });
+    expect((await prepare("answer", "31", w.d))!.ticket).toBe("12");
   });
 
   it("is handed the pull request's commit and what its commands read", async () => {

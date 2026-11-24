@@ -208,26 +208,66 @@ describe("a build", () => {
     expect(await w.host.codeHost.listOpen()).toEqual([]);
   });
 
-  it("is not pushed when a commit's message closes another ticket", async () => {
-    commits("a.txt", "Add a file\n\nCloses #13");
-    asks(OPEN);
+  it.each(["Closes #13", "Fixes #13", "resolves: GH-13", "Part of #13"])(
+    "is not pushed when a commit's message says %s",
+    async (says) => {
+      commits("a.txt", `Add a file\n\n${says}`);
+      asks(OPEN);
+      const w = world();
+
+      expect(await publish(w.d)).toBe(1);
+      expect(w.pushed).toEqual([]);
+      expect((await w.tickets.tickets.read("12")).comments[0].body).toContain(
+        "Not pushed: a commit's message links #13, which is not this run's.",
+      );
+    },
+  );
+
+  it.each([
+    ["body", { files: { "p.md": "Fixes #13" } }],
+    [
+      "title",
+      {
+        argv: OPEN.argv.map((w) => (w === "Add a thing" ? "Fixes #13" : w)),
+      },
+    ],
+  ])(
+    "is not pushed when its pull request's %s would close another ticket",
+    async (_, over) => {
+      commits();
+      asks({ ...OPEN, ...over });
+      const w = world();
+
+      expect(await publish(w.d)).toBe(1);
+      expect(w.pushed).toEqual([]);
+      expect((await w.tickets.tickets.read("12")).comments[0].body).toContain(
+        "Not pushed: the pull request links #13, which is not this run's.",
+      );
+    },
+  );
+
+  it("is pushed when it says in other words that it closes its own ticket", async () => {
+    commits("a.txt", "Add a file\n\nFixes #12");
+    asks({ ...OPEN, files: { "p.md": "Resolves #12" } });
     const w = world();
 
-    expect(await publish(w.d)).toBe(1);
-    expect(w.pushed).toEqual([]);
+    expect(await publish(w.d)).toBe(0);
+    expect(w.pushed).toHaveLength(1);
   });
 
-  it("is not pushed when its pull request would close another ticket", async () => {
+  it("records its ticket on its pull request, where no session can write it", async () => {
     commits();
-    asks({ ...OPEN, files: { "p.md": "Closes #13" } });
+    asks({
+      ...OPEN,
+      files: { "p.md": "Closes #12\n<!-- factory: ticket 13 -->" },
+    });
     const w = world();
 
-    expect(await publish(w.d)).toBe(1);
-    expect(w.pushed).toEqual([]);
-    expect((await w.tickets.tickets.read("12")).comments[0].body).toContain(
-      "Not pushed: the pull request's body links #13, which is not this run's.",
-    );
-    expect(await w.host.codeHost.listOpen()).toEqual([]);
+    await publish(w.d);
+    const [{ body }] = await w.host.codeHost.listOpen();
+    expect(body.match(/<!-- factory: ticket \S+ -->/g)).toEqual([
+      "<!-- factory: ticket 12 -->",
+    ]);
   });
 });
 

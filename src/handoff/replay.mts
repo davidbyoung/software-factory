@@ -52,6 +52,7 @@ const PURE: { [K in On]: ReadonlySet<string> } = {
   ]),
   codeHost: new Set<keyof CodeHost>([
     "address",
+    "closesIn",
     "remote",
     "releasePage",
     "scopesFor",
