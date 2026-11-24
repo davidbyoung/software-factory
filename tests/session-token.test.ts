@@ -37,6 +37,7 @@ function world(
   let now = NOW;
   const slept: number[] = [];
   const tokens = [...(o.tokens ?? [ok({ token: "ghs_1" })])];
+  const handed: string[] = [];
   const refusals = [...(o.cli ?? [])];
   const asked: { url: string; auth: string | null; body: string | null }[] = [];
   const cli: { args: string[]; input: string | null }[] = [];
@@ -47,8 +48,12 @@ function world(
     if (url.endsWith("/repos/acme/web/installation"))
       return o.installation ?? ok({ id: 52811 });
     if (url.endsWith("/app")) return ok({ slug: "software-factory-for-acme" });
-    if (url.endsWith("/app/installations/52811/access_tokens"))
-      return tokens.shift() ?? ok({ token: "ghs_last" });
+    if (url.endsWith("/app/installations/52811/access_tokens")) {
+      const next = tokens.shift() ?? ok({ token: "ghs_last" });
+      const { token } = next.body as { token?: string };
+      if (token) handed.push(token);
+      return next;
+    }
     throw new Error(`unexpected call: ${url}`);
   };
   const w: World = {
@@ -93,9 +98,18 @@ function world(
     output: (line) => output.push(line),
     stopped: () => slept.length >= (o.sleeps ?? 0),
   };
-  /** Everything the command printed or handed to a later step. */
-  const said = () => [...out, ...err, ...output].join("\n");
-  return { w, slept, asked, cli, out, err, output, said };
+  /** Everything the command printed, handed to a later step, or gave the
+   * CLI as an argument. */
+  const shown = () =>
+    [...out, ...err, ...output, ...cli.flatMap((c) => c.args)].join("\n");
+  /** What must never be shown: each token GitHub handed out, a line of the
+   * key, and each token the app signed to say who it is. */
+  const secrets = () => [
+    ...handed,
+    KEY.split("\n")[2]!,
+    ...asked.map((call) => call.auth!.replace("Bearer ", "")),
+  ];
+  return { w, slept, asked, cli, out, err, output, shown, secrets };
 }
 
 /** The tokens the CLI was signed in with, in order. */
@@ -121,16 +135,6 @@ describe("factory session token", () => {
       "Signed the GitHub CLI and git in as software-factory-for-acme[bot].",
     ]);
     expect(t.slept).toEqual([]);
-  });
-
-  it("gives the token to the CLI on standard input alone, and prints neither it nor the key", async () => {
-    const t = world();
-
-    await main([], t.w);
-
-    expect(JSON.stringify(t.cli.map((c) => c.args))).not.toContain("ghs_1");
-    expect(t.said()).not.toContain("ghs_1");
-    expect(t.said()).not.toContain("PRIVATE KEY");
   });
 
   it("fails with the line that says who installs the app, and signs nobody in, where it is not installed", async () => {
@@ -227,20 +231,47 @@ describe("factory session token --keep", () => {
     ]);
     expect(signedIn(t.cli)).toEqual(["ghs_2", "ghs_3"]);
   });
+});
 
-  it("prints no token and no key, whether a renewal works or fails", async () => {
-    const t = world({
-      tokens: [ok({ token: "ghs_2" }), ok({ token: "ghs_3" })],
-      cli: ["gh auth login: connection reset"],
-      sleeps: 3,
-    });
+describe("what the command prints, hands to a later step, and gives the CLI as arguments", () => {
+  it.each<[string, string[], Parameters<typeof world>[0]]>([
+    ["signs in", [], {}],
+    [
+      "finds the app not installed",
+      [],
+      { installation: { status: 404, body: { message: "Not Found" } } },
+    ],
+    [
+      "is refused by GitHub",
+      [],
+      { installation: { status: 401, body: { message: "Bad credentials" } } },
+    ],
+    ["is refused by the CLI", [], { cli: ["gh auth login: refused"] }],
+    ["renews", ["--keep"], { tokens: [ok({ token: "ghs_2" })], sleeps: 2 }],
+    [
+      "fails to renew",
+      ["--keep"],
+      {
+        tokens: [
+          { status: 502, body: { message: "Bad Gateway" } },
+          ok({ token: "ghs_2" }),
+          ok({ token: "ghs_3" }),
+        ],
+        cli: ["gh auth login: connection reset"],
+        sleeps: 3,
+      },
+    ],
+  ])(
+    "holds no token, no line of the key, and no signature of the app's when it %s",
+    async (_, argv, o) => {
+      const t = world(o);
 
-    await main(["--keep"], t.w);
+      await main(argv, t.w);
 
-    expect(t.said()).not.toMatch(/ghs_|PRIVATE KEY/);
-    expect(JSON.stringify(t.cli.map((c) => c.args))).not.toContain("ghs_");
-    expect(t.output).toEqual([]);
-  });
+      expect(t.secrets().length).toBeGreaterThan(1);
+      for (const secret of t.secrets()) expect(t.shown()).not.toContain(secret);
+    },
+  );
 });
 
 // The command itself: with no key in its environment it stops before it

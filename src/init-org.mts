@@ -29,7 +29,7 @@ import {
 } from "./init-shared.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
-import { AGENT_KEY } from "./parts.mts";
+import { AGENT_KEY, APP_KEY } from "./parts.mts";
 import { PRESET_FILE } from "./preset.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { RULE, type SecretStep } from "./setup.mts";
@@ -48,9 +48,8 @@ export type InitOrgDeps = Terminal & {
   packageVersion: string;
 };
 
-/** The secret that holds the app's key, and the variable that holds its
- * client ID, which the workflows make a run's token from. */
-export const APP_KEY = "FACTORY_APP_PRIVATE_KEY";
+/** The variable that holds the app's client ID, which the workflows make a
+ * run's token from with the key in the secret `APP_KEY` names. */
 export const APP_CLIENT_ID = "FACTORY_APP_CLIENT_ID";
 /** The property a repository set up with the factory has `on`, and the
  * repository that holds the organization's preset and poller. */

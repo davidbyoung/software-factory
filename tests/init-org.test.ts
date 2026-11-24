@@ -2,7 +2,7 @@
 // the plan it shows, and what it does once told to go ahead, run against an
 // in-memory organization and ticket system with scripted answers. No test
 // reaches GitHub, opens a browser, or listens on a port.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   Installation,
   NewApp,
@@ -10,9 +10,16 @@ import type {
   OrganizationHost,
   OrganizationPlan,
 } from "../src/code-host/types.mts";
+import { spawnSync } from "node:child_process";
+import { once } from "node:events";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
+import { fileURLToPath } from "node:url";
 import { main, readLineFrom, type InitOrgDeps } from "../src/init-org.mts";
 import type { Ask } from "../src/init-shared.mts";
+import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
 import { scriptedAgent, withFakeAgent, withFakeTickets } from "./fake-tools";
@@ -21,6 +28,47 @@ import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
 
+/** While `on`, starting any command and asking for the repository's root
+ * both throw, and each attempt is recorded. */
+const forbidden = vi.hoisted(() => ({ on: false, tried: [] as string[] }));
+vi.mock("node:child_process", async (original) => {
+  const real = await original<typeof import("node:child_process")>();
+  const guarded = (name: keyof typeof real) =>
+    ((...args: unknown[]) => {
+      if (forbidden.on) {
+        forbidden.tried.push(`${name} ${String(args[0])}`);
+        throw new Error(`started a command: ${String(args[0])}`);
+      }
+      return (real[name] as (...a: unknown[]) => unknown)(...args);
+    }) as never;
+  return {
+    ...real,
+    exec: guarded("exec"),
+    execSync: guarded("execSync"),
+    execFile: guarded("execFile"),
+    execFileSync: guarded("execFileSync"),
+    spawn: guarded("spawn"),
+    spawnSync: guarded("spawnSync"),
+  };
+});
+vi.mock("../src/config.mts", async (original) => {
+  const real = await original<typeof import("../src/config.mts")>();
+  return {
+    ...real,
+    repoRoot: (...args: Parameters<typeof real.repoRoot>) => {
+      if (forbidden.on) {
+        forbidden.tried.push("repoRoot");
+        throw new Error("asked for the repository's root");
+      }
+      return real.repoRoot(...args);
+    },
+  };
+});
+
+const LAUNCHER = join(
+  dirname(dirname(fileURLToPath(import.meta.url))),
+  "bin/factory.js",
+);
 const ADDRESS = "https://github.com/acme";
 const KEY =
   "-----BEGIN RSA PRIVATE KEY-----\nthe key\n-----END RSA PRIVATE KEY-----";
@@ -112,8 +160,7 @@ type Seed = {
 };
 
 /** An organization kept in memory, which records every call in order. */
-function memoryOrganization(seed: Seed, name: string) {
-  const log: string[] = [];
+function memoryOrganization(seed: Seed, name: string, log: string[]) {
   const values = new Map<string, string>();
   const pastes: boolean[] = [];
   const called = <K extends keyof Organization>(op: K, ...args: unknown[]) => {
@@ -324,6 +371,29 @@ function setup(o: Setup = {}) {
     boards: o.boards ?? [],
     createRefused: o.createRefused,
   });
+  /** Every call to the organization and every write to a board, in the
+   * order they came. */
+  const log: string[] = [];
+  const board = tickets.tickets.board!;
+  const recorded: Tickets = {
+    ...tickets.tickets,
+    board: {
+      ...board,
+      create: async (title) => {
+        const number = await board.create!(title);
+        log.push(`createBoard ${title}`);
+        return number;
+      },
+      addColumns: async (number, columns) => {
+        log.push(`addColumns ${number}`);
+        return board.addColumns!(number, columns);
+      },
+      addFields: async (number, fields) => {
+        log.push(`addFields ${number}`);
+        return board.addFields!(number, fields);
+      },
+    },
+  };
   const organizations = new Map<
     string,
     ReturnType<typeof memoryOrganization>
@@ -336,7 +406,7 @@ function setup(o: Setup = {}) {
     addressOf: (owner) => `https://github.com/${owner}`,
     organization: (name) => {
       if (!organizations.has(name))
-        organizations.set(name, memoryOrganization(seed, name));
+        organizations.set(name, memoryOrganization(seed, name, log));
       return organizations.get(name)!.organization;
     },
   };
@@ -344,7 +414,7 @@ function setup(o: Setup = {}) {
     memoryTools({
       codeHost: memoryCodeHost([], { owner: "acme" }).codeHost,
       runner: memoryRunner().runner,
-      tickets: tickets.tickets,
+      tickets: recorded,
       agent: scriptedAgent([], { installed: o.agentInstalled ?? true }),
     }),
   );
@@ -382,10 +452,12 @@ function setup(o: Setup = {}) {
     tickets,
     /** The in-memory organization, once the command has asked for it. */
     org: (name = "acme") => organizations.get(name)!,
-    /** The names of the operations that changed the organization. */
-    changes: (name = "acme") =>
-      (organizations.get(name)?.log ?? []).filter((l) =>
-        /^(createRepository|putFiles|set|define|require|registerApp)/.test(l),
+    /** The operations that changed the organization or a board. */
+    changes: () =>
+      log.filter((l) =>
+        /^(createRepository|putFiles|set|define|require|registerApp|createBoard|add)/.test(
+          l,
+        ),
       ),
   };
 }
@@ -500,6 +572,79 @@ describe("factory init --org, what it refuses before it asks", () => {
     ).toEqual([
       "Could not reach the code host: gh api users/acme: run gh auth login",
     ]);
+  });
+});
+
+describe("factory init --org, outside any repository", () => {
+  const home = process.cwd();
+  const folders: string[] = [];
+  /** A new folder that is no git repository, as the working directory. */
+  const elsewhere = () => {
+    const folder = mkdtempSync(join(tmpdir(), "init-org-"));
+    folders.push(folder);
+    process.chdir(folder);
+    return folder;
+  };
+  afterEach(() => {
+    forbidden.on = false;
+    forbidden.tried.length = 0;
+    process.chdir(home);
+    for (const folder of folders.splice(0))
+      rmSync(folder, { recursive: true, force: true });
+  });
+
+  it("sets an organization up from a folder that is no repository, and reads no git remote or repository root", async () => {
+    elsewhere();
+    const s = setup({ answers: FIRST });
+    forbidden.on = true;
+    const status = await s.run();
+    forbidden.on = false;
+    expect(forbidden.tried).toEqual([]);
+    expect(status).toBe(0);
+    expect(s.out.at(-1)).toBe(
+      "A developer sets a repository up with: factory init",
+    );
+  });
+
+  it("starts from factory init with no repository to find, in a terminal", async () => {
+    elsewhere();
+    const printed: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((line) => {
+      printed.push(String(line));
+    });
+    const terminal = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
+    Object.defineProperty(process.stdin, "isTTY", {
+      value: true,
+      configurable: true,
+    });
+    forbidden.on = true;
+    try {
+      const { run } = await import("../src/init.mts");
+      // A word is refused before anything asks the code host.
+      expect(await run(["--org", "acme"])).toBe(1);
+    } finally {
+      forbidden.on = false;
+      if (terminal) Object.defineProperty(process.stdin, "isTTY", terminal);
+      else delete (process.stdin as { isTTY?: boolean }).isTTY;
+    }
+    expect(printed).toEqual([
+      "✗ Which code host is acme on? Give its address, such as https://github.com/acme.",
+      "Nothing changed.",
+    ]);
+    expect(forbidden.tried).toEqual([]);
+  });
+
+  it("says it needs a terminal when there is none, as factory init does, before it reads the address", () => {
+    const cwd = elsewhere();
+    const r = spawnSync("node", [LAUNCHER, "init", "--org", "acme"], {
+      cwd,
+      encoding: "utf8",
+      input: "",
+    });
+    expect(r.status).toBe(1);
+    expect(r.stdout).toBe(
+      "factory init asks its questions in a terminal: run it in one.\n",
+    );
   });
 });
 
@@ -630,11 +775,14 @@ describe("factory init --org, a first run", () => {
     expect(s.opened).toEqual([]);
   });
 
-  it("works in order: the board, factory-config, the app, the secrets, the rule", async () => {
+  it("works in order: the empty repository, the board, the repository's files, the app, the secrets, the rule", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
     expect(s.changes()).toEqual([
       "createRepository factory-config private",
+      "createBoard Software factory",
+      "addColumns 1",
+      "addFields 1",
       "putFiles factory-config README.md factory-preset.yaml .github/workflows/factory-poller.yml",
       "registerApp Software Factory for acme",
       "setSecret FACTORY_APP_PRIVATE_KEY",
@@ -643,8 +791,6 @@ describe("factory init --org, a first run", () => {
       "defineProperty software-factory on|off",
       "requireCheckWhere Software factory Review verdict software-factory=on runner",
     ]);
-    // The board is made before the preset that names it is written.
-    expect(s.tickets.boards.map((b) => b.title)).toEqual(["Software factory"]);
     expect(
       s.seed.repositories["factory-config"]!.files["factory-preset.yaml"],
     ).toContain("board: 1\n");
@@ -923,7 +1069,7 @@ describe("factory init --org, registering the app", () => {
     expect(s.out).toContain(
       '  app       Register the GitHub App "Software Factory for a-very-long-o", its name cut to the 34 characters GitHub allows, and install it',
     );
-    expect(s.changes("a-very-long-organization-name")).toContain(
+    expect(s.changes()).toContain(
       "registerApp Software Factory for a-very-long-o",
     );
   });
@@ -1059,13 +1205,11 @@ describe("the line read for a pasted address", () => {
   it("keeps waiting when the input ends with nothing typed", async () => {
     const input = new PassThrough();
     const stop = new AbortController();
-    let settled = false;
-    const line = readLineFrom(input)(stop.signal).finally(() => {
-      settled = true;
-    });
+    const line = readLineFrom(input)(stop.signal);
+    // The reader hears the end before this does, so by now it has closed.
+    const ended = once(input, "end");
     input.end();
-    await new Promise((done) => setImmediate(done));
-    expect(settled).toBe(false);
+    await ended;
     stop.abort();
     await expect(line).rejects.toThrow("stopped");
   });
@@ -1275,8 +1419,11 @@ describe("factory init --org, a step that fails", () => {
     expect(s.out).toContain(
       "  preset    Write README.md, factory-preset.yaml, and .github/workflows/factory-poller.yml in acme/factory-config",
     );
-    expect(s.changes()[0]).toBe(
+    expect(s.changes().slice(0, 4)).toEqual([
+      "createBoard Software factory",
+      "addColumns 1",
+      "addFields 1",
       "putFiles factory-config README.md factory-preset.yaml .github/workflows/factory-poller.yml",
-    );
+    ]);
   });
 });

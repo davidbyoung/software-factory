@@ -50,6 +50,8 @@ import {
   branchDeps,
   needDefaultBranch,
   NoDefaultBranch,
+  NoRemote,
+  noRemoteLine,
   remoteFor,
 } from "./lib/default-branch.mts";
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
@@ -231,6 +233,7 @@ const POLLER_IMAGE = "ghcr.io/davidbyoung/software-factory-poller";
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 const AGAIN = "Run factory init again to add it.";
 const NOTHING = "Nothing changed.";
+const NOTHING_ELSE = "Nothing else changed.";
 const NOTHING_TO_COMMIT = "Nothing to commit: the files already match.";
 const NOT_COMMITTED = "The files are written, and nothing is committed.";
 const USAGE = "Usage: factory init [--preset NAME]... [--org ADDRESS]";
@@ -351,15 +354,22 @@ export function presetArgs(argv: string[]): string[] | null {
 }
 
 /** The repository being set up, its code host, and the remote whose
- * address is the repository. */
-export type Where = { codeHost: string; repository: string; remote: string };
+ * address is the repository. With `url`, the checkout has no such remote
+ * yet: `remote` is the name it is to be added under, at that address. */
+export type Where = {
+  codeHost: string;
+  repository: string;
+  remote: string;
+  url?: string;
+};
 
 /** Which repository the checkout is for, from its remotes: the one
  * repository they name when it is no fork, and otherwise the one chosen
  * from them and from what each fork was made from. A repository chosen
- * that is no remote yet is added as one. An exit status when it stops. */
+ * that is no remote yet comes with the name and address to add it at. An
+ * exit status when it stops. The checkout is left as it was. */
 export async function whichRepository(
-  d: Pick<InitDeps, "remotes" | "tools" | "ask" | "out" | "git" | "forkOf">,
+  d: Pick<InitDeps, "remotes" | "tools" | "ask" | "out" | "forkOf">,
 ): Promise<Where | number> {
   const remotes = d.remotes();
   type Candidate = {
@@ -391,8 +401,13 @@ export async function whichRepository(
   for (const c of found)
     c.parent = await d.forkOf(c.codeHost, c.repository).catch(() => undefined);
   const only = found.length === 1 ? found[0]! : null;
-  if (only && only.parent === null)
-    return { ...only, remote: remoteName(only.remotes) };
+  const at = (c: Candidate, remote: string, url?: string): Where => ({
+    codeHost: c.codeHost,
+    repository: c.repository,
+    remote,
+    ...(url === undefined ? {} : { url }),
+  });
+  if (only && only.parent === null) return at(only, remoteName(only.remotes));
 
   // What a fork was made from is offered whether or not it is a remote.
   const parents: Candidate[] = [];
@@ -427,8 +442,7 @@ export async function whichRepository(
     })),
   );
   const chosen = offered.find((c) => c.repository === picked)!;
-  if (chosen.remotes.length)
-    return { ...chosen, remote: remoteName(chosen.remotes) };
+  if (chosen.remotes.length) return at(chosen, remoteName(chosen.remotes));
 
   const taken = remotes.map((r) => r.name);
   let name = "upstream";
@@ -436,25 +450,37 @@ export async function whichRepository(
   // The fork's own address with the repository swapped, so the new remote
   // is reached the same way, over SSH or HTTPS.
   const fork = found.find((c) => c.parent === chosen.repository)!;
-  const at = fork.remotes[0]!.url.lastIndexOf(fork.repository);
+  const start = fork.remotes[0]!.url.lastIndexOf(fork.repository);
   const swapped =
-    fork.remotes[0]!.url.slice(0, at) +
+    fork.remotes[0]!.url.slice(0, start) +
     chosen.repository +
-    fork.remotes[0]!.url.slice(at + fork.repository.length);
+    fork.remotes[0]!.url.slice(start + fork.repository.length);
   const url =
-    at >= 0 && parseRemote(swapped, d.tools)?.repository === chosen.repository
+    start >= 0 &&
+    parseRemote(swapped, d.tools)?.repository === chosen.repository
       ? swapped
       : d.tools.codeHost[chosen.codeHost]!.open(chosen.repository).remote(
           chosen.repository,
         ).url;
-  const added = d.git(["remote", "add", name, url]);
+  return at(chosen, name, url);
+}
+
+/** Adds the remote a repository chosen is to have, and says so, or says
+ * why git would not. Whether it was added. */
+export function addRemote(
+  d: Pick<InitDeps, "git" | "out">,
+  where: Where,
+): boolean {
+  const added = d.git(["remote", "add", where.remote, where.url!]);
   if (added.status !== 0) {
-    d.out(`✗ Could not add the remote ${name}: ${lastGitLine(added.stderr)}`);
+    d.out(
+      `✗ Could not add the remote ${where.remote}: ${lastGitLine(added.stderr)}`,
+    );
     d.out(NOTHING);
-    return 1;
+    return false;
   }
-  d.out(`Added the remote ${name}, ${chosen.repository}.`);
-  return { ...chosen, remote: name };
+  d.out(`Added the remote ${where.remote}, ${where.repository}.`);
+  return true;
 }
 
 /** The remote to use of several with one repository: `origin` when it is
@@ -820,16 +846,31 @@ export function organizationState(o: {
 }
 
 export async function main(argv: string[], deps: InitDeps): Promise<number> {
-  // Every line goes through here, so a blank line is put only between
-  // lines that were printed.
+  // Every line and every question goes through here, so a blank line is
+  // put only after a line or a question, and a stop says that nothing
+  // changed only while nothing has.
   let printed = 0;
   let last = "";
+  let changed = false;
+  const noted =
+    <A extends unknown[], R>(question: (...args: A) => Promise<R>) =>
+    (...args: A) => {
+      last = "?";
+      return question(...args);
+    };
   const d: InitDeps = {
     ...deps,
     out: (line) => {
       printed++;
       last = line;
-      deps.out(line);
+      deps.out(line === NOTHING && changed ? NOTHING_ELSE : line);
+    },
+    ask: {
+      checkbox: noted(deps.ask.checkbox),
+      select: noted(deps.ask.select),
+      confirm: noted(deps.ask.confirm),
+      secret: noted(deps.ask.secret),
+      input: noted(deps.ask.input),
     },
   };
   const gap = () => {
@@ -866,10 +907,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     }));
     const remote = remoteFor(line, remotes);
     if (remote === null) {
-      const origin = remotes.find((r) => r.name === "origin")?.repository;
-      d.out(
-        `✗ repository: ${SETTINGS_FILE} says ${line}, and no remote here is ${line}. ${origin ? `origin is ${origin}. ` : ""}Add the remote, or change the line and run factory sync.`,
-      );
+      d.out(noRemoteLine(line, remotes));
       return 1;
     }
     where = { codeHost, repository: line, remote };
@@ -938,7 +976,10 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     d.out(`Could not reach the code host: ${message(e)}`);
     return 1;
   }
-  const checkout = checkedOut(d, { repository, remote: where.remote, base });
+  // A remote that is yet to be added is read by its address: nothing in
+  // the checkout changes before setup is told to go ahead.
+  const reach = where.url ?? where.remote;
+  const checkout = checkedOut(d, { repository, remote: reach, base });
   if (typeof checkout === "number") return checkout;
 
   // A kind with one tool is that tool; with several, the settings' choice,
@@ -1165,6 +1206,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       });
       d.out(`It belongs to ${got.account}. Stored on this machine.`);
       fromMachine = got;
+      changed = true;
     }
     d.out("");
     try {
@@ -1178,14 +1220,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       return 0;
     }
     if (!(await d.ask.confirm("Change which parts are on?", false))) {
-      d.out("Nothing else changed.");
+      d.out(NOTHING);
       return 0;
     }
   }
 
   // The presets, pinned in files that are written only once told to go
   // ahead. A first run's settings start as the two lines every file has.
-  const beforePresets = printed;
   const followed = await followPresets(d, {
     owner,
     files:
@@ -1234,9 +1275,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       `  ${listed(organization.stored)}, which turn on builds in the cloud`,
     );
   if (notAsked.length) {
-    // A question leaves no line of its own behind it.
-    if (followed.asked && printed === beforePresets) d.out("");
-    else if (followed.added.length) gap();
+    gap();
     for (const l of notAsked) d.out(l);
     d.out("");
   }
@@ -1389,6 +1428,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       ...(chosenParts as Part[]),
       ...PARTS.filter((p) => before.has(p) && !offered.includes(p)),
     ]),
+    // In an organization's repository a part that is not offered reads a
+    // secret that is not there, and no token is asked for to turn it on.
+    (part) => !isOrganization || offered.includes(part),
   );
   const parts = resolved.parts;
   for (const note of resolved.notes) d.out(note);
@@ -1784,7 +1826,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     return 1;
   }
   const paths = [...new Set([...writes, ...syncs])];
-  const branch = paths.length ? freeBranch(d, where.remote) : null;
+  const branch = paths.length ? freeBranch(d, reach) : null;
   const toStore = [
     ...asked.flatMap((a) => a.names),
     ...(wantsKey ? [SIGNING_KEY] : []),
@@ -1792,6 +1834,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const planned: string[] = [];
   const planRow = (label: string, text: string) =>
     planned.push(`${label.padEnd(12)}  ${text}`);
+  if (where.url)
+    planRow("remote", `Add the remote ${where.remote}, ${repository}`);
   const reviewers = (await standing())?.plugins
     .filter((p) => p.kind === "agent" && /reviewer$/.test(p.role))
     .map((p) => p.name);
@@ -1863,13 +1907,15 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       "pull request",
       `Push the branch ${branch} and open a pull request`,
     );
-  d.out("");
+  gap();
   d.out("This is everything setup will do:");
   for (const l of planned) d.out(`  ${l}`);
   if (!(await d.ask.confirm("Go ahead?", false))) {
     d.out(NOTHING);
     return 0;
   }
+
+  if (where.url && !addRemote(d, where)) return 1;
 
   // The board first, since the settings name its number.
   if (parts.has("board") && boardOps && ownBoard) {
@@ -2126,10 +2172,12 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
           base,
           branch,
           paths: [
-            ...paths,
-            ...(installing && withNpm
-              ? ["package.json", "package-lock.json"]
-              : []),
+            ...new Set([
+              ...paths,
+              ...(installing && withNpm
+                ? ["package.json", "package-lock.json"]
+                : []),
+            ]),
           ],
           title:
             d.git(["cat-file", "-e", `${checkout.sha}:${SETTINGS_FILE}`])
@@ -2408,10 +2456,14 @@ export async function initDeps(
         readChoices: () => files.choices,
         readLock: () => files.lock,
       });
+      // A repository that is no remote yet has only the code host to ask.
       const branch = await needDefaultBranch({
         ...branchDeps(root),
         host,
         repository: async () => r.settings.repository,
+      }).catch((e) => {
+        if (e instanceof NoRemote) return host();
+        throw e;
       });
       return differences(root, await syncPlan(PACKAGE, root, r, branch));
     },

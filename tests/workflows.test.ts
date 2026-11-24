@@ -143,6 +143,25 @@ describe("what the three files are called with", () => {
 });
 
 const truthy = (v: unknown) => v !== "" && v !== false && v != null;
+/** A value as `==` compares it: text whatever its case. */
+const same = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : v);
+
+describe("the conditions of every job and step", () => {
+  it.each(["run.yml", "review.yml", "session.yml", "poller.yml"])(
+    "%s reads no secret in an `if`, where GitHub refuses one",
+    (name) => {
+      const conditions = Object.values(read(name).jobs).flatMap((job) => [
+        job.if,
+        ...(job.steps ?? []).map((s) => s.if),
+      ]);
+
+      expect(conditions.filter((c) => c !== undefined).length).toBeGreaterThan(
+        0,
+      );
+      expect(conditions.filter((c) => c?.includes("secrets."))).toEqual([]);
+    },
+  );
+});
 
 /** What a GitHub Actions expression comes to, evaluated as GitHub does for
  * what the workflows use: `==`, `!=`, `&&`, `||`, `!`, parentheses, text in
@@ -196,7 +215,7 @@ function valueOf(expression: string, context: Record<string, unknown>) {
     const left = primary();
     if (tokens[at] === "==" || tokens[at] === "!=") {
       const equal = next() === "==";
-      return (left === primary()) === equal;
+      return (same(left) === same(primary())) === equal;
     }
     return left;
   };
@@ -224,6 +243,12 @@ function valueOf(expression: string, context: Record<string, unknown>) {
 /** Whether an `if` with that expression holds. */
 const evaluate = (expression: string, context: Record<string, unknown>) =>
   truthy(valueOf(expression, context));
+
+/** How often a part of a workflow names the app's key other than to
+ * compare it with empty text, wherever in it: an `env`, a `with`, an `if`,
+ * or a script. */
+const keyUses = (part: unknown) =>
+  JSON.stringify(part).match(/secrets\.app-key(?! [!=]= '')/g)?.length ?? 0;
 
 /** The expression a value written as `${{ ... }}` holds. */
 const inside = (value: unknown) =>
@@ -283,6 +308,13 @@ describe("which job an event starts", () => {
     expect(evaluate("contains(format(' {0} ', list), ' tw ')", context)).toBe(
       false,
     );
+  });
+
+  it("compares text whatever its case, as GitHub does", () => {
+    const context = { github: { repository: "Acme/Site" } };
+    expect(evaluate("github.repository == 'acme/site'", context)).toBe(true);
+    expect(evaluate("github.repository != 'acme/site'", context)).toBe(false);
+    expect(evaluate("github.repository == 'acme/other'", context)).toBe(false);
   });
 
   it.each<[string, Record<string, unknown>, string[]]>([
@@ -1023,6 +1055,27 @@ describe("a token of the organization's app, where its key reaches the run", () 
     },
   );
 
+  it.each<[string, Workflow]>([
+    ["run.yml", run],
+    ["review.yml", review],
+    ["poller.yml", read("poller.yml")],
+  ])(
+    "%s hands the app's key to the step that makes the token, and to a session it calls, and only compares it anywhere else",
+    (_, file) => {
+      const given = Object.values(file.jobs)
+        .map((job) =>
+          job.uses
+            ? job.secrets?.["app-key"]
+            : job.steps!.find((s) => s.name === MAKE)?.with?.["private-key"],
+        )
+        .filter((value) => value !== undefined);
+
+      expect(given.length).toBeGreaterThan(0);
+      for (const value of given) expect(value).toBe("${{ secrets.app-key }}");
+      expect(keyUses(file)).toBe(given.length);
+    },
+  );
+
   it("asks the factory for the repositories only when the key and the client ID both reach the run", () => {
     const listed = (env: Record<string, string>) => {
       const { dir, calls } = sandbox({ factory: "echo web,factory-config" });
@@ -1266,15 +1319,8 @@ describe("a session under the organization's app, whose token lasts an hour", ()
   });
 
   it("hands the app's key to one step alone, and only compares it anywhere else", () => {
-    const held = sessionJob.steps!.flatMap((s) =>
-      Object.entries({ ...s.env, ...s.with })
-        .filter(([, value]) =>
-          /secrets\.app-key(?! [!=]= '')/.test(String(value)),
-        )
-        .map(([name]) => `${s.name}: ${name}`),
-    );
-
-    expect(held).toEqual([`${SIGN_IN}: FACTORY_APP_PRIVATE_KEY`]);
+    expect(keyUses(session)).toBe(1);
+    expect(keyUses(signIn.env)).toBe(1);
     expect(signIn.env).toEqual({
       FACTORY_APP_CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
       FACTORY_APP_PRIVATE_KEY: "${{ secrets.app-key }}",
@@ -1291,48 +1337,56 @@ describe("a session under the organization's app, whose token lasts an hour", ()
     expect(evaluate(signIn.if!, context({ app: false }))).toBe(false);
   });
 
-  it("signs in once in the foreground, then leaves the renewal running behind the steps that follow, its output in a file", () => {
-    const { dir, calls } = sandbox({
-      factory: [
-        'if [ "$3" = "--keep" ]; then',
-        '  cat "$RUNNER_TEMP/go" > /dev/null',
-        '  echo "renewing with ${FACTORY_APP_PRIVATE_KEY:+the key}"',
-        '  echo done > "$RUNNER_TEMP/done"',
-        "else",
-        '  echo "slug=software-factory-for-acme" >> "$GITHUB_OUTPUT"',
-        "fi",
-      ].join("\n"),
-    });
-    execFileSync("mkfifo", [join(dir, "go"), join(dir, "done")]);
+  // The fake renewal stays alive until the file `go` is there, and writes
+  // `done` as it ends, so the test sees it outlive the step without a FIFO
+  // that would block the test when the step starts none.
+  it(
+    "signs in once in the foreground, then leaves the renewal running behind the steps that follow, its output in a file",
+    { timeout: 30_000 },
+    async () => {
+      const { dir, calls } = sandbox({
+        factory: [
+          'if [ "$3" = "--keep" ]; then',
+          '  until [ -e "$RUNNER_TEMP/go" ]; do sleep 0.05; done',
+          '  echo "renewing with ${FACTORY_APP_PRIVATE_KEY:+the key}"',
+          '  touch "$RUNNER_TEMP/done"',
+          "else",
+          '  echo "slug=software-factory-for-acme" >> "$GITHUB_OUTPUT"',
+          "fi",
+        ].join("\n"),
+      });
+      const ended = () => existsSync(join(dir, "done"));
 
-    const r = spawnSync("bash", ["-eo", "pipefail", "-c", signIn.run!], {
-      cwd: dir,
-      env: {
-        PATH: `${join(dir, "bin")}:${process.env.PATH}`,
-        HOME: dir,
-        RUNNER_TEMP: dir,
-        GITHUB_OUTPUT: join(dir, "output"),
-        ...REACHES,
-      },
-      encoding: "utf8",
-      timeout: 20_000,
-    });
-    // The renewal waits for this, so it outlives the step's own shell.
-    writeFileSync(join(dir, "go"), "");
-    readFileSync(join(dir, "done"), "utf8");
+      const r = spawnSync("bash", ["-eo", "pipefail", "-c", signIn.run!], {
+        cwd: dir,
+        env: {
+          PATH: `${join(dir, "bin")}:${process.env.PATH}`,
+          HOME: dir,
+          RUNNER_TEMP: dir,
+          GITHUB_OUTPUT: join(dir, "output"),
+          ...REACHES,
+        },
+        encoding: "utf8",
+        timeout: 5_000,
+      });
+      const endedWithTheStep = ended();
+      writeFileSync(join(dir, "go"), "");
 
-    expect(r.status).toBe(0);
-    expect(calls()).toEqual([
-      "factory session token",
-      "factory session token --keep",
-    ]);
-    expect(readFileSync(join(dir, "output"), "utf8")).toBe(
-      "slug=software-factory-for-acme\n",
-    );
-    expect(readFileSync(join(dir, "factory-token.log"), "utf8")).toBe(
-      "renewing with the key\n",
-    );
-  });
+      expect(r.status).toBe(0);
+      expect(readFileSync(join(dir, "output"), "utf8")).toBe(
+        "slug=software-factory-for-acme\n",
+      );
+      expect(endedWithTheStep).toBe(false);
+      await expect.poll(ended, { timeout: 10_000 }).toBe(true);
+      expect(calls()).toEqual([
+        "factory session token",
+        "factory session token --keep",
+      ]);
+      expect(readFileSync(join(dir, "factory-token.log"), "utf8")).toBe(
+        "renewing with the key\n",
+      );
+    },
+  );
 
   it("fails the step, and leaves nothing running, when the first sign-in fails", () => {
     const { dir, calls } = sandbox({ factory: "exit 1" });
@@ -1360,6 +1414,17 @@ describe("a session under the organization's app, whose token lasts an hour", ()
       expect(valueOf(token, context({ app: false }))).toBe("a person's");
     },
   );
+
+  it("tells the session the app's slug, which a branch named after its user takes, and nothing without the app", () => {
+    const slug = inside(
+      step(sessionJob, "Run the session").env!.FACTORY_APP_SLUG,
+    );
+
+    expect(valueOf(slug, context({ app: true }))).toBe(
+      "software-factory-for-acme",
+    );
+    expect(valueOf(slug, context({ app: false }))).toBe("");
+  });
 
   it("makes no token that is made once, and gives no step but those a token of anyone's", () => {
     expect(JSON.stringify(sessionJob)).not.toContain("create-github-app-token");

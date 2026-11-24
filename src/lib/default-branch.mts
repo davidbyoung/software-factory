@@ -87,6 +87,13 @@ export function remoteFor(
   return names.includes("origin") ? "origin" : (names[0] ?? null);
 }
 
+/** The line for a checkout whose settings name a repository none of its
+ * remotes has, naming `origin`'s repository when there is an `origin`. */
+export function noRemoteLine(repository: string, remotes: Remote[]): string {
+  const origin = remotes.find((r) => r.name === "origin")?.repository;
+  return `✗ repository: .claude/factory.yaml says ${repository}, and no remote here is ${repository}. ${origin ? `origin is ${origin}. ` : ""}Add the remote, or change the line and run factory sync.`;
+}
+
 /** The checkout's remotes, each by the address it fetches from. */
 async function remotesOf(d: Deps): Promise<Remote[]> {
   const remotes: Remote[] = [];
@@ -106,10 +113,7 @@ export async function repositoryRemote(d: Deps): Promise<string> {
   const remotes = await remotesOf(d);
   const name = remoteFor(repository, remotes);
   if (name !== null) return name;
-  const origin = remotes.find((r) => r.name === "origin")?.repository;
-  throw new NoRemote(
-    `✗ repository: .claude/factory.yaml says ${repository}, and no remote here is ${repository}. ${origin ? `origin is ${origin}. ` : ""}Add the remote, or change the line and run factory sync.`,
-  );
+  throw new NoRemote(noRemoteLine(repository, remotes));
 }
 
 /** The default branch a workflow run's event names, or null outside a run

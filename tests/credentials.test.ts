@@ -12,6 +12,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import {
   credentialsPath,
   hasEntry,
@@ -155,7 +156,7 @@ describe("a person's own token, which only init reads", () => {
     ).toEqual({ state: "missing" });
   });
 
-  it("is filed as the ticket shows, by tool, then by host and owner", () => {
+  const fileBoth = () => {
     writeCredential({ ...TOKEN, values: { token: "ghp_x" }, env });
     writeCredential({
       tool: "claude-code",
@@ -163,17 +164,22 @@ describe("a person's own token, which only init reads", () => {
       values: { CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-x" },
       env,
     });
-    expect(readFileSync(credentialsPath(env), "utf8")).toContain(
-      [
-        "github:",
-        "  github.com/sam:",
-        "    token: ghp_x",
-        "claude-code:",
-        "  github.com/sam:",
-        "    CLAUDE_CODE_OAUTH_TOKEN: sk-ant-oat01-x",
-        "",
-      ].join("\n"),
-    );
+    return readFileSync(credentialsPath(env), "utf8");
+  };
+
+  it("is filed by tool, then by host and owner, then by its name", () => {
+    expect(parse(fileBoth())).toEqual({
+      github: { "github.com/sam": { token: "ghp_x" } },
+      "claude-code": {
+        "github.com/sam": { CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-x" },
+      },
+    });
+  });
+
+  it("is written one key to a line, for a person to read", () => {
+    const lines = fileBoth().split("\n");
+    expect(lines).toContain("github:");
+    expect(lines.filter((l) => /[{}]/.test(l))).toEqual([]);
   });
 });
 

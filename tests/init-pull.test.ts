@@ -3,13 +3,7 @@
 // lines when one of those fails, and the rule that requires the review's
 // verdict.
 import { describe, expect, it } from "vitest";
-import {
-  fileRows,
-  freeBranch,
-  openPull,
-  runGate,
-  type GitResult,
-} from "../src/init.mts";
+import { fileRows, openPull, runGate, type GitResult } from "../src/init.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 import { AGENT, GOOD, init, type Setup } from "./init-harness";
 
@@ -106,8 +100,7 @@ describe("factory init, the gate", () => {
   it("runs each gate command after the sync, and says they pass", async () => {
     const r = quick({ settings: GATED });
     expect(await r.run()).toBe(0);
-    expect(r.ran).toContainEqual(["gate", "npm run check"]);
-    expect(r.synced()).toBe(1);
+    expect(r.gates).toEqual([{ command: "npm run check", syncedBefore: 1 }]);
     const at = r.out.indexOf("✓ npm run check passes here.");
     expect(r.out.slice(at - 1, at + 3)).toEqual([
       "",
@@ -192,78 +185,67 @@ describe("factory init, the gate", () => {
 });
 
 describe("factory init, the branch and its commit", () => {
-  it("makes set-up-factory from the commit checked out, commits only the paths it and the sync wrote, and pushes to the repository's remote", async () => {
+  /** What git was asked after the name of a command it ran once. */
+  const ran = (r: ReturnType<typeof init>, command: string) => {
+    const calls = r.git.filter((args) => args[0] === command);
+    expect(calls).toHaveLength(1);
+    return calls[0]!.slice(1);
+  };
+
+  it("makes the branch set-up-factory from the commit checked out, moving to no other first", async () => {
     const r = quick();
     expect(await r.run()).toBe(0);
-    const paths = [
-      ".claude/factory.yaml",
-      ".claude/skills/factory-build/SKILL.md",
-    ];
-    const at = r.git.findIndex((args) => args[0] === "status");
-    expect(r.git.slice(at)).toEqual([
-      [
-        "status",
-        "--porcelain",
-        "-z",
-        "--no-renames",
-        "--untracked-files=all",
-        "--",
-        ...paths,
-      ],
-      ["switch", "--quiet", "-c", "set-up-factory"],
-      ["add", "--all", "--", ...paths],
-      [
-        "commit",
-        "--quiet",
-        "--message",
-        "Set up the software factory",
-        "--",
-        ...paths,
-      ],
-      ["push", "--quiet", "--set-upstream", "origin", "set-up-factory"],
-    ]);
-  });
-
-  it("commits only the paths git says changed", async () => {
-    const r = quick({
-      git: (args) =>
-        args[0] === "status"
-          ? { stdout: " M .claude/factory.yaml\0" }
-          : undefined,
-    });
-    await r.run();
-    expect(r.git.find((args) => args[0] === "add")).toEqual([
-      "add",
-      "--all",
-      "--",
-      ".claude/factory.yaml",
-    ]);
-  });
-
-  it("takes set-up-factory-2, and so on, when the name is taken here or on the remote", () => {
-    const taken = (here: string[], there: string[]) => (args: string[]) =>
-      ({
-        status:
-          args[0] === "show-ref"
-            ? here.includes(args.at(-1)!.replace("refs/heads/", ""))
-              ? 0
-              : 1
-            : there.includes(args.at(-1)!)
-              ? 0
-              : 2,
-        stdout: "",
-        stderr: "",
-      }) satisfies GitResult;
-    expect(freeBranch({ git: taken([], []) }, "origin")).toBe("set-up-factory");
-    expect(freeBranch({ git: taken(["set-up-factory"], []) }, "origin")).toBe(
-      "set-up-factory-2",
-    );
+    const made = ran(r, "switch");
+    expect(made).toContain("-c");
+    // The name comes last: a commit named after it would be where the
+    // branch starts.
+    expect(made.at(-1)).toBe("set-up-factory");
     expect(
-      freeBranch(
-        { git: taken(["set-up-factory"], ["set-up-factory-2"]) },
-        "origin",
+      commands(r.git).filter((c) =>
+        ["checkout", "reset", "merge", "rebase", "pull"].includes(c),
       ),
-    ).toBe("set-up-factory-3");
+    ).toEqual([]);
+  });
+
+  it("pushes the branch to the remote of the repository chosen, not to origin", async () => {
+    const r = init({
+      remotes: [
+        { name: "origin", url: "git@github.com:dev/web.git" },
+        { name: "upstream", url: "git@github.com:acme/web.git" },
+      ],
+      forks: { "dev/web": "acme/web" },
+      answers: { select: ["acme/web"], checkbox: [[]], confirm: [true] },
+    });
+    expect(await r.run()).toBe(0);
+    const pushed = ran(r, "push");
+    expect(pushed).toContain("upstream");
+    expect(pushed).toContain("set-up-factory");
+    expect(pushed).not.toContain("origin");
+  });
+
+  it("hands on the paths it wrote itself and the paths the sync would change, and no other", async () => {
+    const syncs = [
+      ".claude/skills/factory-build/SKILL.md",
+      ".github/workflows/factory.yml",
+      ".claude/factory.lock",
+    ];
+    const r = quick({
+      syncs,
+      packageJson: false,
+      answers: { checkbox: [[]], confirm: [true], specs: ["openspec"] },
+    });
+    expect(await r.run()).toBe(0);
+    const asked = ran(r, "status");
+    expect(asked.slice(asked.indexOf("--") + 1).sort()).toEqual(
+      [
+        ".claude/factory.yaml",
+        "package.json",
+        ".gitignore",
+        // What the spec tool's install writes.
+        "package-lock.json",
+        ...syncs,
+      ].sort(),
+    );
   });
 
   it("names the branch it will take in the plan, and makes that one", async () => {

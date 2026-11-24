@@ -1368,6 +1368,34 @@ describe("an organization, on GitHub", () => {
     expect(slept).toEqual([3000, 3000]);
   });
 
+  it("gives up on an installation that has not shown after 10 minutes", async () => {
+    let looks = 0;
+    let at = 0;
+    const { o } = org(
+      [
+        [
+          /orgs\/acme\/installations/,
+          () => {
+            looks++;
+            return { installations: [] };
+          },
+        ],
+      ],
+      {
+        clock: {
+          now: () => at,
+          sleep: async (ms) => {
+            at += ms;
+          },
+        },
+      },
+    );
+    expect(await o.awaitInstallation("Iv23client")).toBeNull();
+    expect(at).toBe(10 * 60 * 1000);
+    // One look at the start, and one after each 3 seconds.
+    expect(looks).toBe(201);
+  });
+
   it("counts an installation's repositories as the app, not as the signed-in account", async () => {
     const asked: string[] = [];
     const { o, calls } = org([], {

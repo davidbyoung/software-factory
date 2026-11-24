@@ -91,10 +91,12 @@ const NEEDS: { part: Part; needs: Part; parts: string; need: string }[] = [
 
 /** The parts chosen, with what one needs turned on alongside it, and a part
  * turned off when one it needs was just turned off. `before` is what was on,
- * so turning a needed part off wins over keeping the part that needs it. */
+ * so turning a needed part off wins over keeping the part that needs it. A
+ * needed part that cannot be turned on here is left off, with no note. */
 export function resolveParts(
   before: Set<Part>,
   chosen: Set<Part>,
+  available: (part: Part) => boolean = () => true,
 ): { parts: Set<Part>; notes: string[] } {
   const parts = new Set(chosen);
   const notes: string[] = [];
@@ -103,7 +105,7 @@ export function resolveParts(
     if (before.has(n.needs)) {
       parts.delete(n.part);
       notes.push(`${n.parts} need ${n.need}, so they are off too.`);
-    } else {
+    } else if (available(n.needs)) {
       parts.add(n.needs);
       notes.push(`${n.parts} need ${n.need}, so that is on too.`);
     }

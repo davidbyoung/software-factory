@@ -18,7 +18,8 @@
 import { appendFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { runToken, signIn } from "./code-host/index.mts";
-import { APP_CLIENT_ID, APP_KEY } from "./init-org.mts";
+import { APP_CLIENT_ID } from "./init-org.mts";
+import { APP_KEY } from "./parts.mts";
 import { gh, ghIn, type Gh, type GhIn } from "./lib/gh.mts";
 
 /** A token is renewed with a quarter of its hour left, and a renewal that

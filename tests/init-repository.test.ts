@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { githubForkOf } from "../src/code-host/github-setup.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
+import { scriptedAgent } from "./fake-tools";
 import { init, type Setup } from "./init-harness";
 
 const QUESTION = "select: Which repository are you setting up?";
@@ -148,21 +149,39 @@ describe("factory init, a repository chosen that is no remote yet", () => {
       answers: { select: ["acme/web"], checkbox: [[]], confirm: [true] },
       ...over,
     });
+  const ADDRESS = "git@github.com:acme/web.git";
+  const GO = "? confirm: Go ahead?";
+  const added = (r: ReturnType<typeof init>) =>
+    r.git.filter((args) => args[0] === "remote");
 
-  it("adds it as the remote upstream, at the fork's own kind of address, and says so before anything else", async () => {
+  it("plans adding it as the remote upstream, first", async () => {
+    const r = fork();
+    await r.run();
+    const at = r.out.indexOf("This is everything setup will do:");
+    expect(r.out[at + 1]).toBe(
+      "  remote        Add the remote upstream, acme/web",
+    );
+  });
+
+  it("adds it once told to go ahead, at the fork's own kind of address, before anything else, and says so", async () => {
     const r = fork();
     expect(await r.run()).toBe(0);
-    expect(r.git[0]).toEqual([
-      "remote",
-      "add",
-      "upstream",
-      "git@github.com:acme/web.git",
-    ]);
-    expect(r.out.slice(0, 2)).toEqual([
+    expect(added(r)).toEqual([["remote", "add", "upstream", ADDRESS]]);
+    expect(r.events.indexOf("git remote")).toBeGreaterThan(
+      r.events.indexOf(GO),
+    );
+    expect(r.transcript[r.transcript.indexOf(GO) + 1]).toBe(
       "Added the remote upstream, acme/web.",
-      FIRST_LINE("acme/web"),
-    ]);
-    expect(r.git).toContainEqual(["fetch", "--quiet", "upstream", "main"]);
+    );
+    expect(r.out[0]).toBe(FIRST_LINE("acme/web"));
+  });
+
+  it("pushes the setup's branch to the remote it added", async () => {
+    const r = fork();
+    await r.run();
+    const pushed = r.git.find((args) => args[0] === "push")!;
+    expect(pushed).toContain("upstream");
+    expect(pushed).not.toContain("origin");
   });
 
   it("names it upstream-2 when a remote is called upstream already", async () => {
@@ -173,27 +192,90 @@ describe("factory init, a repository chosen that is no remote yet", () => {
       ],
     });
     expect(await r.run()).toBe(0);
-    expect(r.git[0]).toEqual([
-      "remote",
-      "add",
-      "upstream-2",
-      "https://github.com/acme/web.git",
+    expect(added(r)).toEqual([
+      ["remote", "add", "upstream-2", "https://github.com/acme/web.git"],
     ]);
-    expect(r.out[0]).toBe("Added the remote upstream-2, acme/web.");
+    expect(r.out).toContain("Added the remote upstream-2, acme/web.");
   });
 
-  it("stops, changing nothing else, when git will not add the remote", async () => {
+  it("reads the default branch, and the branch names taken, from its address until then", async () => {
+    const r = fork();
+    await r.run();
+    expect(r.git).toContainEqual(["fetch", "--quiet", ADDRESS, "main"]);
+    const looked = r.git.filter((args) => args[0] === "ls-remote");
+    expect(looked.length).toBeGreaterThan(0);
+    for (const args of looked) expect(args).toContain(ADDRESS);
+    expect(r.events.indexOf("git fetch")).toBeLessThan(
+      r.events.indexOf("git remote"),
+    );
+  });
+
+  it("adds no remote when told not to go ahead, so nothing changed", async () => {
     const r = fork({
+      answers: { select: ["acme/web"], checkbox: [[]], confirm: [false] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out.at(-1)).toBe("Nothing changed.");
+    expect(added(r)).toEqual([]);
+  });
+
+  it("adds no remote before it stops for a coding agent that is not installed", async () => {
+    const r = fork({
+      agent: scriptedAgent([], { installed: false }),
+      answers: { select: ["acme/web"] },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      FIRST_LINE("acme/web"),
+      "",
+      "The factory runs in a coding agent, and Claude Code is not installed.",
+      "Install it and run factory init again.",
+      "Nothing changed.",
+    ]);
+    expect(added(r)).toEqual([]);
+  });
+
+  it("adds no remote before it stops for a checkout ahead of the default branch", async () => {
+    const r = fork({
+      answers: { select: ["acme/web"] },
+      git: (args) => (args[0] === "rev-list" ? { stdout: "1\n" } : undefined),
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out.at(-1)).toBe("Nothing changed.");
+    expect(added(r)).toEqual([]);
+  });
+
+  it("adds no remote before it stops for a preset that is refused", async () => {
+    const r = fork({
+      argv: ["--preset", "acme/none"],
+      answers: { select: ["acme/web"] },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out.at(-1)).toBe("Nothing changed.");
+    expect(added(r)).toEqual([]);
+  });
+
+  it("stops, having changed nothing, when git will not add the remote", async () => {
+    const r = fork({
+      boards: [],
+      answers: {
+        select: ["acme/web", "new"],
+        checkbox: [["board"]],
+        confirm: [true],
+      },
       git: (args) =>
         args[0] === "remote"
           ? { status: 3, stderr: "error: remote upstream already exists.\n" }
           : undefined,
     });
     expect(await r.run()).toBe(1);
-    expect(r.out).toEqual([
+    expect(r.out.slice(-2)).toEqual([
       "✗ Could not add the remote upstream: error: remote upstream already exists.",
       "Nothing changed.",
     ]);
+    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.tickets.boards).toEqual([]);
+    expect(r.synced()).toBe(0);
   });
 });
 
@@ -231,8 +313,12 @@ describe("factory init, a checkout that cannot hold the setup's commit", () => {
   it("fetches the default branch from the repository's remote before its first question", async () => {
     const r = quick({ defaultBranch: "trunk" });
     await r.run();
-    expect(r.git[0]).toEqual(["fetch", "--quiet", "origin", "trunk"]);
-    expect(r.git[2]).toEqual(["rev-list", "--count", "base000..HEAD"]);
+    expect(r.git).toContainEqual(["fetch", "--quiet", "origin", "trunk"]);
+    expect(r.git).toContainEqual(["rev-list", "--count", "base000..HEAD"]);
+    const firstQuestion = r.events.findIndex((e) => e.startsWith("? "));
+    expect(firstQuestion).toBeGreaterThan(-1);
+    expect(r.events.indexOf("git fetch")).toBeLessThan(firstQuestion);
+    expect(r.events.indexOf("git rev-list")).toBeLessThan(firstQuestion);
   });
 
   it("stops, naming the branch, when the commit checked out has commits the default branch lacks", async () => {
@@ -284,7 +370,10 @@ describe("factory init, a checkout that cannot hold the setup's commit", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.asked).toEqual([QUESTION]);
-    expect(r.git[0]).toEqual(["fetch", "--quiet", "upstream", "main"]);
+    expect(r.git).toContainEqual(["fetch", "--quiet", "upstream", "main"]);
+    expect(r.events.indexOf(`? ${QUESTION}`)).toBeLessThan(
+      r.events.indexOf("git fetch"),
+    );
   });
 
   it("stops with git's reason when the default branch cannot be fetched", async () => {

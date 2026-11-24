@@ -302,9 +302,14 @@ export function init(setup: Setup) {
   const out: string[] = [];
   /** Every line printed and every question asked, in the order they came. */
   const transcript: string[] = [];
+  /** Each question asked and each git command run, as `git fetch`, in the
+   * order they came. */
+  const events: string[] = [];
   const ran: string[][] = [];
   const opened: string[] = [];
   let synced = 0;
+  /** Each gate command init ran, and the sync count when it ran. */
+  const gates: { command: string; syncedBefore: number }[] = [];
   const {
     ask,
     asked,
@@ -315,7 +320,10 @@ export function init(setup: Setup) {
     fallbacks,
     queue,
     specChoices,
-  } = scripted(setup.answers, (line) => transcript.push(line));
+  } = scripted(setup.answers, (line) => {
+    transcript.push(line);
+    events.push(line);
+  });
   /** Each install init ran, and the sync count when it ran. */
   const installs: {
     argv: string[];
@@ -416,6 +424,7 @@ export function init(setup: Setup) {
     },
     git: (args) => {
       git.push(args);
+      events.push(`git ${args[0]}`);
       return {
         status: 0,
         stdout: "",
@@ -431,6 +440,7 @@ export function init(setup: Setup) {
     },
     gate: async (command) => {
       ran.push(["gate", command]);
+      gates.push({ command, syncedBefore: synced });
       return setup.gate?.[command] ?? { status: 0, output: "" };
     },
     presets: {
@@ -548,9 +558,11 @@ export function init(setup: Setup) {
     queue,
     specChoices,
     installs,
+    gates,
     ran,
     opened,
     git,
+    events,
     remotesRead: () => remotesRead,
     forksAsked,
     looked,

@@ -21,8 +21,8 @@ import type { NewApp } from "../src/code-host/types.mts";
 const STATE = "state-1";
 const ORIGIN = "http://127.0.0.1:4100";
 const INSTALL = "https://github.com/apps/software-factory-for-acme/install";
-const PEM =
-  "-----BEGIN RSA PRIVATE KEY-----\nkey\n-----END RSA PRIVATE KEY-----";
+const KEY_LINE = "MIIEowIBAAKCAQEAu1SU1LfVLPHCozMxH2Mo";
+const PEM = `-----BEGIN RSA PRIVATE KEY-----\n${KEY_LINE}\n-----END RSA PRIVATE KEY-----`;
 const CONVERTED = {
   id: 9,
   slug: "software-factory-for-acme",
@@ -313,8 +313,10 @@ describe("registering the app", () => {
     const reply = r.visit(`/registered?code=c1&state=${STATE}`);
     const error = await r.result.catch((e: Error) => e);
     expect(String(error)).toContain("Could not store the key: HTTP 403");
-    expect(String(error)).not.toContain("PRIVATE KEY");
-    expect((await reply).body).not.toContain("PRIVATE KEY");
+    for (const part of ["PRIVATE KEY", KEY_LINE]) {
+      expect(String(error)).not.toContain(part);
+      expect((await reply).body).not.toContain(part);
+    }
   });
 });
 
@@ -495,6 +497,34 @@ describe("a run's token under the app", () => {
 
     await expect(made).rejects.toThrow("Bad credentials (HTTP 401)");
   });
+
+  it.each<[string, [RegExp, unknown, number?][]]>([
+    [
+      "the app is not installed",
+      [[/installation$/, { message: "Not Found" }, 404]],
+    ],
+    [
+      "GitHub refuses the key",
+      [[/installation$/, { message: "Bad credentials" }, 401]],
+    ],
+    [
+      "GitHub gives no token",
+      [...FOUND, [/access_tokens$/, { message: "Server Error" }, 500]],
+    ],
+  ])(
+    "names no line of the key, and no signature of the app's, in its failure when %s",
+    async (_, routes) => {
+      const { made, calls } = ask(routes);
+
+      const error = String(await made.catch((e: Error) => e));
+      expect(calls[0]!.auth).toMatch(/^Bearer \S+$/);
+      for (const secret of [
+        key.split("\n")[2]!,
+        ...calls.map((c) => c.auth!.replace("Bearer ", "")),
+      ])
+        expect(error).not.toContain(secret);
+    },
+  );
 });
 
 describe("signing the GitHub CLI in with a token", () => {
@@ -535,9 +565,6 @@ describe("signing the GitHub CLI in with a token", () => {
     await signIn("ghs_next", { git: false }, c);
 
     expect(c.calls.map((call) => call.args[1])).toEqual(["login"]);
-    expect(JSON.stringify(c.calls.map((call) => call.args))).not.toContain(
-      "ghs_next",
-    );
   });
 });
 

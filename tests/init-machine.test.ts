@@ -9,8 +9,8 @@ import {
   readCredential,
   writeCredential,
 } from "../src/lib/credentials.mts";
-import { APP_KEY as ORGANIZATION_KEY } from "../src/init-org.mts";
-import { APP_KEY } from "../src/parts.mts";
+import { FAKE_EMAIL, FAKE_TOKEN, withFakeTickets } from "./fake-tools";
+import { CODE_HOST_YAML } from "./settings-fixture";
 import {
   AGENT,
   GOOD,
@@ -298,8 +298,90 @@ describe("factory init, a token on this machine that no longer serves", () => {
   });
 });
 
-describe("the key of an organization's app", () => {
-  it("has one name, in the parts and in the organization's setup", () => {
-    expect(APP_KEY).toBe(ORGANIZATION_KEY);
+describe("factory init, a stop after it stored a credential on this machine", () => {
+  const SITE_ADDRESS = "acme.example";
+  const again = (confirm: boolean[]) =>
+    init({
+      tools: (b, t) => withFakeTickets(b, t, true, { credential: true }),
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE_ADDRESS}\nspecs: none\n`,
+      secrets: { [FAKE_EMAIL]: "ci@acme.example", [FAKE_TOKEN]: "ci" },
+      answers: {
+        input: ["dana@acme.example"],
+        secret: ["t0k3n-dana"],
+        checkbox: [[]],
+        confirm,
+      },
+    });
+  const kept = (r: ReturnType<typeof init>) =>
+    readCredential({
+      tool: "fake",
+      site: SITE_ADDRESS,
+      names: [FAKE_EMAIL, FAKE_TOKEN],
+      env: r.env,
+    }).state;
+
+  it("says nothing else changed when told not to go ahead, since the credential is stored", async () => {
+    // Change the parts: yes. Replace the secrets: no. Go ahead: no.
+    const r = again([true, false, false]);
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain("It belongs to Fake User. Stored on this machine.");
+    expect(kept(r)).toBe("found");
+    expect(r.out.at(-1)).toBe("Nothing else changed.");
+    expect(r.out).not.toContain("Nothing changed.");
+  });
+
+  it("says nothing changed when the credential was left empty and the parts are left as they are", async () => {
+    const r = init({
+      tools: (b, t) => withFakeTickets(b, t, true, { credential: true }),
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE_ADDRESS}\nspecs: none\n`,
+      secrets: { [FAKE_EMAIL]: "ci@acme.example", [FAKE_TOKEN]: "ci" },
+      answers: { input: [""], confirm: [false] },
+    });
+    expect(await r.run()).toBe(0);
+    expect(kept(r)).toBe("missing");
+    expect(r.out.at(-1)).toBe("Nothing changed.");
+  });
+
+  it("says nothing else changed there once the credential is stored", async () => {
+    const r = again([false]);
+    expect(await r.run()).toBe(0);
+    expect(kept(r)).toBe("found");
+    expect(r.out.at(-1)).toBe("Nothing else changed.");
+  });
+
+  it("says nothing else changed when a later stop is a preset that is refused", async () => {
+    const r = init({
+      argv: ["--preset", "acme/none"],
+      tools: (b, t) => withFakeTickets(b, t, true, { credential: true }),
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE_ADDRESS}\nspecs: none\n`,
+      secrets: { [FAKE_EMAIL]: "ci@acme.example", [FAKE_TOKEN]: "ci" },
+      answers: {
+        input: ["dana@acme.example"],
+        secret: ["t0k3n-dana"],
+        confirm: [true],
+      },
+    });
+    expect(await r.run()).toBe(1);
+    expect(kept(r)).toBe("found");
+    expect(r.out.slice(-2)).toEqual([
+      "acme/none: not found, or private.",
+      "Nothing else changed.",
+    ]);
+  });
+
+  it("says nothing changed when the credential was left empty, so none was stored", async () => {
+    const r = init({
+      tools: (b, t) => withFakeTickets(b, t, true, { credential: true }),
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE_ADDRESS}\nspecs: none\n`,
+      secrets: { [FAKE_EMAIL]: "ci@acme.example", [FAKE_TOKEN]: "ci" },
+      answers: {
+        input: [""],
+        checkbox: [[]],
+        confirm: [true, false, false],
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(kept(r)).toBe("missing");
+    expect(r.out.at(-1)).toBe("Nothing changed.");
   });
 });

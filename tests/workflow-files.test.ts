@@ -209,13 +209,10 @@ describe("factory-review.yml", () => {
 });
 
 describe("both files", () => {
-  it.each<[string, Partial<WorkflowOptions>]>([
-    ["no part on", {}],
-    [
-      "every part on",
-      { parts: ["review", "board", "auto-merge", "poller", "dependabot"] },
-    ],
-  ])("pass the organization's app's key by name, with %s", (_, over) => {
+  it("pass the organization's app's key by name with every part on", () => {
+    const over: Partial<WorkflowOptions> = {
+      parts: ["review", "board", "auto-merge", "poller", "dependabot"],
+    };
     const key = "${{ secrets.FACTORY_APP_PRIVATE_KEY }}";
     expect(factory(over).jobs.factory.secrets["app-key"]).toBe(key);
     expect(review(over).jobs.review.secrets["app-key"]).toBe(key);

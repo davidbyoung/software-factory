@@ -137,6 +137,105 @@ describe("factory init, in an organization's repository that is set up", () => {
     expect(state(ID, [KEY])).toEqual({ setUp: false, stored: [] });
   });
 
+  describe("the secrets stored for the organization", () => {
+    const HEADING = "Stored for acme, so not asked";
+    const block = (out: string[]) =>
+      out.slice(out.indexOf(HEADING), out.indexOf(HEADING) + 3);
+
+    it("are named under their own heading, after what the presets answer", async () => {
+      const r = dev();
+      await r.run();
+      expect(block(r.out)).toEqual([
+        HEADING,
+        "  CLAUDE_CODE_OAUTH_TOKEN and FACTORY_APP_PRIVATE_KEY, which turn on builds in the cloud",
+        "",
+      ]);
+      expect(r.out.indexOf(HEADING)).toBeGreaterThan(
+        r.out.indexOf("From the presets, so not asked"),
+      );
+    });
+
+    it("name the coding agent's credential that reaches the repository, whichever it is", async () => {
+      const r = dev({
+        organizationSecrets: ["ANTHROPIC_API_KEY", "FACTORY_APP_PRIVATE_KEY"],
+      });
+      await r.run();
+      expect(block(r.out)[1]).toBe(
+        "  ANTHROPIC_API_KEY and FACTORY_APP_PRIVATE_KEY, which turn on builds in the cloud",
+      );
+    });
+
+    it("are named with no preset to answer anything, before the first question", async () => {
+      const r = init({
+        ...SET_UP,
+        answers: { checkbox: [[]], confirm: [true] },
+      });
+      await r.run();
+      const at = r.transcript.indexOf(HEADING);
+      expect(at).toBeGreaterThan(-1);
+      expect(r.transcript.findIndex((l) => l.startsWith("? "))).toBeGreaterThan(
+        at,
+      );
+      expect(r.out.join("\n")).not.toContain("From the presets");
+    });
+
+    it("are not named in a person's repository, whatever secrets it has", async () => {
+      const r = init({
+        remote: "git@github.com:sam/api.git",
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_APP_PRIVATE_KEY: "x" },
+        answers: { checkbox: [[]], confirm: [false, false] },
+      });
+      await r.run();
+      expect(r.out.join("\n")).not.toContain("so not asked");
+    });
+  });
+
+  describe("the parts the presets turn on", () => {
+    const row = (out: string[]) => out.find((l) => l.startsWith("  Parts "));
+    const one = (settings: Record<string, unknown>) =>
+      init({
+        ...SET_UP,
+        argv: ["--preset", "acme/one"],
+        presets: { "acme/one": { settings } },
+        answers: { checkbox: [[]], confirm: [false] },
+      });
+
+    it("are named in one row: a board, the review, and builds that start from the board", async () => {
+      const r = dev();
+      await r.run();
+      expect(row(r.out)).toBe(
+        "  Parts            a board, the review, and builds that start from the board",
+      );
+    });
+
+    it("name only the review when that is all a preset turns on, and offer the rest", async () => {
+      const r = one({ "pr-review": { commands: [] } });
+      await r.run();
+      expect(row(r.out)).toBe("  Parts            the review");
+      expect(r.checkboxes[0]!.names).toEqual([
+        "A board",
+        "Builds that start when you move a card to Ready",
+        "Pull requests that merge themselves",
+      ]);
+    });
+
+    it("name a board, and not builds from it, for a preset whose trigger is manual", async () => {
+      const r = one({
+        tickets: { board: 12, columns: FACTORY_COLUMNS },
+        builds: { trigger: "manual" },
+      });
+      await r.run();
+      expect(row(r.out)).toBe("  Parts            a board");
+    });
+
+    it("have no row when the presets turn none on", async () => {
+      const r = one({ specs: "none" });
+      await r.run();
+      expect(r.out).toContain("  Spec tool        none");
+      expect(row(r.out)).toBeUndefined();
+    });
+  });
+
   it("asks for no token, opens no page, and stores no secret", async () => {
     const r = dev();
     await r.run();
@@ -275,6 +374,51 @@ describe("factory init, in an organization's repository its secrets do not reach
     expect(r.out).toContain(LINE);
   });
 
+  describe("with no question left to ask", () => {
+    /** Each place the transcript has two blank lines together. */
+    const doubled = (transcript: string[]) =>
+      transcript.flatMap((line, i) =>
+        line === "" && transcript[i - 1] === ""
+          ? [transcript.slice(i - 2, i + 2)]
+          : [],
+      );
+    const HEADING = "This is everything setup will do:";
+
+    it("leaves one blank line before the plan when the settings answer everything", async () => {
+      const r = bare({
+        settings: `version: 2\nrepository: acme/web\n${CODE_HOST_YAML}\nspecs: none\ncommands:\n  gate:\n    - npm test\n`,
+        answers: { confirm: [false] },
+      });
+      await r.run();
+      expect(r.asked).toEqual(["confirm: Go ahead?"]);
+      const at = r.transcript.indexOf(HEADING);
+      expect(r.transcript.slice(at - 3, at + 1)).toEqual([
+        "",
+        LINE,
+        "",
+        HEADING,
+      ]);
+      expect(doubled(r.transcript)).toEqual([]);
+    });
+
+    it("leaves one blank line before the plan when the presets answer everything", async () => {
+      const r = bare({
+        argv: ["--preset", ROOT, "--preset", NODE],
+        presets: PRESETS,
+        answers: { confirm: [false] },
+      });
+      await r.run();
+      expect(r.asked).toEqual(["confirm: Go ahead?"]);
+      const at = r.transcript.indexOf(HEADING);
+      expect(r.transcript.slice(at - 2, at + 1)).toEqual([
+        "  Parts            a board, the review, and builds that start from the board",
+        "",
+        HEADING,
+      ]);
+      expect(doubled(r.transcript)).toEqual([]);
+    });
+  });
+
   it("asks for no token of a person's, and offers no part that reads one", async () => {
     const r = bare();
     await r.run();
@@ -297,6 +441,8 @@ describe("factory init, in an organization's repository its secrets do not reach
     expect(await r.run()).toBe(0);
     expect(r.asked.filter((q) => /secret|Also turn on/.test(q))).toEqual([]);
     expect(r.out.join("\n")).not.toContain("Stored for acme, so not asked");
+    // Builds in the cloud stay off, as the line under Found says.
+    expect(r.out.join("\n")).not.toContain("so that is on too");
   });
 
   it("still offers a part whose secrets someone stored on the repository by hand", async () => {
