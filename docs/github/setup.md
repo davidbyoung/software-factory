@@ -188,8 +188,8 @@ factory init --org https://github.com/acme
 
 It asks which board to use: a new one, made with the factory's columns,
 or one the organization already has. For a board you already have, it
-reads the board's own columns and has Claude Code suggest which shows
-each of a ticket's six states, as
+reads the board's own columns and has Claude Code suggest which column
+shows each of a ticket's six states, as
 [You already have a board](../existing-repo.md#you-already-have-a-board)
 shows for a repository. You confirm or change the answer, and the
 command adds only the columns and fields still missing, which its plan

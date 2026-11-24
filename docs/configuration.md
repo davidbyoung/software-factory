@@ -1412,10 +1412,7 @@ verdict that [`auto-merge`](#auto-merge) waits for. It is separate from
 your own CI, which keeps running your tests as before.
 
 ```yaml
-pr-review:
-  commands:
-    - npm test
-    - npx tsc --noEmit
+pr-review: {}
 ```
 
 - **Default:** off. Writing `pr-review` turns it on, even with nothing
@@ -1430,9 +1427,10 @@ pr-review:
   [the session's sandbox](builds.md#what-a-cloud-run-is), with no sign-in
   to your code host. It doesn't run your tests on every pull request: your
   CI does that.
-- **`commands` is checked and listed, and limits nothing.** The sandbox is
-  what confines the reviewer, so it may run any command there. A command
-  in the list can't contain a comma, a parenthesis, or a quote.
+- **`commands` does nothing today, so leave it out.** It once listed what
+  the reviewer could run. The sandbox now confines it instead, and it may
+  run any command there. A list already in your settings is still checked:
+  a command in it can't contain a comma, a parenthesis, or a quote.
 - **To turn it off,** delete `pr-review` and run `factory sync`, which
   turns the run off again.
 
@@ -1559,9 +1557,7 @@ auto-merge:
   commands:
     - node scripts/public-api-changed.mjs
 
-pr-review:
-  commands:
-    - npm test
+pr-review: {}
 ```
 
 ### A small website

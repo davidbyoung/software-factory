@@ -24,8 +24,9 @@ as a code host's billing or what its workflows can see, are in
   repository written in another language. Nothing of Node's goes in the
   repository
   ([A repository that is not JavaScript](existing-repo.md#a-repository-that-is-not-javascript)).
-- **A cloud session of your coding agent's own is a machine too.** One
-  such as Claude Code on the web starts without the factory, and the
+- **A session your coding agent's vendor hosts is a machine too.** One
+  such as Claude Code on the web, which is not the factory's session in the
+  cloud, starts without the factory, and the
   factory's hooks stop its commands until it is there. Put the install
   line in the setup of the environment the session runs in:
   `npm install -g @davidbyoung/software-factory`. The hooks then run,
@@ -155,8 +156,8 @@ as a code host's billing or what its workflows can see, are in
   new machines, which installs everything again.
 - **A cloud build runs for up to 230 minutes by default**
   ([`session-minutes`](configuration.md#session-minutes)), and its minutes
-  may cost money, depending on your cloud runner and plan. Publish waits
-  for CI for an hour at most, and its wait is billed.
+  may cost money, depending on your cloud runner and plan. Its last job
+  waits for CI for an hour at most, and the wait is billed.
 - **A ticket that changes a file under `.github/workflows/` is built on
   your machine.** A build in the cloud that could push one could read your
   repository's secrets
@@ -169,14 +170,12 @@ as a code host's billing or what its workflows can see, are in
   serves, as GitHub does most of Composer's, can't be installed in a
   session ([`commands.build-setup`](configuration.md#commandsbuild-setup)
   says what to do instead).
-- **A cloud session reads only what it was handed:** its own ticket and
+- **A cloud session reads only what the job before it handed over:** its own ticket and
   pull request, their threads and check results, up to 20 tickets its
   ticket names, and, for a Conflict, the pull requests merged since its
   branch left the default branch, up to 30.
 - **A cloud session hands over at most 20 MB of commits,** and it can't
   attach a picture to a ticket or a pull request, or add a label.
-- **What a cloud session cost is not recorded on its ticket.** The run's
-  log ends with it. The board's Cost adds up sessions on machines alone.
 - **A cloud build's pull request is marked ready once CI passes,** whatever
   it changed. A change whose look you want to see first is better built on
   your machine.

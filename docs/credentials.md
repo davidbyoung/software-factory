@@ -3,7 +3,9 @@
 For anyone who sets the factory up, joins a repository that already uses
 it, or works in a [session](glossary.md) on another machine. At the end,
 every token the factory needs is where it reads it, and `factory doctor`
-shows it works. On GitHub, the first section is all there is, with
+shows it works. For whoever judges whether that is safe,
+[What each job holds](#what-each-job-holds) and the two sections after it
+say what a run could do with them. On GitHub, the first section is all there is, with
 [The file on your machine](#the-file-on-your-machine) for the GitHub
 access token and the Claude token that `factory init` keeps there on
 your own account. The rest of the page is for a ticket system with a
@@ -60,11 +62,12 @@ in an organization and on your own account alike:
 | ------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Prepare | No                                   | The App's key, or your build token                                                                                                                                      |
 | Session | Yes, confined to the agent's sandbox | What pays for the session, which is kept from every command it runs, and the repository's own secrets, such as the one your `.npmrc` reads, which its commands can read |
-| Publish | No                                   | The App's key, or your build token. The review's also has the workflow's own token, which posts the threads and the verdict                                             |
+| Publish | No                                   | The App's key, or your build token. In a review's run it also has the workflow's own token, which posts the threads and the verdict                                     |
 
-No key or token of yours for GitHub reaches the session's job. Its workflow
-token can only read packages, and reaches one step, which installs your
-default branch's dependencies before the session starts. Prepare and
+No key or token of yours for GitHub reaches the session's job. GitHub gives
+every job a workflow token of its own: this job's can only read packages,
+and reaches one step, which installs your default branch's dependencies
+before the session starts. Prepare and
 Publish run nothing from the branch the session works on.
 
 The App's key also reaches the jobs that run no session: who merges, the

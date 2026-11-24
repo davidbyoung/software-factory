@@ -42,8 +42,9 @@ Started a build of ticket 12 in the cloud:
 https://your-code-host/your-name/your-repo/runs/123456789
 ```
 
-Anyone who can write to the repository can start one, and the claim
-comment on the ticket names who did. The run's log shows each thing the
+Anyone who can write to the repository can start one. The build's first
+act is a comment that takes the ticket, its [claim](glossary.md#the-words),
+which names who did. The run's log shows each thing the
 session says and each command it runs, as it happens, then the session's
 turns and cost. The board shows the ticket In progress, with where it runs
 and the run's link.
@@ -58,10 +59,10 @@ ends without opening a pull request releases its claim in its last job,
 so a failed run does not hold its ticket.
 
 **What it needs.** Two credentials, stored as secrets on the code host:
-the agent's token, which pays for the session, and an access token for the
+your coding agent's credential, which pays for the session, and an access token for the
 code host, which the build acts as. On your own account,
 [`factory init`](github/setup.md#run-factory-init) asks for each and
-stores it. In an organization, an owner stores the agent's token once,
+stores it. In an organization, an owner stores the agent's credential once,
 with the key of the organization's own app on the code host, and the
 jobs that need an access token make one from that key, so `factory init`
 asks a developer for no token. The session itself is given no access
@@ -72,10 +73,9 @@ that access token. Its commits name your coding agent as their author
 and that account as their committer, and its pull request and comments
 are that account's. When the token is yours, that is you. A team that
 wants an agent account makes one on the code host, gives it write
-access, and stores its token instead. Nothing else changes. An agent
-account can write to the repository, so it counts as an approver, but
-every comment it posts carries the factory's mark, and a session never
-takes a marked comment as an instruction. In an organization that is set
+access, and stores its token instead. A session takes instructions from
+anyone who can write to the repository, but never from a comment the
+factory posted, so an agent account cannot instruct a later session. In an organization that is set
 up, the build acts as the organization's app: the pull request and
 comments are the app's, and the commits name it as their committer.
 
@@ -150,8 +150,8 @@ Every run but a review acts as the account a build does. A review posts
 as `github-actions`.
 
 **A run remembers nothing.** The ticket, the pull request, and its threads
-are its memory. A session that has something to wait for on your machine
-ends there instead:
+are its memory. On your machine, a session
+waits for CI and the review. In the cloud it ends, and says:
 
 ```text
 This run ends here. The next one starts when CI and the review have finished.
@@ -213,7 +213,8 @@ Not pushed: commit 3c9f730 changes .github/workflows/ci.yml, which a build in th
 Build this ticket on your computer: tell a session to work it. The commits are in the run: https://your-code-host/your-name/your-repo/runs/123456789
 ```
 
-The run's page keeps the commits for seven days, as the artifact whose
+On your computer that is `/factory-build 12` in a session. The run's page
+keeps the commits for seven days, as the artifact whose
 name starts with `out-`. For the same reason Publish refuses commits that
 add a symbolic link or a submodule, merge anything but your default branch,
 or close another ticket in their message.

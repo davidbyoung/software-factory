@@ -149,7 +149,7 @@ own token.
    `factory sync`, which turns the review's run on:
 
    ```yaml
-   pr-review:
+   pr-review: {}
    ```
 
    The reviewer may run the pull request's own code to confirm a finding,
@@ -164,7 +164,8 @@ own token.
    reviewer reads it when it exists.
 4. **To make the verdict count,** add "Review verdict" to the required
    status checks of your default branch: Settings, then Rules or Branches.
-   Until you do, it is information only.
+   With a build token stored, a push to your default branch does this for
+   you. Until it is required, it is information only.
 
 **It worked when** a pull request you mark ready gets Claude's comments
 and a "Review verdict" status in its checks.

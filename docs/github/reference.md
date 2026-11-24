@@ -93,7 +93,7 @@ it or delete it.
 
 Only if you host the poller
 ([`builds.trigger: own-server`](../configuration.md#builds)): **the
-poller**, wherever you host it, with the four `FACTORY_` variables you
+poller**, wherever you host it, with the `FACTORY_` variables you
 gave it. Stop and delete it.
 
 ## Workflows
@@ -210,8 +210,7 @@ factory is out. A repository that follows that preset gets no poller
 schedule in its own `factory.yml`.
 
 **Starting a job by hand.** The Actions tab, "Factory", "Run workflow".
-For a build, type `build` as the job and the ticket's key, such as `12`,
-or the key alone. The board's "Runs in" field then shows "Actions", and
+For a build, type the ticket's key, such as `12`, and leave the job empty. The board's "Runs in" field then shows "Actions", and
 "Session" the run's link. The Session job's log also shows each tool call
 the session was denied. `answer`, `conflict`, and `dependency` take a pull
 request's number, and `answer` a review's too, to answer that review. The
@@ -534,7 +533,7 @@ factory.
   ([Limitations](../limitations.md#what-it-does-not-do)).
 - **The squash merge on your default branch is signed by GitHub,** whether
   or not the build's own commits were.
-- **Only part of the factory works inside a Claude cloud session,** such
+- **Only part of the factory works inside a session Claude hosts,** such
   as Claude Code on the web. Such a session is a machine of its own, so
   put the install line, `npm install -g @davidbyoung/software-factory`,
   in its environment's setup: without the command, the factory's hooks
