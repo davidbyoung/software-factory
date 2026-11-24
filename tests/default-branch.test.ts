@@ -344,8 +344,8 @@ describe("in a checkout whose settings have a repository line", () => {
       remotes(["fork", "git@github.com:dev/web.git"]),
     ],
     [
-      "origin is on no code host the factory supports",
-      remotes(["origin", "https://git.example.com/dev/web.git"]),
+      "the only remote is not called origin, and its address names no repository",
+      remotes(["work", "git@github-work:acme/web.git"]),
     ],
   ])("leaves origin out of that line when %s", async (_, listed) => {
     const c = checkout({
@@ -361,6 +361,31 @@ describe("in a checkout whose settings have a repository line", () => {
       ],
     });
   });
+
+  it.each([
+    ["an SSH host alias", "git@github-work:acme/web.git"],
+    ["a proxy's address", "https://git-proxy.example.com/acme/web.git"],
+  ])(
+    "reads origin where its address is %s, which names no repository the factory can read, and no other remote is that repository's",
+    async (_, address) => {
+      const c = checkout({
+        repository: "acme/web",
+        git: {
+          ...remotes(
+            ["origin", address],
+            ["fork", "git@github.com:dev/web.git"],
+          ),
+          [ORIGIN_HEAD]: "origin/develop\n",
+        },
+      });
+
+      expect(await c.command()).toEqual({
+        code: 0,
+        out: ["develop"],
+        err: [],
+      });
+    },
+  );
 
   it("still takes a workflow run's event first, and reads no remote", async () => {
     const c = checkout({
@@ -412,6 +437,30 @@ describe("remoteFor", () => {
         { name: "origin", repository: "dev/web" },
         { name: "mirror", repository: null },
       ]),
+    ).toBeNull();
+  });
+
+  it("is origin where no remote is the repository's and origin's address names none", () => {
+    expect(
+      remoteFor("acme/web", [
+        { name: "fork", repository: "dev/web" },
+        { name: "origin", repository: null },
+      ]),
+    ).toBe("origin");
+  });
+
+  it("is the remote that is the repository's, not an origin whose address names none", () => {
+    expect(
+      remoteFor("acme/web", [
+        { name: "origin", repository: null },
+        { name: "upstream", repository: "acme/web" },
+      ]),
+    ).toBe("upstream");
+  });
+
+  it("is null where a remote whose address names no repository is not called origin", () => {
+    expect(
+      remoteFor("acme/web", [{ name: "work", repository: null }]),
     ).toBeNull();
   });
 

@@ -316,6 +316,17 @@ describe("factory guard commit", () => {
       );
     });
 
+    it("reads origin where its address is an SSH host alias, which names no repository the factory can read", async () => {
+      const { block } = await guarded({
+        settings: true,
+        remotes: [["origin", "git@github-work:o/r.git", "main"]],
+      });
+
+      expect(block).toBe(
+        "main is checked out. Create a branch from origin/main first.",
+      );
+    });
+
     it("blocks the git command with the line that names the repository, where no remote is the settings' repository", async () => {
       const { block, asked } = await guarded({
         settings: true,

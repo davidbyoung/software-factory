@@ -231,11 +231,16 @@ describe("the session-start hook", () => {
   });
 
   it("prints the line that names the repository, and compares no branch, where no remote is that repository's", async () => {
-    const { status, text } = await hook(clone, null, "acme/web");
+    const { status, text } = await hook(
+      clone,
+      null,
+      "acme/site",
+      join(root, "clone.git"),
+    );
 
     expect(status).toBe(0);
     expect(text).toContain(
-      "✗ repository: .claude/factory.yaml says acme/web, and no remote here is acme/web. Add the remote, or change the line and run factory sync.",
+      "✗ repository: .claude/factory.yaml says acme/site, and no remote here is acme/site. origin is acme/web. Add the remote, or change the line and run factory sync.",
     );
     expect(text).not.toContain("Local branches with work");
   });

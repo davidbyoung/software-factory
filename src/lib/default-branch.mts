@@ -7,12 +7,14 @@
 //      run asks nobody.
 //
 // REMOTE is the remote whose address is the repository the settings'
-// `repository` line names, whatever that remote is called. A checkout whose
-// settings name a repository no remote has stops with the line that says
-// so. A checkout with no settings reads `origin`, and with no `origin`
-// remote it has nobody to ask, and takes git's own default:
-// `init.defaultBranch`, or `main`. With a remote and no answer, nothing is
-// assumed: the caller stops with the line `cannotTell` gives.
+// `repository` line names, whatever that remote is called, or `origin`
+// where no remote's is and `origin`'s address names no repository the
+// factory can read. A checkout whose settings name a repository no remote
+// has stops with the line that says so. A checkout with no settings reads
+// `origin`, and with no `origin` remote it has nobody to ask, and takes
+// git's own default: `init.defaultBranch`, or `main`. With a remote and no
+// answer, nothing is assumed: the caller stops with the line `cannotTell`
+// gives.
 //
 //   factory default-branch   # prints the name, or exits 1 with the fix
 import { spawnSync } from "node:child_process";
@@ -75,8 +77,10 @@ export type Remote = { name: string; repository: string | null };
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /** The name of the remote whose address names `repository`, whatever
- * address it has, or null when none does. Where several do, `origin` is
- * the one, and otherwise the first. */
+ * address it has. Where several do, `origin` is the one, and otherwise the
+ * first. Where none does, it is `origin` when that remote's address names
+ * no repository, as an SSH host alias or a proxy's address does not: the
+ * factory cannot tell which repository that is. Otherwise null. */
 export function remoteFor(
   repository: string,
   remotes: Remote[],
@@ -84,7 +88,10 @@ export function remoteFor(
   const names = remotes
     .filter((r) => r.repository !== null && same(r.repository, repository))
     .map((r) => r.name);
-  return names.includes("origin") ? "origin" : (names[0] ?? null);
+  if (names.length > 0) return names.includes("origin") ? "origin" : names[0]!;
+  return remotes.some((r) => r.name === "origin" && r.repository === null)
+    ? "origin"
+    : null;
 }
 
 /** The line for a checkout whose settings name a repository none of its
@@ -104,9 +111,10 @@ async function remotesOf(d: Deps): Promise<Remote[]> {
   return remotes;
 }
 
-/** The remote the default branch is read from: the one whose address is
- * the `repository` line's, or `origin` in a checkout with no settings. It
- * rejects with NoRemote when the line names a repository no remote has. */
+/** The remote the default branch is read from: the one `remoteFor` gives
+ * for the `repository` line, or `origin` in a checkout with no settings.
+ * It rejects with NoRemote when the line names a repository no remote
+ * has. */
 export async function repositoryRemote(d: Deps): Promise<string> {
   const repository = await d.repository();
   if (repository === null) return "origin";
