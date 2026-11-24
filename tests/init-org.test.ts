@@ -3,6 +3,8 @@
 // in-memory organization and ticket system with scripted answers. No test
 // reaches GitHub, opens a browser, or listens on a port.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Answer } from "../src/agent/types.mts";
+import { ADD, NONE } from "../src/columns-suggest.mts";
 import type {
   Installation,
   NewApp,
@@ -390,8 +392,17 @@ type Setup = {
   argv?: string[];
   answers?: Answers;
   org?: Partial<Seed>;
-  boards?: { number: number; title: string; columns: string[] }[];
+  boards?: {
+    number: number;
+    title: string;
+    columns: string[];
+    fields?: string[];
+  }[];
   createRefused?: string;
+  /** The coding agent's answers, in turn. */
+  agent?: Answer[];
+  /** What reading a board's columns fails with. */
+  columnsFail?: Error;
   agentInstalled?: boolean;
   /** The installed factory's version; a release unless given. */
   version?: string;
@@ -467,6 +478,10 @@ function setup(o: Setup = {}) {
     ...tickets.tickets,
     board: {
       ...board,
+      columns: async (number) => {
+        if (o.columnsFail) throw o.columnsFail;
+        return board.columns(number);
+      },
       create: async (title) => {
         const number = await board.create!(title);
         log.push(`createBoard ${title}`);
@@ -508,7 +523,9 @@ function setup(o: Setup = {}) {
       codeHost: memoryCodeHost([], { owner: "acme" }).codeHost,
       runner: memoryRunner().runner,
       tickets: recorded,
-      agent: scriptedAgent([], { installed: o.agentInstalled ?? true }),
+      agent: scriptedAgent([...(o.agent ?? [])], {
+        installed: o.agentInstalled ?? true,
+      }),
     }),
   );
   const d: InitOrgDeps = {
@@ -907,35 +924,6 @@ describe("factory init --org, a first run", () => {
     ]);
   });
 
-  it("gives an existing board the columns and fields it lacks, and asks nothing about its columns", async () => {
-    const s = setup({
-      answers: { ...FIRST, select: ["7", "CLAUDE_CODE_OAUTH_TOKEN", "30"] },
-      boards: [
-        {
-          number: 7,
-          title: "Engineering",
-          columns: ["Backlog", "Doing", "Done"],
-        },
-      ],
-    });
-    expect(await s.run()).toBe(0);
-    expect(s.out).toContain(
-      "  board     Give board 7 any of the factory's columns and fields it lacks",
-    );
-    expect(s.out).toContain(
-      "Added to board 7: In refinement, Ready, In progress, In review, Session, Runs in, Cost.",
-    );
-    expect(s.out.some((l) => l.includes("Created board"))).toBe(false);
-    expect(s.selects.map((x) => x.message)).toEqual([
-      "Which board?",
-      "What pays for sessions in the cloud?",
-      "How often does the poller read the board?",
-    ]);
-    expect(
-      s.seed.repositories["factory-config"]!.files["factory-preset.yaml"],
-    ).toContain("board: 7\n");
-  });
-
   it("asks which ticket system once the factory has two, in place of the row", async () => {
     const s = setup({
       answers: {
@@ -951,6 +939,213 @@ describe("factory init --org, a first run", () => {
       names: ["GitHub Issues", "Fake Tickets"],
       fallback: undefined,
     });
+  });
+});
+
+describe("factory init --org, with a board the organization already has", () => {
+  const FIELDS = ["Session", "Runs in", "Cost"];
+  const SIX = [
+    "Backlog",
+    "In refinement",
+    "Ready",
+    "In progress",
+    "In review",
+    "Done",
+  ];
+  /** A run that picks board 7, with the coding agent's answers scripted. */
+  const existing = (
+    board: { columns: string[]; fields?: string[] },
+    agent: Answer[] = [],
+    select: string[] = ["yes"],
+  ) =>
+    setup({
+      answers: {
+        ...FIRST,
+        select: ["7", ...select, "CLAUDE_CODE_OAUTH_TOKEN", "30"],
+      },
+      boards: [{ number: 7, title: "Engineering", ...board }],
+      agent,
+    });
+  const preset = (s: ReturnType<typeof setup>) =>
+    s.seed.repositories["factory-config"]!.files["factory-preset.yaml"]!;
+
+  it("has the coding agent suggest which of the board's own columns shows each state, names them in the preset, and adds only what is missing", async () => {
+    const s = existing({ columns: ["Todo", "Doing", "Code review", "Done"] }, [
+      {
+        answer: {
+          backlog: "Todo",
+          refining: ADD,
+          ready: ADD,
+          building: "Doing",
+          review: "Code review",
+          done: "Done",
+        },
+      },
+    ]);
+    expect(await s.run()).toBe(0);
+    const from = s.transcript.indexOf("? select: Which board?");
+    expect(
+      s.transcript.slice(
+        from,
+        s.transcript.indexOf("? select: What pays for sessions in the cloud?"),
+      ),
+    ).toEqual([
+      "? select: Which board?",
+      "",
+      "Board 7 has the columns Todo, Doing, Code review, and Done.",
+      "Asking Claude Code which of them shows each of the factory's six states...",
+      "",
+      "  State      Column",
+      "  backlog    Todo",
+      "  refining   In refinement, which init adds",
+      "  ready      Ready, which init adds",
+      "  building   Doing",
+      "  review     Code review",
+      "  done       Done",
+      "",
+      "? select: Use these columns?",
+    ]);
+    expect(s.out).toContain(
+      "  board     Add In refinement, Ready, Session, Runs in, and Cost to board 7",
+    );
+    const went = s.transcript.indexOf("? confirm: Go ahead?");
+    expect(s.transcript.slice(went + 1, went + 5)).toEqual([
+      "",
+      "Added to board 7: In refinement, Ready, Session, Runs in, Cost.",
+      "✓ Created acme/factory-config.",
+      "",
+    ]);
+    expect(preset(s)).toContain(
+      [
+        "  board: 7",
+        "  columns:",
+        "    backlog: Todo",
+        "    refining: In refinement",
+        "    ready: Ready",
+        "    building: Doing",
+        "    review: Code review",
+        "    done: Done",
+        "",
+      ].join("\n"),
+    );
+    // Her own columns stay, and none of the factory's is put beside them.
+    expect(s.tickets.boards[0]!.columns).toEqual([
+      "Todo",
+      "In refinement",
+      "Ready",
+      "Doing",
+      "Code review",
+      "Done",
+    ]);
+    expect(s.tickets.boards[0]!.fields).toEqual(FIELDS);
+    expect(s.out.some((l) => l.includes("Created board"))).toBe(false);
+  });
+
+  it("writes a state the suggestion gives no column as none, quotes a name YAML would misread, and adds neither", async () => {
+    const s = existing(
+      { columns: ["Todo", "Up next", "Doing: now", "Done"], fields: FIELDS },
+      [
+        {
+          answer: {
+            backlog: "Todo",
+            refining: NONE,
+            ready: "Up next",
+            building: "Doing: now",
+            review: NONE,
+            done: "Done",
+          },
+        },
+      ],
+    );
+    expect(await s.run()).toBe(0);
+    expect(preset(s)).toContain(
+      [
+        "  columns:",
+        "    backlog: Todo",
+        "    refining: none",
+        "    ready: Up next",
+        '    building: "Doing: now"',
+        "    review: none",
+        "    done: Done",
+        "",
+      ].join("\n"),
+    );
+    expect(s.out).toContain("  board     Use board 7 as it is");
+    expect(s.out.some((l) => l.startsWith("Added to board"))).toBe(false);
+    expect(s.tickets.boards[0]!.columns).toEqual([
+      "Todo",
+      "Up next",
+      "Doing: now",
+      "Done",
+    ]);
+  });
+
+  it("asks nothing about a board with a column for each of the six states, and adds nothing to it", async () => {
+    const s = existing({ columns: SIX, fields: FIELDS }, [], []);
+    expect(await s.run()).toBe(0);
+    const from = s.transcript.indexOf("? select: Which board?");
+    expect(s.transcript.slice(from, from + 12)).toEqual([
+      "? select: Which board?",
+      "",
+      "Board 7 has a column for each of the factory's six states:",
+      "",
+      "  State      Column",
+      "  backlog    Backlog",
+      "  refining   In refinement",
+      "  ready      Ready",
+      "  building   In progress",
+      "  review     In review",
+      "  done       Done",
+      "? select: What pays for sessions in the cloud?",
+    ]);
+    expect(s.out).toContain("  board     Use board 7 as it is");
+    expect(s.out.some((l) => l.startsWith("Added to board"))).toBe(false);
+    expect(s.tickets.boards[0]).toEqual({
+      number: 7,
+      title: "Engineering",
+      columns: SIX,
+      fields: FIELDS,
+    });
+    expect(preset(s)).toContain("    building: In progress\n");
+  });
+
+  it("names only the fields in the plan when the board has every column and lacks them", async () => {
+    const s = existing({ columns: SIX }, [], []);
+    expect(await s.run()).toBe(0);
+    expect(s.out).toContain(
+      "  board     Add Session, Runs in, and Cost to board 7",
+    );
+    expect(s.out).toContain("Added to board 7: Session, Runs in, Cost.");
+  });
+
+  it("stops, as factory init does, when the coding agent's suggestion cannot be used, and changes nothing", async () => {
+    const s = existing({ columns: ["Todo", "Doing", "Done"] }, [
+      { failed: { code: 1, error: "Invalid API key · Please run /login" } },
+    ]);
+    expect(await s.run()).toBe(1);
+    expect(s.out.slice(-3)).toEqual([
+      "Claude Code's answer could not be used: it failed: Invalid API key · Please run /login.",
+      "Run factory init again, or write tickets.columns in .claude/factory.yaml yourself.",
+      "Nothing changed.",
+    ]);
+    expect(s.changes()).toEqual([]);
+    expect(s.tickets.boards[0]!.columns).toEqual(["Todo", "Doing", "Done"]);
+    expect(s.confirms).toEqual([]);
+  });
+
+  it("stops before any other question when the board's columns cannot be read", async () => {
+    const s = setup({
+      answers: { ...FIRST, select: ["7"] },
+      boards: [{ number: 7, title: "Engineering", columns: SIX }],
+      columnsFail: new Error("HTTP 502"),
+    });
+    expect(await s.run()).toBe(1);
+    expect(s.transcript.slice(-3)).toEqual([
+      "? select: Which board?",
+      "Could not read board 7's columns: HTTP 502",
+      "Nothing changed.",
+    ]);
+    expect(s.changes()).toEqual([]);
   });
 });
 

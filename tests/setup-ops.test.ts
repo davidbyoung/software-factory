@@ -684,6 +684,48 @@ describe("the board's fields, on GitHub", () => {
   });
 });
 
+describe("a board's fields by name, on GitHub", () => {
+  it("lists every field the board has, and changes nothing", async () => {
+    const g = gh([
+      [
+        /query BoardFields/,
+        {
+          data: {
+            owner: {
+              projectV2: {
+                id: "PVT_9",
+                fields: {
+                  nodes: [{ name: "Status" }, {}, { name: "Session" }],
+                },
+              },
+            },
+          },
+        },
+      ],
+    ]);
+    const board = githubTickets({
+      transport: ghTransport(g.run),
+      repository: REPO,
+      board: null,
+    }).board!;
+    expect(await board.fieldNames(9)).toEqual(["Status", "Session"]);
+    expect(g.calls).toHaveLength(1);
+    expect(g.calls[0]!.line).toContain("number=9");
+  });
+
+  it("fails for a board that cannot be read", async () => {
+    const g = gh([[/query BoardFields/, { data: { owner: null } }]]);
+    const board = githubTickets({
+      transport: ghTransport(g.run),
+      repository: REPO,
+      board: null,
+    }).board!;
+    await expect(board.fieldNames(9)).rejects.toThrow(
+      "Board 9 could not be read.",
+    );
+  });
+});
+
 describe("a REST call with a JSON body", () => {
   it("sends it whole over the fetch transport", async () => {
     let sent: unknown;

@@ -493,6 +493,23 @@ export function githubTickets(o: GithubOptions): Tickets {
     issues.add(n);
   };
 
+  /** Board `number`'s own ID and its fields' names. */
+  async function boardFields(number: number) {
+    const answer = await t.graphql<{
+      data: {
+        owner: {
+          projectV2: {
+            id: string;
+            fields: { nodes: { name?: string }[] };
+          } | null;
+        } | null;
+      };
+    }>(BOARD_FIELDS, { owner: o.boardOwner ?? repoOwner, number });
+    const project = answer.data.owner?.projectV2;
+    if (!project) throw new Error(`Board ${number} could not be read.`);
+    return project;
+  }
+
   /** Board `number`'s Status field, or null when it has none. */
   const statusField = async (number: number) => {
     const answer = await t.graphql<{
@@ -794,6 +811,10 @@ export function githubTickets(o: GithubOptions): Tickets {
         const field = await statusField(number);
         return (field?.options ?? []).map((x) => x.name);
       },
+      fieldNames: async (number) =>
+        (await boardFields(number)).fields.nodes.flatMap((n) =>
+          n.name ? [n.name] : [],
+        ),
       async addColumns(number, columns) {
         const field = await statusField(number);
         if (!field) throw new Error(`Board ${number} has no Status field.`);
@@ -811,18 +832,7 @@ export function githubTickets(o: GithubOptions): Tickets {
         return added;
       },
       async addFields(number, fields) {
-        const answer = await t.graphql<{
-          data: {
-            owner: {
-              projectV2: {
-                id: string;
-                fields: { nodes: { name?: string }[] };
-              } | null;
-            } | null;
-          };
-        }>(BOARD_FIELDS, { owner: o.boardOwner ?? repoOwner, number });
-        const project = answer.data.owner?.projectV2;
-        if (!project) throw new Error(`Board ${number} could not be read.`);
+        const project = await boardFields(number);
         const missing = fields.filter(
           (f) =>
             !project.fields.nodes.some(

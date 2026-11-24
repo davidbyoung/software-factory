@@ -13,9 +13,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { load } from "js-yaml";
+import { stringify } from "yaml";
 import { organizationHosts } from "./code-host/index.mts";
 import type { Organization, OrganizationHost } from "./code-host/types.mts";
-import { FACTORY_LINES } from "./columns-suggest.mts";
+import {
+  everyColumn,
+  FACTORY_LINES,
+  suggestColumns,
+} from "./columns-suggest.mts";
 import { POLL_MINUTES } from "./config.mts";
 import {
   askSecret,
@@ -30,6 +35,7 @@ import {
 } from "./init-shared.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
+import { sameName, STATE_KEYS, type StateKey } from "./lib/work-status.mts";
 import { AGENT_KEY, APP_KEY } from "./parts.mts";
 import { PRESET_FILE } from "./preset.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
@@ -104,6 +110,8 @@ const presetText = (o: {
   org: string;
   tickets: string;
   board: number;
+  /** Each state's column, as `tickets.columns` writes it. */
+  columns: [StateKey, string][];
   pollMinutes: number;
 }) =>
   `${[
@@ -114,7 +122,9 @@ const presetText = (o: {
     `  type: ${o.tickets}`,
     `  board: ${o.board}`,
     "  columns:",
-    ...FACTORY_LINES.map(([key, name]) => `    ${key}: ${name}`),
+    ...o.columns.map(
+      ([key, name]) => `    ${stringify({ [key]: name }).trimEnd()}`,
+    ),
     "pr-review:",
     "  commands: []",
     "builds:",
@@ -132,6 +142,10 @@ function pollMinutesIn(preset: string): number {
     return 5;
   }
 }
+
+/** The columns `tickets.columns` lines name, less a state given none. */
+const columnsOf = (lines: [StateKey, string][]) =>
+  lines.map(([, name]) => name).filter((name) => name !== "none");
 
 const counted = (n: number, what: string) =>
   `${n} ${what}${n === 1 ? "" : "s"}`;
@@ -350,6 +364,44 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     board = choice === "new" ? "new" : Number(choice);
   }
 
+  // An existing board keeps its own columns: the coding agent suggests
+  // which shows each state, and only what is still missing is added.
+  let columnLines = FACTORY_LINES;
+  let adds: string[] = [];
+  if (typeof board === "number" && tickets?.board) {
+    let names: string[];
+    let fields: string[];
+    try {
+      names = await tickets.board.columns(board);
+      fields = await tickets.board.fieldNames(board);
+    } catch (e) {
+      return stop(
+        `Could not read board ${board}'s columns: ${message(e)}`,
+        NOTHING,
+      );
+    }
+    const lacks = Object.values(STATE_KEYS).some(
+      (f) => !names.some((n) => sameName(n, f)),
+    );
+    if (names.length && lacks) {
+      const got = await suggestColumns(
+        { ask: d.ask, out: d.out, agent: agent.agent, label: agent.label },
+        { board, columns: names, fromBoard: true },
+      );
+      if (got === 1) return 1;
+      columnLines = got;
+    } else if (names.length)
+      columnLines = everyColumn(d, { board, columns: names });
+    const has = (list: string[]) => (name: string) =>
+      list.some((x) => sameName(x, name));
+    adds = [
+      ...columnsOf(columnLines).filter((c) => !has(names)(c)),
+      ...boardShape(null)
+        .fields.map((f) => f.name)
+        .filter((f) => !has(fields)(f)),
+    ];
+  }
+
   // Which secret the coding agent's credential is stored as this run, or
   // null to store none.
   let storeAs: string | null = null;
@@ -429,7 +481,9 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   else if (board !== null)
     rows.push([
       "board",
-      `Give board ${board} any of the factory's columns and fields it lacks`,
+      adds.length
+        ? `Add ${listed(adds)} to board ${board}`
+        : `Use board ${board} as it is`,
     ]);
   const addresses = [
     "The settings every repository shares are yours to edit:",
@@ -487,7 +541,16 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       const number = board as number;
       await step(`give board ${number} its columns and fields`, async () => {
         if (!ops) throw new Error("this ticket system has no board");
-        await giveBoard(d, ops, number, boardShape(null), { added: !made });
+        await giveBoard(
+          d,
+          ops,
+          number,
+          {
+            columns: columnsOf(columnLines),
+            fields: boardShape(null).fields,
+          },
+          { added: !made },
+        );
       });
     }
     if (missing.length) {
@@ -498,6 +561,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
             org,
             tickets: ticketsName,
             board: board as number,
+            columns: columnLines,
             pollMinutes,
           }),
         [POLLER_FILE]: () =>

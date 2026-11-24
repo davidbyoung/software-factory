@@ -496,6 +496,12 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
         if (!b) throw new NotFoundError(`board ${number}`);
         return [...b.columns];
       },
+      async fieldNames(number) {
+        check("board");
+        const b = boards.find((x) => x.number === number);
+        if (!b) throw new NotFoundError(`board ${number}`);
+        return [...(b.fields ?? [])];
+      },
       async addColumns(number, columns) {
         check("board");
         const b = boards.find((x) => x.number === number);

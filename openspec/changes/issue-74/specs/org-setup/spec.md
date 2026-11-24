@@ -55,8 +55,8 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 #### Scenario: The board
 
-- **WHEN** `factory init --org ADDRESS` goes ahead, and comes to the board
-- **THEN** It creates the board and prints the draft's ✓ line, or gives an existing one whichever of the factory's columns and fields it lacks, with `Added to board N: ` and their names, and no question about its columns.
+- **WHEN** `factory init --org ADDRESS` sets up the board she chose, a new one or one the organization has
+- **THEN** It creates a new board with the factory's columns and fields, and prints the draft's ✓ line. An existing board keeps its own columns: before the plan it reads them, and where the board lacks one of the factory's six, the coding agent suggests which of its columns shows each state, with the questions and the table `factory init` has; where it has all six it asks nothing. The plan's `board` row names each column and field it will add, or reads `Use board N as it is`. After "Go ahead?" it adds only the columns the chosen names still lack and the factory's fields the board lacks, prints `Added to board N: ` and their names, and prints nothing when it added none. A suggestion that cannot be used stops it as it stops `factory init`, with nothing changed.
 
 ### Requirement: The factory-config repository
 
@@ -65,7 +65,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: The factory-config repository
 
 - **WHEN** `factory init --org ADDRESS` comes to `ORG/factory-config`
-- **THEN** It creates `ORG/factory-config` with the three files "What `factory init --org` creates" shows: private, or public on GitHub Free. The preset holds the board's number, the six columns, `pr-review`, `builds.trigger: github-action`, and `builds.poll-minutes` when it is not 5. With no interval asked, that is 5 and the cron is `*/5 * * * *`. The workflow file names the installed factory's version. In a repository of that name that already exists, a file that is there is left as it is, and one that is missing is written.
+- **THEN** It creates `ORG/factory-config` with the three files "What `factory init --org` creates" shows: private, or public on GitHub Free. The preset holds the board's number, the column chosen for each of the six states, `pr-review`, `builds.trigger: github-action`, and `builds.poll-minutes` when it is not 5. With no interval asked, that is 5 and the cron is `*/5 * * * *`. The workflow file names the installed factory's version. In a repository of that name that already exists, a file that is there is left as it is, and one that is missing is written.
 
 ### Requirement: Registering the App
 
