@@ -1574,8 +1574,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
       ),
     );
 
-    // Whose scripts take the app's key first, as the tests below run them.
-    expect(found).toEqual(["Prepare: Sign in", "Publish: Sign in"]);
+    expect(found).toEqual([]);
   });
 
   it("checks out for the updates with the workflow's own token under the app, and with the build token without it", () => {
@@ -1779,80 +1778,128 @@ describe("the sign-in of the two jobs around a session", () => {
     FACTORY_APP_CLIENT_ID: "Iv23client",
     FACTORY_APP_PRIVATE_KEY: "PRIVATE KEY",
   };
-  /** Each job, and the variable its step reads a person's token from. */
-  const JOBS: [string, Job, string][] = [
-    ["prepare", prepareJob, "TOKEN"],
-    ["publish", publishJob, "BUILD_TOKEN"],
+  const JOBS: [string, Job][] = [
+    ["prepare", prepareJob],
+    ["publish", publishJob],
   ];
   const signing = (job: Job, env: Record<string, string>) => {
-    const { dir, calls } = sandbox({
-      factory: "",
-      gh: 'if [ "$2" = login ]; then cat > "$RUNNER_TEMP/given"; fi',
+    const { dir, calls } = sandbox({ factory: "", gh: "" });
+    const r = runScript(step(job, "Sign in").run!, dir, {
+      BUILD_TOKEN_SET: "true",
+      ...env,
     });
-    const r = runScript(step(job, "Sign in").run!, dir, env);
-    const given = join(dir, "given");
     return {
       status: r.status,
       said: r.stdout + r.stderr,
       calls: calls(),
-      given: existsSync(given) ? readFileSync(given, "utf8") : null,
     };
   };
 
   it.each(JOBS)(
-    "in %s is as the app wherever its key and the client ID both reach the run, whatever else is set",
-    (_, job, token) => {
-      expect(signing(job, { ...APP, [token]: "a person's" })).toEqual({
+    "in %s is as the app wherever its key and the client ID both reach the run",
+    (_, job) => {
+      expect(signing(job, APP)).toEqual({
         status: 0,
         said: "",
         calls: ["factory session token"],
-        given: null,
       });
     },
   );
 
+  // `gh auth login` refuses a token without `read:org`, which the token
+  // `factory init` asks for does not have.
   it.each(JOBS)(
-    "in %s is with a person's token where either does not, on standard input alone",
-    (_, job, token) => {
+    "in %s only points git at the CLI where either does not, checking no scope of the token's",
+    (_, job) => {
       for (const missing of Object.keys(APP))
-        expect(
-          signing(job, { ...APP, [missing]: "", [token]: "a person's" }),
-        ).toEqual({
+        expect(signing(job, { ...APP, [missing]: "" })).toEqual({
           status: 0,
           said: "",
-          calls: ["gh auth login --with-token", "gh auth setup-git"],
-          given: "a person's\n",
+          calls: ["gh auth setup-git --hostname github.com --force"],
         });
     },
   );
 
   it.each(JOBS)(
     "in %s fails when the app's token cannot be made, and falls back to no other",
-    (_, job, token) => {
+    (_, job) => {
       const { dir, calls } = sandbox({ factory: "exit 1", gh: "" });
       const r = runScript(step(job, "Sign in").run!, dir, {
         ...APP,
-        [token]: "a person's",
+        BUILD_TOKEN_SET: "true",
       });
       expect([r.status, calls()]).toEqual([1, ["factory session token"]]);
     },
   );
 
-  it("stands the workflow's own token in for a person's only in preparing a review, which reads", () => {
-    const token = (kind: string, person: string) =>
-      valueOf(inside(step(prepareJob, "Sign in").env!.TOKEN), {
-        secrets: { "build-token": person },
-        inputs: { kind },
-        github: { token: "the workflow's" },
-      });
+  /** The steps of each job that reach the code host once it is signed in. */
+  const REACHING: [string, Job, string][] = [
+    ["prepare", prepareJob, "Name the committer"],
+    ["prepare", prepareJob, "Hand over what the session works from"],
+    ["prepare", prepareJob, "Release the ticket"],
+    ["publish", publishJob, "Start the next answer"],
+    ["publish", publishJob, "Publish what the session left"],
+    ["publish", publishJob, "Release the ticket"],
+  ];
+  /** The token a step is given, for a kind of run, a person's token, and
+   * whether the app's key and the client ID reach it. */
+  const given = (
+    job: Job,
+    name: string,
+    o: { kind: string; person: string; key?: string; id?: string },
+  ) =>
+    valueOf(inside(step(job, name).env!.GH_TOKEN), {
+      secrets: { "build-token": o.person, "app-key": o.key ?? "" },
+      vars: { FACTORY_APP_CLIENT_ID: o.id ?? "" },
+      inputs: { kind: o.kind },
+      github: { token: "the workflow's" },
+    });
 
-    expect(token("review", "")).toBe("the workflow's");
-    expect(token("review", "a person's")).toBe("a person's");
-    for (const kind of ["build", "answer", "conflict", "dependency"])
-      expect(token(kind, ""), kind).toBe("");
+  it.each(REACHING)(
+    "in %s gives a person's token to a step that reaches the code host, and none where the app signs in: $2",
+    (_, job, name) => {
+      const o = { kind: "build", person: "a person's" };
+      expect(given(job, name, o)).toBe("a person's");
+      expect(given(job, name, { ...o, key: "K" })).toBe("a person's");
+      expect(given(job, name, { ...o, id: "I" })).toBe("a person's");
+      expect(given(job, name, { ...o, key: "K", id: "I" })).toBe("");
+    },
+  );
+
+  it("gives a person's token to no other step of the two jobs", () => {
+    for (const job of [prepareJob, publishJob]) {
+      const holding = job
+        .steps!.filter((s) =>
+          Object.values(s.env ?? {}).some(
+            (v) =>
+              /build-token/.test(String(v)) &&
+              !/build-token != ''/.test(String(v)),
+          ),
+        )
+        .map((s) => s.name);
+      expect(holding).toEqual(
+        REACHING.filter(([, j]) => j === job).map(([, , name]) => name),
+      );
+      expect(job).not.toHaveProperty("env");
+    }
+  });
+
+  it("stands the workflow's own token in for a person's only in preparing a review, which reads", () => {
+    for (const [, job, name] of REACHING)
+      for (const kind of [
+        "review",
+        "build",
+        "answer",
+        "conflict",
+        "dependency",
+      ])
+        expect(given(job, name, { kind, person: "" }), `${name}: ${kind}`).toBe(
+          kind === "review" && job === prepareJob ? "the workflow's" : "",
+        );
+    expect(step(prepareJob, "Sign in").env).toEqual(KEY);
     expect(step(publishJob, "Sign in").env).toEqual({
       ...KEY,
-      BUILD_TOKEN: "${{ secrets.build-token }}",
+      BUILD_TOKEN_SET: "${{ secrets.build-token != '' }}",
     });
   });
 
