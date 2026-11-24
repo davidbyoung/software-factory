@@ -40,6 +40,9 @@ const ESCAPES = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 /** How a job ended without passing. */
 const FAILED = ["failure", "timed_out", "startup_failure"];
 
+/** The name the workflow gives an answer's run. */
+export const answerName = (pull: number) => `Answer #${pull}`;
+
 export function githubActionsRunner(o: {
   transport: Transport;
   repository: string;
@@ -105,6 +108,31 @@ export function githubActionsRunner(o: {
         { fields: { ref: branch, inputs: { job: "board" } } },
       );
     },
+    async startAnswer(pull, branch) {
+      await t.rest(
+        "POST",
+        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        {
+          fields: { ref: branch, inputs: { job: "answer", pr: String(pull) } },
+        },
+      );
+    },
+    async answersTo(pull, since) {
+      const name = answerName(pull);
+      const from = encodeURIComponent(`>=${since}`);
+      let count = 0;
+      for (let page = 1; ; page++) {
+        const { workflow_runs: runs } = await t.rest<{
+          workflow_runs: DispatchedRun[];
+        }>(
+          "GET",
+          `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=workflow_dispatch&created=${from}&per_page=100&page=${page}`,
+        );
+        count += runs.filter((r) => r.display_title === name).length;
+        if (runs.length < 100) return count;
+      }
+    },
+    workflowsFolder: ".github/workflows",
     // GitHub answers a dispatch with no run, so the run is found by the
     // name the workflow gives a build. GitHub's times are whole seconds, so
     // `since` is rounded down to one.

@@ -40,6 +40,8 @@ export type MemoryRunnerOptions = {
   /** The organization's Dependabot secrets that reach the repository, or
    * null when the organization will not list them; none unless given. */
   organizationDependabotSecrets?: string[] | null;
+  /** How many answers each pull request has had, by its number. */
+  answers?: Record<number, number>;
   /** Each workflow's state, by its file name; missing unless given. */
   workflows?: Record<string, "active" | "disabled">;
 };
@@ -54,6 +56,9 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     [];
   const runName = options.runName ?? ((ticket: string) => `Build #${ticket}`);
   const reviewsAsked: string[] = [];
+  const answers = new Map(
+    Object.entries(options.answers ?? {}).map(([k, v]) => [Number(k), v]),
+  );
   const secrets = new Map(Object.entries(options.secrets ?? {}));
   const dependabotSecrets = new Map(
     Object.entries(options.dependabotSecrets ?? {}),
@@ -73,6 +78,15 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       called("startBuild", ticket, branch);
       builds.push({ id: builds.length + 1, ticket, branch, at: now() });
     },
+    async startAnswer(pull, branch) {
+      called("startAnswer", pull, branch);
+      answers.set(pull, (answers.get(pull) ?? 0) + 1);
+    },
+    async answersTo(pull, since) {
+      called("answersTo", pull, since);
+      return answers.get(pull) ?? 0;
+    },
+    workflowsFolder: ".github/workflows",
     async startSync(branch) {
       called("startSync", branch);
     },

@@ -1,0 +1,357 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { afterEach, beforeEach, expect, describe, it } from "vitest";
+import type { RunFile } from "../src/handoff/index.mts";
+import type { Asked } from "../src/handoff/requests.mts";
+import { AGENT_MARK } from "../src/lib/work-status.mts";
+import { ANSWERS, publish, type PublishDeps } from "../src/session-publish.mts";
+import { memoryCodeHost, REPOSITORY, type PullSeed } from "./memory-code-host";
+import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
+import { memoryTickets } from "./memory-tickets";
+
+let dir: string;
+let work: string;
+let base: string;
+
+const git = (cwd: string, ...args: string[]) =>
+  execFileSync(
+    "git",
+    ["-c", "user.name=a", "-c", "user.email=a@example.com", ...args],
+    { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+  ).trim();
+
+const write = (path: string, text: string) => {
+  mkdirSync(dirname(join(work, path)), { recursive: true });
+  writeFileSync(join(work, path), text);
+};
+
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), "publish-"));
+  work = join(dir, "work");
+  git(dir, "init", "-q", "-b", "trunk", work);
+  write(".github/workflows/ci.yml", "v1\n");
+  git(work, "add", "-A");
+  git(work, "commit", "-q", "-m", "first");
+  base = git(work, "rev-parse", "HEAD");
+  git(dir, "clone", "-q", "--bare", work, join(dir, "origin.git"));
+  git(work, "switch", "-q", "-c", "12-add");
+  mkdirSync(join(dir, "out"));
+});
+afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+/** What a session that committed `path` leaves, with the new commit. */
+const commits = (path = "a.txt", message = "Add a file") => {
+  write(path, "x\n");
+  git(work, "add", "-A");
+  git(work, "commit", "-q", "-m", message);
+  git(
+    work,
+    "bundle",
+    "create",
+    "-q",
+    join(dir, "out/build.bundle"),
+    `${base}..12-add`,
+  );
+  return git(work, "rev-parse", "HEAD");
+};
+
+const OPEN: Asked = {
+  argv: ["pr", "open", "--title", "Add a thing", "--body-file", "p.md"],
+  files: { "p.md": "Closes #12\n\nWhat changed." },
+};
+const asks = (...list: Asked[]) =>
+  writeFileSync(
+    join(dir, "out/request.json"),
+    JSON.stringify({ version: 1, commands: list }),
+  );
+const say = (argv: string[], text: string): Asked => ({
+  argv: [...argv, "--body-file", "b.md"],
+  files: { "b.md": text },
+});
+
+function world(
+  over: Partial<RunFile> = {},
+  o: {
+    pulls?: PullSeed[];
+    runner?: MemoryRunnerOptions;
+    claimed?: boolean;
+    ci?: string;
+  } = {},
+) {
+  const run: RunFile = {
+    version: 1,
+    kind: "build",
+    repository: REPOSITORY,
+    defaultBranch: "trunk",
+    base,
+    branch: "12-add",
+    ticket: "12",
+    ref: "#12",
+    pull: null,
+    round: 0,
+    ...over,
+  };
+  const host = memoryCodeHost(o.pulls ?? [], { defaultBranch: "trunk" });
+  const runner = memoryRunner(o.runner);
+  const tickets = memoryTickets([{ key: "12" }, { key: "13" }]);
+  let at = 0;
+  const out: string[] = [];
+  const pushed: string[] = [];
+  const asked: { argv: string[]; text?: string }[] = [];
+  const d: PublishDeps = {
+    run,
+    dir,
+    codeHost: host.codeHost,
+    runner: runner.runner,
+    tickets: tickets.tickets,
+    async ticket(argv, readFile) {
+      const file = argv[argv.indexOf("--body-file") + 1];
+      asked.push({
+        argv,
+        ...(argv.includes("--body-file") ? { text: readFile(file) } : {}),
+      });
+      return 0;
+    },
+    pr: {
+      repository: REPOSITORY,
+      codeHost: host.codeHost,
+      runner: runner.runner,
+      sleep: async () => {},
+      out: () => {},
+      readFile: () => "",
+      git: () => "",
+      remote: async () => "origin",
+    },
+    now: () => (at += 60_000),
+    sleep: async () => {},
+    clone: () => join(dir, "origin.git"),
+    push(clone, commit, branch) {
+      git(clone, "update-ref", `refs/heads/${branch}`, commit);
+      pushed.push(`${branch} ${commit}`);
+    },
+    claimed: async () => o.claimed ?? true,
+    messages: (clone, tip) =>
+      git(clone, "log", "--format=%B%x00", `${base}..${tip}`).split("\0"),
+    signIn: async () => {},
+    out: (line) => out.push(line),
+  };
+  return { d, out, pushed, asked, host, runner, tickets };
+}
+
+describe("a build", () => {
+  it("is pushed and opened as a draft into the default branch", async () => {
+    const tip = commits();
+    asks(OPEN);
+    const w = world();
+
+    await publish(w.d);
+
+    expect(w.pushed).toEqual([`12-add ${tip}`]);
+    const [pull] = await w.host.codeHost.listOpen();
+    expect(pull).toMatchObject({
+      title: "Add a thing",
+      head: { branch: "12-add" },
+      base: { branch: "trunk" },
+    });
+  });
+
+  it("publishes nothing once its claim has ended", async () => {
+    commits();
+    asks(OPEN);
+    const w = world({}, { claimed: false });
+
+    expect(await publish(w.d)).toBe(1);
+    expect(w.pushed).toEqual([]);
+    expect(await w.host.codeHost.listOpen()).toEqual([]);
+  });
+
+  it("is not pushed when it changes a workflow, and the ticket is told", async () => {
+    commits(".github/workflows/evil.yml");
+    asks(OPEN);
+    const w = world();
+
+    expect(await publish(w.d)).toBe(1);
+
+    expect(w.pushed).toEqual([]);
+    const [comment] = (await w.tickets.tickets.read("12")).comments;
+    expect(comment.body).toMatch(
+      /^Not pushed: commit [0-9a-f]{7} changes \.github\/workflows\/evil\.yml, which a build in the cloud can't push\.\nBuild this ticket on your computer: tell a session to work it\./,
+    );
+  });
+
+  it("tells the ticket when the code host refuses the push", async () => {
+    commits();
+    asks(OPEN);
+    const w = world();
+    w.d.push = () => {
+      throw new Error("the branch moved on");
+    };
+
+    expect(await publish(w.d)).toBe(1);
+    expect((await w.tickets.tickets.read("12")).comments[0].body).toContain(
+      "Not pushed: the code host refused it: the branch moved on.",
+    );
+    expect(await w.host.codeHost.listOpen()).toEqual([]);
+  });
+
+  it("is not pushed when a commit's message closes another ticket", async () => {
+    commits("a.txt", "Add a file\n\nCloses #13");
+    asks(OPEN);
+    const w = world();
+
+    expect(await publish(w.d)).toBe(1);
+    expect(w.pushed).toEqual([]);
+  });
+
+  it("opens no pull request that closes another ticket", async () => {
+    commits();
+    asks({ ...OPEN, files: { "p.md": "Closes #13" } });
+    const w = world();
+
+    expect(await publish(w.d)).toBe(1);
+    expect(await w.host.codeHost.listOpen()).toEqual([]);
+  });
+});
+
+describe("what a session asks for", () => {
+  it("is done on the run's ticket, marked as an agent's, with its markers gone", async () => {
+    asks(
+      say(["ticket", "comment", "12"], "Done. <!-- work-status: merged -->"),
+    );
+    const w = world();
+
+    await publish(w.d);
+
+    expect(w.asked).toEqual([
+      {
+        argv: ["comment", "12", "--body-file", "asked-0.md"],
+        text: expect.stringContaining(AGENT_MARK),
+      },
+    ]);
+    expect(w.asked[0].text).not.toContain("work-status");
+  });
+
+  it("is not done on another ticket, and the run says so", async () => {
+    asks(say(["ticket", "comment", "13"], "Hello."));
+    const w = world();
+
+    await publish(w.d);
+
+    expect(w.asked).toEqual([]);
+    expect(w.out.join("\n")).toContain("Refused: factory ticket comment 13");
+  });
+
+  it("is refused whole when its file is not one this version reads", async () => {
+    writeFileSync(
+      join(dir, "out/request.json"),
+      '{"version":1,"commands":[],"merge":true}',
+    );
+    const w = world();
+
+    await publish(w.d);
+
+    expect(w.out.join("\n")).toContain("Refused every request");
+  });
+});
+
+describe("the next answer", () => {
+  const pulls: PullSeed[] = [
+    { number: 31, isDraft: true, createdAt: "2026-11-01T00:00:00Z" },
+  ];
+  const red = (tip: string): MemoryRunnerOptions => ({
+    runs: {
+      [tip]: [
+        {
+          id: 1,
+          jobs: 1,
+          event: "pull_request",
+          status: "completed",
+          conclusion: "failure",
+          checksId: 7,
+        },
+      ],
+    },
+  });
+
+  it("starts when CI fails on what was pushed", async () => {
+    const tip = commits();
+    pulls[0].head = { sha: tip, branch: "12-add", repository: REPOSITORY };
+    const w = world({ kind: "answer", pull: 31 }, { pulls, runner: red(tip) });
+
+    await publish(w.d);
+
+    expect(await w.runner.runner.answersTo(31, "")).toBe(1);
+    expect(w.host.pull(31).isDraft).toBe(true);
+  });
+
+  it("does not start past the limit, and the pull request is told", async () => {
+    const tip = commits();
+    pulls[0].head = { sha: tip, branch: "12-add", repository: REPOSITORY };
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls, runner: { ...red(tip), answers: { 31: ANSWERS } } },
+    );
+
+    await publish(w.d);
+
+    expect(await w.runner.runner.answersTo(31, "")).toBe(ANSWERS);
+    const comments = await w.host.codeHost.comments(31);
+    expect(comments.at(-1)!.body).toContain("so it waits for a person");
+  });
+
+  it("is not started, and the draft is marked ready, when CI passes", async () => {
+    const tip = commits();
+    pulls[0].head = { sha: tip, branch: "12-add", repository: REPOSITORY };
+    const green = red(tip);
+    green.runs![tip][0].conclusion = "success";
+    const w = world({ kind: "answer", pull: 31 }, { pulls, runner: green });
+
+    await publish(w.d);
+
+    expect(w.host.pull(31).isDraft).toBe(false);
+    expect(await w.runner.runner.answersTo(31, "")).toBe(0);
+  });
+
+  const draftAt = (sha: string): PullSeed[] => [
+    { ...pulls[0], head: { sha, branch: "12-add", repository: REPOSITORY } },
+  ];
+  const waiting = (tip: string): MemoryRunnerOptions => ({
+    runs: {
+      [tip]: [
+        { ...red(tip).runs![tip][0], status: "in_progress", conclusion: null },
+      ],
+    },
+  });
+
+  it("is not started while CI runs, and the pull request is told after an hour", async () => {
+    const tip = commits();
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: draftAt(tip), runner: waiting(tip) },
+    );
+
+    await publish(w.d);
+
+    expect(await w.runner.runner.answersTo(31, "")).toBe(0);
+    expect(w.host.pull(31).isDraft).toBe(true);
+    expect((await w.host.codeHost.comments(31)).at(-1)!.body).toContain(
+      "CI has not finished after an hour",
+    );
+  });
+
+  it("does not mark ready a pull request someone pushed to since", async () => {
+    const tip = commits();
+    const green = red(tip);
+    green.runs![tip][0].conclusion = "success";
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: draftAt("f".repeat(40)), runner: green },
+    );
+
+    await publish(w.d);
+
+    expect(w.host.pull(31).isDraft).toBe(true);
+  });
+});

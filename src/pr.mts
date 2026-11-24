@@ -274,13 +274,13 @@ const POLL_MS = 30_000;
 
 /** How long `wait-checks` waits for a first run before it decides the
  * repository runs no CI on this commit. */
-const NO_CHECKS_MS = 120_000;
+export const NO_CHECKS_MS = 120_000;
 
 /** The events whose runs `wait-checks` waits on. The factory's own
  * workflows start on pull_request_target and workflow_run, and a failed
  * board sync should not stop a pull request being marked ready. */
 const WAITED_EVENTS = ["pull_request", "push"];
-const PASSED = ["success", "skipped", "neutral"];
+export const PASSED = ["success", "skipped", "neutral"];
 const passed = (conclusion: string | null) => PASSED.includes(conclusion ?? "");
 
 /** The newest run of each workflow, among the waited-on events. */

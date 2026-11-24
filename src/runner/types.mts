@@ -39,6 +39,14 @@ export type Runner = {
   /** Starts the board sync on the branch, so the board follows what a
    * command just recorded. */
   startSync(branch: string): Promise<void>;
+  /** Starts a session that answers what a pull request's checks or review
+   * found, with the jobs the branch has. */
+  startAnswer(pull: number, branch: string): Promise<void>;
+  /** How many times `startAnswer` has started one for the pull request,
+   * which was opened at `since`. */
+  answersTo(pull: number, since: string): Promise<number>;
+  /** The folder in a repository whose files say what the runner runs. */
+  workflowsFolder: string;
   /** The page of the build named `runName`, such as `Build #12`, started at
    * or after `since`, in milliseconds, or null when none shows yet. */
   findBuild(runName: string, since: number): Promise<string | null>;
