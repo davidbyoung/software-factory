@@ -2,7 +2,15 @@ import { EventEmitter } from "node:events";
 import { existsSync, readdirSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { claudeCodeAgent, type Spawn } from "../src/agent/claude-code.mts";
+import {
+  claudeCodeAgent,
+  claudeCodeSetup,
+  keyFault,
+  tokenFault,
+  type Spawn,
+} from "../src/agent/claude-code.mts";
+import type { SecretStep } from "../src/setup.mts";
+import { memoryContext } from "./memory-tools";
 
 type Script = {
   stdout?: string;
@@ -212,5 +220,83 @@ describe("Claude Code's answer", () => {
     const agent = claudeCodeAgent(fakeSpawn({}).spawn);
     expect(agent.installed((n) => n === "claude")).toBe(true);
     expect(agent.installed(() => false)).toBe(false);
+  });
+});
+
+describe("the token Claude Code's setup asks for", () => {
+  /** What the browser gives to paste back into claude setup-token. */
+  const CODE = "Xy7_pQ2vLm-9aB#kR4tZ0wE8sD1fG5hJ3nC6uI";
+  const TOKEN = "sk-ant-oat01-AbC_dEf-123";
+  const KEY = "sk-ant-api03-AbC_dEf-123";
+  const COPY =
+    'Copy the line claude setup-token printed after "Your OAuth token", and paste that.';
+  const step = () =>
+    claudeCodeSetup.steps!(memoryContext(["cloud"]))[0] as SecretStep;
+  /** The line a pasted value is refused with. */
+  const refused = (value: string) =>
+    step().verify!(value).then(
+      () => null,
+      (e: Error) => e.message,
+    );
+
+  it("says in its prompt which line to copy", () => {
+    expect(step().prompt).toBe(
+      "Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
+    );
+  });
+
+  it("takes a token", async () => {
+    expect(await step().verify!(TOKEN)).toEqual({ lines: [] });
+  });
+
+  it("refuses the browser's code, and says that is what a value with a # is", async () => {
+    expect(await refused(CODE)).toBe(
+      `That is not the token: it starts sk-ant-oat01-, and what you pasted starts differently. If it has a # in it, it is the code the browser gave you for claude setup-token. ${COPY}`,
+    );
+  });
+
+  it("refuses any other value without the sentence about a #", async () => {
+    expect(await refused("gho_something-else")).toBe(
+      `That is not the token: it starts sk-ant-oat01-, and what you pasted starts differently. ${COPY}`,
+    );
+  });
+
+  it("says an API key is one, and names the choice it belongs to where there is one", async () => {
+    expect(await refused(KEY)).toBe(
+      `That is an API key, not the token: the token starts sk-ant-oat01-. ${COPY}`,
+    );
+    expect(tokenFault(KEY, "An API key")).toBe(
+      `That is an API key, not the token: the token starts sk-ant-oat01-. It belongs to the choice "An API key". ${COPY}`,
+    );
+  });
+
+  it("prints no part of what was pasted", async () => {
+    for (const value of [CODE, "gho_something-else", KEY]) {
+      const line = (await refused(value))!;
+      expect(line).not.toContain(value);
+      expect(line).not.toContain(value.slice(0, 12));
+      expect(line).not.toContain(value.slice(-12));
+    }
+  });
+});
+
+describe("an API key for Claude Code", () => {
+  it("is one that starts sk-ant-api", () => {
+    expect(keyFault("sk-ant-api03-AbC_dEf-123")).toBeNull();
+  });
+
+  it("is not any other value", () => {
+    expect(keyFault("AbC#dEf")).toBe(
+      "That is not an API key: one starts sk-ant-api. Paste the key from the Anthropic console.",
+    );
+  });
+
+  it("is not the token claude setup-token prints, which belongs to the other choice", () => {
+    expect(keyFault("sk-ant-oat01-AbC_dEf-123")).toBe(
+      "That is the token claude setup-token prints, not an API key: one starts sk-ant-api. Paste the key from the Anthropic console.",
+    );
+    expect(keyFault("sk-ant-oat01-AbC_dEf-123", "A Claude subscription")).toBe(
+      'That is the token claude setup-token prints, not an API key: one starts sk-ant-api. It belongs to the choice "A Claude subscription". Paste the key from the Anthropic console.',
+    );
   });
 });

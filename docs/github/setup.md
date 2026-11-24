@@ -226,7 +226,7 @@ Registering the GitHub App "Software Factory for acme". Two steps, both in your 
 ✓ Installed the app on 212 repositories.
 
 The coding agent's token: running claude setup-token...
-? Paste the token it printed (leave empty to do this later):
+? Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):
 ✓ Stored 2 secrets and 2 variables for acme.
 ✓ Required "Review verdict" where the property software-factory is "on".
 

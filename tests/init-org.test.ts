@@ -84,11 +84,11 @@ const LAUNCHER = join(
 );
 const ADDRESS = "https://github.com/acme";
 const KEY =
-  "-----BEGIN RSA PRIVATE KEY-----\nthe key\n-----END RSA PRIVATE KEY-----";
+  "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----";
 const TOKEN = "sk-ant-oat01-token";
 const API_KEY = "sk-ant-api03-key";
 /** Every value a test pastes or is handed, none of which may be printed. */
-const VALUES = [KEY, "the key", TOKEN, API_KEY];
+const VALUES = [KEY, "MIIEowIBAAKCAQEA", TOKEN, API_KEY];
 
 const PAID: OrganizationPlan = {
   name: "GitHub Team",
@@ -832,7 +832,7 @@ describe("factory init --org, a first run", () => {
       "✓ Installed the app on 212 repositories.",
       "",
       "The coding agent's token: running claude setup-token...",
-      "? secret: Paste the token it printed (leave empty to do this later):",
+      "? secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
       "✓ Stored 2 secrets and 2 variables for acme.",
       '✓ Required "Review verdict" where the property software-factory is "on".',
       "",
@@ -1500,6 +1500,74 @@ describe("factory init --org, registering the app", () => {
 });
 
 describe("factory init --org, the coding agent's credential", () => {
+  /** What the browser gives to paste back into claude setup-token. */
+  const CODE = "Xy7_pQ2vLm-9aB#kR4tZ0wE8sD1fG5hJ3nC6uI";
+  const COPY =
+    'Copy the line claude setup-token printed after "Your OAuth token", and paste that.';
+  const TOKEN_PROMPT =
+    "? secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):";
+  const KEY_PROMPT =
+    "? secret: Paste the API key (leave empty to do this later):";
+  /** What is printed and asked from the first prompt for the secret to the
+   * line that counts what was stored. */
+  const asking = (s: ReturnType<typeof setup>, prompt: string) =>
+    s.transcript.slice(
+      s.transcript.indexOf(prompt),
+      s.transcript.findIndex((l) => l.startsWith("✓ Stored")) + 1,
+    );
+
+  it("refuses the browser's code where the token is asked for, asks again, and stores the token", async () => {
+    const s = setup({ answers: { ...FIRST, secret: [CODE, TOKEN] } });
+    expect(await s.run()).toBe(0);
+    expect(asking(s, TOKEN_PROMPT)).toEqual([
+      TOKEN_PROMPT,
+      `That is not the token: it starts sk-ant-oat01-, and what you pasted starts differently. If it has a # in it, it is the code the browser gave you for claude setup-token. ${COPY}`,
+      TOKEN_PROMPT,
+      "✓ Stored 2 secrets and 2 variables for acme.",
+    ]);
+    expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
+    expect(s.org().log.filter((l) => l.startsWith("setSecret"))).toEqual([
+      "setSecret FACTORY_APP_PRIVATE_KEY",
+      "setSecret CLAUDE_CODE_OAUTH_TOKEN",
+    ]);
+    const said = s.out.join("\n");
+    for (const part of [CODE, CODE.slice(0, 10), CODE.slice(-10)])
+      expect(said).not.toContain(part);
+  });
+
+  it("says an API key pasted where the token is asked for belongs to the other choice", async () => {
+    const s = setup({ answers: { ...FIRST, secret: [API_KEY, TOKEN] } });
+    expect(await s.run()).toBe(0);
+    expect(asking(s, TOKEN_PROMPT)[1]).toBe(
+      `That is an API key, not the token: the token starts sk-ant-oat01-. It belongs to the choice "An API key". ${COPY}`,
+    );
+    expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
+    expect(s.seed.secrets).not.toContain("ANTHROPIC_API_KEY");
+    printsNoSecret(s.out);
+  });
+
+  it("refuses what is not an API key where one is asked for, and a setup-token token with the choice it belongs to", async () => {
+    const s = setup({
+      answers: {
+        ...FIRST,
+        select: ["new", "ANTHROPIC_API_KEY", "30"],
+        secret: [CODE, TOKEN, API_KEY],
+      },
+    });
+    expect(await s.run()).toBe(0);
+    expect(asking(s, KEY_PROMPT)).toEqual([
+      KEY_PROMPT,
+      "That is not an API key: one starts sk-ant-api. Paste the key from the Anthropic console.",
+      KEY_PROMPT,
+      'That is the token claude setup-token prints, not an API key: one starts sk-ant-api. It belongs to the choice "A Claude subscription". Paste the key from the Anthropic console.',
+      KEY_PROMPT,
+      "✓ Stored 2 secrets and 2 variables for acme.",
+    ]);
+    expect(s.org().values.get("ANTHROPIC_API_KEY")).toBe(API_KEY);
+    expect(s.seed.secrets).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
+    printsNoSecret(s.out);
+  });
+
   it("stores an API key as ANTHROPIC_API_KEY, and runs no command for it", async () => {
     const s = setup({
       answers: {
@@ -1798,7 +1866,7 @@ describe("factory init --org, run again", () => {
       "",
       "",
       "The coding agent's token: running claude setup-token...",
-      "? secret: Paste the token it printed (leave empty to do this later):",
+      "? secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
       "✓ Stored 1 secret for acme.",
       "",
       ...ending(),

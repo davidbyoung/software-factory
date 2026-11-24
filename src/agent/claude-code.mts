@@ -23,6 +23,40 @@ const COMMAND = "claude";
 const SYNC = "Run factory sync";
 const READS: Part[] = ["review", "cloud"];
 
+/** How the token `claude setup-token` prints and an API key each start. */
+const TOKEN_START = "sk-ant-oat";
+const KEY_START = "sk-ant-api";
+
+/** The choice a pasted value belongs to, where the command offers one. */
+const belongs = (choice?: string) =>
+  choice ? ` It belongs to the choice "${choice}".` : "";
+
+/** Why a pasted value is not the token `claude setup-token` prints, as the
+ * line to print, or null for one that is. No line holds any of the value:
+ * what is pasted in its place is often another secret, such as the code
+ * the browser gives to paste back to that command. `keyChoice` names the
+ * choice that takes an API key. */
+export function tokenFault(value: string, keyChoice?: string): string | null {
+  if (value.startsWith(TOKEN_START)) return null;
+  const copy = `Copy the line ${COMMAND} setup-token printed after "Your OAuth token", and paste that.`;
+  if (value.startsWith(KEY_START))
+    return `That is an API key, not the token: the token starts ${TOKEN_START}01-.${belongs(keyChoice)} ${copy}`;
+  const code = value.includes("#")
+    ? ` If it has a # in it, it is the code the browser gave you for ${COMMAND} setup-token.`
+    : "";
+  return `That is not the token: it starts ${TOKEN_START}01-, and what you pasted starts differently.${code} ${copy}`;
+}
+
+/** Why a pasted value is not an API key, as `tokenFault` says why one is
+ * not the token. `tokenChoice` names the choice that takes the token. */
+export function keyFault(value: string, tokenChoice?: string): string | null {
+  if (value.startsWith(KEY_START)) return null;
+  const paste = "Paste the key from the Anthropic console.";
+  return value.startsWith(TOKEN_START)
+    ? `That is the token ${COMMAND} setup-token prints, not an API key: one starts ${KEY_START}.${belongs(tokenChoice)} ${paste}`
+    : `That is not an API key: one starts ${KEY_START}. ${paste}`;
+}
+
 const read = (root: string, path: string) =>
   existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null;
 
@@ -46,8 +80,14 @@ export const claudeCodeSetup: ToolSetup = {
           `The coding agent's token: running ${COMMAND} setup-token...`,
         ],
         get: { command: [COMMAND, "setup-token"] },
-        prompt: "Paste the token it printed (leave empty to do this later):",
+        prompt:
+          "Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
         skipped: `No ${AGENT_TOKEN} stored.`,
+        verify: async (value) => {
+          const fault = tokenFault(value);
+          if (fault) throw new Error(fault);
+          return { lines: [] };
+        },
         stored: (names) => `Stored as ${names.join(", ")}.`,
         machine: {},
       },

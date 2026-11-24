@@ -40,7 +40,7 @@ import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
 
 export const GOOD = "tok_good";
 export const NARROW = "tok_narrow";
-export const AGENT = "agent_token";
+export const AGENT = "sk-ant-oat01-agent_token";
 export const PRIVATE_KEY = "-----BEGIN PRIVATE-----\nsecret key\n-----END-----";
 /** Every value a test pastes or makes, none of which may be printed. */
 export const VALUES = [GOOD, NARROW, AGENT, PRIVATE_KEY, "secret key"];

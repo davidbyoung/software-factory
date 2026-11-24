@@ -103,7 +103,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: The coding agent's credential
 
 - **WHEN** `factory init --org ADDRESS` comes to the coding agent's credential
-- **THEN** It runs the coding agent's token step as `factory init` does, stores the result for ORG, as `CLAUDE_CODE_OAUTH_TOKEN` or, for an API key, `ANTHROPIC_API_KEY`, and prints `✓ Stored N secrets and 2 variables for ORG.`, counting what this run stored. A token left empty gets today's line, with `factory init --org ADDRESS` as the command to run again.
+- **THEN** It runs the coding agent's token step as `factory init` does, stores the result for ORG, as `CLAUDE_CODE_OAUTH_TOKEN` or, for an API key, `ANTHROPIC_API_KEY`, and prints `✓ Stored N secrets and 2 variables for ORG.`, counting what this run stored. A token left empty gets today's line, with `factory init --org ADDRESS` as the command to run again. A pasted value is checked before it is stored: one that does not start `sk-ant-oat` where the token is asked for, or `sk-ant-api` where an API key is, is refused and asked for again. The refusal prints no part of the value. It says a value with a `#` is the code the browser gave for `claude setup-token`, and for a token or a key pasted at the other's prompt, which it is and the choice it belongs to.
 
 ### Requirement: The property and the rule
 

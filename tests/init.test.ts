@@ -989,7 +989,7 @@ describe("factory init, word for word", () => {
         "Added to board 1: Backlog, In refinement, Ready, In review, Session, Runs in, Cost.",
         "",
         "The coding agent's token: running claude setup-token...",
-        "? secret: Paste the token it printed (leave empty to do this later):",
+        "? secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
         "Stored for acme/site, and on this machine for your next repository.",
         "",
         "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: acme/site",

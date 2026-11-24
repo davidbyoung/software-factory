@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { load } from "js-yaml";
 import { stringify } from "yaml";
+import { keyFault, tokenFault } from "./agent/claude-code.mts";
 import { organizationHosts } from "./code-host/index.mts";
 import type { Organization, OrganizationHost } from "./code-host/types.mts";
 import {
@@ -67,6 +68,10 @@ export const APP_SLUG = "FACTORY_APP_SLUG";
 export const PROPERTY = "software-factory";
 export const CONFIG = "factory-config";
 const BOARD_TITLE = "Software factory";
+/** The two ways to pay for sessions in the cloud, as the question names
+ * them. */
+const SUBSCRIPTION = "A Claude subscription";
+const API_KEY = "An API key";
 const README = "README.md";
 const FILES = [README, PRESET_FILE, POLLER_FILE];
 const NOTHING = "Nothing changed.";
@@ -436,10 +441,10 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       getCommand && meets.includes(AGENT_KEY)
         ? await d.ask.select("What pays for sessions in the cloud?", [
             {
-              name: `A Claude subscription (it runs ${getCommand.join(" ")} for you)`,
+              name: `${SUBSCRIPTION} (it runs ${getCommand.join(" ")} for you)`,
               value: credentialNames[0]!,
             },
-            { name: "An API key", value: AGENT_KEY },
+            { name: API_KEY, value: AGENT_KEY },
           ])
         : credentialNames[0]!;
   }
@@ -734,15 +739,22 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
 
     if (credential && storeAs) {
       const name = storeAs;
+      const refuse = (fault: string | null) => {
+        if (fault) throw new Error(fault);
+        return { lines: [] };
+      };
       const got = await askSecret(
         d,
         credentialNames.includes(name)
-          ? credential
+          ? {
+              ...credential,
+              verify: async (value) => refuse(tokenFault(value, API_KEY)),
+            }
           : {
               ...credential,
               intro: [""],
               get: undefined,
-              verify: undefined,
+              verify: async (value) => refuse(keyFault(value, SUBSCRIPTION)),
               prompt: "Paste the API key (leave empty to do this later):",
               skipped: `No ${name} stored.`,
             },

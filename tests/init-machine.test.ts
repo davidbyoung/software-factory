@@ -186,7 +186,7 @@ describe("factory init, a person's next repository", () => {
     keep(r, { token: GOOD });
     await r.run();
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([
-      "secret: Paste the token it printed (leave empty to do this later):",
+      "secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
     ]);
     expect(r.out).toContain(
       `  store         your Claude token on this machine, in ${credentialsPath(r.env)}`,
