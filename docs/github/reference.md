@@ -274,7 +274,10 @@ and the variable `FACTORY_APP_CLIENT_ID` both reach the run. Each job
 that needs more than the workflow's own token makes a token from the
 App, for the run's repository and the organization's
 [preset](../presets.md) repositories it follows, and uses it wherever a
-run on your own account uses the build, board, or auto-merge token. A token lasts an hour and a build may run longer, so a
+run on your own account uses the build, board, or auto-merge token.
+Each job's token carries only the permissions that job uses, and only
+the job that requires the verdict may set a repository's
+`software-factory` property. A token lasts an hour and a build may run longer, so a
 session's job signs the GitHub CLI and git in with one and makes a new
 one every 45 minutes, and one process of that job holds the App's key
 for as long as the job runs. A build's pull request and comments are the

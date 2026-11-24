@@ -109,7 +109,8 @@ pull request gets a `merge-automatic` or `merge-manual` label or a
 `specs` is `openspec` here. A ticket gets the `spec` label when it changes
 what a factory user sees: a command's output or exit, a setting, which
 files the factory writes into their repository and where, or when a job
-of the workflows their two files call runs. The text of
+of the workflows their two files call runs, or of `poller.yml`, the
+workflow an organization's `factory-poller.yml` calls. The text of
 its skills, agents, rules, and review instructions is not spec-tracked,
 since prose has no test to map a scenario to: a change to it goes through
 the fresh-agent trace in "Changing the process" instead. `openspec/specs/` holds a spec for
@@ -191,12 +192,14 @@ they are.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
-gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
+gate runs, and the commands a person runs to set a repository or an
+organization up: in particular `merge-policy.mts`, `review-verdict.mts`,
 `review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
 `ticket.mts`, which starts the board sync,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
 `workflow-files.mts`, `session.mts`, `session-token.mts`, `enroll.mts`,
-`init-org.mts`, `update.mts`,
+`init.mts`, `init-org.mts`, `setup.mts`, `code-host/github-app.mts`,
+which holds the App's permissions, `update.mts`,
 `lib/default-branch.mts`, `lib/refined-check.mts`, `specs/`, whose
 adapters name the files the merge policy holds, and `config.mts`'s
 `pluginsOf`.

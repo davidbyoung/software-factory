@@ -115,6 +115,8 @@ discovering it at push time.
   nothing can wake it once it stops. A pull request `factory update`
   opened was built by no session: its review waits for the owner, who
   merges it or tells a session to work it with `factory-address-review`.
+  So does the pull request `factory init` opens, which a person's command
+  opens ready, not as a draft.
 - **A pull request that resolves an issue closes it.** When asked to open
   one, start the body with the line `factory ticket link N`
   prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
@@ -202,8 +204,9 @@ criteria" with no spec files and no "For the builder" section, since the
 area's `CLAUDE.md` says how it is built. A small change that makes a
 spec line false is the one exception ("Small changes" above). Neither
 skill removes `spec` or adds it back once the owner removed it: both act
-through the owner's GitHub account, so a label already decided is the
-owner's call.
+through the owner's GitHub account, or through the organization's app in
+an organization's cloud build, and either way a label already decided is
+the owner's call.
 
 A spec tool, which `factory config get specs` names,
 also keeps each Spec in the repository: `factory-build` starts it with

@@ -48,8 +48,9 @@ as a code host's billing or what its workflows can see, are in
   ([Where your tokens are kept](credentials.md#on-github)).
 - **An organization's poller runs only on a schedule,** in its
   `factory-config` repository. Nobody can host one for a whole
-  organization, and a repository that follows the organization's preset
-  cannot opt out of it to run its own.
+  organization. A repository in an organization that is set up keeps its
+  tickets from that poller by setting `builds.trigger: manual` in its
+  own settings.
 - **No command replaces the key of an organization's app, or takes an
   organization's setup out.** GitHub makes a new key only on the app's
   own page: [Replacing the App's key](credentials.md#replacing-the-apps-key)
