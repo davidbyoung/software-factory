@@ -8,7 +8,11 @@ import { GhError, type Gh, type GhIn } from "../lib/gh.mts";
 import type { IssueComment, PullRequest } from "../lib/work-status.mts";
 import { NotFoundError } from "../tickets/types.mts";
 import { writeAccess } from "../tickets/github-access.mts";
-import { statusOf, type Transport } from "../tickets/transport.mts";
+import {
+  statusOf,
+  type Fields,
+  type Transport,
+} from "../tickets/transport.mts";
 import { randomBytes } from "node:crypto";
 import {
   appName,
@@ -109,6 +113,7 @@ type RestStatus = {
   context: string;
   state: string;
   target_url?: string;
+  creator?: { login: string } | null;
 };
 
 type RestFile = {
@@ -568,17 +573,22 @@ export function githubCodeHost(o: {
         report: reportOf(c.output),
       }));
     },
+    // Every status set on the commit, newest first: the combined status
+    // holds the newest of each name, but not who set it.
     async statuses(sha) {
-      const answer = await t.rest<{ statuses: RestStatus[] }>(
-        "GET",
-        `${API}/commits/${sha}/status`,
-      );
-      return answer.statuses.map((s): CommitStatus => ({
-        id: s.id,
-        name: s.context,
-        state: s.state,
-        link: s.target_url,
-      }));
+      const newest = new Map<string, CommitStatus>();
+      for (const s of await list<RestStatus>(
+        `${API}/commits/${sha}/statuses?per_page=100`,
+      ))
+        if (!newest.has(s.context))
+          newest.set(s.context, {
+            id: s.id,
+            name: s.context,
+            state: s.state,
+            link: s.target_url,
+            author: s.creator?.login ?? "ghost",
+          });
+      return [...newest.values()];
     },
     async setStatus(sha, status) {
       await t.rest("POST", `${API}/statuses/${sha}`, {
@@ -675,6 +685,26 @@ export function githubCodeHost(o: {
       return result.data.repository.pullRequest.reviewThreads.nodes.filter(
         (x) => !x.isResolved,
       ).length;
+    },
+    async commentOn(n, at) {
+      const placed = async (fields: Fields): Promise<boolean> => {
+        try {
+          await t.rest("POST", `${API}/pulls/${n}/comments`, {
+            fields: { commit_id: at.sha, path: at.path, ...fields },
+          });
+          return true;
+        } catch (error) {
+          if (statusOf(error) === 422) return false;
+          throw error;
+        }
+      };
+      return (
+        (await placed({ line: at.line, side: "RIGHT", body: at.body })) ||
+        (await placed({
+          subject_type: "file",
+          body: `${at.body}\n\n(Line ${at.line}.)`,
+        }))
+      );
     },
     async reply(n, commentId, body) {
       const made = await t.rest<{ id: number }>(

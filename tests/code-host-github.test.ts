@@ -237,24 +237,38 @@ describe("pull request reads", () => {
     expect(calls[0]).toMatch(/ -F draft=false$/);
   });
 
-  it("reads a commit's statuses, each by its name", async () => {
+  it("reads a commit's statuses, the newest of each name, with who set it", async () => {
+    const status = (id: number, context: string, state: string) => ({
+      id,
+      context,
+      state,
+      target_url: `https://ci/${id}`,
+      creator: { login: "bot" },
+    });
     const { p } = pulls([
       [
-        /commits\/h\/status$/,
-        {
-          statuses: [
-            {
-              id: 2,
-              context: "verdict",
-              state: "success",
-              target_url: "https://ci/2",
-            },
-          ],
-        },
+        /--paginate --slurp repos\/acme\/widgets\/commits\/h\/statuses\?per_page=100$/,
+        [
+          [status(3, "verdict", "success"), status(2, "verdict", "pending")],
+          [{ ...status(1, "ci", "failure"), creator: null }],
+        ],
       ],
     ]);
     expect(await p.statuses("h")).toEqual([
-      { id: 2, name: "verdict", state: "success", link: "https://ci/2" },
+      {
+        id: 3,
+        name: "verdict",
+        state: "success",
+        link: "https://ci/3",
+        author: "bot",
+      },
+      {
+        id: 1,
+        name: "ci",
+        state: "failure",
+        link: "https://ci/1",
+        author: "ghost",
+      },
     ]);
   });
 
@@ -354,6 +368,59 @@ describe("pull request conversation and labels", () => {
       "api -X POST repos/acme/widgets/pulls/5/comments/10/replies -f body=Done.",
     ]);
   });
+});
+
+describe("a comment on a line", () => {
+  const AT = { sha: "h", path: "a.ts", line: 3, body: "Off by one." };
+  const ON_LINE = / -F line=3 /;
+  const ON_FILE = / -f subject_type=file /;
+  const invalid = () => new Error("gh api: Validation Failed (HTTP 422)");
+
+  it("is posted on the new side of the commit's line", async () => {
+    const { p, calls } = pulls([[ON_LINE, { id: 1 }]]);
+
+    expect(await p.commentOn(5, AT)).toBe(true);
+    expect(calls).toEqual([
+      "api -X POST repos/acme/widgets/pulls/5/comments -f commit_id=h -f path=a.ts -F line=3 -f side=RIGHT -f body=Off by one.",
+    ]);
+  });
+
+  it("goes on the file, naming the line, where the line takes none", async () => {
+    const { p, calls } = pulls([
+      [ON_LINE, invalid()],
+      [ON_FILE, { id: 1 }],
+    ]);
+
+    expect(await p.commentOn(5, AT)).toBe(true);
+    expect(calls[1]).toBe(
+      "api -X POST repos/acme/widgets/pulls/5/comments -f commit_id=h -f path=a.ts -f subject_type=file -f body=Off by one.\n\n(Line 3.)",
+    );
+  });
+
+  it("answers false where neither the line nor the file takes one", async () => {
+    const { p } = pulls([[/comments/, invalid()]]);
+
+    expect(await p.commentOn(5, AT)).toBe(false);
+  });
+
+  it.each([
+    ["on the line", [[ON_LINE, new Error("gh: Server Error (HTTP 500)")]]],
+    [
+      "on the file",
+      [
+        [ON_LINE, invalid()],
+        [ON_FILE, new Error("gh: Server Error (HTTP 500)")],
+      ],
+    ],
+  ] satisfies [string, [RegExp, Error][]][])(
+    "fails when GitHub fails %s in any other way",
+    async (_, routes) => {
+      const { p, calls } = pulls(routes);
+
+      await expect(p.commentOn(5, AT)).rejects.toThrow("HTTP 500");
+      expect(calls).toHaveLength(routes.length);
+    },
+  );
 });
 
 const graphThreads = {

@@ -98,6 +98,9 @@ export type MemoryCodeHostOptions = {
   eventsRefused?: string;
   /** The newest release's tag, by repository. */
   releases?: Record<string, string>;
+  /** Where `commentOn` can open a thread, as PATH:LINE; anywhere unless
+   * given. */
+  lines?: string[];
   /** When a comment is posted, for its createdAt. */
   now?: () => string;
 };
@@ -327,6 +330,7 @@ export function memoryCodeHost(
         name: status.name,
         state: status.state,
         link: status.link,
+        author: "github-actions[bot]",
       };
       const at = statuses.findIndex((s) => s.name === status.name);
       if (at === -1) statuses.push(set);
@@ -399,6 +403,21 @@ export function memoryCodeHost(
     async openThreadCount(n) {
       called("openThreadCount", n);
       return get(n).threads.filter((t) => !t.isResolved).length;
+    },
+    async commentOn(n, at) {
+      called("commentOn", n, at.sha, `${at.path}:${at.line}`);
+      if (options.lines?.includes(`${at.path}:${at.line}`) === false)
+        return false;
+      const id = nextId++;
+      get(n).threads.push({
+        commentId: id,
+        isResolved: false,
+        isOutdated: false,
+        path: at.path,
+        line: at.line,
+        comments: [{ id, author: owner, body: at.body }],
+      });
+      return true;
     },
     async reply(n, commentId, body) {
       called("reply", n, commentId);

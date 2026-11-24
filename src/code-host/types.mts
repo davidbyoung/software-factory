@@ -85,6 +85,8 @@ export type CommitStatus = {
   name: string;
   state: string;
   link?: string;
+  /** The account that set it, where the code host says. */
+  author?: string;
 };
 
 export type NewStatus = {
@@ -184,6 +186,13 @@ export type CodeHost = {
   reviewComments(pull: number): Promise<PullComment[]>;
   threads(pull: number): Promise<Thread[]>;
   openThreadCount(pull: number): Promise<number>;
+  /** Opens a thread on a line of the commit, as the pull request leaves it,
+   * or on the file where the line takes none, and says whether either
+   * would take one. */
+  commentOn(
+    pull: number,
+    at: { sha: string; path: string; line: number; body: string },
+  ): Promise<boolean>;
   /** Replies on the thread `commentId` starts, and returns the reply's ID. */
   reply(pull: number, commentId: number, body: string): Promise<number>;
   /** Resolves the thread that holds the comment. */
