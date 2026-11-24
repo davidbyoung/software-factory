@@ -1024,6 +1024,7 @@ export function githubOrganization(o: {
     return {
       id: found.id,
       app: app?.name ?? found.app_slug,
+      slug: found.app_slug,
       all: found.repository_selection === "all",
       page: found.html_url,
     };
@@ -1188,7 +1189,11 @@ export function githubOrganization(o: {
       if (app?.owner?.login.toLowerCase() !== o.name.toLowerCase()) return null;
       if (app.client_id !== undefined && app.client_id !== clientId)
         return null;
-      return { name: app.name, installPage: installPage(slug, app.owner.id) };
+      return {
+        name: app.name,
+        slug,
+        installPage: installPage(slug, app.owner.id),
+      };
     },
     async appNamed(name) {
       const app = await absent(

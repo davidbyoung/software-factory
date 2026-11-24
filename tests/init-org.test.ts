@@ -103,6 +103,7 @@ const FREE: OrganizationPlan = {
 const INSTALLED: Installation = {
   id: 52811,
   app: "Software Factory for acme",
+  slug: "software-factory-for-acme",
   all: true,
   page: "https://github.com/organizations/acme/settings/installations/52811",
 };
@@ -219,7 +220,7 @@ type Seed = {
   taken: boolean;
   /** The organization's app as the code host finds it with no
    * installation, or null when it cannot. */
-  registered: { name: string; installPage: string } | null;
+  registered: { name: string; slug: string; installPage: string } | null;
   /** How the code comes back: by the browser, or by an address she
    * pastes. */
   returns: "browser" | "pasted";
@@ -590,7 +591,10 @@ const FIRST: Answers = {
 const DONE: Partial<Seed> = {
   repositories: { "factory-config": CONFIG },
   secrets: ["FACTORY_APP_PRIVATE_KEY", "CLAUDE_CODE_OAUTH_TOKEN"],
-  variables: { FACTORY_APP_CLIENT_ID: "Iv23client" },
+  variables: {
+    FACTORY_APP_CLIENT_ID: "Iv23client",
+    FACTORY_APP_SLUG: "software-factory-for-acme",
+  },
   rules: ["Software factory"],
   installation: INSTALLED,
 };
@@ -814,7 +818,7 @@ describe("factory init --org, a first run", () => {
       "",
       "This is everything setup will do:",
       '  app       Register the GitHub App "Software Factory for acme" and install it',
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable FACTORY_APP_CLIENT_ID for acme",
+      "  secrets   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variables FACTORY_APP_CLIENT_ID and FACTORY_APP_SLUG for acme",
       "  preset    Create acme/factory-config, a private repository, with the organization's preset and the poller",
       '  rule      Require "Review verdict" on repositories set up with the factory',
       "  board     Create a board with the factory's columns and fields",
@@ -829,7 +833,7 @@ describe("factory init --org, a first run", () => {
       "",
       "The coding agent's token: running claude setup-token...",
       "? secret: Paste the token it printed (leave empty to do this later):",
-      "✓ Stored 2 secrets and 1 variable for acme.",
+      "✓ Stored 2 secrets and 2 variables for acme.",
       '✓ Required "Review verdict" where the property software-factory is "on".',
       "",
       ...ending(),
@@ -897,6 +901,7 @@ describe("factory init --org, a first run", () => {
       "registerApp Software Factory for acme",
       "setSecret FACTORY_APP_PRIVATE_KEY",
       "setVariable FACTORY_APP_CLIENT_ID Iv23client",
+      "setVariable FACTORY_APP_SLUG software-factory-for-acme",
       "setSecret CLAUDE_CODE_OAUTH_TOKEN",
       "defineProperty software-factory on|off",
       "requireCheckWhere Software factory Review verdict software-factory=on runner",
@@ -1253,15 +1258,17 @@ describe("factory init --org, on GitHub Free", () => {
     );
     expect(plan.slice(0, 5)).toEqual([
       '  app       Register the GitHub App "Software Factory for acme" and install it',
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable FACTORY_APP_CLIENT_ID for acme",
+      "  secrets   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variables FACTORY_APP_CLIENT_ID and FACTORY_APP_SLUG for acme",
       "  preset    Create acme/factory-config, a public repository, with the organization's preset and the poller",
       "- rule      Each repository's own: once its setup merges, an admin of it runs factory init",
       "  board     Create a board with the factory's columns and fields",
     ]);
     expect(
-      s.out.slice(s.out.indexOf("✓ Stored 2 secrets and 1 variable for acme.")),
+      s.out.slice(
+        s.out.indexOf("✓ Stored 2 secrets and 2 variables for acme."),
+      ),
     ).toEqual([
-      "✓ Stored 2 secrets and 1 variable for acme.",
+      "✓ Stored 2 secrets and 2 variables for acme.",
       "",
       ...ending("GitHub Free has no organization-wide rules."),
     ]);
@@ -1425,7 +1432,7 @@ describe("factory init --org, the coding agent's credential", () => {
     });
     expect(await s.run()).toBe(0);
     expect(s.out).toContain(
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY, ANTHROPIC_API_KEY, and the variable FACTORY_APP_CLIENT_ID for acme",
+      "  secrets   Store FACTORY_APP_PRIVATE_KEY, ANTHROPIC_API_KEY, and the variables FACTORY_APP_CLIENT_ID and FACTORY_APP_SLUG for acme",
     );
     expect(s.transcript).toContain(
       "? secret: Paste the API key (leave empty to do this later):",
@@ -1433,7 +1440,7 @@ describe("factory init --org, the coding agent's credential", () => {
     expect(s.org().values.get("ANTHROPIC_API_KEY")).toBe(API_KEY);
     expect(s.seed.secrets).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
     expect(s.ran).toEqual([]);
-    expect(s.out).toContain("✓ Stored 2 secrets and 1 variable for acme.");
+    expect(s.out).toContain("✓ Stored 2 secrets and 2 variables for acme.");
     printsNoSecret(s.out);
   });
 
@@ -1455,7 +1462,7 @@ describe("factory init --org, the coding agent's credential", () => {
     expect(s.out).toContain(
       "No CLAUDE_CODE_OAUTH_TOKEN stored. Run factory init --org https://github.com/acme again to add it.",
     );
-    expect(s.out).toContain("✓ Stored 1 secret and 1 variable for acme.");
+    expect(s.out).toContain("✓ Stored 1 secret and 2 variables for acme.");
     expect(s.seed.secrets).toEqual(["FACTORY_APP_PRIVATE_KEY"]);
   });
 });
@@ -1469,9 +1476,9 @@ describe("factory init --org, with a coding agent that needs no secret", () => {
     expect(await s.run()).toBe(0);
     expect(s.out.some((l) => l.startsWith("  Coding agent"))).toBe(false);
     expect(s.out).toContain(
-      "  secrets   Store FACTORY_APP_PRIVATE_KEY and the variable FACTORY_APP_CLIENT_ID for acme",
+      "  secrets   Store FACTORY_APP_PRIVATE_KEY and the variables FACTORY_APP_CLIENT_ID and FACTORY_APP_SLUG for acme",
     );
-    expect(s.out).toContain("✓ Stored 1 secret and 1 variable for acme.");
+    expect(s.out).toContain("✓ Stored 1 secret and 2 variables for acme.");
     expect(s.transcript.some((l) => l.startsWith("? secret"))).toBe(false);
   });
 });
@@ -1631,9 +1638,11 @@ describe("factory init --org, the rule", () => {
     });
     expect(await s.run()).toBe(0);
     expect(
-      s.out.slice(s.out.indexOf("✓ Stored 2 secrets and 1 variable for acme.")),
+      s.out.slice(
+        s.out.indexOf("✓ Stored 2 secrets and 2 variables for acme."),
+      ),
     ).toEqual([
-      "✓ Stored 2 secrets and 1 variable for acme.",
+      "✓ Stored 2 secrets and 2 variables for acme.",
       "",
       ...ending("GitHub refused the organization's rule."),
     ]);
@@ -1736,6 +1745,7 @@ describe("factory init --org, run again", () => {
     it("prints only the second step, with the app's name and its install page when the code host can find them", async () => {
       const s = notInstalled({
         name: "Software Factory for acme",
+        slug: "software-factory-for-acme",
         installPage: INSTALL_PAGE,
       });
       expect(await s.run()).toBe(0);
@@ -1779,6 +1789,87 @@ describe("factory init --org, run again", () => {
       expect(s.opened).toEqual([
         "https://github.com/organizations/acme/settings/apps",
       ]);
+    });
+  });
+
+  describe("with no FACTORY_APP_SLUG stored, as before the variable existed", () => {
+    const NO_SLUG = { FACTORY_APP_CLIENT_ID: "Iv23client" };
+    const STORED = "setVariable FACTORY_APP_SLUG software-factory-for-acme";
+
+    it("stores the installed app's slug, and says so in the plan and the result", async () => {
+      const s = setup({
+        org: { ...DONE, variables: { ...NO_SLUG } },
+        answers: { confirm: [false, true] },
+      });
+      expect(await s.run()).toBe(0);
+      const from = s.transcript.indexOf("This is everything setup will do:");
+      expect(s.transcript.slice(from + 1, from + 6)).toEqual([
+        "  secrets   Store the variable FACTORY_APP_SLUG for acme",
+        "? confirm: Go ahead?",
+        "",
+        "✓ Stored 1 variable for acme.",
+        "",
+      ]);
+      expect(s.changes()).toEqual([STORED]);
+    });
+
+    it("stores the slug of an app that is not installed yet, when the code host can find the app", async () => {
+      const s = setup({
+        org: {
+          ...DONE,
+          variables: { ...NO_SLUG },
+          installation: null,
+          registered: {
+            name: "Software Factory for acme",
+            slug: "software-factory-for-acme",
+            installPage: INSTALL_PAGE,
+          },
+        },
+        answers: { confirm: [false, true] },
+      });
+      expect(await s.run()).toBe(0);
+      expect(s.out).toContain(
+        "  secrets   Store the variable FACTORY_APP_SLUG for acme",
+      );
+      expect(s.out).toContain("✓ Stored 1 variable for acme.");
+      expect(s.changes()).toEqual([STORED]);
+    });
+
+    it("takes the slug from the installation that shows, when it could not find the app before", async () => {
+      const s = setup({
+        org: {
+          ...DONE,
+          variables: { ...NO_SLUG },
+          installation: null,
+          installs: { ...INSTALLED, slug: "acme-factory" },
+        },
+        answers: { confirm: [false, true] },
+      });
+      expect(await s.run()).toBe(0);
+      expect(s.changes()).toEqual([
+        "setVariable FACTORY_APP_SLUG acme-factory",
+      ]);
+      expect(s.out).toContain("✓ Stored 1 variable for acme.");
+    });
+
+    it("says how to store it by hand when the app's name cannot be found, and carries on", async () => {
+      const s = setup({
+        org: {
+          ...DONE,
+          variables: { ...NO_SLUG },
+          installation: { ...INSTALLED, slug: null },
+        },
+        answers: { confirm: [false] },
+      });
+      expect(await s.run()).toBe(0);
+      const from = s.transcript.indexOf(
+        "? confirm: Replace CLAUDE_CODE_OAUTH_TOKEN?",
+      );
+      expect(s.transcript.slice(from + 1, from + 3)).toEqual([
+        "? Could not find the app's name to store as FACTORY_APP_SLUG, so the automated review will refuse the pull requests a build opens. Store it yourself: gh variable set FACTORY_APP_SLUG --org acme --visibility all --body NAME",
+        "✓ acme is set up. Nothing to do.",
+      ]);
+      expect(s.changes()).toEqual([]);
     });
   });
 

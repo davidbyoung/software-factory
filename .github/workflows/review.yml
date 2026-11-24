@@ -294,6 +294,10 @@ jobs:
           # repository with both is never billed by the key.
           anthropic_api_key: ${{ !secrets.claude-token && secrets.claude-api-key || '' }}
           github_token: ${{ github.token }}
+          # The action refuses a run a bot started, and a build under an
+          # organization's app opens its pull request as the app's bot. Only
+          # that app is let through, by its slug: never every bot.
+          allowed_bots: ${{ vars.FACTORY_APP_SLUG }}
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}

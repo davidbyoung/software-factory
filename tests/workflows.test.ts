@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   statSync,
   writeFileSync,
@@ -1800,6 +1801,38 @@ describe("review.yml", () => {
         "${{ !secrets.claude-token && secrets.claude-api-key || '' }}",
       github_token: "${{ github.token }}",
     });
+  });
+
+  it("lets the review read a pull request the organization's own app opened or pushed to, by the slug its variable holds, and no other bot's", () => {
+    const allowed = inside(step(jobs.review!, "Review").with!.allowed_bots);
+
+    expect(
+      valueOf(allowed, {
+        vars: { FACTORY_APP_SLUG: "software-factory-for-acme" },
+      }),
+    ).toBe("software-factory-for-acme");
+    expect(valueOf(allowed, { vars: {} })).toBe("");
+  });
+
+  it("lets every bot through in no workflow", () => {
+    const allowed = readdirSync(".github/workflows")
+      .filter((file) => file.endsWith(".yml"))
+      .flatMap((file) =>
+        Object.values(read(file).jobs).flatMap((job) =>
+          (job.steps ?? [])
+            .filter((s) => s.with && "allowed_bots" in s.with)
+            .map((s) => `${file}: ${s.name}: ${s.with!.allowed_bots}`),
+        ),
+      );
+
+    expect(allowed).toEqual([
+      "review.yml: Review: ${{ vars.FACTORY_APP_SLUG }}",
+    ]);
+    for (const file of readdirSync(".github/workflows"))
+      expect(
+        readFileSync(`.github/workflows/${file}`, "utf8"),
+        file,
+      ).not.toMatch(/allowed_bots:\s*["']?\*/);
   });
 
   it("turns auto-merge on only for Dependabot's own pull request, never a major, and never one that names the factory", () => {

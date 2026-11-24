@@ -59,6 +59,9 @@ export type InitOrgDeps = Terminal & {
 /** The variable that holds the app's client ID, which the workflows make a
  * run's token from with the key in the secret `APP_KEY` names. */
 export const APP_CLIENT_ID = "FACTORY_APP_CLIENT_ID";
+/** The variable that holds the name the app's account goes by, which the
+ * automated review needs to let through the pull requests a build opens. */
+export const APP_SLUG = "FACTORY_APP_SLUG";
 /** The property a repository set up with the factory has `on`, and the
  * repository that holds the organization's preset and poller. */
 export const PROPERTY = "software-factory";
@@ -146,6 +149,10 @@ function pollMinutesIn(preset: string): number {
 /** The columns `tickets.columns` lines name, less a state given none. */
 const columnsOf = (lines: [StateKey, string][]) =>
   lines.map(([, name]) => name).filter((name) => name !== "none");
+
+/** What to do when the app's slug cannot be found to store. */
+const slugByHand = (org: string) =>
+  `? Could not find the app's name to store as ${APP_SLUG}, so the automated review will refuse the pull requests a build opens. Store it yourself: gh variable set ${APP_SLUG} --org ${org} --visibility all --body NAME`;
 
 const counted = (n: number, what: string) =>
   `${n} ${what}${n === 1 ? "" : "s"}`;
@@ -286,7 +293,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       ]
     : [];
 
-  let plan, config, secrets, clientId, installation, ruled;
+  let plan, config, secrets, clientId, installation, ruled, slugStored, known;
   const files: Record<string, string | null> = {};
   try {
     plan = await organization.plan();
@@ -296,6 +303,12 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     secrets = await organization.secretNames();
     clientId = await organization.variable(APP_CLIENT_ID);
     installation = clientId ? await organization.installation(clientId) : null;
+    slugStored = clientId ? await organization.variable(APP_SLUG) : null;
+    // The app as the code host finds it before it is installed, if it can.
+    known =
+      clientId && !installation
+        ? await organization.registeredApp(clientId).catch(() => null)
+        : null;
     ruled = plan.rules && (await organization.ruleNames()).includes(RULE);
   } catch (e) {
     return stop(`Could not reach the code host: ${message(e)}`);
@@ -453,10 +466,23 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
         ? `Install the ${host.label} App, which is registered`
         : `Register the ${host.label} App "${app.name}"${app.shortened ? `, its name cut to the ${app.name.length} characters ${host.label} allows,` : ""} and install it`,
     ]);
+  // A registered app with no slug stored gets it from what is known of
+  // the app now, or from the installation this run waits for.
+  const needsSlug = clientId !== null && slugStored === null;
+  const slug = installation?.slug ?? known?.slug ?? null;
+  const noSlug = needsSlug && slug === null && installation !== null;
+  const variables = [
+    ...(clientId ? [] : [APP_CLIENT_ID]),
+    ...(clientId === null || (needsSlug && !noSlug) ? [APP_SLUG] : []),
+  ];
   const toStore = [
     ...(clientId ? [] : [APP_KEY]),
     ...(storeAs ? [storeAs] : []),
-    ...(clientId ? [] : [`the variable ${APP_CLIENT_ID}`]),
+    ...(variables.length
+      ? [
+          `the variable${variables.length === 1 ? "" : "s"} ${listed(variables)}`,
+        ]
+      : []),
   ];
   if (toStore.length)
     rows.push(["secrets", `Store ${listed(toStore)} for ${org}`]);
@@ -492,6 +518,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     `     ${docsPage(d.packageVersion, "github/setup.md#in-an-organization")}`,
   ];
   if (!rows.length) {
+    if (noSlug) d.out(slugByHand(org));
     d.out(`✓ ${org} is set up. Nothing to do.`);
     d.out("");
     for (const l of addresses) d.out(l);
@@ -588,6 +615,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       );
     }
 
+    let shown = installation;
     if (!installation) {
       let id = clientId;
       let key: string | null = null;
@@ -636,6 +664,10 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
                 organization.setVariable(APP_CLIENT_ID, registered.clientId),
               );
               counts.variables++;
+              await step(`store ${APP_SLUG}`, () =>
+                organization.setVariable(APP_SLUG, registered.slug),
+              );
+              counts.variables++;
               d.out(`✓ Created the app, and stored its key for ${org}.`);
             },
           }),
@@ -645,7 +677,6 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
         d.out(`2. ${INSTALL_IT}`);
         for (const l of installing(made.installPage, CHOOSE)) d.out(l);
       } else {
-        const known = await organization.registeredApp(id).catch(() => null);
         d.out(
           `The ${host.label} App${known ? ` "${known.name}"` : ""} is registered and not installed yet.`,
         );
@@ -663,6 +694,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
         throw new StepFailed(
           "✗ Could not see the app installed after 10 minutes.",
         );
+      shown = found;
       if (key === null) d.out("✓ Installed the app.");
       else {
         const appKey: string = key;
@@ -680,6 +712,17 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
         d.out(
           `✓ Installed the app on ${on.count} ${on.count === 1 ? "repository" : "repositories"}.`,
         );
+      }
+    }
+
+    if (needsSlug) {
+      const name = slug ?? shown?.slug ?? null;
+      if (name === null) d.out(slugByHand(org));
+      else {
+        await step(`store ${APP_SLUG}`, () =>
+          organization.setVariable(APP_SLUG, name),
+        );
+        counts.variables++;
       }
     }
 
