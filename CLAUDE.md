@@ -217,8 +217,9 @@ that installs the factory.
 
 - **Reading what GitHub would close** (#74, 2026-11-24). A matcher of closing
   words in a cloud build's text was got past in three rounds, each by a form
-  it did not read, and by the third refused honest text. No library was tried, since one
-  reads words too, and does not ask GitHub. It went back to the forms GitHub documents, in one
-  expression, and Publish asks GitHub itself what the pull request would
-  close. What is left is in "What a hijacked session could still do" in
-  `docs/credentials.md`: do not extend the matcher for it.
+  it did not read, and by the third it refused honest text. No library was
+  tried, since one reads words too, and does not ask GitHub. It went back to
+  the forms GitHub documents, in one expression, and Publish asks GitHub
+  itself what the pull request would close. What is left is in "What a
+  hijacked session could still do" in `docs/credentials.md`: do not extend
+  the matcher for it.
