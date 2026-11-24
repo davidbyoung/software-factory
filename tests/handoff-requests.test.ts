@@ -257,7 +257,7 @@ describe("what Publish runs of it", () => {
     });
   });
 
-  it("keeps a comment quoted in code", () => {
+  it("escapes a comment quoted in code, so it stays readable and is no marker", () => {
     const a: Asked = {
       argv: ["pr", "reply", "31", "901", "--body-file", "b.md"],
       files: { "b.md": "The marker `<!-- agent -->` is read." },

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   memoryCodeHost,
   type MemoryCodeHostOptions,
@@ -757,6 +757,10 @@ describe("apply", () => {
 });
 
 describe("factory review verdict", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("fails on an event it does not read", async () => {
     vi.stubEnv("GITHUB_EVENT_NAME", "workflow_run");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -765,6 +769,5 @@ describe("factory review verdict", () => {
     expect(error).toHaveBeenCalledWith(
       "factory review verdict reads pull_request_target, not workflow_run: a review's run posts its own verdict.",
     );
-    error.mockRestore();
   });
 });

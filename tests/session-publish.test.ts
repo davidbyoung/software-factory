@@ -269,13 +269,14 @@ describe("what a session asks for", () => {
 });
 
 describe("the next answer", () => {
-  const pulls: PullSeed[] = [
-    {
-      number: 31,
-      isDraft: true,
-      body: CLOUD_MARK,
-      createdAt: "2026-11-01T00:00:00Z",
-    },
+  const seed = (): PullSeed => ({
+    number: 31,
+    isDraft: true,
+    body: CLOUD_MARK,
+    createdAt: "2026-11-01T00:00:00Z",
+  });
+  const draftAt = (sha: string): PullSeed[] => [
+    { ...seed(), head: { sha, branch: "12-add", repository: REPOSITORY } },
   ];
   const red = (tip: string): MemoryRunnerOptions => ({
     runs: {
@@ -294,8 +295,10 @@ describe("the next answer", () => {
 
   it("starts when CI fails on what was pushed", async () => {
     const tip = commits();
-    pulls[0].head = { sha: tip, branch: "12-add", repository: REPOSITORY };
-    const w = world({ kind: "answer", pull: 31 }, { pulls, runner: red(tip) });
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: draftAt(tip), runner: red(tip) },
+    );
 
     await publish(w.d);
 
@@ -305,10 +308,12 @@ describe("the next answer", () => {
 
   it("does not start past the limit, and the pull request is told", async () => {
     const tip = commits();
-    pulls[0].head = { sha: tip, branch: "12-add", repository: REPOSITORY };
     const w = world(
       { kind: "answer", pull: 31 },
-      { pulls, runner: { ...red(tip), answers: { 31: ANSWERS } } },
+      {
+        pulls: draftAt(tip),
+        runner: { ...red(tip), answers: { 31: ANSWERS } },
+      },
     );
 
     await publish(w.d);
@@ -322,10 +327,12 @@ describe("the next answer", () => {
 
   it("is not started, and the draft is marked ready, when CI passes", async () => {
     const tip = commits();
-    pulls[0].head = { sha: tip, branch: "12-add", repository: REPOSITORY };
     const green = red(tip);
     green.runs![tip][0].conclusion = "success";
-    const w = world({ kind: "answer", pull: 31 }, { pulls, runner: green });
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: draftAt(tip), runner: green },
+    );
 
     await publish(w.d);
 
@@ -333,9 +340,6 @@ describe("the next answer", () => {
     expect(await w.runner.runner.answersTo(31, "")).toBe(0);
   });
 
-  const draftAt = (sha: string): PullSeed[] => [
-    { ...pulls[0], head: { sha, branch: "12-add", repository: REPOSITORY } },
-  ];
   const waiting = (tip: string): MemoryRunnerOptions => ({
     runs: {
       [tip]: [
@@ -376,7 +380,7 @@ describe("the next answer", () => {
 
   const asked = (n: number, author = "github-actions[bot]"): PullSeed[] => [
     {
-      ...pulls[0],
+      ...seed(),
       comments: Array.from({ length: n }, (_, i) => ({
         id: i + 1,
         author,
@@ -385,8 +389,8 @@ describe("the next answer", () => {
       })),
     },
   ];
-  const answers = async (seed: PullSeed[]) => {
-    const w = world({ kind: "review", pull: 31 }, { pulls: seed });
+  const answers = async (pulls: PullSeed[]) => {
+    const w = world({ kind: "review", pull: 31 }, { pulls });
     await nextAnswer(w.d, 31);
     return w.runner.runner.answersTo(31, "");
   };
@@ -401,7 +405,7 @@ describe("the next answer", () => {
   });
 
   it("does not start on a pull request no build in the cloud opened", async () => {
-    expect(await answers([{ ...pulls[0], body: "A person's." }])).toBe(0);
+    expect(await answers([{ ...seed(), body: "A person's." }])).toBe(0);
   });
 });
 

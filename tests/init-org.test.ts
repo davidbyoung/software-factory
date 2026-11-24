@@ -713,7 +713,11 @@ describe("factory init --org, outside any repository", () => {
     process.chdir(folder);
     return folder;
   };
+  const terminal = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
   afterEach(() => {
+    vi.restoreAllMocks();
+    if (terminal) Object.defineProperty(process.stdin, "isTTY", terminal);
+    else delete (process.stdin as { isTTY?: boolean }).isTTY;
     forbidden.on = false;
     forbidden.tried.length = 0;
     process.chdir(home);
@@ -738,21 +742,16 @@ describe("factory init --org, outside any repository", () => {
     vi.spyOn(console, "log").mockImplementation((line) => {
       printed.push(String(line));
     });
-    const terminal = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
     Object.defineProperty(process.stdin, "isTTY", {
       value: true,
       configurable: true,
     });
+    const { run } = await import("../src/init.mts");
     forbidden.on = true;
-    try {
-      const { run } = await import("../src/init.mts");
-      // A word is refused before anything asks the code host.
-      expect(await run(["--org", "acme"])).toBe(1);
-    } finally {
-      forbidden.on = false;
-      if (terminal) Object.defineProperty(process.stdin, "isTTY", terminal);
-      else delete (process.stdin as { isTTY?: boolean }).isTTY;
-    }
+    // A word is refused before anything asks the code host.
+    const status = await run(["--org", "acme"]);
+    forbidden.on = false;
+    expect(status).toBe(1);
     expect(printed).toEqual([
       "✗ Which code host is acme on? Give its address, such as https://github.com/acme.",
       "Nothing changed.",
