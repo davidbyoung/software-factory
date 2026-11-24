@@ -537,3 +537,22 @@ describe("recordReview", () => {
     });
   });
 });
+
+describe("a code host that does not show a status yet as it is set", () => {
+  /** What a review's run posted as the verdict while reading the commit's
+   * statuses gave an empty list. */
+  const verdict = async (a: Answer) => {
+    const w = world(a);
+    w.host.codeHost.statuses = async () => [];
+    await w.go();
+    return w.states()[1];
+  };
+
+  it("passes a commit the review found ready", async () => {
+    expect(await verdict(answer())).toBe("success");
+  });
+
+  it("fails a commit the review asked changes of", async () => {
+    expect(await verdict(changes(finding()))).toBe("failure");
+  });
+});

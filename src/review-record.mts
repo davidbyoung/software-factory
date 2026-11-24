@@ -285,6 +285,7 @@ export async function recordReview(d: RecordDeps): Promise<number> {
       pull,
       sha,
       conclusion: skipped ? "skipped" : finished ? "success" : "failure",
+      verdict: ready ? "ready" : "changes",
     },
     pulls: codeHost,
     log: out,
