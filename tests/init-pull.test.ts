@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileRows, openPull, runGate, type GitResult } from "../src/init.mts";
 import { writeCredential } from "../src/lib/credentials.mts";
+import { IMPORT_LINE, withHooks } from "../src/sync.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 import { AGENT, GOOD, init, type Setup } from "./init-harness";
 
@@ -677,6 +678,23 @@ describe("factory init, the rule that requires the review's verdict", () => {
     });
     await r.run();
     expect(r.out.join("\n")).not.toContain("Once it merges");
+  });
+
+  it("ends a first setup with doctor's own checks saying the verdict is not required yet, and exits 0", async () => {
+    const r = review({
+      doctor: true,
+      // What the sync writes for the coding agent, which doctor looks for.
+      files: {
+        "CLAUDE.md": `${IMPORT_LINE}\n`,
+        ".claude/settings.json": withHooks(null, "bin/factory.js"),
+      },
+    });
+    expect(await r.run()).toBe(0);
+    const checks = r.out.slice(r.out.indexOf("Checks"));
+    expect(checks).toContain(
+      '    - "Review verdict" is not required yet: the rule is made once the setup\'s pull request merges',
+    );
+    expect(checks.join("\n")).not.toContain("✗");
   });
 
   describe("with a build token of an account other than the one signed in", () => {

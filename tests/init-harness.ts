@@ -24,7 +24,10 @@ import {
   type InitDeps,
 } from "../src/init.mts";
 import type { Paint } from "../src/lib/color.mts";
+import { parseSettings } from "../src/config.mts";
+import { checks as doctorChecks } from "../src/doctor.mts";
 import { writeCredential } from "../src/lib/credentials.mts";
+import { builtOf } from "../src/tools.mts";
 import type { Check } from "../src/setup.mts";
 import type { Part } from "../src/parts.mts";
 import { memoryCodeHost } from "./memory-code-host";
@@ -250,6 +253,9 @@ export type Setup = {
   codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
   paint?: Paint;
   checks?: Check[];
+  /** Whether the closing checks are doctor's own, over the same tools, in
+   * place of `checks`. */
+  doctor?: boolean;
   /** The branch name a preset in effect supplies, if any. */
   presetBranchName?: string;
   /** The spec tool a preset in effect names, if any. */
@@ -555,7 +561,27 @@ export function init(setup: Setup) {
       publicKey: "ssh-ed25519 PUBLIC",
     }),
     checks: async () =>
-      setup.checks ?? [{ state: "pass", text: "Every check passed" }],
+      setup.doctor
+        ? doctorChecks({
+            settings: async () =>
+              parseSettings(
+                load(read(".claude/factory.yaml") ?? ""),
+                () => true,
+                builtOf(d.tools),
+              ),
+            outOfStep: async () => [],
+            factory: async () => ({
+              named: "0.2.0",
+              own: false,
+              newest: async () => "0.2.0",
+            }),
+            root,
+            hasCommand: () => true,
+            tools: d.tools,
+            out: () => {},
+            env,
+          })
+        : (setup.checks ?? [{ state: "pass", text: "Every check passed" }]),
     packageName: "@davidbyoung/software-factory",
     packageVersion: "0.2.0",
     paint: setup.paint,

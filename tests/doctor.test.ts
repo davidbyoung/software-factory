@@ -101,6 +101,11 @@ function doctor(o: {
   /** The repository's value for the property its owner's rule, which
    * requires the review's verdict, applies by; `on` unless given. */
   enrolled?: string | null;
+  /** Whether the repository's owner defines that property, and has the
+   * rule that applies by it; it does unless given. */
+  ownerRule?: boolean;
+  /** Each workflow on the default branch; none unless given. */
+  workflows?: Record<string, "active" | "disabled">;
   /** The plan of the owner's that keeps its shared secrets from the
    * repository, when one does. */
   secretsWithheldBy?: string;
@@ -133,13 +138,17 @@ function doctor(o: {
         eventsHeld: o.eventsHeld,
         secretsWithheldBy: o.secretsWithheldBy,
         noRules: o.noRules,
-        ownerRules: [
-          {
-            check: "Review verdict",
-            property: "software-factory",
-            value: "on",
-          },
-        ],
+        ownerRules:
+          o.ownerRule === false
+            ? []
+            : [
+                {
+                  check: "Review verdict",
+                  property: "software-factory",
+                  value: "on",
+                },
+              ],
+        definedProperties: o.ownerRule === false ? [] : ["software-factory"],
         properties: {
           "software-factory": o.enrolled === undefined ? "on" : o.enrolled,
         },
@@ -150,6 +159,7 @@ function doctor(o: {
         dependabotSecrets: o.dependabotSecrets,
         organizationSecrets: o.organizationSecrets,
         organizationDependabotSecrets: o.organizationDependabotSecrets,
+        workflows: o.workflows,
         fail: o.runnerFails,
       }).runner,
       tickets,
@@ -222,8 +232,61 @@ describe("factory doctor, the rule that requires the review's verdict", () => {
     );
   });
 
-  it("fails, naming the fix, when no rule requires it", async () => {
-    const { run, printed } = doctor({ raw: REVIEW, enrolled: "off" });
+  const ON_MAIN = { "factory.yml": "active" } as const;
+  const SET = { CLAUDE_CODE_OAUTH_TOKEN: "x" };
+
+  it("says it is not required yet, as off on purpose, while the default branch has no factory workflow to post it", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      enrolled: null,
+      secrets: SET,
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '- "Review verdict" is not required yet: the rule is made once the setup\'s pull request merges',
+    );
+    expect(printed.join("\n")).not.toContain("is not required before");
+  });
+
+  it("fails, naming init as the fix, once the workflow is on the default branch, where the owner has no rule of its own", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      enrolled: null,
+      ownerRule: false,
+      workflows: ON_MAIN,
+      secrets: SET,
+    });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(
+      '✗ "Review verdict" is not required before a merge to main. Run factory init',
+    );
+  });
+
+  it.each([["off"], [null]])(
+    "fails, saying what sets the property, where the owner defines it and the repository's value is %s",
+    async (enrolled) => {
+      const { run, printed } = doctor({
+        raw: REVIEW,
+        enrolled,
+        workflows: ON_MAIN,
+        secrets: SET,
+      });
+      expect(await run()).toBe(1);
+      expect(section(printed, "GitHub")).toContain(
+        '✗ "Review verdict" is not required before a merge to main. The next push to main sets it, or an owner of acme sets software-factory to "on" for this repository',
+      );
+      expect(printed.join("\n")).not.toContain("Run factory init");
+    },
+  );
+
+  it("takes the workflow to be there when the runner cannot say, so a missing rule still fails", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      enrolled: null,
+      ownerRule: false,
+      runnerFails: { workflowState: new Error("HTTP 500") },
+      secrets: SET,
+    });
     expect(await run()).toBe(1);
     expect(section(printed, "GitHub")).toContain(
       '✗ "Review verdict" is not required before a merge to main. Run factory init',

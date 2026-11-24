@@ -78,9 +78,19 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: Doctor says whether Review verdict is required
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+The factory SHALL behave as the scenarios below say, the first in the Spec line's own words.
 
 #### Scenario: Doctor says whether Review verdict is required
 
 - **WHEN** `factory doctor` runs with `pr-review` set
 - **THEN** With `pr-review` set, `factory doctor` prints the ✓ or ✗ line "the rest" shows, from the rules the code host applies to the default branch, the organization's among them, or `? Could not tell whether "Review verdict" is required: ` and the reason.
+
+#### Scenario: The setup's pull request has not merged yet
+
+- **WHEN** `factory doctor` runs with `pr-review` set, "Review verdict" is not required, and the default branch does not have `.github/workflows/factory.yml` yet
+- **THEN** it prints `- "Review verdict" is not required yet: the rule is made once the setup's pull request merges`, which fails nothing, so the checks `factory init` ends with do not fail a setup that has just opened its pull request.
+
+#### Scenario: What fixes a rule that is missing
+
+- **WHEN** the default branch has `.github/workflows/factory.yml`, or the runner cannot say whether it does, and "Review verdict" is still not required
+- **THEN** the ✗ line ends `. Run factory init` where the repository's owner defines no `software-factory` property, and `. The next push to BRANCH sets it, or an owner of ORG sets software-factory to "on" for this repository` where the owner defines the property and the repository's value is not `on`.

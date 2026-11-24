@@ -41,7 +41,8 @@ import {
 } from "./lib/default-branch.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { differences, launcherPath, LOCK, PACKAGE, plan } from "./sync.mts";
-import { POLLER_FILE } from "./workflow-files.mts";
+import { FACTORY_FILE, POLLER_FILE } from "./workflow-files.mts";
+import { PROPERTY } from "./init-org.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
 import { machineState, type MachineState } from "./lib/credentials.mts";
@@ -210,7 +211,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   );
   if (s.prReview)
     out.push({
-      ...(await verdictCheck(opened.codeHost)),
+      ...(await verdictCheck(opened.codeHost, opened.runner, s.repository)),
       group: codeHost!.label,
     });
 
@@ -366,20 +367,44 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
 }
 
 /** Whether the rules the code host applies to the default branch, the
- * organization's among them, require the review's verdict. */
-async function verdictCheck(codeHost: CodeHost): Promise<Check> {
+ * organization's among them, require the review's verdict. Until the
+ * factory's workflow is on that branch nothing posts the verdict and
+ * nothing has made the rule, which is no fault. After that, what fixes a
+ * missing rule depends on whose it is: the owner's, which applies once
+ * the repository's property is on, or the repository's own. */
+async function verdictCheck(
+  codeHost: CodeHost,
+  runner: Runner,
+  repository: string,
+): Promise<Check> {
   try {
     const branch = await codeHost.defaultBranch();
-    return (await codeHost.requiresStatus(branch, REVIEW_VERDICT))
+    if (await codeHost.requiresStatus(branch, REVIEW_VERDICT))
+      return {
+        state: "pass",
+        text: `"${REVIEW_VERDICT}" is required before a merge to ${branch}`,
+      };
+    const workflow = await runner
+      .workflowState(FACTORY_FILE.split("/").at(-1)!)
+      .catch(() => null);
+    if (workflow === "missing")
+      return {
+        state: "off",
+        text: `"${REVIEW_VERDICT}" is not required yet: the rule is made once the setup's pull request merges`,
+      };
+    const text = `"${REVIEW_VERDICT}" is not required before a merge to ${branch}`;
+    const values: Record<string, unknown> = await codeHost
+      .properties()
+      .catch(() => ({}));
+    const owners =
+      (await codeHost.ownerDefines(PROPERTY).catch(() => false)) &&
+      values[PROPERTY] !== "on";
+    return owners
       ? {
-          state: "pass",
-          text: `"${REVIEW_VERDICT}" is required before a merge to ${branch}`,
-        }
-      : {
           state: "fail",
-          text: `"${REVIEW_VERDICT}" is not required before a merge to ${branch}`,
-          fix: INIT,
-        };
+          text: `${text}. The next push to ${branch} sets it, or an owner of ${ownerOf(repository)} sets ${PROPERTY} to "on" for this repository`,
+        }
+      : { state: "fail", text, fix: INIT };
   } catch (e) {
     if (e instanceof NoRulesError)
       return {
