@@ -91,8 +91,9 @@ jobs:
             echo "names=$names" >> "$GITHUB_OUTPUT"
           fi
 
-      - &token
-        name: Make the app's token
+      # Each job's token carries the permissions its own steps use and no
+      # others: with none named, it would carry all the app has.
+      - name: Make the app's token
         id: app
         if: steps.repositories.outputs.names != ''
         uses: actions/create-github-app-token@v3
@@ -101,6 +102,7 @@ jobs:
           private-key: ${{ secrets.app-key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ steps.repositories.outputs.names }}
+          permission-contents: read
 
       - &uninstalled
         name: Say that the app is not installed
@@ -363,7 +365,17 @@ jobs:
             echo "names=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
           fi
 
-      - *token
+      - name: Make the app's token
+        id: app
+        if: steps.repositories.outputs.names != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repositories.outputs.names }}
+          permission-pull-requests: write
+          permission-contents: write
 
       - *uninstalled
 

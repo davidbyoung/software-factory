@@ -65,15 +65,21 @@ jobs:
           fi
 
       # With an owner and no repository named, the token is for every
-      # repository of the installation.
-      - &token
-        name: Make the app's token
+      # repository of the installation. It carries the permissions this
+      # job's steps use and no others: with none named, it would carry all
+      # the app has.
+      - name: Make the app's token
         id: app
         uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
           private-key: ${{ secrets.app-key }}
           owner: ${{ github.repository_owner }}
+          permission-organization-projects: read
+          permission-issues: write
+          permission-pull-requests: read
+          permission-actions: write
+          permission-contents: read
 
       - name: Start the Ready tickets
         env:
@@ -95,7 +101,16 @@ jobs:
     steps:
       - *key
 
-      - *token
+      - name: Make the app's token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+          permission-workflows: write
+          permission-pull-requests: write
 
       # The app's token, so the push of the update's branch is the app's:
       # the workflow's own may not change a workflow's file.

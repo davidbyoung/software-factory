@@ -122,9 +122,15 @@ describe("factory session token", () => {
 
     expect(await main([], t.w)).toBe(0);
 
-    expect(JSON.parse(t.asked.at(-1)!.body!)).toEqual({
-      repositories: ["web", "factory-config"],
-    });
+    const asked = JSON.parse(t.asked.at(-1)!.body!) as {
+      repositories: string[];
+      permissions: Record<string, string>;
+    };
+    expect(asked.repositories).toEqual(["web", "factory-config"]);
+    expect(asked.permissions).toMatchObject({ contents: "write" });
+    expect(asked.permissions).not.toHaveProperty(
+      "repository_custom_properties",
+    );
     expect(t.cli.map((c) => c.args.slice(0, 2).join(" "))).toEqual([
       "auth login",
       "auth setup-git",

@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { manifestOf } from "../src/code-host/github-app.mts";
 import { SESSION_MINUTES } from "../src/config.mts";
 import { POLLER_FILE, pollerWorkflow } from "../src/workflow-files.mts";
 
@@ -1046,7 +1047,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
         uses: "actions/create-github-app-token@v3",
       });
       expect(make.if).toContain("steps.repositories.outputs.names != ''");
-      expect(make.with).toEqual({
+      expect(make.with).toMatchObject({
         "client-id": "${{ vars.FACTORY_APP_CLIENT_ID }}",
         "private-key": "${{ secrets.app-key }}",
         owner: "${{ github.repository_owner }}",
@@ -1118,7 +1119,12 @@ describe("a token of the organization's app, where its key reaches the run", () 
     ]);
     const check = step(job, "Check whether the app's key reaches the run");
     expect(check).toMatchObject({ id: "repositories", env: list.env });
-    expect(step(job, MAKE)).toEqual(step(review.jobs.check!, MAKE));
+    expect(step(job, MAKE)).toMatchObject({
+      id: "app",
+      if: "steps.repositories.outputs.names != ''",
+      uses: "actions/create-github-app-token@v3",
+      with: { repositories: "${{ steps.repositories.outputs.names }}" },
+    });
     const output = (env: Record<string, string>) => {
       const { dir, calls } = sandbox({ factory: "" });
       const r = runScript(check.run!, dir, {
@@ -1292,6 +1298,135 @@ describe("a token of the organization's app, where its key reaches the run", () 
       "factory update --pull-requests",
     ]);
     expect(existsSync(join(dir, "factory-signing-key"))).toBe(false);
+  });
+});
+
+describe("what each job's token of the app may do", () => {
+  const FILES = ["run.yml", "review.yml", "session.yml", "poller.yml"];
+  /** Every step that makes a token of the app's, by its file and job,
+   * with the permissions it asks for, each by the name the app's
+   * registration gives it. */
+  const tokens = FILES.flatMap((file) =>
+    Object.entries(read(file).jobs).flatMap(([id, job]) =>
+      (job.steps ?? [])
+        .filter((s) => s.uses?.startsWith("actions/create-github-app-token"))
+        .map((s) => ({
+          job: `${file} ${id}`,
+          permissions: Object.fromEntries(
+            Object.entries(s.with ?? {})
+              .filter(([name]) => name.startsWith("permission-"))
+              .map(([name, level]) => [
+                name.slice("permission-".length).replaceAll("-", "_"),
+                level,
+              ]),
+          ),
+        })),
+    ),
+  );
+  const of = (job: string) => tokens.find((t) => t.job === job)?.permissions;
+
+  it.each<[string, string, Record<string, string>]>([
+    [
+      "turns auto-merge on or off",
+      "run.yml merge-policy",
+      { pull_requests: "write", contents: "write" },
+    ],
+    [
+      "writes the board's cards for the repository's tickets",
+      "run.yml board",
+      { organization_projects: "write", issues: "read" },
+    ],
+    [
+      "reads the board, the tickets, and their pull requests, notes a start on a ticket, and starts its build",
+      "run.yml poller",
+      {
+        organization_projects: "read",
+        issues: "write",
+        pull_requests: "read",
+        actions: "write",
+      },
+    ],
+    [
+      "pushes an update's branch, a workflow's file with it, and opens its pull request",
+      "run.yml updates",
+      { contents: "write", workflows: "write", pull_requests: "write" },
+    ],
+    [
+      "sets the repository's software-factory property",
+      "run.yml enroll",
+      { repository_custom_properties: "write" },
+    ],
+    [
+      "reads the presets a pull request pins",
+      "review.yml check",
+      { contents: "read" },
+    ],
+    [
+      "turns auto-merge on for Dependabot's pull request",
+      "review.yml dependabot",
+      { pull_requests: "write", contents: "write" },
+    ],
+    [
+      "does what a repository's poller does, and reads each repository's settings",
+      "poller.yml poller",
+      {
+        organization_projects: "read",
+        issues: "write",
+        pull_requests: "read",
+        actions: "write",
+        contents: "read",
+      },
+    ],
+    [
+      "pushes the branch that rewrites the poller's own file, and opens its pull request",
+      "poller.yml updates",
+      { contents: "write", workflows: "write", pull_requests: "write" },
+    ],
+  ])("the job that %s asks for that and no more", (_, job, permissions) => {
+    expect(of(job)).toEqual(permissions);
+  });
+
+  it("has a set for every token a job makes, so none falls back to everything the app may do", () => {
+    expect(tokens.map((t) => t.job)).toEqual([
+      "run.yml merge-policy",
+      "run.yml board",
+      "run.yml poller",
+      "run.yml enroll",
+      "run.yml updates",
+      "review.yml check",
+      "review.yml dependabot",
+      "poller.yml poller",
+      "poller.yml updates",
+    ]);
+    for (const token of tokens)
+      expect(Object.keys(token.permissions).length, token.job).toBeGreaterThan(
+        0,
+      );
+  });
+
+  it("lets only the job that requires the verdict set a repository's properties", () => {
+    expect(
+      tokens
+        .filter((t) => "repository_custom_properties" in t.permissions)
+        .map((t) => t.job),
+    ).toEqual(["run.yml enroll"]);
+  });
+
+  it("asks for nothing the app's registration does not hold, which GitHub would refuse", () => {
+    const held: Record<string, string> = manifestOf(
+      "Software Factory for acme",
+      "http://127.0.0.1/registered",
+    ).default_permissions;
+    const beyond = tokens.flatMap((t) =>
+      Object.entries(t.permissions)
+        .filter(
+          ([name, level]) =>
+            !(name in held) || (level === "write" && held[name] !== "write"),
+        )
+        .map(([name, level]) => `${t.job}: ${name}: ${level}`),
+    );
+
+    expect(beyond).toEqual([]);
   });
 });
 
@@ -1764,11 +1899,12 @@ describe("poller.yml, which an organization's factory-poller.yml calls", () => {
         id: "app",
         uses: "actions/create-github-app-token@v3",
       });
-      expect(token.with).toEqual({
+      expect(token.with).toMatchObject({
         "client-id": "${{ vars.FACTORY_APP_CLIENT_ID }}",
         "private-key": "${{ secrets.app-key }}",
         owner: "${{ github.repository_owner }}",
       });
+      expect(token.with).not.toHaveProperty("repositories");
       const order = names(job);
       expect(order.indexOf("Check the app's key reaches the repository")).toBe(
         order.indexOf("Make the app's token") - 1,

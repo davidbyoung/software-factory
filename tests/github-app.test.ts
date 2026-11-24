@@ -12,6 +12,7 @@ import {
   manifestOf,
   register,
   runToken,
+  SESSION_PERMISSIONS,
   signIn,
   waitFor,
   type Reply,
@@ -166,6 +167,7 @@ describe("the manifest", () => {
         repository_custom_properties: "write",
         workflows: "write",
         organization_projects: "write",
+        checks: "read",
       },
     });
   });
@@ -456,9 +458,45 @@ describe("a run's token under the app", () => {
     const signed = `Bearer ${appJwt("Iv23client", key, NOW)}`;
     expect(calls.map((c) => c.auth)).toEqual([signed, signed, signed]);
     const token = calls.find((c) => c.method === "POST")!;
-    expect(JSON.parse(token.body!)).toEqual({
-      repositories: ["web", "factory-config"],
+    expect(JSON.parse(token.body!).repositories).toEqual([
+      "web",
+      "factory-config",
+    ]);
+  });
+
+  it("asks for what a session does and no more: never a repository's properties, which switch the rule that gates it", async () => {
+    const { made, calls } = ask([
+      ...FOUND,
+      [/access_tokens$/, { token: "ghs_run" }],
+    ]);
+    await made;
+
+    const { permissions } = JSON.parse(
+      calls.find((c) => c.method === "POST")!.body!,
+    ) as { permissions: Record<string, string> };
+    expect(permissions).toEqual({
+      contents: "write",
+      pull_requests: "write",
+      issues: "write",
+      workflows: "write",
+      actions: "write",
+      statuses: "read",
+      checks: "read",
     });
+    expect(permissions).not.toHaveProperty("repository_custom_properties");
+    expect(SESSION_PERMISSIONS).toEqual(permissions);
+  });
+
+  it("asks for nothing the app's registration does not hold", () => {
+    const held: Record<string, string> = manifestOf(
+      "Software Factory for acme",
+      "http://127.0.0.1/registered",
+    ).default_permissions;
+
+    for (const [name, level] of Object.entries(SESSION_PERMISSIONS)) {
+      expect(held, name).toHaveProperty(name);
+      if (level === "write") expect(held[name], name).toBe("write");
+    }
   });
 
   it("says who installs the app when it is not installed on the repository, and asks for no token", async () => {

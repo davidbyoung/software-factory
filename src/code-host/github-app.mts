@@ -44,6 +44,7 @@ export const manifestOf = (name: string, redirect: string) => ({
     repository_custom_properties: "write",
     workflows: "write",
     organization_projects: "write",
+    checks: "read",
   },
 });
 
@@ -284,9 +285,24 @@ export async function installed(o: {
   }
 }
 
-/** The app's slug, and a token of its installation on the owner of
- * `repository`, an owner/name, for the repositories named, each of that
- * owner. GitHub takes the token for an hour. */
+/** What a session's token may do, of what the app may: push a branch and
+ * a workflow's file, work pull requests and tickets, start the board's
+ * sync, and read a commit's statuses, its check runs, and a failed run.
+ * It may not set a repository's properties, one of which turns on the
+ * rule that requires the verdict on the session's own pull request. */
+export const SESSION_PERMISSIONS = {
+  contents: "write",
+  pull_requests: "write",
+  issues: "write",
+  workflows: "write",
+  actions: "write",
+  statuses: "read",
+  checks: "read",
+} as const;
+
+/** The app's slug, and a session's token of its installation on the owner
+ * of `repository`, an owner/name, for the repositories named, each of
+ * that owner. GitHub takes the token for an hour. */
 export async function runToken(o: {
   fetch: typeof fetch;
   now: () => number;
@@ -317,7 +333,7 @@ export async function runToken(o: {
     method: "POST",
     path: `app/installations/${installation.id}/access_tokens`,
     bearer,
-    body: { repositories: o.repositories },
+    body: { repositories: o.repositories, permissions: SESSION_PERMISSIONS },
     what: "GitHub gave the app no token",
   });
   return { token, slug };
