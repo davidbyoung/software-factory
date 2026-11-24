@@ -101,40 +101,52 @@ describe("what Publish runs of it", () => {
     expect(refusal(a, run)).toBeNull();
   });
 
-  it.each<[string, Asked, ThisRun]>([
+  it.each<[string, string, Asked, ThisRun]>([
     [
       "another ticket's comment",
+      "13 is not this run's",
       asked("ticket", "comment", "13", "--body-file", "b.md"),
       build,
     ],
     [
       "another pull request's reply",
+      "32 is not this run's",
       asked("pr", "reply", "32", "901", "--body-file", "b.md"),
       answer,
     ],
     [
       "a reply to a comment of another's",
+      "999 is not this run's",
       asked("pr", "reply", "31", "999", "--body-file", "b.md"),
       answer,
     ],
     [
       "a thread of another's resolved",
+      "999 is not this run's",
       asked("pr", "resolve", "31", "999"),
       answer,
     ],
     [
       "a label",
+      "a session can't ask for this",
       asked("pr", "label", "31", "--add", "verdict-override"),
       answer,
     ],
     [
       "a ticket's label",
+      "a session can't ask for this",
       asked("ticket", "label", "12", "--add", "spec"),
       build,
     ],
-    ["a card moved to Ready", asked("ticket", "ready", "12"), build],
+    [
+      "a card moved to Ready",
+      "a session can't ask for this",
+      asked("ticket", "ready", "12"),
+      build,
+    ],
     [
       "a pull request into another branch",
+      "it can't take --base",
       asked(
         "pr",
         "open",
@@ -149,16 +161,19 @@ describe("what Publish runs of it", () => {
     ],
     [
       "a pull request that is not a draft",
+      "it can't take --ready",
       asked("pr", "open", "--title", "t", "--body-file", "b.md", "--ready"),
       build,
     ],
     [
       "a second pull request",
+      "not in this run",
       asked("pr", "open", "--title", "t", "--body-file", "b.md"),
       answer,
     ],
     [
       "an attachment",
+      "it can't take --attach",
       asked(
         "ticket",
         "comment",
@@ -172,6 +187,7 @@ describe("what Publish runs of it", () => {
     ],
     [
       "a file it did not hand over",
+      "/etc/passwd was not handed over",
       {
         argv: ["ticket", "comment", "12", "--body-file", "/etc/passwd"],
         files: {},
@@ -180,17 +196,24 @@ describe("what Publish runs of it", () => {
     ],
     [
       "a ticket opened by a build",
+      "not in this run",
       asked("ticket", "open", "--title", "t", "--body-file", "b.md"),
       build,
     ],
-    ["a command that is not the factory's to ask", asked("sync"), build],
+    [
+      "a command that is not the factory's to ask",
+      "a session can't ask for this",
+      asked("sync"),
+      build,
+    ],
     [
       "a command with a word left over",
+      "it takes fewer words",
       asked("pr", "resolve", "31", "901", "902"),
       answer,
     ],
-  ])("never %s", (_, a, run) => {
-    expect(refusal(a, run)).not.toBeNull();
+  ])("never %s", (_, why, a, run) => {
+    expect(refusal(a, run)).toMatch(new RegExp(`: ${why}$`));
   });
 
   it("lets a conflict run open its ticket", () => {
