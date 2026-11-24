@@ -234,11 +234,24 @@ export type CodeHost = {
     source?: StatusSource,
   ): Promise<void>;
   /** Whether the rules the code host applies to a branch, the
-   * organization's among them, require a status of that name. */
+   * organization's among them, require a status of that name. Rejects
+   * with NoRulesError where the owner's plan has no rules for the
+   * repository. */
   requiresStatus(branch: string, status: string): Promise<boolean>;
-  /** The repository's value for each property its owner defines: null
-   * for one with no value. */
+  /** The plan of the repository's owner that keeps the secrets the owner
+   * shares from this repository, whatever the runner lists for it, by the
+   * plan's name: one that shares them only with repositories anyone can
+   * read, for a repository that is private. Null when they reach it, or
+   * the code host cannot say. */
+  secretsWithheldBy(): Promise<string | null>;
+  /** The repository's value for each property it has one for. A property
+   * its owner defines that has no value here is left out, so a name that
+   * is missing says nothing of whether the owner defines it. */
   properties(): Promise<Record<string, string | string[] | null>>;
+  /** Whether the repository's owner defines a property of that name for
+   * its repositories. Rejects when the owner will not say, as to a member
+   * who may not read its properties. */
+  ownerDefines(property: string): Promise<boolean>;
   /** Sets the repository's value for a property its owner defines. */
   setProperty(name: string, value: string): Promise<void>;
   /** Whether the code host starts a workflow file on an event, which it may
@@ -411,6 +424,16 @@ export class NotSignedInError extends Error {
   constructor() {
     super("The code host's command-line tool is not signed in.");
     this.name = "NotSignedInError";
+  }
+}
+
+/** The owner's plan has no branch rules for the repository, so none can
+ * be read or made. Its message says so in a few words, such as `GitHub
+ * Free has no branch rules for a private repository`. */
+export class NoRulesError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NoRulesError";
   }
 }
 

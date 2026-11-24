@@ -101,6 +101,12 @@ function doctor(o: {
   /** The repository's value for the property its owner's rule, which
    * requires the review's verdict, applies by; `on` unless given. */
   enrolled?: string | null;
+  /** The plan of the owner's that keeps its shared secrets from the
+   * repository, when one does. */
+  secretsWithheldBy?: string;
+  /** Why the code host can hold no branch rule for the repository, when
+   * it cannot. */
+  noRules?: string;
 }) {
   /** Each check's line, without its heading's indent; `printed` is the
    * output as printed, headings included. */
@@ -125,6 +131,8 @@ function doctor(o: {
         owner: "dave",
         ownerIsOrganization: o.organization,
         eventsHeld: o.eventsHeld,
+        secretsWithheldBy: o.secretsWithheldBy,
+        noRules: o.noRules,
         ownerRules: [
           {
             check: "Review verdict",
@@ -231,6 +239,35 @@ describe("factory doctor, the rule that requires the review's verdict", () => {
     expect(await run()).toBe(0);
     expect(section(printed, "GitHub")).toContain(
       '? Could not tell whether "Review verdict" is required: HTTP 403',
+    );
+  });
+
+  it("says the verdict cannot be required, as off on purpose, where the plan has no branch rules for the repository", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      noRules: "GitHub Free has no branch rules for a private repository",
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '- "Review verdict" cannot be required here: GitHub Free has no branch rules for a private repository',
+    );
+    expect(printed.join("\n")).not.toContain("Could not tell");
+  });
+
+  it("gives the code host's reason for any other failed read, without the command that made it", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      codeHostFails: {
+        requiresStatus: new Error(
+          "gh api --paginate --slurp repos/acme/site/rules/branches/main?per_page=100: gh: Server Error (HTTP 500)",
+        ),
+      },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '? Could not tell whether "Review verdict" is required: Server Error (HTTP 500)',
     );
   });
 
@@ -751,6 +788,41 @@ describe("factory doctor", () => {
           "✓ NPM_TOKEN is set by the organization, for installing what .npmrc names",
           "✓ NPM_TOKEN is set by the organization for Dependabot, for installing on Dependabot's pull requests",
         ]);
+      });
+
+      it("counts no secret the organization's plan keeps from a private repository as set, and says why", async () => {
+        const { run, out } = doctor({
+          raw: { "pr-review": null },
+          files: { ".npmrc": NPMRC },
+          organization: true,
+          organizationSecrets: ["NPM_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"],
+          organizationDependabotSecrets: ["NPM_TOKEN"],
+          secretsWithheldBy: "GitHub Free",
+        });
+        expect(await run()).toBe(1);
+        expect(out).toContain(
+          "✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository",
+        );
+        expect(out).toContain(
+          "✗ NPM_TOKEN is stored for acme, and GitHub Free does not share it with a private repository",
+        );
+        expect(out.join("\n")).not.toMatch(
+          /(CLAUDE_CODE_OAUTH_TOKEN|NPM_TOKEN) is set by the organization,/,
+        );
+      });
+
+      it("counts the repository's own copy as set, whatever the plan keeps back", async () => {
+        const { run, out } = doctor({
+          raw: { "pr-review": null },
+          organization: true,
+          secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+          organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+          secretsWithheldBy: "GitHub Free",
+        });
+        expect(await run()).toBe(0);
+        expect(out).toContain(
+          "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request",
+        );
       });
 
       it("marks a Dependabot secret it can't see as unknown, without failing", async () => {

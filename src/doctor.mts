@@ -8,6 +8,7 @@ import { listed } from "./lib/listed.mts";
 import { existsSync, readFileSync } from "node:fs";
 import { load } from "js-yaml";
 import type { CodeHost } from "./code-host/index.mts";
+import { NoRulesError } from "./code-host/types.mts";
 import { bareRegistry, npmrcAt, privateRegistries } from "./npmrc.mts";
 import type { Runner } from "./runner/index.mts";
 import { join } from "node:path";
@@ -77,6 +78,9 @@ const INIT = "Run factory init";
 const SETTINGS = "Settings and files";
 const OFF = "Parts that are off";
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** Why a read failed, in the code host's words: without the command its
+ * own tool names before them. */
+const reasonOf = (e: unknown) => message(e).replace(/^gh [^\n]*?: gh: /, "");
 
 /** -1, 0, or 1 as version `a` is older than, the same as, or newer than `b`. */
 function compareVersions(a: string, b: string): number {
@@ -214,9 +218,23 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   const isOrganization = await opened.codeHost
     .ownerIsOrganization()
     .catch(() => true);
-  const shared = isOrganization
+  // A plan may keep an organization's secrets from a private repository
+  // while the runner still lists them for it: those count as stored, and
+  // not as set.
+  const withheldBy = isOrganization
+    ? await opened.codeHost.secretsWithheldBy().catch(() => null)
+    : null;
+  const stored = isOrganization
     ? await opened.runner.organizationSecretNames().catch(() => [])
     : [];
+  const shared = withheldBy ? [] : stored;
+  const withheld = (name: string): Check | null =>
+    withheldBy && stored.includes(name)
+      ? {
+          state: "fail",
+          text: `${name} is stored for ${ownerOf(s.repository)}, and ${withheldBy} does not share it with a private repository`,
+        }
+      : null;
   let own: string[] | null;
   try {
     own = await opened.runner.secretNames();
@@ -247,11 +265,11 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     const by = found && !own!.includes(found) ? " by the organization" : "";
     return found
       ? { state: "pass", text: `${found} is set${by}, for ${forWhat}` }
-      : {
+      : (anyOf.map(withheld).find((c) => c !== null) ?? {
           state: "fail",
           text: `${anyOf.join(" or ")} is not set, for ${forWhat}`,
           fix: INIT,
-        };
+        });
   };
   // One line per secret, naming every part that reads it.
   const reads = new Map<string, { anyOf: string[]; fors: string[] }>();
@@ -290,7 +308,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   out.push(
     ...under(
       runner!.label,
-      await npmChecks(d.root, opened, isOrganization, own, shared),
+      await npmChecks(d.root, opened, isOrganization, own, shared, withheld),
     ),
   );
 
@@ -363,9 +381,14 @@ async function verdictCheck(codeHost: CodeHost): Promise<Check> {
           fix: INIT,
         };
   } catch (e) {
+    if (e instanceof NoRulesError)
+      return {
+        state: "off",
+        text: `"${REVIEW_VERDICT}" cannot be required here: ${e.message}`,
+      };
     return {
       state: "unknown",
-      text: `Could not tell whether "${REVIEW_VERDICT}" is required: ${message(e)}`,
+      text: `Could not tell whether "${REVIEW_VERDICT}" is required: ${reasonOf(e)}`,
     };
   }
 }
@@ -461,6 +484,9 @@ async function npmChecks(
   isOrganization: boolean,
   own: string[] | null,
   shared: string[],
+  /** The line for a secret the organization stores that does not reach
+   * the repository, or null for one that is not such a secret. */
+  withheld: (name: string) => Check | null,
 ): Promise<Check[]> {
   const npmrc = npmrcAt(root);
   if (!npmrc.names.length) return [];
@@ -502,11 +528,11 @@ async function npmChecks(
                 state: "pass",
                 text: `${name} is set by the organization, ${FOR_NPM}`,
               }
-            : {
+            : (withheld(name) ?? {
                 state: "fail",
                 text: `${name} is not set, ${FOR_NPM}`,
                 fix: INIT,
-              },
+              }),
       );
     if (dependabot === null) continue;
     out.push(

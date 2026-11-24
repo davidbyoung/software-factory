@@ -783,21 +783,86 @@ describe("factory init, the rule that requires the review's verdict", () => {
     expect(r.out.join("\n")).toContain(LEFT);
   });
 
-  it("plans no rule of the repository's own where the organization's property puts its rule on it", async () => {
-    const r = init({
-      organization: true,
-      organizationVariables: ["FACTORY_APP_CLIENT_ID"],
-      organizationSecrets: [
-        "CLAUDE_CODE_OAUTH_TOKEN",
-        "FACTORY_APP_PRIVATE_KEY",
-      ],
-      properties: { "software-factory": null },
-      workflows: { "factory.yml": "active" },
-      answers: { checkbox: [["review"]], confirm: [true] },
+  describe("where the plan has no branch rules for the repository", () => {
+    const NO_RULES = "GitHub Free has no branch rules for a private repository";
+
+    it("plans no rule and leaves no step to an admin, since none could make one", async () => {
+      const r = review({ noRules: NO_RULES });
+      expect(await r.run()).toBe(0);
+      expect(r.out.join("\n")).not.toMatch(/^ {2}rules /m);
+      expect(r.out.join("\n")).not.toContain("Once it merges");
     });
-    await r.run();
-    expect(r.out.join("\n")).not.toMatch(/^ {2}rules /m);
-    expect(r.host.settings.rules).toEqual([]);
-    expect(r.out.join("\n")).not.toContain("Once it merges");
+
+    it("tries to make none, even with the workflow on the default branch", async () => {
+      const r = review({
+        noRules: NO_RULES,
+        workflows: { "factory.yml": "active" },
+      });
+      await r.run();
+      expect(r.host.log.filter((l) => l.startsWith("requireCheck"))).toEqual(
+        [],
+      );
+      expect(r.out.join("\n")).not.toContain("Could not require");
+    });
+
+    it("plans the rule as usual when the rules cannot be read for another reason", async () => {
+      const r = review({
+        codeHostFails: { requiresStatus: new Error("HTTP 500") },
+      });
+      await r.run();
+      expect(r.out).toContain(`${RULE_ROW}, once this pull request merges`);
+      expect(r.out.join("\n")).toContain(LEFT);
+    });
+  });
+
+  describe("in an organization that is set up", () => {
+    const organization = (over: Partial<Setup> = {}) =>
+      init({
+        organization: true,
+        organizationVariables: ["FACTORY_APP_CLIENT_ID"],
+        organizationSecrets: [
+          "CLAUDE_CODE_OAUTH_TOKEN",
+          "FACTORY_APP_PRIVATE_KEY",
+        ],
+        answers: { checkbox: [["review"]], confirm: [true] },
+        ...over,
+      });
+
+    it("plans no rule of the repository's own, and leaves no step to an admin, where the organization defines the property, though the repository has no value for it yet", async () => {
+      const r = organization({ definedProperties: ["software-factory"] });
+      await r.run();
+      expect(await r.host.codeHost.properties()).toEqual({});
+      expect(r.out.join("\n")).not.toMatch(/^ {2}rules /m);
+      expect(r.out.join("\n")).not.toContain("Once it merges");
+    });
+
+    it("makes no rule of the repository's own there, even with the workflow on the default branch", async () => {
+      const r = organization({
+        definedProperties: ["software-factory"],
+        workflows: { "factory.yml": "active" },
+      });
+      await r.run();
+      expect(r.out.join("\n")).not.toMatch(/^ {2}rules /m);
+      expect(r.host.settings.rules).toEqual([]);
+    });
+
+    it("plans the repository's own rule, and leaves it to an admin, where the organization defines no such property", async () => {
+      const r = organization({ definedProperties: ["team"] });
+      await r.run();
+      expect(r.out).toContain(`${RULE_ROW}, once this pull request merges`);
+      expect(r.out.join("\n")).toContain(LEFT);
+    });
+
+    it("takes the property as not defined when the organization will not say, which leaves the step to an admin", async () => {
+      const r = organization({
+        definedProperties: ["software-factory"],
+        codeHostFails: {
+          ownerDefines: new Error("gh api: Forbidden (HTTP 403)"),
+        },
+      });
+      expect(await r.run()).toBe(0);
+      expect(r.out).toContain(`${RULE_ROW}, once this pull request merges`);
+      expect(r.out.join("\n")).toContain(LEFT);
+    });
   });
 });

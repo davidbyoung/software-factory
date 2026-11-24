@@ -30,7 +30,7 @@ import {
   TOOLS,
   type Registry,
 } from "./tools.mts";
-import { NeedsScopeError } from "./code-host/types.mts";
+import { NeedsScopeError, NoRulesError } from "./code-host/types.mts";
 import { organizationHosts } from "./code-host/index.mts";
 import {
   branchPatternFault,
@@ -1140,7 +1140,14 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   // is asked for no token of a person's.
   const isOrganization = await codeHost.ownerIsOrganization().catch(() => true);
   const runnerName = only(d.tools.runner) ?? named().runner;
+  // A plan may keep an organization's secrets from a private repository
+  // while the runner still lists them for it: those reach no job.
+  const withheld = isOrganization
+    ? await codeHost.secretsWithheldBy().catch(() => null)
+    : null;
   let organization = { setUp: false, stored: [] as string[] };
+  /** Whether the organization is set up, though not for this repository. */
+  let elsewhere = false;
   if (isOrganization && runnerName) {
     const early = d.tools.runner[runnerName]!.open(repository);
     const [shared, variables, own] = await Promise.all([
@@ -1148,11 +1155,14 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       early.organizationVariableNames().catch(() => []),
       early.secretNames().catch(() => []),
     ]);
-    organization = organizationState({
-      variables,
-      secrets: [...own, ...shared],
-      agent: agent.setup.kept?.secrets ?? [],
-    });
+    const state = (secrets: string[]) =>
+      organizationState({
+        variables,
+        secrets,
+        agent: agent.setup.kept?.secrets ?? [],
+      });
+    organization = state(withheld ? own : [...own, ...shared]);
+    elsewhere = !organization.setUp && state([...own, ...shared]).setUp;
   }
   // What a person keeps on this machine for their next repository, filed
   // under the code host's name for the account.
@@ -1215,7 +1225,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   else
     row(
       "Organization",
-      held
+      held || elsewhere
         ? `${owner}, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories, or an owner narrowed them`
         : `${owner}, not set up: an owner runs factory init --org ${organizationHosts()[where.codeHost]?.addressOf(owner) ?? owner}`,
     );
@@ -1481,7 +1491,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   let shared: string[] = [];
   try {
     own = await runner.secretNames();
-    if (isOrganization)
+    if (isOrganization && !withheld)
       shared = await runner.organizationSecretNames().catch(() => []);
     npm = await npmSecrets(npmrc, runner, codeHost, isOrganization);
   } catch (e) {
@@ -1895,14 +1905,25 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   ];
 
   // The rule that requires the review's verdict. An organization's own
-  // rule covers a repository with its property, and a repository's rule
-  // waits for the workflow that posts the verdict to be on the default
-  // branch: a pull request that adds the workflow would wait forever.
-  const properties = isOrganization
-    ? await codeHost.properties().catch(() => ({}))
-    : {};
-  const ownerRule = isOrganization && PROPERTY in properties;
-  const rule = parts.has("review") && !ownerRule;
+  // rule covers each repository once the first run sets the property the
+  // organization defines, and a repository's rule waits for the workflow
+  // that posts the verdict to be on the default branch: a pull request
+  // that adds the workflow would wait forever. An organization that will
+  // not say whether it defines the property is taken to define none,
+  // which leaves the rule to an admin.
+  const ownerRule =
+    isOrganization &&
+    (await codeHost.ownerDefines(PROPERTY).catch(() => false));
+  // Where the plan has no branch rules for the repository, none is
+  // planned and nobody is left to make one.
+  const noRules =
+    parts.has("review") &&
+    !ownerRule &&
+    (await codeHost.requiresStatus(base, REVIEW_VERDICT).then(
+      () => false,
+      (e) => e instanceof NoRulesError,
+    ));
+  const rule = parts.has("review") && !ownerRule && !noRules;
   const posts =
     rule &&
     (await runner

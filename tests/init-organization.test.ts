@@ -63,7 +63,7 @@ const SET_UP: Partial<Setup> = {
   organization: true,
   organizationVariables: ["FACTORY_APP_CLIENT_ID"],
   organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN", "FACTORY_APP_PRIVATE_KEY"],
-  properties: { "software-factory": null },
+  definedProperties: ["software-factory"],
 };
 const dev = (over: Partial<Setup> = {}) =>
   init({
@@ -334,6 +334,62 @@ describe("factory init, in an organization's repository that is set up", () => {
     await r.run();
     expect(r.out).toContain(
       "You can now delete these secrets: FACTORY_BOARD_TOKEN, CLAUDE_CODE_OAUTH_TOKEN, FACTORY_SIGNING_KEY",
+    );
+  });
+});
+
+describe("factory init, in a private repository of an organization whose plan keeps its secrets from it", () => {
+  /** The organization is set up, and the runner lists its secrets for the
+   * repository, which cannot use them. */
+  const free = (over: Partial<Setup> = {}) =>
+    dev({
+      private: true,
+      secretsWithheldBy: "GitHub Free",
+      answers: { checkbox: [[ROOT, NODE]], confirm: [true] },
+      ...over,
+    });
+
+  it("says its secrets do not reach the repository, whatever the listing says, with the line that says what stays off", async () => {
+    const r = free();
+    expect(await r.run()).toBe(0);
+    expect(r.out[4]).toBe(
+      "  Organization     acme, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories, or an owner narrowed them",
+    );
+    expect(r.out).toContain(
+      "Builds on your machine work now. The review and builds in the cloud stay off until acme is set up.",
+    );
+    expect(r.out.join("\n")).not.toContain("Stored for acme, so not asked");
+  });
+
+  it("turns on no part that reads a secret, and asks for none", async () => {
+    const r = free();
+    await r.run();
+    expect(r.asked.filter((q) => /secret|Also turn on/.test(q))).toEqual([]);
+    expect(r.out.join("\n")).not.toContain("so that is on too");
+    expect(r.runner.secrets.size).toBe(0);
+  });
+
+  it("says so with no factory-config to be found", async () => {
+    const r = init({
+      ...SET_UP,
+      private: true,
+      secretsWithheldBy: "GitHub Free",
+      answers: { checkbox: [[]], confirm: [false] },
+    });
+    await r.run();
+    expect(r.out[4]).toMatch(
+      /^ {2}Organization {5}acme, set up, but its secrets do not reach this repository: /,
+    );
+  });
+
+  it("trusts the listing when the code host cannot say what the plan shares", async () => {
+    const r = dev({
+      private: true,
+      codeHostFails: { secretsWithheldBy: new Error("HTTP 502") },
+    });
+    await r.run();
+    expect(r.out[4]).toBe(
+      "  Organization     acme, set up: its app's key and its Claude token are stored",
     );
   });
 });

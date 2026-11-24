@@ -19,7 +19,7 @@ import {
   type Clock,
   type Listen,
 } from "./github-app.mts";
-import { NeedsScopeError, NotSignedInError } from "./types.mts";
+import { NeedsScopeError, NoRulesError, NotSignedInError } from "./types.mts";
 import type {
   ChangedFile,
   CheckRun,
@@ -856,7 +856,14 @@ export function githubCodeHost(o: {
       const rules = await list<{
         type: string;
         parameters?: { required_status_checks?: { context: string }[] };
-      }>(`${API}/rules/branches/${path}?per_page=100`);
+      }>(`${API}/rules/branches/${path}?per_page=100`).catch((error) => {
+        // GitHub refuses the read where the plan has no rules to list.
+        if (statusOf(error) === 403 && /upgrade to/i.test(String(error)))
+          throw new NoRulesError(
+            `${PLANS.free} has no branch rules for a private repository`,
+          );
+        throw error;
+      });
       return rules.some(
         (r) =>
           r.type === "required_status_checks" &&
@@ -865,11 +872,39 @@ export function githubCodeHost(o: {
           ),
       );
     },
+    async secretsWithheldBy() {
+      try {
+        const { private: isPrivate } = await t.rest<{ private: boolean }>(
+          "GET",
+          API,
+        );
+        if (!isPrivate) return null;
+        const { plan } = await t.rest<{ plan?: { name: string } }>(
+          "GET",
+          `orgs/${owner}`,
+        );
+        return plan?.name === "free" ? PLANS.free! : null;
+      } catch {
+        return null;
+      }
+    },
     async properties() {
       const values = await t.rest<
         { property_name: string; value: string | string[] | null }[]
       >("GET", `${API}/properties/values`);
       return Object.fromEntries(values.map((v) => [v.property_name, v.value]));
+    },
+    async ownerDefines(property) {
+      try {
+        await t.rest(
+          "GET",
+          `orgs/${owner}/properties/schema/${encodeURIComponent(property)}`,
+        );
+        return true;
+      } catch (error) {
+        if (statusOf(error) === 404) return false;
+        throw error;
+      }
     },
     async setProperty(property, value) {
       await t.rest("PATCH", `${API}/properties/values`, {

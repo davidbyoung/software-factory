@@ -234,8 +234,16 @@ export type Setup = {
   organizationSecrets?: string[];
   organizationVariables?: string[];
   organizationDependabotSecrets?: string[] | null;
-  /** The repository's value for each property its owner defines. */
+  /** The repository's value for each property it has one for. */
   properties?: Record<string, string | string[] | null>;
+  /** The properties the repository's owner defines for its repositories. */
+  definedProperties?: string[];
+  /** The plan of the owner's that keeps its shared secrets from the
+   * repository, when one does. */
+  secretsWithheldBy?: string;
+  /** Why the code host can hold no branch rule for the repository, when
+   * it cannot. */
+  noRules?: string;
   /** Each workflow on the default branch; none unless given. */
   workflows?: Record<string, "active" | "disabled">;
   runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
@@ -350,6 +358,9 @@ export function init(setup: Setup) {
     defaultBranch: setup.defaultBranch ?? undefined,
     ownerIsOrganization: setup.organization,
     properties: setup.properties,
+    definedProperties: setup.definedProperties,
+    secretsWithheldBy: setup.secretsWithheldBy,
+    noRules: setup.noRules,
     fail: setup.codeHostFails,
   });
   /** What the code host answered each time the sync's plan asked it. */

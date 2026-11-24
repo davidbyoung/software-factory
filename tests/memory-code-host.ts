@@ -13,7 +13,7 @@ import type {
   Review,
   Thread,
 } from "../src/code-host/types.mts";
-import { NeedsScopeError } from "../src/code-host/types.mts";
+import { NeedsScopeError, NoRulesError } from "../src/code-host/types.mts";
 import type { PullRequest } from "../src/lib/work-status.mts";
 import { HttpError } from "../src/tickets/transport.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
@@ -71,6 +71,15 @@ export type MemoryCodeHostOptions = {
   rulesRefused?: string;
   /** The repository's value for each property its owner defines. */
   properties?: Record<string, string | string[] | null>;
+  /** The properties the repository's owner defines for its repositories:
+   * those it has a value for, unless given. */
+  definedProperties?: string[];
+  /** The plan of the owner's that keeps its shared secrets from the
+   * repository, when one does. */
+  secretsWithheldBy?: string;
+  /** Why the code host can hold no branch rule for the repository, when
+   * it cannot. */
+  noRules?: string;
   /** Why setting a property's value fails. */
   propertyRefused?: string;
   /** The status it fails with, when the code host answers with one. */
@@ -485,8 +494,13 @@ export function memoryCodeHost(
           ...(source ? { source } : {}),
         });
     },
+    async secretsWithheldBy() {
+      called("secretsWithheldBy");
+      return options.secretsWithheldBy ?? null;
+    },
     async requiresStatus(branch, status) {
       called("requiresStatus", branch, status);
+      if (options.noRules) throw new NoRulesError(options.noRules);
       if (branch !== (options.defaultBranch ?? "main")) return false;
       return (
         settings.rules.some((r) => r.check === status) ||
@@ -499,6 +513,12 @@ export function memoryCodeHost(
     async properties() {
       called("properties");
       return { ...settings.properties };
+    },
+    async ownerDefines(name) {
+      called("ownerDefines", name);
+      return (
+        options.definedProperties ?? Object.keys(settings.properties)
+      ).includes(name);
     },
     async setProperty(name, value) {
       called("setProperty", name, value);

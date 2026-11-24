@@ -11,7 +11,7 @@ import {
 } from "../src/code-host/github.mts";
 import type { Reply } from "../src/code-host/github-app.mts";
 import { organizationHosts } from "../src/code-host/index.mts";
-import { NotSignedInError } from "../src/code-host/types.mts";
+import { NoRulesError, NotSignedInError } from "../src/code-host/types.mts";
 import { GhError } from "../src/lib/gh.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
 import { fetchTransport, ghTransport } from "../src/tickets/transport.mts";
@@ -905,6 +905,93 @@ describe("the rules and properties of a repository", () => {
       languages: ["go", "ts"],
     });
     expect(calls[0]!.line).toBe("api repos/acme/widgets/properties/values");
+  });
+
+  it("says the owner defines a property its schema has", async () => {
+    const { h, calls } = host([
+      [
+        /properties\/schema\/software-factory$/,
+        { property_name: "software-factory", value_type: "single_select" },
+      ],
+    ]);
+    expect(await h.ownerDefines("software-factory")).toBe(true);
+    expect(calls[0]!.line).toBe(
+      "api orgs/acme/properties/schema/software-factory",
+    );
+  });
+
+  it("says the owner defines no property its schema lacks", async () => {
+    const { h } = host([[/properties\/schema\//, notFound()]]);
+    expect(await h.ownerDefines("software-factory")).toBe(false);
+  });
+
+  it("rejects when the owner will not show its schema, so a caller can tell that from a property that is not there", async () => {
+    const { h } = host([
+      [/properties\/schema\//, new Error("gh: Forbidden (HTTP 403)")],
+    ]);
+    await expect(h.ownerDefines("software-factory")).rejects.toThrow(
+      "Forbidden",
+    );
+  });
+
+  const UPGRADE = new Error(
+    "gh api --paginate --slurp repos/acme/widgets/rules/branches/main?per_page=100: gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)",
+  );
+
+  it("says the plan has no branch rules for the repository, in its own words, when that is why the rules cannot be read", async () => {
+    const { h } = host([[/rules\/branches\/main/, UPGRADE]]);
+    const refusal = await h.requiresStatus("main", "Review verdict").then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(refusal).toBeInstanceOf(NoRulesError);
+    expect((refusal as Error).message).toBe(
+      "GitHub Free has no branch rules for a private repository",
+    );
+  });
+
+  it("rejects as it was refused for any other reason the rules cannot be read", async () => {
+    const { h } = host([
+      [
+        /rules\/branches\/main/,
+        new Error("gh: Resource not accessible by integration (HTTP 403)"),
+      ],
+    ]);
+    const refusal = await h.requiresStatus("main", "Review verdict").then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(refusal).not.toBeInstanceOf(NoRulesError);
+    expect(String(refusal)).toContain("Resource not accessible");
+  });
+
+  describe("whether the secrets the owner shares reach the repository", () => {
+    const withheld = (isPrivate: boolean, organization: unknown) =>
+      host([
+        [/^api repos\/acme\/widgets$/, { private: isPrivate }],
+        [/^api orgs\/acme$/, organization],
+      ]).h.secretsWithheldBy();
+
+    it("names the plan that keeps them from a private repository", async () => {
+      expect(await withheld(true, { plan: { name: "free" } })).toBe(
+        "GitHub Free",
+      );
+    });
+
+    it("says they reach a repository anyone can read, whatever the plan", async () => {
+      expect(await withheld(false, { plan: { name: "free" } })).toBeNull();
+    });
+
+    it("says they reach a private repository on a plan that shares them", async () => {
+      expect(await withheld(true, { plan: { name: "team" } })).toBeNull();
+    });
+
+    it("says they reach it when the plan cannot be read, as by a member who is no owner", async () => {
+      expect(await withheld(true, { login: "acme" })).toBeNull();
+      expect(
+        await withheld(true, new Error("gh: Forbidden (HTTP 403)")),
+      ).toBeNull();
+    });
   });
 
   it("sets the repository's value for a property", async () => {
