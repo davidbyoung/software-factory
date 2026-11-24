@@ -13,6 +13,13 @@
 # Secrets arrive by name, since a workflow in another owner's repository
 # cannot inherit them. The build token is FACTORY_BUILD_TOKEN, or
 # FACTORY_BOARD_TOKEN when that is not set.
+#
+# Where the key of an organization's own GitHub App and the variable
+# FACTORY_APP_CLIENT_ID both reach the run, a job that needs more than the
+# workflow's own token makes a token of the app's, and uses it in place of
+# the build, board, and auto-merge tokens. The verdict never does: it is
+# posted with the workflow's own token, which the rule that requires it
+# names.
 name: Factory run
 
 on:
@@ -72,6 +79,8 @@ on:
       board-token:
         required: false
       automerge-token:
+        required: false
+      app-key:
         required: false
       signing-key:
         required: false
@@ -199,6 +208,39 @@ jobs:
 
       - *install
 
+      # The app's token is for this repository and for each repository of
+      # the same owner that holds a preset the lock names. The key is told
+      # from an empty one through `env`, since a step's `if` cannot read a
+      # secret.
+      - &repositories
+        name: List the repositories the app's token is for
+        id: repositories
+        env:
+          APP_KEY_SET: ${{ secrets.app-key != '' }}
+          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+        run: |
+          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
+            names="$(factory session repositories)"
+            echo "names=$names" >> "$GITHUB_OUTPUT"
+          fi
+
+      - &token
+        name: Make the app's token
+        id: app
+        if: steps.repositories.outputs.names != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repositories.outputs.names }}
+
+      - &uninstalled
+        name: Say that the app is not installed
+        if: failure() && steps.app.outcome == 'failure'
+        run: |
+          echo "::error::The software factory's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+
       - name: Classify
         id: classify
         env:
@@ -243,13 +285,13 @@ jobs:
             -f state=success -f "context=Who merges" -f "description=$STATUS" \
             -f "target_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
 
-      # The owner's token, so the merge it leads to starts the workflows a
-      # push to the default branch starts; a merge made with the workflow's
-      # own token starts none. Auto-merge still waits for every required
-      # check and for every review thread to be resolved.
+      # The app's token or the owner's, so the merge it leads to starts the
+      # workflows a push to the default branch starts; a merge made with the
+      # workflow's own token starts none. Auto-merge still waits for every
+      # required check and for every review thread to be resolved.
       - name: Turn auto-merge on or off
         env:
-          GH_TOKEN: ${{ secrets.automerge-token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.automerge-token }}
           AUTOMATIC: ${{ steps.classify.outputs.automatic }}
           DRAFT: ${{ steps.classify.outputs.draft }}
         run: |
@@ -269,7 +311,7 @@ jobs:
   # ticket and the pull requests that build it. It recomputes every ticket
   # on every run, so a run that waits behind another loses nothing. The
   # workflow's own token cannot reach a user's Project, so the board's
-  # token goes only to the step that reads and writes the board.
+  # token, or the app's, goes only to the step that writes the board.
   board:
     name: Sync the board
     # Dependabot's pull requests close no ticket and are not on the board,
@@ -302,6 +344,12 @@ jobs:
 
       - *install
 
+      - *repositories
+
+      - *token
+
+      - *uninstalled
+
       - &extra
         name: Take the repository's own secrets
         env:
@@ -328,7 +376,7 @@ jobs:
 
       - name: Write the board
         env:
-          GH_TOKEN: ${{ secrets.board-token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.board-token }}
         run: factory board apply --in "$RUNNER_TEMP/repo.json"
 
   # One pass of the poller, for a repository with no server to host it: it
@@ -361,12 +409,59 @@ jobs:
 
       - *install
 
+      - *repositories
+
+      - *token
+
+      - *uninstalled
+
       - *extra
 
       - name: Start the Ready tickets
         env:
-          FACTORY_BOARD_TOKEN: ${{ secrets.board-token }}
+          FACTORY_BOARD_TOKEN: ${{ steps.app.outputs.token || secrets.board-token }}
         run: factory poller --once
+
+  # Makes "Review verdict" required on the default branch, from the first
+  # push after the repository's setup merges: a rule made before then would
+  # hold the setup's own pull request, which nothing judges yet. It passes
+  # whatever it could do, and `factory enroll` says who does the rest.
+  enroll:
+    name: Require the verdict
+    if: >-
+      contains(format(' {0} ', inputs.parts), ' review ') &&
+      github.event_name == 'push' &&
+      github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: factory-enroll
+      cancel-in-progress: false
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - *repositories
+
+      - *token
+
+      - *uninstalled
+
+      # The workflow's own token reads whether the verdict is required, when
+      # there is no other.
+      - name: Require the verdict
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.build-token || github.token }}
+          FACTORY_APP_TOKEN_SET: ${{ steps.app.outputs.token != '' }}
+          FACTORY_BUILD_TOKEN_SET: ${{ secrets.build-token != '' }}
+        run: factory enroll
 
   build:
     name: Build
@@ -396,6 +491,7 @@ jobs:
         At the end, post the skill's report on the ticket with `factory ticket comment ${{ inputs.ticket }} --body-file report.md`, and print it as your final message. Open the report by saying this build ran in GitHub Actions, and say in it that nothing watches the pull request once this run ends. A run that stopped at `held by` posts no comment. Use American English and the Oxford comma.
     secrets: &session-secrets
       build-token: ${{ secrets.build-token }}
+      app-key: ${{ secrets.app-key }}
       claude-token: ${{ secrets.claude-token }}
       claude-api-key: ${{ secrets.claude-api-key }}
       signing-key: ${{ secrets.signing-key }}
@@ -514,13 +610,14 @@ jobs:
       group: factory-updates
       cancel-in-progress: false
     steps:
-      # The workflow's token stands in only so that a missing build token is
+      # The workflow's token stands in under the app, whose token is made
+      # once the factory is installed, and so that a missing build token is
       # named by the step below, not by the checkout.
       - name: Checkout the default branch
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.build-token || github.token }}
+          token: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || github.token }}
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -529,28 +626,54 @@ jobs:
 
       - *install
 
+      - *repositories
+
+      - *token
+
+      - *uninstalled
+
+      # Git pushes with the token its checkout stored, so the checkout is
+      # made again with the app's. Nothing is cleaned: in the factory's own
+      # repository the factory runs from this checkout.
+      - name: Give git the app's token
+        if: steps.app.outputs.token != ''
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          clean: false
+          token: ${{ steps.app.outputs.token }}
+
       # The committer is the account that owns the build token, as for a
-      # build, and its commits are signed when the signing key is set.
+      # build, and its commits are signed when the signing key is set. Under
+      # the app the committer is the app's bot, and nothing is signed: a
+      # person's key cannot vouch for a bot's commit.
       - name: Open the pull requests
         env:
-          GH_TOKEN: ${{ secrets.build-token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.build-token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
           SIGNING_KEY_INPUT: ${{ secrets.signing-key }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             echo "No build token is set, so no update's pull request is opened. factory doctor shows when you are behind."
             exit 0
           fi
-          user="$(gh api user)"
-          login="$(jq -r .login <<< "$user")"
-          git config --global user.name "$(jq -r '.name // .login' <<< "$user")"
-          git config --global user.email "$(jq -r .id <<< "$user")+$login@users.noreply.github.com"
-          if [ -n "$SIGNING_KEY_INPUT" ]; then
-            key_file="$RUNNER_TEMP/factory-signing-key"
-            (umask 077; printf '%s\n' "$SIGNING_KEY_INPUT" > "$key_file")
-            chmod 600 "$key_file"
-            git config --global gpg.format ssh
-            git config --global user.signingkey "$key_file"
-            git config --global commit.gpgsign true
+          if [ -n "$APP_SLUG" ]; then
+            id="$(gh api "/users/$APP_SLUG[bot]" --jq .id)"
+            git config --global user.name "$APP_SLUG[bot]"
+            git config --global user.email "$id+$APP_SLUG[bot]@users.noreply.github.com"
+          else
+            user="$(gh api user)"
+            login="$(jq -r .login <<< "$user")"
+            git config --global user.name "$(jq -r '.name // .login' <<< "$user")"
+            git config --global user.email "$(jq -r .id <<< "$user")+$login@users.noreply.github.com"
+            if [ -n "$SIGNING_KEY_INPUT" ]; then
+              key_file="$RUNNER_TEMP/factory-signing-key"
+              (umask 077; printf '%s\n' "$SIGNING_KEY_INPUT" > "$key_file")
+              chmod 600 "$key_file"
+              git config --global gpg.format ssh
+              git config --global user.signingkey "$key_file"
+              git config --global commit.gpgsign true
+            fi
           fi
           factory update --pull-requests
 

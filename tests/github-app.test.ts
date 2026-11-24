@@ -11,6 +11,8 @@ import {
   listenLocally,
   manifestOf,
   register,
+  runToken,
+  signIn,
   waitFor,
   type Reply,
 } from "../src/code-host/github-app.mts";
@@ -29,7 +31,12 @@ const CONVERTED = {
   webhook_secret: null,
 };
 
-type Call = { url: string; method: string; auth: string | null };
+type Call = {
+  url: string;
+  method: string;
+  auth: string | null;
+  body: string | null;
+};
 
 /** A `fetch` that answers by the first route whose pattern matches the
  * method and address, and records each call. */
@@ -39,7 +46,12 @@ function github(routes: [RegExp, unknown, number?][]) {
     const url = String(input);
     const method = init.method ?? "GET";
     const headers = new Headers(init.headers);
-    calls.push({ url, method, auth: headers.get("authorization") });
+    calls.push({
+      url,
+      method,
+      auth: headers.get("authorization"),
+      body: typeof init.body === "string" ? init.body : null,
+    });
     const route = routes.find(([p]) => p.test(`${method} ${url}`));
     if (!route) throw new Error(`unexpected call: ${method} ${url}`);
     return new Response(JSON.stringify(route[1]), { status: route[2] ?? 200 });
@@ -209,6 +221,7 @@ describe("registering the app", () => {
         url: "https://api.github.com/app-manifests/c1/conversions",
         method: "POST",
         auth: null,
+        body: null,
       },
     ]);
     // The browser was sent on by the redirect, so no second page opens.
@@ -395,6 +408,136 @@ describe("acting as the app", () => {
         repository: "factory-config",
       }),
     ).rejects.toThrow("Integration not found");
+  });
+});
+
+describe("a run's token under the app", () => {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const key = privateKey.export({ type: "pkcs1", format: "pem" }).toString();
+  const app = { clientId: "Iv23client", key };
+  const NOW = Date.UTC(2026, 10, 23, 12, 0, 0);
+  const ask = (
+    routes: [RegExp, unknown, number?][],
+    repositories = ["web"],
+  ) => {
+    const g = github(routes);
+    const made = runToken({
+      fetch: g.fetch,
+      now: () => NOW,
+      app,
+      repository: "acme/web",
+      repositories,
+    });
+    return { made, calls: g.calls };
+  };
+  const FOUND: [RegExp, unknown, number?][] = [
+    [/GET .*\/repos\/acme\/web\/installation$/, { id: 52811 }],
+    [/GET .*\/app$/, { slug: "software-factory-for-acme" }],
+  ];
+
+  it("finds the installation on the run's repository as the app, and makes a token for the repositories named", async () => {
+    const { made, calls } = ask(
+      [
+        ...FOUND,
+        [
+          /POST .*\/app\/installations\/52811\/access_tokens$/,
+          { token: "ghs_run" },
+        ],
+      ],
+      ["web", "factory-config"],
+    );
+
+    expect(await made).toEqual({
+      token: "ghs_run",
+      slug: "software-factory-for-acme",
+    });
+    const signed = `Bearer ${appJwt("Iv23client", key, NOW)}`;
+    expect(calls.map((c) => c.auth)).toEqual([signed, signed, signed]);
+    const token = calls.find((c) => c.method === "POST")!;
+    expect(JSON.parse(token.body!)).toEqual({
+      repositories: ["web", "factory-config"],
+    });
+  });
+
+  it("says who installs the app when it is not installed on the repository, and asks for no token", async () => {
+    const { made, calls } = ask([
+      [/\/repos\/acme\/web\/installation$/, { message: "Not Found" }, 404],
+    ]);
+
+    await expect(made).rejects.toThrow(
+      /^The software factory's app for acme is not installed on acme\/web\. An owner of acme adds it: https:\/\/github\.com\/organizations\/acme\/settings\/installations$/,
+    );
+    expect(calls.map((c) => c.method)).toEqual(["GET"]);
+  });
+
+  it("fails with GitHub's reason when the installation does not cover a repository named", async () => {
+    const { made } = ask(
+      [
+        ...FOUND,
+        [
+          /access_tokens$/,
+          { message: "There is at least one repository that does not exist" },
+          422,
+        ],
+      ],
+      ["web", "styles"],
+    );
+
+    await expect(made).rejects.toThrow(
+      "GitHub gave the app no token: There is at least one repository that does not exist (HTTP 422)",
+    );
+  });
+
+  it("fails with GitHub's reason, and not as a missing installation, when it refuses the key", async () => {
+    const { made } = ask([
+      [/installation$/, { message: "Bad credentials" }, 401],
+    ]);
+
+    await expect(made).rejects.toThrow("Bad credentials (HTTP 401)");
+  });
+});
+
+describe("signing the GitHub CLI in with a token", () => {
+  /** A CLI that records each call: its arguments, and what it was given
+   * on standard input. */
+  const cli = () => {
+    const calls: { args: string[]; input: string | null }[] = [];
+    return {
+      calls,
+      run: async (args: string[]) => {
+        calls.push({ args, input: null });
+        return "";
+      },
+      runIn: async (args: string[], input: string) => {
+        calls.push({ args, input });
+        return "";
+      },
+    };
+  };
+
+  it("gives the token on standard input, never as an argument, then has git ask the CLI", async () => {
+    const c = cli();
+
+    await signIn("ghs_run", { git: true }, c);
+
+    expect(c.calls).toEqual([
+      {
+        args: ["auth", "login", "--with-token", "--insecure-storage"],
+        input: "ghs_run",
+      },
+      { args: ["auth", "setup-git"], input: null },
+    ]);
+  });
+
+  it("leaves git's settings alone when asked to", async () => {
+    const c = cli();
+
+    await signIn("ghs_next", { git: false }, c);
+
+    expect(c.calls.map((call) => call.args[1])).toEqual(["login"]);
+    expect(JSON.stringify(c.calls.map((call) => call.args))).not.toContain(
+      "ghs_next",
+    );
   });
 });
 

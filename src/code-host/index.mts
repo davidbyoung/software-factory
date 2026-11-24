@@ -15,6 +15,9 @@ import type { CodeHost, OrganizationHost } from "./types.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
+/** What a run works with under an owner's own app: a token of the app's
+ * for the run's repositories, and the sign-in that takes one. */
+export { runToken, signIn } from "./github-app.mts";
 
 export const DEFAULT_CODE_HOST = "github" as const;
 

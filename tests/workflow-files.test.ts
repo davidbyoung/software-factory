@@ -126,6 +126,7 @@ describe("factory.yml", () => {
         "${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}",
       "board-token": "${{ secrets.FACTORY_BOARD_TOKEN }}",
       "automerge-token": "${{ secrets.FACTORY_AUTOMERGE_TOKEN }}",
+      "app-key": "${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
       "signing-key": "${{ secrets.FACTORY_SIGNING_KEY }}",
       "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
       "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
@@ -199,6 +200,7 @@ describe("factory-review.yml", () => {
     expect(Object.keys(file.jobs.review.secrets)).toEqual([
       "build-token",
       "automerge-token",
+      "app-key",
       "claude-token",
       "claude-api-key",
       "extra",
@@ -207,6 +209,18 @@ describe("factory-review.yml", () => {
 });
 
 describe("both files", () => {
+  it.each<[string, Partial<WorkflowOptions>]>([
+    ["no part on", {}],
+    [
+      "every part on",
+      { parts: ["review", "board", "auto-merge", "poller", "dependabot"] },
+    ],
+  ])("pass the organization's app's key by name, with %s", (_, over) => {
+    const key = "${{ secrets.FACTORY_APP_PRIVATE_KEY }}";
+    expect(factory(over).jobs.factory.secrets["app-key"]).toBe(key);
+    expect(review(over).jobs.review.secrets["app-key"]).toBe(key);
+  });
+
   // A repository's own formatter must leave them alone, or its check and
   // the factory's would each undo the other.
   it.each([

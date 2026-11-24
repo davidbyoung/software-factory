@@ -7,6 +7,12 @@
 #
 # A pull request from a fork, or from Dependabot, gets no Actions secrets,
 # so every secret here may be empty.
+#
+# Where the key of an organization's own GitHub App and the variable
+# FACTORY_APP_CLIENT_ID both reach the run, a token of the app's stands in
+# for the build and auto-merge tokens. The review never holds it: its
+# comments are posted with the workflow's own token, so a build, which acts
+# as the app, cannot write the summary the verdict believes.
 name: Factory review run
 
 on:
@@ -20,6 +26,8 @@ on:
       build-token:
         required: false
       automerge-token:
+        required: false
+      app-key:
         required: false
       claude-token:
         required: false
@@ -66,14 +74,48 @@ jobs:
             npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
           fi
 
-      # The base commit's lock is what a preset's pin is compared with, and
-      # the build token reads a private preset whose pin the pull request
-      # moved. A fork's pull request never gets it, whatever the
+      # The app's token is for this repository and for each repository of
+      # the same owner that holds a preset the lock names. The key is told
+      # from an empty one through `env`, since a step's `if` cannot read a
+      # secret. A fork's pull request gets no token made, whatever the
       # repository's settings send to forks.
+      - name: List the repositories the app's token is for
+        id: repositories
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          APP_KEY_SET: ${{ secrets.app-key != '' }}
+          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+        run: |
+          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
+            names="$(factory session repositories)"
+            echo "names=$names" >> "$GITHUB_OUTPUT"
+          fi
+
+      - &token
+        name: Make the app's token
+        id: app
+        if: steps.repositories.outputs.names != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repositories.outputs.names }}
+
+      - &uninstalled
+        name: Say that the app is not installed
+        if: failure() && steps.app.outcome == 'failure'
+        run: |
+          echo "::error::The software factory's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+
+      # The base commit's lock is what a preset's pin is compared with, and
+      # the app's token, or the build token, reads a private preset whose
+      # pin the pull request moved. A fork's pull request never gets
+      # either, whatever the repository's settings send to forks.
       - name: Compare the copies with their source
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-          GH_TOKEN: ${{ github.event.pull_request.head.repo.full_name == github.repository && secrets.build-token || '' }}
+          GH_TOKEN: ${{ github.event.pull_request.head.repo.full_name == github.repository && (steps.app.outputs.token || secrets.build-token) || '' }}
         run: |
           git fetch --no-tags --depth 1 origin "$BASE"
           factory sync --check --against "$BASE"
@@ -288,7 +330,8 @@ jobs:
   # FACTORY_AUTOMERGE_TOKEN is the owner's token, a Dependabot secret
   # because this run gets Dependabot's secrets, not the Actions ones. A
   # merge enabled with the workflow's own token would start no workflow on
-  # the default branch.
+  # the default branch. The app's token takes its place where the app's
+  # key is a Dependabot secret too.
   dependabot:
     name: Enable auto-merge
     if: >-
@@ -296,8 +339,8 @@ jobs:
       github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # The merge is turned on with the owner's token: the workflow's own is
-    # read-only on a pull request of Dependabot's.
+    # The merge is turned on with the app's token or the owner's: the
+    # workflow's own is read-only on a pull request of Dependabot's.
     permissions:
       contents: read
       pull-requests: read
@@ -308,6 +351,22 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
+      # For this repository alone: the job reads no preset, and checks out
+      # nothing of the pull request's.
+      - name: Check whether the app's key reaches the run
+        id: repositories
+        env:
+          APP_KEY_SET: ${{ secrets.app-key != '' }}
+          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+        run: |
+          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
+            echo "names=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - *token
+
+      - *uninstalled
+
       - name: Enable auto-merge
         if: >-
           steps.meta.outputs.update-type != 'version-update:semver-major' &&
@@ -315,4 +374,4 @@ jobs:
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.automerge-token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.automerge-token }}

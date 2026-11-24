@@ -109,6 +109,7 @@ describe("what the three files are called with", () => {
           "build-token",
           "board-token",
           "automerge-token",
+          "app-key",
           "signing-key",
           "claude-token",
           "claude-api-key",
@@ -116,9 +117,11 @@ describe("what the three files are called with", () => {
         ].map((name) => [name, { required: false }]),
       ),
     );
-    for (const file of [review, session])
+    for (const file of [review, session]) {
+      expect(file.on.workflow_call.secrets).toHaveProperty("app-key");
       for (const secret of Object.values(file.on.workflow_call.secrets!))
         expect(secret.required).toBe(false);
+    }
   });
 
   it("defaults each session's minutes to the settings' default, and its job's limit to ten over", () => {
@@ -139,17 +142,19 @@ describe("what the three files are called with", () => {
   });
 });
 
-/** A GitHub Actions expression, evaluated as GitHub does for what the
- * workflows use: `==`, `!=`, `&&`, `||`, `!`, parentheses, text in single
- * quotes, a path into the contexts, and `contains`, `format`, and
- * `fromJSON`. A path that leads nowhere is empty text. */
-function evaluate(expression: string, context: Record<string, unknown>) {
+const truthy = (v: unknown) => v !== "" && v !== false && v != null;
+
+/** What a GitHub Actions expression comes to, evaluated as GitHub does for
+ * what the workflows use: `==`, `!=`, `&&`, `||`, `!`, parentheses, text in
+ * single quotes, a path into the contexts, and `contains`, `format`, and
+ * `fromJSON`. A path that leads nowhere is empty text, and `&&` and `||`
+ * give the operand that decided them. */
+function valueOf(expression: string, context: Record<string, unknown>) {
   const tokens =
     expression.match(/'(?:[^']|'')*'|&&|\|\||==|!=|[!(),]|[A-Za-z_][\w.-]*/g) ??
     [];
   let at = 0;
   const next = () => tokens[at++]!;
-  const truthy = (v: unknown) => v !== "" && v !== false && v != null;
   const primary = (): unknown => {
     const token = next();
     if (token === "(") {
@@ -213,8 +218,16 @@ function evaluate(expression: string, context: Record<string, unknown>) {
     }
     return value;
   };
-  return truthy(or());
+  return or();
 }
+
+/** Whether an `if` with that expression holds. */
+const evaluate = (expression: string, context: Record<string, unknown>) =>
+  truthy(valueOf(expression, context));
+
+/** The expression a value written as `${{ ... }}` holds. */
+const inside = (value: unknown) =>
+  /^\$\{\{([\s\S]*)\}\}$/.exec(String(value))![1]!;
 
 describe("which job an event starts", () => {
   const EVERY_PART = "review board auto-merge poller dependabot";
@@ -273,7 +286,11 @@ describe("which job an event starts", () => {
   });
 
   it.each<[string, Record<string, unknown>, string[]]>([
-    ["a push to the default branch", { name: "push" }, ["check", "conflicts"]],
+    [
+      "a push to the default branch",
+      { name: "push" },
+      ["check", "enroll", "conflicts"],
+    ],
     ["a push to another branch", { name: "push", ref: "feature" }, ["check"]],
     [
       "a pull request opened",
@@ -383,6 +400,10 @@ describe("which job an event starts", () => {
       started({ name: "workflow_dispatch" }, { ...off, job: "board" }),
     ).toEqual([]);
     expect(started({ name: "push" }, off)).toEqual(["check", "conflicts"]);
+    expect(started({ name: "push" }, { parts: "board poller" })).toEqual([
+      "check",
+      "conflicts",
+    ]);
   });
 
   it("takes the override label's name from what the repository's file passes", () => {
@@ -406,7 +427,7 @@ describe("which job an event starts", () => {
 describe("the jobs that run no session", () => {
   const { jobs } = run;
 
-  it.each(["check", "verdict", "merge-policy", "board", "poller"])(
+  it.each(["check", "verdict", "merge-policy", "board", "poller", "enroll"])(
     "%s checks out the default branch, never the pull request, and installs the factory before it runs it",
     (name) => {
       const job = jobs[name]!;
@@ -431,13 +452,13 @@ describe("the jobs that run no session", () => {
     expect(post.env).toEqual({ GH_TOKEN: "${{ github.token }}" });
   });
 
-  it("classifies with the workflow's token, and turns auto-merge on only with the owner's", () => {
+  it("classifies with the workflow's token, and turns auto-merge on only with the app's or the owner's", () => {
     const job = jobs["merge-policy"]!;
     expect(step(job, "Classify").env).toEqual({
       GH_TOKEN: "${{ github.token }}",
     });
     expect(step(job, "Turn auto-merge on or off").env!.GH_TOKEN).toBe(
-      "${{ secrets.automerge-token }}",
+      "${{ steps.app.outputs.token || secrets.automerge-token }}",
     );
     expect(job.concurrency).toEqual({
       group: "factory-merge-policy-${{ github.event.pull_request.number }}",
@@ -451,7 +472,7 @@ describe("the jobs that run no session", () => {
       GH_TOKEN: "${{ github.token }}",
     });
     expect(step(job, "Write the board").env).toEqual({
-      GH_TOKEN: "${{ secrets.board-token }}",
+      GH_TOKEN: "${{ steps.app.outputs.token || secrets.board-token }}",
     });
     expect(job.concurrency).toEqual({
       group: "factory-board-sync",
@@ -463,7 +484,10 @@ describe("the jobs that run no session", () => {
     const job = jobs.poller!;
     expect(step(job, "Start the Ready tickets")).toMatchObject({
       run: "factory poller --once",
-      env: { FACTORY_BOARD_TOKEN: "${{ secrets.board-token }}" },
+      env: {
+        FACTORY_BOARD_TOKEN:
+          "${{ steps.app.outputs.token || secrets.board-token }}",
+      },
     });
     expect(job.concurrency).toEqual({
       group: "factory-poller",
@@ -474,7 +498,9 @@ describe("the jobs that run no session", () => {
   it("opens the updates' pull requests with the build token, and passes with a line when there is none", () => {
     const job = jobs.updates!;
     const open = step(job, "Open the pull requests");
-    expect(open.env!.GH_TOKEN).toBe("${{ secrets.build-token }}");
+    expect(open.env!.GH_TOKEN).toBe(
+      "${{ steps.app.outputs.token || secrets.build-token }}",
+    );
     expect(open.run).toContain("factory update --pull-requests");
     expect(job.concurrency).toEqual({
       group: "factory-updates",
@@ -608,6 +634,7 @@ describe("a session", () => {
       "Set up Node",
       "Install the factory",
       "Check whether there is work, then the tokens",
+      "Sign in as the app",
       "Take the repository's own secrets",
       "Install the repository's dependencies",
       "Run the build's setup commands",
@@ -618,14 +645,14 @@ describe("a session", () => {
       "Run the session",
       "Put the checkout back on the commit the session started on",
       "Release the claim if no pull request was opened",
+      "Show how the app's token was renewed",
     ]);
   });
 
-  it("checks out the default branch with full history and the build token", () => {
-    expect(sessionJob.steps![0]!.with).toEqual({
+  it("checks out the default branch with full history", () => {
+    expect(sessionJob.steps![0]!.with).toMatchObject({
       ref: "${{ github.event.repository.default_branch }}",
       "fetch-depth": 0,
-      token: "${{ secrets.build-token || github.token }}",
     });
   });
 
@@ -637,6 +664,8 @@ describe("a session", () => {
     expect(gate.env).toMatchObject({
       GH_TOKEN: "${{ github.token }}",
       FACTORY_BUILD_TOKEN_SET: "${{ secrets.build-token != '' }}",
+      FACTORY_APP_KEY_SET:
+        "${{ secrets.app-key != '' && vars.FACTORY_APP_CLIENT_ID != '' }}",
       FACTORY_CLAUDE_SET:
         "${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}",
     });
@@ -644,7 +673,9 @@ describe("a session", () => {
     const after = sessionJob.steps!.slice(
       names(sessionJob).indexOf(gate.name) + 1,
     );
-    for (const s of after.slice(0, -1))
+    for (const s of after.filter(
+      (s) => !s.name.startsWith("Release the claim"),
+    ))
       expect(s.if).toContain("steps.gate.outputs.ran == 'true'");
   });
 
@@ -654,7 +685,6 @@ describe("a session", () => {
     expect(s.env!.MINUTES).toBe("${{ inputs.minutes }}");
     expect(s.run).toContain('timeout --kill-after=30s "${MINUTES}m" claude');
     expect(s.env!.FACTORY_UNATTENDED).toBe("1");
-    expect(s.env!.GH_TOKEN).toBe("${{ secrets.build-token }}");
   });
 
   it("runs npm ci only where the repository has a package-lock.json, and never twice in the factory's own", () => {
@@ -741,7 +771,11 @@ describe("a session", () => {
 
   it("names Claude as a commit's author and the token's owner as its committer", () => {
     const identity = step(sessionJob, "Set git's name and email");
-    expect(identity.env).toEqual({ GH_TOKEN: "${{ secrets.build-token }}" });
+    expect(identity.env).toEqual({
+      GH_TOKEN:
+        "${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}",
+      APP_SLUG: "${{ steps.app.outputs.slug }}",
+    });
     const { dir } = sandbox({
       gh: `echo '{"login":"acme-builds","id":42,"name":null}'`,
     });
@@ -751,6 +785,46 @@ describe("a session", () => {
     expect(config).toContain("email = 42+acme-builds@users.noreply.github.com");
     expect(config).toContain("name = Claude");
     expect(config).toContain("email = noreply@anthropic.com");
+  });
+
+  it("names the app's bot as the committer under the app, by its no-reply address, and Claude still as the author", () => {
+    const identity = step(sessionJob, "Set git's name and email");
+    const { dir, calls } = sandbox({ gh: "echo 4242" });
+
+    const r = runScript(identity.run!, dir, {
+      APP_SLUG: "software-factory-for-acme",
+    });
+    expect(r.status).toBe(0);
+    expect(calls()).toEqual([
+      "gh api /users/software-factory-for-acme[bot] --jq .id",
+    ]);
+    const config = readFileSync(join(dir, ".gitconfig"), "utf8");
+    expect(config).toContain("name = software-factory-for-acme[bot]");
+    expect(config).toContain(
+      "email = 4242+software-factory-for-acme[bot]@users.noreply.github.com",
+    );
+    expect(config).toContain("name = Claude");
+    expect(config).toContain("email = noreply@anthropic.com");
+  });
+
+  it("signs nothing under the app, whatever the signing key holds, and says so", () => {
+    const signing = step(sessionJob, "Set up commit signing");
+    expect(signing.env).toEqual({
+      SIGNING_KEY_INPUT: "${{ secrets.signing-key }}",
+      APP_SLUG: "${{ steps.app.outputs.slug }}",
+    });
+    const { dir } = sandbox();
+
+    const r = runScript(signing.run!, dir, {
+      SIGNING_KEY_INPUT: "PRIVATE KEY",
+      APP_SLUG: "software-factory-for-acme",
+    });
+    expect([r.status, r.stdout]).toEqual([
+      0,
+      "The app is the committer: this build's commits will be unsigned.\n",
+    ]);
+    expect(existsSync(join(dir, "factory-signing-key"))).toBe(false);
+    expect(existsSync(join(dir, ".gitconfig"))).toBe(false);
   });
 
   it("gives the session one Claude credential: the subscription's when both are set, and neither input's own variable", () => {
@@ -828,7 +902,8 @@ describe("a session", () => {
     ).toMatchObject({
       if: "always() && inputs.end-ticket != '' && steps.install.outputs.installed == 'true'",
       env: {
-        GH_TOKEN: "${{ secrets.build-token }}",
+        GH_TOKEN:
+          "${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}",
         TICKET: "${{ inputs.end-ticket }}",
       },
       run: 'factory ticket end "$TICKET"',
@@ -860,6 +935,7 @@ describe("the four jobs that run a session", () => {
       );
       expect(job.secrets).toEqual({
         "build-token": "${{ secrets.build-token }}",
+        "app-key": "${{ secrets.app-key }}",
         "claude-token": "${{ secrets.claude-token }}",
         "claude-api-key": "${{ secrets.claude-api-key }}",
         "signing-key": "${{ secrets.signing-key }}",
@@ -898,18 +974,531 @@ describe("the four jobs that run a session", () => {
   });
 });
 
+describe("a token of the organization's app, where its key reaches the run", () => {
+  const LIST = "List the repositories the app's token is for";
+  const MAKE = "Make the app's token";
+  const SAY = "Say that the app is not installed";
+  const AGAIN = "Give git the app's token";
+  /** Each job that needs more than the workflow's own token, holds a
+   * checkout to read the lock from, and ends within the hour a token of
+   * the app's lasts. */
+  const JOBS: [string, Job][] = [
+    ["run.yml's merge-policy", run.jobs["merge-policy"]!],
+    ["run.yml's board", run.jobs.board!],
+    ["run.yml's poller", run.jobs.poller!],
+    ["run.yml's updates", run.jobs.updates!],
+    ["run.yml's enroll", run.jobs.enroll!],
+    ["review.yml's check", review.jobs.check!],
+  ];
+  const list = step(run.jobs.board!, LIST);
+  const REACHES = { APP_KEY_SET: "true", CLIENT_ID: "Iv23li" };
+
+  it.each(JOBS)(
+    "%s makes one once the factory is installed, for the repositories the factory names",
+    (_, job) => {
+      const order = names(job);
+      const at = order.indexOf(LIST);
+      expect(order.indexOf("Install the factory")).toBeLessThan(at);
+      expect(order.slice(at, at + 3)).toEqual([LIST, MAKE, SAY]);
+      expect(step(job, LIST)).toMatchObject({
+        id: "repositories",
+        env: {
+          APP_KEY_SET: "${{ secrets.app-key != '' }}",
+          CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
+        },
+        run: list.run,
+      });
+      const make = step(job, MAKE);
+      expect(make).toMatchObject({
+        id: "app",
+        uses: "actions/create-github-app-token@v3",
+      });
+      expect(make.if).toContain("steps.repositories.outputs.names != ''");
+      expect(make.with).toEqual({
+        "client-id": "${{ vars.FACTORY_APP_CLIENT_ID }}",
+        "private-key": "${{ secrets.app-key }}",
+        owner: "${{ github.repository_owner }}",
+        repositories: "${{ steps.repositories.outputs.names }}",
+      });
+    },
+  );
+
+  it("asks the factory for the repositories only when the key and the client ID both reach the run", () => {
+    const listed = (env: Record<string, string>) => {
+      const { dir, calls } = sandbox({ factory: "echo web,factory-config" });
+      const r = runScript(list.run!, dir, env);
+      const output = join(dir, "output");
+      return {
+        status: r.status,
+        calls: calls(),
+        output: existsSync(output) ? readFileSync(output, "utf8") : "",
+      };
+    };
+
+    expect(listed(REACHES)).toEqual({
+      status: 0,
+      calls: ["factory session repositories"],
+      output: "names=web,factory-config\n",
+    });
+    for (const env of [
+      { ...REACHES, APP_KEY_SET: "false" },
+      { ...REACHES, CLIENT_ID: "" },
+    ])
+      expect(listed(env)).toEqual({ status: 0, calls: [], output: "" });
+  });
+
+  it("fails the step, and so makes no token, when the factory cannot name the repositories", () => {
+    const { dir } = sandbox({ factory: "exit 1" });
+
+    expect(runScript(list.run!, dir, REACHES).status).not.toBe(0);
+    expect(existsSync(join(dir, "output"))).toBe(false);
+  });
+
+  it("makes one for the repository alone for Dependabot's pull request, whose code it does not check out", () => {
+    const job = review.jobs.dependabot!;
+    expect(names(job)).toEqual([
+      "Read the update",
+      "Check whether the app's key reaches the run",
+      MAKE,
+      SAY,
+      "Enable auto-merge",
+    ]);
+    const check = step(job, "Check whether the app's key reaches the run");
+    expect(check).toMatchObject({ id: "repositories", env: list.env });
+    expect(step(job, MAKE)).toEqual(step(review.jobs.check!, MAKE));
+    const output = (env: Record<string, string>) => {
+      const { dir, calls } = sandbox({ factory: "" });
+      const r = runScript(check.run!, dir, {
+        GITHUB_REPOSITORY: "acme/web",
+        ...env,
+      });
+      const file = join(dir, "output");
+      return [
+        r.status,
+        calls(),
+        existsSync(file) ? readFileSync(file, "utf8") : "",
+      ];
+    };
+
+    expect(output(REACHES)).toEqual([0, [], "names=web\n"]);
+    expect(output({ ...REACHES, APP_KEY_SET: "false" })).toEqual([0, [], ""]);
+    expect(output({ ...REACHES, CLIENT_ID: "" })).toEqual([0, [], ""]);
+  });
+
+  it.each([...JOBS, ["review.yml's dependabot", review.jobs.dependabot!]] as [
+    string,
+    Job,
+  ][])(
+    "%s fails, saying who installs the app, when no token could be made",
+    (_, job) => {
+      expect(step(job, MAKE)).not.toHaveProperty("continue-on-error");
+      const say = step(job, SAY);
+      expect(say.if).toContain("failure()");
+      expect(say.if).toContain("steps.app.outcome == 'failure'");
+
+      const r = runScript(say.run!, sandbox().dir, {
+        GITHUB_REPOSITORY: "acme/web",
+        GITHUB_REPOSITORY_OWNER: "acme",
+        GITHUB_SERVER_URL: "https://github.com",
+      });
+      expect(r.stdout).toBe(
+        "::error::The software factory's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations\n",
+      );
+    },
+  );
+
+  it.each<[string, Job, string, string, string]>([
+    [
+      "turns auto-merge on",
+      run.jobs["merge-policy"]!,
+      "Turn auto-merge on or off",
+      "GH_TOKEN",
+      "automerge-token",
+    ],
+    [
+      "writes the board",
+      run.jobs.board!,
+      "Write the board",
+      "GH_TOKEN",
+      "board-token",
+    ],
+    [
+      "starts the Ready tickets",
+      run.jobs.poller!,
+      "Start the Ready tickets",
+      "FACTORY_BOARD_TOKEN",
+      "board-token",
+    ],
+    [
+      "opens the updates' pull requests",
+      run.jobs.updates!,
+      "Open the pull requests",
+      "GH_TOKEN",
+      "build-token",
+    ],
+    [
+      "turns auto-merge on for Dependabot's pull request",
+      review.jobs.dependabot!,
+      "Enable auto-merge",
+      "GH_TOKEN",
+      "automerge-token",
+    ],
+  ])(
+    "%s with the app's token, and with the token it uses today when there is none",
+    (_, job, name, variable, today) => {
+      const token = (app: string) =>
+        valueOf(inside(step(job, name).env![variable]), {
+          steps: { app: { outputs: { token: app } } },
+          secrets: { [today]: "a person's" },
+        });
+
+      expect(token("the app's")).toBe("the app's");
+      expect(token("")).toBe("a person's");
+    },
+  );
+
+  it("reads a person's token in no step but as what stands in for the app's", () => {
+    const person = /secrets\.(?:build|board|automerge)-token(?! != '')/;
+    const found = [run, review, session].flatMap((file) =>
+      Object.values(file.jobs).flatMap((job) =>
+        (job.steps ?? []).flatMap((s) =>
+          [...Object.values(s.env ?? {}), ...Object.values(s.with ?? {})]
+            .filter((v): v is string => typeof v === "string")
+            .filter(
+              (v) =>
+                person.test(v) &&
+                !v.includes("steps.app.outputs.token || secrets.") &&
+                !v.includes("steps.app.outputs.slug == '' && secrets.") &&
+                !v.includes("secrets.app-key == ''"),
+            )
+            .map((v) => `${job.name}: ${s.name}: ${v}`),
+        ),
+      ),
+    );
+
+    expect(found).toEqual([]);
+  });
+
+  it.each<[string, Job]>([
+    ["a session", sessionJob],
+    ["the updates' job", run.jobs.updates!],
+  ])(
+    "%s checks out with the workflow's own token under the app, and with the build token without it",
+    (_, job) => {
+      const token = (
+        secrets: Record<string, string>,
+        vars: Record<string, string>,
+      ) =>
+        valueOf(inside(job.steps![0]!.with!.token), {
+          secrets,
+          vars,
+          github: { token: "the workflow's" },
+        });
+      const both = { "app-key": "key", "build-token": "a person's" };
+      const id = { FACTORY_APP_CLIENT_ID: "Iv23li" };
+
+      expect(token(both, id)).toBe("the workflow's");
+      expect(token({ ...both, "app-key": "" }, id)).toBe("a person's");
+      expect(token(both, {})).toBe("a person's");
+      expect(token({}, {})).toBe("the workflow's");
+    },
+  );
+
+  it("checks the updates' job out again with the app's token before it pushes, and cleans nothing the factory's install left", () => {
+    const job = run.jobs.updates!;
+    const again = step(job, AGAIN);
+    expect(again.uses).toBe("actions/checkout@v7");
+    expect(again.if).toContain("steps.app.outputs.token != ''");
+    expect(again.with).toEqual({
+      "fetch-depth": 0,
+      clean: false,
+      token: "${{ steps.app.outputs.token }}",
+    });
+    const order = names(job);
+    expect(order.indexOf(MAKE)).toBeLessThan(order.indexOf(AGAIN));
+    expect(order.indexOf(AGAIN)).toBeLessThan(
+      order.indexOf("Open the pull requests"),
+    );
+  });
+
+  it("commits an update as the app's bot, and signs nothing, whatever the signing key holds", () => {
+    const open = step(run.jobs.updates!, "Open the pull requests");
+    expect(open.env!.APP_SLUG).toBe("${{ steps.app.outputs.app-slug }}");
+    const { dir, calls } = sandbox({ gh: "echo 4242", git: "", factory: "" });
+
+    const r = runScript(open.run!, dir, {
+      GH_TOKEN: "ghs_app",
+      APP_SLUG: "software-factory-for-acme",
+      SIGNING_KEY_INPUT: "PRIVATE KEY",
+    });
+    expect(r.status).toBe(0);
+    expect(calls()).toEqual([
+      "gh api /users/software-factory-for-acme[bot] --jq .id",
+      "git config --global user.name software-factory-for-acme[bot]",
+      "git config --global user.email 4242+software-factory-for-acme[bot]@users.noreply.github.com",
+      "factory update --pull-requests",
+    ]);
+    expect(existsSync(join(dir, "factory-signing-key"))).toBe(false);
+  });
+});
+
+describe("a session under the organization's app, whose token lasts an hour", () => {
+  const SIGN_IN = "Sign in as the app";
+  const signIn = step(sessionJob, SIGN_IN);
+  const REACHES = {
+    FACTORY_APP_CLIENT_ID: "Iv23client",
+    FACTORY_APP_PRIVATE_KEY: "PRIVATE KEY",
+  };
+  /** The steps that act on the code host as whoever builds. */
+  const ACTING = [
+    "Set git's name and email",
+    "Run the session",
+    "Release the claim if no pull request was opened",
+  ];
+  const context = (o: { app: boolean }) => ({
+    secrets: { "app-key": o.app ? "key" : "", "build-token": "a person's" },
+    vars: { FACTORY_APP_CLIENT_ID: o.app ? "Iv23client" : "" },
+    steps: {
+      gate: { outputs: { ran: "true" } },
+      app: { outputs: { slug: o.app ? "software-factory-for-acme" : "" } },
+    },
+    github: { token: "the workflow's" },
+  });
+
+  it("hands the app's key to one step alone, and only compares it anywhere else", () => {
+    const held = sessionJob.steps!.flatMap((s) =>
+      Object.entries({ ...s.env, ...s.with })
+        .filter(([, value]) =>
+          /secrets\.app-key(?! [!=]= '')/.test(String(value)),
+        )
+        .map(([name]) => `${s.name}: ${name}`),
+    );
+
+    expect(held).toEqual([`${SIGN_IN}: FACTORY_APP_PRIVATE_KEY`]);
+    expect(signIn.env).toEqual({
+      FACTORY_APP_CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
+      FACTORY_APP_PRIVATE_KEY: "${{ secrets.app-key }}",
+    });
+  });
+
+  it("signs in once there is work, before any step puts a token in the environment", () => {
+    expect(signIn.id).toBe("app");
+    const order = names(sessionJob);
+    expect(order.indexOf(SIGN_IN)).toBe(
+      order.indexOf("Check whether there is work, then the tokens") + 1,
+    );
+    expect(evaluate(signIn.if!, context({ app: true }))).toBe(true);
+    expect(evaluate(signIn.if!, context({ app: false }))).toBe(false);
+  });
+
+  it("signs in once in the foreground, then leaves the renewal running behind the steps that follow, its output in a file", () => {
+    const { dir, calls } = sandbox({
+      factory: [
+        'if [ "$3" = "--keep" ]; then',
+        '  cat "$RUNNER_TEMP/go" > /dev/null',
+        '  echo "renewing with ${FACTORY_APP_PRIVATE_KEY:+the key}"',
+        '  echo done > "$RUNNER_TEMP/done"',
+        "else",
+        '  echo "slug=software-factory-for-acme" >> "$GITHUB_OUTPUT"',
+        "fi",
+      ].join("\n"),
+    });
+    execFileSync("mkfifo", [join(dir, "go"), join(dir, "done")]);
+
+    const r = spawnSync("bash", ["-eo", "pipefail", "-c", signIn.run!], {
+      cwd: dir,
+      env: {
+        PATH: `${join(dir, "bin")}:${process.env.PATH}`,
+        HOME: dir,
+        RUNNER_TEMP: dir,
+        GITHUB_OUTPUT: join(dir, "output"),
+        ...REACHES,
+      },
+      encoding: "utf8",
+      timeout: 20_000,
+    });
+    // The renewal waits for this, so it outlives the step's own shell.
+    writeFileSync(join(dir, "go"), "");
+    readFileSync(join(dir, "done"), "utf8");
+
+    expect(r.status).toBe(0);
+    expect(calls()).toEqual([
+      "factory session token",
+      "factory session token --keep",
+    ]);
+    expect(readFileSync(join(dir, "output"), "utf8")).toBe(
+      "slug=software-factory-for-acme\n",
+    );
+    expect(readFileSync(join(dir, "factory-token.log"), "utf8")).toBe(
+      "renewing with the key\n",
+    );
+  });
+
+  it("fails the step, and leaves nothing running, when the first sign-in fails", () => {
+    const { dir, calls } = sandbox({ factory: "exit 1" });
+
+    expect(runScript(signIn.run!, dir, REACHES).status).toBe(1);
+    expect(calls()).toEqual(["factory session token"]);
+  });
+
+  it("does nothing when the key does not reach the run", () => {
+    const { dir, calls } = sandbox({ factory: "" });
+
+    const r = runScript(signIn.run!, dir, {
+      ...REACHES,
+      FACTORY_APP_PRIVATE_KEY: "",
+    });
+    expect([r.status, r.stdout, calls()]).toEqual([0, "", []]);
+  });
+
+  it.each(ACTING)(
+    "%s reads the CLI's renewed sign-in under the app, with no token in its environment, and a person's token without it",
+    (name) => {
+      const token = inside(step(sessionJob, name).env!.GH_TOKEN);
+
+      expect(valueOf(token, context({ app: true }))).toBe("");
+      expect(valueOf(token, context({ app: false }))).toBe("a person's");
+    },
+  );
+
+  it("makes no token that is made once, and gives no step but those a token of anyone's", () => {
+    expect(JSON.stringify(sessionJob)).not.toContain("create-github-app-token");
+    const given = sessionJob
+      .steps!.filter((s) =>
+        /secrets\.build-token(?! != '')/.test(
+          JSON.stringify({ ...s.env, ...s.with }),
+        ),
+      )
+      .map((s) => s.name);
+
+    expect(given).toEqual(["Checkout the default branch", ...ACTING]);
+  });
+
+  it("stores no credential at the checkout under the app, so git asks the CLI, and stores the build token without it", () => {
+    const checkout = sessionJob.steps![0]!.with!;
+    const stored = (o: { app: boolean }) =>
+      valueOf(inside(checkout["persist-credentials"]), context(o));
+
+    expect(stored({ app: true })).toBe(false);
+    expect(stored({ app: false })).toBe(true);
+    expect(valueOf(inside(checkout.token), context({ app: false }))).toBe(
+      "a person's",
+    );
+  });
+
+  it("prints what the renewal logged as the job's last step, whatever happened", () => {
+    const show = sessionJob.steps!.at(-1)!;
+    expect(show.name).toBe("Show how the app's token was renewed");
+    expect(show.if).toContain("always()");
+    expect(
+      evaluate(show.if!.replace("always() && ", ""), context({ app: true })),
+    ).toBe(true);
+    expect(
+      evaluate(show.if!.replace("always() && ", ""), context({ app: false })),
+    ).toBe(false);
+    const { dir } = sandbox();
+    writeFileSync(
+      join(dir, "factory-token.log"),
+      "2026-11-23T12:45:00.000Z Renewed the app's token.\n",
+    );
+
+    expect(runScript(show.run!, dir).stdout).toBe(
+      "2026-11-23T12:45:00.000Z Renewed the app's token.\n",
+    );
+  });
+});
+
+describe("the review and its verdict, which stay the workflow's own", () => {
+  it.each<[string, Job]>([
+    ["review.yml's review", review.jobs.review!],
+    ["run.yml's verdict", run.jobs.verdict!],
+  ])(
+    "%s makes no token of the app's, and reads neither its key nor a person's token",
+    (_, job) => {
+      expect(names(job)).not.toContain("Make the app's token");
+      expect(JSON.stringify(job)).not.toMatch(
+        /steps\.app\.|app-key|(?:build|board|automerge)-token/,
+      );
+    },
+  );
+
+  it("hands the review's action and the verdict's command the workflow's own token", () => {
+    expect(step(review.jobs.review!, "Review").with!.github_token).toBe(
+      "${{ github.token }}",
+    );
+    expect(step(run.jobs.verdict!, "Post the verdict").env).toEqual({
+      GH_TOKEN: "${{ github.token }}",
+    });
+  });
+});
+
+describe("the job that makes the verdict required, once a setup has merged", () => {
+  const job = run.jobs.enroll!;
+
+  it("runs factory enroll with the app's token, or a person's build token, or the workflow's own, and says which it holds", () => {
+    const enroll = step(job, "Require the verdict");
+    expect(enroll.run).toBe("factory enroll");
+    const env = (app: string, person: string) =>
+      Object.fromEntries(
+        Object.entries(enroll.env!).map(([name, value]) => [
+          name,
+          valueOf(inside(value), {
+            steps: { app: { outputs: { token: app } } },
+            secrets: { "build-token": person },
+            github: { token: "the workflow's" },
+          }),
+        ]),
+      );
+
+    expect(env("the app's", "a person's")).toEqual({
+      GH_TOKEN: "the app's",
+      FACTORY_APP_TOKEN_SET: true,
+      FACTORY_BUILD_TOKEN_SET: true,
+    });
+    expect(env("", "a person's")).toEqual({
+      GH_TOKEN: "a person's",
+      FACTORY_APP_TOKEN_SET: false,
+      FACTORY_BUILD_TOKEN_SET: true,
+    });
+    expect(env("", "")).toEqual({
+      GH_TOKEN: "the workflow's",
+      FACTORY_APP_TOKEN_SET: false,
+      FACTORY_BUILD_TOKEN_SET: false,
+    });
+  });
+
+  it("is the job's last step, and one run goes at a time", () => {
+    expect(names(job).at(-1)).toBe("Require the verdict");
+    expect(job.concurrency).toEqual({
+      group: "factory-enroll",
+      "cancel-in-progress": false,
+    });
+  });
+});
+
 describe("review.yml", () => {
   const { jobs } = review;
 
-  it("checks the files on every pull request, against the base commit's lock, with the build token only for one from this repository", () => {
+  it("checks the files on every pull request, against the base commit's lock, with the app's token or the build token only for one from this repository", () => {
     const job = jobs.check!;
     expect(job.if).toBeUndefined();
     const compare = step(job, "Compare the copies with their source");
-    expect(compare.env).toEqual({
-      BASE: "${{ github.event.pull_request.base.sha }}",
-      GH_TOKEN:
-        "${{ github.event.pull_request.head.repo.full_name == github.repository && secrets.build-token || '' }}",
-    });
+    expect(compare.env!.BASE).toBe("${{ github.event.pull_request.base.sha }}");
+    const token = (from: string, app: string) =>
+      valueOf(inside(compare.env!.GH_TOKEN), {
+        github: {
+          repository: "acme/site",
+          event: { pull_request: { head: { repo: { full_name: from } } } },
+        },
+        steps: { app: { outputs: { token: app } } },
+        secrets: { "build-token": "person" },
+      });
+    expect(token("acme/site", "app")).toBe("app");
+    expect(token("acme/site", "")).toBe("person");
+    expect(token("mallory/site", "app")).toBe("");
+    expect(step(job, "List the repositories the app's token is for").if).toBe(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    );
     expect(compare.run).toContain('factory sync --check --against "$BASE"');
     expect(step(job, "Check the settings").run).toBe("factory config check");
   });
@@ -1022,7 +1611,9 @@ describe("review.yml", () => {
     expect(enable.if!.replace(/\s+/g, " ")).toBe(
       "steps.meta.outputs.update-type != 'version-update:semver-major' && !contains(steps.meta.outputs.dependency-names, 'davidbyoung/software-factory')",
     );
-    expect(enable.env!.GH_TOKEN).toBe("${{ secrets.automerge-token }}");
+    expect(enable.env!.GH_TOKEN).toBe(
+      "${{ steps.app.outputs.token || secrets.automerge-token }}",
+    );
     expect(job.permissions).toEqual({
       contents: "read",
       "pull-requests": "read",

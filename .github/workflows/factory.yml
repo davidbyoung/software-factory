@@ -66,6 +66,7 @@ jobs:
       build-token: ${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}
       board-token: ${{ secrets.FACTORY_BOARD_TOKEN }}
       automerge-token: ${{ secrets.FACTORY_AUTOMERGE_TOKEN }}
+      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
       signing-key: ${{ secrets.FACTORY_SIGNING_KEY }}
       claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

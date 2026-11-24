@@ -9,6 +9,13 @@
 # whoever owns the build token, on GitHub and in git: the workflow's own
 # token is never used for the work, since GitHub starts no CI for a pull
 # request that token opened.
+#
+# Where the key of an organization's own GitHub App and the variable
+# FACTORY_APP_CLIENT_ID both reach the run, the session acts as the app
+# instead. A token of the app's lasts an hour and a session runs for longer,
+# so no step holds one: the GitHub CLI is signed in, git asks the CLI, and a
+# process left running behind the steps signs the CLI in again before each
+# token runs out.
 name: Factory session
 
 on:
@@ -41,6 +48,8 @@ on:
     secrets:
       build-token:
         required: false
+      app-key:
+        required: false
       claude-token:
         required: false
       claude-api-key:
@@ -60,14 +69,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.limit }}
     steps:
-      # The workflow's token stands in only so that a missing build token is
-      # named by the check below, not by the checkout.
+      # The workflow's token stands in so that a missing build token is
+      # named by the check below, not by the checkout, and under the app,
+      # where the checkout stores no credential, so that git asks the CLI.
       - name: Checkout the default branch
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-          token: ${{ secrets.build-token || github.token }}
+          token: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || github.token }}
+          persist-credentials: ${{ secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '' }}
 
       - name: Read what the repository installs with
         id: node
@@ -108,6 +119,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FACTORY_BUILD_TOKEN_SET: ${{ secrets.build-token != '' }}
+          FACTORY_APP_KEY_SET: ${{ secrets.app-key != '' && vars.FACTORY_APP_CLIENT_ID != '' }}
           FACTORY_CLAUDE_SET: ${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}
           KIND: ${{ inputs.kind }}
           ARGS: ${{ inputs.check-args }}
@@ -115,6 +127,22 @@ jobs:
           # ARGS is numbers the workflow wrote, split into words on purpose.
           # shellcheck disable=SC2086
           factory session ready "$KIND" $ARGS
+
+      # The one step that holds the app's key. The first sign-in is made
+      # here, so that an app that is not installed fails the job, and the
+      # renewal is left running with its output in a file, which the last
+      # step prints. It comes before any step that puts a token in the
+      # environment, where the CLI would refuse to store a sign-in.
+      - name: Sign in as the app
+        id: app
+        if: steps.gate.outputs.ran == 'true' && vars.FACTORY_APP_CLIENT_ID != ''
+        env:
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+        run: |
+          [ -n "$FACTORY_APP_PRIVATE_KEY" ] || exit 0
+          factory session token
+          nohup factory session token --keep < /dev/null > "$RUNNER_TEMP/factory-token.log" 2>&1 &
 
       # The secrets the repository's .npmrc and ticket system read, which
       # its factory.yml passes as one JSON object. Each value is masked
@@ -151,26 +179,42 @@ jobs:
       # Claude is the author. The committer is the account that owns the build
       # token, by its no-reply address, which GitHub ties to the account: it
       # must be, for a signature by that account's key to show as verified.
+      # Under the app the committer is the app's bot, by the bot's own
+      # no-reply address.
       - name: Set git's name and email
         if: steps.gate.outputs.ran == 'true'
         env:
-          GH_TOKEN: ${{ secrets.build-token }}
+          GH_TOKEN: ${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}
+          APP_SLUG: ${{ steps.app.outputs.slug }}
         run: |
-          user="$(gh api user)"
-          login="$(jq -r .login <<< "$user")"
-          git config --global user.name "$(jq -r '.name // .login' <<< "$user")"
-          git config --global user.email "$(jq -r .id <<< "$user")+$login@users.noreply.github.com"
+          if [ -n "$APP_SLUG" ]; then
+            id="$(gh api "/users/$APP_SLUG[bot]" --jq .id)"
+            git config --global user.name "$APP_SLUG[bot]"
+            git config --global user.email "$id+$APP_SLUG[bot]@users.noreply.github.com"
+          else
+            user="$(gh api user)"
+            login="$(jq -r .login <<< "$user")"
+            git config --global user.name "$(jq -r '.name // .login' <<< "$user")"
+            git config --global user.email "$(jq -r .id <<< "$user")+$login@users.noreply.github.com"
+          fi
           git config --global author.name "Claude"
           git config --global author.email "noreply@anthropic.com"
 
       # The key goes to a file under RUNNER_TEMP, which the runner empties when
       # the job ends, readable only by the runner's user. Nothing taken from it
       # is echoed: GitHub masks the secret, and the script prints no part of it.
+      # Under the app nothing is signed: a person's key cannot vouch for a
+      # commit whose committer is the app's bot.
       - name: Set up commit signing
         if: steps.gate.outputs.ran == 'true'
         env:
           SIGNING_KEY_INPUT: ${{ secrets.signing-key }}
+          APP_SLUG: ${{ steps.app.outputs.slug }}
         run: |
+          if [ -n "$APP_SLUG" ]; then
+            echo "The app is the committer: this build's commits will be unsigned."
+            exit 0
+          fi
           if [ -z "$SIGNING_KEY_INPUT" ]; then
             echo "No signing key: this build's commits will be unsigned."
             exit 0
@@ -199,7 +243,7 @@ jobs:
         if: steps.gate.outputs.ran == 'true'
         env:
           MINUTES: ${{ inputs.minutes }}
-          GH_TOKEN: ${{ secrets.build-token }}
+          GH_TOKEN: ${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}
           PROMPT: ${{ inputs.prompt }}
           MODEL: ${{ vars.FACTORY_BUILD_MODEL }}
           OAUTH_TOKEN_INPUT: ${{ secrets.claude-token }}
@@ -258,6 +302,10 @@ jobs:
       - name: Release the claim if no pull request was opened
         if: always() && inputs.end-ticket != '' && steps.install.outputs.installed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.build-token }}
+          GH_TOKEN: ${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}
           TICKET: ${{ inputs.end-ticket }}
         run: factory ticket end "$TICKET"
+
+      - name: Show how the app's token was renewed
+        if: always() && steps.gate.outputs.ran == 'true' && steps.app.outputs.slug != ''
+        run: cat "$RUNNER_TEMP/factory-token.log"

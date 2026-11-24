@@ -9,13 +9,25 @@
 // It asks whether there is work first, with whatever token the step gives
 // it as GH_TOKEN, the workflow's own, and only then whether the build token
 // and Claude's credential are set (FACTORY_BUILD_TOKEN_SET and
-// FACTORY_CLAUDE_SET, each `true` or not). With work and a token missing, a
-// run that a push, a schedule, or a review started says so and passes; a
-// run someone started by hand, or the poller did, fails. It writes
-// `ran=true` or `ran=false` to GITHUB_OUTPUT.
-import { appendFileSync } from "node:fs";
+// FACTORY_CLAUDE_SET, each `true` or not). The key of the organization's
+// app counts as the build token (FACTORY_APP_KEY_SET). With work and a
+// token missing, a run that a push, a schedule, or a review started says so
+// and passes; a run someone started by hand, or the poller did, fails. It
+// writes `ran=true` or `ran=false` to GITHUB_OUTPUT.
+//
+//   factory session repositories
+//
+// The repositories a run's token of the organization's app is made for, by
+// name and separated by commas: the run's own, and each of the same owner
+// that holds a preset the lock names.
+//
+//   factory session token [--keep]
+//
+// Signs a session in as that app, and keeps it signed in: `session-token.mts`.
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { reachOf } from "./config.mts";
+import { reachOf, repoRoot } from "./config.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost } from "./code-host/types.mts";
 import { conflicting, reviewPending } from "./pr.mts";
@@ -81,6 +93,41 @@ export async function ready(
 const USAGE =
   "Usage: factory session ready build|conflicts|deps|review [PR REVIEW]";
 
+/** All of a repository's name but its last part, and that part. */
+const split = (repository: string) => {
+  const at = repository.lastIndexOf("/");
+  return { owner: repository.slice(0, at), name: repository.slice(at + 1) };
+};
+
+/** The repository's name, then each of `presets`, the repositories that
+ * hold a preset, that has the same owner, once each. */
+export function repositoriesOf(repository: string, presets: string[]): string {
+  const own = split(repository);
+  const names = presets
+    .map(split)
+    .filter((p) => p.owner.toLowerCase() === own.owner.toLowerCase())
+    .map((p) => p.name);
+  return [...new Set([own.name, ...names])].join(",");
+}
+
+/** Those names for this checkout: the run's repository, and the presets
+ * its lock names. */
+export async function repositories(
+  env: Record<string, string | undefined>,
+): Promise<string> {
+  const { load } = await import("js-yaml");
+  const { LOCK_FILE, parseName, pinsOf } = await import("./preset.mts");
+  const lock = join(repoRoot(), LOCK_FILE);
+  const pins = pinsOf(
+    existsSync(lock) ? readFileSync(lock, "utf8") : null,
+    load,
+  );
+  return repositoriesOf(
+    (await reachOf(env)).repository,
+    pins.map((pin) => parseName(pin.name).repo),
+  );
+}
+
 /** What a kind's check finds in the repository, through the code host. */
 export function workOf(
   kind: Kind,
@@ -107,20 +154,34 @@ export function workOf(
   };
 }
 
-/** `factory session ready KIND [PR REVIEW]`. */
+/** `factory session ready KIND [PR REVIEW]`, `factory session
+ * repositories`, and `factory session token [--keep]`. */
 export async function run(argv: string[]): Promise<number> {
   const [step, kind, ...rest] = argv;
+  const env = process.env;
+  if (step === "token")
+    return (await import("./session-token.mts")).run(argv.slice(1));
+  if (step === "repositories") {
+    try {
+      console.log(await repositories(env));
+      return 0;
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+  }
   if (step !== "ready" || !KINDS.includes(kind as Kind)) {
     console.error(USAGE);
     return 2;
   }
-  const env = process.env;
   try {
     const { repository, codeHost } = await reachOf(env);
     const answer = await ready({
       kind: kind as Kind,
       byHand: env.GITHUB_EVENT_NAME === "workflow_dispatch",
-      buildToken: env.FACTORY_BUILD_TOKEN_SET === "true",
+      buildToken:
+        env.FACTORY_BUILD_TOKEN_SET === "true" ||
+        env.FACTORY_APP_KEY_SET === "true",
       claude: env.FACTORY_CLAUDE_SET === "true",
       work: workOf(
         kind as Kind,

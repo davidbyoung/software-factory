@@ -66,3 +66,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** the default branch is pushed to
 - **THEN** On a push to the default branch, a job runs `factory enroll`. With `pr-review` set: under the App it sets `software-factory` to `on` for the repository when it is not; with a person's build token it makes the rule `factory init` makes today when the repository has none. It prints the matching ✓ line "the rest" shows, and nothing when there was nothing to do. Under the App, where ORG has no such property, and with no token of either kind, it prints the first `?` line; when GitHub refuses the value, the second. It passes either way.
+
+### Requirement: A session's token is renewed
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A session's token is renewed
+
+- **WHEN** a job runs a session under the App
+- **THEN** In the job that runs a session, under the App, `factory session token` signs the GitHub CLI and git in with a token of the App's, made for the repositories line 21 names, and leaves a process running that makes a new one every 45 minutes until the job ends, trying again each minute after a failure. The App's key reaches that one step, and no later step of the job is given a token made once.

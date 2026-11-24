@@ -120,7 +120,13 @@ function codeIn(address: string, state: string): string | null {
 
 async function call<T>(
   f: typeof fetch,
-  o: { method: "GET" | "POST"; path: string; bearer?: string; what: string },
+  o: {
+    method: "GET" | "POST";
+    path: string;
+    bearer?: string;
+    body?: object;
+    what: string;
+  },
 ): Promise<T> {
   const response = await f(`${API}/${o.path}`, {
     method: o.method,
@@ -128,7 +134,9 @@ async function call<T>(
       Accept: "application/vnd.github+json",
       "User-Agent": "software-factory",
       ...(o.bearer ? { Authorization: `Bearer ${o.bearer}` } : {}),
+      ...(o.body ? { "Content-Type": "application/json" } : {}),
     },
+    ...(o.body ? { body: JSON.stringify(o.body) } : {}),
   });
   const body = (await response.json().catch(() => ({}))) as T & {
     message?: string;
@@ -274,6 +282,64 @@ export async function installed(o: {
       return { count, covered: true };
     if (listed.repositories.length < 100) return { count, covered: false };
   }
+}
+
+/** The app's slug, and a token of its installation on the owner of
+ * `repository`, an owner/name, for the repositories named, each of that
+ * owner. GitHub takes the token for an hour. */
+export async function runToken(o: {
+  fetch: typeof fetch;
+  now: () => number;
+  app: { clientId: string; key: string };
+  repository: string;
+  repositories: string[];
+}): Promise<{ token: string; slug: string }> {
+  const bearer = appJwt(o.app.clientId, o.app.key, o.now());
+  const owner = o.repository.slice(0, o.repository.lastIndexOf("/"));
+  const installation = await call<{ id: number }>(o.fetch, {
+    method: "GET",
+    path: `repos/${o.repository}/installation`,
+    bearer,
+    what: "GitHub did not say where the app is installed",
+  }).catch((e) => {
+    if (!(e instanceof HttpError) || e.status !== 404) throw e;
+    throw new Error(
+      `The software factory's app for ${owner} is not installed on ${o.repository}. An owner of ${owner} adds it: ${SITE}/organizations/${owner}/settings/installations`,
+    );
+  });
+  const { slug } = await call<{ slug: string }>(o.fetch, {
+    method: "GET",
+    path: "app",
+    bearer,
+    what: "GitHub did not name the app",
+  });
+  const { token } = await call<{ token: string }>(o.fetch, {
+    method: "POST",
+    path: `app/installations/${installation.id}/access_tokens`,
+    bearer,
+    body: { repositories: o.repositories },
+    what: "GitHub gave the app no token",
+  });
+  return { token, slug };
+}
+
+/** Signs the GitHub CLI in with a token, given on standard input so that
+ * no list of processes shows it, and with `git` has git ask the CLI for
+ * its credential from then on. The CLI refuses while a token is in its
+ * environment. */
+export async function signIn(
+  token: string,
+  o: { git: boolean },
+  cli: {
+    run(args: string[]): Promise<string>;
+    runIn(args: string[], input: string): Promise<string>;
+  },
+): Promise<void> {
+  await cli.runIn(
+    ["auth", "login", "--with-token", "--insecure-storage"],
+    token,
+  );
+  if (o.git) await cli.run(["auth", "setup-git"]);
 }
 
 export type Clock = { now(): number; sleep(ms: number): Promise<void> };
