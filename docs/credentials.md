@@ -15,18 +15,19 @@ token of its own, such as Jira, which is
 Your sessions use two logins you already have: the GitHub CLI's, from
 `gh auth login`, and Claude Code's. The workflows, which run in GitHub
 Actions, read tokens, and which ones depends on who owns the repository.
+A [session in the cloud](builds.md#what-a-cloud-run-is) is given none of
+the GitHub ones.
 
-- **In an organization, nobody on the team handles a token.** A
-  teammate joining a repository needs the two logins, and the `factory`
-  command [installed](quick-start.md#1-install) once on their machine.
-  The workflows make a token for each run from the organization's GitHub
-  App. An owner stored four things for the organization once, when they
-  [set it up](github/setup.md#set-an-organization-up-once):
+- **In an organization, nobody on the team handles a token.** A teammate
+  joining a repository needs the two logins, and the `factory` command
+  [installed](quick-start.md#1-install) once on their machine. The workflows
+  make a token for each job that needs one from the organization's GitHub
+  App. An owner stored four things for the organization once, when they [set
+  it up](github/setup.md#set-an-organization-up-once):
   - the App's key, as the secret `FACTORY_APP_PRIVATE_KEY`;
   - its client ID, as the variable `FACTORY_APP_CLIENT_ID`;
   - its name as GitHub writes it in an address, as the variable
-    `FACTORY_APP_SLUG`, which lets the automated review read a pull
-    request the App opened;
+    `FACTORY_APP_SLUG`;
   - what pays for sessions, as the secret `CLAUDE_CODE_OAUTH_TOKEN`, or
     `ANTHROPIC_API_KEY` for an API key.
 
@@ -48,10 +49,75 @@ pull request and comments are from "Software Factory for acme", and its
 commits name Claude as their author and the App's bot,
 `software-factory-for-acme[bot]`, as their committer. They are not
 signed, so GitHub shows no "Verified" on them. The automated review
-posts as `github-actions`, a different account, so a build cannot pass
-its own review.
+posts as `github-actions`, a different account, and its verdict comes
+from the review's own run, so a build cannot pass its own review.
 
-**Who can use the App's key.** Two reaches decide it:
+### What each job holds
+
+Each run that uses your coding agent is
+[three jobs](builds.md#what-a-cloud-run-is), each on a machine of its own,
+in an organization and on your own account alike:
+
+| Job     | Is there AI in it?                   | What it holds                                                                                                                                                           |
+| ------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Prepare | No                                   | The App's key, or your build token                                                                                                                                      |
+| Session | Yes, confined to the agent's sandbox | What pays for the session, which is kept from every command it runs, and the repository's own secrets, such as the one your `.npmrc` reads, which its commands can read |
+| Publish | No                                   | The App's key, or your build token. The review's also has the workflow's own token, which posts the threads and the verdict                                             |
+
+The session's job has no permission on GitHub at all: its workflow token
+can do nothing, and no key or token of yours reaches the job. Prepare and
+Publish run nothing from the branch the session works on.
+
+The App's key also reaches the jobs that run no session: who merges, the
+board sync, the poller, requiring the verdict, finding the conflicts and
+Dependabot's pull requests, Dependabot's auto-merge, and the updates. Each
+makes a token that lasts an hour, for the run's repository and the
+organization's [preset](presets.md) repositories it follows. The one
+exception is the organization's poller, whose token reaches every
+repository the App is installed on, since it starts builds in each.
+`factory-review.yml`, the one workflow file that GitHub runs from a pull
+request's own copy on every push, is given no secret.
+
+Publish holds the key for as long as it runs, because waiting for CI can
+outlast a token, and it then signs in again.
+
+### What a hijacked session could still do
+
+A session reads tickets, review comments, changelogs, and code, and any of
+them could hold text meant to take it over. It has no sign-in to give
+away, and it can't push, merge, approve, label, or start anything. A
+hijacked session could still:
+
+- **Write bad code,** on its own branch, in a draft pull request that
+  closes its own ticket. Your CI then runs that code, with whatever
+  secrets your own CI gives a branch, so give CI no secret you would not
+  give a session.
+- **Write text** as the account the run acts as: in the ticket's body, in
+  comments on the ticket and the pull request, in replies, in a follow-up
+  line, and, from a Conflict or a Dependency run, in a new ticket. It
+  could resolve its own pull request's threads.
+- **Pass a review it should not,** when the session is the review's. The
+  text it reads is the pull request's, so a clever one could talk it into
+  "ready". The verdict is then wrong, and a pull request that touches only
+  files you allow to merge themselves would merge.
+- **Give away what it was handed:** the code, the ticket, the
+  [presets](presets.md), and the repository's own secrets, such as your
+  registry's read-only token. It could send them to the npm registry, to
+  a host under [`builds.hosts`](configuration.md#builds), or put them in
+  its commits and comments.
+- **Use up what pays for sessions,** for as long as
+  [`session-minutes`](configuration.md#session-minutes) allows.
+
+It could not, short of getting out of the agent's sandbox, read the
+credential that pays for it. The sandbox is "not a complete isolation
+boundary", in
+[its vendor's own words](https://code.claude.com/docs/en/sandboxing)
+([What nobody has tested](limitations.md#what-nobody-has-tested)). A
+session that got out of it would still find no GitHub key on its machine.
+
+### Who can use the App's key
+
+Two reaches decide it:
 
 - **The secrets reach every repository of the organization,** or only
   its public ones on GitHub's Free plan. A workflow on a branch in any
@@ -71,16 +137,13 @@ three ways to limit that, each by hand:
 - **Replace the key,** as [Replacing the App's key](#replacing-the-apps-key)
   shows. A key does not expire by itself.
 
-A run itself holds less than the key. Its token lasts an hour, and
-reaches only the run's repository and the organization's
-[preset](presets.md) repositories it follows. The one exception is the
-organization's poller, whose token reaches every repository the App is
-installed on, since it starts builds in each. A build can run for
-longer than an hour, so its job makes a new token every 45 minutes, and
-one process of that job holds the App's key for as long as the job
-runs.
+On your own account there is no App. Anyone who can push a branch to the
+repository can read its secrets the same way, the access token among
+them.
 
-To check any of this, run `factory doctor`. **It worked when** it shows
+### Checking the setup
+
+Run `factory doctor`. **It worked when** it shows
 ✓ on every line, or - for a part you left off. It checks that you are
 signed in, and that each secret your parts read is set. It does not
 check the GitHub access token and the Claude token that `factory init`
@@ -111,8 +174,8 @@ GitHub CLI needs the `admin:org` permission for step 2, which
 3. Delete the old key on the App's page, then delete the file.
 
 **It worked when** a build you start with `factory build N`, for a
-ticket that is ready, gets past its step "Sign in as the app". A wrong
-key fails the run at that step.
+ticket that is ready, gets past the step "Sign in" of its Prepare job. A
+wrong key fails the run at that step.
 
 ## The file on your machine
 

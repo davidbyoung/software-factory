@@ -64,7 +64,7 @@ decides. Each is optional. With none, you refine and build tickets in a
 | Builds in the cloud                             | A ticket builds in GitHub Actions, with no session open on your machine                                                                                                                                                                                                                                                                     |
 | Builds that start when you move a card to Ready | Moving a ticket to Ready on the board builds it                                                                                                                                                                                                                                                                                             |
 | Pull requests that merge themselves             | A pull request that touches only files you listed merges once its checks pass                                                                                                                                                                                                                                                               |
-| Signed commits from cloud builds                | A build's commits show as "Verified". Not offered in an organization's repository, where a build acts as the organization's App ([Where your tokens are kept](../credentials.md#on-github))                                                                                                                                                 |
+| Signed commits on the factory's updates         | The pull requests that update the factory show as "Verified". A session's own commits in the cloud are never signed. Not offered in an organization's repository, where an update acts as the organization's App ([Where your tokens are kept](../credentials.md#on-github))                                                                |
 
 On a first run, the first three start checked, where they are offered.
 
@@ -257,8 +257,8 @@ browser. What it does not say:
   Copy that page's address from the browser into the terminal.
 - **Which repositories you choose in step 2 decides where a build can
   act as the App.**
-  [Who can use the App's key](../credentials.md#on-github) says what
-  follows from it.
+  [Who can use the App's key](../credentials.md#who-can-use-the-apps-key)
+  says what follows from it.
 - **Under WSL,** the command opens each page in your Windows browser
   when `wslview` or `explorer.exe` is there. It prints the address
   either way.
@@ -341,7 +341,7 @@ request's line. Otherwise it says what is left:
 | You left the gate question empty                                                   | Add the commands that check a change, such as your tests and linter, under `commands.gate`. A build cannot finish without them                                                                                                                                                                                                                           |
 | "Left to do" says an admin runs `factory init` once the pull request merges        | Merge it, then run `factory init` again, as an admin of the repository, to require "Review verdict". No workflow run could: the organization has no organization-wide rule ([On GitHub's Free plan](#on-githubs-free-plan)), or your own repository has no GitHub token stored, or one that belongs to another account than the one you are signed in as |
 | You chose "Builds that start when you move a card to Ready", on a server you host  | Run the poller's image with the values `init` prints. [Hosting the poller](../builds.md#hosting-the-poller-own-server) has the steps                                                                                                                                                                                                                     |
-| You chose "Signed commits from cloud builds", and it could not add the key         | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"                                                                                                                                                                                            |
+| You chose "Signed commits on the factory's updates", and it could not add the key  | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"                                                                                                                                                                                            |
 | You chose "Pull requests that merge themselves", and it could not allow auto-merge | An admin of the repository allows it: Settings, General, "Allow auto-merge"                                                                                                                                                                                                                                                                              |
 | The repository is public, and it could not add the policy                          | Let `.github/workflows/factory.yml` run on `pull_request_target`, in your repository's Settings, Actions, Policies. [By hand](by-hand.md#a-public-repository) has each field                                                                                                                                                                             |
 | GitHub refused the push or the pull request                                        | Push the branch `set-up-factory`, where init left its commit, if it is not pushed, and open the pull request yourself                                                                                                                                                                                                                                    |
@@ -350,20 +350,21 @@ request's line. Otherwise it says what is left:
 
 Each is a few lines in `.claude/factory.yaml`, merged like any change.
 
-- **Let the review run your tests.** `init` writes
-  [`pr-review`](../configuration.md#pr-review) with no commands, so the
-  reviewer reads the pull request and runs nothing of yours. To let it
-  confirm a finding by running something, list each command:
+- **Let a session in the cloud reach your registry.** Its commands reach
+  the npm registry and no other host. List any other that your tests or
+  your gate download from under
+  [`builds.hosts`](../configuration.md#builds)
+  ([What a session can use](../builds.md#what-a-session-can-use)):
 
   ```yaml
-  pr-review:
-    commands:
-      - npm test
-      - npx tsc --noEmit
+  builds:
+    hosts:
+      - pypi.org
+      - files.pythonhosted.org
   ```
 
-- **Run a command before every commit a session makes,** such as your
-  linter, under
+- **Run a command before every commit a session on your machine makes,**
+  such as your linter, under
   [`commands.before-commit`](../configuration.md#commandsbefore-commit):
 
   ```yaml
@@ -495,30 +496,27 @@ set.
 
 #### GitHub Packages
 
-Read `${GITHUB_TOKEN}` in the token line. In the workflows it is their own
-token, which can read the packages that give this repository access, so
-there is no registry token to make or to store for Actions: skip steps 2
-and 3. On your machine, set `GITHUB_TOKEN` to a personal access token
-with the `read:packages` scope. Dependabot has no token of its own for
+Read `${GITHUB_TOKEN}` in the token line. In the workflows' own steps it is
+their own token, which can read the packages that give this repository
+access, so there is no registry token to make or to store for Actions: skip
+steps 2 and 3. On your machine, set `GITHUB_TOKEN` to a personal access
+token with the `read:packages` scope. Dependabot has no token of its own for
 it: where step 3 would have `init` store one, store that personal access
-token yourself, with `gh secret set PACKAGES_TOKEN --app dependabot`,
-and in step 4 name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
+token yourself, with `gh secret set PACKAGES_TOKEN --app dependabot`, and in
+step 4 name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
 
-This does not work in a repository whose builds act as an
-[organization's App](reference.md#who-a-cloud-session-acts-as): a build
-there would act with
-the workflow's own token, not the App's
-([Limitations](../limitations.md#what-it-does-not-do)). Read a variable
-of another name there, such as `PACKAGES_TOKEN`, and follow steps 2 and
-3 with a personal access token that has the `read:packages` scope.
+A session in the cloud can't install from GitHub Packages, whatever the
+variable is called: it has no GitHub token, and its commands can't reach
+GitHub. Build that repository's tickets on your machine
+([Limitations](../limitations.md#what-it-does-not-do)).
 
 ### 2. Make a read-only token
 
 On your registry, make a token that can only read, and only the packages
-this repository installs. Builds and reviews in the cloud hold it while
-they work, and they read tickets and pull requests that anyone with access
-to the repository can write, so a read-only token is all that text could
-ever lead one to give away.
+this repository installs. Every session in the cloud can read it while it
+works, and it reads tickets and pull requests that anyone with access to the
+repository can write, so a read-only token is all that text could ever lead
+one to give away.
 
 ### 3. Store it with `factory init`
 
@@ -583,15 +581,23 @@ a secret or a registry your organization may set, which only an
 organization admin can see. It fails nothing.
 
 `init` committed only the files it wrote, and left your checkout on the
-branch of the pull request it opened. Commit `.npmrc` on that branch,
-push it, and merge the pull request as any other change. If `init`
+branch of the pull request it opened. Commit `.npmrc` on that branch. A
+session in the cloud installs the packages itself, so also list your
+registry's host there, under [`builds.hosts`](../configuration.md#builds)
+in `.claude/factory.yaml`, and run `factory sync`:
+
+```yaml
+builds:
+  hosts:
+    - acme.jfrog.io
+```
+
+Push the branch, and merge the pull request as any other change. If `init`
 printed `Nothing to commit: the files already match.`, it opened none:
-commit `.npmrc` on a branch and open the pull request yourself. The
-first job that installs
-your dependencies is the last check. With the automated review on, that
-is the review of this pull request: its "Install the repository's
-dependencies" step passes once the jobs can sign in. Without it, it is
-your next build in the cloud.
+commit these on a branch and open the pull request yourself. The last
+check is the first session in the cloud after the merge, such as the
+review of your next pull request or your next build: its "Install the
+repository's dependencies" step passes once the job can sign in.
 
 ### Replacing the token
 

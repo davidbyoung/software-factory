@@ -16,15 +16,15 @@ else is optional, and each part stands alone. You need the tools under
 [installed on your machine](../quick-start.md#1-install). Nothing is
 installed in the repository.
 
-| Part                                                                        | What it takes                                                      |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [The basics](#the-basics)                                                   | A settings file and one command                                    |
-| [A public repository](#a-public-repository)                                 | One Actions policy, which a private repository does not need       |
-| [The automated review](#the-automated-review)                               | A workflow file and your Claude token                              |
-| [A board](#a-board)                                                         | A Project, one setting, and a GitHub token                         |
-| [Builds in the cloud](#builds-in-the-cloud)                                 | Your Claude token and a GitHub token                               |
-| [Pull requests that merge themselves](#pull-requests-that-merge-themselves) | A list of files, one repository setting, and a second GitHub token |
-| [Signed commits from cloud builds](#signed-commits-from-cloud-builds)       | A signing key                                                      |
+| Part                                                                               | What it takes                                                      |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [The basics](#the-basics)                                                          | A settings file and one command                                    |
+| [A public repository](#a-public-repository)                                        | One Actions policy, which a private repository does not need       |
+| [The automated review](#the-automated-review)                                      | A workflow file and your Claude token                              |
+| [A board](#a-board)                                                                | A Project, one setting, and a GitHub token                         |
+| [Builds in the cloud](#builds-in-the-cloud)                                        | Your Claude token and a GitHub token                               |
+| [Pull requests that merge themselves](#pull-requests-that-merge-themselves)        | A list of files, one repository setting, and a second GitHub token |
+| [Signed commits on the factory's updates](#signed-commits-on-the-factorys-updates) | A signing key                                                      |
 
 [Run `factory init`](setup.md#run-factory-init) says what each part gives
 you. Every part's secrets are gathered in [Secrets](#secrets), so you can
@@ -66,8 +66,8 @@ If you followed the quick start, this is done.
        - npm run lint
    ```
 
-4. Optionally, list commands to run before every commit a session makes,
-   under
+4. Optionally, list commands to run before every commit a session on your
+   machine makes, under
    [`commands.before-commit`](../configuration.md#commandsbefore-commit),
    in the same block:
 
@@ -116,30 +116,29 @@ policy in your repository's Settings, under Actions, Policies:
 2. **Target one workflow file,** by its path:
    `.github/workflows/factory.yml`. A policy with no path covers every
    workflow in the repository, and would stop your own.
-3. **Add a rule that restricts events,** and list all six the file
-   starts on: `pull_request_target`, `pull_request_review`,
-   `workflow_run`, `push`, `schedule`, and `workflow_dispatch`. The rule
-   lets through only the events it lists, so listing
-   `pull_request_target` alone would stop the file's other jobs.
+3. **Add a rule that restricts events,** and list all five the file
+   starts on: `pull_request_target`, `pull_request_review`, `push`,
+   `schedule`, and `workflow_dispatch`. The rule lets through only the
+   events it lists, so listing `pull_request_target` alone would stop the
+   file's other jobs.
 
 **It worked when** `factory doctor` shows
 `✓ pull_request_target is allowed for .github/workflows/factory.yml`.
 
 ## The automated review
 
-Claude reads every pull request once it is marked ready, comments on what
-it finds, and posts a verdict. The session that built the pull request
-answers each comment, fixing it or rejecting it with evidence.
+Claude reads every pull request once it is marked ready, and gives its
+findings and a verdict, which a job with no AI posts. A session answers
+each comment, fixing it or rejecting it with evidence.
 
 It is on while `.claude/factory.yaml` has
-[`pr-review`](../configuration.md#pr-review). Three files have a part in
-it, two of them with similar names, and `sync` writes all three:
+[`pr-review`](../configuration.md#pr-review). Two files have a part in it,
+and `sync` writes both:
 
-| File                                   | What it is                                                                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `.github/workflows/factory-review.yml` | The workflow file whose review job runs the review                                             |
-| `.github/factory-review.md`            | The review's instructions                                                                      |
-| `.github/workflows/factory.yml`        | The workflow file whose verdict job turns each review's summary into a "Review verdict" status |
+| File                            | What it is                                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `.github/workflows/factory.yml` | The workflow file whose review run reads each pull request and records the verdict, as the "Review verdict" status |
+| `.github/factory-review.md`     | The review's instructions                                                                                          |
 
 The review posts its comments as `github-actions`, with the workflow's
 own token.
@@ -147,25 +146,16 @@ own token.
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`
    ([Secrets](#secrets)).
 2. **Write `pr-review` in `.claude/factory.yaml`,** and run
-   `factory sync`, which turns the review's job on:
-
-   ```yaml
-   pr-review:
-     commands:
-       - npm test
-       - npx tsc --noEmit
-   ```
-
-   Each command under it is one the reviewer may run to confirm a finding,
-   such as your tests. To let it run nothing of yours, write the key
-   alone, and it reads the pull request and comments:
+   `factory sync`, which turns the review's run on:
 
    ```yaml
    pr-review:
    ```
 
-   The review's job installs your project with `npm ci` when your
-   repository's root has a `package-lock.json`, and chooses the model
+   The reviewer may run the pull request's own code to confirm a finding,
+   confined to [the session's sandbox](../builds.md#what-a-cloud-run-is).
+   The review's job installs your default branch's dependencies with
+   `npm ci` when its root has a `package-lock.json`, and chooses the model
    from `FACTORY_BUILD_MODEL` ([Variables](reference.md#who-a-cloud-session-acts-as)) when
    it is set.
 
@@ -226,16 +216,18 @@ what each column means.
 `factory build 12` builds ticket 12 in GitHub Actions and
 prints the run's link, with no session open on your machine.
 
-`sync` already wrote `factory.yml`, whose jobs these are. Each does
+`sync` already wrote `factory.yml`, whose runs these are. Each does
 nothing until it has work and its secrets
-([With a part off](reference.md#with-a-part-off)):
+([With a part off](reference.md#with-a-part-off)). Each is
+[three jobs](../builds.md#what-a-cloud-run-is), and the one that runs
+Claude Code is given no GitHub token:
 
-| Job                        | What its Claude Code session does                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------- |
-| A build                    | Builds a ticket                                                                       |
-| Answering your review      | Answers a review you submit on a pull request                                         |
-| The conflict sweep         | Resolves a conflict between a pull request and your default branch                    |
-| Dependabot's pull requests | Moves Dependabot's pull requests along. It is on once `.github/dependabot.yml` exists |
+| Run        | What its Claude Code session does                                                            |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| Build      | Builds a ticket                                                                              |
+| Answer     | Answers a pull request's failed CI, its automated review, or a review you submit             |
+| Conflict   | Resolves a conflict between a pull request and your default branch                           |
+| Dependency | Moves one of Dependabot's pull requests along. It is on once `.github/dependabot.yml` exists |
 
 One more job needs the same GitHub token and runs no session: the update
 job, which opens a pull request for each new release of the factory
@@ -294,22 +286,22 @@ list, such as documentation.
 **It worked when** a pull request that touches only files you listed gets
 the `merge-automatic` label.
 
-## Signed commits from cloud builds
+## Signed commits on the factory's updates
 
-Without a key, a build's commits are unsigned. In a repository whose
-builds act as an organization's App
+Without a key, the commits of the pull requests that update the factory
+are unsigned. A session's own commits in the cloud are unsigned whatever
+key you store. In a repository whose updates act as an organization's App
 ([Who a cloud session acts as](reference.md#who-a-cloud-session-acts-as)),
-they are unsigned whatever `FACTORY_SIGNING_KEY` holds, so skip this
-part there.
+so are the updates', so skip this part there.
 
 1. Make a key for this and nothing else, with no passphrase:
 
    ```bash
-   ssh-keygen -t ed25519 -N "" -C "factory builds" -f factory-signing-key
+   ssh-keygen -t ed25519 -N "" -C "factory updates" -f factory-signing-key
    ```
 
 2. Add `factory-signing-key.pub` to the GitHub account whose token the
-   builds use: Settings, "SSH and GPG keys", "New SSH key", key type
+   updates use: Settings, "SSH and GPG keys", "New SSH key", key type
    "Signing Key".
 3. Store the private half, then delete both files:
 
@@ -318,11 +310,11 @@ part there.
    rm factory-signing-key factory-signing-key.pub
    ```
 
-Anything that can run a workflow in the repository can read the key, as
-it can the build token. Removing the public key from the account ends its
-use.
+Only the updates' job reads the key. Anything that can run a workflow in
+the repository can read it too, as it can the build token. Removing the
+public key from the account ends its use.
 
-**It worked when** the commits of the next build's pull request show as
+**It worked when** the commits of the next update's pull request show as
 "Verified".
 
 ## Secrets
@@ -337,12 +329,12 @@ reach: the workflows read a token stored here when no App's key reaches
 the run. In an organization that is set up, nobody stores any of them.
 `factory init --org` stored these for every repository, once:
 
-| What the organization holds         | What it is for                                                                                                                                                       |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FACTORY_APP_PRIVATE_KEY`, a secret | The key of the organization's GitHub App, from which each run makes its own token. [Replacing the App's key](../credentials.md#replacing-the-apps-key) has the steps |
-| `FACTORY_APP_CLIENT_ID`, a variable | Which App the key belongs to                                                                                                                                         |
-| `FACTORY_APP_SLUG`, a variable      | The App's name as GitHub writes it in an address, which lets the automated review read a pull request the App opened                                                 |
-| `CLAUDE_CODE_OAUTH_TOKEN`, a secret | What pays for sessions, or `ANTHROPIC_API_KEY` for an API key                                                                                                        |
+| What the organization holds         | What it is for                                                                                                                                                                                                                                             |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FACTORY_APP_PRIVATE_KEY`, a secret | The key of the organization's GitHub App, from which each job that needs a token makes one. [What each job holds](../credentials.md#what-each-job-holds) lists them, and [Replacing the App's key](../credentials.md#replacing-the-apps-key) has the steps |
+| `FACTORY_APP_CLIENT_ID`, a variable | Which App the key belongs to                                                                                                                                                                                                                               |
+| `FACTORY_APP_SLUG`, a variable      | The App's name as GitHub writes it in an address                                                                                                                                                                                                           |
+| `CLAUDE_CODE_OAUTH_TOKEN`, a secret | What pays for sessions, or `ANTHROPIC_API_KEY` for an API key                                                                                                                                                                                              |
 
 What you store on a repository:
 
@@ -352,7 +344,7 @@ What you store on a repository:
 | `FACTORY_BOARD_TOKEN`     | A board. Also builds in the cloud, when `FACTORY_BUILD_TOKEN` is not set               | [A classic token](https://github.com/settings/tokens/new?scopes=repo,project,workflow&description=factory%20board) with `repo`, `project`, and `workflow` |
 | `FACTORY_BUILD_TOKEN`     | Builds in the cloud. Optional with a board token; used instead of it when both are set | [A classic token](https://github.com/settings/tokens/new?scopes=repo,workflow&description=factory%20builds) with `repo` and `workflow`                    |
 | `FACTORY_AUTOMERGE_TOKEN` | Pull requests that merge themselves                                                    | [A classic token](https://github.com/settings/tokens/new?scopes=repo&description=factory%20auto-merge) with `repo`                                        |
-| `FACTORY_SIGNING_KEY`     | Signed commits from cloud builds                                                       | [The steps above](#signed-commits-from-cloud-builds)                                                                                                      |
+| `FACTORY_SIGNING_KEY`     | Signed commits on the factory's updates. Read by the updates' job alone                | [The steps above](#signed-commits-on-the-factorys-updates)                                                                                                |
 
 Each token link opens GitHub's page with the scopes checked; choose an
 expiry date and generate it. The account that makes a token is the one
@@ -397,8 +389,13 @@ Two optional settings:
   This is a variable, not a secret.
 
 Everything the factory owns starts with `FACTORY_`. The other two keep the
-names Claude's GitHub Action gives them, since your other workflows may
-use them too.
+names Claude Code gives them, since your other workflows may use them too.
+
+**Which secrets reach which job.** The job of each run that runs Claude
+Code gets `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, and your own
+secrets, such as the one your `.npmrc` reads. It gets none of the GitHub
+tokens ([What each job holds](../credentials.md#what-each-job-holds)).
+`factory-review.yml` gets no secret at all.
 
 ## Checking it
 

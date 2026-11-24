@@ -5,6 +5,9 @@ can always build a ticket by running `/factory-build N` in a session on
 your machine. A build in
 the cloud does the same with nobody at the keyboard: it runs on your code
 host's cloud runner, and you read its log or its pull request afterward.
+This page is for someone deciding whether to build in the cloud, or who
+wants to know what happens when they do. At the end you know what each run
+does, what it costs, and which way of starting one fits you.
 
 On GitHub, the cloud runner is GitHub Actions.
 [Setting up on GitHub](github/setup.md) has the steps,
@@ -45,13 +48,13 @@ session says and each command it runs, as it happens, then the session's
 turns and cost. The board shows the ticket In progress, with where it runs
 and the run's link.
 
-It ends as any build does: a pull request marked ready, its review worked,
-and a report posted on the ticket. Nothing watches the pull request once
-the run ends.
+It ends with a pull request marked ready and a report on the ticket. What
+comes after, the review and the answers to it, are runs of their own
+([What a cloud run is](#what-a-cloud-run-is)).
 
 **How long it may run.** A build's session may run for 230 minutes, which
 [`session-minutes`](configuration.md#session-minutes) changes. A build that
-ends without opening a pull request releases its claim in its last step,
+ends without opening a pull request releases its claim in its last job,
 so a failed run does not hold its ticket.
 
 **What it needs.** Two credentials, stored as secrets on the code host:
@@ -59,10 +62,10 @@ the agent's token, which pays for the session, and an access token for the
 code host, which the build acts as. On your own account,
 [`factory init`](github/setup.md#run-factory-init) asks for each and
 stores it. In an organization, an owner stores the agent's token once,
-with the key of the organization's own app on the code host, and each
-run makes its access token from that key, so `factory init` asks a
-developer for no token
-([Where your tokens are kept](credentials.md#on-github)).
+with the key of the organization's own app on the code host, and the
+jobs that need an access token make one from that key, so `factory init`
+asks a developer for no token. The session itself is given no access
+token ([Where your tokens are kept](credentials.md#on-github)).
 
 **Who it acts as.** On your own account, the build acts as whoever owns
 that access token. Its commits name your coding agent as their author
@@ -76,40 +79,195 @@ takes a marked comment as an instruction. In an organization that is set
 up, the build acts as the organization's app: the pull request and
 comments are the app's, and the commits name it as their committer.
 
-**Signed commits.** With a signing key stored as a secret, the build signs
-each commit, and the code host shows it as verified when the key belongs to
-the account the build acts as. Without one, its commits are unsigned. A
-build that acts as an organization's app never signs its commits,
-whatever key is stored
+**Its commits are never signed,** on your own account or under an
+organization's app: no job that runs a session holds a signing key
 ([Limitations](limitations.md#what-it-does-not-do)).
-`factory pr ready` refuses to mark a pull request ready while one of its
-commits is not shown as verified, when your own git signs commits.
 
 **Before the session starts,** the commands under
 [`commands.build-setup`](configuration.md#commandsbuild-setup) in your
-settings run. Your npm dependencies are installed before them, with
-`npm ci`, when your repository's root has a `package-lock.json`.
+settings run, as your default branch has them. Your npm dependencies are
+installed before them, with `npm ci`, when your repository's root has a
+`package-lock.json`.
 
-## The other jobs that run in the cloud
+**When there is nothing to build to,** the build claims the ticket and then
+stops it with the reason, as any build that stops does. A ticket with no
+Spec and no Acceptance criteria gets:
 
-Three more jobs run a session on the cloud runner. Each checks first
-whether there is anything to do and starts a session only when there is,
-so a run with nothing to do costs about a minute of the runner and no use
-of the agent. A run that works costs about what a build does. With work
-to do and no token to do it with, a run that nobody asked for says so
-and passes ([With a part off](github/reference.md#with-a-part-off)).
+```text
+it has no Spec or Acceptance criteria section, so there is nothing to build yet: refine it first
+```
 
-| Job                      | Starts on                                          | What the session does                                                                                            |
-| ------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Answering your review    | A review you submit on a pull request              | Works your comments with `factory-address-review`                                                                |
-| The conflict sweep       | A push to your default branch, nightly, or by hand | Merges your default branch into each pull request that conflicts with it, with `factory-resolve-conflicts`       |
-| Dependency pull requests | Three times a day, or by hand                      | Moves each dependency update toward merged, with `factory-deps`, in a repository with a `.github/dependabot.yml` |
+## What a cloud run is
 
-Each acts as the same account a build does. The review job answers your
-reviews only: the factory's own replies start runs that find nothing of
-yours in them and stop.
+Five kinds of run use your coding agent. Each is three jobs, each on a
+machine of its own, so that the agent and a sign-in to your code host are
+never on the same one:
 
-A fourth job runs no session: three times a day, the update job opens a
+```mermaid
+flowchart TB
+    build["Build: you move a card to Ready, or run factory build N"]
+    review["Review: a pull request is ready, or gets a commit"]
+    answer["Answer: CI fails, the review asks for changes, or you review"]
+    conflict["Conflict: a pull request conflicts with your default branch"]
+    dependency["Dependency: Dependabot has a pull request open"]
+    subgraph run["Each run is three jobs"]
+        direction LR
+        prepare["Prepare: no AI, has the sign-in. Hands over files"]
+        session["Session: the AI in its sandbox, no sign-in. Leaves files"]
+        publish["Publish: no AI, has the sign-in. Checks the files, and does what they ask"]
+        prepare --> session --> publish
+    end
+    build --> prepare
+    review --> prepare
+    answer --> prepare
+    conflict --> prepare
+    dependency --> prepare
+    publish --> pull["The pull request"]
+    pull -->|"starts the next review or answer"| review
+    pull --> answer
+```
+
+| Job     | What it does                                                                                                                                        |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Prepare | Decides whether there is anything to do, claims the ticket of a build, and hands over the code, the ticket, and what the session may read, as files |
+| Session | Runs the skill on those files, in the coding agent's sandbox. Its commands reach the npm registry, the hosts you list, and nothing else             |
+| Publish | Checks the commits and the requests the session left, then pushes, opens the pull request, replies, and comments. It runs nothing the session wrote |
+
+[What each job holds](credentials.md#what-each-job-holds) says which secrets
+reach which job, and
+[what a hijacked session could still do](credentials.md#what-a-hijacked-session-could-still-do)
+says what is left.
+
+| Run        | What starts it                                                                                                                                            | What its session does                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Build      | The [poller](#the-poller), or `factory build N`                                                                                                           | Builds a ticket with `factory-build`                                                         |
+| Review     | A pull request marked ready, and each push to it after, with [`pr-review`](configuration.md#pr-review) set                                                | Reads the pull request, and answers with findings and a verdict. Publish posts them          |
+| Answer     | CI failing, or the review asking for changes, on a pull request a build in the cloud opened. A review you submit, on any pull request from the repository | Works what is open with `factory-address-review`                                             |
+| Conflict   | A push to your default branch, and nightly, once for each pull request that conflicts                                                                     | Merges your default branch into it, with `factory-resolve-conflicts`                         |
+| Dependency | Three times a day, once for each pull request Dependabot has open                                                                                         | Moves it toward merged, with `factory-deps`, in a repository with a `.github/dependabot.yml` |
+
+Every run but a review acts as the account a build does. A review posts
+as `github-actions`.
+
+**A run remembers nothing.** The ticket, the pull request, and its threads
+are its memory. A session that has something to wait for on your machine
+ends there instead:
+
+```text
+This run ends here. The next one starts when CI and the review have finished.
+```
+
+**What a session asks for is done after it ends.** In the cloud, a `factory`
+command that would write prints `Asked:` and is kept. Publish runs only a
+short list of them, and only on the run's own ticket and pull request:
+
+- Comment on the ticket or the pull request, edit the ticket, and stop or
+  end the work on it.
+- Open one draft pull request, from a build.
+- Reply to and resolve the pull request's review threads, and ask for its
+  review again.
+- Add a line to the [follow-ups ticket](workflow.md#follow-ups), and, from
+  a Conflict or a Dependency run, open a ticket.
+
+Anything else is refused, and the run's log names it: labels, a merge, and
+the note of what the session cost are among them. A `factory` command that
+reads something Prepare did not hand over says so:
+
+```text
+✗ Ticket 40 was not handed to this run. Go on without it, or stop with: factory ticket stop 12 "needs ticket 40"
+```
+
+**After it pushes, Publish waits for CI,** for up to an hour, and says on
+the pull request when CI has not finished by then. When CI passes, it marks
+a draft ready, which starts the review. When CI fails, or the review asks
+for changes, the next answer starts by itself, if a build in the cloud
+opened the pull request. Two reviews that asked for changes are answered,
+and a pull request gets at most four answers started this way. Then Publish
+says so on it:
+
+```text
+This waits for a person: it has had 4 answers. What is still open is in its checks and threads.
+```
+
+An answer to a review you submit counts toward neither limit. On a pull
+request that no build in the cloud opened, the session that opened it
+answers the automated review, or you
+[start an answer by hand](github/reference.md#the-jobs).
+
+### A change to a workflow file
+
+A session can't change a file under `.github/workflows/`: what is in one
+runs with your repository's secrets. Publish pushes nothing then, whatever
+else the session did, and comments on the ticket, or on the pull request
+for any run but a build:
+
+```text
+Not pushed: commit 3c9f730 changes .github/workflows/ci.yml, which a build in the cloud can't push.
+Build this ticket on your computer: tell a session to work it. The commits are in the run: https://your-code-host/your-name/your-repo/runs/123456789
+```
+
+The run's page keeps the commits for seven days, as the artifact whose
+name starts with `out-`. For the same reason Publish refuses commits that
+add a symbolic link or a submodule, merge anything but your default branch,
+or close another ticket in their message.
+
+### What a session can use
+
+- **Hosts.** Its commands reach the npm registry and the hosts you list
+  under [`builds.hosts`](configuration.md#builds). Your code host is never
+  one, so a package it serves can't be installed by a session
+  ([`commands.build-setup`](configuration.md#commandsbuild-setup) says what
+  to do instead). A package manager other than npm needs its registry
+  there:
+
+  ```yaml
+  builds:
+    hosts:
+      - pypi.org # pip's registry, and where its files are
+      - files.pythonhosted.org
+  ```
+
+  It worked when your gate passes in a build.
+
+- **Docker does not run there.** A gate or a test that starts a container
+  fails, so that ticket is built on your machine.
+- **A browser needs a flag.** Chromium can't start its own sandbox inside
+  the agent's. A test that drives it has to start it with `--no-sandbox`:
+
+  ```ts
+  // playwright.config.ts
+  export default defineConfig({
+    use: { launchOptions: { args: ["--no-sandbox"] } },
+  });
+  ```
+
+- **No hook runs,** so [`commands.before-commit`](configuration.md#commandsbefore-commit)
+  does not either. Your gate, your CI, and Publish's checks take their
+  place.
+- **Its dependencies.** What was installed before it started is your
+  default branch's. The session installs the dependencies of the branch it
+  works on itself, when a command needs them, so your registry has to be
+  reachable from the sandbox.
+
+### What a run costs
+
+- **Your coding agent's use,** which the run's log ends with: its turns,
+  its minutes, and its price at list prices. A cloud run's use is not added
+  to the ticket's Cost.
+- **The cloud runner's minutes,** on a plan that bills them. GitHub rounds
+  each job up to a whole minute, so a run is at least three. Publish's
+  minutes include its wait for CI, so a run whose CI takes 20 minutes pays
+  for those 20 twice: once in CI's own jobs, and once in Publish.
+- **More than one run for a ticket.** A pull request that uses both rounds
+  of review is one build, three reviews, and two answers, each of three
+  jobs.
+- **A run with nothing to do** is Prepare alone, about a minute, and no use
+  of the agent. Looking for conflicts is one job on each push to your
+  default branch. With work to do and no token to do it with, a run that
+  nobody asked for says so and passes
+  ([With a part off](github/reference.md#with-a-part-off)).
+
+One more job runs no session: three times a day, the update job opens a
 pull request for a newer release of the factory, and for a
 [preset](presets.md) that changed. [Updating](updating.md#what-happens)
 describes it.

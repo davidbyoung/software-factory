@@ -7,9 +7,8 @@ whether it is deliberate.
 ## Your agent writes the code; a person approves it
 
 A cloud build's commits name your coding agent as their author, and as
-their committer the account whose token the build is given, which is the
-account that signs them. The build pushes and opens its pull request as
-that account too. Working alone, that is usually your own account. A team
+their committer the account whose token pushes them. That account opens the
+pull request too. Working alone, that is usually your own account. A team
 can give it an agent account instead, one account on the code host that
 every cloud build acts as, so the pull request's author is not one of the
 people who must approve it. Nothing else changes between the two.
@@ -17,10 +16,9 @@ people who must approve it. Nothing else changes between the two.
 An organization that an owner has set up has that agent account without
 making one: its builds act as the organization's own app on the code
 host. The pull request is the app's, and the commits name the app as
-their committer. They are not signed, since an app can hold no signing
-key ([Limitations](limitations.md#what-it-does-not-do)). The automated
-review posts as a different account, so a build cannot pass its own
-review.
+their committer. The automated review posts as a different account, so a
+build cannot pass its own review. A cloud build's commits are not signed
+either way ([Limitations](limitations.md#what-it-does-not-do)).
 
 A session on your machine commits as you, since you are the one steering
 it. `factory sync` turns the coding agent's attribution
@@ -34,6 +32,25 @@ own account, the guard against a session approving its own work is a
 tripwire that catches accidents, not a wall against the account's owner.
 Your read is the control.
 
+## The agent and a sign-in are never on the same machine
+
+A session in the cloud reads text that others wrote, such as tickets and
+review comments, with nobody watching. Anything on its machine that it can
+read, that text could talk it into giving away. So a cloud run is three
+jobs, and the one with the agent has no sign-in to the code host: one job
+hands it files, and another, with no AI, checks what it left and does it
+([What a cloud run is](builds.md#what-a-cloud-run-is)).
+
+It costs something. A session can't push as it goes or wait for CI, so each
+round of a review is a run of its own, which remembers nothing. It can't
+change a workflow file, use Docker, or reach a host you did not list. In
+return, the key of an organization's app, which acts on every repository
+the app is installed on, is never where text could reach it.
+
+The skills are the same in the cloud as on your machine. Their `factory`
+commands read from what was handed over there, and keep what they would
+write.
+
 ## Everything waits for you by default
 
 No pull request merges itself until you list the files that may. A tool
@@ -43,9 +60,10 @@ that merges on its own has to earn that one file pattern at a time.
 
 The skills, agents, and rules are written into your repository and
 checked for drift, which is more machinery than loading them from the
-package. A cloud build starts from a fresh checkout, and what is
-committed to the repository is what it reads, so the instructions a
-build follows are the ones the pull request shows. The choice is not
+package. A cloud build starts in a fresh copy of your default branch, and
+what is committed there is what it reads, so the instructions a build
+follows are ones a person merged, and a pull request that changes them
+shows how. The choice is not
 forced: loading them from the package would also work.
 
 It has one real benefit. Every version of the instructions your sessions
@@ -72,7 +90,8 @@ poller's schedule, and the names of its secrets.
 There are two files and not one because GitHub runs a `pull_request`
 workflow from the pull request's copy, and what decides a merge must run
 from the default branch's copy, where a pull request cannot change how
-it is judged.
+it is judged. The one that runs from the pull request's copy is given no
+secret.
 
 The version in them is exact, never a moving one such as `v1`: the
 copied files and the jobs have to be the same version, so a release

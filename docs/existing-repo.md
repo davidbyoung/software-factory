@@ -31,11 +31,12 @@ Python, or Go repository that means:
 - **Your own CI does not change.** The factory's cloud jobs install Node
   and the factory for themselves. They run `npm ci` for your project only
   when its root has a `package-lock.json`, so in a repository without one
-  they install nothing of yours. What a cloud build needs beyond that,
-  such as `composer install`, goes under
-  [`commands.build-setup`](configuration.md#commandsbuild-setup). The
-  automated review installs nothing else, and runs only the commands
-  you list under [`pr-review.commands`](configuration.md#pr-review).
+  they install nothing of yours. What a session in the cloud needs on its
+  machine beyond that, such as a language, goes under
+  [`commands.build-setup`](configuration.md#commandsbuild-setup). It
+  installs your project's dependencies itself, from the registries you
+  list under [`builds.hosts`](configuration.md#builds)
+  ([What a session can use](builds.md#what-a-session-can-use)).
 - **Your commands stay yours.** The gate a build runs, and everything
   else under [`commands`](configuration.md#commands) in the settings, is
   whatever your project runs: `composer test`, `make check`,
@@ -409,7 +410,8 @@ and how to undo each. The short version:
 - Hooks that stop a session committing on your default branch or force
   pushing, and that run your
   [`commands.before-commit`](configuration.md#commandsbefore-commit)
-  commands. They apply to agent sessions, not to your own terminal.
+  commands. They apply to agent sessions on a machine, not to your own
+  terminal, and not in the cloud.
 - Two CI workflow files, `factory.yml` and `factory-review.yml`. Their
   jobs check that the factory's files are in step, run sessions in the
   cloud, open the factory's updates as pull requests, and run each

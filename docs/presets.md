@@ -135,7 +135,8 @@ each change by what happens to it:
   repository.
 - **Runs** is a command the preset would have the factory run here, and
   when: "in the review" is the automated review of each pull request,
-  whose commands are [`pr-review.commands`](configuration.md#pr-review).
+  whose commands are listed in
+  [`pr-review.commands`](configuration.md#pr-review).
   A command your own settings replace is not listed, since it never
   runs.
 
@@ -359,11 +360,11 @@ and the copies in your own repository. So a preset's repository that is
 deleted, renamed, or made private breaks nothing that is already set up.
 It stops only updates to that preset, and adding it elsewhere.
 
-| Who owns the preset's repository                                                | How your machine reads it                         | How a run in the cloud reads it                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The same person or organization as your repository, whether it is public or not | With your sign-in to the code host, as `git` does | With the [build token](credentials.md), which has to be able to read it. In an organization that is set up, with the token the run makes from the organization's App, which covers the preset's repository when the App is installed on it |
-| Someone else, and it is public                                                  | With no sign-in                                   | With no sign-in                                                                                                                                                                                                                            |
-| Someone else, and it is private                                                 | It is refused                                     | It is refused                                                                                                                                                                                                                              |
+| Who owns the preset's repository                                                | How your machine reads it                         | How a run in the cloud reads it                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The same person or organization as your repository, whether it is public or not | With your sign-in to the code host, as `git` does | Prepare reads it, with the [build token](credentials.md), which has to be able to. In an organization that is set up, Prepare reads it with the token it makes from the organization's App, which covers the preset's repository when the App is installed on it. The check of a pull request reads only a public one, and the automated review's run checks a private one whose pin moved |
+| Someone else, and it is public                                                  | With no sign-in                                   | With no sign-in                                                                                                                                                                                                                                                                                                                                                                            |
+| Someone else, and it is private                                                 | It is refused                                     | It is refused                                                                                                                                                                                                                                                                                                                                                                              |
 
 ### A preset from someone else
 
