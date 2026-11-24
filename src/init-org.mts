@@ -206,7 +206,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   if (!agent.agent.installed(d.hasCommand))
     return stop(
       `The factory runs in a coding agent, and ${agent.label} is not installed.`,
-      "Install it and run factory init again.",
+      `Install it and run ${command} again.`,
       NOTHING,
     );
 
@@ -399,8 +399,9 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     if (names.length && lacks) {
       const got = await suggestColumns(
         { ask: d.ask, out: d.out, agent: agent.agent, label: agent.label },
-        { board, columns: names, fromBoard: true },
+        { board, columns: names, fromBoard: true, byHand: true },
       );
+      // By hand, the step ends only with the columns chosen.
       if (got === 1) return 1;
       columnLines = got;
     } else if (names.length)
@@ -419,7 +420,12 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   // null to store none.
   let storeAs: string | null = null;
   if (credential && agentStored.length) {
-    if (await d.ask.confirm(`Replace ${agentStored[0]}?`, false))
+    if (
+      await d.ask.confirm(
+        `${agentStored[0]} is already stored for ${org}. Replace it? Only if it has expired or been revoked.`,
+        false,
+      )
+    )
       storeAs = agentStored[0]!;
   } else if (credential) {
     const getCommand =

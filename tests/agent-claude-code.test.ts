@@ -20,6 +20,8 @@ function fakeSpawn(script: Script) {
     command: string;
     args: string[];
     cwd: string;
+    /** What the child's three streams were started as. */
+    stdio: unknown;
     /** The folder's files while the command ran. */
     files: string[];
   }[] = [];
@@ -29,6 +31,7 @@ function fakeSpawn(script: Script) {
       command,
       args,
       cwd: options.cwd,
+      stdio: (options as { stdio?: unknown }).stdio,
       files: readdirSync(options.cwd),
     });
     const child = new EventEmitter() as EventEmitter & {
@@ -89,6 +92,12 @@ describe("Claude Code's answer", () => {
     expect(existsSync(call.cwd)).toBe(false);
   });
 
+  it("starts claude with standard input closed, so it waits for none and warns of none", async () => {
+    const f = fakeSpawn({ stdout: "{}" });
+    await claudeCodeAgent(f.spawn).answer(question);
+    expect(f.calls[0]!.stdio).toEqual(["ignore", "pipe", "pipe"]);
+  });
+
   it("returns structured_output on exit 0", async () => {
     const f = fakeSpawn({
       stdout: JSON.stringify({
@@ -121,6 +130,37 @@ describe("Claude Code's answer", () => {
     const f = fakeSpawn({
       code: 1,
       stderr: "\nInvalid API key · Please run /login\nmore\n",
+    });
+    expect(await claudeCodeAgent(f.spawn).answer(question)).toEqual({
+      failed: { code: 1, error: "Invalid API key · Please run /login" },
+    });
+  });
+
+  it("gives the JSON's result as the reason, not a warning on stderr beside it", async () => {
+    const f = fakeSpawn({
+      code: 1,
+      stderr:
+        "Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.\n",
+      stdout: JSON.stringify({
+        is_error: true,
+        result:
+          "Failed to authenticate: OAuth session expired and could not be refreshed\nmore",
+      }),
+    });
+    expect(await claudeCodeAgent(f.spawn).answer(question)).toEqual({
+      failed: {
+        code: 1,
+        error:
+          "Failed to authenticate: OAuth session expired and could not be refreshed",
+      },
+    });
+  });
+
+  it("gives stderr's first line when the JSON's result says nothing", async () => {
+    const f = fakeSpawn({
+      code: 1,
+      stderr: "Invalid API key · Please run /login\n",
+      stdout: JSON.stringify({ is_error: true, result: "" }),
     });
     expect(await claudeCodeAgent(f.spawn).answer(question)).toEqual({
       failed: { code: 1, error: "Invalid API key · Please run /login" },

@@ -669,10 +669,10 @@ describe("factory init --org, what it refuses before it asks", () => {
     ]);
   });
 
-  it("stops, as factory init does, when the coding agent is not installed", async () => {
+  it("stops when the coding agent is not installed, and names its own command to run again", async () => {
     expect(await refusal({ agentInstalled: false })).toEqual([
       "The factory runs in a coding agent, and Claude Code is not installed.",
-      "Install it and run factory init again.",
+      "Install it and run factory init --org https://github.com/acme again.",
       "Nothing changed.",
     ]);
   });
@@ -1123,19 +1123,97 @@ describe("factory init --org, with a board the organization already has", () => 
     expect(s.out).toContain("Added to board 7: Session, Runs in, Cost.");
   });
 
-  it("stops, as factory init does, when the coding agent's suggestion cannot be used, and changes nothing", async () => {
-    const s = existing({ columns: ["Todo", "Doing", "Done"] }, [
-      { failed: { code: 1, error: "Invalid API key · Please run /login" } },
+  it("asks for each state's column by hand when the coding agent's suggestion cannot be used, and carries on from the answers", async () => {
+    const s = existing(
+      { columns: ["Todo", "Doing", "Code review", "Done"] },
+      [
+        {
+          failed: {
+            code: 1,
+            error:
+              "Failed to authenticate: OAuth session expired and could not be refreshed",
+          },
+        },
+      ],
+      [
+        "column:Todo",
+        NONE,
+        ADD,
+        "column:Doing",
+        "column:Code review",
+        "column:Done",
+        "yes",
+      ],
+    );
+    expect(await s.run()).toBe(0);
+    const from = s.transcript.indexOf("? select: Which board?");
+    expect(
+      s.transcript.slice(
+        from,
+        s.transcript.indexOf("? select: What pays for sessions in the cloud?"),
+      ),
+    ).toEqual([
+      "? select: Which board?",
+      "",
+      "Board 7 has the columns Todo, Doing, Code review, and Done.",
+      "Asking Claude Code which of them shows each of the factory's six states...",
+      "Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth session expired and could not be refreshed.",
+      "Choose the column for each state yourself.",
+      "? select: Which column shows backlog?",
+      "? select: Which column shows refining?",
+      "? select: Which column shows ready?",
+      "? select: Which column shows building?",
+      "? select: Which column shows review?",
+      "? select: Which column shows done?",
+      "",
+      "  State      Column",
+      "  backlog    Todo",
+      "  refining   none, shows in Todo",
+      "  ready      Ready, which init adds",
+      "  building   Doing",
+      "  review     Code review",
+      "  done       Done",
+      "",
+      "? select: Use these columns?",
     ]);
-    expect(await s.run()).toBe(1);
-    expect(s.out.slice(-3)).toEqual([
-      "Claude Code's answer could not be used: it failed: Invalid API key · Please run /login.",
-      "Run factory init again, or write tickets.columns in .claude/factory.yaml yourself.",
-      "Nothing changed.",
+    expect(s.out).toContain(
+      "  board     Add Ready, Session, Runs in, and Cost to board 7",
+    );
+    expect(s.out).toContain("Added to board 7: Ready, Session, Runs in, Cost.");
+    expect(preset(s)).toContain(
+      [
+        "  columns:",
+        "    backlog: Todo",
+        "    refining: none",
+        "    ready: Ready",
+        "    building: Doing",
+        "    review: Code review",
+        "    done: Done",
+        "",
+      ].join("\n"),
+    );
+    expect(s.tickets.boards[0]!.columns).toEqual([
+      "Todo",
+      "Ready",
+      "Doing",
+      "Code review",
+      "Done",
     ]);
-    expect(s.changes()).toEqual([]);
-    expect(s.tickets.boards[0]!.columns).toEqual(["Todo", "Doing", "Done"]);
-    expect(s.confirms).toEqual([]);
+  });
+
+  it("names neither factory init nor a repository's settings file as what to do about a failed suggestion", async () => {
+    const s = existing(
+      { columns: ["Todo", "Doing", "Done"] },
+      [{ timedOut: true }],
+      ["column:Todo", NONE, ADD, "column:Doing", NONE, "column:Done", "yes"],
+    );
+    expect(await s.run()).toBe(0);
+    const until = s.out.indexOf("This is everything setup will do:");
+    const said = s.out.slice(0, until).join("\n");
+    expect(said).toContain(
+      "Claude Code's answer could not be used: it took longer than 60 seconds.",
+    );
+    expect(said).not.toMatch(/Run factory init|factory\.yaml|Nothing changed/);
   });
 
   it("stops before any other question when the board's columns cannot be read", async () => {
@@ -1665,13 +1743,31 @@ describe("factory init --org, run again", () => {
       "  Preset           acme/factory-config",
       '  Rule             "Review verdict" is required where software-factory is "on"',
       "",
-      "? confirm: Replace CLAUDE_CODE_OAUTH_TOKEN?",
+      "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.",
       "✓ acme is set up. Nothing to do.",
       "",
       ...ADDRESSES,
     ]);
     expect(s.confirms[0]!.fallback).toBe(false);
     expect(s.changes()).toEqual([]);
+  });
+
+  it("names the API key in the question when that is what is stored", async () => {
+    const s = setup({
+      org: {
+        ...DONE,
+        secrets: ["FACTORY_APP_PRIVATE_KEY", "ANTHROPIC_API_KEY"],
+      },
+      answers: { confirm: [false] },
+    });
+    expect(await s.run()).toBe(0);
+    expect(s.confirms).toEqual([
+      {
+        message:
+          "ANTHROPIC_API_KEY is already stored for acme. Replace it? Only if it has expired or been revoked.",
+        fallback: false,
+      },
+    ]);
   });
 
   it("says an install on some repositories is on the repositories she chose", async () => {
@@ -1692,7 +1788,7 @@ describe("factory init --org, run again", () => {
     });
     expect(await s.run()).toBe(0);
     const from = s.transcript.indexOf(
-      "? confirm: Replace CLAUDE_CODE_OAUTH_TOKEN?",
+      "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.",
     );
     expect(s.transcript.slice(from + 1)).toEqual([
       "",
@@ -1863,7 +1959,7 @@ describe("factory init --org, run again", () => {
       });
       expect(await s.run()).toBe(0);
       const from = s.transcript.indexOf(
-        "? confirm: Replace CLAUDE_CODE_OAUTH_TOKEN?",
+        "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.",
       );
       expect(s.transcript.slice(from + 1, from + 3)).toEqual([
         "? Could not find the app's name to store as FACTORY_APP_SLUG, so the automated review will refuse the pull requests a build opens. Store it yourself: gh variable set FACTORY_APP_SLUG --org acme --visibility all --body NAME",

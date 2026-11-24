@@ -119,7 +119,7 @@ export type Child = {
 export type Spawn = (
   command: string,
   args: string[],
-  options: { cwd: string },
+  options: { cwd: string; stdio: ["ignore", "pipe", "pipe"] },
 ) => Child;
 
 const firstLine = (text: string): string | null =>
@@ -130,7 +130,8 @@ const firstLine = (text: string): string | null =>
 
 /** Claude Code's answer to one question: `claude -p` with no tools, on its
  * smallest model, run from an empty folder so no project's settings or
- * hooks load. */
+ * hooks load. Its standard input is closed: left open, it waits three
+ * seconds for input and then warns on stderr that none came. */
 export function claudeCodeAgent(spawn: Spawn): Agent {
   return {
     installed: (hasCommand) => hasCommand(COMMAND),
@@ -153,7 +154,7 @@ export function claudeCodeAgent(spawn: Spawn): Agent {
             "--setting-sources",
             "",
           ],
-          { cwd },
+          { cwd, stdio: ["ignore", "pipe", "pipe"] },
         );
         let stdout = "";
         let stderr = "";
@@ -185,7 +186,9 @@ export function claudeCodeAgent(spawn: Spawn): Agent {
             return done({
               failed: {
                 code: code ?? 1,
-                error: firstLine(stderr) ?? firstLine(result),
+                // What it says went wrong is in its answer; stderr may
+                // hold only a warning.
+                error: firstLine(result) ?? firstLine(stderr),
               },
             });
           if (json.structured_output !== undefined)
