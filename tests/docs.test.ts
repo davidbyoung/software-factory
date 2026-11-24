@@ -996,16 +996,18 @@ describe("the docs on spec tools", () => {
     expect(workflow).not.toContain("acceptance criteria are the whole spec");
   });
 
-  it("show init's spec tool question on the setup page", () => {
+  it("say on the setup page what to answer init's spec tool question, and when it is skipped", () => {
     const setup = sectionOf(
       read("docs/github/setup.md"),
       "## Run `factory init`",
     );
-    expect(setup).toContain(
-      "? Which spec tool do you use?\n❯ None: each ticket holds its own spec\n",
+    const row = rows(setup).find(
+      ([question]) => question === "Which spec tool you use",
     );
+    expect(row?.[2]).toContain("Choose None");
+    expect(row?.[2]).toContain("[`specs`](../configuration.md#specs)");
     expect(setup.replace(/\s+/g, " ")).toContain(
-      "the spec tool question when they set `specs`",
+      "skips any that a preset or your settings already answer",
     );
   });
 

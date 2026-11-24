@@ -6,10 +6,12 @@ and what it leaves alone.
 
 ## Try it without committing to it
 
-Do the [quick start](quick-start.md) on a branch and do not merge it. Start
-an agent session on that branch and refine and build one ticket. If you
-decide against it, delete the branch. [Removing it](removing.md) covers the
-case where you have already merged.
+Do the [quick start](quick-start.md), and do not merge the pull request
+`factory init` opens. Your checkout is left on that pull request's
+branch, `set-up-factory`: start an agent session there and refine and
+build one ticket. If you decide against it, close the pull request and
+delete the branch. [Removing it](removing.md) covers the case where you
+have already merged.
 
 ## A repository that is not JavaScript
 
@@ -56,6 +58,18 @@ call the states `backlog`, `refining`, `ready`, `building`, `review`, and
 `done`, in that order. `factory init` saves which of your columns shows
 each in [`tickets.columns`](configuration.md#ticketscolumns), always all
 six, and every factory command needs all six there.
+
+**In an organization,** the board is chosen once, by the owner who runs
+[`factory init --org`](github/setup.md#set-an-organization-up-once).
+That command asks which board, and nothing about its columns: it adds
+each of the factory's six columns the board lacks, and writes those six
+names into the organization's [preset](presets.md), the file
+`factory-preset.yaml` that its repositories share. To use columns of
+your own instead, the owner edits `tickets.columns` in that file, as
+the block below shows for a repository. `factory init` in a repository
+that follows the preset takes the board from it, and asks nothing about
+boards or columns. The rest of this section is for a repository that
+names its own board.
 
 When you run `factory init`, step 2 of the
 [quick start](quick-start.md#2-set-it-up), it lists your boards to choose
@@ -328,8 +342,9 @@ ticket field too: see [`tickets.fields`](configuration.md#ticketsfields).
   named `factory-...`, so nothing collides.
 - **Your CI workflows:** untouched. The factory's are two files,
   `factory.yml` and `factory-review.yml`.
-- **`factory init` lists every file** it would write or
-  change before it writes, and changes nothing if you say no.
+- **`factory init` says what it will write** before it writes, as three
+  rows of its plan, `settings`, `files`, and `workflows`, and changes
+  nothing if you say no. The pull request it opens shows every file.
 
 On GitHub with Claude Code, [the reference](github/reference.md#what-setup-adds)
 names each file.
@@ -342,10 +357,13 @@ names each file.
   `factory init` once for their own token.
   [Where your tokens are kept](credentials.md) says what to do.
 - **A person's own session acts as that person.** A commit made by a
-  teammate's session goes out under that teammate's account. A cloud build
-  acts as the one account that owns its token: yours, or an account you
-  create for the team's builds
-  ([Secrets](github/by-hand.md#secrets)).
+  teammate's session goes out under that teammate's account. On your own
+  account, a cloud build acts as the one account that owns its token:
+  yours, or an account you create for the team's builds
+  ([Secrets](github/by-hand.md#secrets)). In an organization whose
+  owner has run `factory init --org`, a cloud build acts as the
+  organization's own GitHub App
+  ([Where your tokens are kept](credentials.md#on-github)).
 - **Anyone who can write to the repository is obeyed.** A session takes
   instructions from a review or a comment by an account with write
   access, and from nobody else. There is nothing to list: give a

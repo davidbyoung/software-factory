@@ -95,12 +95,12 @@ nothing to host. Everything else is optional and comes later.
 
 **Start here**
 
-| Page                                         | For                                                            |
-| -------------------------------------------- | -------------------------------------------------------------- |
-| [Quick start](docs/quick-start.md)           | Your first built ticket, step by step                          |
-| [Setting up on GitHub](docs/github/setup.md) | What `factory init` asks on GitHub, and what it leaves for you |
-| [Workflow](docs/workflow.md)                 | How a ticket moves, and which steps are yours                  |
-| [Glossary](docs/glossary.md)                 | Any word here you do not know                                  |
+| Page                                         | For                                                         |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| [Quick start](docs/quick-start.md)           | Your first built ticket, step by step                       |
+| [Setting up on GitHub](docs/github/setup.md) | Setting a repository up on GitHub, or an organization, once |
+| [Workflow](docs/workflow.md)                 | How a ticket moves, and which steps are yours               |
+| [Glossary](docs/glossary.md)                 | Any word here you do not know                               |
 
 **Guides**
 

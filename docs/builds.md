@@ -56,22 +56,32 @@ so a failed run does not hold its ticket.
 
 **What it needs.** Two credentials, stored as secrets on the code host:
 the agent's token, which pays for the session, and an access token for the
-code host, which the build acts as.
+code host, which the build acts as. On your own account,
 [`factory init`](github/setup.md#run-factory-init) asks for each and
-stores it.
+stores it. In an organization, an owner stores the agent's token once,
+with the key of the organization's own app on the code host, and each
+run makes its access token from that key, so `factory init` asks a
+developer for no token
+([Where your tokens are kept](credentials.md#on-github)).
 
-**Who it acts as.** The build acts as whoever owns that access token. Its
-commits name your coding agent as their author and that account as their
-committer, and its pull request and comments are that account's. When the token is yours, that is you. A team that wants an
-agent account makes one on the code host, gives it write access, and stores
-its token instead. Nothing else changes. An agent account can write to the
-repository, so it counts as an approver, but every comment it posts
-carries the factory's mark, and a session never takes a marked comment as
-an instruction.
+**Who it acts as.** On your own account, the build acts as whoever owns
+that access token. Its commits name your coding agent as their author
+and that account as their committer, and its pull request and comments
+are that account's. When the token is yours, that is you. A team that
+wants an agent account makes one on the code host, gives it write
+access, and stores its token instead. Nothing else changes. An agent
+account can write to the repository, so it counts as an approver, but
+every comment it posts carries the factory's mark, and a session never
+takes a marked comment as an instruction. In an organization that is set
+up, the build acts as the organization's app: the pull request and
+comments are the app's, and the commits name it as their committer.
 
 **Signed commits.** With a signing key stored as a secret, the build signs
 each commit, and the code host shows it as verified when the key belongs to
-the account the build acts as. Without one, its commits are unsigned.
+the account the build acts as. Without one, its commits are unsigned. A
+build that acts as an organization's app never signs its commits,
+whatever key is stored
+([Limitations](limitations.md#what-it-does-not-do)).
 `factory pr ready` refuses to mark a pull request ready while one of its
 commits is not shown as verified, when your own git signs commits.
 
@@ -124,6 +134,19 @@ The board shows the ticket as starting until the build claims it, and a
 nightly pass releases a start nothing claimed in 24 hours. Only someone
 who can write to the repository can start a build, so the build itself
 does no further check.
+
+**An organization has one poller for all its repositories.** It is a
+schedule in the organization's `factory-config` repository, which
+`factory init --org` sets up
+([Set an organization up, once](github/setup.md#set-an-organization-up-once)).
+Each pass reads the organization's board once, and for each repository
+with a ticket in Ready it does what the list above says, in that
+repository: the same tickets, in the same order, with that repository's
+own count toward the builds an hour that [Its limits](#its-limits)
+allows. A repository that follows the
+organization's [preset](presets.md) runs no poller of its own.
+[A scheduled poller](#a-scheduled-poller-github-action) says what
+differs there.
 
 ### What it reads from its environment
 
@@ -204,7 +227,9 @@ account is not supported yet.
 ## Hosting the poller: `own-server`
 
 The poller needs one always-on container with outbound network access and
-half a gigabyte of memory. It serves no traffic.
+half a gigabyte of memory. It serves no traffic. A poller you host
+serves one repository: an organization's one poller runs only on a
+schedule.
 
 Each release of the factory publishes the poller as a container image,
 `ghcr.io/davidbyoung/software-factory-poller`, tagged with its version and
@@ -262,18 +287,52 @@ the factory never deploys it.
 
 ## A scheduled poller: `github-action`
 
-For a repository with nowhere to run a container. `factory sync` writes
-the poller's schedule into `.github/workflows/factory.yml`, whose poller
-job runs one pass of the poller on that schedule, and by hand:
+For a repository with nowhere to run a container. Where the schedule
+is depends on who runs the poller:
 
-```bash
-factory poller --once
-```
+- **A repository that does not follow an organization's preset,** as on
+  your own account, runs its own. `factory sync` writes the poller's schedule into
+  `.github/workflows/factory.yml`, whose poller job runs one pass of the
+  poller on that schedule, and by hand:
 
-It reads your board and the Ready column from your settings, and the
-board's token from the secret the board sync already uses. Each build it
-starts is a run of its own, so several build at once, as with the poller
-you host. Two passes never overlap: a late one waits for the one before.
+  ```bash
+  factory poller --once
+  ```
+
+  It reads your board and the Ready column from your settings, and the
+  board's token from the secret the board sync already uses.
+
+- **A repository that follows its organization's preset** shares the
+  organization's one. The schedule is one file,
+  `.github/workflows/factory-poller.yml`, in the organization's
+  `factory-config` repository. Nobody runs its command by hand: on each
+  schedule, the file's job runs one pass for every repository, as:
+
+  ```bash
+  factory poller --once --preset factory-preset.yaml
+  ```
+
+  It reads the board, the Ready column, and
+  [`builds.max-per-hour`](configuration.md#builds) from the preset
+  beside it, and acts with a token made from the organization's app. A
+  repository that follows a preset from that repository gets no schedule
+  in its own `factory.yml`, and its `factory doctor` checks the
+  organization's file instead:
+
+  ```text
+  ✓ factory-poller.yml is enabled in acme/factory-config
+  ```
+
+  The `cron` line of that file and `builds.poll-minutes` in the preset
+  say the same interval twice. Change both together:
+  [`factory preset check`](presets.md#checking-and-releasing) fails when
+  they differ. A ticket in Ready in a repository the app is not
+  installed on gets no comment: the pass shows a warning that names the
+  repository in its run's log, and goes on to the next.
+
+Each build a pass starts is a run of its own, so several build at once,
+as with the poller you host. Two passes never overlap: a late one waits
+for the one before.
 
 It is slower and can cost more than the poller you host, so know how
 before choosing it:
@@ -302,7 +361,9 @@ before choosing it:
 
 `factory status` flags a Ready card "not started, is the poller's job in
 factory.yml running?" once it has waited the interval and 15 minutes
-more.
+more. Where an organization's repository runs the poller, the flag names
+that repository: "not started, is the poller in acme/factory-config
+running?"
 
 **Moving from a poller you host to the schedule,** stop the one you host:
 both would start builds, and each start comment counts toward the 20 an
@@ -310,11 +371,12 @@ hour.
 
 ### When the schedule fails
 
-| What you see                                                                                     | What happened                                                 | What to do                                               |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------- |
-| `factory status` flags a Ready ticket "not started, is the poller's job in factory.yml running?" | The job failed, or the code host switched the workflow off    | Run `factory doctor`, and read the poller job's last run |
-| `factory doctor` says `factory.yml is disabled`                                                  | The code host switched the workflow off in a quiet repository | Do what `doctor` says to switch it back on               |
-| A failed run of the poller's job saying `not polling: FACTORY_BOARD_TOKEN not set`               | The board's token is not a secret here                        | Run `factory init` to add it                             |
+| What you see                                                                                       | What happened                                                                              | What to do                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `factory status` flags a Ready ticket "not started, is the poller's job in factory.yml running?"   | The job failed, or the code host switched the workflow off                                 | Run `factory doctor`, and read the poller job's last run                                                                                           |
+| `factory doctor` says `factory.yml is disabled`                                                    | The code host switched the workflow off in a quiet repository                              | Do what `doctor` says to switch it back on                                                                                                         |
+| A failed run of the poller's job saying `not polling: FACTORY_BOARD_TOKEN not set`                 | The board's token is not a secret here                                                     | Run `factory init` to add it                                                                                                                       |
+| `factory status` flags a Ready ticket "not started, is the poller in acme/factory-config running?" | The organization's poller failed, is switched off, or cannot reach the ticket's repository | Run `factory doctor`, and read the last run of "Factory poller" in that repository. A warning there names a repository the app is not installed on |
 
 [The reference](github/reference.md#limits) has GitHub's own numbers.
 

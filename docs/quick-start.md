@@ -39,6 +39,8 @@ its commands.
 
 ## 2. Set it up
 
+On your default branch, in your repository:
+
 ```bash
 factory init
 ```
@@ -51,30 +53,25 @@ Next it asks which optional parts you want. Three start checked: "An
 automated review of every pull request", "A board", and "Builds in the
 cloud". For this first ticket, uncheck those three:
 each needs a token or a secret you set up later, and this page needs
-none. Keep them checked instead if you want the full setup now. It then
-lists everything it will do, and
-once you tell it to go ahead, writes your settings file,
-`.claude/factory.yaml`, and the instructions and checks your coding agent
-follows. On a public repository it also adds a policy that lets the
-factory's workflow run, which needs admin rights on the repository
-([A public repository](github/setup.md#a-public-repository)). It commits
-nothing. [What it changes](removing.md) lists every file.
+none. Keep them checked instead if you want the full setup now. If
+your repository belongs to an organization, and one of its owners has
+already run the factory's setup for the whole organization, init asks
+less, and for no token:
+[In an organization](github/setup.md#in-an-organization) shows what you
+see.
 
-**It worked when** the checks `init` prints last all show ✓, or `-` for a
-part you left off. `factory doctor` runs them again at any time.
-
-**Then say how a change is checked.** `init` ends with a list headed "Left
-to do", and one line of it comes before your first build:
+Then it asks how a change is checked:
 
 ```text
-Add the commands that check a change, under commands.gate in .claude/factory.yaml
+? Which command checks a change here, such as npm test? (leave empty to add it later)
 ```
 
-A build runs these commands, in order, before it opens its pull request,
-and cannot finish without them. Add
-[`commands.gate`](configuration.md#commandsgate) to
-`.claude/factory.yaml`, with your own test and lint commands in place of
-these:
+Type the command that tests your project. A build runs it before it
+opens its pull request, and cannot finish without one. Init saves it in
+your settings file, `.claude/factory.yaml`, under
+[`commands.gate`](configuration.md#commandsgate). To have a build run
+more than one command, in order, add the others there afterward, with
+your own in place of these:
 
 ```yaml
 commands:
@@ -84,27 +81,40 @@ commands:
     - npm run lint
 ```
 
-A repository with no tests yet lists the checks it does have, such as a
+A repository with no tests yet gives a check it does have, such as a
 formatter or a compile, and adds its tests to the gate when there are
 some.
 
-**It worked when** `factory gate` runs each command and ends with
+Last, it lists everything it will do and asks "Go ahead?". Type `y`:
+Enter alone answers no, and nothing changes. It then writes your
+settings file and the instructions and checks your coding agent follows,
+runs the command you gave, commits what it wrote on a new branch,
+`set-up-factory`, pushes it, and opens a pull request:
+
+```text
+✓ npm test passes here.
+✓ Opened your-name/your-repo#1, "Set up the software factory".
+Merge it to finish. Nothing else is left to do.
+```
+
+When the command fails, init says so and commits nothing. Fix what
+failed, or change the command in `.claude/factory.yaml`, and run
+`factory init` again. On a public repository init also adds a policy
+that lets the factory's workflow run, which needs admin rights on the
+repository ([A public repository](github/setup.md#a-public-repository)).
+[What it changes](removing.md) lists every file.
+
+**It worked when** init prints `✓ Opened` with the pull request's
+number, and the checks it prints last all show ✓, or `-` for a part you
+left off. `factory doctor` runs them again at any time, and
+`factory gate` runs your command, ending with
 `✓ Every gate command passed.`
 
 ## 3. Merge the setup
 
-Commit what `init` wrote on a branch and push it:
-
-```bash
-git switch -c set-up-factory
-git add -A
-git commit -m "Set up the software factory"
-git push -u origin set-up-factory
-```
-
-Open a pull request for the branch on your code host and merge it, as for
-any change. Then bring your default branch up to date. Here it is called
-`main`:
+Merge the pull request `init` opened, as for any change. Your checkout
+is left on the branch `set-up-factory`, so go back to your default
+branch and bring it up to date. Here it is called `main`:
 
 ```bash
 git switch main
@@ -209,7 +219,10 @@ optional, stands alone, and can come later.
 - **An automated review, a board, builds in the cloud, builds that start
   from the board, and pull requests that merge themselves.** Run
   `factory init` again and check the parts you want. It asks for a token
-  or two and sets everything else up.
+  or two, sets everything else up, and opens a pull request titled
+  "Change the software factory's settings" with the files it changed. In
+  an organization whose owner has run the factory's setup for it, init
+  asks for no token.
   [Setting up on GitHub](github/setup.md#run-factory-init) says what each
   part gives you and what it asks.
 - **A command before every commit a session makes,** such as your linter:

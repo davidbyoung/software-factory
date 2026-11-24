@@ -102,9 +102,10 @@ commands:
   and names it. `"{ticket}"` is a pattern: ticket 12 is built on a branch
   named `12`. The code host is GitHub unless you say otherwise.
 - [`commands.gate`](#commandsgate) is how a session checks a change, such
-  as your tests and linter. `factory init` doesn't write it: it lists it
-  under "Left to do", and you add it. Without it the factory still
-  [refines](workflow.md) tickets, but a session can't build one.
+  as your tests and linter. `factory init` asks for one command and
+  writes it. Left empty, it lists the gate under "Left to do", and you
+  add it. Without it the factory still [refines](workflow.md) tickets,
+  but a session can't build one.
 
 With these, the factory refines a ticket when you run `/factory-refine N`
 in a session, builds it when you run `/factory-build N`, nothing merges
@@ -186,9 +187,18 @@ Write `2`.
 
 Your repository, as `owner/name`, such as `harbor-goods/storefront`.
 
-- **Default:** none. `factory init` writes it.
+- **Default:** none. `factory init` writes it. It proposes the
+  repository from your checkout's remotes, whatever each is called, and
+  asks which one you are setting up when they name a fork or more than
+  one repository. Once the line is written, nothing works it out again.
 - **If it is wrong,** commands read and write another repository's
-  tickets, or fail because it does not exist.
+  tickets, or fail because it does not exist. A command that reads the
+  default branch, such as `factory sync`, stops when no remote of your
+  checkout is that repository:
+
+  ```text
+  ✗ repository: .claude/factory.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run factory sync.
+  ```
 
 It is written down rather than worked out from your checkout, because the
 [poller](#builds), which watches your board from outside any checkout,
@@ -216,6 +226,9 @@ presets:
   one commit of its repository in `.claude/factory.lock`, or drop that
   pin, and sync. A name written here by hand is not pinned, so the next
   sync stops and names the command that pins it.
+- **A repository not set up yet** names its presets as `factory init`
+  sets it up: with `factory init --preset NAME`, once for each, or from
+  the list init offers ([Adding a preset](presets.md#adding-a-preset)).
 - **A preset can't set** `repository`, `auto-merge.allow`, or
   `auto-merge.commands`, and can't list other presets
   ([why](presets.md#what-a-preset-cant-set)).
@@ -573,7 +586,9 @@ as, exactly as GitHub spells it, so the same ticket built by two people
 gets two branches. In GitHub Actions, it is the owner of
 the [token the build runs with](github/reference.md#workflows), not
 whoever approved the ticket, so with a shared bot account every branch
-built in Actions carries the bot's name.
+built in Actions carries the bot's name. Where a build acts as an
+organization's App, `{user}` is the App's name as GitHub writes it in
+an address, such as `software-factory-for-acme`.
 
 Keep the quotes, as in the examples. YAML reads an unquoted
 `branch-name: {ticket}` as a map rather than as text, and
@@ -716,7 +731,13 @@ The three triggers:
   `poll-minutes` minutes, with nothing for you to host. On a private
   repository, each check is billed as at least one Actions minute.
   `factory sync` writes its schedule into
-  `.github/workflows/factory.yml`.
+  `.github/workflows/factory.yml`, with one exception: a repository that
+  follows a [preset](presets.md) whose repository runs the poller, as an
+  organization's `factory-config` does, gets no schedule of its own. The
+  one schedule is then that repository's
+  `.github/workflows/factory-poller.yml`, and `poll-minutes` in the
+  preset must match that file's `cron` line, which `factory preset check`
+  compares ([Checking and releasing](presets.md#checking-and-releasing)).
 
 Watch the spelling: the trigger is `github-action`, singular, and the
 runner is `github-actions`, plural.
@@ -955,7 +976,8 @@ Leave out:
 
 There is no default. Without a gate, `factory gate` fails with
 `commands.gate is not set`, and a build stops there, because an empty gate
-would pass every change. `factory init` lists it under "Left to do".
+would pass every change. `factory init` asks for one gate command, and
+lists the gate under "Left to do" when you leave that question empty.
 
 When a command fails, `factory gate` prints `✗ The gate failed on:` and
 the command, and runs none after it. The session fixes the cause and runs the

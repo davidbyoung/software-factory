@@ -14,6 +14,14 @@ can give it an agent account instead, one account on the code host that
 every cloud build acts as, so the pull request's author is not one of the
 people who must approve it. Nothing else changes between the two.
 
+An organization that an owner has set up has that agent account without
+making one: its builds act as the organization's own app on the code
+host. The pull request is the app's, and the commits name the app as
+their committer. They are not signed, since an app can hold no signing
+key ([Limitations](limitations.md#what-it-does-not-do)). The automated
+review posts as a different account, so a build cannot pass its own
+review.
+
 A session on your machine commits as you, since you are the one steering
 it. `factory sync` turns the coding agent's attribution
 lines off, unless your agent's settings already said otherwise, so a

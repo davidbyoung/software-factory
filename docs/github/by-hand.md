@@ -3,7 +3,10 @@
 Every step [`factory init`](setup.md) takes, for someone who cannot run it
 or wants to see what it does. If you can run `init`, do that: it does all
 of this for you. Here you do [the basics](#the-basics), then only the
-parts you want, in the order they appear.
+parts you want, in the order they appear. The page is for one
+repository: an organization is set up with `factory init --org`
+([Set an organization up, once](setup.md#set-an-organization-up-once)),
+which has no steps by hand here.
 
 ## Choose what you want
 
@@ -17,7 +20,7 @@ installed in the repository.
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [The basics](#the-basics)                                                   | A settings file and one command                                    |
 | [A public repository](#a-public-repository)                                 | One Actions policy, which a private repository does not need       |
-| [The automated review](#the-automated-review)                               | The Claude GitHub App, a workflow file, and your Claude token      |
+| [The automated review](#the-automated-review)                               | A workflow file and your Claude token                              |
 | [A board](#a-board)                                                         | A Project, one setting, and a GitHub token                         |
 | [Builds in the cloud](#builds-in-the-cloud)                                 | Your Claude token and a GitHub token                               |
 | [Pull requests that merge themselves](#pull-requests-that-merge-themselves) | A list of files, one repository setting, and a second GitHub token |
@@ -138,13 +141,12 @@ it, two of them with similar names, and `sync` writes all three:
 | `.github/factory-review.md`            | The review's instructions                                                                      |
 | `.github/workflows/factory.yml`        | The workflow file whose verdict job turns each review's summary into a "Review verdict" status |
 
-1. **Install the Claude GitHub App** on the repository, from
-   <https://github.com/apps/claude>. The review posts its comments through
-   it. Or run `/install-github-app` in Claude Code, which installs the app
-   and also stores the Claude token for you.
-2. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`
-   ([Secrets](#secrets)), unless step 1 did.
-3. **Write `pr-review` in `.claude/factory.yaml`,** and run
+The review posts its comments as `github-actions`, with the workflow's
+own token.
+
+1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`
+   ([Secrets](#secrets)).
+2. **Write `pr-review` in `.claude/factory.yaml`,** and run
    `factory sync`, which turns the review's job on:
 
    ```yaml
@@ -167,10 +169,10 @@ it, two of them with similar names, and `sync` writes all three:
    from `FACTORY_BUILD_MODEL` ([Variables](reference.md#who-a-cloud-session-acts-as)) when
    it is set.
 
-4. **Optionally, write `.github/review-notes.md`:** what a reviewer must
+3. **Optionally, write `.github/review-notes.md`:** what a reviewer must
    know about your project that your `CLAUDE.md` does not say. The
    reviewer reads it when it exists.
-5. **To make the verdict count,** add "Review verdict" to the required
+4. **To make the verdict count,** add "Review verdict" to the required
    status checks of your default branch: Settings, then Rules or Branches.
    Until you do, it is information only.
 
@@ -259,7 +261,10 @@ starts each build. Set
 [`builds.trigger: github-action`](../configuration.md#builds) to run it on
 a schedule in GitHub Actions, with nothing to host, or `own-server` to
 host it yourself.
-[Builds in the cloud](../builds.md) explains each and what it costs.
+[Builds in the cloud](../builds.md) explains each and what it costs. In
+an organization that is set up, there is nothing to set here: the
+organization's [preset](../presets.md) sets `builds.trigger`, and the
+one schedule is in the organization's `factory-config` repository.
 
 ## Pull requests that merge themselves
 
@@ -291,7 +296,11 @@ the `merge-automatic` label.
 
 ## Signed commits from cloud builds
 
-Without a key, a build's commits are unsigned.
+Without a key, a build's commits are unsigned. In a repository whose
+builds act as an organization's App
+([Who a cloud session acts as](reference.md#who-a-cloud-session-acts-as)),
+they are unsigned whatever `FACTORY_SIGNING_KEY` holds, so skip this
+part there.
 
 1. Make a key for this and nothing else, with no passphrase:
 
@@ -321,6 +330,20 @@ use.
 Everything here is stored on the repository with `gh secret set NAME`,
 which asks for the value. Nothing the factory runs on your machine needs
 one; each is for something that runs in GitHub Actions.
+
+The GitHub tokens below are for a repository on your own account, and
+for an organization's repository that the organization's secrets do not
+reach: the workflows read a token stored here when no App's key reaches
+the run. In an organization that is set up, nobody stores any of them.
+`factory init --org` stored these for every repository, once:
+
+| What the organization holds         | What it is for                                                                                                                                                       |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FACTORY_APP_PRIVATE_KEY`, a secret | The key of the organization's GitHub App, from which each run makes its own token. [Replacing the App's key](../credentials.md#replacing-the-apps-key) has the steps |
+| `FACTORY_APP_CLIENT_ID`, a variable | Which App the key belongs to                                                                                                                                         |
+| `CLAUDE_CODE_OAUTH_TOKEN`, a secret | What pays for sessions, or `ANTHROPIC_API_KEY` for an API key                                                                                                        |
+
+What you store on a repository:
 
 | Secret                    | Needed for                                                                             | Make it                                                                                                                                                   |
 | ------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |

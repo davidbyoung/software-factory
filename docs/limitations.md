@@ -38,6 +38,43 @@ as a code host's billing or what its workflows can see, are in
   `factory preset add`, and fails the check on its update's pull
   request, with that setting's name
   ([Writing a preset](presets.md#making-the-repository)).
+- **An organization is set up on github.com only.** GitHub Enterprise
+  Server is not supported: its servers cannot call the factory's
+  workflows on github.com. `factory init --org` refuses any other
+  address.
+- **Your own account gets no app.** `factory init --org` is for an
+  organization. On your own account, builds act with one access
+  token of yours, since a board a person owns refuses an app's token
+  ([Where your tokens are kept](credentials.md#on-github)).
+- **An organization's poller runs only on a schedule,** in its
+  `factory-config` repository. Nobody can host one for a whole
+  organization, and a repository that follows the organization's preset
+  cannot opt out of it to run its own.
+- **No command replaces the key of an organization's app, or takes an
+  organization's setup out.** GitHub makes a new key only on the app's
+  own page: [Replacing the App's key](credentials.md#replacing-the-apps-key)
+  has the steps, and
+  [Taking an organization's setup out](removing.md#taking-an-organizations-setup-out)
+  lists what an owner deletes.
+- **`factory doctor` does not check the two tokens `factory init` keeps
+  on your machine** on your own account, the code host's access token
+  and the coding agent's
+  ([The file on your machine](credentials.md#the-file-on-your-machine)).
+  Init checks them itself, the next time it would store them.
+- **A repository whose `.npmrc` reads `GITHUB_TOKEN` cannot build in the
+  cloud as an organization's app.** A build there would act with the
+  workflow's own token, not the app's, because the code host's
+  command-line tool takes that variable before its own sign-in. Read a
+  variable of another name
+  ([GitHub Packages](github/setup.md#github-packages)).
+- **Dependabot's pull requests do not merge themselves under an
+  organization's app, as set up.** The job that turns auto-merge on for
+  one reads Dependabot's secrets, not the Actions ones, and
+  `factory init --org` stores the app's key for Actions alone. An owner
+  who wants it makes a new key, as
+  [Replacing the App's key](credentials.md#replacing-the-apps-key)
+  shows, and stores it a second time for Dependabot, with
+  `--app dependabot` added to that page's `gh secret set` line.
 - **A build never changes the coding agent's settings files,** which hold
   the hooks that guard the run. It may write the factory's other files
   there. A change to those settings is a person's to make.
@@ -61,7 +98,9 @@ as a code host's billing or what its workflows can see, are in
   checked.
 - **A renamed default branch is read under its old name** until
   `git remote set-head origin --auto` runs in the checkout, which keeps
-  the name in `origin/HEAD`. The factory reads the name there before it
+  the name in `origin/HEAD`. Where the remote whose address is your
+  `repository` line's has another name, such as `upstream`, write that
+  name in place of `origin`. The factory reads the name there before it
   asks the code host, so a stale one gives a stale answer: the commit hook
   then guards the old branch and not the new one. After the rename, run
   that command in each checkout, then `factory sync`, which writes the
@@ -89,7 +128,17 @@ as a code host's billing or what its workflows can see, are in
 - **Nothing retries on its own.** A build that stops waits for you.
 - **A cloud build's commits are unsigned unless you give it a signing
   key.** `factory init` makes one when you choose that part
-  ([Setting up on GitHub](github/setup.md#run-factory-init)).
+  ([Setting up on GitHub](github/setup.md#run-factory-init)). In an
+  organization's repository they are always unsigned: a build there acts
+  as the organization's app, which can hold no signing key, so the part
+  is not offered. Verified commits under an app are
+  _[Planned](developing.md#what-is-built)_, as ticket 77. An
+  organization whose rules require signed commits on every branch cannot
+  use cloud builds until then.
+- **Under an organization's app, `{user}` in a branch name is the app's
+  name,** such as `software-factory-for-acme`, not a person's: an app's
+  token names no user
+  ([`code-host`](configuration.md#code-host)).
 - **A cloud build cannot be steered.** You can read its log as it runs, and
   cancel it, but not answer it: where it would ask, it stops and reports.
 - **Nothing watches a pull request after its cloud build ends.** Your own
@@ -104,6 +153,14 @@ as a code host's billing or what its workflows can see, are in
 
 - **A board owned by an organization.** It is read the same way as a
   person's, but the factory has only run against a person's.
+- **Setting up a real organization.** `factory init --org`, a run that
+  acts as the organization's app, and the organization's one poller are
+  tested against a stand-in for GitHub, and none has run against GitHub
+  itself. Two things were tried there, with one repository's own rule:
+  that a rule can require "Review verdict" from GitHub Actions alone,
+  and that a pull request that adds the factory's workflow waits forever
+  under such a rule. The organization-wide rule was not tried: it needs
+  a plan the test organization does not have.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
 - **A factory update reaching a repository through the update job.**

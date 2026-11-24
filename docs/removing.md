@@ -17,12 +17,26 @@ hook, label, and setting.
   no `node_modules/`.
 - **On your machine:** the `factory` command, installed once, and the
   versions of the factory it downloads, in `~/.cache/software-factory/`.
+  In `~/.config/software-factory/`, on your own account, the access
+  token and the coding agent's token that `factory init` also stored in
+  your repository's secrets, and, for any account, the presets you last
+  followed ([The file on your machine](credentials.md#the-file-on-your-machine)).
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
   one "Follow-ups" ticket; and, on a public repository on GitHub, the
   Actions policy named "Software factory", which lets the factory's
   workflow run.
+- **On your code host, once for an organization,** when an owner set it
+  up with `factory init --org`: the organization's own app, which its
+  cloud builds act as; the app's key and the coding agent's token, as
+  secrets, and a variable that names the app; a repository named
+  `factory-config`, for the settings its repositories share; a property
+  named `software-factory`, a value the organization keeps for each
+  repository; and a rule that requires the review's verdict wherever
+  that property is "on".
+  [Taking an organization's setup out](#taking-an-organizations-setup-out)
+  lists them.
 - **On your board,** if you have one: three fields, Session, Runs in, and
   Cost, which `factory init` adds when the board lacks
   them, and the board's own Status, which the sync sets. `init` adds the
@@ -51,9 +65,18 @@ before changing anything. It then deletes the factory's files, takes its
 hooks and its import line out of the files it shares with your coding
 agent, and prints what is left outside the repository for you to remove by
 hand, grouped by the tool it belongs to: secrets, the rule that requires
-the review's verdict, labels, the board's fields, and a token kept on your
-machine. Each tool you use adds its own lines to that list. It
-commits nothing. Review the changes, commit them on a branch, and merge.
+the review's verdict, labels, the board's fields, and each token kept on
+your machine, which on your own account are the access token and the
+coding agent's token. Each tool you use adds its own lines to that list.
+In a repository of an organization that is set up, the list starts with
+the one thing only an owner can do:
+
+```text
+Ask an owner of acme to set the software-factory property to "off" for acme/web: until then every pull request waits on its "Review verdict" check
+```
+
+It commits nothing. Review the changes, commit them on a branch, and
+merge.
 
 It does not name the "Software factory" policy that `factory init` adds
 on a public repository on GitHub. Delete that one by hand too, in the
@@ -86,10 +109,48 @@ downloaded.
 - **If you made the review's verdict a required check** on your default
   branch, remove that requirement first, or every pull request waits on it
   forever.
+- **If an owner set your organization up** with `factory init --org`,
+  the organization's rule requires that check, in every repository
+  whose `software-factory` property is "on". Ask an owner to set that
+  property to "off" for your repository first, under the organization's
+  Settings, Custom properties.
 - **Deleting a label removes it from every ticket.** Keep the labels if
   you want their history.
 - **The comments it posted on tickets stay.** They hold each ticket's
   history.
+
+## Taking an organization's setup out
+
+For an owner of an organization that was set up with
+`factory init --org`. No command does this: each step is by hand, on
+GitHub, in this order.
+
+1. **Delete the rule, then the property.** In the organization's
+   Settings, under Rules, delete the rule "Software factory". Then,
+   under Custom properties, delete the property `software-factory`. With
+   the rule gone, no pull request waits on "Review verdict", so the next
+   step's pull requests can merge.
+2. **Take the factory out of each repository.** Run `factory remove`
+   there, as [Removing it](#removing-it) shows, and merge what it
+   changed. Do this before step 4: once the app is gone, a repository
+   that still has the factory's workflows fails its runs.
+3. **Delete the repository `factory-config`.** That stops the
+   organization's one [poller](builds.md#the-poller), which starts
+   builds from the board.
+4. **Uninstall the app, then delete it.** In the organization's
+   Settings, under GitHub Apps, uninstall the app whose name starts
+   "Software Factory for". Then, under Developer settings, GitHub Apps,
+   delete it.
+5. **Delete the secrets and the variable.** In the organization's
+   Settings, under Secrets and variables, Actions, delete the secrets
+   `FACTORY_APP_PRIVATE_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`, or
+   `ANTHROPIC_API_KEY`, and the variable `FACTORY_APP_CLIENT_ID`. Leave
+   the coding agent's secret if another workflow of yours reads it.
+6. **Keep the board, or delete it,** in the organization's Projects. It
+   is an ordinary Project.
+
+**It worked when** a pull request in a repository that was set up can
+merge with no "Review verdict" check listed as required.
 
 ## Undoing one part, not all of it
 

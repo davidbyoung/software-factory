@@ -183,6 +183,8 @@ they are.
   `factory.yml` and `factory-review.yml`, call the copies in the same
   commit, so a pull request's own `review.yml` runs on it, and `run.yml`
   runs from `main`.
+- `.github/workflows/poller.yml`, the workflow an organization's
+  `factory-poller.yml` calls. No file here calls it.
 - `.claude/agents/docs-reader.md`, this repository's own reviewer.
 - `.claude/skills/dx-first/` and `.claude/skills/ticket-order/`, its own
   skills.
@@ -193,7 +195,8 @@ gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
 `review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
 `ticket.mts`, which starts the board sync,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
-`workflow-files.mts`, `session.mts`, `update.mts`,
+`workflow-files.mts`, `session.mts`, `session-token.mts`, `enroll.mts`,
+`init-org.mts`, `update.mts`,
 `lib/default-branch.mts`, `lib/refined-check.mts`, `specs/`, whose
 adapters name the files the merge policy holds, and `config.mts`'s
 `pluginsOf`.

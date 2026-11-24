@@ -46,8 +46,9 @@ that version.
    ```
 
 The job needs [builds in the cloud](github/setup.md), since it pushes a
-branch and opens a pull request with the build's token. Without them,
-[do it yourself](#doing-it-yourself).
+branch and opens a pull request with the build's token, or, in an
+organization that is set up, with a token made from the organization's
+App. Without them, [do it yourself](#doing-it-yourself).
 
 ## What the pull request holds
 
@@ -394,9 +395,9 @@ stops with one of these, the second naming the states you left out:
 ```
 
 So the update to that release cannot sync: `factory update`
-([Doing it yourself](#doing-it-yourself)) stops with the same line. On a
-branch, from your repository's root, run `factory init` at the new
-release:
+([Doing it yourself](#doing-it-yourself)) stops with the same line. On
+your default branch, from your repository's root, run `factory init` at
+the new release:
 
 ```bash
 FACTORY_VERSION=$(npm view @davidbyoung/software-factory version) factory init
@@ -432,15 +433,22 @@ factory's name. When it needs Claude Code to suggest columns, it asks
 as [You already have a board](existing-repo.md#you-already-have-a-board)
 shows.
 
+Init then lists what it will do and asks "Go ahead?". Once you type
+`y`, it syncs at the new release, which rewrites the factory's files
+for it, runs your gate, and opens a pull request titled "Change the
+software factory's settings" from a new branch, `set-up-factory`, or
+`set-up-factory-2` when that name is taken. It holds `.claude/factory.yaml` and every file the new
+release wrote, so it is the update: merge it as you would the update
+job's.
+
 You can add the lines by hand instead. For each state your block leaves
 out, the factory used the name in the table in
 [`tickets.columns`](configuration.md#ticketscolumns), so write that name
 to keep things as they were. If your board has no column of that name,
-write one of your columns, or `none`.
-
-Then run `factory update` again, which rewrites the factory's files for
-the new version, commit what changed, `.claude/factory.yaml` included,
-and open a pull request.
+write one of your columns, or `none`. Then run `factory update` again,
+which rewrites the factory's files for the new version, commit what
+changed on a branch, `.claude/factory.yaml` included, and open a pull
+request.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory sync --check` passes.
@@ -461,7 +469,7 @@ already pushed keep their names, and their pull requests carry on as
 before.
 
 So the update to that release cannot sync: `factory update` stops with
-the same line. On a branch, from your repository's root, run
+the same line. On your default branch, from your repository's root, run
 `factory init` at the new release:
 
 ```bash
@@ -480,6 +488,8 @@ Enter to keep it, or type your team's pattern, such as
 lists what a pattern can hold. If the update also needs [Naming every
 column](#naming-every-column), the same run fills in both. When a
 [preset](presets.md) you follow sets the pattern, init asks nothing.
+Then it opens the update's pull request itself, as
+[Naming every column](#naming-every-column) says.
 
 You can add the lines by hand instead:
 
@@ -490,8 +500,9 @@ code-host:
 ```
 
 Keep the quotes: without them, YAML reads `{ticket}` as a map rather
-than as text. Then run `factory update` again, commit what changed,
-`.claude/factory.yaml` included, and open a pull request.
+than as text. After adding them by hand, run `factory update` again,
+commit what changed on a branch, `.claude/factory.yaml` included, and
+open a pull request.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory ticket branch 12` prints the
@@ -503,7 +514,8 @@ From this release the factory works only on tickets with its label
 ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
 Before it, every open ticket was the factory's, so you label each open
 ticket once, before you merge the update, and no card changes column.
-Run this on the update's branch, after `factory update`:
+Run this on the update's branch, after `factory update` or the
+`factory init` that opened the update's pull request:
 
 ```console
 $ factory ticket adopt --all-open

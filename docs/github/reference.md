@@ -13,20 +13,20 @@ Everything the factory adds, and what
 
 ### In your repository
 
-| What                                                                         | Added by                                                           | Removing it                                                     |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- |
-| `.claude/factory.yaml`, your settings                                        | Setup                                                              | Deletes it                                                      |
-| `.claude/factory.lock`                                                       | Setup                                                              | Deletes it                                                      |
-| `.claude/factory/`, the rules                                                | Setup                                                              | Deletes it                                                      |
-| `.claude/skills/factory-*/`                                                  | Setup                                                              | Deletes them                                                    |
-| `.claude/agents/factory-*.md`                                                | Setup                                                              | Deletes them                                                    |
-| Five hook entries in `.claude/settings.json`                                 | Setup                                                              | Removes those five, keeps the rest, and deletes an emptied file |
-| `attribution` in `.claude/settings.json`, when the file had none             | Setup                                                              | Leaves it: delete the key to get Claude Code's lines back       |
-| One line in `CLAUDE.md`                                                      | Setup                                                              | Removes that line, and deletes an emptied file                  |
-| `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`   | Setup                                                              | Deletes them                                                    |
-| `.github/factory-review.md`                                                  | Setup                                                              | Deletes it                                                      |
-| `.github/review-notes.md`                                                    | You, if you wrote one. It is yours                                 | Leaves it                                                       |
-| A small `package.json`, and `node_modules/` in `.gitignore`, if you had none | Setup, only before a spec tool that npm installs, such as OpenSpec | Leaves them. Delete them if nothing else uses them              |
+| What                                                                         | Added by                                                           | Removing it                                                    |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `.claude/factory.yaml`, your settings                                        | Setup                                                              | Deletes it                                                     |
+| `.claude/factory.lock`                                                       | Setup                                                              | Deletes it                                                     |
+| `.claude/factory/`, the rules                                                | Setup                                                              | Deletes it                                                     |
+| `.claude/skills/factory-*/`                                                  | Setup                                                              | Deletes them                                                   |
+| `.claude/agents/factory-*.md`                                                | Setup                                                              | Deletes them                                                   |
+| Six hook entries in `.claude/settings.json`                                  | Setup                                                              | Removes those six, keeps the rest, and deletes an emptied file |
+| `attribution` in `.claude/settings.json`, when the file had none             | Setup                                                              | Leaves it: delete the key to get Claude Code's lines back      |
+| One line in `CLAUDE.md`                                                      | Setup                                                              | Removes that line, and deletes an emptied file                 |
+| `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`   | Setup                                                              | Deletes them                                                   |
+| `.github/factory-review.md`                                                  | Setup                                                              | Deletes it                                                     |
+| `.github/review-notes.md`                                                    | You, if you wrote one. It is yours                                 | Leaves it                                                      |
+| A small `package.json`, and `node_modules/` in `.gitignore`, if you had none | Setup, only before a spec tool that npm installs, such as OpenSpec | Leaves them. Delete them if nothing else uses them             |
 
 The "Removing it" column says what `factory remove` does with each.
 
@@ -37,18 +37,46 @@ Nothing of the factory's own is installed in the repository: no
 
 ### On GitHub
 
-| What                                                                                                                                                                                                                       | Added when                                                                        | To undo                                                                                   |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Secrets and variables named `FACTORY_...`                                                                                                                                                                                  | You create them                                                                   | Delete them                                                                               |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                  | You create it, for the automated review and builds in the cloud                   | Delete it, unless another workflow uses it                                                |
-| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                       | `init`, when you paste them                                                       | Leave them if your own CI uses them; otherwise delete both copies                         |
-| Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `follow-up`, `spec`, or the names under [`tickets.labels`](../configuration.md#ticketslabels) and [`code-host.labels`](../configuration.md#code-hostlabels) | First use                                                                         | Delete them. Deleting a label removes it from every ticket                                |
-| A CI check that the factory's files are in step                                                                                                                                                                            | Setup                                                                             | Goes with `factory-review.yml`                                                            |
-| An Actions policy named "Software factory", on a public repository, which lets `factory.yml` start on `pull_request_target`                                                                                                | `init`, on a public repository; or you, [by hand](by-hand.md#a-public-repository) | Delete it, under Settings, Actions, Policies                                              |
-| A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                       | `init`, when the review is on; or you, in your branch rules                       | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
-| Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                  | Each pull request                                                                 | They stay in history                                                                      |
-| One open ticket titled "Follow-ups"                                                                                                                                                                                        | The first follow-up                                                               | Close it                                                                                  |
-| Comments on tickets the factory worked                                                                                                                                                                                     | Each refinement and build                                                         | They stay. They hold the ticket's history                                                 |
+| What                                                                                                                                                                                                                       | Added when                                                                                                                                                                 | To undo                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Secrets and variables named `FACTORY_...`                                                                                                                                                                                  | You create them                                                                                                                                                            | Delete them                                                                               |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                  | You create it, for the automated review and builds in the cloud                                                                                                            | Delete it, unless another workflow uses it                                                |
+| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                       | `init`, when you paste them                                                                                                                                                | Leave them if your own CI uses them; otherwise delete both copies                         |
+| Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `follow-up`, `spec`, or the names under [`tickets.labels`](../configuration.md#ticketslabels) and [`code-host.labels`](../configuration.md#code-hostlabels) | First use                                                                                                                                                                  | Delete them. Deleting a label removes it from every ticket                                |
+| A CI check that the factory's files are in step                                                                                                                                                                            | Setup                                                                                                                                                                      | Goes with `factory-review.yml`                                                            |
+| An Actions policy named "Software factory", on a public repository, which lets `factory.yml` start on `pull_request_target`                                                                                                | `init`, on a public repository; or you, [by hand](by-hand.md#a-public-repository)                                                                                          | Delete it, under Settings, Actions, Policies                                              |
+| A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                       | With the review on, the first workflow run after the setup's pull request merges; `init`, when your default branch already has `factory.yml`; or you, in your branch rules | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
+| Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                  | Each pull request                                                                                                                                                          | They stay in history                                                                      |
+| One open ticket titled "Follow-ups"                                                                                                                                                                                        | The first follow-up                                                                                                                                                        | Close it                                                                                  |
+| Comments on tickets the factory worked                                                                                                                                                                                     | Each refinement and build                                                                                                                                                  | They stay. They hold the ticket's history                                                 |
+
+In an organization's repository, the organization's own rule requires
+"Review verdict" in place of that ruleset, and the secrets are the
+organization's ([In an organization](#in-an-organization)).
+
+### In an organization
+
+What [`factory init --org`](setup.md#set-an-organization-up-once) adds,
+once, for every repository of the organization, here `acme`. No command takes these
+out: [Removing it](../removing.md#taking-an-organizations-setup-out)
+lists them in the order to delete them.
+
+| What `factory init --org` adds                                                                                                                                          | Where to find it                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| The GitHub App "Software Factory for acme", registered by the organization and installed on the repositories its owner chose                                            | The organization's Settings, Developer settings, GitHub Apps                          |
+| The secret `FACTORY_APP_PRIVATE_KEY`, the variable `FACTORY_APP_CLIENT_ID`, and the secret `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`, each for every repository | The organization's Settings, Secrets and variables, Actions                           |
+| The repository `acme/factory-config`, with `factory-preset.yaml`, `.github/workflows/factory-poller.yml`, and a `README.md`                                             | Among the organization's repositories                                                 |
+| The property `software-factory`, with the values `on` and `off`, which the first workflow run after a repository's setup merges sets to `on` for it                     | The organization's Settings, Custom properties                                        |
+| The rule "Software factory", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                             | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
+| A board, or the factory's columns and fields on the board the owner chose                                                                                               | The organization's Projects                                                           |
+
+### On your machine
+
+| What                                                                                                         | Added when                                                                                                                  | To undo                                                                   |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| The `factory` command, and each version it downloads, in `~/.cache/software-factory/`                        | You install it, and a repository names a version                                                                            | `npm uninstall -g @davidbyoung/software-factory`, and delete the folder   |
+| A GitHub access token and a Claude token, in `~/.config/software-factory/credentials.yaml`                   | `init`, on your own account, when you paste them ([Where your tokens are kept](../credentials.md#the-file-on-your-machine)) | Delete your account's entries from the file, which `factory remove` names |
+| The presets you last followed for each account or organization, in `~/.config/software-factory/presets.yaml` | `init`, when you follow a preset                                                                                            | Delete the file                                                           |
 
 ### On your board
 
@@ -92,20 +120,21 @@ schedule, each session's minutes, and the names of your own secrets.
 A job whose part is off is skipped, and starts no machine. Every time is
 UTC.
 
-| Job                        | File that starts it                                | Starts on                                                                     | Runs when                                                             |
-| -------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Factory files in step      | `factory-review.yml`, and `factory.yml` for a push | Every pull request, and a push to the default branch                          | Always                                                                |
-| The automated review       | `factory-review.yml`                               | A pull request marked ready, and each push after                              | [`pr-review`](../configuration.md#pr-review) is set                   |
-| Dependabot's auto-merge    | `factory-review.yml`                               | Dependabot's pull requests                                                    | `.github/dependabot.yml` exists                                       |
-| The review's verdict       | `factory.yml`                                      | Pull request events, and each automated review                                | Always                                                                |
-| Who merges                 | `factory.yml`                                      | Pull request events                                                           | [`auto-merge.allow`](../configuration.md#auto-merge) is set           |
-| The board sync             | `factory.yml`                                      | The factory's commands, pull request events, and 07:00                        | [`tickets.board`](../configuration.md#tickets) is set                 |
-| The poller                 | `factory.yml`                                      | Every [`builds.poll-minutes`](../configuration.md#builds) minutes, or by hand | `builds.trigger` is `github-action`                                   |
-| A build                    | `factory.yml`                                      | The poller, `factory build N`, or by hand                                     | Always                                                                |
-| Answering your review      | `factory.yml`                                      | A review you submit on a pull request, or by hand                             | The review is by someone who can write to the repository              |
-| The conflict sweep         | `factory.yml`                                      | A push to the default branch, 09:00, or by hand                               | A pull request conflicts with the default branch                      |
-| Dependabot's pull requests | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                           | `.github/dependabot.yml` exists, and one of its pull requests is open |
-| Updates                    | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                           | Always                                                                |
+| Job                        | File that starts it                                | Starts on                                                                     | Runs when                                                                                                                                                            |
+| -------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Factory files in step      | `factory-review.yml`, and `factory.yml` for a push | Every pull request, and a push to the default branch                          | Always                                                                                                                                                               |
+| The automated review       | `factory-review.yml`                               | A pull request marked ready, and each push after                              | [`pr-review`](../configuration.md#pr-review) is set                                                                                                                  |
+| Dependabot's auto-merge    | `factory-review.yml`                               | Dependabot's pull requests                                                    | `.github/dependabot.yml` exists                                                                                                                                      |
+| The review's verdict       | `factory.yml`                                      | Pull request events, and each automated review                                | Always                                                                                                                                                               |
+| Requiring the verdict      | `factory.yml`                                      | A push to the default branch                                                  | `pr-review` is set                                                                                                                                                   |
+| Who merges                 | `factory.yml`                                      | Pull request events                                                           | [`auto-merge.allow`](../configuration.md#auto-merge) is set                                                                                                          |
+| The board sync             | `factory.yml`                                      | The factory's commands, pull request events, and 07:00                        | [`tickets.board`](../configuration.md#tickets) is set                                                                                                                |
+| The poller                 | `factory.yml`                                      | Every [`builds.poll-minutes`](../configuration.md#builds) minutes, or by hand | `builds.trigger` is `github-action`, unless a [preset](../presets.md) you follow is in a repository that runs the poller, as an organization's `factory-config` does |
+| A build                    | `factory.yml`                                      | The poller, `factory build N`, or by hand                                     | Always                                                                                                                                                               |
+| Answering your review      | `factory.yml`                                      | A review you submit on a pull request, or by hand                             | The review is by someone who can write to the repository                                                                                                             |
+| The conflict sweep         | `factory.yml`                                      | A push to the default branch, 09:00, or by hand                               | A pull request conflicts with the default branch                                                                                                                     |
+| Dependabot's pull requests | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                           | `.github/dependabot.yml` exists, and one of its pull requests is open                                                                                                |
+| Updates                    | `factory.yml`                                      | 01:00, 13:00, and 19:00, or by hand                                           | Always                                                                                                                                                               |
 
 What the less obvious ones do:
 
@@ -117,6 +146,24 @@ What the less obvious ones do:
   names the factory ([Dependency bots](#dependency-bots)).
 - **The review's verdict** posts the "Review verdict" status from the
   automated review's summary.
+- **Requiring the verdict** runs `factory enroll`, which makes "Review
+  verdict" required before a merge to your default branch, from the
+  first push after the setup's pull request merges. A rule made before
+  then would hold the setup's own pull request forever, since nothing
+  judges it yet. In an organization it sets the repository's
+  `software-factory` property to `on`, so the organization's rule covers
+  it. On your own account it makes the repository's ruleset, with your
+  build token. It prints the line for what it did, and nothing once the
+  verdict is required. It passes whatever it could do, and a line that
+  starts with `?` says who does the rest by hand:
+
+  ```text
+  ✓ Set software-factory to "on" for acme/web, so acme's rule requires "Review verdict" here.
+  ✓ Required "Review verdict" before a merge to main, as the rule "Software factory".
+  ? "Review verdict" is not required before a merge to main, and this run's token cannot require it. An admin of sam/api runs: factory init
+  ? Could not set software-factory to "on" for acme/web: 403 Resource not accessible by integration. An owner of acme sets it under the organization's Settings, Custom properties.
+  ```
+
 - **Who merges** labels a pull request `merge-automatic` or
   `merge-manual`, and turns auto-merge on for the first.
 - **Dependabot's pull requests** runs a session that moves each one
@@ -130,6 +177,20 @@ file's calling job: `review / Factory files in step` and
 `review / Claude review` from `factory-review.yml`, and
 `factory / Record the verdict` from `factory.yml`. "Review verdict" and
 "Who merges" are statuses, and keep those names.
+
+**An organization's poller is in a workflow file of its own, in one
+repository.** `factory init --org` writes
+`.github/workflows/factory-poller.yml` into the organization's
+`factory-config` repository, beside its preset. Like the two files
+above, it calls a workflow in the factory's own repository, `poller.yml`,
+at the version it names. It has two jobs: the poller, on the schedule
+[`builds.poll-minutes`](../configuration.md#builds) gives in the preset,
+which reads the organization's board once and starts the builds of every
+repository with a ticket in Ready
+([The poller](../builds.md#the-poller)), and, at 01:00 and by hand, an
+update job that opens a pull request there when a newer release of the
+factory is out. A repository that follows that preset gets no poller
+schedule in its own `factory.yml`.
 
 **Starting a job by hand.** The Actions tab, "Factory", "Run workflow".
 For a build, type `build` as the job and the ticket's key, such as `12`,
@@ -160,9 +221,11 @@ off shows as a skipped job, or as one that passes having done nothing.
   "The automated review is off", so a rule that requires the verdict
   never waits, and `factory pr state` and `factory pr watch` wait for no
   review ([Pull requests](../cli.md#pull-requests)).
-- **Builds in the cloud are off** while no build token is set. A job
-  that would run a session looks for work first, with the workflow's own
-  token, and only then for the build token and Claude's credential. With
+- **Builds in the cloud are off** while the run has neither a build
+  token nor the key of an organization's App. A job that would run a
+  session looks for work first, with the workflow's own token. Only then
+  does it look for a build token and for Claude's credential. In an
+  organization, the App's key counts as the build token. With
   work and no token, a run that a push, a schedule, or a review started
   says so and passes:
 
@@ -199,33 +262,67 @@ files, which passes each by name.
 
 ### Who a cloud session acts as
 
-**Which token a cloud session uses.** The access token is
-`FACTORY_BUILD_TOKEN`, or `FACTORY_BOARD_TOKEN` when that is not set. The
-workflow's own token is never used for a build, since GitHub starts no CI
-on a pull request that token opened. The token must be allowed to push a
-change under `.github/workflows/` (the `workflow` scope), or such a push is
-refused and the build stops there. The agent's token is
-`CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`; with both set, the
-first is used. `FACTORY_BUILD_MODEL`, a repository variable, chooses the
-model.
+A cloud session acts as one of two things, by whether the key of an
+organization's GitHub App reaches its run.
+[Where your tokens are kept](../credentials.md#on-github) says who
+stores what.
 
-**Who a build's commits name.** Their author is Claude,
+**When the App's key reaches the run, it acts as the organization's
+App.** That is every repository of an organization an owner has set up
+with `factory init --org`, where the secret `FACTORY_APP_PRIVATE_KEY`
+and the variable `FACTORY_APP_CLIENT_ID` both reach the run. Each job
+that needs more than the workflow's own token makes a token from the
+App, for the run's repository and the organization's
+[preset](../presets.md) repositories it follows, and uses it wherever a
+run on your own account uses the build, board, or auto-merge token. A token lasts an hour and a build may run longer, so a
+session's job signs the GitHub CLI and git in with one and makes a new
+one every 45 minutes, and one process of that job holds the App's key
+for as long as the job runs. A build's pull request and comments are the
+App's. Its commits name Claude as their author and the App's bot, such
+as `software-factory-for-acme[bot]`, as their committer, and are not
+signed, whatever `FACTORY_SIGNING_KEY` holds. The automated review and
+the "Review verdict" status keep the workflow's own token, so a build
+cannot pass its own review. When the App is not installed on the
+repository, the run fails with:
+
+```text
+The software factory's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations
+```
+
+**When no App's key reaches the run, it acts as the account that owns
+its access token.** That is a repository on your own account, and an
+organization's repository that the organization's secrets do not reach,
+where someone stored a token by hand. The access token is
+`FACTORY_BUILD_TOKEN`, or `FACTORY_BOARD_TOKEN` when that is not set.
+The workflow's own token is never used for a build,
+since GitHub starts no CI on a pull request that token opened. The token
+must be allowed to push a change under `.github/workflows/` (the
+`workflow` scope), or such a push is refused and the build stops there.
+
+**Who the commits of a build with an access token name.** Their author
+is Claude,
 `Claude <noreply@anthropic.com>`, which GitHub links to its `claude` user.
 Their committer is the token's owner, by the account's no-reply address,
-which is what lets that account's signing key show them as verified. When
-a pull request is squash merged, the commit on your default branch names
-the person who opened it as its author, and GitHub adds a
-`Co-authored-by: Claude` line for the build's commits.
-
-A team that wants its builds to act as an account of their own creates a
+which is what lets that account's signing key show them as verified. A
+team that wants its builds to act as an account of their own creates a
 GitHub account, gives it write access, and stores that account's token as
 `FACTORY_BUILD_TOKEN`. The build's pull requests, comments, and commits'
 committer are then that account's.
 
+**Either way,** the agent's token is `CLAUDE_CODE_OAUTH_TOKEN`, or
+`ANTHROPIC_API_KEY`; with both set, the first is used.
+`FACTORY_BUILD_MODEL`, a repository variable, chooses the model. When a
+pull request is squash merged, the commit on your default branch names
+the person who opened it as its author, and GitHub adds a
+`Co-authored-by: Claude` line for the build's commits.
+
 When a build cannot start, the poller's comment on the ticket reads "Could
 not start a build in GitHub Actions ... answered 403": give the token the
-scopes [Secrets](by-hand.md#secrets) names. A failed board sync arrives as
-an email from GitHub.
+scopes [Secrets](by-hand.md#secrets) names. An organization's poller
+posts no such comment for a repository its App is not installed on: its
+run in `factory-config` shows a warning that names the repository, and
+goes on to the next. A failed board sync arrives as an email from
+GitHub.
 
 ## The board
 
@@ -258,20 +355,22 @@ number, the last part of its address, is `tickets.board` in your settings.
 
 ## Hooks
 
-`sync` adds five hooks to `.claude/settings.json`. They run inside Claude
+`sync` adds six hooks to `.claude/settings.json`. They run inside Claude
 Code sessions in this repository, not in your own terminal. Each runs
 the `factory` command installed on the machine. On a machine without
-it, the hook before a shell command blocks the command, and it and the
-hook at a session's start say how to install it
+it, the hooks before a shell command and before a file is read block
+the call, and they and the hook at a session's start say how to install
+it
 ([Which version runs](../cli.md#which-version-runs)).
 
-| Hook                                                      | What it does                                                                                                                                                                     |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../configuration.md#commandsbefore-commit) commands before a commit |
-| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                               |
-| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                            |
-| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                         |
-| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                           |
+| Hook                                                      | What it does                                                                                                                                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../configuration.md#commandsbefore-commit) commands before a commit          |
+| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                                        |
+| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                                     |
+| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                                  |
+| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                                    |
+| Before a file is read, searched, or listed                | Refuses a call that opens the factory's credentials file on your machine, which only the factory's commands read ([The file on your machine](../credentials.md#the-file-on-your-machine)) |
 
 Claude Code protects `.claude/`, and an unattended run denies a write
 there that nothing approves. The fourth hook approves, only in a run the
@@ -385,9 +484,6 @@ factory.
   jobs through one line of the two files, not a line for each job.
 - **Every review event costs a minute of Actions,** including the
   factory's own replies, which start runs that find nothing to do.
-- **A token from a GitHub App is not supported** for a build. The run asks
-  GitHub who owns the token to name its commits' committer, and an App's
-  token has no user.
 - **The squash merge on your default branch is signed by GitHub,** whether
   or not the build's own commits were.
 - **Only part of the factory works inside a Claude cloud session,** such
@@ -402,8 +498,9 @@ factory.
   `factory build N` works, since it only asks GitHub to start a
   workflow.
 - **Untested against a real organization: a board one owns.** It is read
-  the same way as a person's. The token needs access to the
-  organization's projects, which an organization's settings can refuse a
-  classic token.
+  the same way as a person's, with the token made from the
+  organization's App, whose permissions include the organization's
+  Projects. A classic token stored by hand needs access to the
+  organization's projects, which an organization's settings can refuse.
 - **Untested: GitHub's built-in board automations,** such as moving a
   closed issue to Done. They may fight the board sync.
