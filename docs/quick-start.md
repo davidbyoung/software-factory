@@ -2,9 +2,10 @@
 
 For someone with a repository and a coding agent who has never used the
 factory. At the end you have a pull request built from one of your
-tickets. You run a few commands, say how your code is checked, write one
-ticket, and answer a question or two. It needs no board, no secrets, and
-nothing to host.
+tickets. You run a few commands, answer the questions `factory init`
+asks as it sets your repository up, which step 2 lists, write one
+ticket, and settle the decisions your coding agent asks you about it. It
+needs no board, no secrets, and nothing to host.
 
 A word you do not know is in the [glossary](glossary.md).
 
@@ -16,8 +17,9 @@ A word you do not know is in the [glossary](glossary.md).
 - A supported coding agent, signed in. `factory init` stops without one.
 - Node 22.18 or later.
 
-[What you need](github/setup.md#what-you-need) names the supported tools
-and how to check each. Your repository can be written in any language:
+GitHub and Claude Code are the supported pair today, and
+[What you need](github/setup.md#what-you-need) says how to check each.
+Your repository can be written in any language:
 [A repository that is not JavaScript](existing-repo.md#a-repository-that-is-not-javascript)
 says what that takes.
 
@@ -96,16 +98,7 @@ runs the command you gave, commits what it wrote on a new branch,
 ✓ npm test passes here.
 ✓ Opened your-name/your-repo#1, "Set up the software factory".
 Merge it to finish. Nothing else is left to do.
-
-After it merges:
-  1. Come back to main and bring it up to date:
-       git switch main && git pull
-  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.
-  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.
 ```
-
-Under those lines it prints the address of step 4 of this page, at the
-version you installed.
 
 When the command fails, init says so and commits nothing. Fix what
 failed, or change the command in `.claude/factory.yaml`, and run
@@ -122,12 +115,20 @@ left off. `factory doctor` runs them again at any time, and
 
 ## 3. Merge the setup
 
-Merge the pull request `init` opened, as for any change. Then do the
-first two steps `init` printed under "After it merges:". Your checkout
-is left on the branch `set-up-factory`, so the first brings you back to
-your default branch, which it names, and up to date. The second starts a
-new session of your coding agent, which loads the factory from the files
-now in your repository.
+Merge the pull request `init` opened, as for any change. Under the
+pull request's line, `init` printed what comes next:
+
+```text
+After it merges:
+  1. Come back to main and bring it up to date:
+       git switch main && git pull
+  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.
+  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.
+```
+
+Do the first two now. Your checkout is left on the branch
+`set-up-factory`, and the first step names your own default branch. The
+third is steps 5 and 6 of this page, once you have a ticket.
 
 **It worked when** typing `/factory` in the new session lists
 `factory-refine` and `factory-build`.

@@ -5,11 +5,11 @@ Issues for tickets, a GitHub Project for the board, GitHub Actions for
 [builds](../glossary.md) in the cloud, and Claude Code as the coding
 agent. Start where this table sends you:
 
-| Who you are                                             | Where to start                                                                            | What you have at the end                                                   |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| One person, with repositories on your own account       | [Run `factory init`](#run-factory-init), then [On your own account](#on-your-own-account) | A pull request that sets your repository up, with the parts you chose      |
-| A developer in an organization that an owner has set up | [Run `factory init`](#run-factory-init), then [In an organization](#in-an-organization)   | The same pull request, with no token pasted                                |
-| An owner of an organization that is not set up yet      | [Set an organization up, once](#set-an-organization-up-once)                              | An organization whose developers each set a repository up with one command |
+| Who you are                                             | Where to start                                                                                                      | What you have at the end                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| One person, with repositories on your own account       | [Run `factory init`](#run-factory-init), then [On your own account](#on-your-own-account)                           | A pull request that sets your repository up, with the parts you chose      |
+| A developer in an organization that an owner has set up | [Run `factory init`](#run-factory-init), then [In an organization](#in-an-organization)                             | The same pull request, with no token pasted                                |
+| An owner of an organization that is not set up yet      | [Set an organization up, once](#set-an-organization-up-once). You need no repository, and skip "Run `factory init`" | An organization whose developers each set a repository up with one command |
 
 ## What you need
 
@@ -22,7 +22,9 @@ agent. Start where this table sends you:
 | The `factory` command               | `factory`, which prints its commands | [Install it](../quick-start.md#1-install), once on your machine         |
 
 Nothing of the factory's is installed in a repository. Without Claude
-Code, `factory init` stops and changes nothing.
+Code, `factory init` stops and changes nothing. An owner setting an
+organization up needs every row but the first, and goes straight to
+[Set an organization up, once](#set-an-organization-up-once).
 
 ## Run `factory init`
 
@@ -55,37 +57,36 @@ decides. Each is optional. With none, you refine and build tickets in a
 [session](../glossary.md) on your machine, as the
 [quick start](../quick-start.md) does:
 
-| Part                                            | What you get                                                                                                                                            |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| An automated review of every pull request       | Claude reads each pull request once it is ready, comments, and gives a verdict. It posts as `github-actions`, so there is no app of Claude's to install |
-| A board                                         | A GitHub Project showing each ticket's state, its session, and its cost                                                                                 |
-| Builds in the cloud                             | A ticket builds in GitHub Actions, with no session open on your machine                                                                                 |
-| Builds that start when you move a card to Ready | Moving a ticket to Ready on the board builds it                                                                                                         |
-| Pull requests that merge themselves             | A pull request that touches only files you listed merges once its checks pass                                                                           |
-| Signed commits from cloud builds                | A build's commits show as "Verified". Not offered in an organization's repository                                                                       |
+| Part                                            | What you get                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An automated review of every pull request       | Claude reads each pull request once it is ready, comments, and gives a verdict, the "Review verdict" status. From the first workflow run after the setup's pull request merges, that status is required, so a pull request cannot merge until the review passes it. It posts as `github-actions`, so there is no app of Claude's to install |
+| A board                                         | A GitHub Project showing each ticket's state, its session, and its cost                                                                                                                                                                                                                                                                     |
+| Builds in the cloud                             | A ticket builds in GitHub Actions, with no session open on your machine                                                                                                                                                                                                                                                                     |
+| Builds that start when you move a card to Ready | Moving a ticket to Ready on the board builds it                                                                                                                                                                                                                                                                                             |
+| Pull requests that merge themselves             | A pull request that touches only files you listed merges once its checks pass                                                                                                                                                                                                                                                               |
+| Signed commits from cloud builds                | A build's commits show as "Verified". Not offered in an organization's repository, where a build acts as the organization's App ([Where your tokens are kept](../credentials.md#on-github))                                                                                                                                                 |
+
+On a first run, the first three start checked, where they are offered.
 
 It asks these, and skips any that a preset or your settings already
 answer:
 
-| Question                                         | When it is asked                                                                                     | What you do                                                                                                                                                                             |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What to name the branch a build pushes           | Always                                                                                               | Press Enter for `{ticket}`, so ticket 12 is built on a branch named `12`, or type your team's pattern, such as `feature/{user}/{ticket}` ([`code-host`](../configuration.md#code-host)) |
-| Which spec tool you use                          | Always                                                                                               | Choose None, unless you want OpenSpec to keep a folder in your repository that describes what your project does ([`specs`](../configuration.md#specs))                                  |
-| Which board                                      | With "A board"                                                                                       | Choose a new one, made with the factory's columns, or a Project you already have                                                                                                        |
-| Which files may merge without you                | With "Pull requests that merge themselves"                                                           | Type their patterns, such as `docs/**`. Start with a short list                                                                                                                         |
-| Where [the poller](../builds.md#the-poller) runs | With "Builds that start when you move a card to Ready"                                               | Choose a schedule on GitHub Actions or a server you host. [Builds in the cloud](../builds.md) compares them                                                                             |
-| Which command checks a change                    | Always                                                                                               | Type it, such as `npm test`. A build cannot finish without one ([`commands.gate`](../configuration.md#commandsgate))                                                                    |
-| The token `claude setup-token` prints            | On your own account, with "An automated review of every pull request" or "Builds in the cloud"       | Init runs the command for you. Follow what it says, then paste the token it prints, as it is: init joins a token the terminal wrapped across lines                                      |
-| A GitHub access token                            | On your own account, with "A board", "Builds in the cloud", or "Pull requests that merge themselves" | Init opens GitHub's page with the right scopes checked. Choose an expiry, generate the token, and paste it                                                                              |
-| The token your `.npmrc` reads                    | When `.npmrc` reads one ([Private npm packages](#private-npm-packages))                              | Paste a token that can only read from your registry                                                                                                                                     |
+| Question                                         | When it is asked                                                        | What you do                                                                                                                                                                             |
+| ------------------------------------------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What to name the branch a build pushes           | Always                                                                  | Press Enter for `{ticket}`, so ticket 12 is built on a branch named `12`, or type your team's pattern, such as `feature/{user}/{ticket}` ([`code-host`](../configuration.md#code-host)) |
+| Which spec tool you use                          | Always                                                                  | Choose None, unless you want OpenSpec to keep a folder in your repository that describes what your project does ([`specs`](../configuration.md#specs))                                  |
+| Which board                                      | With "A board"                                                          | Choose a new one, made with the factory's columns, or a Project you already have                                                                                                        |
+| Which files may merge without you                | With "Pull requests that merge themselves"                              | Type their patterns, such as `docs/**`. Start with a short list                                                                                                                         |
+| Where [the poller](../builds.md#the-poller) runs | With "Builds that start when you move a card to Ready"                  | Choose a schedule on GitHub Actions or a server you host. [Builds in the cloud](../builds.md) compares them                                                                             |
+| Which command checks a change                    | Always                                                                  | Type it, such as `npm test`. A build cannot finish without one ([`commands.gate`](../configuration.md#commandsgate))                                                                    |
+| The token your `.npmrc` reads                    | When `.npmrc` reads one ([Private npm packages](#private-npm-packages)) | Paste a token that can only read from your registry                                                                                                                                     |
 
 Before it changes anything, it lists what it will do and asks "Go
 ahead?". Type `y`: Enter alone answers no, and nothing changes. Then it
 writes the settings and the factory's files
-([What it changes](../removing.md) lists them), runs the commands that
-check a change, asks for each token, commits what it wrote on a new
-branch, `set-up-factory`, pushes it, and opens the pull request. When a
-check fails, it commits nothing.
+([What it changes](../removing.md) lists them), runs the command you
+gave to check a change, and opens a pull request from a new branch,
+`set-up-factory`. When that command fails, it commits nothing.
 
 ```text
 ✓ npm run check passes here.
@@ -103,10 +104,7 @@ The steps in full:
 
 Merge the pull request, then do what those lines say: your checkout is
 left on `set-up-factory`, and the first step names your own default
-branch. With the review on, the first workflow run after the setup pull
-request merges requires "Review verdict", the status the automated
-review's verdict sets on a pull request. From then on, a pull request
-cannot merge until the review passes it.
+branch.
 
 **It worked when** init printed `✓ Opened` with the pull request's
 number, and, after the merge, `factory doctor` shows ✓ on every line, or
@@ -114,10 +112,18 @@ number, and, after the merge, `factory doctor` shows ✓ on every line, or
 
 ### On your own account
 
-The [steps above](#run-factory-init) ask you for two tokens, when a part
-you chose reads one: the GitHub access token and the Claude token. Each
-is typed into a masked prompt, stored in the repository's secrets, and
-kept on your machine, so your next repository asks for neither
+After "Go ahead?", the [steps above](#run-factory-init) also ask you
+for up to two tokens, each when a part you chose reads it, plus the
+token your `.npmrc` reads when it reads one:
+
+| Token                                 | Asked for when you chose                                                   | What you do                                                                                                                                        |
+| ------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The token `claude setup-token` prints | "An automated review of every pull request" or "Builds in the cloud"       | Init runs the command for you. Follow what it says, then paste the token it prints, as it is: init joins a token the terminal wrapped across lines |
+| A GitHub access token                 | "A board", "Builds in the cloud", or "Pull requests that merge themselves" | Init opens GitHub's page with the right scopes checked. Choose an expiry, generate the token, and paste it                                         |
+
+Each of the two is typed into a masked prompt, stored in the
+repository's secrets, and kept on your machine, so your next repository
+asks for neither
 ([Where your tokens are kept](../credentials.md#on-github)). Leave a
 prompt empty to skip it, and run `factory init` again when you have the
 token. To share settings between your repositories, put a preset in a
@@ -134,8 +140,9 @@ It belongs to sam. Stored for sam/api, and on this machine for your next reposit
 
 ### In an organization
 
-The [steps above](#run-factory-init) ask you for no token. Under
-"Found", the `Organization` row reads one of three ways:
+The [steps above](#run-factory-init) ask you for no token. In the list
+init prints first, headed `Found`, the `Organization` row reads one of
+three ways:
 
 ```text
   Organization     acme, set up: its app's key and its Claude token are stored
@@ -155,10 +162,12 @@ The [steps above](#run-factory-init) ask you for no token. Under
   repository's secrets by hand, as [Secrets](by-hand.md#secrets) says.
   Then run `factory init` again.
 
-**It worked when** the row is the first, and your first build in the
-cloud opens its pull request. If that build fails with the line below,
-the organization's App is not installed on your repository, and the page
-it names is where an owner of the organization adds it:
+**It worked when** the row is the first, and, once the setup's pull
+request has merged, `factory doctor` shows ✓ on every line, or `-` for a
+part that is off. Your first build in the cloud then opens its pull
+request. If that build fails with the line below, the organization's App
+is not installed on your repository, and the page it names is where an
+owner of the organization adds it:
 
 ```text
 The software factory's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations
@@ -168,15 +177,14 @@ The software factory's app for acme is not installed on acme/web. An owner of ac
 
 For an owner of the organization, with the GitHub CLI signed in, Claude
 Code, and the `factory` command ([What you need](#what-you-need)). You
-need no repository. Give the organization's address, from any folder:
+need no repository. The command needs three permissions for the GitHub
+CLI that a plain sign-in lacks, `admin:org`, `project`, and `workflow`.
+When one is missing, its first question is whether to open your browser
+so you can grant it. Give the organization's address, from any folder:
 
 ```bash
 factory init --org https://github.com/acme
 ```
-
-When the GitHub CLI's sign-in lacks a permission the command needs,
-which are `admin:org`, `project`, and `workflow`, it first asks to open
-your browser so you can grant it.
 
 It asks which board to use: a new one, made with the factory's columns,
 or one the organization already has. For a board you already have, it
@@ -274,9 +282,8 @@ there if the board's columns change.
 It does only what is missing, and asks whether to replace the Claude
 token, with the words below. Answer yes only if the token has expired
 or been revoked. Where the App is registered and not installed yet, it
-prints only the step that installs it, with the address to open.
-**It worked when** it prints `✓ acme is set up.`, or
-`✓ acme is set up. Nothing to do.` when nothing was missing.
+prints only the step that installs it, with the address to open. With
+nothing missing, it ends `✓ acme is set up. Nothing to do.`
 
 ```text
 ? CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.
@@ -284,7 +291,7 @@ prints only the step that installs it, with the address to open.
 
 Three things stay by hand, on GitHub:
 
-| When this happens                                              | What you do                                                                                                                                                                                                                                                            |
+| What has happened                                              | What you do                                                                                                                                                                                                                                                            |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The App's key has to be replaced                               | Follow [Replacing the App's key](../credentials.md#replacing-the-apps-key)                                                                                                                                                                                             |
 | A run fails because the App is not installed on its repository | The failed run prints the address of the organization's installations page. Add the repository there. A ticket moved to Ready in such a repository starts no build and gets no comment: the poller's run in `factory-config` shows a warning that names the repository |
@@ -292,7 +299,8 @@ Three things stay by hand, on GitHub:
 
 ### On GitHub's Free plan
 
-The `Plan` row under "Found" says when the organization is on it. Then
+The `Plan` row, in the list the command prints first, headed `Found`,
+says when the organization is on it. Then
 `factory-config` is public, so anyone can read the shared settings in
 it. What follows differs for the organization's public and private
 repositories:
@@ -327,7 +335,7 @@ When nothing is left, `init` prints
 `Merge it to finish. Nothing else is left to do.` after the pull
 request's line. Otherwise it says what is left:
 
-| When this happens                                                                  | Do this                                                                                                                                                                                                                                                                                                                                                  |
+| What happened during setup                                                         | What you do                                                                                                                                                                                                                                                                                                                                              |
 | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | You left the gate question empty                                                   | Add the commands that check a change, such as your tests and linter, under `commands.gate`. A build cannot finish without them                                                                                                                                                                                                                           |
 | "Left to do" says an admin runs `factory init` once the pull request merges        | Merge it, then run `factory init` again, as an admin of the repository, to require "Review verdict". No workflow run could: the organization has no organization-wide rule ([On GitHub's Free plan](#on-githubs-free-plan)), or your own repository has no GitHub token stored, or one that belongs to another account than the one you are signed in as |
@@ -395,8 +403,14 @@ to your default branch, here `main`:
 
 ```text
 ✓ "Review verdict" is required before a merge to main
+- "Review verdict" is not required yet: the rule is made once the setup's pull request merges
 ✗ "Review verdict" is not required before a merge to main. Run factory init
+✗ "Review verdict" is not required before a merge to main. The next push to main sets it, or an owner of acme sets software-factory to "on" for this repository
 ```
+
+The second is what you see before the setup's pull request has merged,
+and is no fault. The last is an organization's repository whose
+`software-factory` property is not "on" yet.
 
 GitHub never lets a secret be read back, so a wrong one shows when the
 first run that needs it fails, naming it.

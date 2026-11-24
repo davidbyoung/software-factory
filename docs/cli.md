@@ -91,6 +91,9 @@ check fails. GitHub never lets a secret be read back, so `doctor` checks
 only that each secret your parts read is set. With the automated review
 on, it checks that "Review verdict" is required before a merge to your
 default branch ([Changing it later](github/setup.md#changing-it-later)).
+Before the setup's pull request has merged, that line reads
+`- "Review verdict" is not required yet: the rule is made once the setup's pull request merges`,
+and is no failure.
 In a private repository of an organization on GitHub's Free plan, it
 says instead that the organization's secrets are not shared with the
 repository, and that the verdict cannot be required there

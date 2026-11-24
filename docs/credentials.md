@@ -16,9 +16,11 @@ Your sessions use two logins you already have: the GitHub CLI's, from
 `gh auth login`, and Claude Code's. The workflows, which run in GitHub
 Actions, read tokens, and which ones depends on who owns the repository.
 
-- **In an organization, the workflows make a token for each run** from
-  the organization's GitHub App. An owner stored four things for the
-  organization once, when they
+- **In an organization, nobody on the team handles a token.** A
+  teammate joining a repository needs the two logins, and the `factory`
+  command [installed](quick-start.md#1-install) once on their machine.
+  The workflows make a token for each run from the organization's GitHub
+  App. An owner stored four things for the organization once, when they
   [set it up](github/setup.md#set-an-organization-up-once):
   - the App's key, as the secret `FACTORY_APP_PRIVATE_KEY`;
   - its client ID, as the variable `FACTORY_APP_CLIENT_ID`;
@@ -28,32 +30,18 @@ Actions, read tokens, and which ones depends on who owns the repository.
   - what pays for sessions, as the secret `CLAUDE_CODE_OAUTH_TOKEN`, or
     `ANTHROPIC_API_KEY` for an API key.
 
-  A run's token lasts an hour, and reaches only the run's
-  repository and the organization's [preset](presets.md) repositories it
-  follows. A build can run for longer than an hour, so its job makes a
-  new token every 45 minutes, and one process of that job holds the
-  App's key for as long as the job runs. The one exception to a token's
-  reach is the organization's poller, whose token reaches every
-  repository the App is installed on, since it starts builds in each. A
-  teammate joining a repository needs the two logins,
-  and the `factory` command [installed](quick-start.md#1-install) once
-  on their machine. Nobody hands them a token, and they keep none.
-
-- **On your own account, the workflows read the repository's secrets.**
-  GitHub requires one access token there, since a board a person owns
-  refuses an App's token. `factory init` stores that GitHub access
-  token, with your Claude token, in each repository's secrets, and also
-  in `~/.config/software-factory/credentials.yaml` on your machine,
-  which only you can read
-  ([The file on your machine](#the-file-on-your-machine)). Only
-  `factory init` reads them there, to store them in your next repository
-  without asking, and no other command does. When GitHub refuses the GitHub
-  access token on your machine, or it lacks a scope a part needs, init
-  says so and asks for a new one. A second person joining your
-  repository needs the two logins and the `factory` command, and no
-  token, since the tokens are in the repository's secrets.
-  [Secrets](github/by-hand.md#secrets) lists each secret, and which
-  GitHub account it acts as.
+- **On your own account, you paste two tokens once, and they are kept in
+  two places.** One is a GitHub access token, which GitHub requires
+  there, since a board a person owns refuses an App's token. The other
+  is your Claude token. `factory init` stores both in each repository's
+  secrets, which is where the workflows read them. It also keeps both in
+  a file on your machine, which nothing reads but `factory init` itself,
+  to store them in your next repository without asking
+  ([The file on your machine](#the-file-on-your-machine)). A second
+  person joining your repository needs the two logins and the `factory`
+  command, and no token, since the workflows read the repository's
+  secrets. [Secrets](github/by-hand.md#secrets) lists each secret, and
+  which GitHub account it acts as.
 
 **Who a run acts as, in an organization.** A build acts as the App: its
 pull request and comments are from "Software Factory for acme", and its
@@ -83,11 +71,22 @@ three ways to limit that, each by hand:
 - **Replace the key,** as [Replacing the App's key](#replacing-the-apps-key)
   shows. A key does not expire by itself.
 
+A run itself holds less than the key. Its token lasts an hour, and
+reaches only the run's repository and the organization's
+[preset](presets.md) repositories it follows. The one exception is the
+organization's poller, whose token reaches every repository the App is
+installed on, since it starts builds in each. A build can run for
+longer than an hour, so its job makes a new token every 45 minutes, and
+one process of that job holds the App's key for as long as the job
+runs.
+
 To check any of this, run `factory doctor`. **It worked when** it shows
 ✓ on every line, or - for a part you left off. It checks that you are
 signed in, and that each secret your parts read is set. It does not
 check the GitHub access token and the Claude token that `factory init`
-keeps on your machine.
+keeps on your machine. When GitHub refuses that access token, or it
+lacks a scope a part needs, `factory init` says so the next time it
+would store it, and asks for a new one.
 
 ### Replacing the App's key
 
@@ -121,36 +120,24 @@ key fails the run at that step.
 `~/.config/software-factory/credentials.yaml`, or under
 `$XDG_CONFIG_HOME` when that is set. Only you can read it, and it is
 outside every repository, so it is never committed. One file serves every
-repository. It holds two kinds of token:
+repository.
 
-- **On your own GitHub account,** the GitHub access token and the Claude
-  token that `factory init` stored in your repository's secrets, filed
-  under your account, here `sam`:
+On your own GitHub account, it holds the GitHub access token and the
+Claude token that `factory init` stored in your repository's secrets,
+filed under your account, here `sam`:
 
-  ```yaml
-  github:
-    github.com/sam:
-      token: ghp_...
-  claude-code:
-    github.com/sam:
-      CLAUDE_CODE_OAUTH_TOKEN: sk-ant-oat01-...
-  ```
+```yaml
+github:
+  github.com/sam:
+    token: ghp_...
+claude-code:
+  github.com/sam:
+    CLAUDE_CODE_OAUTH_TOKEN: sk-ant-oat01-...
+```
 
-  Only `factory init` reads these two, and from the file alone: a
-  variable of the same name in your environment does not stand in for
-  either. A repository an organization owns keeps neither here.
-
-- **For a ticket system with a token of its own**
-  ([planned](developing.md#what-is-built)), your token for it,
-  which every factory command reads from here, so a second repository
-  on the same Jira site asks for nothing. `FACTORY_JIRA_EMAIL` and
-  `FACTORY_JIRA_TOKEN`, set in the environment, take priority over the
-  file. Set them only where a platform keeps them as secrets and passes
-  them in, as [In a session on another machine](#in-a-session-on-another-machine)
-  says. Set in your shell's profile, every program you start would
-  inherit them.
-
-Whichever it holds:
+They are read from the file alone: a variable of the same name in your
+environment does not stand in for either. A repository an organization
+owns keeps neither here.
 
 - **The factory refuses a file others can read,** as `ssh` refuses a
   private key, and prints the `chmod` that fixes it.
@@ -185,6 +172,17 @@ For Jira the token is two values, stored under two names:
 `FACTORY_JIRA_TOKEN`, an API token. The site's address is in
 `.claude/factory.yaml`, as
 `tickets.site`, so it is not one of them.
+
+On your machine, the token goes in
+[the file](#the-file-on-your-machine) that holds a GitHub account's
+tokens, and every factory command reads it from there, so a second
+repository on the same Jira site asks for nothing. `FACTORY_JIRA_EMAIL`
+and `FACTORY_JIRA_TOKEN`, set in the environment, take priority over the
+file. Set them only where a platform keeps them as secrets and passes
+them in, as
+[In a session on another machine](#in-a-session-on-another-machine)
+says. Set in your shell's profile, every program you start would inherit
+them.
 
 ### Joining a repository that is already set up
 
