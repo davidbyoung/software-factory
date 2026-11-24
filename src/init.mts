@@ -107,7 +107,12 @@ import {
   type FetchDeps,
 } from "./preset-fetch.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
-import { FACTORY_EVENTS, FACTORY_FILE, HELD_EVENT } from "./workflow-files.mts";
+import {
+  FACTORY_EVENTS,
+  FACTORY_FILE,
+  FACTORY_REPOSITORY,
+  HELD_EVENT,
+} from "./workflow-files.mts";
 import {
   RULE,
   type Check,
@@ -138,6 +143,7 @@ import {
   pasted,
   terminalAsk,
   type Ask,
+  docsPage,
 } from "./init-shared.mts";
 
 export type { Ask };
@@ -826,6 +832,30 @@ export async function openPull(
   }
   d.out(`✓ Opened ${o.repository}#${number}, "${o.title}".`);
   return { state: "opened", number };
+}
+
+/** What a person does once the pull request merges: after a first setup,
+ * each step to a first ticket, and after a later one, only bringing the
+ * default branch up to date. */
+export function afterMerge(
+  branch: string,
+  first: boolean,
+  version: string,
+): string[] {
+  const update = `git switch ${branch} && git pull`;
+  if (!first)
+    return [
+      `After it merges, come back to ${branch} and bring it up to date: ${update}`,
+    ];
+  return [
+    "After it merges:",
+    `  1. Come back to ${branch} and bring it up to date:`,
+    `       ${update}`,
+    "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
+    "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
+    "The steps in full:",
+    `     ${docsPage(version, "quick-start.md#4-open-a-ticket")}`,
+  ];
 }
 
 /** An organization's setup as one of its repositories sees it: whether the
@@ -2165,6 +2195,10 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     );
 
   // The pull request, and what is left for you.
+  const title =
+    d.git(["cat-file", "-e", `${checkout.sha}:${SETTINGS_FILE}`]).status === 0
+      ? CHANGE
+      : SET_UP;
   if (afterGate !== printed) gap();
   if (deletable.length)
     d.out(`You can now delete these secrets: ${deletable.join(", ")}`);
@@ -2184,11 +2218,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
                 : []),
             ]),
           ],
-          title:
-            d.git(["cat-file", "-e", `${checkout.sha}:${SETTINGS_FILE}`])
-              .status === 0
-              ? CHANGE
-              : SET_UP,
+          title,
           body: ["```text", ...planned, "```", ""].join("\n"),
         })
       : null;
@@ -2241,6 +2271,11 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     );
   else if (left.length) d.out("Left to do:");
   left.forEach((step, i) => d.out(`  ${i + 1}. ${step}`));
+  if (pull?.state === "opened") {
+    d.out("");
+    for (const l of afterMerge(base, title === SET_UP, d.packageVersion))
+      d.out(l);
+  }
 
   d.out("");
   d.out("Checks");

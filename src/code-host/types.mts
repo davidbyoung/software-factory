@@ -352,13 +352,20 @@ export type Organization = {
    * sends in a browser. `open` is given the page to open, `pasted` reads
    * an address typed in place of the browser's return, again when the
    * one before was refused, and `keep` is handed the app the moment the
-   * code host gives it. The browser is then sent on to install it. */
+   * code host gives it. The browser is then sent on to `installPage`,
+   * through `open` when it did not come back itself. */
   registerApp(o: {
     name: string;
     open(page: string): void;
     pasted(signal: AbortSignal, again: boolean): Promise<string>;
     keep(app: NewApp): Promise<void>;
-  }): Promise<Omit<NewApp, "key">>;
+  }): Promise<Omit<NewApp, "key"> & { installPage: string }>;
+  /** The organization's app with that client ID, found with no
+   * installation to go by: its name and the page that installs it. Null
+   * when the code host cannot find it. */
+  registeredApp(
+    clientId: string,
+  ): Promise<{ name: string; installPage: string } | null>;
   /** The installation of the app with that client ID, or null. */
   installation(clientId: string): Promise<Installation | null>;
   /** The same, looked for until it shows: null when it never does. */
@@ -372,6 +379,9 @@ export type Organization = {
   ): Promise<{ count: number; covered: boolean }>;
   /** The page that lists the organization's apps. */
   appsPage(): string;
+  /** The page of a file on the default branch of one of the
+   * organization's repositories. */
+  filePage(repository: string, path: string): string;
 };
 
 /** A code host before any repository is named: whose addresses are its

@@ -322,6 +322,62 @@ describe("registering the app", () => {
   });
 });
 
+describe("registering the app, on its real listener", () => {
+  /** A registration that listens on 127.0.0.1, with nothing pasted, and
+   * the listener's address once it has opened its page. */
+  async function listening(routes: [RegExp, unknown, number?][]) {
+    const opened: string[] = [];
+    const kept: string[] = [];
+    const result = register({
+      organization: "acme",
+      name: "Software Factory for acme",
+      state: STATE,
+      listen: listenLocally,
+      fetch: github(routes).fetch,
+      open: (page) => opened.push(page),
+      pasted: (signal) =>
+        new Promise((_, reject) =>
+          signal.addEventListener("abort", () => reject(new Error("stopped"))),
+        ),
+      keep: async (app) => {
+        kept.push(app.clientId);
+      },
+      installPage: () => INSTALL,
+    });
+    // A refusal is read by the test that expects one.
+    result.catch(() => {});
+    await expect.poll(() => opened.length).toBe(1);
+    return { origin: opened[0]!.replace(/\/$/, ""), kept, result };
+  }
+
+  it("stays up across a browser's requests, answers GitHub's return with the install page, then closes", async () => {
+    const r = await listening([[/conversions$/, CONVERTED]]);
+    expect((await fetch(`${r.origin}/`)).status).toBe(200);
+    expect((await fetch(`${r.origin}/favicon.ico`)).status).toBe(404);
+    expect((await fetch(`${r.origin}/`)).status).toBe(200);
+    const back = await fetch(`${r.origin}/registered?code=c1&state=${STATE}`, {
+      redirect: "manual",
+    });
+    expect(back.status).toBe(302);
+    expect(back.headers.get("location")).toBe(INSTALL);
+    expect((await r.result).clientId).toBe("Iv23client");
+    expect(r.kept).toEqual(["Iv23client"]);
+    await expect(fetch(`${r.origin}/`)).rejects.toThrow();
+  });
+
+  it("answers GitHub's return with a page that says so when the setup could not finish", async () => {
+    const r = await listening([
+      [/conversions$/, { message: "Not Found" }, 404],
+    ]);
+    const back = await fetch(`${r.origin}/registered?code=c1&state=${STATE}`);
+    expect(back.status).toBe(500);
+    expect(await back.text()).toBe(
+      "The setup could not finish. The terminal says why.",
+    );
+    await expect(r.result).rejects.toThrow("GitHub refused the code");
+  });
+});
+
 describe("acting as the app", () => {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,

@@ -92,7 +92,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Waiting for the install
 
 - **WHEN** `factory init --org ADDRESS` waits for the App's installation
-- **THEN** It looks for the installation every 3 seconds, for up to 10 minutes, then fails as line 15 says with `✗ Could not see the app installed after 10 minutes.` When the install is done, it prints `✓ Registered the app and installed it on N repositories.`, with the count GitHub gives for the installation. An install that leaves out `factory-config` gets the two lines "before it asks" shows, and exit 1.
+- **THEN** It looks for the installation every 3 seconds, for up to 10 minutes, then fails as line 15 says with `✗ Could not see the app installed after 10 minutes.` When the install is done, it prints `✓ Installed the app on N repositories.`, with the count GitHub gives for the installation. An install that leaves out `factory-config` gets the two lines "before it asks" shows, and exit 1.
 
 ### Requirement: The coding agent's credential
 
@@ -119,7 +119,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: The last line
 
 - **WHEN** `factory init --org ADDRESS` has done every step
-- **THEN** It ends `A developer sets a repository up with: factory init`, and exits 0.
+- **THEN** It ends `✓ ORG is set up.`, then the steps a developer takes in each repository, with a third for the repository's admin where no organization-wide rule was made, then the addresses of the preset and of the docs' steps, and exits 0.
 
 ### Requirement: Run again
 

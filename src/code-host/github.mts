@@ -938,6 +938,10 @@ const appSlug = (name: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+/** The page that installs an app on the account with that ID. */
+const installPage = (slug: string, account: number) =>
+  `${SITE}/apps/${slug}/installations/new/permissions?suggested_target_id=${account}`;
+
 const systemClock: Clock = {
   now: () => Date.now(),
   sleep: (ms) => new Promise((done) => setTimeout(done, ms)),
@@ -1170,6 +1174,22 @@ export function githubOrganization(o: {
     },
 
     appName: () => appName(o.name),
+    // An app registered under another name is not found: nothing lists
+    // an organization's apps to the signed-in account.
+    async registeredApp(clientId) {
+      const slug = appSlug(appName(o.name).name);
+      const app = await t
+        .rest<{
+          name: string;
+          client_id?: string;
+          owner?: { login: string; id: number } | null;
+        }>("GET", `apps/${slug}`)
+        .catch(() => null);
+      if (app?.owner?.login.toLowerCase() !== o.name.toLowerCase()) return null;
+      if (app.client_id !== undefined && app.client_id !== clientId)
+        return null;
+      return { name: app.name, installPage: installPage(slug, app.owner.id) };
+    },
     async appNamed(name) {
       const app = await absent(
         t.rest<{ owner?: { login: string } | null }>(
@@ -1181,7 +1201,7 @@ export function githubOrganization(o: {
     },
     async registerApp(app) {
       const { id } = await t.rest<{ id: number }>("GET", ORG);
-      return register({
+      const made = await register({
         organization: o.name,
         name: app.name,
         state: (o.state ?? (() => randomBytes(16).toString("hex")))(),
@@ -1190,9 +1210,9 @@ export function githubOrganization(o: {
         open: app.open,
         pasted: app.pasted,
         keep: app.keep,
-        installPage: ({ slug }) =>
-          `${SITE}/apps/${slug}/installations/new/permissions?suggested_target_id=${id}`,
+        installPage: ({ slug }) => installPage(slug, id),
       });
+      return { ...made, installPage: installPage(made.slug, id) };
     },
     installation,
     awaitInstallation: (clientId) =>
@@ -1206,5 +1226,7 @@ export function githubOrganization(o: {
         repository,
       }),
     appsPage: () => `${SITE}/organizations/${o.name}/settings/apps`,
+    filePage: (repository, path) =>
+      `${SITE}/${o.name}/${repository}/blob/HEAD/${path}`,
   };
 }

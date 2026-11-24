@@ -2,12 +2,17 @@
 // terminal, read a secret or a credential until it is taken or left empty,
 // and give a board the factory's columns and fields.
 import { spawn, spawnSync } from "node:child_process";
+import { accessSync, constants, statSync } from "node:fs";
+import { delimiter, join } from "node:path";
+import { styleText } from "node:util";
+import { organizationHosts } from "./code-host/index.mts";
 import { columnsOf, fieldNamesOf, type Settings } from "./config.mts";
 import { refusalReason } from "./lib/credentials.mts";
 import { DEFAULT_COLUMNS } from "./lib/work-status.mts";
 import type { CredentialStep, SecretStep } from "./setup.mts";
 import { statusOf } from "./tickets/transport.mts";
 import type { BoardOps, NewField } from "./tickets/types.mts";
+import { FACTORY_REPOSITORY } from "./workflow-files.mts";
 
 /** The questions init asks. Each is answered at the terminal, and in tests
  * from a script. */
@@ -175,6 +180,19 @@ export async function giveBoard(
     );
 }
 
+/** A page of the factory's own docs as the installed version has it: at
+ * the release's tag, or on `main` for a version that is no release. */
+export function docsPage(version: string, page: string): string {
+  const [owner, name] = FACTORY_REPOSITORY.split("/") as [string, string];
+  const at = /^\d+\.\d+\.\d+$/.test(version) ? `v${version}` : "main";
+  return `${organizationHosts().github!.addressOf(owner)}/${name}/blob/${at}/docs/${page}`;
+}
+
+/** The answer Enter gives to a question, as the question shows it: in
+ * words, since parentheses around it read as part of the answer. */
+export const defaultInWords = (value: string): string =>
+  value ? `Press Enter for ${value}` : "";
+
 /** The questions, asked at the terminal. */
 export async function terminalAsk(): Promise<Ask> {
   const p = await import("@inquirer/prompts");
@@ -184,18 +202,56 @@ export async function terminalAsk(): Promise<Ask> {
       p.select({ message, choices, default: fallback }),
     confirm: (message, fallback) => p.confirm({ message, default: fallback }),
     secret: (message) => p.password({ message, mask: "•" }),
-    input: (message, fallback) => p.input({ message, default: fallback }),
+    input: (message, fallback) =>
+      p.input({
+        message,
+        default: fallback,
+        theme: {
+          style: {
+            defaultAnswer: (text: string) =>
+              styleText("dim", defaultInWords(text)),
+          },
+        },
+      }),
   };
 }
 
-/** Opens a page in the person's browser. */
+type Env = Record<string, string | undefined>;
+
+/** Whether a command's file is in a folder of the PATH. It is found, not
+ * run: `explorer.exe` opens a window whatever it is given. */
+export function onPath(name: string, env: Env): boolean {
+  return (env.PATH ?? "").split(delimiter).some((folder) => {
+    if (!folder) return false;
+    try {
+      accessSync(join(folder, name), constants.X_OK);
+      return statSync(join(folder, name)).isFile();
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** The command that opens a page in the person's browser. In WSL that is
+ * one of Windows' own, since `xdg-open` has no browser to hand it to. */
+export function pageOpener(
+  platform: string,
+  env: Env,
+  has: (name: string) => boolean,
+): string {
+  if (platform === "darwin") return "open";
+  if (platform === "win32") return "explorer";
+  if (env.WSL_DISTRO_NAME)
+    return ["wslview", "explorer.exe"].find(has) ?? "xdg-open";
+  return "xdg-open";
+}
+
+/** Opens a page in the person's browser, when there is one to open it:
+ * the caller prints the address too. */
 export function openPage(url: string): void {
-  const opener =
-    process.platform === "darwin"
-      ? "open"
-      : process.platform === "win32"
-        ? "explorer"
-        : "xdg-open";
+  const opener = pageOpener(process.platform, process.env, (name) =>
+    onPath(name, process.env),
+  );
   try {
     spawn(opener, [url], { stdio: "ignore", detached: true })
       .on("error", () => {})

@@ -20,6 +20,7 @@ import { POLL_MINUTES } from "./config.mts";
 import {
   askSecret,
   boardShape,
+  docsPage,
   giveBoard,
   interactive,
   message,
@@ -45,6 +46,7 @@ export type InitOrgDeps = Terminal & {
   hasCommand: (name: string) => boolean;
   /** One line typed at the terminal. Rejects once `signal` stops it. */
   readLine: (signal: AbortSignal) => Promise<string>;
+  packageName: string;
   packageVersion: string;
 };
 
@@ -63,6 +65,21 @@ const NO_RULE =
   "- rule      Each repository's own: once its setup merges, an admin of it runs factory init";
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
+
+/** The step that installs the app: its first line, then the page's
+ * address on a line of its own, what to do there, and that the command
+ * waits. Nothing tells the command whether a browser opened the page, so
+ * no line says one did. */
+const INSTALL_IT =
+  "Install it. Your browser should open this address. If it does not, open it yourself:";
+const CHOOSE = `Choose all repositories, or a selection that includes ${CONFIG}, and press "Install".`;
+const FIND_IT =
+  'Press the app\'s name, then "Install App", choose the repositories, and press "Install".';
+const installing = (page: string, press: string) => [
+  `     ${page}`,
+  `   ${press}`,
+  "   Waiting up to 10 minutes for the installation to show.",
+];
 
 /** A step that failed, as the line that says what could not be done. */
 class StepFailed extends Error {}
@@ -414,8 +431,16 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       "board",
       `Give board ${board} any of the factory's columns and fields it lacks`,
     ]);
+  const addresses = [
+    "The settings every repository shares are yours to edit:",
+    `     ${organization.filePage(CONFIG, PRESET_FILE)}`,
+    "The steps in full:",
+    `     ${docsPage(d.packageVersion, "github/setup.md#in-an-organization")}`,
+  ];
   if (!rows.length) {
     d.out(`✓ ${org} is set up. Nothing to do.`);
+    d.out("");
+    for (const l of addresses) d.out(l);
     return 0;
   }
   d.out("");
@@ -503,24 +528,32 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       let id = clientId;
       let key: string | null = null;
       if (id === null) {
+        d.out("");
+        d.out(
+          `Registering the ${host.label} App "${app.name}". Two steps, both in your browser.`,
+        );
         if (await organization.appNamed(app.name).catch(() => null))
           d.out(
             `An app named "${app.name}" is already registered. Delete it under ${org}'s Settings, Developer settings, or type another name in the form.`,
           );
-        let said = false;
+        d.out("");
+        let shown = false;
         const made = await step("register the app", () =>
           organization.registerApp({
             name: app.name,
             open: (page) => {
+              if (!shown) {
+                d.out(
+                  "1. Create the app. Your browser should open this address. If it does not, open it yourself:",
+                );
+                d.out(`     ${page}`);
+                d.out(`   Then press "Create ${host.label} App".`);
+                d.out(
+                  `   Waiting for ${host.label} to send your browser back. If that page does not load, paste its address here:`,
+                );
+              }
+              shown = true;
               d.openPage(page);
-              if (said) return;
-              said = true;
-              d.out(
-                `Opened ${host.label} in your browser. Press "Create ${host.label} App", then "Install".`,
-              );
-              d.out(
-                "If the page it sends you to does not load, paste that page's address here:",
-              );
             },
             pasted: (signal, again) => {
               if (again)
@@ -539,15 +572,24 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
                 organization.setVariable(APP_CLIENT_ID, registered.clientId),
               );
               counts.variables++;
+              d.out(`✓ Created the app, and stored its key for ${org}.`);
             },
           }),
         );
         id = made.clientId;
+        d.out("");
+        d.out(`2. ${INSTALL_IT}`);
+        for (const l of installing(made.installPage, CHOOSE)) d.out(l);
       } else {
-        d.openPage(organization.appsPage());
+        const known = await organization.registeredApp(id).catch(() => null);
         d.out(
-          `The app is registered and not installed yet. Opened ${org}'s apps in your browser: press its name, then "Install App".`,
+          `The ${host.label} App${known ? ` "${known.name}"` : ""} is registered and not installed yet.`,
         );
+        d.out("");
+        d.out(INSTALL_IT);
+        const page = known?.installPage ?? organization.appsPage();
+        for (const l of installing(page, known ? CHOOSE : FIND_IT)) d.out(l);
+        d.openPage(page);
       }
       const appId = id;
       const found = await step("look for the app's installation", () =>
@@ -572,7 +614,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
             `✗ The app is not installed on ${repository}, which every repository's runs read. Add it: ${found.page}`,
           );
         d.out(
-          `✓ Registered the app and installed it on ${on.count} ${on.count === 1 ? "repository" : "repositories"}.`,
+          `✓ Installed the app on ${on.count} ${on.count === 1 ? "repository" : "repositories"}.`,
         );
       }
     }
@@ -611,9 +653,11 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   }
 
   // The app cannot make a repository's own rule, so where the organization
-  // has none an admin of each repository does.
-  if (!plan.rules) d.out(NO_RULE);
-  else if (!ruled)
+  // has none an admin of each repository does: `unruled` is why.
+  let unruled = plan.rules
+    ? null
+    : `${plan.name} has no organization-wide rules.`;
+  if (plan.rules && !ruled)
     try {
       await organization.defineProperty(PROPERTY, ["on", "off"]);
       await organization.requireCheckWhere(RULE, REVIEW_VERDICT, {
@@ -625,11 +669,28 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
         `✓ Required "${REVIEW_VERDICT}" where the property ${PROPERTY} is "on".`,
       );
     } catch {
-      d.out(NO_RULE);
+      unruled = `${host.label} refused the organization's rule.`;
     }
 
   d.out("");
-  d.out("A developer sets a repository up with: factory init");
+  d.out(`✓ ${org} is set up.`);
+  d.out("");
+  d.out("Next, in each repository you want the factory in:");
+  d.out("  1. A developer installs the factory once on their machine:");
+  d.out(`       npm install -g ${d.packageName}`);
+  d.out("  2. In the repository's checkout, they run:");
+  d.out("       factory init");
+  d.out(
+    "     It asks them for no token, and opens the pull request that sets the repository up.",
+  );
+  if (unruled) {
+    d.out(
+      "  3. Once that pull request merges, an admin of the repository runs factory init there",
+    );
+    d.out(`     again, to require "${REVIEW_VERDICT}". ${unruled}`);
+  }
+  d.out("");
+  for (const l of addresses) d.out(l);
   return 0;
 }
 
@@ -657,7 +718,7 @@ export const readLineFrom =
 export async function initOrgDeps(): Promise<InitOrgDeps> {
   const manifest = JSON.parse(
     readFileSync(join(PACKAGE, "package.json"), "utf8"),
-  ) as { version: string };
+  ) as { name: string; version: string };
   return {
     ask: await terminalAsk(),
     out: (l) => console.log(l),
@@ -667,6 +728,7 @@ export async function initOrgDeps(): Promise<InitOrgDeps> {
     hosts: organizationHosts(),
     tools: TOOLS,
     readLine: readLineFrom(process.stdin),
+    packageName: manifest.name,
     packageVersion: manifest.version,
   };
 }

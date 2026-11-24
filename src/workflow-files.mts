@@ -32,8 +32,10 @@ export const FACTORY_EVENTS = [
  * read, since it runs with the repository's secrets. */
 export const HELD_EVENT = "pull_request_target";
 
-/** Where the factory's own workflows are, for a repository that calls them. */
-const HOME = "davidbyoung/software-factory/.github/workflows";
+/** The factory's own repository, and where its workflows are in it, for a
+ * repository that calls them. */
+export const FACTORY_REPOSITORY = "davidbyoung/software-factory";
+const HOME = `${FACTORY_REPOSITORY}/.github/workflows`;
 
 /** The schedules run.yml tells apart by their text. Any other line of the
  * file is the poller's. */

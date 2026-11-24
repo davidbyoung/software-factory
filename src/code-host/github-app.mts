@@ -60,27 +60,40 @@ export type Listen = (
   handle: (path: string) => Promise<Reply>,
 ) => Promise<{ origin: string; close(): Promise<void> }>;
 
-/** A listener on 127.0.0.1, at a port the system picks. */
+/** A listener on 127.0.0.1, at a port the system picks. Closing it sends
+ * each answer already given before it drops the connections: the last
+ * answer is the one that sends the browser on. */
 export const listenLocally: Listen = (handle) =>
   new Promise((resolve, reject) => {
+    const answering = new Set<Promise<void>>();
     const server = createServer((request, response) => {
-      handle(request.url ?? "/")
+      const sent = handle(request.url ?? "/")
         .catch((): Reply => ({ status: 500 }))
-        .then((reply) => {
-          response.writeHead(reply.status, reply.headers);
-          response.end(reply.body ?? "");
-        });
+        .then(
+          (reply) =>
+            new Promise<void>((done) => {
+              response.once("close", done);
+              response.writeHead(reply.status, reply.headers);
+              response.end(reply.body ?? "");
+            }),
+        )
+        .catch(() => response.destroy())
+        .then(() => void answering.delete(sent));
+      answering.add(sent);
     });
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
       const { port } = server.address() as AddressInfo;
       resolve({
         origin: `http://127.0.0.1:${port}`,
-        close: () =>
-          new Promise((done) => {
-            server.close(() => done());
-            server.closeAllConnections();
-          }),
+        close: async () => {
+          const closed = new Promise<void>((done) =>
+            server.close(() => done()),
+          );
+          await Promise.all(answering);
+          server.closeAllConnections();
+          await closed;
+        },
       });
     });
   });

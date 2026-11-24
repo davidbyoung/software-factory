@@ -2,7 +2,10 @@
 // the gate, the branch and its commit, the push, the pull request, the
 // lines when one of those fails, and the rule that requires the review's
 // verdict.
+import { docsPage } from "../src/init-shared.mts";
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileRows, openPull, runGate, type GitResult } from "../src/init.mts";
 import { writeCredential } from "../src/lib/credentials.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
@@ -181,7 +184,7 @@ describe("factory init, the gate", () => {
     const r = quick();
     expect(await r.run()).toBe(0);
     expect(r.ran.filter((argv) => argv[0] === "gate")).toEqual([]);
-    expect(r.out.join("\n")).not.toContain("here.");
+    expect(r.out.join("\n")).not.toMatch(/(pass|passes|fails) here/);
   });
 });
 
@@ -319,28 +322,138 @@ describe("factory init, the branch and its commit", () => {
 });
 
 describe("factory init, its closing lines", () => {
-  it("says nothing else is left when nothing is", async () => {
-    const r = quick({ settings: GATED });
+  const ADDRESS =
+    "https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/quick-start.md#4-open-a-ticket";
+  /** What comes after the setup merges, for a default branch. */
+  const after = (branch: string) => [
+    "After it merges:",
+    `  1. Come back to ${branch} and bring it up to date:`,
+    `       git switch ${branch} && git pull`,
+    "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
+    "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
+    "The steps in full:",
+    `     ${ADDRESS}`,
+  ];
+  const LATER =
+    "After it merges, come back to main and bring it up to date: git switch main && git pull";
+  /** The lines from the one that says a pull request was opened. */
+  const ending = (out: string[]) =>
+    out.slice(out.findIndex((l) => l.startsWith("✓ Opened")) + 1);
+
+  it("says what to do after the first setup merges, when nothing else is left", async () => {
+    const r = quick({
+      answers: { checkbox: [[]], confirm: [true], gate: ["npm test"] },
+    });
     await r.run();
-    const at = r.out.findIndex((l) => l.startsWith("✓ Opened"));
-    expect(r.out.slice(at + 1, at + 4)).toEqual([
+    expect(ending(r.out)).toEqual([
       "Merge it to finish. Nothing else is left to do.",
       "",
+      ...after("main"),
+      "",
       "Checks",
+      "  ✓ Every check passed",
     ]);
   });
 
-  it("lists what is left, without a step to commit, when something is", async () => {
+  it("says it after the list of what is left, which has no step to commit", async () => {
     const r = quick();
     await r.run();
-    const at = r.out.indexOf(OPENED_FIRST);
-    expect(r.out.slice(at + 1, at + 4)).toEqual([
+    expect(r.out).toContain(OPENED_FIRST);
+    expect(ending(r.out)).toEqual([
       "Merge it to finish. Left to do:",
       "  1. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
       "",
+      ...after("main"),
+      "",
+      "Checks",
+      "  ✓ Every check passed",
     ]);
     expect(r.out.join("\n")).not.toMatch(/Commit this|Nothing is committed/);
   });
+
+  it("names the default branch to come back to, whatever it is called", async () => {
+    const r = quick({ defaultBranch: "trunk" });
+    await r.run();
+    expect(ending(r.out).slice(3, 6)).toEqual(after("trunk").slice(0, 3));
+  });
+
+  it("says only to come back and bring the branch up to date after a later run's pull request", async () => {
+    const r = quick({ settings: GATED });
+    await r.run();
+    expect(ending(r.out)).toEqual([
+      "Merge it to finish. Nothing else is left to do.",
+      "",
+      LATER,
+      "",
+      "Checks",
+      "  ✓ Every check passed",
+    ]);
+    expect(r.out.join("\n")).not.toContain("quick-start");
+  });
+
+  it("names the docs at the installed release, and on main for a version that is no release", () => {
+    expect(docsPage("0.2.0", "quick-start.md#4-open-a-ticket")).toBe(ADDRESS);
+    expect(docsPage("0.0.0-development", "quick-start.md")).toBe(
+      "https://github.com/davidbyoung/software-factory/blob/main/docs/quick-start.md",
+    );
+    expect(docsPage("main", "cli.md")).toMatch(/\/blob\/main\/docs\//);
+  });
+
+  it("names a page and a heading the docs have", async () => {
+    const r = quick();
+    await r.run();
+    const [, page, anchor] = /\/docs\/([^#]+)#(.+)$/.exec(
+      r.out.find((l) => l.includes("/docs/"))!,
+    )!;
+    // A heading's anchor as the code host makes it: lowercase, no
+    // punctuation, a hyphen for each space.
+    const anchors = readFileSync(join("docs", page!), "utf8")
+      .split("\n")
+      .filter((l) => /^#+ /.test(l))
+      .map((l) =>
+        l
+          .replace(/^#+ /, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9 -]/g, "")
+          .replace(/ /g, "-"),
+      );
+    expect(anchors).toContain(anchor);
+  });
+
+  it.each([
+    ["told not to go ahead", { answers: { checkbox: [[]], confirm: [false] } }],
+    [
+      "no file changed",
+      {
+        git: (args: string[]) =>
+          args[0] === "status" ? { stdout: "" } : undefined,
+      },
+    ],
+    [
+      "the push is refused",
+      {
+        git: (args: string[]) =>
+          args[0] === "push"
+            ? { status: 1, stderr: "remote: no\n" }
+            : undefined,
+      },
+    ],
+    ["the sync failed", { syncFails: true }],
+    [
+      "the gate fails",
+      {
+        settings: GATED,
+        gate: { "npm run check": { status: 1, output: "no\n" } },
+      },
+    ],
+  ] as [string, Partial<Setup>][])(
+    "says nothing of after the merge when %s, since no pull request was opened",
+    async (_, over) => {
+      const r = quick(over);
+      await r.run();
+      expect(r.out.join("\n")).not.toMatch(/After it merges|The steps in full/);
+    },
+  );
 });
 
 describe("factory init, a step that fails after the files are written", () => {

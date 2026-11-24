@@ -12,13 +12,24 @@ import type {
 } from "../src/code-host/types.mts";
 import { spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { main, readLineFrom, type InitOrgDeps } from "../src/init-org.mts";
-import type { Ask } from "../src/init-shared.mts";
+import {
+  defaultInWords,
+  onPath,
+  pageOpener,
+  type Ask,
+} from "../src/init-shared.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
@@ -93,6 +104,58 @@ const INSTALLED: Installation = {
   all: true,
   page: "https://github.com/organizations/acme/settings/installations/52811",
 };
+const INSTALL_PAGE =
+  "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242";
+/** Step 1 of registering the app, down to where it waits for the code. */
+const STEP_1 = [
+  "",
+  'Registering the GitHub App "Software Factory for acme". Two steps, both in your browser.',
+  "",
+  "1. Create the app. Your browser should open this address. If it does not, open it yourself:",
+  "     http://127.0.0.1:4100/",
+  '   Then press "Create GitHub App".',
+  "   Waiting for GitHub to send your browser back. If that page does not load, paste its address here:",
+];
+const CREATED = "✓ Created the app, and stored its key for acme.";
+/** Step 2's lines after its first, down to where it waits. */
+const INSTALLING = [
+  `     ${INSTALL_PAGE}`,
+  '   Choose all repositories, or a selection that includes factory-config, and press "Install".',
+  "   Waiting up to 10 minutes for the installation to show.",
+  "(waits for the installation)",
+];
+const STEP_2 = [
+  "",
+  "2. Install it. Your browser should open this address. If it does not, open it yourself:",
+  ...INSTALLING,
+];
+/** Where the preset is edited, and where the docs give the steps. */
+const ADDRESSES = [
+  "The settings every repository shares are yours to edit:",
+  "     https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml",
+  "The steps in full:",
+  "     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/github/setup.md#in-an-organization",
+];
+/** How a run that did something ends. `because` is why a third step is
+ * left to each repository's admin, where no organization's rule was made. */
+const ending = (because?: string) => [
+  "✓ acme is set up.",
+  "",
+  "Next, in each repository you want the factory in:",
+  "  1. A developer installs the factory once on their machine:",
+  "       npm install -g @davidbyoung/software-factory",
+  "  2. In the repository's checkout, they run:",
+  "       factory init",
+  "     It asks them for no token, and opens the pull request that sets the repository up.",
+  ...(because
+    ? [
+        "  3. Once that pull request merges, an admin of the repository runs factory init there",
+        `     again, to require "Review verdict". ${because}`,
+      ]
+    : []),
+  "",
+  ...ADDRESSES,
+];
 const RERUN =
   "Run factory init --org https://github.com/acme again: it carries on from here.";
 
@@ -152,6 +215,9 @@ type Seed = {
   on: { count: number; covered: boolean };
   /** Whether an app of the name is registered already. */
   taken: boolean;
+  /** The organization's app as the code host finds it with no
+   * installation, or null when it cannot. */
+  registered: { name: string; installPage: string } | null;
   /** How the code comes back: by the browser, or by an address she
    * pastes. */
   returns: "browser" | "pasted";
@@ -160,7 +226,12 @@ type Seed = {
 };
 
 /** An organization kept in memory, which records every call in order. */
-function memoryOrganization(seed: Seed, name: string, log: string[]) {
+function memoryOrganization(
+  seed: Seed,
+  name: string,
+  log: string[],
+  waits: () => void,
+) {
   const values = new Map<string, string>();
   const pastes: boolean[] = [];
   const called = <K extends keyof Organization>(op: K, ...args: unknown[]) => {
@@ -271,8 +342,19 @@ function memoryOrganization(seed: Seed, name: string, log: string[]) {
         key: KEY,
       };
       await o.keep(app);
+      // A pasted address came from no browser this can send on.
+      if (seed.returns === "pasted") o.open(INSTALL_PAGE);
       log.push("sent the browser to install");
-      return { id: app.id, slug: app.slug, clientId: app.clientId };
+      return {
+        id: app.id,
+        slug: app.slug,
+        clientId: app.clientId,
+        installPage: INSTALL_PAGE,
+      };
+    },
+    async registeredApp(clientId) {
+      called("registeredApp", clientId);
+      return seed.registered;
     },
     async installation(clientId) {
       called("installation", clientId);
@@ -280,6 +362,7 @@ function memoryOrganization(seed: Seed, name: string, log: string[]) {
     },
     async awaitInstallation(clientId) {
       called("awaitInstallation", clientId);
+      waits();
       return seed.installs;
     },
     async installedOn(id, app, repo) {
@@ -288,6 +371,8 @@ function memoryOrganization(seed: Seed, name: string, log: string[]) {
       return seed.on;
     },
     appsPage: () => `https://github.com/organizations/${name}/settings/apps`,
+    filePage: (repo, path) =>
+      `https://github.com/${name}/${repo}/blob/HEAD/${path}`,
   };
   return { organization, log, values, pastes };
 }
@@ -308,6 +393,8 @@ type Setup = {
   boards?: { number: number; title: string; columns: string[] }[];
   createRefused?: string;
   agentInstalled?: boolean;
+  /** The installed factory's version; a release unless given. */
+  version?: string;
   tools?: (base: Registry) => Registry;
 };
 
@@ -325,6 +412,7 @@ function setup(o: Setup = {}) {
     installs: INSTALLED,
     on: { count: 212, covered: true },
     taken: false,
+    registered: null,
     returns: "browser",
     fail: {},
     ...o.org,
@@ -406,7 +494,12 @@ function setup(o: Setup = {}) {
     addressOf: (owner) => `https://github.com/${owner}`,
     organization: (name) => {
       if (!organizations.has(name))
-        organizations.set(name, memoryOrganization(seed, name, log));
+        organizations.set(
+          name,
+          memoryOrganization(seed, name, log, () =>
+            transcript.push("(waits for the installation)"),
+          ),
+        );
       return organizations.get(name)!.organization;
     },
   };
@@ -437,7 +530,8 @@ function setup(o: Setup = {}) {
       if (!queue.typed.length) throw new Error("nothing typed");
       return queue.typed.shift()!;
     },
-    packageVersion: "0.4.0",
+    packageName: "@davidbyoung/software-factory",
+    packageVersion: o.version ?? "0.4.0",
   };
   return {
     run: () => main(o.argv ?? ["--org", o.address ?? ADDRESS], d),
@@ -601,9 +695,7 @@ describe("factory init --org, outside any repository", () => {
     forbidden.on = false;
     expect(forbidden.tried).toEqual([]);
     expect(status).toBe(0);
-    expect(s.out.at(-1)).toBe(
-      "A developer sets a repository up with: factory init",
-    );
+    expect(s.out).toContain("✓ acme is set up.");
   });
 
   it("starts from factory init with no repository to find, in a terminal", async () => {
@@ -674,7 +766,7 @@ describe("factory init --org, the sign-in's permissions", () => {
       "? confirm: Setting acme up needs the admin:org and project permissions for the GitHub CLI. Open your browser to grant them?",
     );
     expect(s.ran).toEqual([["grant", "admin:org,project"]]);
-    expect(s.out.at(-1)).toBe("✓ acme is set up. Nothing to do.");
+    expect(s.out).toContain("✓ acme is set up. Nothing to do.");
   });
 });
 
@@ -713,16 +805,17 @@ describe("factory init --org, a first run", () => {
       "",
       '✓ Created board 12, "Software factory".',
       "✓ Created acme/factory-config.",
-      'Opened GitHub in your browser. Press "Create GitHub App", then "Install".',
-      "If the page it sends you to does not load, paste that page's address here:",
-      "✓ Registered the app and installed it on 212 repositories.",
+      ...STEP_1,
+      CREATED,
+      ...STEP_2,
+      "✓ Installed the app on 212 repositories.",
       "",
       "The coding agent's token: running claude setup-token...",
       "? secret: Paste the token it printed (leave empty to do this later):",
       "✓ Stored 2 secrets and 1 variable for acme.",
       '✓ Required "Review verdict" where the property software-factory is "on".',
       "",
-      "A developer sets a repository up with: factory init",
+      ...ending(),
     ]);
     printsNoSecret(s.out);
   });
@@ -970,12 +1063,15 @@ describe("factory init --org, on GitHub Free", () => {
       "- rule      Each repository's own: once its setup merges, an admin of it runs factory init",
       "  board     Create a board with the factory's columns and fields",
     ]);
-    expect(s.out.slice(-4)).toEqual([
+    expect(
+      s.out.slice(s.out.indexOf("✓ Stored 2 secrets and 1 variable for acme.")),
+    ).toEqual([
       "✓ Stored 2 secrets and 1 variable for acme.",
-      "- rule      Each repository's own: once its setup merges, an admin of it runs factory init",
       "",
-      "A developer sets a repository up with: factory init",
+      ...ending("GitHub Free has no organization-wide rules."),
     ]);
+    // The plan's row is not repeated among the results.
+    expect(s.out.filter((l) => l.startsWith("- rule"))).toHaveLength(1);
     expect(s.changes()).toContain("createRepository factory-config public");
     expect(s.changes().some((l) => /^(define|require)/.test(l))).toBe(false);
   });
@@ -1010,15 +1106,25 @@ describe("factory init --org, registering the app", () => {
     printsNoSecret(s.transcript);
   });
 
-  it("opens its own page, then says what to press and where to paste", async () => {
+  it("prints each address on a line of its own, tries to open it, and never says a browser opened", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
     expect(s.opened).toEqual(["http://127.0.0.1:4100/"]);
-    expect(s.out.indexOf("✓ Created acme/factory-config.") + 1).toBe(
-      s.out.indexOf(
-        'Opened GitHub in your browser. Press "Create GitHub App", then "Install".',
-      ),
+    expect(s.out).toContain("     http://127.0.0.1:4100/");
+    expect(s.out).toContain(`     ${INSTALL_PAGE}`);
+    expect(s.out.some((l) => /\bOpen(ed|ing)\b/.test(l))).toBe(false);
+  });
+
+  it("says the app is created once its key and client ID are stored, before it waits for the installation", async () => {
+    const s = setup({ answers: FIRST, org: { installs: null } });
+    await s.run();
+    const from = s.transcript.indexOf(CREATED);
+    expect(from).toBeGreaterThan(-1);
+    expect(s.transcript.slice(from + 1, from + 1 + STEP_2.length)).toEqual(
+      STEP_2,
     );
+    expect(s.seed.secrets).toContain("FACTORY_APP_PRIVATE_KEY");
+    expect(s.seed.variables.FACTORY_APP_CLIENT_ID).toBe("Iv23client");
   });
 
   it("takes a pasted address when her browser cannot reach her machine, and asks again for one that is not this run's", async () => {
@@ -1033,17 +1139,17 @@ describe("factory init --org, registering the app", () => {
       org: { returns: "pasted" },
     });
     expect(await s.run()).toBe(0);
-    const from = s.transcript.indexOf(
-      'Opened GitHub in your browser. Press "Create GitHub App", then "Install".',
-    );
-    expect(s.transcript.slice(from, from + 6)).toEqual([
-      'Opened GitHub in your browser. Press "Create GitHub App", then "Install".',
-      "If the page it sends you to does not load, paste that page's address here:",
+    const from = s.transcript.indexOf(STEP_1.at(-1)!);
+    expect(s.transcript.slice(from + 1, from + 6 + STEP_2.length)).toEqual([
       "(reads a line)",
       "That address is not from this run. Paste the address of the page that did not load:",
       "(reads a line)",
-      "✓ Registered the app and installed it on 212 repositories.",
+      CREATED,
+      ...STEP_2,
+      "✓ Installed the app on 212 repositories.",
     ]);
+    // The install page is opened too, since no browser came back to send on.
+    expect(s.opened).toEqual(["http://127.0.0.1:4100/", INSTALL_PAGE]);
   });
 
   it("says how to free the name when an app of that name is already registered", async () => {
@@ -1052,12 +1158,13 @@ describe("factory init --org, registering the app", () => {
     const at = s.out.indexOf(
       'An app named "Software Factory for acme" is already registered. Delete it under acme\'s Settings, Developer settings, or type another name in the form.',
     );
-    expect(at).toBeGreaterThan(-1);
-    expect(at + 1).toBe(
-      s.out.indexOf(
-        'Opened GitHub in your browser. Press "Create GitHub App", then "Install".',
-      ),
-    );
+    expect(s.out.slice(at - 2, at + 3)).toEqual([
+      "",
+      STEP_1[1],
+      'An app named "Software Factory for acme" is already registered. Delete it under acme\'s Settings, Developer settings, or type another name in the form.',
+      "",
+      STEP_1[3],
+    ]);
   });
 
   it("shortens the organization in a name over the code host's limit, and says so in the plan", async () => {
@@ -1080,9 +1187,7 @@ describe("factory init --org, registering the app", () => {
       org: { on: { count: 1, covered: true } },
     });
     await s.run();
-    expect(s.out).toContain(
-      "✓ Registered the app and installed it on 1 repository.",
-    );
+    expect(s.out).toContain("✓ Installed the app on 1 repository.");
   });
 
   it("fails when no installation shows in 10 minutes, with the key already stored", async () => {
@@ -1109,7 +1214,8 @@ describe("factory init --org, registering the app", () => {
       "✗ The app is not installed on acme/factory-config, which every repository's runs read. Add it: https://github.com/organizations/acme/settings/installations/52811",
       RERUN,
     ]);
-    expect(s.out.some((l) => l.startsWith("✓ Registered"))).toBe(false);
+    expect(s.out).toContain(CREATED);
+    expect(s.out.some((l) => l.startsWith("✓ Installed"))).toBe(false);
   });
 });
 
@@ -1187,6 +1293,70 @@ describe("factory init --org, when the code host stops answering", () => {
   });
 });
 
+describe("the answer Enter gives to a question", () => {
+  it("is shown in words, with no parentheses to read as part of it", () => {
+    expect(defaultInWords("{ticket}")).toBe("Press Enter for {ticket}");
+    expect(defaultInWords("docs/**, **/*.md")).toBe(
+      "Press Enter for docs/**, **/*.md",
+    );
+  });
+
+  it("is not shown when there is none", () => {
+    expect(defaultInWords("")).toBe("");
+  });
+});
+
+describe("the command that opens a page", () => {
+  const WSL = { WSL_DISTRO_NAME: "Ubuntu" };
+  const has =
+    (...names: string[]) =>
+    (name: string) =>
+      names.includes(name);
+
+  it("is Windows' own from WSL, where xdg-open has no browser: wslview first, then explorer.exe", () => {
+    expect(
+      pageOpener("linux", WSL, has("wslview", "explorer.exe", "xdg-open")),
+    ).toBe("wslview");
+    expect(pageOpener("linux", WSL, has("explorer.exe", "xdg-open"))).toBe(
+      "explorer.exe",
+    );
+    expect(pageOpener("linux", WSL, has("xdg-open"))).toBe("xdg-open");
+    expect(pageOpener("linux", WSL, has())).toBe("xdg-open");
+  });
+
+  it("is xdg-open on any other Linux, whatever else is installed", () => {
+    expect(pageOpener("linux", {}, has("wslview", "explorer.exe"))).toBe(
+      "xdg-open",
+    );
+  });
+
+  it("is the system's own on macOS and on Windows", () => {
+    expect(pageOpener("darwin", WSL, has("wslview"))).toBe("open");
+    expect(pageOpener("win32", WSL, has("wslview"))).toBe("explorer");
+  });
+
+  it("is found on the PATH by its file, without running it", () => {
+    const folder = mkdtempSync(join(tmpdir(), "on-path-"));
+    try {
+      const ran = join(folder, "ran");
+      writeFileSync(join(folder, "explorer.exe"), `#!/bin/sh\ntouch ${ran}\n`, {
+        mode: 0o755,
+      });
+      writeFileSync(join(folder, "notes.txt"), "not a command\n", {
+        mode: 0o644,
+      });
+      const env = { PATH: ["/nowhere-at-all", folder].join(delimiter) };
+      expect(onPath("explorer.exe", env)).toBe(true);
+      expect(onPath("wslview", env)).toBe(false);
+      expect(onPath("notes.txt", env)).toBe(false);
+      expect(onPath("explorer.exe", {})).toBe(false);
+      expect(existsSync(ran)).toBe(false);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("the line read for a pasted address", () => {
   it("is the first line typed", async () => {
     const input = new PassThrough();
@@ -1215,8 +1385,49 @@ describe("the line read for a pasted address", () => {
   });
 });
 
+describe("factory init --org, the address of the docs", () => {
+  const docsLine = async (version?: string) => {
+    const s = setup({ org: DONE, answers: { confirm: [false] }, version });
+    await s.run();
+    return s.out.at(-1)!.trim();
+  };
+
+  it("names the installed release's copy of the page", async () => {
+    expect(await docsLine("1.12.3")).toBe(
+      "https://github.com/davidbyoung/software-factory/blob/v1.12.3/docs/github/setup.md#in-an-organization",
+    );
+  });
+
+  it.each(["0.0.0-development", "1.2", "v1.2.3"])(
+    "names the default branch's copy for %s, which is no release",
+    async (version) => {
+      expect(await docsLine(version)).toBe(
+        "https://github.com/davidbyoung/software-factory/blob/main/docs/github/setup.md#in-an-organization",
+      );
+    },
+  );
+
+  it("names a page and a heading the docs have", async () => {
+    const [, path, anchor] = /\/blob\/[^/]+\/(.+)#(.+)$/.exec(
+      await docsLine(),
+    )!;
+    const headings = readFileSync(join(dirname(LAUNCHER), "..", path!), "utf8")
+      .split("\n")
+      .filter((line) => /^#+ /.test(line))
+      .map((line) =>
+        line
+          .replace(/^#+ /, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9 -]/g, "")
+          .replaceAll(" ", "-"),
+      );
+    expect(headings).toContain(anchor);
+    expect(anchor).toBe("in-an-organization");
+  });
+});
+
 describe("factory init --org, the rule", () => {
-  it("prints the rule line and carries on when GitHub refuses the rule", async () => {
+  it("carries on when GitHub refuses the rule, and leaves it to each repository's admin as a third step", async () => {
     const s = setup({
       answers: FIRST,
       org: {
@@ -1224,11 +1435,14 @@ describe("factory init --org, the rule", () => {
       },
     });
     expect(await s.run()).toBe(0);
-    expect(s.out.slice(-3)).toEqual([
-      "- rule      Each repository's own: once its setup merges, an admin of it runs factory init",
+    expect(
+      s.out.slice(s.out.indexOf("✓ Stored 2 secrets and 1 variable for acme.")),
+    ).toEqual([
+      "✓ Stored 2 secrets and 1 variable for acme.",
       "",
-      "A developer sets a repository up with: factory init",
+      ...ending("GitHub refused the organization's rule."),
     ]);
+    expect(s.out.some((l) => l.startsWith("- rule"))).toBe(false);
   });
 });
 
@@ -1249,6 +1463,8 @@ describe("factory init --org, run again", () => {
       "",
       "? confirm: Replace CLAUDE_CODE_OAUTH_TOKEN?",
       "✓ acme is set up. Nothing to do.",
+      "",
+      ...ADDRESSES,
     ]);
     expect(s.confirms[0]!.fallback).toBe(false);
     expect(s.changes()).toEqual([]);
@@ -1285,7 +1501,7 @@ describe("factory init --org, run again", () => {
       "? secret: Paste the token it printed (leave empty to do this later):",
       "✓ Stored 1 secret for acme.",
       "",
-      "A developer sets a repository up with: factory init",
+      ...ending(),
     ]);
     expect(s.changes()).toEqual(["setSecret CLAUDE_CODE_OAUTH_TOKEN"]);
   });
@@ -1304,7 +1520,7 @@ describe("factory init --org, run again", () => {
       "",
       '✓ Required "Review verdict" where the property software-factory is "on".',
       "",
-      "A developer sets a repository up with: factory init",
+      ...ending(),
     ]);
     expect(s.changes()).toEqual([
       "defineProperty software-factory on|off",
@@ -1312,30 +1528,63 @@ describe("factory init --org, run again", () => {
     ]);
   });
 
-  it("sends her to the organization's apps when the app is registered and not installed, and waits", async () => {
-    const s = setup({
-      org: { ...DONE, installation: null },
-      answers: { confirm: [false, true] },
+  describe("with the app registered and not installed", () => {
+    const notInstalled = (registered: Seed["registered"]) =>
+      setup({
+        org: { ...DONE, installation: null, registered },
+        answers: { confirm: [false, true] },
+      });
+    /** What it prints and asks after "Go ahead?" and its blank line. */
+    const after = (s: ReturnType<typeof setup>) =>
+      s.transcript.slice(s.transcript.indexOf("? confirm: Go ahead?") + 2);
+
+    it("prints only the second step, with the app's name and its install page when the code host can find them", async () => {
+      const s = notInstalled({
+        name: "Software Factory for acme",
+        installPage: INSTALL_PAGE,
+      });
+      expect(await s.run()).toBe(0);
+      expect(s.out).toContain(
+        "  App              registered, and not installed yet",
+      );
+      expect(s.out).toContain(
+        "  app       Install the GitHub App, which is registered",
+      );
+      expect(after(s)).toEqual([
+        'The GitHub App "Software Factory for acme" is registered and not installed yet.',
+        "",
+        "Install it. Your browser should open this address. If it does not, open it yourself:",
+        ...INSTALLING,
+        "✓ Installed the app.",
+        "",
+        ...ending(),
+      ]);
+      expect(s.opened).toEqual([INSTALL_PAGE]);
+      expect(s.org().log).toContain("awaitInstallation Iv23client");
+      // No app is registered a second time, and no key is asked of GitHub.
+      expect(s.changes()).toEqual([]);
+      expect(s.org().log.some((l) => l.startsWith("installedOn"))).toBe(false);
     });
-    expect(await s.run()).toBe(0);
-    expect(s.out).toContain(
-      "  App              registered, and not installed yet",
-    );
-    expect(s.out).toContain(
-      "  app       Install the GitHub App, which is registered",
-    );
-    const from = s.out.indexOf(
-      'The app is registered and not installed yet. Opened acme\'s apps in your browser: press its name, then "Install App".',
-    );
-    expect(from).toBeGreaterThan(-1);
-    expect(s.out[from + 1]).toBe("✓ Installed the app.");
-    expect(s.opened).toEqual([
-      "https://github.com/organizations/acme/settings/apps",
-    ]);
-    expect(s.org().log).toContain("awaitInstallation Iv23client");
-    // No app is registered a second time, and no key is asked of GitHub.
-    expect(s.changes()).toEqual([]);
-    expect(s.org().log.some((l) => l.startsWith("installedOn"))).toBe(false);
+
+    it("sends her to the organization's list of apps when it cannot find the app", async () => {
+      const s = notInstalled(null);
+      expect(await s.run()).toBe(0);
+      expect(after(s)).toEqual([
+        "The GitHub App is registered and not installed yet.",
+        "",
+        "Install it. Your browser should open this address. If it does not, open it yourself:",
+        "     https://github.com/organizations/acme/settings/apps",
+        '   Press the app\'s name, then "Install App", choose the repositories, and press "Install".',
+        "   Waiting up to 10 minutes for the installation to show.",
+        "(waits for the installation)",
+        "✓ Installed the app.",
+        "",
+        ...ending(),
+      ]);
+      expect(s.opened).toEqual([
+        "https://github.com/organizations/acme/settings/apps",
+      ]);
+    });
   });
 
   it("fails when that installation never shows", async () => {

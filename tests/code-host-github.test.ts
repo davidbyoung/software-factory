@@ -1471,8 +1471,52 @@ describe("an organization, on GitHub", () => {
       id: 9,
       slug: "software-factory-for-acme",
       clientId: "Iv23client",
+      installPage:
+        "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242",
     });
     expect(kept).toEqual([SECRET]);
+  });
+
+  describe("the organization's app, before it is installed", () => {
+    const APP = {
+      name: "Software Factory for acme",
+      slug: "software-factory-for-acme",
+      client_id: "Iv23client",
+      owner: { login: "Acme", id: 4242 },
+    };
+    const registered = (answer: unknown) =>
+      org([[/^api apps\/software-factory-for-acme$/, answer]]).o.registeredApp(
+        "Iv23client",
+      );
+
+    it("is found by the name it was registered under, with the page that installs it", async () => {
+      expect(await registered(APP)).toEqual({
+        name: "Software Factory for acme",
+        installPage:
+          "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242",
+      });
+    });
+
+    it("is not found when no app has that name, as when she typed another in the form", async () => {
+      expect(await registered(notFound())).toBeNull();
+    });
+
+    it("is not another account's app of that name, or another app of the organization's", async () => {
+      expect(
+        await registered({ ...APP, owner: { login: "someone", id: 7 } }),
+      ).toBeNull();
+      expect(await registered({ ...APP, client_id: "Iv23other" })).toBeNull();
+    });
+
+    it("is not found when GitHub cannot be asked", async () => {
+      expect(await registered(new Error("HTTP 503"))).toBeNull();
+    });
+  });
+
+  it("gives the page of a file in one of the organization's repositories", () => {
+    expect(org([]).o.filePage("factory-config", "factory-preset.yaml")).toBe(
+      "https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml",
+    );
   });
 
   it("gives the page that lists the organization's apps", () => {

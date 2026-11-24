@@ -1010,6 +1010,14 @@ describe("factory init, word for word", () => {
              FACTORY_READY_COLUMN=Ready",
         "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
         "",
+        "After it merges:",
+        "  1. Come back to main and bring it up to date:",
+        "       git switch main && git pull",
+        "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
+        "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
+        "The steps in full:",
+        "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/quick-start.md#4-open-a-ticket",
+        "",
         "Checks",
         "  ✓ Every check passed",
       ]
@@ -1082,6 +1090,8 @@ describe("factory init, word for word", () => {
              FACTORY_BOARD_TOKEN=the access token you just made
              FACTORY_READY_COLUMN=Ready",
         "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+        "",
+        "After it merges, come back to main and bring it up to date: git switch main && git pull",
         "",
         "Checks",
         "  ✓ Every check passed",
