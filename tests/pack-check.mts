@@ -153,8 +153,8 @@ try {
   const commands = Object.values(hooks).flatMap((groups) =>
     groups.flatMap((g) => g.hooks.map((h) => h.command)),
   );
-  const outside = commands.filter((c) => !/(^|; )factory [a-z]/.test(c));
-  if (commands.length !== 5 || outside.length > 0)
+  const outside = commands.filter((c) => !/(^|; |\| )factory [a-z]/.test(c));
+  if (commands.length !== 6 || outside.length > 0)
     fail(
       `a hook entry does not run the machine's factory: ${outside.join("; ")}`,
     );
