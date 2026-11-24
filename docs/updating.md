@@ -564,13 +564,16 @@ use, and writes your answer; choosing OpenSpec installs it.
 From this release on, each run that uses your coding agent is
 [three jobs](builds.md#what-a-cloud-run-is), so the agent and a sign-in to
 your code host are never in the same one. Nothing in your settings has to
-change. Three things differ:
+change. Four things differ:
 
 - **The pull request that updates to it gets no automated review,** where
   the review is on, because your default branch's workflow does not run one
   yet and the new one is not merged. Its "Review verdict" stays waiting. Read
   it yourself, then add the
   [`verdict-override`](configuration.md#code-hostlabels) label.
+- **A review you submit on that pull request starts a run that fails,** in
+  "Answer / Prepare". It runs the new workflow with the old version of the
+  factory. No rule requires it, and it passes once the update has merged.
 - **A build's commits are not signed,** where they were. A rule that requires
   signed commits stops its pull requests from merging.
 - **A session reaches only the npm registry** unless you list more under
