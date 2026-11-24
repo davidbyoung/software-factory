@@ -1790,21 +1790,7 @@ describe("the tickets a text closes when it is merged, on GitHub", () => {
     ["fixes other/thing#13", "other/thing#13"],
     ["fixes https://github.com/acme/widgets/issues/13", "#13"],
     ["fixes http://github.com/other/thing/issues/13", "other/thing#13"],
-    ["Closes [the bug](https://github.com/acme/widgets/issues/13)", "#13"],
-    ["**Closes** #13", "#13"],
     ["Add a thing, closes #13", "#13"],
-    ["Closes <!-- x -->#13", "#13"],
-    ["Closes \\#13", "#13"],
-    ["Closes &#35;13", "#13"],
-    ["Closes &#x23;13", "#13"],
-    ["Clo&#115;es #13", "#13"],
-    ["Closes <b>#13</b>", "#13"],
-    ["Closes - #13", "#13"],
-    ["Clos**es** #13", "#13"],
-    ["__Closes__ #13", "#13"],
-    ["Closes [#13](https://example.com)", "#13"],
-    ["Closes <https://github.com/acme/widgets/issues/13>", "#13"],
-    ["closes other#13", "other#13"],
   ])("%s", (text, ref) => {
     expect(host().closesIn(text)).toEqual([ref]);
   });
@@ -1815,6 +1801,8 @@ describe("the tickets a text closes when it is merged, on GitHub", () => {
     "Fixed: [link text](#3-heading)",
     "Fix the parse bug from #99",
     "Merge main: carry #129's shapes",
+    "The bug is fixed. #14 tracks the rest",
+    "Fixes C#12 warnings",
   ])("are none in %s", (text) => {
     expect(host().closesIn(text)).toEqual([]);
   });

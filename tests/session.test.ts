@@ -125,6 +125,7 @@ describe("the work a run on a pull request is for", () => {
       work("conflict", [41], [{ number: 41, mergeableState: "dirty", ...over }])
         .found;
     expect(await conflict({})).toBe("#41 conflicts");
+    expect(await conflict({ mergeableState: "unknown" })).toBe("#41 conflicts");
     expect(await conflict({ mergeableState: "clean" })).toBeNull();
     const head = { sha: "abc", branch: "b", repository: REPOSITORY };
     const stop = {

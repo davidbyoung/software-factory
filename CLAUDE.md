@@ -215,6 +215,10 @@ that installs the factory.
 
 ## Stepping back from a rabbit hole: this repository
 
-No case here yet. The first one to meet the rule's three rounds is
-recorded here, with the custom code, the library that replaced it, and the
-size before and after.
+- **Reading what GitHub would close** (#74, 2026-11-24). A matcher of closing
+  words in a cloud build's text was got past in three rounds, each by a form
+  it did not read, and by the third refused honest text. No library was tried, since one
+  reads words too, and does not ask GitHub. It went back to the forms GitHub documents, in one
+  expression, and Publish asks GitHub itself what the pull request would
+  close. What is left is in "What a hijacked session could still do" in
+  `docs/credentials.md`: do not extend the matcher for it.

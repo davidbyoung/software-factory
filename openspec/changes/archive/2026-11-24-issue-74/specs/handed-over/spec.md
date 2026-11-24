@@ -25,7 +25,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Handing commits over
 
 - **WHEN** a session pushes or pulls through `factory pr`
-- **THEN** `factory pr push` hands the branch's commits over there, and pushes the branch anywhere else. `factory pr pull` merges the pull request's newest commit, as handed over there, and from the remote anywhere else. A commit in another's name, over 20 MB in all, or whose message links another ticket or keeps CI from running is refused there.
+- **THEN** `factory pr push` hands the branch's commits over there, and pushes the branch anywhere else. `factory pr pull` merges the pull request's newest commit, as handed over there, and from the remote anywhere else. A commit in another's name, over 20 MB in all, or whose message links another ticket is refused there.
 
 ### Requirement: Nothing to wait for
 

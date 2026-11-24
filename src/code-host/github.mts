@@ -423,34 +423,14 @@ const requiredStatus = (check: string, source?: StatusSource) => ({
 });
 
 // https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue
-const CLOSING = new RegExp(
-  String.raw`(?<![a-z0-9-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)(?![a-z0-9])` +
-    // What stands between is anything but a word, or a link's own text.
-    String.raw`[^a-z0-9#]{0,20}(?:(?<=\[)[^\]\n]{0,200}\]\([\s<]{0,5}(?=h|w|g)|(?=[a-z0-9#]))` +
-    String.raw`(?:(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]{1,100}\/[\w.-]{1,100})\/(?:issues|pull)\/(\d+)` +
-    String.raw`|([\w.-]{1,100}(?:\/[\w.-]{1,100})?)#(\d+)|(?:#|gh-)(\d+))`,
-  "gi",
-);
+const CLOSING =
+  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(?:https?:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)|([\w.-]+\/[\w.-]+)?#(\d+)|gh-(\d+))/gi;
 
-/** The text as GitHub may read it: with no comment, tag, or mark of
- * Markdown's, and each character written as itself. */
-function asRead(text: string): string {
-  return text
-    .replace(/<!--[\s\S]*?(?:-->|$)/g, "")
-    .replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => character(parseInt(n, 16)))
-    .replace(/&#(\d{1,7});/g, (_, n) => character(Number(n)))
-    .replace(/&num;/g, "#")
-    .replace(/<\/?[a-z][a-z0-9-]*(?:\s[^<>]{0,300})?\/?>/gi, "")
-    .replace(/[\\*~`­​-‏⁠﻿]/g, "");
-}
-
-const character = (code: number) =>
-  code <= 0x10ffff ? String.fromCodePoint(code) : "";
-
-/** What `CodeHost.closesIn` gives for a text in `repository`. It reads more
- * wordings than GitHub does, since a missed one closes a ticket. */
+/** What `CodeHost.closesIn` gives for a text in `repository`: the forms
+ * GitHub documents. What it would close with a pull request is GitHub's to
+ * say, by `closes`. */
 export function githubClosesIn(text: string, repository: string): string[] {
-  const found = [...asRead(text).matchAll(CLOSING)].map((m) => {
+  const found = [...text.matchAll(CLOSING)].map((m) => {
     const of = m[1] ?? m[3];
     const number = m[2] ?? m[4] ?? m[5];
     return !of || of.toLowerCase() === repository.toLowerCase()

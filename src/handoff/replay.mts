@@ -59,12 +59,7 @@ const PURE: { [K in On]: ReadonlySet<string> } = {
     "newTokenPage",
     "reviewAppPage",
   ]),
-  runner: new Set<keyof Runner>([
-    "buildsPage",
-    "runPage",
-    "thisRun",
-    "skipsRuns",
-  ]),
+  runner: new Set<keyof Runner>(["buildsPage", "runPage", "thisRun"]),
 };
 
 /** The arguments without those left out at the end. */

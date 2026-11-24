@@ -494,6 +494,23 @@ async function signedIn(d: PublishDeps, pull: number): Promise<void> {
     }
 }
 
+/** Says so on a build's pull request when the code host would close another
+ * ticket with it, whatever was read in its words. */
+async function closesOther(d: PublishDeps, pull: number): Promise<boolean> {
+  const { body } = await d.codeHost.get(pull);
+  if (!body.includes(CLOUD_MARK)) return false;
+  const own = recordedTicket(body) ?? d.run.ticket;
+  const other = (await d.codeHost.closes(pull)).find((key) => key !== own);
+  if (other === undefined) return false;
+  await d.codeHost.comment(
+    pull,
+    withAgentMark(
+      `This would close ${d.tickets.ref(other)} when it merges, which is not its ticket, so nothing more is done with it until a person looks.`,
+    ),
+  );
+  return true;
+}
+
 /** Waits for CI on the commit, then marks the pull request ready or starts
  * the next answer. */
 async function settle(
@@ -501,6 +518,9 @@ async function settle(
   pull: number,
   tip: string,
 ): Promise<void> {
+  // Asked now, and again before it is marked ready, since the code host may
+  // take a moment to work it out.
+  if (await closesOther(d, pull)) return;
   const ci = await ciOn(d, tip);
   await signedIn(d, pull);
   d.out(`CI ${ci}.`);
@@ -522,18 +542,7 @@ async function settle(
     d.out("The pull request has a newer commit, so it is not marked ready.");
     return;
   }
-  // What the code host itself will do, whatever was read in the text.
-  const own = recordedTicket(now.body) ?? d.run.ticket;
-  const other = (await d.codeHost.closes(pull)).find((key) => key !== own);
-  if (other !== undefined) {
-    await d.codeHost.comment(
-      pull,
-      withAgentMark(
-        `This would close ${d.tickets.ref(other)} when it merges, which is not its ticket, so it stays a draft until a person looks.`,
-      ),
-    );
-    return;
-  }
+  if (await closesOther(d, pull)) return;
   await d.codeHost.ready(pull);
   d.out(`Marked #${pull} ready.`);
 }

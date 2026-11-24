@@ -448,7 +448,7 @@ export async function conflicting(
 }
 
 /** Whether a pull request is `dirty`, with no stop comment for its head. */
-export async function conflicts(
+async function conflicts(
   p: CodeHost,
   number: number,
   sleepFor: (ms: number) => Promise<unknown>,
@@ -462,9 +462,13 @@ export async function conflicts(
     await sleepFor(CONFLICT_WAIT_MS);
     pull = await p.get(number);
   }
-  if (pull.mergeableState !== "dirty") return false;
+  return pull.mergeableState === "dirty" && !(await stoppedOn(p, pull));
+}
+
+/** Whether a conflict run stopped on the pull request's newest commit. */
+export async function stoppedOn(p: CodeHost, pull: Pull): Promise<boolean> {
   const stop = `conflict-stop head=${pull.head.sha}`;
-  return !(await p.comments(number)).some((c) => c.body.includes(stop));
+  return (await p.comments(pull.number)).some((c) => c.body.includes(stop));
 }
 
 export async function main(argv: string[], d: Deps): Promise<number> {
@@ -674,7 +678,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
             throw new Error("No ticket system to read links with.");
           const { tickets } = await d.tickets();
           const fault = commitsFault(
-            { codeHost: p, runner: d.runner, tickets, run },
+            { codeHost: p, tickets, run },
             commitsIn(d.git(["log", "-z", COMMITS, ...range])),
           );
           if (fault)

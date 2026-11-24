@@ -163,8 +163,8 @@ short list of them, and only on the run's own ticket and pull request:
 
 - Comment on the ticket or the pull request, edit the ticket, and stop or
   end the work on it.
-- Open one draft pull request, from a build. It and the commits may link
-  only the run's own ticket, in any wording that would close one.
+- Open one draft pull request, from a build. It and the commits may
+  say they close only the run's own ticket.
 - Reply to and resolve the pull request's review threads, and ask for its
   review again.
 - Add a line to the [follow-ups ticket](workflow.md#follow-ups), and, from
@@ -219,8 +219,8 @@ On your computer that is `/factory-build 12` in a session. The run's page
 keeps the commits for seven days, as the artifact whose
 name starts with `out-`. Publish also refuses commits that add a symbolic
 link or a submodule, merge anything but your default branch, are in another
-person's name, or whose message closes another ticket or keeps CI from
-running, and a build that asks for no pull request. Nothing else the session
+person's name, or whose message closes another ticket, and a build that asks
+for no pull request. Nothing else the session
 asked for is done then but a stop and a follow-up.
 
 ### What a session can use

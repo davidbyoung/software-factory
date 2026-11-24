@@ -529,8 +529,52 @@ describe("the next answer", () => {
 
     expect(w.host.pull(31).isDraft).toBe(true);
     expect((await w.host.codeHost.comments(31)).at(-1)!.body).toContain(
-      "This would close #13 when it merges, which is not its ticket, so it stays a draft until a person looks.",
+      "This would close #13 when it merges, which is not its ticket, so nothing more is done with it until a person looks.",
     );
+  });
+
+  it("is told of what else it would close, and not waited for, when its session left it to its owner", async () => {
+    commits();
+    asks({ ...OPEN, argv: [...OPEN.argv, "--draft"] });
+    const w = world();
+    w.d.codeHost = { ...w.d.codeHost, closes: async () => ["12", "13"] };
+
+    await publish(w.d);
+
+    const [{ number }] = await w.host.codeHost.listOpen();
+    const bodies = (await w.host.codeHost.comments(number)).map((c) => c.body);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toContain("This would close #13 when it merges");
+  });
+
+  it("is asked of again before it is marked ready, when the code host was slow to say", async () => {
+    const tip = commits();
+    const green = red(tip);
+    green.runs![tip][0].conclusion = "success";
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: draftAt(base), runner: green },
+    );
+    const answers = [["12"], ["12", "13"]];
+    w.d.codeHost = { ...w.d.codeHost, closes: async () => answers.shift()! };
+
+    await publish(w.d);
+
+    expect(w.host.pull(31).isDraft).toBe(true);
+  });
+
+  it("says nothing of what a person's own pull request would close", async () => {
+    commits();
+    const [own] = draftAt(base);
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: [{ ...own, body: "A person's.", closes: ["12", "13"] }] },
+    );
+
+    await publish(w.d);
+
+    const said = (await w.host.codeHost.comments(31)).map((c) => c.body);
+    expect(said.join("\n")).not.toContain("This would close");
   });
 
   it("is waited for when a sign-in made again fails once", async () => {
@@ -734,32 +778,6 @@ describe("what is not pushed", () => {
     );
   });
 
-  it("is a commit whose message is not in UTF-8, which may be read as another", async () => {
-    write("a.txt", "x\n");
-    git(work, "add", "-A");
-    git(
-      work,
-      "-c",
-      "i18n.commitEncoding=ISO-2022-JP",
-      "commit",
-      "-qm",
-      "\x1b$B Closes #13!\x1b(B",
-    );
-    git(
-      work,
-      "bundle",
-      "create",
-      "-q",
-      join(dir, "out/build.bundle"),
-      `${base}..12-add`,
-    );
-    asks(OPEN);
-    const w = world();
-
-    expect(await publish(w.d)).toBe(1);
-    expect(await told(w, "ticket")).toContain("is not written in UTF-8");
-  });
-
   it("is told of when a build left nothing at all", async () => {
     const w = world();
 
@@ -817,17 +835,6 @@ describe("what is not pushed", () => {
     const bodies = (await w.host.codeHost.comments(31)).map((c) => c.body);
     expect(bodies[0]).toContain(`<!-- conflict-stop head=${base} -->`);
     expect(bodies[1]).toContain("$1");
-  });
-
-  it("is a commit that keeps CI from running", async () => {
-    commits("a.txt", "Add a file [skip ci]");
-    asks(OPEN);
-    const w = world();
-
-    expect(await publish(w.d)).toBe(1);
-    expect(await told(w, "ticket")).toContain(
-      "Not pushed: a commit's message keeps CI from running.",
-    );
   });
 
   it.each([

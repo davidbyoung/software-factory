@@ -94,6 +94,10 @@ hijacked session could still:
   closes its own ticket. Your CI then runs that code, with whatever
   secrets your own CI gives a branch, so give CI no secret you would not
   give a session.
+- **Close another ticket when you merge its pull request,** if it hides the
+  words well enough. The usual wordings are refused, and Publish asks GitHub
+  what the pull request would close, but a merge's own message can hold text
+  neither reads. You would reopen that ticket.
 - **Pass its own review, where your CI's own token can write.** That token
   is the account the verdict is trusted from, and the code in a pull request
   runs beside it. GitHub's default is read for a new repository and can be

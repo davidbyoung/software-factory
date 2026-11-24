@@ -31,7 +31,6 @@ type DispatchedRun = {
   display_title: string;
   created_at: string;
   html_url: string;
-  conclusion?: string | null;
 };
 
 /** A terminal's escape sequences, such as the color codes a job's log is
@@ -157,10 +156,7 @@ export function githubActionsRunner(o: {
           "GET",
           `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=workflow_dispatch&created=${from}&per_page=100&page=${page}`,
         );
-        // One waiting is canceled when another takes its place.
-        count += runs.filter(
-          (r) => r.display_title === name && r.conclusion !== "cancelled",
-        ).length;
+        count += runs.filter((r) => r.display_title === name).length;
         if (runs.length < 100) return count;
       }
     },
@@ -196,11 +192,6 @@ export function githubActionsRunner(o: {
         ...(env.GITHUB_ACTOR ? { startedBy: env.GITHUB_ACTOR } : {}),
       };
     },
-    // https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs
-    skipsRuns: (text) =>
-      /\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]|^skip-checks:\s*true/im.test(
-        text,
-      ),
     async runs(sha): Promise<Run[]> {
       const answer = await t.rest<{ workflow_runs: RestRun[] }>(
         "GET",

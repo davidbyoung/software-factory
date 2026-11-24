@@ -131,19 +131,6 @@ describe("counting the answers to a pull request", () => {
     expect(await r.answersTo(31, SINCE)).toBe(2);
   });
 
-  it("counts none that was canceled, as one waiting is when another takes its place", async () => {
-    const started = runs("Answer #31", "Answer #31");
-    const [first, second] = started.workflow_runs;
-    const { r } = runner([
-      [
-        page(1),
-        { workflow_runs: [first, { ...second, conclusion: "cancelled" }] },
-      ],
-    ]);
-
-    expect(await r.answersTo(31, SINCE)).toBe(1);
-  });
-
   it("asks only for the runs started by hand or by a run since the pull request was opened", async () => {
     const { r, calls } = runner([[page(1), runs()]]);
 

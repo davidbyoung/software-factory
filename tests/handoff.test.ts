@@ -222,15 +222,12 @@ describe("factory pr push and pull", () => {
     expect(heads).toBe(`${git(work, "rev-parse", "HEAD")} HEAD`);
   });
 
-  it.each(["Fixes #13", "Add a file [skip ci]"])(
-    "hands nothing over with a commit that says %s, and says so at once",
-    async (message) => {
-      commit(message);
-      const r = await asked("push", { [HANDOFF]: dir });
-      expect(r.code).not.toBe(0);
-      expect(existsSync(join(dir, "out/build.bundle"))).toBe(false);
-    },
-  );
+  it("hands nothing over with a commit that closes another ticket", async () => {
+    commit("Fixes #13");
+    const r = await asked("push", { [HANDOFF]: dir });
+    expect(r.code).not.toBe(0);
+    expect(existsSync(join(dir, "out/build.bundle"))).toBe(false);
+  });
 
   it("hands nothing over in another's name", async () => {
     who = { name: "The Owner", email: "owner@example.com" };
