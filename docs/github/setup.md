@@ -35,7 +35,10 @@ factory init
 It names the repository on its first line, which it works out from your
 checkout's remotes. When they hold a fork, or more than one repository,
 it asks which one you are setting up. It stops when your checkout has
-commits the default branch lacks, so run it from the default branch.
+commits the default branch lacks, so run it from the default branch. In
+a repository with no commits yet, it first offers to make an empty
+first commit and push it, or to push the commits your checkout has,
+since a pull request needs a branch to merge into.
 
 Before it asks anything else, it reads [presets](../presets.md), the
 settings several repositories share, and it asks only what they leave
@@ -175,7 +178,16 @@ When the GitHub CLI's sign-in lacks a permission the command needs,
 which are `admin:org`, `project`, and `workflow`, it first asks to open
 your browser so you can grant it.
 
-It asks which board to use, and what pays for
+It asks which board to use: a new one, made with the factory's columns,
+or one the organization already has. For a board you already have, it
+reads the board's own columns and has Claude Code suggest which shows
+each of a ticket's six states, as
+[You already have a board](../existing-repo.md#you-already-have-a-board)
+shows for a repository. You confirm or change the answer, and the
+command adds only the columns and fields still missing, which its plan
+names on the `board` row.
+
+It then asks what pays for
 [builds in the cloud](../builds.md): a Claude subscription, for which it
 runs `claude setup-token` and you paste the token it prints, or an API
 key, which you paste. The command creates a repository named
@@ -207,7 +219,7 @@ Registering the GitHub App "Software Factory for acme". Two steps, both in your 
 
 The coding agent's token: running claude setup-token...
 ? Paste the token it printed (leave empty to do this later):
-✓ Stored 2 secrets and 1 variable for acme.
+✓ Stored 2 secrets and 2 variables for acme.
 ✓ Required "Review verdict" where the property software-factory is "on".
 
 ✓ acme is set up.
@@ -244,26 +256,31 @@ browser. What it does not say:
 
 **It worked when** it prints `✓ acme is set up.` It leaves you with:
 
-| What it created                                                                                         | Where to find it                                            |
-| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| The GitHub App "Software Factory for acme", which builds in the cloud act as                            | The organization's Settings, GitHub Apps                    |
-| Two secrets and a variable, which [Where your tokens are kept](../credentials.md#on-github) names       | The organization's Settings, Secrets and variables, Actions |
-| The repository `acme/factory-config`, with the organization's preset and its one poller                 | Among the organization's repositories                       |
-| The rule "Software factory", which requires "Review verdict" in each repository set up with the factory | The organization's Settings                                 |
-| A board with the factory's columns and fields, or the board you chose with those it lacked              | The organization's Projects                                 |
+| What it created                                                                                                    | Where to find it                                            |
+| ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| The GitHub App "Software Factory for acme", which builds in the cloud act as                                       | The organization's Settings, GitHub Apps                    |
+| Two secrets and two variables, which [Where your tokens are kept](../credentials.md#on-github) names               | The organization's Settings, Secrets and variables, Actions |
+| The repository `acme/factory-config`, with the organization's preset and its one poller                            | Among the organization's repositories                       |
+| The rule "Software factory", which requires "Review verdict" in each repository set up with the factory            | The organization's Settings                                 |
+| A board with the factory's columns and fields, or the board you chose, with its own columns and whatever it lacked | The organization's Projects                                 |
 
-The preset, `factory-preset.yaml`, is yours to edit. To use columns of
-your own on the board, change
-[`tickets.columns`](../configuration.md#ticketscolumns) there, as
-[You already have a board](../existing-repo.md#you-already-have-a-board)
-shows for a repository.
+The preset, `factory-preset.yaml`, is yours to edit. Under
+[`tickets.columns`](../configuration.md#ticketscolumns) it names the
+board's column for each state: the factory's own names on a new board,
+and the columns you confirmed on a board you already had. Edit them
+there if the board's columns change.
 
 **To run it again,** as after a run that stopped, give the same command.
-It does only what is missing, and offers to replace the Claude token,
-which expires. Where the App is registered and not installed yet, it
+It does only what is missing, and asks whether to replace the Claude
+token, with the words below. Answer yes only if the token has expired
+or been revoked. Where the App is registered and not installed yet, it
 prints only the step that installs it, with the address to open.
 **It worked when** it prints `✓ acme is set up.`, or
 `✓ acme is set up. Nothing to do.` when nothing was missing.
+
+```text
+? CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.
+```
 
 Three things stay by hand, on GitHub:
 
@@ -277,16 +294,32 @@ Three things stay by hand, on GitHub:
 
 The `Plan` row under "Found" says when the organization is on it. Then
 `factory-config` is public, so anyone can read the shared settings in
-it. A private repository gets no review and no builds in the cloud,
-since the organization's secrets do not reach it. And there is no
-organization-wide rule, so once each repository's setup merges, an admin
-of that repository runs `factory init` again, which requires "Review
-verdict" there. The command's closing lines list that as a third step:
+it. What follows differs for the organization's public and private
+repositories:
 
-```text
-  3. Once that pull request merges, an admin of the repository runs factory init there
-     again, to require "Review verdict". GitHub Free has no organization-wide rules.
-```
+- **A public repository** gets the review and builds in the cloud. There
+  is no organization-wide rule, so once its setup merges, an admin of
+  that repository runs `factory init` again, which requires "Review
+  verdict" there. The command's closing lines list that as a third
+  step:
+
+  ```text
+    3. Once that pull request merges, an admin of the repository runs factory init there
+       again, to require "Review verdict". GitHub Free has no organization-wide rules.
+  ```
+
+- **A private repository** gets no review and no builds in the cloud,
+  since the plan does not share the organization's secrets with it.
+  `factory init` there shows the third `Organization` row under
+  [In an organization](#in-an-organization), and turns on nothing that
+  reads a secret. The plan has no branch rules for a private repository
+  either, so "Review verdict" cannot be required there, by a workflow
+  run or by an admin. `factory doctor` says both:
+
+  ```text
+  ✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository
+  - "Review verdict" cannot be required here: GitHub Free has no branch rules for a private repository
+  ```
 
 ## What is left for you
 
@@ -294,15 +327,15 @@ When nothing is left, `init` prints
 `Merge it to finish. Nothing else is left to do.` after the pull
 request's line. Otherwise it says what is left:
 
-| When this happens                                                                  | Do this                                                                                                                                                                                                                                                                        |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| You left the gate question empty                                                   | Add the commands that check a change, such as your tests and linter, under `commands.gate`. A build cannot finish without them                                                                                                                                                 |
-| "Left to do" says an admin runs `factory init` once the pull request merges        | Merge it, then run `factory init` again, as an admin of the repository, to require "Review verdict". No workflow run could: the organization has no organization-wide rule ([On GitHub's Free plan](#on-githubs-free-plan)), or your own repository has no GitHub token stored |
-| You chose "Builds that start when you move a card to Ready", on a server you host  | Run the poller's image with the values `init` prints. [Hosting the poller](../builds.md#hosting-the-poller-own-server) has the steps                                                                                                                                           |
-| You chose "Signed commits from cloud builds", and it could not add the key         | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"                                                                                                                  |
-| You chose "Pull requests that merge themselves", and it could not allow auto-merge | An admin of the repository allows it: Settings, General, "Allow auto-merge"                                                                                                                                                                                                    |
-| The repository is public, and it could not add the policy                          | Let `.github/workflows/factory.yml` run on `pull_request_target`, in your repository's Settings, Actions, Policies. [By hand](by-hand.md#a-public-repository) has each field                                                                                                   |
-| GitHub refused the push or the pull request                                        | Push the branch `set-up-factory`, where init left its commit, if it is not pushed, and open the pull request yourself                                                                                                                                                          |
+| When this happens                                                                  | Do this                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| You left the gate question empty                                                   | Add the commands that check a change, such as your tests and linter, under `commands.gate`. A build cannot finish without them                                                                                                                                                                                                                           |
+| "Left to do" says an admin runs `factory init` once the pull request merges        | Merge it, then run `factory init` again, as an admin of the repository, to require "Review verdict". No workflow run could: the organization has no organization-wide rule ([On GitHub's Free plan](#on-githubs-free-plan)), or your own repository has no GitHub token stored, or one that belongs to another account than the one you are signed in as |
+| You chose "Builds that start when you move a card to Ready", on a server you host  | Run the poller's image with the values `init` prints. [Hosting the poller](../builds.md#hosting-the-poller-own-server) has the steps                                                                                                                                                                                                                     |
+| You chose "Signed commits from cloud builds", and it could not add the key         | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"                                                                                                                                                                                            |
+| You chose "Pull requests that merge themselves", and it could not allow auto-merge | An admin of the repository allows it: Settings, General, "Allow auto-merge"                                                                                                                                                                                                                                                                              |
+| The repository is public, and it could not add the policy                          | Let `.github/workflows/factory.yml` run on `pull_request_target`, in your repository's Settings, Actions, Policies. [By hand](by-hand.md#a-public-repository) has each field                                                                                                                                                                             |
+| GitHub refused the push or the pull request                                        | Push the branch `set-up-factory`, where init left its commit, if it is not pushed, and open the pull request yourself                                                                                                                                                                                                                                    |
 
 ## Optional: tune it
 

@@ -17,12 +17,18 @@ Your sessions use two logins you already have: the GitHub CLI's, from
 Actions, read tokens, and which ones depends on who owns the repository.
 
 - **In an organization, the workflows make a token for each run** from
-  the organization's GitHub App. An owner stored three things once, when
-  they [set the organization up](github/setup.md#set-an-organization-up-once):
-  the App's key, as the organization's secret `FACTORY_APP_PRIVATE_KEY`,
-  its client ID, as the variable `FACTORY_APP_CLIENT_ID`, and what pays
-  for sessions, as `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY` for
-  an API key. A run's token lasts an hour, and reaches only the run's
+  the organization's GitHub App. An owner stored four things for the
+  organization once, when they
+  [set it up](github/setup.md#set-an-organization-up-once):
+  - the App's key, as the secret `FACTORY_APP_PRIVATE_KEY`;
+  - its client ID, as the variable `FACTORY_APP_CLIENT_ID`;
+  - its name as GitHub writes it in an address, as the variable
+    `FACTORY_APP_SLUG`, which lets the automated review read a pull
+    request the App opened;
+  - what pays for sessions, as the secret `CLAUDE_CODE_OAUTH_TOKEN`, or
+    `ANTHROPIC_API_KEY` for an API key.
+
+  A run's token lasts an hour, and reaches only the run's
   repository and the organization's [preset](presets.md) repositories it
   follows. A build can run for longer than an hour, so its job makes a
   new token every 45 minutes, and one process of that job holds the
@@ -32,6 +38,7 @@ Actions, read tokens, and which ones depends on who owns the repository.
   teammate joining a repository needs the two logins,
   and the `factory` command [installed](quick-start.md#1-install) once
   on their machine. Nobody hands them a token, and they keep none.
+
 - **On your own account, the workflows read the repository's secrets.**
   GitHub requires one access token there, since a board a person owns
   refuses an App's token. `factory init` stores that GitHub access

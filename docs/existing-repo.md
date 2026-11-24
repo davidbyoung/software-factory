@@ -61,15 +61,13 @@ six, and every factory command needs all six there.
 
 **In an organization,** the board is chosen once, by the owner who runs
 [`factory init --org`](github/setup.md#set-an-organization-up-once).
-That command asks which board, and nothing about its columns: it adds
-each of the factory's six columns the board lacks, and writes those six
-names into the organization's [preset](presets.md), the file
-`factory-preset.yaml` that its repositories share. To use columns of
-your own instead, the owner edits `tickets.columns` in that file, as
-the block below shows for a repository. `factory init` in a repository
-that follows the preset takes the board from it, and asks nothing about
-boards or columns. The rest of this section is for a repository that
-names its own board.
+For a board the organization already has, that command asks about its
+columns exactly as this section shows `factory init` doing, and saves
+the answer in the organization's [preset](presets.md), the file
+`factory-preset.yaml` that its repositories share, where this section
+says `.claude/factory.yaml`. `factory init` in a repository that
+follows the preset takes the board from it, and asks nothing about
+boards or columns.
 
 When you run `factory init`, step 2 of the
 [quick start](quick-start.md#2-set-it-up), it lists your boards to choose
@@ -157,12 +155,22 @@ Checks
   ✓ Board 3 has every column the settings name
 ```
 
-**Init stops, and changes nothing, when it can't get an answer:** when
-Claude Code isn't signed in, or when its answer can't be used, such as
-one column for two states. It prints why. Then do one of these, and run
-`factory init` again:
+**When init can't get an answer, it asks you instead.** That happens
+when Claude Code isn't signed in, or when its answer can't be used, such
+as one column for two states. Init prints Claude Code's own reason, then
+asks for each state's column in turn, offering your columns, no column,
+or a new column with the factory's name, and shows you the table to
+confirm as above:
 
-- sign in to Claude Code, by running `claude` once;
+```text
+Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth session expired and could not be refreshed.
+Choose the column for each state yourself.
+? Which column shows backlog?
+```
+
+To be asked nothing about columns at all, do one of these before you
+run `factory init`:
+
 - write a `columns` block like the one above in `.claude/factory.yaml`
   yourself, with all six states, beside your `board`, as
   [`tickets.columns`](configuration.md#ticketscolumns) describes. When

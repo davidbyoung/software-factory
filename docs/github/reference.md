@@ -61,14 +61,14 @@ once, for every repository of the organization, here `acme`. No command takes th
 out: [Removing it](../removing.md#taking-an-organizations-setup-out)
 lists them in the order to delete them.
 
-| What `factory init --org` adds                                                                                                                                          | Where to find it                                                                      |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| The GitHub App "Software Factory for acme", registered by the organization and installed on the repositories its owner chose                                            | The organization's Settings, Developer settings, GitHub Apps                          |
-| The secret `FACTORY_APP_PRIVATE_KEY`, the variable `FACTORY_APP_CLIENT_ID`, and the secret `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`, each for every repository | The organization's Settings, Secrets and variables, Actions                           |
-| The repository `acme/factory-config`, with `factory-preset.yaml`, `.github/workflows/factory-poller.yml`, and a `README.md`                                             | Among the organization's repositories                                                 |
-| The property `software-factory`, with the values `on` and `off`, which the first workflow run after a repository's setup merges sets to `on` for it                     | The organization's Settings, Custom properties                                        |
-| The rule "Software factory", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                             | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
-| A board, or the factory's columns and fields on the board the owner chose                                                                                               | The organization's Projects                                                           |
+| What `factory init --org` adds                                                                                                                                                                                  | Where to find it                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| The GitHub App "Software Factory for acme", registered by the organization and installed on the repositories its owner chose                                                                                    | The organization's Settings, Developer settings, GitHub Apps                          |
+| The secret `FACTORY_APP_PRIVATE_KEY`, the variables `FACTORY_APP_CLIENT_ID` and `FACTORY_APP_SLUG`, the App's name, and the secret `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`, each for every repository | The organization's Settings, Secrets and variables, Actions                           |
+| The repository `acme/factory-config`, with `factory-preset.yaml`, `.github/workflows/factory-poller.yml`, and a `README.md`                                                                                     | Among the organization's repositories                                                 |
+| The property `software-factory`, with the values `on` and `off`, which the first workflow run after a repository's setup merges sets to `on` for it                                                             | The organization's Settings, Custom properties                                        |
+| The rule "Software factory", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                                                                     | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
+| A board, or whichever of the factory's columns and fields the board the owner chose still lacked                                                                                                                | The organization's Projects                                                           |
 
 ### On your machine
 
@@ -151,10 +151,12 @@ What the less obvious ones do:
   first push after the setup's pull request merges. A rule made before
   then would hold the setup's own pull request forever, since nothing
   judges it yet. In an organization it sets the repository's
-  `software-factory` property to `on`, so the organization's rule covers
-  it. On your own account it makes the repository's ruleset, with your
-  build token. It prints the line for what it did, and nothing once the
-  verdict is required. It passes whatever it could do, and a line that
+  `software-factory` property to `on`, unless its value is already `on`,
+  so the organization's rule covers it. On your own account it makes the
+  repository's ruleset, with your build token. It prints the line for
+  what it did, and nothing once the verdict is required, or where the
+  plan has no branch rules for the repository, as in a private
+  repository on GitHub's Free plan. It passes whatever it could do, and a line that
   starts with `?` says who does the rest by hand:
 
   ```text
@@ -285,7 +287,9 @@ App's. Its commits name Claude as their author and the App's bot, such
 as `software-factory-for-acme[bot]`, as their committer, and are not
 signed, whatever `FACTORY_SIGNING_KEY` holds. The automated review and
 the "Review verdict" status keep the workflow's own token, so a build
-cannot pass its own review. When the App is not installed on the
+cannot pass its own review. The review reads a pull request the App
+opened because the variable `FACTORY_APP_SLUG` names that one bot to it:
+it reads no other bot's. When the App is not installed on the
 repository, the run fails with:
 
 ```text

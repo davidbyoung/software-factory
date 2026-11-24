@@ -91,6 +91,10 @@ check fails. GitHub never lets a secret be read back, so `doctor` checks
 only that each secret your parts read is set. With the automated review
 on, it checks that "Review verdict" is required before a merge to your
 default branch ([Changing it later](github/setup.md#changing-it-later)).
+In a private repository of an organization on GitHub's Free plan, it
+says instead that the organization's secrets are not shared with the
+repository, and that the verdict cannot be required there
+([On GitHub's Free plan](github/setup.md#on-githubs-free-plan)).
 A ticket system's token kept on your machine it checks with the ticket
 system itself. It does not check the GitHub access token and the Claude
 token that `init` keeps on your machine on your own account.

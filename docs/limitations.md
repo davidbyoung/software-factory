@@ -155,17 +155,25 @@ as a code host's billing or what its workflows can see, are in
 - **A board owned by an organization.** It is read the same way as a
   person's, and `factory init --org` has given one its columns, but the
   board sync and the poller have only run against a person's.
-- **Most of an organization's setup, against a real one.**
-  `factory init --org` has run once against a real organization, on
-  GitHub's Free plan: it registered the app, stored the secrets, created
-  `factory-config`, and gave an existing board its columns. With one
-  repository's own rule, two more things were tried there: that a rule
-  can require "Review verdict" from GitHub Actions alone, and that a
-  pull request that adds the factory's workflow waits forever under such
-  a rule. The rest has run only against a stand-in for GitHub: the
-  organization-wide rule, which needs a plan that organization does not
-  have, a job making a token from the app, `factory enroll`, the token's
-  renewal during a build, and the organization's poller.
+- **Parts of an organization's setup, against a real one.** These have
+  run on GitHub, once each, in an organization on the Free plan:
+  `factory init --org` from start to finish; a job making a token from
+  the app, with that job's own permissions; `factory session token`
+  signing the code host's command-line tool in, and a push and a pull
+  request made through that sign-in; `factory enroll`, with the
+  organization's property and without it; and the automated review
+  accepting a pull request the app opened. These have not: the
+  organization-wide rule, which needs GitHub's Team plan; the poller in
+  `factory-config`, which needs a release of the factory to call; a
+  session's token being renewed at 45 minutes; a whole cloud build as
+  the app; and a review that ran to its end on a pull request the app
+  opened.
+- **Whether `claude setup-token` ends the coding agent's own sign-in.**
+  Once, Claude Code's sign-in on the machine expired within an hour of
+  `claude setup-token`, which both setup commands run when a
+  subscription pays for sessions. Claude Code's documentation does not
+  say whether one affects the other. If a later step says the session
+  expired, run `claude` and sign in again.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
 - **A factory update reaching a repository through the update job.**

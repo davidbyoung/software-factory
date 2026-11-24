@@ -30,7 +30,7 @@ hook, label, and setting.
 - **On your code host, once for an organization,** when an owner set it
   up with `factory init --org`: the organization's own app, which its
   cloud builds act as; the app's key and the coding agent's token, as
-  secrets, and a variable that names the app; a repository named
+  secrets, and two variables that name the app; a repository named
   `factory-config`, for the settings its repositories share; a property
   named `software-factory`, a value the organization keeps for each
   repository; and a rule that requires the review's verdict wherever
@@ -141,10 +141,11 @@ GitHub, in this order.
    Settings, under GitHub Apps, uninstall the app whose name starts
    "Software Factory for". Then, under Developer settings, GitHub Apps,
    delete it.
-5. **Delete the secrets and the variable.** In the organization's
+5. **Delete the secrets and the variables.** In the organization's
    Settings, under Secrets and variables, Actions, delete the secrets
    `FACTORY_APP_PRIVATE_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`, or
-   `ANTHROPIC_API_KEY`, and the variable `FACTORY_APP_CLIENT_ID`. Leave
+   `ANTHROPIC_API_KEY`, and the variables `FACTORY_APP_CLIENT_ID` and
+   `FACTORY_APP_SLUG`. Leave
    the coding agent's secret if another workflow of yours reads it.
 6. **Keep the board, or delete it,** in the organization's Projects. It
    is an ordinary Project.

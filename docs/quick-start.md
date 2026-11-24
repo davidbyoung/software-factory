@@ -11,7 +11,8 @@ A word you do not know is in the [glossary](glossary.md).
 ## You need
 
 - A repository on a supported code host, cloned on your machine, with the
-  code host's command-line tool signed in.
+  code host's command-line tool signed in. It can be new and empty:
+  `factory init` then offers to push a first commit.
 - A supported coding agent, signed in. `factory init` stops without one.
 - Node 22.18 or later.
 

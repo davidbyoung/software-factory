@@ -341,6 +341,7 @@ the run. In an organization that is set up, nobody stores any of them.
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `FACTORY_APP_PRIVATE_KEY`, a secret | The key of the organization's GitHub App, from which each run makes its own token. [Replacing the App's key](../credentials.md#replacing-the-apps-key) has the steps |
 | `FACTORY_APP_CLIENT_ID`, a variable | Which App the key belongs to                                                                                                                                         |
+| `FACTORY_APP_SLUG`, a variable      | The App's name as GitHub writes it in an address, which lets the automated review read a pull request the App opened                                                 |
 | `CLAUDE_CODE_OAUTH_TOKEN`, a secret | What pays for sessions, or `ANTHROPIC_API_KEY` for an API key                                                                                                        |
 
 What you store on a repository:
