@@ -91,6 +91,8 @@ function world(
     ref: "#12",
     pull: null,
     round: 0,
+    claim: "IC_1",
+    committer: { name: "factory[bot]", email: "1+factory[bot]@example.com" },
     ...over,
   };
   const host = memoryCodeHost(o.pulls ?? [], { defaultBranch: "trunk" });

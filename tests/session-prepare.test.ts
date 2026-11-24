@@ -92,6 +92,8 @@ function world(
       return { code, lines };
     },
     git: (args) => git(checkout, ...args),
+    claimOf: () => "IC_1",
+    committer: { name: "factory[bot]", email: "1+factory[bot]@example.com" },
     out: (line) => out.push(line),
   };
   return { d, out, stops, host };

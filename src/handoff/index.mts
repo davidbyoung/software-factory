@@ -29,6 +29,10 @@ export type RunFile = {
   pull: number | null;
   /** Which answer this is, from 1; 0 for any other run. */
   round: number;
+  /** The claim a build's Prepare made, by its record's ID. */
+  claim: string | null;
+  /** Who a session's commits are committed by. */
+  committer: { name: string; email: string };
 };
 
 type Env = Record<string, string | undefined>;

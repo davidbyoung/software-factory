@@ -20,3 +20,26 @@ export type Agent = {
   installed(hasCommand: (name: string) => boolean): boolean;
   answer(q: Question): Promise<Answer>;
 };
+
+/** A session in the cloud, confined to what it is given. */
+export type CloudSession = {
+  prompt: string;
+  /** The copy of the branch it changes. */
+  work: string;
+  /** Where it leaves what it hands over. */
+  out: string;
+  /** The package manager's cache. */
+  cache: string;
+  /** Folders it may read beside the one it starts in. */
+  read: string[];
+  /** Folders no command of its may write. */
+  readOnly: string[];
+  /** Hosts its commands may reach, besides the package registry. */
+  hosts: string[];
+  maxTurns: number;
+  model?: string;
+  /** The shape of its answer, for a session that changes nothing. */
+  schema?: object;
+};
+
+export type SessionCommand = { command: string; args: string[] };

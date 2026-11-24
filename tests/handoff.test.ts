@@ -26,6 +26,8 @@ const RUN: RunFile = {
   ref: "#12",
   pull: 31,
   round: 1,
+  claim: null,
+  committer: { name: "factory[bot]", email: "1+factory[bot]@example.com" },
 };
 
 let dir: string;

@@ -43,6 +43,9 @@ export type PrepareDeps = Adapters & {
   ): Promise<{ code: number; lines: string[] }>;
   pr(argv: string[], on: Adapters): Promise<{ code: number; lines: string[] }>;
   git(args: string[]): string;
+  /** The claim this checkout made on the ticket. */
+  claimOf(ticket: string): string | null;
+  committer: RunFile["committer"];
   out(line: string): void;
 };
 
@@ -145,6 +148,8 @@ async function build(
     ref: d.tickets.ref(key),
     pull: null,
     round: 0,
+    claim: d.claimOf(key),
+    committer: d.committer,
   };
 }
 
@@ -214,6 +219,8 @@ async function ofPull(
       kind === "answer"
         ? await d.runner.answersTo(pull.number, pull.createdAt ?? "")
         : 0,
+    claim: null,
+    committer: d.committer,
   };
 }
 

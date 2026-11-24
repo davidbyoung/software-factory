@@ -1,0 +1,193 @@
+// The middle job of a run that starts a session in the cloud: it lays out
+// what Prepare handed over, starts the agent confined to it, and keeps only
+// what the session may hand on. It has no sign-in to the code host.
+//
+//   factory session run     # with FACTORY_SESSION naming the folder
+//
+//   in/     from Prepare, read-only to the session
+//   home/   the default branch, where the session starts, read-only to it
+//   work/   the branch it changes
+//   out/    what it leaves
+//   clean/  what is handed on: named files, if ordinary and not too large
+//
+// After the agent ends, nothing here runs or opens anything under work/.
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import type { CloudSession, SessionCommand } from "./agent/types.mts";
+import { HANDOFF, type RunFile } from "./handoff/index.mts";
+
+type Env = Record<string, string | undefined>;
+
+export type SessionDeps = {
+  dir: string;
+  env: Env;
+  hosts: string[];
+  prompt: string;
+  model?: string;
+  minutes: number;
+  schema?: object;
+  git(cwd: string, args: string[]): void;
+  /** The factory's own install, which the session's commands run. */
+  install: string[];
+  settings(s: CloudSession): object;
+  command(s: CloudSession, file: string): SessionCommand;
+  /** Runs the agent to its end, a line to `line` for each it prints. */
+  agent(o: {
+    command: SessionCommand;
+    cwd: string;
+    env: Env;
+    minutes: number;
+    line(text: string): void;
+  }): Promise<number>;
+  out(line: string): void;
+};
+
+const LIMIT = 20_000_000;
+const MAX_TURNS = 1000;
+
+/** The environment without anything the session has no use for: the
+ * runner's own tokens and paths, and any sign-in to the code host. */
+export function sessionEnv(env: Env, run: RunFile, dir: string): Env {
+  const kept = Object.entries(env).filter(
+    ([name]) =>
+      !/^(?:ACTIONS_|GITHUB_|RUNNER_|GH_|FACTORY_)/.test(name) &&
+      !/PRIVATE_KEY/.test(name),
+  );
+  return {
+    ...Object.fromEntries(kept),
+    [HANDOFF]: dir,
+    FACTORY_VERSION: env.FACTORY_VERSION,
+    FACTORY_LOCK: env.FACTORY_LOCK,
+    npm_config_cache: join(dir, "cache"),
+    XDG_CACHE_HOME: join(dir, "cache"),
+    GIT_AUTHOR_NAME: "Claude",
+    GIT_AUTHOR_EMAIL: "noreply@anthropic.com",
+    GIT_COMMITTER_NAME: run.committer.name,
+    GIT_COMMITTER_EMAIL: run.committer.email,
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_TERMINAL_PROMPT: "0",
+  };
+}
+
+/** Copies a file the session left, only if it is an ordinary one: a link
+ * would be followed by whatever reads it next, outside the sandbox. */
+export function collect(
+  from: string,
+  to: string,
+  names: string[],
+  out: (line: string) => void,
+): void {
+  mkdirSync(to, { recursive: true });
+  for (const name of names) {
+    const path = join(from, name);
+    const found = lstatSync(path, { throwIfNoEntry: false });
+    if (!found) continue;
+    if (!found.isFile()) {
+      out(`Left ${name} behind: it is not an ordinary file.`);
+      continue;
+    }
+    if (found.size > LIMIT) {
+      out(`Left ${name} behind: it is larger than 20 MB.`);
+      continue;
+    }
+    copyFileSync(path, join(to, name));
+    chmodSync(join(to, name), 0o600);
+  }
+}
+
+export async function runSession(d: SessionDeps): Promise<number> {
+  const at = (...path: string[]) => join(d.dir, ...path);
+  const run = JSON.parse(readFileSync(at("in/run.json"), "utf8")) as RunFile;
+  for (const name of ["out", "cache"]) mkdirSync(at(name), { recursive: true });
+  // Prepare's bundles hold no branch, so each is fetched into an empty
+  // repository.
+  if (!existsSync(at("home"))) {
+    d.git(d.dir, ["init", "-q", at("home")]);
+    d.git(at("home"), [
+      "fetch",
+      "-q",
+      at("in/home.bundle"),
+      "refs/handoff/home:refs/handoff/home",
+    ]);
+    d.git(at("home"), [
+      "checkout",
+      "-q",
+      "-B",
+      run.defaultBranch,
+      "refs/handoff/home",
+    ]);
+  }
+  d.git(d.dir, ["init", "-q", at("work")]);
+  d.git(at("work"), [
+    "fetch",
+    "-q",
+    at("in/work.bundle"),
+    `refs/handoff/home:refs/remotes/origin/${run.defaultBranch}`,
+    "refs/handoff/work:refs/handoff/work",
+  ]);
+  d.git(at("work"), [
+    "symbolic-ref",
+    "refs/remotes/origin/HEAD",
+    `refs/remotes/origin/${run.defaultBranch}`,
+  ]);
+  d.git(at("work"), ["checkout", "-q", "-B", run.branch, "refs/handoff/work"]);
+
+  const s: CloudSession = {
+    prompt: d.prompt,
+    work: at("work"),
+    out: at("out"),
+    cache: at("cache"),
+    read: [at("in")],
+    readOnly: [at("in"), at("home"), ...d.install],
+    hosts: d.hosts,
+    maxTurns: MAX_TURNS,
+    ...(d.model ? { model: d.model } : {}),
+    ...(d.schema ? { schema: d.schema } : {}),
+  };
+  const file = at("settings.json");
+  writeFileSync(file, JSON.stringify(d.settings(s), null, 2));
+
+  const lines: string[] = [];
+  const code = await d.agent({
+    command: d.command(s, file),
+    cwd: at("home"),
+    env: sessionEnv(d.env, run, d.dir),
+    minutes: d.minutes,
+    line: (text) => lines.push(text),
+  });
+  collect(at("out"), at("clean"), ["build.bundle", "request.json"], d.out);
+  const answer = d.schema ? answerIn(lines) : undefined;
+  if (d.schema && answer === undefined) {
+    d.out("The session gave no answer in the shape it was asked for.");
+    return 1;
+  }
+  if (answer !== undefined)
+    writeFileSync(at("clean/answer.json"), JSON.stringify(answer));
+  return code;
+}
+
+/** The structured answer in what the agent printed. It comes from the agent
+ * itself, so no command of the session can write it. */
+function answerIn(lines: string[]): unknown {
+  for (const line of lines.toReversed())
+    try {
+      const read = JSON.parse(line) as {
+        type?: string;
+        is_error?: boolean;
+        structured_output?: unknown;
+      };
+      if (read.type === "result")
+        return read.is_error ? undefined : read.structured_output;
+    } catch {
+      continue;
+    }
+  return undefined;
+}
