@@ -40,6 +40,7 @@ It is the second of three tickets from one design, drafted with `dx-first` on #7
 - In an organization's repository, `factory init` asks for no GitHub token: it says whether the organization is set up and whether its secrets reach the repository.
 - `factory init` runs the gate, commits what it wrote on a branch, pushes it, and opens the pull request, after "Go ahead?". The rule that requires "Review verdict" is made after the setup merges, and `factory doctor` says whether it is required.
 - In a person's repository, `factory init` also keeps the GitHub token and the coding agent's credential in the credentials file on the machine, and stores them for the next repository of the same account without asking.
+- The hook that refuses a session's file tools on the credentials file is in every repository, whatever the ticket system, since the file now holds a person's GitHub token and coding agent's credential too. Its command starts the factory only for a call whose input names the file.
 - The lock records whether each preset's repository holds `factory-poller.yml`, and `factory remove` lists the `software-factory` property among what is left by hand in an organization's repository.
 - `docs/github/setup.md` and "On GitHub" in `docs/credentials.md` are rewritten, and no page tells a reader to install Claude's GitHub App or says a token from a GitHub App is not supported.
 
@@ -60,10 +61,20 @@ It is the second of three tickets from one design, drafted with `dx-first` on #7
 
 - `settings-lock`
 - `workflow-files`
+- `board-poller`
 - `tool-setup`
 - `default-branch`
+- `pr-uncovered`
 - `remove`
 - `docs`
+- `column-suggestion`
+- `npm-registry-secrets`
+- `parts-off`
+- `presets`
+- `public-repository`
+- `status`
+- `updates`
+- `ticket-credentials`
 
 ## Impact
 

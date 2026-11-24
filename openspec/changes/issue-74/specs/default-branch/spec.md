@@ -2,7 +2,7 @@
 
 ### Requirement: From origin/HEAD
 
-The factory SHALL behave as this line says: When `factory default-branch` runs outside a workflow and `REMOTE/HEAD` is set, it prints the branch `REMOTE/HEAD` points to, without `REMOTE/`, and exits 0. REMOTE is the remote whose address is the repository the `repository` line of `.claude/factory.yaml` names, whatever that remote is called and whether its address is an SSH or an HTTPS one, and `origin` where two remotes have that repository's address and one of them is `origin`. In a checkout with no `.claude/factory.yaml`, REMOTE is `origin`.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: From origin/HEAD
 

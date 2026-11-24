@@ -75,3 +75,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** a job runs a session under the App
 - **THEN** In the job that runs a session, under the App, `factory session token` signs the GitHub CLI and git in with a token of the App's, made for the repositories line 21 names, and leaves a process running that makes a new one every 45 minutes until the job ends, trying again each minute after a failure. The App's key reaches that one step, and no later step of the job is given a token made once.
+
+### Requirement: The branch's user under the App
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The branch's user under the App
+
+- **WHEN** a build under the App names its branch from a pattern with `{user}`
+- **THEN** Under the App, `{user}` in `code-host.branch-name` is the App's name as GitHub writes it in an address, such as `software-factory-for-acme`, since an App's token may not ask who is signed in.
