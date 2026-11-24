@@ -25,4 +25,4 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Conflicts and Dependabot's pull requests
 
 - **WHEN** the default branch is pushed to, or a schedule fires
-- **THEN** A push to the default branch, and the nightly schedule, start one conflict run for each pull request that conflicts. Each open Dependabot pull request starts one dependency run on today's schedule.
+- **THEN** A push to the default branch, and the nightly schedule, start one conflict run for each pull request that conflicts. Each open Dependabot pull request starts one dependency run on today's schedule. A pull request has one conflict run, and one dependency run, at a time.

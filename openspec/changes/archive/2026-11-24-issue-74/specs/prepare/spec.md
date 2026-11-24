@@ -7,7 +7,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Preparing a build
 
 - **WHEN** a build's Prepare runs
-- **THEN** `factory session prepare build N` claims the ticket, then stops it with the reason when it has no Spec or Acceptance criteria section and no `follow-up` label. It makes the branch-name and earlier-branch checks of `factory-build` and deletes a merged branch.
+- **THEN** `factory session prepare build N` claims the ticket, then stops it with the reason when it has no Spec or Acceptance criteria section and no `follow-up` label. It makes the branch-name and earlier-branch checks of `factory-build` and deletes a merged branch. A build that fails there, or is canceled, releases its ticket.
 
 ### Requirement: What is handed over
 
@@ -25,4 +25,4 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: A pull request Prepare refuses
 
 - **WHEN** a run is for a pull request
-- **THEN** For a pull request, the base must be the default branch and the head in this repository; otherwise it refuses. A pull request from a fork starts no run, and its verdict keeps waiting, as today.
+- **THEN** For a pull request, the base must be the default branch and the head in this repository; otherwise it refuses. A pull request from a fork starts no run, and its verdict keeps waiting, as today. The ticket of a pull request a build opened is the one its Publish recorded on it, and of any other, the one it closes.

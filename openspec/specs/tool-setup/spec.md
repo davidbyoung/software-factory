@@ -97,12 +97,12 @@ them.
 
 ### Requirement: Doctor is unchanged with today's tools
 
-The factory SHALL behave as this line says: `factory doctor` prints the same checks as before this change with today's tools, sorted and worded as lines 20 to 25 and 33 say, and two lines #74 adds. With `pr-review` set, it says whether "Review verdict" is required, under the code host's name, as `setup-pull-request` words it. Where a preset's repository runs the poller, it prints that repository's `factory-poller.yml` line under the runner's name, in place of the line for `factory.yml`.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Doctor is unchanged with today's tools
 
 - **WHEN** `factory doctor` runs with today's tools
-- **THEN** `factory doctor` prints the same checks as before this change with today's tools, sorted and worded as lines 20 to 25 and 33 say, and two lines #74 adds. With `pr-review` set, it says whether "Review verdict" is required, under the code host's name, as `setup-pull-request` words it. Where a preset's repository runs the poller, it prints that repository's `factory-poller.yml` line under the runner's name, in place of the line for `factory.yml`.
+- **THEN** `factory doctor` prints the same checks as before this change with today's tools, sorted and worded as lines 20 to 25 and 33 say, and three lines #74 adds. With `pr-review` set, it says whether "Review verdict" is required, and what CI's own token may do, under the code host's name, as their own requirements word them. Where a preset's repository runs the poller, it prints that repository's `factory-poller.yml` line under the runner's name, in place of the line for `factory.yml`.
 
 ### Requirement: A tool's secret not set
 
@@ -601,3 +601,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** `factory init` offers signed commits
 - **THEN** `factory init` offers signed commits as "Signed commits on the factory's updates", and `FACTORY_SIGNING_KEY` is read only by the updates' job.
+
+### Requirement: What CI's own token may do
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: What CI's own token may do
+
+- **WHEN** `factory doctor` or `factory init` runs with `pr-review` set
+- **THEN** With `pr-review` set, `factory doctor` prints `✓ CI's own token can only read, unless a workflow says more`, or `✗ CI's own token can write, so code in a pull request could pass "Review verdict": set it to read, in your repository's Settings, Actions, General, Workflow permissions`, or `? Could not tell what CI's own token may do: ` and the reason, and "Left to do" in `factory init` says the same where it can write.

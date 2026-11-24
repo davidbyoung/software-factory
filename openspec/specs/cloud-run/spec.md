@@ -22,7 +22,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: The sandbox
 
 - **WHEN** the session's job starts the agent
-- **THEN** `session` runs the agent only in its sandbox: required, with no way for a command to leave it, the credential's variable withheld from commands, hooks off, `/proc` and `/sys` unreadable to the file tools, only the hosts `builds.hosts` and the npm registry, and writes only to the work copy, the folder to hand over, and the package cache. When the sandbox cannot start, the job fails and no session runs.
+- **THEN** `session` runs the agent only in its sandbox: required, with no way for a command to leave it, the credential's variable withheld from commands, hooks off, `/proc` and `/sys` unreadable to the file tools, only the hosts `builds.hosts` and the npm registry, and writes only to the work copy, the folder to hand over, and the package cache. When the sandbox cannot start, the job fails and no session runs. Docker is stopped before it starts, and a file Git LFS holds stays its pointer.
 
 ### Requirement: Where the session starts
 
@@ -49,7 +49,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: After the session
 
 - **WHEN** the session has ended
-- **THEN** After the session, no step of its job runs anything from the work copy. The job hands over `build.bundle` and `request.json` alone, each an ordinary file of at most 20 MB, and a review hands over the agent's structured answer, which no command of the session can write.
+- **THEN** After the session, no step of its job runs anything from the work copy. The job hands over `build.bundle`, `request.json`, and what it left behind and why alone, each an ordinary file of at most 20 MB, and a review hands over the agent's structured answer, which no command of the session can write.
 
 ### Requirement: What a run keeps
 
