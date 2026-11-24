@@ -127,6 +127,68 @@ describe("factory init, in an organization's repository that is set up", () => {
     ]);
   });
 
+  it("prints each line in the look the ticket's marked transcript gives it", async () => {
+    const r = dev();
+    expect(await r.run()).toBe(0);
+    expect(r.looks).toEqual([
+      "Setting up the software factory for {name:acme/web}",
+      "",
+      "{heading:Found}",
+      "  {name:Code host}        GitHub (from your git remote)",
+      "  {name:Organization}     acme, set up: its app's key and its Claude token are stored",
+      "  {name:Presets}          acme/factory-config holds 3",
+      "  {name:Coding agent}     Claude Code",
+      "  {name:Cloud builds}     GitHub Actions",
+      "  {name:Settings}         {skip:none yet}",
+      "",
+      "",
+      "{heading:From the presets, so not asked}",
+      "  {name:Tickets}          GitHub Issues on board 12",
+      "  {name:Branch names}     {user}/{ticket}",
+      "  {name:Spec tool}        none",
+      "  {name:Gate}             npm run check",
+      "  {name:Parts}            a board, the review, and builds that start from the board",
+      "{heading:Stored for acme, so not asked}",
+      "  CLAUDE_CODE_OAUTH_TOKEN and FACTORY_APP_PRIVATE_KEY, which turn on builds in the cloud",
+      "",
+      "",
+      "{heading:This is everything setup will do:}",
+      "  {name:settings}      Write .claude/factory.yaml and .claude/factory.lock",
+      "  {name:files}         Copy the factory's skills, agents, rules, and guards, and acme's own reviewer and skill",
+      "  {name:workflows}     Write .github/workflows/factory.yml and factory-review.yml",
+      "  {name:pull request}  Push the branch set-up-factory and open a pull request",
+      "",
+      "{good:✓} npm run check passes here.",
+      '{good:✓} Opened {name:acme/web#1}, "Set up the software factory".',
+      "{yourTurn:Merge it to finish. Nothing else is left to do.}",
+      "",
+      "{yourTurn:After it merges:}",
+      "  {yourTurn:1.} Come back to main and bring it up to date:",
+      "       {copy:git switch main && git pull}",
+      "  {yourTurn:2.} Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
+      "  {yourTurn:3.} Refine a ticket with {copy:/factory-refine N}, then build it with {copy:/factory-build N}.",
+      "The steps in full:",
+      "     {copy:https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/quick-start.md#4-open-a-ticket}",
+      "",
+      "{heading:Checks}",
+      "  {good:✓} Every check passed",
+    ]);
+  });
+
+  it("gives the command an owner runs for an organization not set up, with its address, as one to copy", async () => {
+    const r = dev({
+      organizationVariables: [],
+      organizationSecrets: [],
+      config: undefined,
+      definedProperties: [],
+      answers: { checkbox: [[]], confirm: [false] },
+    });
+    await r.run().catch(() => {});
+    expect(r.looks).toContain(
+      "  {name:Organization}     acme, not set up: an owner runs {copy:factory init --org https://github.com/acme}",
+    );
+  });
+
   it("is set up when the app's client ID, its key, and a credential of the coding agent's all reach the repository", () => {
     const state = (variables: string[], secrets: string[]) =>
       organizationState({

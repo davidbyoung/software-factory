@@ -89,6 +89,9 @@ const LEADING_MARK = /^(\s*)([✓✗⚠?-])(?= \S)/;
 const FAILURE = /^(\s*)(Could not [^:]*:?)/;
 const ADDRESS = /\bhttps?:\/\/[^\s"'`<>]+/g;
 const RUN = /\bRun: (?=\S)/g;
+/** Another tool's command that a message gives in its own words. */
+const OTHER_TOOLS =
+  /\bnpm install(?: -[-\w]+)+ [@\w][\w@/.-]*|\bgit checkout -- \S+/g;
 const SKILL =
   /(?<![\w./-])\/factory-[a-z][a-z-]*(?: (?:[A-Z][\w-]*|\d+)(?![\w-]))?/g;
 const FACTORY = /(?<![\w./@-])factory(?= [a-z])/g;
@@ -159,6 +162,8 @@ function selfColored(text: string, starts: boolean): Part[] {
     const rest = text.slice(at).split(/(?<=\.) (?=[A-Z])/)[0]!;
     add(at, at + rest.replace(ENDING, "").length, "copy");
   }
+  for (const m of text.matchAll(OTHER_TOOLS))
+    add(m.index, m.index + m[0].replace(ENDING, "").length, "copy");
   for (const m of text.matchAll(FACTORY))
     add(m.index, m.index + commandLength(text.slice(m.index)), "copy");
   for (const m of text.matchAll(ADDRESS))

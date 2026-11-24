@@ -15,6 +15,7 @@ import {
   SESSION_MINUTES,
 } from "../src/config.mts";
 import { factoryWorkflow } from "../src/workflow-files.mts";
+import { ROLES as LOOKS } from "../src/lib/output.mts";
 
 const PACKAGE = ".";
 const CLI = "docs/cli.md";
@@ -609,6 +610,20 @@ describe("the docs", () => {
         unlinkedSettings(read(page), entries).map((line) => `${page}: ${line}`),
       );
     expect(found).toEqual([]);
+  });
+
+  it("list each look of the printer's table, in its order, and what it is drawn as", () => {
+    const text = readFileSync("docs/developing.md", "utf8");
+    const rows = [
+      ...text.matchAll(/^ {2}\| `(\w+)` +\| ([A-Z][a-z ]+?) +\|/gm),
+    ].map((m) => [m[1], m[2]!.toLowerCase().split(" ")]);
+    const drawn = { underline: "underlined" } as Record<string, string>;
+    expect(rows).toEqual(
+      Object.entries(LOOKS).map(([role, codes]) => [
+        role,
+        codes.map((c) => drawn[c] ?? c),
+      ]),
+    );
   });
 
   it("name the command factory, never through npx", () => {

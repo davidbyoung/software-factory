@@ -5,10 +5,8 @@ import { stripVTControlCharacters, styleText } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as say from "../src/lib/output.mts";
 import { COMMANDS } from "../src/commands-list.mts";
-import { marked } from "./printed";
+import { into, look, marked, undressed } from "./printed";
 
-/** A line as it is printed in color, each look as `{heading:words}`. */
-const look = (line: say.Line) => marked(say.render(line, true));
 const plain = (line: say.Line) => say.render(line, false);
 
 function stream(isTTY: boolean, depth = 8) {
@@ -210,6 +208,19 @@ describe("what colors itself in a line", () => {
       "It stopped. Run: {copy:gh auth refresh -s project}",
     ],
     [
+      "site needs Playwright: npm install -D playwright",
+      "site needs Playwright: {copy:npm install -D playwright}",
+    ],
+    [
+      "Restore it with: git checkout -- .claude/a.md",
+      "Restore it with: {copy:git checkout -- .claude/a.md}",
+    ],
+    [
+      "The workflows fail at npm ci until it is.",
+      "The workflows fail at npm ci until it is.",
+    ],
+    ["run `factory sync` to fix it", "run `{copy:factory sync}` to fix it"],
+    [
       "It stopped. Run: factory init. Then go.",
       "It stopped. Run: {copy:factory init}. Then go.",
     ],
@@ -272,5 +283,31 @@ describe("a frame", () => {
     expect(say.frame([say.text("a"), say.text("b")], false)).toBe(
       "\u001b[Ha\u001b[K\nb\u001b[K\u001b[J",
     );
+  });
+});
+
+describe("the tests' own printer", () => {
+  it.each([
+    ["  Code host        GitHub", "a row printed as text"],
+    ["  ✓ review     In review", "a row printed as text"],
+    ["  1. Merge it", "a step printed as text"],
+    ["1. Merge it", "a step printed as text"],
+  ])("fails on %s printed as text", (line, fault) => {
+    expect(undressed(say.text(line))).toContain(fault);
+    expect(() => into([])(say.text(line))).toThrow(fault);
+  });
+
+  it("takes each of them once the line says what it is, and prose as text", () => {
+    const out: string[] = [];
+    const print = into(out);
+    print(say.row("Code host", "GitHub", { width: 16 }));
+    print(say.step(1, "Merge it"));
+    print(say.verbatim("  a   b"));
+    print(say.text("  Choose all repositories. Then press it."));
+    expect(out).toHaveLength(4);
+  });
+
+  it("fails on codes that are no look's", () => {
+    expect(() => marked("\u001b[35mx\u001b[39m")).toThrow("no look");
   });
 });
