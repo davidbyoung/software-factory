@@ -16,23 +16,22 @@ the `<!-- agent -->` marker are defined in `factory-address-review`
 section 0a, and where the marker goes in a comment in its section 4.
 
 Tickets go through `factory ticket` and a pull request through
-`factory pr`. The workflow has set the run up: the dependencies are installed and the
-`commands.build-setup` commands have run, so a run does no setup of its own.
+`factory pr`.
 
 The default branch's name is what `factory default-branch`
 prints. The commands below write it as DEFAULT.
 
-Asked to resolve the conflicts on one pull request N, a session skips the
-sweep: it checks the stop marker and that the sweep's queue admits the pull
+Asked to resolve the conflicts on one pull request N, as every run in the
+cloud is ("A session in the cloud" in `.claude/factory/rules.md`), a session
+skips the sweep: it checks the stop marker and that the sweep's queue admits the pull
 request, as "A conflict with the default branch" says, runs that section for N, and then
 works the review of its push as `factory-address-review` section 0 says.
 
 ## The conflict sweep
 
-Run as "the conflict sweep", by the workflow that starts after each push
-to the default branch and nightly. It ran `factory session ready conflicts` first,
-which is steps 1 to 3 below, and starts a session only when it finds one.
-Read what it read again, since time has passed. It finds every pull request that conflicts with
+After each push to the default branch and nightly, the workflow starts one
+run in the cloud for each pull request steps 1 to 3 find. A session asked to
+run the whole sweep works them one by one. It finds every pull request that conflicts with
 the default branch and sends each through "A conflict with the default branch" and then its review.
 
 Before it lists the queue, the sweep checks that the settings name a gate:
@@ -134,10 +133,11 @@ the owner has told this session what to keep.
 
 ### Merge
 
-Work from `origin` refs, since a run may start on another commit:
+Work from `origin` refs. A session in the cloud has both already, so it
+starts at the merge:
 
 ```bash
-git fetch origin && git switch BRANCH && git pull --no-rebase origin BRANCH
+git fetch origin && git switch BRANCH && factory pr pull
 git merge origin/DEFAULT
 git diff --name-only --diff-filter=U
 git log --merge --format='%h %s' -- FILE

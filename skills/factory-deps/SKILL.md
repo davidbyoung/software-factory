@@ -30,9 +30,10 @@ When it prints nothing, `commands.gate` is not set, and no fix here could
 be checked: do nothing for any pull request, open no issue, and say so
 once in the report.
 
-A run started by the workflow ran `factory session ready deps` first, and
-starts a session only when a Dependabot pull request is open.
-Read the list again, since time has passed.
+The workflow starts one run in the cloud for each open pull request of
+Dependabot's, and names it: that run works that one alone, through the steps
+below, and ends in place of waiting for its checks ("A session in the cloud"
+in `.claude/factory/rules.md`).
 
 ```bash
 factory deps
@@ -85,6 +86,8 @@ Check out the branch and reproduce the failure before changing anything:
 git fetch origin HEAD_REF && git switch HEAD_REF
 ```
 
+A session in the cloud is on the branch already.
+
 Install what the branch's lock file lists, the way the repository's
 `CLAUDE.md` says to install, which is `npm ci` for npm. Then
 run the gate, `factory gate`, and the end-to-end suite
@@ -114,7 +117,8 @@ If the only fix is one of those, or needs a decision about how the site
 should look or behave, stop and open an issue (step 6).
 
 Run the gate again (`factory gate`), then commit one coherent
-change whose message describes the defect, and push to the same branch.
+change whose message describes the defect, and push to the same branch with
+`factory pr push`.
 No attribution trailer naming an AI assistant. Never push to the default
 branch and never force push.
 
