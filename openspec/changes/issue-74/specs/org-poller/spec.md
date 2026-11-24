@@ -39,3 +39,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** `factory preset check` runs where `.github/workflows/factory-poller.yml` is beside a preset
 - **THEN** `factory preset check` fails when the first `cron` line of `.github/workflows/factory-poller.yml` beside a preset is not the one `builds.poll-minutes` gives: `✗ .github/workflows/factory-poller.yml runs on "*/5 * * * *", and builds.poll-minutes is 30. Write "*/30 * * * *" there.`
+
+### Requirement: A repository that sets its own trigger
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A repository that sets its own trigger
+
+- **WHEN** `factory poller --once --preset FILE` comes to a repository with a ticket in the ready column
+- **THEN** before that repository's pass it reads the repository's `.claude/factory.yaml` on its default branch. When the file itself sets `builds.trigger` to a value other than `github-action`, it starts none of the repository's tickets and logs `OWNER/NAME: builds.trigger is VALUE there, so its tickets are left`, with no warning mark. Only the file's own key is read, not its presets: a file that does not set the key is polled, and so is a repository whose file is missing or cannot be read, which gets today's comment when its build cannot start.

@@ -7,7 +7,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: From origin/HEAD
 
 - **WHEN** `factory default-branch` runs outside a workflow and `REMOTE/HEAD` is set
-- **THEN** it prints the branch `REMOTE/HEAD` points to, without `REMOTE/`, and exits 0. REMOTE is the remote whose address is the repository the `repository` line of `.claude/factory.yaml` names, whatever that remote is called and whether its address is an SSH or an HTTPS one, and `origin` where two remotes have that repository's address and one of them is `origin`. In a checkout with no `.claude/factory.yaml`, REMOTE is `origin`.
+- **THEN** it prints the branch `REMOTE/HEAD` points to, without `REMOTE/`, and exits 0. REMOTE is the remote whose address is the repository the `repository` line of `.claude/factory.yaml` names, whatever that remote is called and whether its address is an SSH or an HTTPS one, and `origin` where two remotes have that repository's address and one of them is `origin`. Where no remote has that repository's address, REMOTE is `origin` when the address of `origin` names no repository on a code host the factory supports, as an SSH host alias such as `git@github-work:acme/web.git` or a proxy's address does not; an `origin` whose address names another repository, or no `origin`, stops the command with the line `init-repository` gives for no such remote. In a checkout with no `.claude/factory.yaml`, REMOTE is `origin`.
 
 ### Requirement: From the code host
 

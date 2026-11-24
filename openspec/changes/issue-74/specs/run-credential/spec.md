@@ -84,3 +84,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** a build under the App names its branch from a pattern with `{user}`
 - **THEN** Under the App, `{user}` in `code-host.branch-name` is the App's name as GitHub writes it in an address, such as `software-factory-for-acme`, since an App's token may not ask who is signed in.
+
+### Requirement: A token's permissions
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A token's permissions
+
+- **WHEN** a job makes a token of the App's
+- **THEN** Each token a job makes carries only the permissions that job uses. Only the job that runs `factory enroll` may set a repository's properties, and a session's token never can.
