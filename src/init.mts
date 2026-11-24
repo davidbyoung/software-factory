@@ -8,7 +8,7 @@
 // ticket system's credential also to this machine's credentials file
 // (`lib/credentials.mts`): none is printed, written to any other file, or
 // passed in a command's arguments.
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -31,7 +31,6 @@ import { NeedsScopeError } from "./code-host/types.mts";
 import {
   branchPatternFault,
   columnsOf,
-  fieldNamesOf,
   filesDeps,
   parseSettings,
   resolveFiles,
@@ -63,13 +62,11 @@ import {
   credentialsPath,
   fileProblem,
   machineState,
-  refusalReason,
   refusedEnvLine,
   shownPath,
   writeCredential,
   type MachineState,
 } from "./lib/credentials.mts";
-import { statusOf } from "./tickets/transport.mts";
 import {
   neededSecrets,
   PART_TEXT,
@@ -89,12 +86,7 @@ import {
   type SetupContext,
 } from "./setup.mts";
 import { differences, PACKAGE, plan as syncPlan } from "./sync.mts";
-import {
-  DEFAULT_COLUMNS,
-  STATE_KEYS,
-  sameName,
-  type StateKey,
-} from "./lib/work-status.mts";
+import { STATE_KEYS, sameName, type StateKey } from "./lib/work-status.mts";
 import {
   askReady,
   everyColumn,
@@ -103,32 +95,21 @@ import {
   suggestColumns,
 } from "./columns-suggest.mts";
 import { FACTORY_FIELDS, suggestFields } from "./ticket-fields.mts";
-import type { NewField, TicketField } from "./tickets/types.mts";
+import type { TicketField } from "./tickets/types.mts";
+import {
+  askCredential as readCredential,
+  askSecret,
+  boardShape,
+  giveBoard,
+  interactive,
+  message,
+  openPage,
+  pasted,
+  terminalAsk,
+  type Ask,
+} from "./init-shared.mts";
 
-/** The questions init asks. Each is answered at the terminal, and in tests
- * from a script. */
-export type Ask = {
-  checkbox(
-    message: string,
-    choices: {
-      name: string;
-      value: string;
-      checked: boolean;
-      /** Shown under the list while this choice is highlighted. */
-      description?: string;
-    }[],
-  ): Promise<string[]>;
-  select(
-    message: string,
-    choices: { name: string; value: string }[],
-    /** The value chosen when the person picks nothing else. */
-    fallback?: string,
-  ): Promise<string>;
-  confirm(message: string, fallback: boolean): Promise<boolean>;
-  /** Read without echoing what is typed. */
-  secret(message: string): Promise<string>;
-  input(message: string, fallback: string): Promise<string>;
-};
+export type { Ask };
 
 export type InitDeps = {
   root: string;
@@ -242,34 +223,6 @@ async function askBranchName(d: InitDeps): Promise<string> {
   }
 }
 
-/** The columns and fields the board sync uses: the settings' names where
- * they rename one, and none for one they set to none. */
-function boardShape(s: Settings | null): {
-  columns: string[];
-  fields: NewField[];
-} {
-  const columns = Object.values(s ? columnsOf(s) : DEFAULT_COLUMNS).flatMap(
-    (c) => c ?? [],
-  );
-  const names = s
-    ? fieldNamesOf(s)
-    : { session: "Session", runsIn: "Runs in", cost: "Cost" };
-  const fields: NewField[] = [];
-  if (names.session) fields.push({ name: names.session, type: "text" });
-  if (names.runsIn)
-    fields.push({
-      name: names.runsIn,
-      type: "select",
-      options: ["Local", "Actions"],
-    });
-  if (names.cost) fields.push({ name: names.cost, type: "number" });
-  return { columns, fields };
-}
-
-/** A pasted secret, joined where the terminal wrapped it: a token holds
- * no space or line break, and one copied from a wrapped line does. */
-const pasted = (value: string) => value.replace(/\s+/g, "");
-
 /** The repository and code host a remote's address names, or null for one
  * on a code host the factory does not support. */
 export function parseRemote(
@@ -282,8 +235,6 @@ export function parseRemote(
   }
   return null;
 }
-
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** Deletes a key, then any map the deletion left empty above it. */
 function remove(doc: Document, path: string[]) {
@@ -458,45 +409,8 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     return 1;
   }
 
-  /** A credential asked for part by part and checked together; asked
-   * again from its first masked part when refused. Null when a part is
-   * left empty. */
-  const askCredential = async (
-    step: CredentialStep,
-    site: string,
-  ): Promise<{ values: Record<string, string>; account: string } | null> => {
-    for (const l of step.intro) d.out(l);
-    if (step.get && "page" in step.get) d.openPage(step.get.page);
-    if (step.get && "command" in step.get)
-      await d.interactive(step.get.command);
-    const values: Record<string, string> = {};
-    let from = 0;
-    for (;;) {
-      for (const part of step.parts.slice(from)) {
-        const value = part.masked
-          ? pasted(await d.ask.secret(part.prompt))
-          : (await d.ask.input(part.prompt, "")).trim();
-        if (!value) {
-          d.out(`${step.skipped} ${AGAIN}`);
-          return null;
-        }
-        values[part.name] = value;
-      }
-      try {
-        const checked = await step.check(values, site);
-        for (const l of checked.lines) d.out(l);
-        return { values, account: checked.account };
-      } catch (e) {
-        d.out(
-          statusOf(e) === 401 ? step.refused(refusalReason(e)) : message(e),
-        );
-        from = Math.max(
-          0,
-          step.parts.findIndex((p) => p.masked),
-        );
-      }
-    }
-  };
+  const askCredential = (step: CredentialStep, site: string) =>
+    readCredential(d, step, site, AGAIN);
 
   // This machine's credential, missing or refused: asked for first, since
   // a teammate may not be allowed to list the repository's secrets.
@@ -1032,7 +946,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
 
   // The board first, since the settings name its number.
   if (parts.has("board") && boardOps) {
-    const { create, addColumns, addFields } = boardOps;
+    const { create } = boardOps;
     const creating = board === "new";
     while (board === "new") {
       try {
@@ -1052,29 +966,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         for (const [key, name] of FACTORY_LINES)
           doc.setIn(["tickets", "columns", key], name);
       try {
-        const shape = boardShape(standing());
-        const columns = addColumns
-          ? await addColumns(board, shape.columns)
-          : [];
-        const fields = addFields ? await addFields(board, shape.fields) : [];
-        const added = [...columns, ...fields];
-        if (added.length)
-          d.out(`Added to board ${board}: ${added.join(", ")}.`);
-        // A ticket system that cannot add them leaves them to the owner.
-        if (!addColumns) {
-          const has = await boardOps.columns(board);
-          const lacking = shape.columns.filter(
-            (c) => !has.some((h) => h.toLowerCase() === c.toLowerCase()),
-          );
-          if (lacking.length)
-            d.out(
-              `Add these columns to board ${board} by hand: ${lacking.join(", ")}.`,
-            );
-        }
-        if (!addFields && shape.fields.length)
-          d.out(
-            `Add any of these fields board ${board} lacks, by hand: ${shape.fields.map((f) => f.name).join(", ")}.`,
-          );
+        await giveBoard(d, boardOps, board, boardShape(standing()));
       } catch (e) {
         d.out(
           `Could not give board ${board} its columns and fields: ${message(e)}`,
@@ -1145,30 +1037,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       );
       continue;
     }
-    for (const l of step.intro) d.out(l);
-    if (step.get && "page" in step.get) d.openPage(step.get.page);
-    if (step.get && "command" in step.get)
-      await d.interactive(step.get.command);
-    for (;;) {
-      const value = pasted(await d.ask.secret(step.prompt));
-      if (!value) {
-        d.out(`${step.skipped} ${AGAIN}`);
-        break;
-      }
-      let checked: { lines: string[]; account?: string } = { lines: [] };
-      if (step.verify)
-        try {
-          checked = await step.verify(value);
-        } catch (e) {
-          d.out(message(e));
-          continue;
-        }
-      for (const l of checked.lines) d.out(l);
-      for (const n of names) await runner.setSecret(n, value);
-      if (checked.account !== undefined) tokenAccount = checked.account;
-      d.out(step.stored(names, checked.account));
-      break;
-    }
+    const got = await askSecret(d, step, AGAIN);
+    if (!got) continue;
+    for (const n of names) await runner.setSecret(n, got.value);
+    if (got.account !== undefined) tokenAccount = got.account;
+    d.out(step.stored(names, got.account));
   }
 
   // The tokens .npmrc reads, each stored where it is missing.
@@ -1304,19 +1177,6 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   return found2.some((c) => c.state === "fail") ? 1 : 0;
 }
 
-/** The questions, asked at the terminal. */
-async function terminalAsk(): Promise<Ask> {
-  const p = await import("@inquirer/prompts");
-  return {
-    checkbox: (message, choices) => p.checkbox({ message, choices }),
-    select: (message, choices, fallback) =>
-      p.select({ message, choices, default: fallback }),
-    confirm: (message, fallback) => p.confirm({ message, default: fallback }),
-    secret: (message) => p.password({ message, mask: "•" }),
-    input: (message, fallback) => p.input({ message, default: fallback }),
-  };
-}
-
 /** The dependencies `run` gives `main`, for the repository at `root`. Its
  * colors follow `stream`, the terminal init prints to. */
 export async function initDeps(
@@ -1363,24 +1223,9 @@ export async function initDeps(
       });
       return { status: r.status ?? 1, stderr: r.stderr ?? "" };
     },
-    interactive: async (argv2) =>
-      spawnSync(argv2[0], argv2.slice(1), { stdio: "inherit" }).status ?? 1,
+    interactive,
     hasCommand,
-    openPage: (url) => {
-      const opener =
-        process.platform === "darwin"
-          ? "open"
-          : process.platform === "win32"
-            ? "explorer"
-            : "xdg-open";
-      try {
-        spawn(opener, [url], { stdio: "ignore", detached: true })
-          .on("error", () => {})
-          .unref();
-      } catch {
-        // The page's address is printed too, to open by hand.
-      }
-    },
+    openPage,
     keygen: async () => {
       const dir = mkdtempSync(join(tmpdir(), "factory-key-"));
       try {
@@ -1411,6 +1256,7 @@ export async function run(argv: string[]): Promise<number> {
     console.log(terminal);
     return 1;
   }
+  if (argv.includes("--org")) return (await import("./init-org.mts")).run(argv);
   let root: string;
   try {
     root = repoRoot();

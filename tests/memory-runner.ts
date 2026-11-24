@@ -35,6 +35,8 @@ export type MemoryRunnerOptions = {
   dependabotSecrets?: Record<string, string>;
   /** The organization's secrets shared with the repository. */
   organizationSecrets?: string[];
+  /** The organization's variables shared with the repository. */
+  organizationVariables?: string[];
   /** The organization's Dependabot secrets that reach the repository, or
    * null when the organization will not list them; none unless given. */
   organizationDependabotSecrets?: string[] | null;
@@ -131,6 +133,10 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     async organizationSecretNames() {
       called("organizationSecretNames");
       return [...(options.organizationSecrets ?? [])];
+    },
+    async organizationVariableNames() {
+      called("organizationVariableNames");
+      return [...(options.organizationVariables ?? [])];
     },
     async organizationDependabotSecretNames(isPrivate) {
       called("organizationDependabotSecretNames", isPrivate);

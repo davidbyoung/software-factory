@@ -68,6 +68,13 @@ export type MemoryCodeHostOptions = {
   signingNeedsScope?: boolean;
   /** Why requiring a check fails, as for a plan without rulesets. */
   rulesRefused?: string;
+  /** The repository's value for each property its owner defines. */
+  properties?: Record<string, string | string[] | null>;
+  /** Why setting a property's value fails. */
+  propertyRefused?: string;
+  /** The checks the owner's own rules require on the default branch of a
+   * repository whose property has that value. */
+  ownerRules?: { check: string; property: string; value: string }[];
   /** Whether the code host holds a workflow's events back until a policy
    * lets them through, as for a repository anyone can read. */
   eventsHeld?: boolean;
@@ -90,7 +97,11 @@ export function memoryCodeHost(
   let nextId = 5000;
   const settings = {
     autoMerge: false,
-    rules: [] as { name: string; check: string }[],
+    rules: [] as { name: string; check: string; source?: string }[],
+    properties: { ...options.properties } as Record<
+      string,
+      string | string[] | null
+    >,
     events: [] as { rule: string; file: string; events: string[] }[],
     signingKeys: [] as { title: string; key: string }[],
     signingNeedsScope: options.signingNeedsScope ?? false,
@@ -461,11 +472,35 @@ export function memoryCodeHost(
       called("allowAutoMerge");
       settings.autoMerge = true;
     },
-    async requireCheck(rule, check) {
+    async requireCheck(rule, check, source) {
       called("requireCheck", rule, check);
       if (options.rulesRefused) throw new Error(options.rulesRefused);
       if (!settings.rules.some((r) => r.name === rule))
-        settings.rules.push({ name: rule, check });
+        settings.rules.push({
+          name: rule,
+          check,
+          ...(source ? { source } : {}),
+        });
+    },
+    async requiresStatus(branch, status) {
+      called("requiresStatus", branch, status);
+      if (branch !== (options.defaultBranch ?? "main")) return false;
+      return (
+        settings.rules.some((r) => r.check === status) ||
+        (options.ownerRules ?? []).some(
+          (r) =>
+            r.check === status && settings.properties[r.property] === r.value,
+        )
+      );
+    },
+    async properties() {
+      called("properties");
+      return { ...settings.properties };
+    },
+    async setProperty(name, value) {
+      called("setProperty", name, value);
+      if (options.propertyRefused) throw new Error(options.propertyRefused);
+      settings.properties[name] = value;
     },
     async eventAllowed(file, event) {
       called("eventAllowed", file, event);
@@ -504,8 +539,8 @@ export function memoryCodeHost(
     },
     /** The check runs and statuses on a commit, as they stand. */
     commit,
-    /** The repository's settings as they stand: auto-merge, rules, and the
-     * account's signing keys. */
+    /** The repository's settings as they stand: auto-merge, rules, its
+     * properties' values, and the account's signing keys. */
     settings,
     /** Gives the sign-in the permission a signing key needs. */
     grantScope() {

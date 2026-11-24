@@ -214,6 +214,17 @@ export function githubActionsRunner(o: {
       (await secretsAt(`${API}/actions/organization-secrets`)).map(
         (x) => x.name,
       ),
+    async organizationVariableNames() {
+      const names: string[] = [];
+      for (let page = 1; ; page++) {
+        const listed = await t.rest<{ variables: { name: string }[] }>(
+          "GET",
+          `${API}/actions/organization-variables?per_page=100&page=${page}`,
+        );
+        names.push(...listed.variables.map((x) => x.name));
+        if (listed.variables.length < 100) return names;
+      }
+    },
     async organizationDependabotSecretNames(isPrivate) {
       const org = `orgs/${o.repository.split("/")[0]}/dependabot/secrets`;
       try {

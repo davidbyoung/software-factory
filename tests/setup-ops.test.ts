@@ -125,6 +125,23 @@ describe("the runner's Dependabot and organization secrets, on GitHub Actions", 
     expect(await runner(g).organizationSecretNames()).toEqual(["NPM_TOKEN"]);
   });
 
+  it("lists every page of the organization's variables shared with the repository", async () => {
+    const first = Array.from({ length: 100 }, (_, i) => ({ name: `V${i}` }));
+    const g = gh([
+      [
+        /repos\/acme\/site\/actions\/organization-variables\?per_page=100&page=1$/,
+        { variables: first },
+      ],
+      [
+        /repos\/acme\/site\/actions\/organization-variables\?per_page=100&page=2$/,
+        { variables: [{ name: "FACTORY_APP_CLIENT_ID" }] },
+      ],
+    ]);
+    const names = await runner(g).organizationVariableNames();
+    expect(names).toHaveLength(101);
+    expect(names.at(-1)).toBe("FACTORY_APP_CLIENT_ID");
+  });
+
   it("lists the organization's Dependabot secrets that reach the repository, by visibility", async () => {
     const g = gh([
       [

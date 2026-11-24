@@ -155,7 +155,7 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["init"],
-    args: "",
+    args: "[--org ADDRESS]",
     run: async (argv) => (await import("./init.mts")).run(argv),
   },
   {
@@ -284,7 +284,7 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["poller"],
-    args: "[--once]",
+    args: "[--once [--preset FILE]]",
     run: async (argv) => (await import("./poller.mts")).run(argv),
   },
   {
