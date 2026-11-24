@@ -8,7 +8,7 @@
 //
 //   factory sync           # write what differs
 //   factory sync --check   # write nothing; exit 1 naming what differs
-//   factory sync --check --against COMMIT
+//   factory sync --check --against COMMIT [--public]
 //                          # and check each pin that differs from the
 //                          # lock at COMMIT against its preset's repository
 //
@@ -713,7 +713,7 @@ export async function main(
   const againstAt = argv.indexOf("--against");
   const against = againstAt < 0 ? null : argv[againstAt + 1];
   if (againstAt >= 0 && (!check || !against)) {
-    d.err("Usage: factory sync [--check [--against COMMIT]]");
+    d.err("Usage: factory sync [--check [--against COMMIT [--public]]]");
     return 2;
   }
   let r: Resolved;
@@ -755,6 +755,12 @@ export async function main(
       r.presets,
       pinsOf(d.show?.(against, LOCK) ?? null, load),
       load,
+      argv.includes("--public")
+        ? (pin) =>
+            d.out(
+              `- ${pin.name} can't be read here without a sign-in: the review's run checks it.`,
+            )
+        : undefined,
     );
     for (const fault of faults) d.err(`${fail} ${fault}`);
     if (faults.length) return 1;

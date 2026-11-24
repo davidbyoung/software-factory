@@ -65,10 +65,6 @@ describe("factory.yml", () => {
       "unlabeled",
     ]);
     expect(on.pull_request_review.types).toEqual(["submitted"]);
-    expect(on.workflow_run).toEqual({
-      workflows: ["Factory review"],
-      types: ["completed"],
-    });
     expect(Object.keys(on.workflow_dispatch.inputs)).toEqual([
       "job",
       "ticket",
@@ -93,20 +89,22 @@ describe("factory.yml", () => {
     expect(crons({ pollMinutes: 60 })).toEqual([...fixed, "0 * * * *"]);
   });
 
-  it("names a build's run by the ticket as its system writes it, and no other run", () => {
+  it("names a build's run by the ticket as its system writes it, an answer's by its pull request, a pull request's by its commit, and no other run", () => {
     expect(factory()["run-name"]).toBe(
-      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || '' }}",
+      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}",
     );
     expect(factory({ ref: (key) => `it's ${key}` })["run-name"]).toBe(
-      "${{ inputs.ticket && format('Build it''s {0}', inputs.ticket) || '' }}",
+      "${{ inputs.ticket && format('Build it''s {0}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}",
     );
   });
 
   it("grants what the factory's jobs post with, and no more", () => {
     expect(factory().permissions).toEqual({
       actions: "read",
+      checks: "read",
       contents: "read",
       issues: "write",
+      packages: "read",
       "pull-requests": "write",
       statuses: "write",
     });
@@ -162,13 +160,6 @@ describe("factory.yml", () => {
       `\${{ format('{{"NPM_TOKEN":{0},"FACTORY_JIRA_TOKEN":{1}}}', toJSON(secrets.NPM_TOKEN), toJSON(secrets.FACTORY_JIRA_TOKEN)) }}`,
     );
   });
-
-  it("lets the workflow's own token read packages when .npmrc signs in with it", () => {
-    expect(factory().permissions).not.toHaveProperty("packages");
-    expect(factory({ secrets: ["GITHUB_TOKEN"] }).permissions.packages).toBe(
-      "read",
-    );
-  });
 });
 
 describe("factory-review.yml", () => {
@@ -184,40 +175,27 @@ describe("factory-review.yml", () => {
     expect(file.jobs.review.uses).toBe(
       "davidbyoung/software-factory/.github/workflows/review.yml@v0.3.0",
     );
-    expect(file.jobs.review.with).toEqual({ parts: "review dependabot" });
     expect(review({ version: null }).jobs.review.uses).toBe(
       "./.github/workflows/review.yml",
     );
   });
 
-  it("grants reading the code and commenting, and passes the tokens its jobs read", () => {
-    const file = review({ secrets: ["NPM_TOKEN"] });
-    expect(file.permissions).toEqual({
-      contents: "read",
-      issues: "read",
-      "pull-requests": "write",
-    });
-    expect(Object.keys(file.jobs.review.secrets)).toEqual([
-      "build-token",
-      "automerge-token",
-      "app-key",
-      "claude-token",
-      "claude-api-key",
-      "extra",
-    ]);
+  // GitHub runs this file from the pull request's copy.
+  it("may only read the code, and passes nothing to the job it calls, whatever the settings turn on", () => {
+    const text = reviewWorkflow(
+      options({
+        parts: ["review", "board", "auto-merge", "poller", "dependabot"],
+        secrets: ["NPM_TOKEN", "GITHUB_TOKEN", "FACTORY_JIRA_TOKEN"],
+      }),
+    );
+    const file = parse(text);
+    expect(file.permissions).toEqual({ contents: "read" });
+    expect(Object.keys(file.jobs.review)).toEqual(["uses"]);
+    expect(text).not.toMatch(/secrets\.|secrets:/);
   });
 });
 
 describe("both files", () => {
-  it("pass the organization's app's key by name with every part on", () => {
-    const over: Partial<WorkflowOptions> = {
-      parts: ["review", "board", "auto-merge", "poller", "dependabot"],
-    };
-    const key = "${{ secrets.FACTORY_APP_PRIVATE_KEY }}";
-    expect(factory(over).jobs.factory.secrets["app-key"]).toBe(key);
-    expect(review(over).jobs.review.secrets["app-key"]).toBe(key);
-  });
-
   // A repository's own formatter must leave them alone, or its check and
   // the factory's would each undo the other.
   it.each([

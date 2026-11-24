@@ -39,6 +39,8 @@ type Env = Record<string, string | undefined>;
 
 export type Handoff = {
   dir: string;
+  /** Where a session's commits go. */
+  bundle: string;
   run(): RunFile;
   calls(): Call[];
   asked(): Asked[];
@@ -59,6 +61,7 @@ export function handoffIn(env: Env = process.env): Handoff | null {
       : [];
   return {
     dir,
+    bundle: join(dir, "out/build.bundle"),
     run: () => read("in/run.json"),
     calls: () => read("in/snapshot.json"),
     asked,

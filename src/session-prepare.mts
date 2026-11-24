@@ -42,6 +42,11 @@ export type PrepareDeps = Adapters & {
     on: Adapters,
   ): Promise<{ code: number; lines: string[] }>;
   pr(argv: string[], on: Adapters): Promise<{ code: number; lines: string[] }>;
+  /** Runs `factory deps` through the adapters given. */
+  deps(on: Adapters): Promise<unknown>;
+  /** What is wrong with the presets a commit's lock names, beside the
+   * default branch's: a lock that was written by hand, or by a session. */
+  pinFaults(commit: string): string[];
   git(args: string[]): string;
   /** The claim this checkout made on the ticket. */
   claimOf(ticket: string): string | null;
@@ -262,6 +267,13 @@ export async function prepare(
         ? await build(d.tickets.key(id), base, d)
         : await ofPull(kind, await d.codeHost.get(Number(id)), d);
     bundles(run, dir, d.git);
+    if (kind === "review") {
+      const faults = d.pinFaults(run.base);
+      if (faults.length > 0)
+        throw new Error(
+          `#${run.pull} is not reviewed until this is fixed: ${faults.join("; ")}`,
+        );
+    }
   } catch (error) {
     if (!(error instanceof Nothing)) throw error;
     d.out(error.message);
@@ -284,12 +296,29 @@ export async function prepare(
   }))
     await d[read.of](read.argv, on).catch(() => {});
   await on.codeHost.defaultBranch();
+  if (kind === "dependency") await d.deps(on).catch(() => {});
+  const others = kind === "conflict" ? merged(run, d) : [];
+  for (const pull of others) {
+    await on.codeHost.get(pull).catch(() => {});
+    const closes = await on.codeHost.closes(pull).catch(() => []);
+    for (const key of closes) await d.ticket(["view", key], on).catch(() => {});
+  }
   for (const key of await named(run, d))
     await d.ticket(["view", key], on).catch(() => {});
 
   writeFileSync(join(dir, "run.json"), JSON.stringify(run, null, 2));
   writeFileSync(join(dir, "snapshot.json"), JSON.stringify(calls));
   return run;
+}
+
+/** The pull requests on the default branch since the run's branch left it,
+ * newest first, at most 30: what a conflict may be with. */
+function merged(run: RunFile, d: PrepareDeps): number[] {
+  const main = `refs/remotes/origin/${run.defaultBranch}`;
+  const subjects = d.git(["log", "--format=%s", `${run.base}..${main}`]);
+  return [...subjects.matchAll(/\(#(\d+)\)$/gm)]
+    .map((m) => Number(m[1]))
+    .slice(0, 30);
 }
 
 /** The tickets the run's own ticket names, at most 20. */

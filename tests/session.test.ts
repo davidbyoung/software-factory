@@ -26,11 +26,11 @@ const NOTICE =
 
 const ask = (over: Partial<Ready> = {}) =>
   ready({
-    kind: "conflicts",
+    kind: "conflict",
     byHand: false,
     buildToken: true,
     claude: true,
-    work: async () => "2 pull requests conflict",
+    work: async () => "#31 conflicts",
     ...over,
   });
 
@@ -49,13 +49,13 @@ describe("ready", () => {
     expect(await ask({ buildToken: false })).toEqual({
       run: false,
       code: 0,
-      lines: [`2 pull requests conflict, and no build token is set, ${NOTICE}`],
+      lines: [`#31 conflicts, and no build token is set, ${NOTICE}`],
     });
   });
 
   it("names the Claude credential when that is the one missing", async () => {
     expect((await ask({ claude: false })).lines).toEqual([
-      `2 pull requests conflict, and no Claude credential is set, ${NOTICE}`,
+      `#31 conflicts, and no Claude credential is set, ${NOTICE}`,
     ]);
   });
 
@@ -87,61 +87,61 @@ describe("ready", () => {
   });
 });
 
-describe("foundLine", () => {
-  it("says what each check found, in the singular for one", () => {
-    expect(foundLine("conflicts", 2)).toBe("2 pull requests conflict");
-    expect(foundLine("conflicts", 1)).toBe("1 pull request conflicts");
-    expect(foundLine("deps", 3)).toBe("3 Dependabot pull requests are open");
-    expect(foundLine("deps", 1)).toBe("1 Dependabot pull request is open");
-    expect(foundLine("review", 41)).toBe("A review on #41 waits for an answer");
+describe("a review's run", () => {
+  it("needs no build token, since the workflow's own records it", async () => {
+    expect(await ask({ kind: "review", buildToken: false })).toMatchObject({
+      run: true,
+    });
   });
 });
 
-describe("the work a kind's check finds", () => {
-  const pull = (number: number, over: Partial<PullSeed> = {}): PullSeed => ({
-    number,
-    head: {
-      branch: `b${number}`,
-      sha: `sha${number}`,
-      repository: "acme/widgets",
-    },
-    ...over,
-  });
-  const found = (kind: "conflicts" | "deps" | "review", seed: PullSeed[]) => {
+describe("the work a run on a pull request is for", () => {
+  const review = {
+    id: 7,
+    author: "acme",
+    body: "Why this?",
+    submittedAt: "2026-11-09T12:00:00Z",
+  };
+  const work = (
+    kind: "review" | "answer" | "conflict" | "dependency",
+    numbers: number[],
+    seed: PullSeed[] = [{ number: 41 }],
+  ) => {
     const said: string[] = [];
-    const work = workOf(kind, memoryCodeHost(seed).codeHost, [], (l) =>
-      said.push(l),
-    );
-    return { work, said };
+    return {
+      said,
+      found: workOf(kind, memoryCodeHost(seed).codeHost, numbers, (l) =>
+        said.push(l),
+      )(),
+    };
   };
 
-  it("counts the pull requests that conflict with the default branch", async () => {
-    const { work } = found("conflicts", [
-      pull(1, { mergeableState: "dirty" }),
-      pull(2, { mergeableState: "dirty" }),
-      pull(3),
+  it.each([
+    ["review", "#41 waits for a review"],
+    ["answer", "#41 waits for an answer"],
+    ["conflict", "#41 conflicts"],
+    ["dependency", "#41 is Dependabot's"],
+  ] as const)("is named for a %s", async (kind, line) => {
+    expect(await work(kind, [41]).found).toBe(line);
+    expect(foundLine(kind, 41)).toBe(line);
+  });
+
+  it("is a person's review, and nothing when it is not an approver's", async () => {
+    const asked = (author: string): PullSeed[] => [
+      { number: 41, reviews: [{ ...review, author, comments: [] }] },
+    ];
+    expect(await work("answer", [41, 7], asked("acme")).found).toBe(
+      "#41 waits for an answer",
+    );
+    const other = work("answer", [41, 7], asked("mallory"));
+    expect(await other.found).toBeNull();
+    expect(other.said).toEqual([
+      "nothing to do: review 7 is not an approver's",
     ]);
-    expect(await work()).toBe("2 pull requests conflict");
   });
 
-  it("finds no conflict to sweep where every pull request merges cleanly", async () => {
-    expect(await found("conflicts", [pull(1)]).work()).toBeNull();
-  });
-
-  it("counts Dependabot's open pull requests, and nobody else's", async () => {
-    const { work } = found("deps", [
-      pull(1, { author: "dependabot[bot]" }),
-      pull(2),
-    ]);
-    expect(await work()).toBe("1 Dependabot pull request is open");
-  });
-
-  it("finds nothing for the dependencies' session with no pull request of Dependabot's", async () => {
-    expect(await found("deps", [pull(1)]).work()).toBeNull();
-  });
-
-  it("refuses a review's check without the pull request's and the review's numbers", async () => {
-    await expect(found("review", []).work()).rejects.toThrow(
+  it("is refused without the pull request's number", async () => {
+    await expect(work("review", []).found).rejects.toThrow(
       "Usage: factory session ready",
     );
   });
@@ -279,7 +279,7 @@ describe("factory session ready, as the workflow's step runs it", () => {
   it("exits 2 with its usage for a kind it does not know", () => {
     expect(step(["ready", "nothing"], {})).toMatchObject({
       code: 2,
-      err: "Usage: factory session ready build|conflicts|deps|review [PR REVIEW]\n",
+      err: "Usage: factory session ready build|review|answer|conflict|dependency ID [REVIEW]\n",
       wrote: "",
     });
   });

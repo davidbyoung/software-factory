@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 // Whether a cloud session runs, for the workflow that would run one.
 //
-//   factory session ready build
-//   factory session ready conflicts
-//   factory session ready deps
-//   factory session ready review PR REVIEW
+//   factory session ready build TICKET
+//   factory session ready review|answer|conflict|dependency PR [REVIEW]
 //
 // It asks whether there is work first, with whatever token the step gives
 // it as GH_TOKEN, the workflow's own, and only then whether the build token
@@ -21,19 +19,24 @@
 // name and separated by commas: the run's own, and each of the same owner
 // that holds a preset the lock names.
 //
-//   factory session token [--keep]
+//   factory session token
 //
-// Signs a session in as that app, and keeps it signed in: `session-token.mts`.
+// Signs a job in as that app: `session-token.mts`.
+//
+//   factory session prepare|run|publish|next|each
+//
+// The jobs of a run that starts a session: `session-jobs.mts`.
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
 import { reachOf, repoRoot } from "./config.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost } from "./code-host/types.mts";
-import { conflicting, reviewPending } from "./pr.mts";
+import { reviewPending } from "./pr.mts";
 
-export type Kind = "build" | "review" | "conflicts" | "deps";
-const KINDS: Kind[] = ["build", "review", "conflicts", "deps"];
+/** A run on a pull request with no review's number has its work named by
+ * what started it, so only a person's review is asked about. */
+export type Kind = "build" | "review" | "answer" | "conflict" | "dependency";
+const KINDS: Kind[] = ["build", "review", "answer", "conflict", "dependency"];
 
 export type Ready = {
   kind: Kind;
@@ -46,13 +49,18 @@ export type Ready = {
   work: () => Promise<string | null>;
 };
 
-/** What a check found, for the notice a run without a token prints. */
-export function foundLine(kind: Exclude<Kind, "build">, n: number): string {
-  if (kind === "review") return `A review on #${n} waits for an answer`;
-  const one = n === 1;
-  return kind === "conflicts"
-    ? `${n} pull request${one ? " conflicts" : "s conflict"}`
-    : `${n} Dependabot pull request${one ? " is" : "s are"} open`;
+/** What a kind's run is for, for the notice a run without a token prints. */
+export function foundLine(kind: Exclude<Kind, "build">, pull: number): string {
+  switch (kind) {
+    case "review":
+      return `#${pull} waits for a review`;
+    case "answer":
+      return `#${pull} waits for an answer`;
+    case "conflict":
+      return `#${pull} conflicts`;
+    case "dependency":
+      return `#${pull} is Dependabot's`;
+  }
 }
 
 const MISSING = {
@@ -73,11 +81,13 @@ export async function ready(
 ): Promise<{ run: boolean; code: number; lines: string[] }> {
   const found = o.kind === "build" ? "" : await o.work();
   if (found === null) return { run: false, code: 0, lines: ["Nothing to do."] };
-  const missing = !o.buildToken
-    ? MISSING.build
-    : !o.claude
-      ? MISSING.claude
-      : null;
+  // A review is recorded with the workflow's own token.
+  const missing =
+    !o.buildToken && o.kind !== "review"
+      ? MISSING.build
+      : !o.claude
+        ? MISSING.claude
+        : null;
   if (!missing) return { run: true, code: 0, lines: [] };
   if (o.byHand || o.kind === "build")
     return { run: false, code: 1, lines: [`::error::${missing.error}`] };
@@ -91,7 +101,7 @@ export async function ready(
 }
 
 const USAGE =
-  "Usage: factory session ready build|conflicts|deps|review [PR REVIEW]";
+  "Usage: factory session ready build|review|answer|conflict|dependency ID [REVIEW]";
 
 /** All of a repository's name but its last part, and that part. */
 const split = (repository: string) => {
@@ -128,7 +138,8 @@ export async function repositories(
   );
 }
 
-/** What a kind's check finds in the repository, through the code host. */
+/** What a kind's check finds on the pull request: a person's review may
+ * have been answered since, and anything else is work. */
 export function workOf(
   kind: Kind,
   p: CodeHost,
@@ -136,31 +147,26 @@ export function workOf(
   out: (line: string) => void,
 ): () => Promise<string | null> {
   return async () => {
-    if (kind === "conflicts") {
-      const found = await conflicting(p, sleep);
-      return found.length ? foundLine("conflicts", found.length) : null;
-    }
-    if (kind === "deps") {
-      const open = (await p.listOpen()).filter(
-        (pull) => pull.author === "dependabot[bot]",
-      );
-      return open.length ? foundLine("deps", open.length) : null;
-    }
+    if (kind === "build") return "";
     const [pr, review] = numbers;
-    if (!pr || !review) throw new Error(USAGE);
+    if (!pr) throw new Error(USAGE);
+    if (kind !== "answer" || !review) return foundLine(kind, pr);
     const answer = await reviewPending(p, pr, review);
     if (!answer.pending) out(`nothing to do: ${answer.why}`);
-    return answer.pending ? foundLine("review", pr) : null;
+    return answer.pending ? foundLine(kind, pr) : null;
   };
 }
 
-/** `factory session ready KIND [PR REVIEW]`, `factory session
+/** `factory session ready KIND ID [REVIEW]`, `factory session
  * repositories`, and `factory session token [--keep]`. */
 export async function run(argv: string[]): Promise<number> {
   const [step, kind, ...rest] = argv;
   const env = process.env;
-  if (step === "token")
-    return (await import("./session-token.mts")).run(argv.slice(1));
+  if (step !== "ready" && step !== "repositories" && step !== "token") {
+    const jobs = await import("./session-jobs.mts");
+    if (jobs.isJob(step)) return jobs.run(step, argv.slice(1));
+  }
+  if (step === "token") return (await import("./session-token.mts")).run();
   if (step === "repositories") {
     try {
       console.log(await repositories(env));

@@ -17,7 +17,28 @@ export type ThisRun = {
   /** The comments that start this pull request's threads. */
   comments: number[];
   branch: string;
+  /** The commit the run started from. */
+  base: string;
+  /** Open tickets this kind of run opened before for the same pull request,
+   * which it comments on in place of opening another. */
+  opened: string[];
 };
+
+/** The hidden markers a run's comment may carry, for the next run to find:
+ * what each kind of run records about its own pull request. */
+function markersOf(run: ThisRun): string[] {
+  switch (run.kind) {
+    case "conflict":
+      return [
+        "<!-- conflict-fix -->",
+        `<!-- conflict-stop head=${run.base} -->`,
+      ];
+    case "dependency":
+      return ["<!-- factory-deps -->"];
+    default:
+      return [];
+  }
+}
 
 const TITLE = 200;
 const BODY = 60_000;
@@ -103,20 +124,22 @@ type Rule = {
 
 const any = () => true;
 const ownTicket = (word: string, run: ThisRun) => word === run.ticket;
+const ownOrOpened = (word: string, run: ThisRun) =>
+  word === run.ticket || run.opened.includes(word);
 const ownPull = (word: string, run: ThisRun) => word === String(run.pull);
 const ownThread = (word: string, run: ThisRun) =>
   run.comments.some((id) => String(id) === word);
 const BODY_FILE = { "--body-file": "file" } as const;
 
 const RULES: Record<string, Rule> = {
-  "ticket comment": { words: [ownTicket], flags: BODY_FILE },
+  "ticket comment": { words: [ownOrOpened], flags: BODY_FILE },
   "ticket edit": { words: [ownTicket], flags: BODY_FILE },
   "ticket stop": { words: [ownTicket, any] },
   "ticket end": { words: [ownTicket] },
   "ticket open": {
     words: [],
     flags: { "--title": "title", ...BODY_FILE },
-    when: (run) => run.kind === "conflict",
+    when: (run) => run.kind === "conflict" || run.kind === "dependency",
   },
   "follow-up": { words: [any, any] },
   "pr open": {
@@ -158,7 +181,14 @@ export function allow(asked: Asked, run: ThisRun): Asked | { refused: string } {
       else {
         if (!Object.hasOwn(asked.files, value))
           return refuse(`${value} was not handed over`);
-        files[value] = withoutMarkers(asked.files[value]).slice(0, BODY);
+        const text = asked.files[value];
+        const kept =
+          name === "pr comment"
+            ? markersOf(run).filter((marker) => text.includes(marker))
+            : [];
+        files[value] = [withoutMarkers(text).slice(0, BODY), ...kept].join(
+          "\n",
+        );
         argv.push(word, value);
       }
       continue;

@@ -2,9 +2,9 @@
 # run it again.
 #
 # What has to read a pull request's own code: the check that the
-# factory's files match the settings, the automated review, and
-# Dependabot's auto-merge. The jobs are in the factory's own repository,
-# at the version below. Nothing here decides a merge.
+# factory's files match the settings. The job is in the factory's own
+# repository, at the version below. GitHub runs this file from the pull
+# request's copy, so it is given no secret, and may only read.
 name: Factory review
 
 on:
@@ -13,17 +13,7 @@ on:
 
 permissions:
   contents: read
-  issues: read
-  pull-requests: write
 
 jobs:
   review:
     uses: ./.github/workflows/review.yml
-    with:
-      parts: "review board"
-    secrets:
-      build-token: ${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}
-      automerge-token: ${{ secrets.FACTORY_AUTOMERGE_TOKEN }}
-      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
-      claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

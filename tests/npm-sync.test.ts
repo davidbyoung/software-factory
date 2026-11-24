@@ -1,7 +1,7 @@
 // What `factory sync` does with the variables the repository's `.npmrc`
-// reads to sign in: both workflow files pass them, by name, as secrets to
-// the factory's workflows, and the lock records them, so a change to them
-// makes it stale.
+// reads to sign in: factory.yml passes them, by name, as secrets to the
+// factory's workflows, factory-review.yml passes none, and the lock records
+// them, so a change to them makes it stale.
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { load } from "js-yaml";
@@ -72,41 +72,54 @@ const workflows = () =>
   );
 type Written = {
   permissions: Record<string, string>;
-  jobs: Record<string, { secrets: Record<string, string> }>;
+  jobs: Record<string, { secrets?: Record<string, string> }>;
 };
-/** The two workflow files a sync wrote, read as YAML, each with the one
- * job that calls the factory's workflow. */
-const written = () =>
-  [FACTORY_FILE, REVIEW_FILE].map((path) => {
-    const file = parse(read(root, path)!) as Written;
-    return { path, file, called: Object.values(file.jobs)[0]! };
-  });
+/** A workflow file a sync wrote, read as YAML, with the one job that calls
+ * the factory's workflow. */
+const written = (path: string) => {
+  const file = parse(read(root, path)!) as Written;
+  return { file, called: Object.values(file.jobs)[0]! };
+};
 /** The one secret that carries the repository's own, by name. */
 const extra = (names: string[]) =>
   `\${{ format('{{${names.map((n, i) => `"${n}":{${i}}`).join(",")}}}', ${names.map((n) => `toJSON(secrets.${n})`).join(", ")}) }}`;
 
 describe("the workflows sync writes for .npmrc's variables", () => {
-  it("passes NPM_TOKEN, by name, from both files, and asks for no packages permission", async () => {
+  it("passes NPM_TOKEN, by name, from factory.yml", async () => {
     everyPart(NPMRC);
     expect((await sync()).code).toBe(0);
-    for (const { path, file, called } of written()) {
-      expect(called.secrets.extra, path).toBe(extra(["NPM_TOKEN"]));
-      expect(file.permissions, path).not.toHaveProperty("packages");
-    }
+    const { called } = written(FACTORY_FILE);
+    expect(called.secrets!.extra).toBe(extra(["NPM_TOKEN"]));
   });
+
+  it.each(["NPM_TOKEN", "GITHUB_TOKEN"])(
+    "passes %s from factory-review.yml to nothing, which runs a pull request's copy",
+    async (name) => {
+      everyPart(null);
+      await sync();
+      const without = read(root, REVIEW_FILE);
+      rmSync(root, { recursive: true, force: true });
+      everyPart(`//a.example/:_authToken=\${${name}}\n`);
+      await sync();
+      expect(read(root, FACTORY_FILE)!.includes(name)).toBe(
+        name === "NPM_TOKEN",
+      );
+      expect(read(root, REVIEW_FILE)).toBe(without);
+      expect(written(REVIEW_FILE).called).not.toHaveProperty("secrets");
+    },
+  );
 
   it("passes each name once, in the order .npmrc first reads them", async () => {
     everyPart(
       `//other.example/:_authToken=\${OTHER_TOKEN}\n${NPMRC}//third.example/:_authToken=\${OTHER_TOKEN}\n`,
     );
     await sync();
-    for (const { path, called } of written())
-      expect(called.secrets.extra, path).toBe(
-        extra(["OTHER_TOKEN", "NPM_TOKEN"]),
-      );
+    expect(written(FACTORY_FILE).called.secrets!.extra).toBe(
+      extra(["OTHER_TOKEN", "NPM_TOKEN"]),
+    );
   });
 
-  it("only adds a line: without it each workflow is what it is with no .npmrc", async () => {
+  it("only adds a line to factory.yml: without it each workflow is what it is with no .npmrc", async () => {
     everyPart(null);
     await sync();
     const before = workflows();
@@ -116,7 +129,9 @@ describe("the workflows sync writes for .npmrc's variables", () => {
     for (const [name, text] of Object.entries(workflows())) {
       const lines = text.split("\n");
       const added = lines.filter((line) => /^ {6}extra: /.test(line));
-      expect(added, name).toHaveLength(1);
+      expect(added, name).toHaveLength(
+        FACTORY_FILE.endsWith(`/${name}`) ? 1 : 0,
+      );
       expect(
         lines.filter((line) => !added.includes(line)),
         name,
@@ -134,13 +149,12 @@ describe("the workflows sync writes for .npmrc's variables", () => {
     expect(workflows()).toEqual(before);
   });
 
-  it("passes the workflow's own GITHUB_TOKEN and lets both workflows read packages", async () => {
+  it("passes no GITHUB_TOKEN, which each job has its own of, and lets factory.yml read packages", async () => {
     everyPart("//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}\n");
     await sync();
-    for (const { path, file, called } of written()) {
-      expect(file.permissions.packages, path).toBe("read");
-      expect(called.secrets.extra, path).toBe(extra(["GITHUB_TOKEN"]));
-    }
+    const { file, called } = written(FACTORY_FILE);
+    expect(file.permissions.packages).toBe("read");
+    expect(called.secrets).not.toHaveProperty("extra");
   });
 });
 

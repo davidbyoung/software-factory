@@ -1,40 +1,13 @@
 # What has to read a pull request's own code: the check that the factory's
-# files match the settings, the automated review, and Dependabot's
-# auto-merge. A repository's own .github/workflows/factory-review.yml, which
-# `factory sync` writes, calls this file on `pull_request`, at the version
-# its lock names. Nothing here decides a merge: the verdict is run.yml's,
-# from the default branch's copy.
-#
-# A pull request from a fork, or from Dependabot, gets no Actions secrets,
-# so every secret here may be empty.
-#
-# Where the key of an organization's own GitHub App and the variable
-# FACTORY_APP_CLIENT_ID both reach the run, a token of the app's stands in
-# for the build and auto-merge tokens. The review never holds it: its
-# comments are posted with the workflow's own token, so a build, which acts
-# as the app, cannot write the summary the verdict believes.
+# files match the settings. A repository's own
+# .github/workflows/factory-review.yml, which `factory sync` writes, calls
+# this file on `pull_request`, at the version its lock names. GitHub runs it
+# from the pull request's copy, so it is given no secret and may only read:
+# everything that decides or posts is run.yml's, from the default branch's.
 name: Factory review run
 
 on:
   workflow_call:
-    inputs:
-      parts:
-        description: "The parts that are on, separated by spaces: review, dependabot"
-        type: string
-        default: ""
-    secrets:
-      build-token:
-        required: false
-      automerge-token:
-        required: false
-      app-key:
-        required: false
-      claude-token:
-        required: false
-      claude-api-key:
-        required: false
-      extra:
-        required: false
 
 permissions:
   contents: read
@@ -50,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -59,8 +34,7 @@ jobs:
       # The version the pull request's own lock names, which is the one its
       # copies were written by: an update's pull request names a newer one
       # than the default branch does.
-      - &install
-        name: Install the factory
+      - name: Install the factory
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
             npm ci --ignore-scripts
@@ -74,320 +48,16 @@ jobs:
             npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
           fi
 
-      # The app's token is for this repository and for each repository of
-      # the same owner that holds a preset the lock names. The key is told
-      # from an empty one through `env`, since a step's `if` cannot read a
-      # secret. A fork's pull request gets no token made, whatever the
-      # repository's settings send to forks.
-      - name: List the repositories the app's token is for
-        id: repositories
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        env:
-          APP_KEY_SET: ${{ secrets.app-key != '' }}
-          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-        run: |
-          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
-            names="$(factory session repositories)"
-            echo "names=$names" >> "$GITHUB_OUTPUT"
-          fi
-
-      # Each job's token carries the permissions its own steps use and no
-      # others: with none named, it would carry all the app has.
-      - name: Make the app's token
-        id: app
-        if: steps.repositories.outputs.names != ''
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          private-key: ${{ secrets.app-key }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ steps.repositories.outputs.names }}
-          permission-contents: read
-
-      - &uninstalled
-        name: Say that the app is not installed
-        if: failure() && steps.app.outcome == 'failure'
-        run: |
-          echo "::error::The software factory's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
-
-      # The base commit's lock is what a preset's pin is compared with, and
-      # the app's token, or the build token, reads a private preset whose
-      # pin the pull request moved. A fork's pull request never gets
-      # either, whatever the repository's settings send to forks.
+      # The base commit's lock is what a preset's pin is compared with. This
+      # job has no sign-in, so a private preset is compared after the merge.
       - name: Compare the copies with their source
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-          GH_TOKEN: ${{ github.event.pull_request.head.repo.full_name == github.repository && (steps.app.outputs.token || secrets.build-token) || '' }}
+          TOKEN: ${{ github.token }}
         run: |
-          git fetch --no-tags --depth 1 origin "$BASE"
-          factory sync --check --against "$BASE"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)" fetch --no-tags --depth 1 origin "$BASE"
+          unset TOKEN
+          factory sync --check --against "$BASE" --public
 
       - name: Check the settings
         run: factory config check
-
-  # The review that reads every pull request once it is marked ready, and
-  # every push after that, with the instructions in .github/factory-review.md.
-  # The commands it may run beyond reading and commenting are the settings'
-  # `pr-review.commands`, read from the pull request's base commit.
-  review:
-    name: Claude review
-    # Drafts are not ready for review. A fork's pull request gets no
-    # secrets, and a Dependabot pull request gets Dependabot's secrets, not
-    # the Actions ones, so neither could authenticate.
-    if: >-
-      contains(format(' {0} ', inputs.parts), ' review ') &&
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # A newer push supersedes the review of the one before it.
-    concurrency:
-      group: claude-review-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
-    permissions:
-      contents: read
-      issues: read
-      pull-requests: write
-    steps:
-      # The event's commit can be stale: a "marked ready" event sent just
-      # after a push carries the previous commit. Review the head as it is.
-      - name: Find the current head
-        id: head
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-        run: echo "sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          # The pull request's own head, not GitHub's default merge commit,
-          # which also holds whatever reached the default branch since: a
-          # later review would comment on changes that are not part of the
-          # pull request.
-          ref: ${{ steps.head.outputs.sha }}
-          # The whole history, so a later push can be reviewed against the
-          # commit the previous review covered.
-          fetch-depth: 0
-
-      - name: Read what the repository installs with
-        id: node
-        run: |
-          if [ -f package.json ] && jq -e '.engines.node' package.json > /dev/null; then
-            echo "file=package.json" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -f package-lock.json ]; then echo "lock=true" >> "$GITHUB_OUTPUT"; fi
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: ${{ steps.node.outputs.file }}
-          node-version: ${{ steps.node.outputs.file == '' && '22' || '' }}
-
-      - name: Take the repository's own secrets
-        env:
-          EXTRA: ${{ secrets.extra }}
-        run: |
-          [ -n "$EXTRA" ] || exit 0
-          end="FACTORY_$(openssl rand -hex 8)"
-          for name in $(jq -r 'to_entries[] | select(.value != "") | .key' <<< "$EXTRA"); do
-            value="$(jq -r --arg name "$name" '.[$name]' <<< "$EXTRA")"
-            while IFS= read -r line; do
-              [ -z "$line" ] || echo "::add-mask::$line"
-            done <<< "$value"
-            { echo "$name<<$end"; echo "$value"; echo "$end"; } >> "$GITHUB_ENV"
-          done
-
-      # So the reviewer can run the commands its settings allow, such as the
-      # unit tests, to confirm a finding before posting it.
-      - name: Install the repository's dependencies
-        if: steps.node.outputs.lock == 'true'
-        run: npm ci
-
-      # The review action restores CLAUDE.md and the other instruction files
-      # it knows from the base branch, but not these two, which the review
-      # prompt points at. Taking them from the base commit keeps a pull
-      # request from editing the instructions its own review follows. A
-      # file the base commit does not have is left as the pull request has
-      # it, so a pull request that adds one is still reviewed by it.
-      - name: Read the review instructions from the base commit
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          for file in .github/factory-review.md .github/review-notes.md; do
-            if git cat-file -e "$BASE:$file" 2>/dev/null; then
-              git checkout "$BASE" -- "$file"
-              echo "Restored $file from $BASE."
-            else
-              echo "Left $file as the pull request has it: $BASE does not have it."
-            fi
-          done
-
-      # The factory as the base commit has it, so the commands below are not
-      # the code under review: the version the base commit's lock names, or,
-      # in the factory's own repository, the base commit's source in a
-      # worktree beside the checkout. A base without the factory, as before
-      # the pull request that adds it, takes the pull request's own lock.
-      # One that cannot be installed leaves the steps below to fall back.
-      - name: Install the base commit's factory
-        id: base
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          lock="$RUNNER_TEMP/factory.lock"
-          git show "$BASE:.claude/factory.lock" > "$lock" 2>/dev/null || cp .claude/factory.lock "$lock"
-          if [ "$(git show "$BASE:package.json" 2>/dev/null | jq -r '.name // empty')" = "@davidbyoung/software-factory" ]; then
-            if git worktree add --detach "$RUNNER_TEMP/base" "$BASE" &&
-              (cd "$RUNNER_TEMP/base" && npm ci && npm link); then
-              echo "dir=$RUNNER_TEMP/base" >> "$GITHUB_OUTPUT"
-              echo "installed=true" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            version="$(sed -n 's/^version: *//p' "$lock" | head -n 1)"
-            if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
-              npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"; then
-              echo "version=$version" >> "$GITHUB_OUTPUT"
-              echo "installed=true" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-
-      # From the base commit's lock too, so a change to the settings alone
-      # cannot widen the commands its own review may run. FACTORY_VERSION
-      # keeps each command below at the version installed above, whatever
-      # the pull request's lock names.
-      - name: List the tools the review may use
-        id: tools
-        if: steps.base.outputs.installed == 'true'
-        working-directory: ${{ steps.base.outputs.dir || github.workspace }}
-        env:
-          FACTORY_VERSION: ${{ steps.base.outputs.version }}
-          FACTORY_LOCK: ${{ runner.temp }}/factory.lock
-        run: echo "allowed=$(factory review tools)" >> "$GITHUB_OUTPUT"
-
-      # What the pull request was asked to do, read through the factory, so
-      # the review needs no ticket system's own tool. A failed read leaves a
-      # note in the file, and the review goes on from the pull request's body.
-      - name: Read the tickets the pull request builds
-        working-directory: ${{ steps.base.outputs.dir || github.workspace }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          FACTORY_VERSION: ${{ steps.base.outputs.version }}
-          FACTORY_LOCK: ${{ runner.temp }}/factory.lock
-          INSTALLED: ${{ steps.base.outputs.installed }}
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          out="$RUNNER_TEMP/tickets.md"
-          if [ "$INSTALLED" != true ]; then
-            echo "The tickets could not be read: the factory could not be installed" > "$out"
-          elif ! factory review tickets "$PR" > "$out" 2> "$RUNNER_TEMP/tickets.err"; then
-            echo "The tickets could not be read: $(tail -n 1 "$RUNNER_TEMP/tickets.err")" > "$out"
-          fi
-          cat "$out"
-
-      - name: Review
-        id: review
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.claude-token }}
-          # The API key only when there is no subscription token, so a
-          # repository with both is never billed by the key.
-          anthropic_api_key: ${{ !secrets.claude-token && secrets.claude-api-key || '' }}
-          github_token: ${{ github.token }}
-          # The action refuses a run a bot started, and a build under an
-          # organization's app opens its pull request as the app's bot. Only
-          # that app is let through, by its slug: never every bot.
-          allowed_bots: ${{ vars.FACTORY_APP_SLUG }}
-          prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
-            BASE SHA: ${{ github.event.pull_request.base.sha }}
-            HEAD SHA: ${{ steps.head.outputs.sha }}
-            TICKETS: ${{ runner.temp }}/tickets.md
-
-            Follow the review instructions in .github/factory-review.md.
-          claude_args: |
-            ${{ vars.FACTORY_BUILD_MODEL && format('--model {0}', vars.FACTORY_BUILD_MODEL) || '' }}
-            --max-turns 40
-            --add-dir "${{ runner.temp }}"
-            --allowedTools "${{ steps.tools.outputs.allowed }}"
-
-      # Adds what the review cost at API list prices to its summary comment,
-      # for the board's Cost (`factory review cost`). It logs and passes
-      # when there is no summary or no figure.
-      - name: Record the review's cost
-        if: ${{ !cancelled() && steps.review.outputs.execution_file != '' && steps.base.outputs.installed == 'true' }}
-        working-directory: ${{ steps.base.outputs.dir || github.workspace }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          FACTORY_VERSION: ${{ steps.base.outputs.version }}
-          FACTORY_LOCK: ${{ runner.temp }}/factory.lock
-          EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}
-          PR: ${{ github.event.pull_request.number }}
-          SHA: ${{ steps.head.outputs.sha }}
-        run: factory review cost
-
-  # Lets one of Dependabot's pull requests merge itself. Never a major,
-  # whose migration the owner reads first, and never one that names the
-  # factory, as a raised version in a workflow file would: that changes the
-  # instructions every session follows. Auto-merge still waits for every
-  # required check and for every review thread to be resolved.
-  #
-  # FACTORY_AUTOMERGE_TOKEN is the owner's token, a Dependabot secret
-  # because this run gets Dependabot's secrets, not the Actions ones. A
-  # merge enabled with the workflow's own token would start no workflow on
-  # the default branch. The app's token takes its place where the app's
-  # key is a Dependabot secret too.
-  dependabot:
-    name: Enable auto-merge
-    if: >-
-      contains(format(' {0} ', inputs.parts), ' dependabot ') &&
-      github.actor == 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # The merge is turned on with the app's token or the owner's: the
-    # workflow's own is read-only on a pull request of Dependabot's.
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Read the update
-        id: meta
-        uses: dependabot/fetch-metadata@v3
-        with:
-          github-token: ${{ github.token }}
-
-      # For this repository alone: the job reads no preset, and checks out
-      # nothing of the pull request's.
-      - name: Check whether the app's key reaches the run
-        id: repositories
-        env:
-          APP_KEY_SET: ${{ secrets.app-key != '' }}
-          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-        run: |
-          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
-            echo "names=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Make the app's token
-        id: app
-        if: steps.repositories.outputs.names != ''
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          private-key: ${{ secrets.app-key }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ steps.repositories.outputs.names }}
-          permission-pull-requests: write
-          permission-contents: write
-
-      - *uninstalled
-
-      - name: Enable auto-merge
-        if: >-
-          steps.meta.outputs.update-type != 'version-update:semver-major' &&
-          !contains(steps.meta.outputs.dependency-names, 'davidbyoung/software-factory')
-        run: gh pr merge --auto --squash "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ steps.app.outputs.token || secrets.automerge-token }}

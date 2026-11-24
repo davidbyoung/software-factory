@@ -1,14 +1,13 @@
 // The factory's own workflows, which a repository's two short files call:
 // run.yml, review.yml, and session.yml, read as YAML, and the scripts of
 // their steps run for real.
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,7 +16,16 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { manifestOf } from "../src/code-host/github-app.mts";
 import { SESSION_MINUTES } from "../src/config.mts";
-import { POLLER_FILE, pollerWorkflow } from "../src/workflow-files.mts";
+import { answerName, REVIEW_JOBS } from "../src/runner/github-actions.mts";
+import {
+  FACTORY_FILE,
+  factoryWorkflow,
+  POLLER_FILE,
+  pollerWorkflow,
+  REVIEW_FILE,
+  reviewWorkflow,
+  type WorkflowOptions,
+} from "../src/workflow-files.mts";
 
 type Step = {
   id?: string;
@@ -28,11 +36,16 @@ type Step = {
   with?: Record<string, unknown>;
   env?: Record<string, string>;
   "working-directory"?: string;
+  "continue-on-error"?: boolean;
 };
 type Job = {
   name: string;
   if?: string;
+  needs?: string | string[];
   uses?: string;
+  env?: Record<string, string>;
+  outputs?: Record<string, string>;
+  "cache-mode"?: string;
   "timeout-minutes"?: number | string;
   concurrency?: { group: string; "cancel-in-progress": boolean };
   permissions?: Record<string, string>;
@@ -46,7 +59,7 @@ type Workflow = {
     workflow_call: {
       inputs?: Record<string, { type: string; default?: unknown }>;
       secrets?: Record<string, { required: boolean }>;
-    };
+    } | null;
   };
   permissions: Record<string, string>;
   jobs: Record<string, Job>;
@@ -62,7 +75,26 @@ const session = read("session.yml");
 const step = (job: Job, name: string) =>
   job.steps!.find((s) => s.name === name)!;
 const names = (job: Job) => job.steps!.map((s) => s.name);
+const prepareJob = session.jobs.prepare!;
 const sessionJob = session.jobs.session!;
+const publishJob = session.jobs.publish!;
+
+/** The two files as `factory sync` writes them, read as YAML. */
+const options = (over: Partial<WorkflowOptions> = {}): WorkflowOptions => ({
+  version: "0.3.0",
+  branch: "main",
+  parts: ["review", "board", "auto-merge", "poller", "dependabot"],
+  pollMinutes: 5,
+  ref: (key) => `#${key}`,
+  minutes: { ...SESSION_MINUTES },
+  overrideLabel: "verdict-override",
+  secrets: [],
+  ...over,
+});
+const factoryYml = (over: Partial<WorkflowOptions> = {}) =>
+  parse(factoryWorkflow(options(over)));
+const factoryReviewYml = (over: Partial<WorkflowOptions> = {}) =>
+  parse(reviewWorkflow(options(over)));
 
 /** A step's script, run in `dir` with `bin` first on the PATH. */
 function runScript(
@@ -105,29 +137,37 @@ function sandbox(commands: Record<string, string> = {}) {
 
 describe("what the three files are called with", () => {
   it("takes every secret by name, none of them required, since another owner's file cannot hand them over whole", () => {
-    expect(run.on.workflow_call.secrets).toEqual(
-      Object.fromEntries(
-        [
-          "build-token",
-          "board-token",
-          "automerge-token",
-          "app-key",
-          "signing-key",
-          "claude-token",
-          "claude-api-key",
-          "extra",
-        ].map((name) => [name, { required: false }]),
-      ),
+    const taking = (names: string[]) =>
+      Object.fromEntries(names.map((name) => [name, { required: false }]));
+    expect(run.on.workflow_call!.secrets).toEqual(
+      taking([
+        "build-token",
+        "board-token",
+        "automerge-token",
+        "app-key",
+        "signing-key",
+        "claude-token",
+        "claude-api-key",
+        "extra",
+      ]),
     );
-    for (const file of [review, session]) {
-      expect(file.on.workflow_call.secrets).toHaveProperty("app-key");
-      for (const secret of Object.values(file.on.workflow_call.secrets!))
-        expect(secret.required).toBe(false);
-    }
+    expect(session.on.workflow_call!.secrets).toEqual(
+      taking([
+        "build-token",
+        "app-key",
+        "claude-token",
+        "claude-api-key",
+        "extra",
+      ]),
+    );
+  });
+
+  it("takes nothing in review.yml, which GitHub runs from the pull request's copy", () => {
+    expect(review.on).toEqual({ workflow_call: null });
   });
 
   it("defaults each session's minutes to the settings' default, and its job's limit to ten over", () => {
-    const inputs = run.on.workflow_call.inputs!;
+    const inputs = run.on.workflow_call!.inputs!;
     for (const [kind, minutes] of Object.entries(SESSION_MINUTES)) {
       expect(inputs[`${kind}-minutes`]!.default).toBe(minutes);
       expect(inputs[`${kind}-limit`]!.default).toBe(minutes + 10);
@@ -137,10 +177,7 @@ describe("what the three files are called with", () => {
   it("gives the workflow's own token only reading the code unless a job asks for more", () => {
     expect(run.permissions).toEqual({ contents: "read" });
     expect(review.permissions).toEqual({ contents: "read" });
-    expect(session.permissions).toEqual({
-      contents: "read",
-      "pull-requests": "read",
-    });
+    expect(session.permissions).toEqual({ contents: "read" });
   });
 });
 
@@ -149,7 +186,7 @@ const truthy = (v: unknown) => v !== "" && v !== false && v != null;
 const same = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : v);
 
 describe("the conditions of every job and step", () => {
-  it.each(["run.yml", "review.yml", "session.yml", "poller.yml"])(
+  it.each(["run.yml", "session.yml", "poller.yml"])(
     "%s reads no secret in an `if`, where GitHub refuses one",
     (name) => {
       const conditions = Object.values(read(name).jobs).flatMap((job) => [
@@ -163,11 +200,32 @@ describe("the conditions of every job and step", () => {
       expect(conditions.filter((c) => c?.includes("secrets."))).toEqual([]);
     },
   );
+
+  // A workflow that names a context where GitHub gives it none is refused
+  // whole, and so is every workflow that calls it. GitHub gives a job's own
+  // values no `runner`, no `steps`, and no `env`.
+  it.each(readdirSync(".github/workflows").filter((f) => f.endsWith(".yml")))(
+    "%s reads only what GitHub gives in a job's own values",
+    (name) => {
+      const found = Object.entries(read(name).jobs).flatMap(([id, job]) =>
+        Object.entries(job)
+          .filter(([key]) => !["steps", "outputs", "environment"].includes(key))
+          .flatMap(
+            ([key, value]) =>
+              JSON.stringify(value)
+                .match(/\$\{\{[^}]*\b(?:runner|steps|env)\.[^}]*\}\}/g)
+                ?.map((text) => `${id}.${key}: ${text}`) ?? [],
+          ),
+      );
+
+      expect(found).toEqual([]);
+    },
+  );
 });
 
 /** What a GitHub Actions expression comes to, evaluated as GitHub does for
  * what the workflows use: `==`, `!=`, `&&`, `||`, `!`, parentheses, text in
- * single quotes, a path into the contexts, and `contains`, `format`, and
+ * single quotes, `true` and `false`, a path into the contexts, and `contains`, `format`, and
  * `fromJSON`. A path that leads nowhere is empty text, and `&&` and `||`
  * give the operand that decided them. */
 function valueOf(expression: string, context: Record<string, unknown>) {
@@ -185,6 +243,7 @@ function valueOf(expression: string, context: Record<string, unknown>) {
     }
     if (token === "!") return !truthy(primary());
     if (token.startsWith("'")) return token.slice(1, -1).replaceAll("''", "'");
+    if (token === "true" || token === "false") return token === "true";
     if (tokens[at] === "(") {
       next();
       const args: unknown[] = [];
@@ -258,8 +317,12 @@ const inside = (value: unknown) =>
 
 describe("which job an event starts", () => {
   const EVERY_PART = "review board auto-merge poller dependabot";
-  const pull = (o: { login?: string; from?: string } = {}) => ({
+  type Pull = ReturnType<typeof pull>;
+  const pull = (
+    o: { login?: string; from?: string; draft?: boolean } = {},
+  ) => ({
     number: 7,
+    draft: o.draft ?? false,
     user: { login: o.login ?? "dana" },
     head: { repo: { full_name: o.from ?? "acme/site" } },
   });
@@ -276,6 +339,7 @@ describe("which job an event starts", () => {
         event: { repository: { default_branch: "main" }, ...payload },
         repository: "acme/site",
         ref_name: event.ref ?? "main",
+        actor: (event.pull_request as Pull | undefined)?.user.login ?? "dana",
       },
       inputs: {
         parts: EVERY_PART,
@@ -329,17 +393,27 @@ describe("which job an event starts", () => {
     [
       "a pull request opened",
       target("opened"),
+      ["verdict", "merge-policy", "board", "review"],
+    ],
+    [
+      "a draft opened",
+      { ...target("opened"), pull_request: pull({ draft: true }) },
       ["verdict", "merge-policy", "board"],
     ],
     [
       "a push to a pull request",
       target("synchronize"),
+      ["verdict", "merge-policy", "review"],
+    ],
+    [
+      "a push to a draft",
+      { ...target("synchronize"), pull_request: pull({ draft: true }) },
       ["verdict", "merge-policy"],
     ],
     [
       "a pull request marked ready",
       target("ready_for_review"),
-      ["verdict", "merge-policy", "board"],
+      ["verdict", "merge-policy", "board", "review"],
     ],
     ["a pull request made a draft", target("converted_to_draft"), ["board"]],
     ["a pull request closed", target("closed"), ["board"]],
@@ -352,22 +426,12 @@ describe("which job an event starts", () => {
     [
       "a pull request of Dependabot's opened",
       { ...target("opened"), pull_request: pull({ login: "dependabot[bot]" }) },
-      ["verdict"],
+      ["verdict", "dependabot"],
     ],
     [
       "a fork's pull request opened",
       { ...target("opened"), pull_request: pull({ from: "mallory/site" }) },
       ["verdict"],
-    ],
-    [
-      "the pull request's own workflow finishing",
-      { name: "workflow_run", workflow_run: { event: "pull_request" } },
-      ["verdict"],
-    ],
-    [
-      "another workflow of that name finishing on a push",
-      { name: "workflow_run", workflow_run: { event: "push" } },
-      [],
     ],
     [
       "a review submitted",
@@ -407,8 +471,11 @@ describe("which job an event starts", () => {
     [{ job: "build", ticket: "12" }, ["build"]],
     [{ ticket: "12" }, ["build"]],
     [{ job: "review", pr: "7", review: "9" }, ["answer"]],
+    [{ job: "answer", pr: "7" }, ["answer"]],
     [{ job: "conflicts" }, ["conflicts"]],
+    [{ job: "conflict", pr: "7" }, ["conflict"]],
     [{ job: "dependencies" }, ["dependencies"]],
+    [{ job: "dependency", pr: "7" }, ["dependency"]],
     [{ job: "updates" }, ["updates"]],
     [{ job: "board" }, ["board"]],
     [{ job: "poller" }, ["poller"]],
@@ -440,6 +507,17 @@ describe("which job an event starts", () => {
     ]);
   });
 
+  it("starts Dependabot's auto-merge for a push Dependabot made, and for no other event of the pull request", () => {
+    const its = { pull_request: pull({ login: "dependabot[bot]" }) };
+    expect(started({ ...target("synchronize"), ...its })).toContain(
+      "dependabot",
+    );
+    for (const action of ["ready_for_review", "labeled", "closed"])
+      expect(started({ ...target(action), ...its }), action).not.toContain(
+        "dependabot",
+      );
+  });
+
   it("takes the override label's name from what the repository's file passes", () => {
     const renamed = target("labeled", { label: { name: "ship it" } });
     expect(started(renamed, { "override-label": "ship it" })).toEqual([
@@ -461,7 +539,16 @@ describe("which job an event starts", () => {
 describe("the jobs that run no session", () => {
   const { jobs } = run;
 
-  it.each(["check", "verdict", "merge-policy", "board", "poller", "enroll"])(
+  it.each([
+    "check",
+    "verdict",
+    "merge-policy",
+    "board",
+    "poller",
+    "enroll",
+    "conflicts",
+    "dependencies",
+  ])(
     "%s checks out the default branch, never the pull request, and installs the factory before it runs it",
     (name) => {
       const job = jobs[name]!;
@@ -528,6 +615,35 @@ describe("the jobs that run no session", () => {
       "cancel-in-progress": false,
     });
   });
+
+  it.each([
+    ["conflicts", "conflict"],
+    ["dependencies", "dependency"],
+  ])(
+    "%s starts a %s run for each pull request, and none with no token that can",
+    (name, kind) => {
+      const start = step(jobs[name]!, "Start a run for each");
+      expect(valueOf(inside(start.env!.KIND), { github: { job: name } })).toBe(
+        kind,
+      );
+      const started = (env: Record<string, string>) => {
+        const { dir, calls } = sandbox({ factory: "" });
+        const r = runScript(start.run!, dir, { KIND: kind, ...env });
+        return { status: r.status, out: r.stdout.trim(), calls: calls() };
+      };
+
+      expect(started({ GH_TOKEN: "t" })).toEqual({
+        status: 0,
+        out: "",
+        calls: [`factory session each ${kind}`],
+      });
+      expect(started({ GH_TOKEN: "" })).toEqual({
+        status: 0,
+        out: "No build token is set, so no session starts.",
+        calls: [],
+      });
+    },
+  );
 
   it("opens the updates' pull requests with the build token, and passes with a line when there is none", () => {
     const job = jobs.updates!;
@@ -608,7 +724,8 @@ describe("installing the factory in a run", () => {
     for (const job of Object.values(run.jobs))
       for (const s of job.steps ?? [])
         if (s.name === "Install the factory") expect(s.run).toBe(install);
-    expect(step(review.jobs.check!, "Install the factory").run).toBe(install);
+    for (const job of [review.jobs.check!, prepareJob, publishJob])
+      expect(step(job, "Install the factory").run).toBe(install);
     // A session's also says what it installed, for the steps after it.
     const inSession = step(sessionJob, "Install the factory").run!;
     for (const line of install
@@ -654,78 +771,220 @@ describe("the repository's own secrets", () => {
     expect(existsSync(join(dir, "env"))).toBe(false);
   });
 
-  it("is the same script in the board sync, the poller, and the review", () => {
-    for (const job of [run.jobs.board!, run.jobs.poller!, review.jobs.review!])
+  it("is the same script in the board sync and the poller", () => {
+    for (const job of [run.jobs.board!, run.jobs.poller!])
       expect(step(job, "Take the repository's own secrets").run).toBe(take.run);
   });
 });
 
-describe("a session", () => {
+describe("the job that prepares a session", () => {
+  const gate = step(prepareJob, "Check whether there is work, then the tokens");
+
   it("runs its steps in this order", () => {
-    expect(names(sessionJob)).toEqual([
+    expect(names(prepareJob)).toEqual([
       "Checkout the default branch",
-      "Read what the repository installs with",
       "Set up Node",
       "Install the factory",
       "Check whether there is work, then the tokens",
-      "Sign in as the app",
-      "Take the repository's own secrets",
-      "Install the repository's dependencies",
-      "Run the build's setup commands",
-      "Set git's name and email",
-      "Set up commit signing",
-      "Install Claude Code",
-      "Record the commit the session starts on",
-      "Run the session",
-      "Put the checkout back on the commit the session started on",
-      "Release the claim if no pull request was opened",
-      "Show how the app's token was renewed",
+      "Sign in",
+      "Name the committer",
+      "Hand over what the session works from",
+      "Hand it to the session",
     ]);
   });
 
   it("checks out the default branch with full history", () => {
-    expect(sessionJob.steps![0]!.with).toMatchObject({
+    expect(prepareJob.steps![0]!.with).toMatchObject({
       ref: "${{ github.event.repository.default_branch }}",
       "fetch-depth": 0,
     });
   });
 
-  it("asks whether there is work with the workflow's own token, before any step reads the build token", () => {
-    const gate = step(
-      sessionJob,
-      "Check whether there is work, then the tokens",
-    );
-    expect(gate.env).toMatchObject({
+  it("asks whether there is work with the workflow's own token, before any step reads the build token or the app's key", () => {
+    expect(gate.env).toEqual({
       GH_TOKEN: "${{ github.token }}",
       FACTORY_BUILD_TOKEN_SET: "${{ secrets.build-token != '' }}",
       FACTORY_APP_KEY_SET:
         "${{ secrets.app-key != '' && vars.FACTORY_APP_CLIENT_ID != '' }}",
       FACTORY_CLAUDE_SET:
         "${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}",
+      KIND: "${{ inputs.kind }}",
+      ID: "${{ inputs.id }}",
+      REVIEW: "${{ inputs.review }}",
     });
-    expect(gate.run).toContain('factory session ready "$KIND" $ARGS');
-    const after = sessionJob.steps!.slice(
-      names(sessionJob).indexOf(gate.name) + 1,
+    const after = prepareJob.steps!.slice(prepareJob.steps!.indexOf(gate) + 1);
+    expect(after.map((s) => s.if)).toEqual([
+      ...Array(3).fill("steps.gate.outputs.ran == 'true'"),
+      "steps.prepare.outputs.ran == 'true'",
+    ]);
+  });
+
+  it.each<[string, string, string]>([
+    ["", "", "factory session ready answer 31"],
+    ["with a review", "9", "factory session ready answer 31 9"],
+  ])("asks about the pull request %s", (_, reviewId, asked) => {
+    const { dir, calls } = sandbox({ factory: "" });
+    const r = runScript(gate.run!, dir, {
+      KIND: "answer",
+      ID: "31",
+      REVIEW: reviewId,
+    });
+    expect([r.status, calls()]).toEqual([0, [asked]]);
+  });
+
+  it("starts the session only when it handed something over", () => {
+    expect(prepareJob.outputs).toEqual({
+      ran: "${{ steps.prepare.outputs.ran }}",
+    });
+    expect(sessionJob.needs).toBe("prepare");
+    expect(sessionJob.if).toBe("needs.prepare.outputs.ran == 'true'");
+  });
+
+  /** What the step that names the committer hands to the steps after it. */
+  const committer = (env: Record<string, string>, gh: string) => {
+    const { dir, calls } = sandbox({ gh });
+    const script = step(prepareJob, "Name the committer").run!;
+    expect(runScript(script, dir, env).status).toBe(0);
+    return { env: readFileSync(join(dir, "env"), "utf8"), calls: calls() };
+  };
+
+  it("names the build token's owner as the committer, by their no-reply address, with no line break in the name", () => {
+    expect(
+      committer(
+        { KIND: "build", APP_SLUG: "" },
+        `echo '{"login":"acme-builds","id":42,"name":null}'`,
+      ).env,
+    ).toBe(
+      "FACTORY_COMMITTER_NAME=acme-builds\nFACTORY_COMMITTER_EMAIL=42+acme-builds@users.noreply.github.com\n",
     );
-    for (const s of after.filter(
-      (s) => !s.name.startsWith("Release the claim"),
-    ))
-      expect(s.if).toContain("steps.gate.outputs.ran == 'true'");
+    expect(
+      committer(
+        { KIND: "build", APP_SLUG: "" },
+        String.raw`printf '%s' '{"login":"d","id":1,"name":"Dana\nPATH=/evil"}'`,
+      ).env,
+    ).toBe(
+      "FACTORY_COMMITTER_NAME=Dana PATH=/evil\nFACTORY_COMMITTER_EMAIL=1+d@users.noreply.github.com\n",
+    );
   });
 
-  it("is bounded by the limit it is given, and stops the session with the shell at its minutes", () => {
+  it("names the app's bot as the committer under the app, by its no-reply address", () => {
+    expect(
+      committer(
+        { KIND: "build", APP_SLUG: "software-factory-for-acme" },
+        "echo 4242",
+      ),
+    ).toEqual({
+      env: "FACTORY_COMMITTER_NAME=software-factory-for-acme[bot]\nFACTORY_COMMITTER_EMAIL=4242+software-factory-for-acme[bot]@users.noreply.github.com\n",
+      calls: ["gh api /users/software-factory-for-acme[bot] --jq .id"],
+    });
+  });
+
+  it("asks the code host for no committer for a review, which commits nothing", () => {
+    expect(committer({ KIND: "review", APP_SLUG: "" }, "exit 1").calls).toEqual(
+      [],
+    );
+  });
+
+  it("hands over the presets the lock names with the rest, and still hands over when they cannot be read", () => {
+    const hand = step(prepareJob, "Hand over what the session works from");
+    const { dir, calls } = sandbox({
+      factory:
+        'echo "cache $XDG_CACHE_HOME" >> "$RUNNER_TEMP/calls"; [ "$1" != sync ]',
+    });
+    const r = runScript(hand.run!, dir, {
+      FACTORY_RUN: "/run",
+      KIND: "build",
+      ID: "12",
+    });
+    expect([r.status, calls()]).toEqual([
+      0,
+      [
+        "factory sync --check",
+        "cache /run/in/cache",
+        "factory session prepare build 12",
+        "cache",
+      ],
+    ]);
+  });
+});
+
+describe("the job that runs the agent", () => {
+  it("runs its steps in this order", () => {
+    expect(names(sessionJob)).toEqual([
+      "Take what was handed over",
+      "Lay out the default branch",
+      "Read what the repository installs with",
+      "Set up Node",
+      "Install the factory",
+      "Take the repository's own secrets",
+      "Install the repository's dependencies",
+      "Run the build's setup commands",
+      "Set up the sandbox",
+      "Install Claude Code",
+      "Run the session",
+      "Hand on what the session left",
+    ]);
+  });
+
+  it("is bounded by the limit it is given, and the agent by its minutes", () => {
     expect(sessionJob["timeout-minutes"]).toBe("${{ inputs.limit }}");
-    const s = step(sessionJob, "Run the session");
-    expect(s.env!.MINUTES).toBe("${{ inputs.minutes }}");
-    expect(s.run).toContain('timeout --kill-after=30s "${MINUTES}m" claude');
-    expect(s.env!.FACTORY_UNATTENDED).toBe("1");
+    expect(step(sessionJob, "Run the session").env).toMatchObject({
+      MINUTES: "${{ inputs.minutes }}",
+      PROMPT: "${{ inputs.prompt }}",
+    });
   });
 
-  it("runs npm ci only where the repository has a package-lock.json, and never twice in the factory's own", () => {
+  it("runs the default branch's copy, and nothing from anywhere else, before the agent starts", () => {
+    const { dir } = sandbox();
+    mkdirSync(join(dir, "in"));
+    writeFileSync(join(dir, "in/run.json"), '{"defaultBranch":"trunk"}');
+    const git = (cwd: string, ...args: string[]) => {
+      const r = spawnSync(
+        "git",
+        ["-c", "user.name=t", "-c", "user.email=t@t", ...args],
+        { cwd, encoding: "utf8" },
+      );
+      expect(r.status, r.stderr).toBe(0);
+      return r.stdout.trim();
+    };
+    const from = mkdtempSync(join(tmpdir(), "factory-home-"));
+    git(from, "init", "-q");
+    git(from, "commit", "-q", "--allow-empty", "-m", "one");
+    git(from, "update-ref", "refs/handoff/home", "HEAD");
+    git(
+      from,
+      "bundle",
+      "create",
+      "-q",
+      join(dir, "in/home.bundle"),
+      "refs/handoff/home",
+    );
+
+    const lay = step(sessionJob, "Lay out the default branch");
+    expect(runScript(lay.run!, dir, { GITHUB_WORKSPACE: dir })).toMatchObject({
+      status: 0,
+    });
+    const home = join(dir, "home");
+    expect(git(home, "branch", "--show-current")).toBe("trunk");
+    expect(git(home, "rev-parse", "HEAD")).toBe(git(from, "rev-parse", "HEAD"));
+
+    const order = names(sessionJob);
+    for (const s of sessionJob.steps!.filter(
+      (s) =>
+        s.run &&
+        order.indexOf(s.name) > order.indexOf(lay.name) &&
+        !["Set up the sandbox", "Install Claude Code"].includes(s.name) &&
+        s.name !== "Take the repository's own secrets",
+    ))
+      expect(s["working-directory"], s.name).toBe("home");
+  });
+
+  it("runs npm ci in the default branch's copy, only where the repository has a package-lock.json", () => {
     expect(
       step(sessionJob, "Install the repository's dependencies"),
     ).toMatchObject({
-      if: "steps.gate.outputs.ran == 'true' && steps.node.outputs.lock == 'true' && steps.install.outputs.own != 'true'",
+      if: "steps.node.outputs.lock == 'true'",
+      "working-directory": "home",
       run: "npm ci",
     });
   });
@@ -751,7 +1010,7 @@ describe("a session", () => {
         "package.json": '{"engines":{"node":">=22"}}',
         "package-lock.json": "{}",
       }),
-    ).toBe("file=package.json\nlock=true\n");
+    ).toBe("file=home/package.json\nlock=true\n");
     expect(step(sessionJob, "Set up Node").with).toMatchObject({
       "node-version-file": "${{ steps.node.outputs.file }}",
       "node-version": "${{ steps.node.outputs.file == '' && '22' || '' }}",
@@ -783,98 +1042,15 @@ describe("a session", () => {
     expect(failed.stdout).not.toContain("third");
   });
 
-  it("signs with the key in a file only its owner can read, and prints none of it", () => {
-    const signing = step(sessionJob, "Set up commit signing").run!;
-    const { dir } = sandbox();
-    const r = runScript(signing, dir, { SIGNING_KEY_INPUT: "PRIVATE KEY" });
-    expect([r.status, r.stdout]).toEqual([0, ""]);
-    const file = join(dir, "factory-signing-key");
-    expect(readFileSync(file, "utf8")).toBe("PRIVATE KEY\n");
-    expect(statSync(file).mode & 0o777).toBe(0o600);
-    const config = readFileSync(join(dir, ".gitconfig"), "utf8");
-    expect(config).toContain("format = ssh");
-    expect(config).toContain(`signingkey = ${file}`);
-    expect(config).toContain("gpgsign = true");
-
-    const without = sandbox();
-    expect(
-      runScript(signing, without.dir, { SIGNING_KEY_INPUT: "" }).stdout.trim(),
-    ).toBe("No signing key: this build's commits will be unsigned.");
-    expect(existsSync(join(without.dir, ".gitconfig"))).toBe(false);
-  });
-
-  it("names Claude as a commit's author and the token's owner as its committer", () => {
-    const identity = step(sessionJob, "Set git's name and email");
-    expect(identity.env).toEqual({
-      GH_TOKEN:
-        "${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}",
-      APP_SLUG: "${{ steps.app.outputs.slug }}",
-    });
-    const { dir } = sandbox({
-      gh: `echo '{"login":"acme-builds","id":42,"name":null}'`,
-    });
-    expect(runScript(identity.run!, dir).status).toBe(0);
-    const config = readFileSync(join(dir, ".gitconfig"), "utf8");
-    expect(config).toContain("name = acme-builds");
-    expect(config).toContain("email = 42+acme-builds@users.noreply.github.com");
-    expect(config).toContain("name = Claude");
-    expect(config).toContain("email = noreply@anthropic.com");
-  });
-
-  it("names the app's bot as the committer under the app, by its no-reply address, and Claude still as the author", () => {
-    const identity = step(sessionJob, "Set git's name and email");
-    const { dir, calls } = sandbox({ gh: "echo 4242" });
-
-    const r = runScript(identity.run!, dir, {
-      APP_SLUG: "software-factory-for-acme",
-    });
-    expect(r.status).toBe(0);
-    expect(calls()).toEqual([
-      "gh api /users/software-factory-for-acme[bot] --jq .id",
-    ]);
-    const config = readFileSync(join(dir, ".gitconfig"), "utf8");
-    expect(config).toContain("name = software-factory-for-acme[bot]");
-    expect(config).toContain(
-      "email = 4242+software-factory-for-acme[bot]@users.noreply.github.com",
-    );
-    expect(config).toContain("name = Claude");
-    expect(config).toContain("email = noreply@anthropic.com");
-  });
-
-  it("signs nothing under the app, whatever the signing key holds, and says so", () => {
-    const signing = step(sessionJob, "Set up commit signing");
-    expect(signing.env).toEqual({
-      SIGNING_KEY_INPUT: "${{ secrets.signing-key }}",
-      APP_SLUG: "${{ steps.app.outputs.slug }}",
-    });
-    const { dir } = sandbox();
-
-    const r = runScript(signing.run!, dir, {
-      SIGNING_KEY_INPUT: "PRIVATE KEY",
-      APP_SLUG: "software-factory-for-acme",
-    });
-    expect([r.status, r.stdout]).toEqual([
-      0,
-      "The app is the committer: this build's commits will be unsigned.\n",
-    ]);
-    expect(existsSync(join(dir, "factory-signing-key"))).toBe(false);
-    expect(existsSync(join(dir, ".gitconfig"))).toBe(false);
-  });
-
   it("gives the session one Claude credential: the subscription's when both are set, and neither input's own variable", () => {
     const script = step(sessionJob, "Run the session").run!;
     const seen = (env: Record<string, string>) => {
-      const { dir } = sandbox({
-        claude:
-          'echo "oauth=${CLAUDE_CODE_OAUTH_TOKEN-none} key=${ANTHROPIC_API_KEY-none} inputs=${OAUTH_TOKEN_INPUT-none},${API_KEY_INPUT-none}" > "$RUNNER_TEMP/seen"\necho "{}"',
+      const { dir, calls } = sandbox({
+        factory:
+          'echo "oauth=${CLAUDE_CODE_OAUTH_TOKEN-none} key=${ANTHROPIC_API_KEY-none} inputs=${OAUTH_TOKEN_INPUT-none},${API_KEY_INPUT-none}" > "$RUNNER_TEMP/seen"',
       });
-      const r = runScript(script, dir, {
-        MINUTES: "1",
-        PROMPT: "p",
-        MODEL: "",
-        ...env,
-      });
-      expect(r.status).toBe(0);
+      const r = runScript(script, dir, env);
+      expect([r.status, calls()]).toEqual([0, ["factory session run"]]);
       return readFileSync(join(dir, "seen"), "utf8").trim();
     };
     expect(seen({ OAUTH_TOKEN_INPUT: "sub", API_KEY_INPUT: "key" })).toBe(
@@ -890,72 +1066,123 @@ describe("a session", () => {
       /@anthropic-ai\/claude-code@\d+\.\d+\.\d+$/,
     );
   });
+});
 
-  it("puts the checkout back on the commit it started on, whether or not the session failed", () => {
-    const back = step(
-      sessionJob,
-      "Put the checkout back on the commit the session started on",
-    );
-    expect(back.if).toBe("always() && steps.gate.outputs.ran == 'true'");
-    const dir = mkdtempSync(join(tmpdir(), "factory-restore-"));
-    const git = (...args: string[]) =>
-      execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
-    git("init", "-q", "-b", "main");
-    git(
-      "-c",
-      "user.name=t",
-      "-c",
-      "user.email=t@t",
-      "commit",
-      "-q",
-      "--allow-empty",
-      "-m",
-      "one",
-    );
-    const start = git("rev-parse", "HEAD");
-    writeFileSync(join(dir, "factory-start-commit"), `${start}\n`);
-    git("switch", "-q", "-c", "work");
-    git(
-      "-c",
-      "user.name=t",
-      "-c",
-      "user.email=t@t",
-      "commit",
-      "-q",
-      "--allow-empty",
-      "-m",
-      "two",
-    );
-    expect(runScript(back.run!, dir).status).toBe(0);
-    expect(git("rev-parse", "HEAD")).toBe(start);
+describe("the job that publishes what a session left", () => {
+  it("runs its steps in this order", () => {
+    expect(names(publishJob)).toEqual([
+      "Checkout the default branch",
+      "Set up Node",
+      "Install the factory",
+      "Name the run's folder",
+      "Take what was handed over",
+      "Take what the session left",
+      "Record the review",
+      "Sign in",
+      "Start the next answer",
+      "Publish what the session left",
+    ]);
   });
 
-  it("releases a build's claim with the build token, whatever happened, once the factory was installed", () => {
+  it("runs whatever the session did, once something was handed over, so a build's claim is always released", () => {
+    expect(publishJob.needs).toEqual(["prepare", "session"]);
+    expect(publishJob.if).toBe(
+      "always() && needs.prepare.outputs.ran == 'true'",
+    );
     expect(
-      step(sessionJob, "Release the claim if no pull request was opened"),
-    ).toMatchObject({
-      if: "always() && inputs.end-ticket != '' && steps.install.outputs.installed == 'true'",
-      env: {
-        GH_TOKEN:
-          "${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}",
-        TICKET: "${{ inputs.end-ticket }}",
-      },
-      run: 'factory ticket end "$TICKET"',
-    });
+      step(publishJob, "Take what the session left")["continue-on-error"],
+    ).toBe(true);
+  });
+
+  it("outlasts the hour it waits for CI", () => {
+    expect(publishJob["timeout-minutes"]).toBe(75);
+  });
+
+  it("records a review alone with a review's session, and publishes any other", () => {
+    const runs = (kind: string, next: string, signed = next) =>
+      publishJob
+        .steps!.filter(
+          (s) =>
+            s.if?.includes("inputs.kind") &&
+            evaluate(s.if, {
+              inputs: { kind },
+              steps: {
+                record: { outputs: { next } },
+                app: { outputs: { signed } },
+              },
+            }),
+        )
+        .map((s) => s.name);
+
+    expect(runs("review", "")).toEqual(["Record the review"]);
+    expect(runs("review", "true")).toEqual([
+      "Record the review",
+      "Sign in",
+      "Start the next answer",
+    ]);
+    // With no sign-in there is nothing to start an answer with.
+    expect(runs("review", "true", "")).toEqual([
+      "Record the review",
+      "Sign in",
+    ]);
+    for (const kind of ["build", "answer", "conflict", "dependency"])
+      expect(runs(kind, ""), kind).toEqual([
+        "Sign in",
+        "Publish what the session left",
+      ]);
+  });
+
+  it("reads what each job left from outside the checkout, by the names they were handed on by", () => {
+    const artifact = (job: Job, name: string) => step(job, name).with!.name;
+    const into = (name: string) => step(publishJob, name).with!.path;
+
+    expect(artifact(publishJob, "Take what was handed over")).toBe(
+      artifact(prepareJob, "Hand it to the session"),
+    );
+    expect(artifact(sessionJob, "Take what was handed over")).toBe(
+      artifact(prepareJob, "Hand it to the session"),
+    );
+    expect(artifact(publishJob, "Take what the session left")).toBe(
+      artifact(sessionJob, "Hand on what the session left"),
+    );
+    expect(into("Take what was handed over")).toBe(
+      "${{ runner.temp }}/factory/in",
+    );
+    expect(into("Take what the session left")).toBe(
+      "${{ runner.temp }}/factory/out",
+    );
   });
 });
 
-describe("the four jobs that run a session", () => {
+describe("the five jobs that run a session", () => {
   const SESSIONS: [string, string, string, string][] = [
-    ["build", "build", "build", "factory-build"],
-    ["answer", "review", "review", "factory-address-review"],
-    ["conflicts", "conflicts", "conflicts", "factory-resolve-conflicts"],
-    ["dependencies", "deps", "dependencies", "factory-deps"],
+    ["build", "build", "build", "`factory-build`"],
+    ["review", "review", "review", "`.github/factory-review.md`"],
+    ["answer", "answer", "review", "`factory-address-review`"],
+    ["conflict", "conflict", "conflicts", "`factory-resolve-conflicts`"],
+    ["dependency", "dependency", "dependencies", "`factory-deps`"],
   ];
+  const calling = Object.entries(run.jobs).filter(([, job]) => job.uses);
+  const REPOSITORY = new URL("..", import.meta.url).pathname;
+  /** A command of the factory's, or a module's call, run in an empty folder
+   * with nothing signed in and no settings, so it reads no code host. */
+  const outside = (args: string[]) => {
+    const dir = mkdtempSync(join(tmpdir(), "factory-outside-"));
+    const r = spawnSync(process.execPath, args, {
+      cwd: dir,
+      env: { PATH: "/usr/bin:/bin", HOME: dir },
+      encoding: "utf8",
+    });
+    return { status: r.status, said: r.stdout + r.stderr };
+  };
+
+  it("are the only ones that call another workflow", () => {
+    expect(calling.map(([id]) => id)).toEqual(SESSIONS.map(([id]) => id));
+  });
 
   it.each(SESSIONS)(
-    "%s calls session.yml for a %s session, with the settings' minutes and limit and the skill's name",
-    (name, kind, minutes, skill) => {
+    "%s calls session.yml for a %s session, with the settings' minutes and limit and the instructions' name",
+    (name, kind, minutes, instructions) => {
       const job = run.jobs[name]!;
       expect(job.uses).toBe("./.github/workflows/session.yml");
       expect(job.with).toMatchObject({
@@ -963,38 +1190,84 @@ describe("the four jobs that run a session", () => {
         minutes: `\${{ inputs.${minutes}-minutes }}`,
         limit: `\${{ inputs.${minutes}-limit }}`,
       });
-      expect(job.with!.prompt).toContain(skill);
-      expect(job.with!.prompt).toContain(
-        "Use American English and the Oxford comma.",
-      );
+      expect(job.with!.prompt).toContain(instructions);
       expect(job.secrets).toEqual({
         "build-token": "${{ secrets.build-token }}",
         "app-key": "${{ secrets.app-key }}",
         "claude-token": "${{ secrets.claude-token }}",
         "claude-api-key": "${{ secrets.claude-api-key }}",
-        "signing-key": "${{ secrets.signing-key }}",
         extra: "${{ secrets.extra }}",
-      });
-      expect(job.permissions).toEqual({
-        contents: "read",
-        "pull-requests": "read",
       });
     },
   );
 
-  it("ends a build's claim, and no other session's", () => {
-    expect(run.jobs.build!.with!["end-ticket"]).toBe("${{ inputs.ticket }}");
-    for (const name of ["answer", "conflicts", "dependencies"])
-      expect(run.jobs[name]!.with).not.toHaveProperty("end-ticket");
+  it.each(SESSIONS)(
+    "%s tells the session it works in ../work, with no sign-in",
+    (name) => {
+      const { prompt } = run.jobs[name]!.with!;
+      expect(prompt).toContain("The branch you work on is in `../work`");
+      expect(prompt).toContain("`cd ../work`");
+      expect(prompt).toContain("no sign-in to the code host");
+    },
+  );
+
+  it.each([...SESSIONS.map(([, kind]) => [kind, true]), ["polish", false]] as [
+    string,
+    boolean,
+  ][])(
+    "%s is a kind that `factory session ready` and `prepare` know: %s",
+    (kind, known) => {
+      const ready = outside([
+        join(REPOSITORY, "bin/factory.js"),
+        "session",
+        "ready",
+        kind,
+        "7",
+      ]);
+      const jobs = JSON.stringify(join(REPOSITORY, "src/session-jobs.mts"));
+      const prepare = outside([
+        "--input-type=module",
+        "-e",
+        `const { run } = await import(${jobs}); await run("prepare", ["${kind}", "7"]);`,
+      ]);
+
+      expect(ready.status).toBe(known ? 1 : 2);
+      for (const { said } of [ready, prepare]) {
+        expect(said).not.toBe("");
+        expect(!said.includes("Usage: factory session")).toBe(known);
+      }
+    },
+  );
+
+  it("gives an answer the pull request's and the review's numbers, from the event or from a run by hand", () => {
+    const given = (
+      key: string,
+      event: Record<string, unknown>,
+      inputs: Record<string, string>,
+    ) =>
+      valueOf(inside(run.jobs.answer!.with![key]), {
+        github: { event },
+        inputs,
+      });
+    const event = { pull_request: { number: 31 }, review: { id: 9 } };
+
+    expect(given("id", event, {})).toBe(31);
+    expect(given("review", event, {})).toBe(9);
+    expect(given("id", {}, { pr: "31", review: "9" })).toBe("31");
+    expect(given("review", {}, { pr: "31", review: "9" })).toBe("9");
+    expect(given("review", {}, { pr: "31" })).toBe("");
   });
 
-  it("gives the review's check the pull request's and the review's numbers, from the event or from a run by hand", () => {
-    expect(run.jobs.answer!.with!["check-args"]).toBe(
-      "${{ github.event.pull_request.number || inputs.pr }} ${{ github.event.review.id || inputs.review }}",
-    );
+  it("reviews a pull request's newest push alone, and sets no limit on a build or an answer", () => {
+    expect(run.jobs.review!.concurrency).toEqual({
+      group: "factory-review-${{ github.event.pull_request.number }}",
+      "cancel-in-progress": true,
+    });
+    expect(run.jobs.answer!.concurrency).toBeUndefined();
+    expect(run.jobs.build!.concurrency).toBeUndefined();
   });
 
-  it("keeps one sweep and one dependency run waiting, cancels none, and sets no limit on answers", () => {
+  it("keeps one search for conflicts and one for dependencies waiting, and cancels none", () => {
     expect(run.jobs.conflicts!.concurrency).toEqual({
       group: "factory-conflicts",
       "cancel-in-progress": false,
@@ -1003,8 +1276,6 @@ describe("the four jobs that run a session", () => {
       group: "factory-deps",
       "cancel-in-progress": false,
     });
-    expect(run.jobs.answer!.concurrency).toBeUndefined();
-    expect(run.jobs.build!.concurrency).toBeUndefined();
   });
 });
 
@@ -1022,7 +1293,8 @@ describe("a token of the organization's app, where its key reaches the run", () 
     ["run.yml's poller", run.jobs.poller!],
     ["run.yml's updates", run.jobs.updates!],
     ["run.yml's enroll", run.jobs.enroll!],
-    ["review.yml's check", review.jobs.check!],
+    ["run.yml's conflicts", run.jobs.conflicts!],
+    ["run.yml's dependencies", run.jobs.dependencies!],
   ];
   const list = step(run.jobs.board!, LIST);
   const REACHES = { APP_KEY_SET: "true", CLIENT_ID: "Iv23li" };
@@ -1059,7 +1331,6 @@ describe("a token of the organization's app, where its key reaches the run", () 
 
   it.each<[string, Workflow]>([
     ["run.yml", run],
-    ["review.yml", review],
     ["poller.yml", read("poller.yml")],
   ])(
     "%s hands the app's key to the step that makes the token, and to a session it calls, and only compares it anywhere else",
@@ -1110,7 +1381,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
   });
 
   it("makes one for the repository alone for Dependabot's pull request, whose code it does not check out", () => {
-    const job = review.jobs.dependabot!;
+    const job = run.jobs.dependabot!;
     expect(names(job)).toEqual([
       "Read the update",
       "Check whether the app's key reaches the run",
@@ -1145,7 +1416,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
     expect(output({ ...REACHES, CLIENT_ID: "" })).toEqual([0, [], ""]);
   });
 
-  it.each([...JOBS, ["review.yml's dependabot", review.jobs.dependabot!]] as [
+  it.each([...JOBS, ["run.yml's dependabot", run.jobs.dependabot!]] as [
     string,
     Job,
   ][])(
@@ -1198,10 +1469,24 @@ describe("a token of the organization's app, where its key reaches the run", () 
     ],
     [
       "turns auto-merge on for Dependabot's pull request",
-      review.jobs.dependabot!,
+      run.jobs.dependabot!,
       "Enable auto-merge",
       "GH_TOKEN",
       "automerge-token",
+    ],
+    [
+      "starts a run for each pull request that conflicts",
+      run.jobs.conflicts!,
+      "Start a run for each",
+      "GH_TOKEN",
+      "build-token",
+    ],
+    [
+      "starts a run for each of Dependabot's pull requests",
+      run.jobs.dependencies!,
+      "Start a run for each",
+      "GH_TOKEN",
+      "build-token",
     ],
   ])(
     "%s with the app's token, and with the token it uses today when there is none",
@@ -1228,41 +1513,35 @@ describe("a token of the organization's app, where its key reaches the run", () 
               (v) =>
                 person.test(v) &&
                 !v.includes("steps.app.outputs.token || secrets.") &&
-                !v.includes("steps.app.outputs.slug == '' && secrets.") &&
                 !v.includes("secrets.app-key == ''"),
             )
-            .map((v) => `${job.name}: ${s.name}: ${v}`),
+            .map(() => `${job.name}: ${s.name}`),
         ),
       ),
     );
 
-    expect(found).toEqual([]);
+    // Whose scripts take the app's key first, as the tests below run them.
+    expect(found).toEqual(["Prepare: Sign in", "Publish: Sign in"]);
   });
 
-  it.each<[string, Job]>([
-    ["a session", sessionJob],
-    ["the updates' job", run.jobs.updates!],
-  ])(
-    "%s checks out with the workflow's own token under the app, and with the build token without it",
-    (_, job) => {
-      const token = (
-        secrets: Record<string, string>,
-        vars: Record<string, string>,
-      ) =>
-        valueOf(inside(job.steps![0]!.with!.token), {
-          secrets,
-          vars,
-          github: { token: "the workflow's" },
-        });
-      const both = { "app-key": "key", "build-token": "a person's" };
-      const id = { FACTORY_APP_CLIENT_ID: "Iv23li" };
+  it("checks out for the updates with the workflow's own token under the app, and with the build token without it", () => {
+    const token = (
+      secrets: Record<string, string>,
+      vars: Record<string, string>,
+    ) =>
+      valueOf(inside(run.jobs.updates!.steps![0]!.with!.token), {
+        secrets,
+        vars,
+        github: { token: "the workflow's" },
+      });
+    const both = { "app-key": "key", "build-token": "a person's" };
+    const id = { FACTORY_APP_CLIENT_ID: "Iv23li" };
 
-      expect(token(both, id)).toBe("the workflow's");
-      expect(token({ ...both, "app-key": "" }, id)).toBe("a person's");
-      expect(token(both, {})).toBe("a person's");
-      expect(token({}, {})).toBe("the workflow's");
-    },
-  );
+    expect(token(both, id)).toBe("the workflow's");
+    expect(token({ ...both, "app-key": "" }, id)).toBe("a person's");
+    expect(token(both, {})).toBe("a person's");
+    expect(token({}, {})).toBe("the workflow's");
+  });
 
   it("checks the updates' job out again with the app's token before it pushes, and cleans nothing the factory's install left", () => {
     const job = run.jobs.updates!;
@@ -1358,13 +1637,18 @@ describe("what each job's token of the app may do", () => {
       { repository_custom_properties: "write" },
     ],
     [
-      "reads the presets a pull request pins",
-      "review.yml check",
-      { contents: "read" },
+      "finds the pull requests that conflict, and starts a run for each",
+      "run.yml conflicts",
+      { actions: "write", pull_requests: "read" },
+    ],
+    [
+      "finds Dependabot's pull requests, and starts a run for each",
+      "run.yml dependencies",
+      { actions: "write", pull_requests: "read" },
     ],
     [
       "turns auto-merge on for Dependabot's pull request",
-      "review.yml dependabot",
+      "run.yml dependabot",
       { pull_requests: "write", contents: "write" },
     ],
     [
@@ -1393,9 +1677,10 @@ describe("what each job's token of the app may do", () => {
       "run.yml board",
       "run.yml poller",
       "run.yml enroll",
+      "run.yml conflicts",
+      "run.yml dependencies",
+      "run.yml dependabot",
       "run.yml updates",
-      "review.yml check",
-      "review.yml dependabot",
       "poller.yml poller",
       "poller.yml updates",
     ]);
@@ -1431,205 +1716,492 @@ describe("what each job's token of the app may do", () => {
   });
 });
 
-describe("a session under the organization's app, whose token lasts an hour", () => {
-  const SIGN_IN = "Sign in as the app";
-  const signIn = step(sessionJob, SIGN_IN);
-  const REACHES = {
+describe("the sign-in of the two jobs around a session", () => {
+  const KEY = {
+    FACTORY_APP_CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
+    FACTORY_APP_PRIVATE_KEY: "${{ secrets.app-key }}",
+  };
+  const APP = {
     FACTORY_APP_CLIENT_ID: "Iv23client",
     FACTORY_APP_PRIVATE_KEY: "PRIVATE KEY",
   };
-  /** The steps that act on the code host as whoever builds. */
-  const ACTING = [
-    "Set git's name and email",
-    "Run the session",
-    "Release the claim if no pull request was opened",
+  /** Each job, and the variable its step reads a person's token from. */
+  const JOBS: [string, Job, string][] = [
+    ["prepare", prepareJob, "TOKEN"],
+    ["publish", publishJob, "BUILD_TOKEN"],
   ];
-  const context = (o: { app: boolean }) => ({
-    secrets: { "app-key": o.app ? "key" : "", "build-token": "a person's" },
-    vars: { FACTORY_APP_CLIENT_ID: o.app ? "Iv23client" : "" },
-    steps: {
-      gate: { outputs: { ran: "true" } },
-      app: { outputs: { slug: o.app ? "software-factory-for-acme" : "" } },
-    },
-    github: { token: "the workflow's" },
-  });
-
-  it("hands the app's key to one step alone, and only compares it anywhere else", () => {
-    expect(keyUses(session)).toBe(1);
-    expect(keyUses(signIn.env)).toBe(1);
-    expect(signIn.env).toEqual({
-      FACTORY_APP_CLIENT_ID: "${{ vars.FACTORY_APP_CLIENT_ID }}",
-      FACTORY_APP_PRIVATE_KEY: "${{ secrets.app-key }}",
+  const signing = (job: Job, env: Record<string, string>) => {
+    const { dir, calls } = sandbox({
+      factory: "",
+      gh: 'if [ "$2" = login ]; then cat > "$RUNNER_TEMP/given"; fi',
     });
-  });
+    const r = runScript(step(job, "Sign in").run!, dir, env);
+    const given = join(dir, "given");
+    return {
+      status: r.status,
+      said: r.stdout + r.stderr,
+      calls: calls(),
+      given: existsSync(given) ? readFileSync(given, "utf8") : null,
+    };
+  };
 
-  it("signs in once there is work, before any step puts a token in the environment", () => {
-    expect(signIn.id).toBe("app");
-    const order = names(sessionJob);
-    expect(order.indexOf(SIGN_IN)).toBe(
-      order.indexOf("Check whether there is work, then the tokens") + 1,
-    );
-    expect(evaluate(signIn.if!, context({ app: true }))).toBe(true);
-    expect(evaluate(signIn.if!, context({ app: false }))).toBe(false);
-  });
-
-  // The fake renewal stays alive until the file `go` is there, and writes
-  // `done` as it ends, so the test sees it outlive the step without a FIFO
-  // that would block the test when the step starts none.
-  it(
-    "signs in once in the foreground, then leaves the renewal running behind the steps that follow, its output in a file",
-    { timeout: 30_000 },
-    async () => {
-      const { dir, calls } = sandbox({
-        factory: [
-          'if [ "$3" = "--keep" ]; then',
-          '  until [ -e "$RUNNER_TEMP/go" ]; do sleep 0.05; done',
-          '  echo "renewing with ${FACTORY_APP_PRIVATE_KEY:+the key}"',
-          '  touch "$RUNNER_TEMP/done"',
-          "else",
-          '  echo "slug=software-factory-for-acme" >> "$GITHUB_OUTPUT"',
-          "fi",
-        ].join("\n"),
+  it.each(JOBS)(
+    "in %s is as the app wherever its key and the client ID both reach the run, whatever else is set",
+    (_, job, token) => {
+      expect(signing(job, { ...APP, [token]: "a person's" })).toEqual({
+        status: 0,
+        said: "",
+        calls: ["factory session token"],
+        given: null,
       });
-      const ended = () => existsSync(join(dir, "done"));
-
-      const r = spawnSync("bash", ["-eo", "pipefail", "-c", signIn.run!], {
-        cwd: dir,
-        env: {
-          PATH: `${join(dir, "bin")}:${process.env.PATH}`,
-          HOME: dir,
-          RUNNER_TEMP: dir,
-          GITHUB_OUTPUT: join(dir, "output"),
-          ...REACHES,
-        },
-        encoding: "utf8",
-        timeout: 5_000,
-      });
-      const endedWithTheStep = ended();
-      writeFileSync(join(dir, "go"), "");
-
-      expect(r.status).toBe(0);
-      expect(readFileSync(join(dir, "output"), "utf8")).toBe(
-        "slug=software-factory-for-acme\n",
-      );
-      expect(endedWithTheStep).toBe(false);
-      await expect.poll(ended, { timeout: 10_000 }).toBe(true);
-      expect(calls()).toEqual([
-        "factory session token",
-        "factory session token --keep",
-      ]);
-      expect(readFileSync(join(dir, "factory-token.log"), "utf8")).toBe(
-        "renewing with the key\n",
-      );
     },
   );
 
-  it("fails the step, and leaves nothing running, when the first sign-in fails", () => {
-    const { dir, calls } = sandbox({ factory: "exit 1" });
-
-    expect(runScript(signIn.run!, dir, REACHES).status).toBe(1);
-    expect(calls()).toEqual(["factory session token"]);
-  });
-
-  it("does nothing when the key does not reach the run", () => {
-    const { dir, calls } = sandbox({ factory: "" });
-
-    const r = runScript(signIn.run!, dir, {
-      ...REACHES,
-      FACTORY_APP_PRIVATE_KEY: "",
-    });
-    expect([r.status, r.stdout, calls()]).toEqual([0, "", []]);
-  });
-
-  it.each(ACTING)(
-    "%s reads the CLI's renewed sign-in under the app, with no token in its environment, and a person's token without it",
-    (name) => {
-      const token = inside(step(sessionJob, name).env!.GH_TOKEN);
-
-      expect(valueOf(token, context({ app: true }))).toBe("");
-      expect(valueOf(token, context({ app: false }))).toBe("a person's");
+  it.each(JOBS)(
+    "in %s is with a person's token where either does not, on standard input alone",
+    (_, job, token) => {
+      for (const missing of Object.keys(APP))
+        expect(
+          signing(job, { ...APP, [missing]: "", [token]: "a person's" }),
+        ).toEqual({
+          status: 0,
+          said: "",
+          calls: ["gh auth login --with-token", "gh auth setup-git"],
+          given: "a person's\n",
+        });
     },
   );
 
-  it("tells the session the app's slug, which a branch named after its user takes, and nothing without the app", () => {
-    const slug = inside(
-      step(sessionJob, "Run the session").env!.FACTORY_APP_SLUG,
-    );
+  it.each(JOBS)(
+    "in %s fails when the app's token cannot be made, and falls back to no other",
+    (_, job, token) => {
+      const { dir, calls } = sandbox({ factory: "exit 1", gh: "" });
+      const r = runScript(step(job, "Sign in").run!, dir, {
+        ...APP,
+        [token]: "a person's",
+      });
+      expect([r.status, calls()]).toEqual([1, ["factory session token"]]);
+    },
+  );
 
-    expect(valueOf(slug, context({ app: true }))).toBe(
-      "software-factory-for-acme",
-    );
-    expect(valueOf(slug, context({ app: false }))).toBe("");
+  it("stands the workflow's own token in for a person's only in preparing a review, which reads", () => {
+    const token = (kind: string, person: string) =>
+      valueOf(inside(step(prepareJob, "Sign in").env!.TOKEN), {
+        secrets: { "build-token": person },
+        inputs: { kind },
+        github: { token: "the workflow's" },
+      });
+
+    expect(token("review", "")).toBe("the workflow's");
+    expect(token("review", "a person's")).toBe("a person's");
+    for (const kind of ["build", "answer", "conflict", "dependency"])
+      expect(token(kind, ""), kind).toBe("");
+    expect(step(publishJob, "Sign in").env).toEqual({
+      ...KEY,
+      BUILD_TOKEN: "${{ secrets.build-token }}",
+    });
   });
 
-  it("makes no token that is made once, and gives no step but those a token of anyone's", () => {
-    expect(JSON.stringify(sessionJob)).not.toContain("create-github-app-token");
-    const given = sessionJob
-      .steps!.filter((s) =>
-        /secrets\.build-token(?! != '')/.test(
-          JSON.stringify({ ...s.env, ...s.with }),
-        ),
-      )
-      .map((s) => s.name);
-
-    expect(given).toEqual(["Checkout the default branch", ...ACTING]);
+  it("hands the app's key to the steps that sign in, and to the one that signs in again after CI, and only compares it anywhere else", () => {
+    const given = [
+      step(prepareJob, "Sign in"),
+      step(publishJob, "Sign in"),
+      step(publishJob, "Publish what the session left"),
+    ];
+    for (const s of given) expect(s.env).toMatchObject(KEY);
+    expect(keyUses(session)).toBe(given.length);
   });
 
-  it("stores no credential at the checkout under the app, so git asks the CLI, and stores the build token without it", () => {
-    const checkout = sessionJob.steps![0]!.with!;
-    const stored = (o: { app: boolean }) =>
-      valueOf(inside(checkout["persist-credentials"]), context(o));
-
-    expect(stored({ app: true })).toBe(false);
-    expect(stored({ app: false })).toBe(true);
-    expect(valueOf(inside(checkout.token), context({ app: false }))).toBe(
-      "a person's",
-    );
+  it("makes no token of its own in a step, and renews none behind the others", () => {
+    const text = JSON.stringify(session);
+    expect(text).not.toContain("create-github-app-token");
+    expect(text).not.toContain("--keep");
+    expect(text).not.toContain("nohup");
   });
 
-  it("prints what the renewal logged as the job's last step, whatever happened", () => {
-    const show = sessionJob.steps!.at(-1)!;
-    expect(show.name).toBe("Show how the app's token was renewed");
-    expect(show.if).toContain("always()");
-    expect(
-      evaluate(show.if!.replace("always() && ", ""), context({ app: true })),
-    ).toBe(true);
-    expect(
-      evaluate(show.if!.replace("always() && ", ""), context({ app: false })),
-    ).toBe(false);
-    const { dir } = sandbox();
-    writeFileSync(
-      join(dir, "factory-token.log"),
-      "2026-11-23T12:45:00.000Z Renewed the app's token.\n",
-    );
-
-    expect(runScript(show.run!, dir).stdout).toBe(
-      "2026-11-23T12:45:00.000Z Renewed the app's token.\n",
-    );
+  it("signs no commit: nothing of a session reads the signing key, which the updates' job alone does", () => {
+    expect(JSON.stringify(session)).not.toContain("signing-key");
+    const reading = Object.entries(run.jobs)
+      .filter(([, job]) => JSON.stringify(job).includes("secrets.signing-key"))
+      .map(([id]) => id);
+    expect(reading).toEqual(["updates"]);
   });
 });
 
 describe("the review and its verdict, which stay the workflow's own", () => {
-  it.each<[string, Job]>([
-    ["review.yml's review", review.jobs.review!],
-    ["run.yml's verdict", run.jobs.verdict!],
-  ])(
-    "%s makes no token of the app's, and reads neither its key nor a person's token",
+  const OTHER =
+    /steps\.app\.|app-key|(?:build|board|automerge)-token|create-github-app-token/;
+
+  it("posts the verdict's status with the workflow's own token, and reads no other", () => {
+    const job = run.jobs.verdict!;
+    expect(JSON.stringify(job)).not.toMatch(OTHER);
+    expect(step(job, "Post the verdict").env).toEqual({
+      GH_TOKEN: "${{ github.token }}",
+    });
+  });
+
+  it("records a review with the workflow's own token, and no other, before the job signs in", () => {
+    const record = step(publishJob, "Record the review");
+    expect(record.env).toEqual({
+      GH_TOKEN: "${{ github.token }}",
+      CONCLUSION: "${{ needs.session.result }}",
+    });
+    expect(record.run).toBe("factory session publish");
+    expect(publishJob).not.toHaveProperty("env");
+
+    const before = publishJob.steps!.slice(
+      0,
+      publishJob.steps!.indexOf(record),
+    );
+    for (const s of before)
+      expect(JSON.stringify(s), s.name).not.toMatch(OTHER);
+    expect(names(publishJob).indexOf("Sign in")).toBeGreaterThan(
+      publishJob.steps!.indexOf(record),
+    );
+  });
+
+  it("gives the workflow's own token to no other step that publishes", () => {
+    const given = publishJob
+      .steps!.filter((s) => JSON.stringify(s).includes("github.token"))
+      .map((s) => s.name);
+    expect(given).toEqual(["Record the review"]);
+  });
+});
+
+/** The workflows of this repository, and the two a repository's sync
+ * writes, by name. */
+const EVERY: [string, Workflow][] = [
+  ...readdirSync(".github/workflows")
+    .filter((file) => file.endsWith(".yml"))
+    .map((file): [string, Workflow] => [file, read(file)]),
+  [`${FACTORY_FILE}, as sync writes it`, factoryYml()],
+  [`${REVIEW_FILE}, as sync writes it`, factoryReviewYml()],
+];
+
+/** Every secret a part of a workflow names, however it names it. A step's
+ * own name is text. */
+const secretsIn = (part: unknown) => [
+  ...new Set(
+    (
+      JSON.stringify(part ?? null, (key, value) =>
+        key === "name" ? undefined : value,
+      ).match(/\bsecrets\b(?:\.[\w-]+|\s*\[[^\]]*\])?/g) ?? []
+    ).sort(),
+  ),
+];
+/** What signs a step in to the code host: a secret that is a sign-in, the
+ * workflow's own token, or a command or an action that makes or takes one. */
+const SIGN_IN =
+  /app-key|(?:build|board|automerge)-token|signing-key|github\.token|GITHUB_TOKEN|GH_TOKEN|steps\.app\b|create-github-app-token|session token|gh auth|FACTORY_APP_PRIVATE_KEY/;
+/** Whether a step starts an AI. */
+const startsAi = (s: Step) =>
+  /\bfactory session run\b|(?:^|[\s;&|("'])claude(?=[\s"']|$)/m.test(
+    s.run ?? "",
+  ) || (s.uses ?? "").startsWith("anthropics/");
+const AI = EVERY.flatMap(([file, workflow]) =>
+  Object.entries(workflow.jobs)
+    .filter(([, job]) => job.steps?.some(startsAi))
+    .map(([id, job]): [string, Job] => [`${file} ${id}`, job]),
+);
+
+describe("the AI and a sign-in to the code host, which are never in the same job", () => {
+  it.each([
+    "factory session run",
+    "cd work && claude -p x",
+    'timeout 5m claude "$P"',
+  ])("takes a step that runs %s as one that starts an AI", (script) => {
+    expect(startsAi({ name: "s", run: script })).toBe(true);
+  });
+
+  it.each([
+    "npm install @anthropic-ai/claude-code@2.1.0",
+    "factory session ready",
+  ])("does not take a step that runs %s as one", (script) => {
+    expect(startsAi({ name: "s", run: script })).toBe(false);
+  });
+
+  it("starts an AI in one job of every workflow there is: the session's", () => {
+    expect(AI.map(([name]) => name)).toEqual(["session.yml session"]);
+  });
+
+  it.each(AI)(
+    "names no sign-in in any step or value of %s but the install's, which reads packages",
     (_, job) => {
-      expect(names(job)).not.toContain("Make the app's token");
-      expect(JSON.stringify(job)).not.toMatch(
-        /steps\.app\.|app-key|(?:build|board|automerge)-token/,
+      const { steps, ...own } = job;
+      expect(step(job, "Install the repository's dependencies").env).toEqual({
+        GITHUB_TOKEN: "${{ github.token }}",
+      });
+      const found = [
+        ...steps!
+          .filter((s) => s.name !== "Install the repository's dependencies")
+          .filter((s) => SIGN_IN.test(JSON.stringify(s)))
+          .map((s) => s.name),
+        ...Object.entries(own)
+          .filter(([, value]) => SIGN_IN.test(JSON.stringify(value)))
+          .map(([key]) => key),
+      ];
+      expect(found).toEqual([]);
+    },
+  );
+
+  it("lets the session's job's own token read packages and nothing else, and gives it no cache another run shares", () => {
+    expect(sessionJob.permissions).toEqual({ packages: "read" });
+    expect(sessionJob["cache-mode"]).toBe("none");
+  });
+
+  it("gives the session's job no secret but the two Claude credentials and the repository's own", () => {
+    expect(secretsIn(sessionJob)).toEqual([
+      "secrets.claude-api-key",
+      "secrets.claude-token",
+      "secrets.extra",
+    ]);
+  });
+
+  it("gives the Claude credentials to the step that starts the agent alone, after the repository's own commands", () => {
+    const holding = sessionJob
+      .steps!.filter((s) => /secrets\.claude/.test(JSON.stringify(s)))
+      .map((s) => s.name);
+    expect(holding).toEqual(["Run the session"]);
+  });
+
+  it("uses no action in the session's job that signs in, as a checkout does", () => {
+    expect(
+      new Set(sessionJob.steps!.flatMap((s) => s.uses?.split("@")[0] ?? [])),
+    ).toEqual(
+      new Set([
+        "actions/download-artifact",
+        "actions/setup-node",
+        "actions/upload-artifact",
+      ]),
+    );
+  });
+
+  it("does nothing after the session but hand on `clean`", () => {
+    const order = names(sessionJob);
+    const after = sessionJob.steps!.slice(order.indexOf("Run the session") + 1);
+    expect(after).toEqual([
+      {
+        name: "Hand on what the session left",
+        if: "always() && steps.session.outcome != 'skipped'",
+        uses: "actions/upload-artifact@v6",
+        with: {
+          name: "out-${{ inputs.kind }}",
+          path: "clean",
+          "if-no-files-found": "ignore",
+          overwrite: true,
+          "retention-days": 7,
+        },
+      },
+    ]);
+  });
+
+  it("keeps what was handed over one day, and hands over what Prepare wrote alone", () => {
+    const uploads = prepareJob.steps!.filter((s) =>
+      s.uses?.startsWith("actions/upload-artifact"),
+    );
+    expect(uploads.map((s) => s.with)).toEqual([
+      {
+        name: "in-${{ inputs.kind }}",
+        path: "${{ runner.temp }}/factory/in",
+        "include-hidden-files": true,
+        overwrite: true,
+        "retention-days": 1,
+      },
+    ]);
+  });
+
+  it.each<[string, Job]>([
+    ["prepare", prepareJob],
+    ["publish", publishJob],
+  ])(
+    "holds no Claude credential and none of the repository's own secrets in %s",
+    (_, job) => {
+      const given = secretsIn(
+        job.steps!.map((s) => ({
+          ...s,
+          env: Object.fromEntries(
+            Object.entries(s.env ?? {}).filter(([, v]) => !v.includes("!= ''")),
+          ),
+        })),
+      );
+      expect(given).toEqual(["secrets.app-key", "secrets.build-token"]);
+      expect(secretsIn(job.env)).toEqual([]);
+    },
+  );
+});
+
+describe("the two jobs around a session, which have a sign-in", () => {
+  const JOBS: [string, Job][] = [
+    ["prepare", prepareJob],
+    ["publish", publishJob],
+  ];
+
+  it.each(JOBS)(
+    "%s checks out the default branch once, storing no sign-in, and shares no cache",
+    (_, job) => {
+      const checkouts = job.steps!.filter((s) =>
+        s.uses?.startsWith("actions/checkout"),
+      );
+      expect(checkouts).toHaveLength(1);
+      expect(checkouts[0]!.with).toMatchObject({
+        ref: "${{ github.event.repository.default_branch }}",
+        "persist-credentials": false,
+      });
+      expect(checkouts[0]!.with).not.toHaveProperty("repository");
+      expect(checkouts[0]!.with).not.toHaveProperty("path");
+      expect(job["cache-mode"]).toBe("none");
+    },
+  );
+
+  it.each(JOBS)(
+    "%s runs nothing but the factory's commands and the code host's, from the default branch's checkout",
+    (_, job) => {
+      const scripts = job.steps!.filter(
+        (s) => s.run && s.name !== "Install the factory",
+      );
+      for (const s of scripts) {
+        expect(s, s.name).not.toHaveProperty("working-directory");
+        expect(s.run, s.name).not.toMatch(
+          /(?:^|[\s;&|(])(?:git|npm|npx|node|bash|sh|source|eval|exec|cd|pushd)\s|bundle|\/out\b/m,
+        );
+      }
+      expect(
+        new Set(job.steps!.flatMap((s) => s.uses?.split("@")[0] ?? [])),
+      ).toEqual(
+        new Set([
+          "actions/checkout",
+          "actions/setup-node",
+          job === prepareJob
+            ? "actions/upload-artifact"
+            : "actions/download-artifact",
+        ]),
       );
     },
   );
 
-  it("hands the review's action and the verdict's command the workflow's own token", () => {
-    expect(step(review.jobs.review!, "Review").with!.github_token).toBe(
-      "${{ github.token }}",
+  it("puts what was handed on outside the checkout", () => {
+    for (const s of publishJob.steps!.filter((s) =>
+      s.uses?.startsWith("actions/download-artifact"),
+    ))
+      expect(s.with!.path, s.name).toMatch(/^\$\{\{ runner\.temp \}\}\//);
+  });
+});
+
+describe("a pull request's own code, in run.yml", () => {
+  /** What names a pull request's own commit or branch. */
+  const HEAD =
+    /pull_request\.head\.(?:sha|ref)|head_sha|head_ref|refs\/pull\/|merge_commit_sha|gh pr checkout|github\.(?:sha|ref)\b/;
+  const target = Object.entries(run.jobs).filter(
+    ([, job]) => !job.if || job.if.includes("pull_request_target"),
+  );
+
+  it("is judged in these jobs, which start on pull_request_target", () => {
+    expect(target.map(([id]) => id)).toEqual([
+      "verdict",
+      "merge-policy",
+      "board",
+      "review",
+      "dependabot",
+    ]);
+  });
+
+  it.each(target)("is never checked out by %s", (_, job) => {
+    const called = job.uses ? Object.values(session.jobs) : [job];
+    for (const each of called) {
+      expect(JSON.stringify(each)).not.toMatch(HEAD);
+      for (const s of each.steps!.filter((s) =>
+        s.uses?.startsWith("actions/checkout"),
+      )) {
+        expect([
+          undefined,
+          "${{ github.event.repository.default_branch }}",
+        ]).toContain(s.with?.ref);
+        expect(s.with ?? {}).not.toHaveProperty("repository");
+      }
+    }
+    expect(JSON.stringify(job)).not.toMatch(HEAD);
+  });
+});
+
+describe("the files GitHub runs from a pull request's copy", () => {
+  it.each<[string, Workflow]>([
+    ["review.yml", review],
+    [
+      "factory-review.yml, whatever the settings turn on",
+      factoryReviewYml({ secrets: ["NPM_TOKEN", "GITHUB_TOKEN"] }),
+    ],
+  ])("%s names no secret, and may only read the code", (_, file) => {
+    expect(secretsIn(file)).toEqual([]);
+    expect(JSON.stringify(file)).not.toMatch(/inherit/);
+    expect(file.permissions).toEqual({ contents: "read" });
+    for (const job of Object.values(file.jobs))
+      expect(job).not.toHaveProperty("permissions");
+  });
+});
+
+describe("what factory.yml grants the jobs it calls, which can have no more", () => {
+  type Permissions = Record<string, string>;
+  const RANK = ["none", "read", "write"];
+  /** The most each of some jobs asks for. */
+  const most = (asked: Permissions[]) => {
+    const all: Permissions = {};
+    for (const [name, level] of asked.flatMap((p) => Object.entries(p)))
+      if (RANK.indexOf(level) > RANK.indexOf(all[name] ?? "none"))
+        all[name] = level;
+    return all;
+  };
+  const asked = (file: Workflow) =>
+    Object.values(file.jobs)
+      .filter((job) => !job.uses)
+      .map((job) => job.permissions ?? file.permissions);
+  const calling = Object.entries(run.jobs).filter(([, job]) => job.uses);
+
+  it.each<[string, string[]]>([
+    ["no secret of the repository's own", []],
+    ["a sign-in with the workflow's own token in .npmrc", ["GITHUB_TOKEN"]],
+  ])(
+    "is what some job of theirs asks for, and no more, with %s",
+    (_, secrets) => {
+      const grants = factoryYml({ secrets }).permissions;
+      expect(grants).toEqual(most([...asked(run), ...asked(session)]));
+    },
+  );
+
+  it.each(calling)(
+    "is what a job of session.yml asks for, and no more, from %s",
+    (_, job) => {
+      expect(job.permissions).toEqual(most(asked(session)));
+    },
+  );
+});
+
+describe("the names one part of the factory goes by for another", () => {
+  it("names an answer's run as the runner counts it, a pull request's as it finds its review, and leaves any other to GitHub", () => {
+    const named = (
+      inputs: Record<string, string>,
+      github: Record<string, unknown> = { event_name: "workflow_dispatch" },
+    ) => valueOf(inside(factoryYml()["run-name"]), { inputs, github });
+    const event = { pull_request: { number: 31, head: { sha: "abc" } } };
+
+    expect(named({ job: "answer", pr: "31" })).toBe(answerName(31));
+    expect(named({ job: "build", ticket: "12" })).toBe("Build #12");
+    expect(named({}, { event_name: "pull_request_target", event })).toBe(
+      "#31 at abc",
     );
-    expect(step(run.jobs.verdict!, "Post the verdict").env).toEqual({
-      GH_TOKEN: "${{ github.token }}",
-    });
+    expect(named({ job: "conflict", pr: "31" })).toBe("");
+    expect(named({}, { event_name: "pull_request_review", event })).toBe("");
+  });
+
+  it("names the review's jobs as the runner looks for them", () => {
+    const [calling] = Object.keys(factoryYml().jobs);
+    const name = `${calling} / ${run.jobs.review!.name} / `;
+
+    expect(REVIEW_JOBS).toBe(name);
+    expect(Object.values(session.jobs).map((job) => job.name)).toEqual([
+      "Prepare",
+      "Session",
+      "Publish",
+    ]);
   });
 });
 
@@ -1680,177 +2252,60 @@ describe("the job that makes the verdict required, once a setup has merged", () 
 describe("review.yml", () => {
   const { jobs } = review;
 
-  it("checks the files on every pull request, against the base commit's lock, with the app's token or the build token only for one from this repository", () => {
-    const job = jobs.check!;
-    expect(job.if).toBeUndefined();
-    const compare = step(job, "Compare the copies with their source");
-    expect(compare.env!.BASE).toBe("${{ github.event.pull_request.base.sha }}");
-    const token = (from: string, app: string) =>
-      valueOf(inside(compare.env!.GH_TOKEN), {
-        github: {
-          repository: "acme/site",
-          event: { pull_request: { head: { repo: { full_name: from } } } },
-        },
-        steps: { app: { outputs: { token: app } } },
-        secrets: { "build-token": "person" },
-      });
-    expect(token("acme/site", "app")).toBe("app");
-    expect(token("acme/site", "")).toBe("person");
-    expect(token("mallory/site", "app")).toBe("");
-    expect(step(job, "List the repositories the app's token is for").if).toBe(
-      "github.event.pull_request.head.repo.full_name == github.repository",
-    );
-    expect(compare.run).toContain('factory sync --check --against "$BASE"');
-    expect(step(job, "Check the settings").run).toBe("factory config check");
-  });
-
-  it("runs the review only where it is on, for a ready pull request from this repository that is not Dependabot's", () => {
-    expect(jobs.review!.if!.replace(/\s+/g, " ")).toBe(
-      "contains(format(' {0} ', inputs.parts), ' review ') && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'",
-    );
-    expect(jobs.review!.name).toBe("Claude review");
-    expect(jobs.review!.concurrency).toEqual({
-      group: "claude-review-${{ github.event.pull_request.number }}",
-      "cancel-in-progress": true,
-    });
-  });
-
-  it("restores the review's instructions from the base commit before the review reads them", () => {
-    const order = names(jobs.review!);
-    expect(
-      order.indexOf("Read the review instructions from the base commit"),
-    ).toBeLessThan(order.indexOf("Review"));
-    expect(order.indexOf("List the tools the review may use")).toBeLessThan(
-      order.indexOf("Review"),
+  it("has the one job that reads a pull request's own code, on every pull request", () => {
+    expect(Object.keys(jobs)).toEqual(["check"]);
+    expect(jobs.check!.if).toBeUndefined();
+    expect(step(jobs.check!, "Check the settings").run).toBe(
+      "factory config check",
     );
   });
 
-  it("lists the tools and reads the tickets with the base commit's factory and lock, whatever the pull request's lock names", () => {
-    for (const name of [
-      "List the tools the review may use",
-      "Read the tickets the pull request builds",
-      "Record the review's cost",
-    ]) {
-      const s = step(jobs.review!, name);
-      expect(s.env).toMatchObject({
-        FACTORY_VERSION: "${{ steps.base.outputs.version }}",
-        FACTORY_LOCK: "${{ runner.temp }}/factory.lock",
-      });
-      expect(s["working-directory"]).toBe(
-        "${{ steps.base.outputs.dir || github.workspace }}",
-      );
-    }
-  });
-
-  it("installs the version the base commit's lock names, or the pull request's where the base has none", () => {
-    const install = step(
-      jobs.review!,
-      "Install the base commit's factory",
-    ).run!;
-    const repo = (base: string | null, head: string) => {
-      const { dir, calls } = sandbox({ npm: "" });
-      const git = (...args: string[]) =>
-        execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
-      const commit = (version: string | null) => {
-        if (version !== null) {
-          mkdirSync(join(dir, ".claude"), { recursive: true });
-          writeFileSync(
-            join(dir, ".claude/factory.lock"),
-            `version: ${version}\n`,
-          );
-          git("add", ".claude");
-        }
-        git(
-          "-c",
-          "user.name=t",
-          "-c",
-          "user.email=t@t",
-          "commit",
-          "-q",
-          "--allow-empty",
-          "-m",
-          "c",
-        );
-        return git("rev-parse", "HEAD");
-      };
-      git("init", "-q", "-b", "main");
-      const sha = commit(base);
-      commit(head);
-      const r = runScript(install, dir, { BASE: sha });
-      return {
-        status: r.status,
-        npm: calls().filter((c) => c.startsWith("npm")),
-        output: readFileSync(join(dir, "output"), "utf8"),
-      };
-    };
-    expect(repo("0.2.0", "0.3.0")).toEqual({
-      status: 0,
-      npm: [
-        "npm install --global --no-audit --no-fund @davidbyoung/software-factory@0.2.0",
-      ],
-      output: "version=0.2.0\ninstalled=true\n",
-    });
-    expect(repo(null, "0.3.0").output).toBe("version=0.3.0\ninstalled=true\n");
-  });
-
-  it("gives the review one Claude credential, the subscription's when both are set", () => {
-    const s = step(jobs.review!, "Review");
-    expect(s.with).toMatchObject({
-      claude_code_oauth_token: "${{ secrets.claude-token }}",
-      anthropic_api_key:
-        "${{ !secrets.claude-token && secrets.claude-api-key || '' }}",
-      github_token: "${{ github.token }}",
+  it("stores no sign-in at the checkout, for the pull request's own code to read", () => {
+    expect(step(jobs.check!, "Checkout").with).toEqual({
+      "persist-credentials": false,
     });
   });
 
-  it("lets the review read a pull request the organization's own app opened or pushed to, by the slug its variable holds, and no other bot's", () => {
-    const allowed = inside(step(jobs.review!, "Review").with!.allowed_bots);
+  it("compares the files with the base commit's lock, with no sign-in in what the factory runs with", () => {
+    const compare = step(jobs.check!, "Compare the copies with their source");
+    expect(compare.env).toEqual({
+      BASE: "${{ github.event.pull_request.base.sha }}",
+      TOKEN: "${{ github.token }}",
+    });
+    const { dir, calls } = sandbox({
+      git: "",
+      factory: 'echo "token ${TOKEN-none}" >> "$RUNNER_TEMP/calls"',
+    });
+    const r = runScript(compare.run!, dir, { BASE: "abc123", TOKEN: "t0ken" });
 
-    expect(
-      valueOf(allowed, {
-        vars: { FACTORY_APP_SLUG: "software-factory-for-acme" },
-      }),
-    ).toBe("software-factory-for-acme");
-    expect(valueOf(allowed, { vars: {} })).toBe("");
-  });
-
-  it("lets every bot through in no workflow", () => {
-    const allowed = readdirSync(".github/workflows")
-      .filter((file) => file.endsWith(".yml"))
-      .flatMap((file) =>
-        Object.values(read(file).jobs).flatMap((job) =>
-          (job.steps ?? [])
-            .filter((s) => s.with && "allowed_bots" in s.with)
-            .map((s) => `${file}: ${s.name}: ${s.with!.allowed_bots}`),
-        ),
-      );
-
-    expect(allowed).toEqual([
-      "review.yml: Review: ${{ vars.FACTORY_APP_SLUG }}",
+    expect([r.status, r.stdout + r.stderr]).toEqual([0, ""]);
+    expect(calls()).toEqual([
+      expect.stringMatching(/^git -c http\.extraheader=.* origin abc123$/),
+      "factory sync --check --against abc123 --public",
+      "token none",
     ]);
-    for (const file of readdirSync(".github/workflows"))
-      expect(
-        readFileSync(`.github/workflows/${file}`, "utf8"),
-        file,
-      ).not.toMatch(/allowed_bots:\s*["']?\*/);
   });
+});
 
-  it("turns auto-merge on only for Dependabot's own pull request, never a major, and never one that names the factory", () => {
-    const job = jobs.dependabot!;
+describe("Dependabot's auto-merge", () => {
+  const job = run.jobs.dependabot!;
+
+  it("is turned on only for Dependabot's own pull request, never a major, and never one that names the factory", () => {
     expect(job.if!.replace(/\s+/g, " ")).toBe(
-      "contains(format(' {0} ', inputs.parts), ' dependabot ') && github.actor == 'dependabot[bot]'",
+      "contains(format(' {0} ', inputs.parts), ' dependabot ') && github.event_name == 'pull_request_target' && contains(fromJSON('[\"opened\", \"reopened\", \"synchronize\"]'), github.event.action) && github.actor == 'dependabot[bot]'",
     );
     const enable = step(job, "Enable auto-merge");
     expect(enable.if!.replace(/\s+/g, " ")).toBe(
       "steps.meta.outputs.update-type != 'version-update:semver-major' && !contains(steps.meta.outputs.dependency-names, 'davidbyoung/software-factory')",
     );
-    expect(enable.env!.GH_TOKEN).toBe(
-      "${{ steps.app.outputs.token || secrets.automerge-token }}",
-    );
     expect(job.permissions).toEqual({
       contents: "read",
       "pull-requests": "read",
     });
+  });
+
+  it("checks nothing out", () => {
+    expect(JSON.stringify(job)).not.toContain("actions/checkout");
   });
 });
 

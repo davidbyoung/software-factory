@@ -12,8 +12,8 @@ import type { FailedJob, Run, Runner } from "./types.mts";
 export const FACTORY_WORKFLOW = "factory.yml";
 /** The workflow file a pull request starts, and the review's job in it, as
  * its check is named: the calling job, then the job. */
-export const REVIEW_WORKFLOW = "factory-review.yml";
-export const REVIEW_JOB = "review / Claude review";
+/** Opens the name of each job of a review's run. */
+export const REVIEW_JOBS = "factory / Review / ";
 const SITE = "https://github.com";
 
 type RestRun = {
@@ -77,18 +77,38 @@ export function githubActionsRunner(o: {
         `${API}/actions/runs/${run}/jobs?per_page=100`,
       )
     ).jobs;
-  /** The review's job in each of the newest runs of the pull request's
-   * workflow for a commit, newest first. A run whose review was skipped,
-   * as for a draft, has none. */
+  /** The review's jobs in each of the newest runs for a commit, newest
+   * first. GitHub gives such a run the default branch's commit, so it is
+   * found by its name, which holds the pull request's. A run whose review
+   * was skipped, as for a draft, has none. */
   const reviewsOf = async (sha: string) => {
-    const { workflow_runs } = await t.rest<{ workflow_runs: { id: number }[] }>(
+    const { workflow_runs } = await t.rest<{
+      workflow_runs: (DispatchedRun & { id: number; status: string })[];
+    }>(
       "GET",
-      `${API}/actions/workflows/${REVIEW_WORKFLOW}/runs?head_sha=${sha}&per_page=5`,
+      `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=pull_request_target&per_page=50`,
     );
-    const found: Job[] = [];
+    const found: { jobs: Job[]; status: string; conclusion: string | null }[] =
+      [];
     for (const run of workflow_runs) {
-      const job = (await jobsOf(run.id)).find((j) => j.name === REVIEW_JOB);
-      if (job && job.conclusion !== "skipped") found.push(job);
+      if (!run.display_title.endsWith(` at ${sha}`)) continue;
+      const jobs = (await jobsOf(run.id)).filter((j) =>
+        j.name.startsWith(REVIEW_JOBS),
+      );
+      if (jobs.length === 0) continue;
+      // A job that waits on another is not listed until that one ends.
+      const ended =
+        jobs.every((j) => j.status === "completed") &&
+        (run.status === "completed" ||
+          jobs.some((j) => j.name === `${REVIEW_JOBS}Publish`));
+      const bad = jobs.find(
+        (j) => !["success", "skipped"].includes(j.conclusion ?? ""),
+      );
+      found.push({
+        jobs,
+        status: ended ? "completed" : "in_progress",
+        conclusion: ended ? (bad?.conclusion ?? "success") : null,
+      });
     }
     return found;
   };
@@ -117,6 +137,14 @@ export function githubActionsRunner(o: {
         },
       );
     },
+    async startOn(kind, pull, branch) {
+      await t.rest(
+        "POST",
+        `${API}/actions/workflows/${FACTORY_WORKFLOW}/dispatches`,
+        { fields: { ref: branch, inputs: { job: kind, pr: String(pull) } } },
+      );
+    },
+    poster: "github-actions[bot]",
     async answersTo(pull, since) {
       const name = answerName(pull);
       const from = encodeURIComponent(`>=${since}`);
@@ -187,12 +215,11 @@ export function githubActionsRunner(o: {
     async reviewAgain(sha) {
       const [newest] = await reviewsOf(sha);
       if (!newest) return false;
-      await t.rest("POST", `${API}/actions/jobs/${newest.id}/rerun`);
+      // Its first job, which the others follow.
+      const first = newest.jobs.find((j) => j.name === `${REVIEW_JOBS}Prepare`);
+      if (!first) return false;
+      await t.rest("POST", `${API}/actions/jobs/${first.id}/rerun`);
       return true;
-    },
-    async reviewConclusion(run) {
-      const job = (await jobsOf(run)).find((j) => j.name === REVIEW_JOB);
-      return job?.conclusion ?? "skipped";
     },
     async failedJobs(run) {
       const { jobs } = await t.rest<{

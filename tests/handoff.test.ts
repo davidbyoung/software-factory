@@ -5,7 +5,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openCodeHost } from "../src/code-host/index.mts";
 import { HANDOFF, type RunFile } from "../src/handoff/index.mts";
 import { readRequests } from "../src/handoff/requests.mts";
+import { main as prMain } from "../src/pr.mts";
+import { memoryCodeHost } from "./memory-code-host";
+import { memoryRunner } from "./memory-runner";
 
 const LAUNCHER = fileURLToPath(new URL("../bin/factory.js", import.meta.url));
 const RUN: RunFile = {
@@ -92,6 +95,98 @@ describe("a factory command in a session in the cloud", () => {
       "This run ends here. The next one starts when CI and the review have finished.\n",
     );
     expect(r.status).toBe(0);
+  });
+});
+
+describe("factory pr push and pull", () => {
+  const git = (cwd: string, ...args: string[]) =>
+    execFileSync(
+      "git",
+      ["-c", "user.name=a", "-c", "user.email=a@example.com", ...args],
+      { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
+  let work: string;
+  /** A repository on a branch, one commit past `base`. */
+  beforeEach(() => {
+    work = join(dir, "work");
+    git(dir, "init", "-q", "-b", "trunk", work);
+    git(work, "commit", "-q", "--allow-empty", "-m", "first");
+    const base = git(work, "rev-parse", "HEAD");
+    writeFileSync(join(dir, "in/run.json"), JSON.stringify({ ...RUN, base }));
+    git(work, "switch", "-q", "-c", "12-add-a-thing");
+  });
+  const commit = () => git(work, "commit", "-q", "--allow-empty", "-m", "work");
+  const asked = async (
+    step: string,
+    env: Record<string, string>,
+    ran: string[][] = [],
+  ) => {
+    const out: string[] = [];
+    const code = await prMain([step], {
+      repository: "acme/widgets",
+      codeHost: memoryCodeHost([], { defaultBranch: "trunk" }).codeHost,
+      runner: memoryRunner().runner,
+      sleep: async () => {},
+      out: (line) => out.push(line),
+      readFile: () => "",
+      git(args) {
+        ran.push(args);
+        return ["push", "pull"].includes(args[0]) ? "" : git(work, ...args);
+      },
+      remote: async () => "upstream",
+      env,
+    });
+    return { code, out, ran };
+  };
+
+  it("hands a session's commits over, and pushes nothing", async () => {
+    commit();
+    const r = await asked("push", { [HANDOFF]: dir });
+    expect(r.out).toEqual(["Handed over 1 commit on 12-add-a-thing."]);
+    expect(r.ran.some(([c]) => c === "push")).toBe(false);
+    const heads = git(
+      work,
+      "bundle",
+      "list-heads",
+      join(dir, "out/build.bundle"),
+    );
+    expect(heads).toBe(`${git(work, "rev-parse", "HEAD")} HEAD`);
+  });
+
+  it("fails a session that committed nothing", async () => {
+    expect((await asked("push", { [HANDOFF]: dir })).code).not.toBe(0);
+  });
+
+  it("pushes the branch to the repository's remote anywhere else", async () => {
+    commit();
+    const r = await asked("push", {});
+    expect(r.ran.at(-1)).toEqual([
+      "push",
+      "-q",
+      "-u",
+      "upstream",
+      "12-add-a-thing",
+    ]);
+  });
+
+  it("never pushes the default branch", async () => {
+    git(work, "switch", "-q", "trunk");
+    const r = await asked("push", {});
+    expect(r.code).not.toBe(0);
+    expect(r.ran.some(([c]) => c === "push")).toBe(false);
+  });
+
+  it("pulls only where there is a remote to pull from", async () => {
+    expect(
+      (await asked("pull", { [HANDOFF]: dir })).ran.some(([c]) => c === "pull"),
+    ).toBe(false);
+    expect((await asked("pull", {})).ran.at(-1)).toEqual([
+      "pull",
+      "-q",
+      "--no-rebase",
+      "upstream",
+      "12-add-a-thing",
+    ]);
   });
 });
 

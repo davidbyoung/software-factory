@@ -298,16 +298,16 @@ export async function installed(o: {
   }
 }
 
-/** What a session's token may do, of what the app may: push a branch and
- * a workflow's file, work pull requests and tickets, start the board's
- * sync, and read a commit's statuses, its check runs, and a failed run.
- * It may not set a repository's properties, one of which turns on the
- * rule that requires the verdict on the session's own pull request. */
+/** What the token of a job that prepares or publishes a session may do, of
+ * what the app may: push a branch, work pull requests and tickets, start the
+ * next run, and read a commit's statuses, its check runs, and a failed run.
+ * It may not change a workflow's file, which the session's commits are
+ * checked for too, or set a repository's properties, one of which turns on
+ * the rule that requires the verdict. */
 export const SESSION_PERMISSIONS = {
   contents: "write",
   pull_requests: "write",
   issues: "write",
-  workflows: "write",
   actions: "write",
   statuses: "read",
   checks: "read",

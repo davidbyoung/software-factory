@@ -38,8 +38,8 @@ export const PART_TEXT: Record<Part, { name: string; gives: string }> = {
     gives: "changes to files you list as safe do not wait for you",
   },
   signing: {
-    name: "Signed commits from cloud builds",
-    gives: "a cloud build's commits show as verified",
+    name: "Signed commits on the factory's updates",
+    gives: "the pull requests that update the factory show as verified",
   },
 };
 

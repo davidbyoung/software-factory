@@ -14,12 +14,14 @@
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { CloudSession, SessionCommand } from "./agent/types.mts";
 import { HANDOFF, type RunFile } from "./handoff/index.mts";
@@ -68,6 +70,10 @@ export function sessionEnv(env: Env, run: RunFile, dir: string): Env {
     FACTORY_LOCK: env.FACTORY_LOCK,
     npm_config_cache: join(dir, "cache"),
     XDG_CACHE_HOME: join(dir, "cache"),
+    // The browsers a setup command installed are in the cache it had.
+    PLAYWRIGHT_BROWSERS_PATH:
+      env.PLAYWRIGHT_BROWSERS_PATH ??
+      join(env.HOME ?? homedir(), ".cache/ms-playwright"),
     GIT_AUTHOR_NAME: "Claude",
     GIT_AUTHOR_EMAIL: "noreply@anthropic.com",
     GIT_COMMITTER_NAME: run.committer.name,
@@ -140,6 +146,17 @@ export async function runSession(d: SessionDeps): Promise<number> {
   ]);
   d.git(at("work"), ["checkout", "-q", "-B", run.branch, "refs/handoff/work"]);
 
+  // The default branch's dependencies, to start from: the session installs
+  // its own where they differ.
+  if (
+    existsSync(at("home/node_modules")) &&
+    !existsSync(at("work/node_modules"))
+  )
+    cpSync(at("home/node_modules"), at("work/node_modules"), {
+      recursive: true,
+      verbatimSymlinks: true,
+    });
+
   const s: CloudSession = {
     prompt: d.prompt,
     work: at("work"),
@@ -163,6 +180,9 @@ export async function runSession(d: SessionDeps): Promise<number> {
     minutes: d.minutes,
     line: (text) => lines.push(text),
   });
+  const cost = costIn(lines);
+  mkdirSync(at("clean"), { recursive: true });
+  if (cost) writeFileSync(at("clean/cost.json"), JSON.stringify(cost));
   collect(at("out"), at("clean"), ["build.bundle", "request.json"], d.out);
   const answer = d.schema ? answerIn(lines) : undefined;
   if (d.schema && answer === undefined) {
@@ -174,20 +194,35 @@ export async function runSession(d: SessionDeps): Promise<number> {
   return code;
 }
 
-/** The structured answer in what the agent printed. It comes from the agent
- * itself, so no command of the session can write it. */
-function answerIn(lines: string[]): unknown {
+type Result = {
+  type?: string;
+  is_error?: boolean;
+  structured_output?: unknown;
+  total_cost_usd?: number;
+  session_id?: string;
+};
+
+/** The agent's own last word in what it printed, which no command of the
+ * session can write. */
+function resultIn(lines: string[]): Result | undefined {
   for (const line of lines.toReversed())
     try {
-      const read = JSON.parse(line) as {
-        type?: string;
-        is_error?: boolean;
-        structured_output?: unknown;
-      };
-      if (read.type === "result")
-        return read.is_error ? undefined : read.structured_output;
+      const read = JSON.parse(line) as Result;
+      if (read.type === "result") return read;
     } catch {
       continue;
     }
   return undefined;
+}
+
+function answerIn(lines: string[]): unknown {
+  const result = resultIn(lines);
+  return result?.is_error ? undefined : result?.structured_output;
+}
+
+function costIn(lines: string[]) {
+  const result = resultIn(lines);
+  return result?.total_cost_usd === undefined
+    ? undefined
+    : { dollars: result.total_cost_usd, session: result.session_id ?? "" };
 }

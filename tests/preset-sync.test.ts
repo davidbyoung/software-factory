@@ -449,7 +449,7 @@ describe("factory sync --check with presets", () => {
       const r = await sync(argv);
       expect(r.code).toBe(2);
       expect(r.err).toEqual([
-        "Usage: factory sync [--check [--against COMMIT]]",
+        "Usage: factory sync [--check [--against COMMIT [--public]]]",
       ]);
     }
   });
@@ -514,6 +514,65 @@ describe("factory sync --check --against the base branch's commit", () => {
     const r = await sync(AGAINST, null);
     expect(r).toMatchObject({ code: 0, err: [] });
     expect(r.git.filter((args) => args[0] === "fetch")).toHaveLength(1);
+  });
+
+  it("fails on moved pins it cannot read", async () => {
+    const base = await moved();
+    unreachable();
+    const r = await sync(AGAINST, base);
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual(
+      [ACME, NODE].map((name) =>
+        expect.stringContaining(`${name} at ${short()} could not be read`),
+      ),
+    );
+  });
+
+  it("says so and passes with --public, in a run with no sign-in, on moved pins it cannot read", async () => {
+    const base = await moved();
+    unreachable();
+    const r = await sync([...AGAINST, "--public"], base);
+    expect(r).toMatchObject({
+      code: 0,
+      out: [
+        ...[ACME, NODE].map(
+          (name) =>
+            `- ${name} can't be read here without a sign-in: the review's run checks it.`,
+        ),
+        MATCH,
+      ],
+      err: [],
+    });
+  });
+
+  it("fails with --public on a moved pin it can read that is not what its commit holds", async () => {
+    const base = await moved();
+    put(
+      root,
+      LOCK,
+      read(root, LOCK)!.replace(
+        "small-change-lines: 35",
+        "small-change-lines: 99",
+      ),
+    );
+    const r = await sync([...AGAINST, "--public"], base);
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      `✗ .claude/factory.lock: ${ACME} at ${short()} does not match what that commit holds. Run: factory update`,
+    ]);
+  });
+
+  it("fails with --public when a pin's hashes changed and its commit did not, though it can read no repository", async () => {
+    acme();
+    await sync();
+    const base = read(root, LOCK)!;
+    put(root, LOCK, base.replace(fileHash("deps\n"), fileHash("mine\n")));
+    unreachable();
+    const r = await sync([...AGAINST, "--public"], base);
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      expect.stringContaining(`recorded for ${NODE} changed`),
+    ]);
   });
 
   it.each([

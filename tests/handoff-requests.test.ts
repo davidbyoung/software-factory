@@ -14,6 +14,8 @@ const build: ThisRun = {
   pull: null,
   comments: [],
   branch: "12-add-a-thing",
+  base: "abc",
+  opened: [],
 };
 const answer: ThisRun = {
   kind: "answer",
@@ -21,6 +23,8 @@ const answer: ThisRun = {
   pull: 31,
   comments: [901, 902],
   branch: "12-add-a-thing",
+  base: "abc",
+  opened: [],
 };
 const asked = (...argv: string[]): Asked => ({
   argv,
@@ -192,6 +196,43 @@ describe("what Publish runs of it", () => {
   it("lets a conflict run open its ticket", () => {
     const a = asked("ticket", "open", "--title", "t", "--body-file", "b.md");
     expect(refusal(a, { ...answer, kind: "conflict" })).toBeNull();
+  });
+
+  it("lets a conflict run comment on the ticket it opened before, and a build on no other", () => {
+    const a = asked("ticket", "comment", "40", "--body-file", "b.md");
+    expect(
+      refusal(a, { ...answer, kind: "conflict", opened: ["40"] }),
+    ).toBeNull();
+    expect(refusal(a, build)).not.toBeNull();
+  });
+
+  describe("keeps the marker a run's own comment is found by", () => {
+    const posted = (text: string, run: ThisRun) =>
+      allow(
+        {
+          argv: ["pr", "comment", "31", "--body-file", "b.md"],
+          files: { "b.md": text },
+        },
+        run,
+      ) as Asked;
+
+    it("for a conflict run that stopped on the commit it started from", () => {
+      const run: ThisRun = { ...answer, kind: "conflict" };
+      const text = "Why.\n<!-- conflict-stop head=abc -->";
+      expect(posted(text, run).files["b.md"]).toContain(
+        "<!-- conflict-stop head=abc -->",
+      );
+    });
+
+    it("and none for another commit, or in another kind of run", () => {
+      const run: ThisRun = { ...answer, kind: "conflict" };
+      expect(
+        posted("<!-- conflict-stop head=other -->", run).files["b.md"],
+      ).not.toContain("<!--");
+      expect(
+        posted("<!-- conflict-stop head=abc -->", answer).files["b.md"],
+      ).not.toContain("<!--");
+    });
   });
 
   it("takes every hidden marker out of what it posts", () => {

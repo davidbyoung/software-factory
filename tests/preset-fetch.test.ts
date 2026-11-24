@@ -588,6 +588,39 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
       /^\.claude\/factory\.lock: acme\/factory-config at 0123456 could not be read to check it: fatal: /,
     );
   });
+
+  it("hands a pin whose commit cannot be read to a caller that takes it, and is nothing for it", () => {
+    const [pinned] = setUp();
+    const gone = {
+      ...pinned!,
+      commit: "0123456789abcdef".repeat(3).slice(0, 40),
+    };
+    const unread: string[] = [];
+    expect(
+      pinFaults(fetching(), [gone], [pinned!], load, (pin) =>
+        unread.push(`${pin.name} ${pin.commit}`),
+      ),
+    ).toEqual([]);
+    expect(unread).toEqual([`${ACME} ${gone.commit}`]);
+  });
+
+  it("still names a pin it can read that does not hold what its commit holds, and hands over none", () => {
+    const [pinned] = setUp();
+    const unread: string[] = [];
+    expect(
+      pinFaults(
+        fetching(),
+        [
+          { ...pinned!, settings: { rules: { "review-rounds": 9 } } },
+          { ...pinned!, name: `${REPO}//go` },
+        ],
+        [],
+        load,
+        (pin) => unread.push(pin.name),
+      ),
+    ).toHaveLength(2);
+    expect(unread).toEqual([]);
+  });
 });
 
 describe("why a preset's repository could not be read, for factory update", () => {

@@ -63,6 +63,8 @@ const PR_STEPS = [
   "uncovered",
   "failed",
   "review-again",
+  "push",
+  "pull",
 ];
 
 const ticket = (sub: string, args: string): Command => ({
@@ -104,6 +106,8 @@ const PR_ARGS: Record<string, string> = {
   label: "N --add LABEL | --remove LABEL",
   "review-pending": "N REVIEW",
   conflicts: "",
+  push: "",
+  pull: "",
   "for-branch": "BRANCH",
   uncovered: "[BASE] [LCOV]",
 };
@@ -318,6 +322,11 @@ export const COMMANDS: Command[] = [
     run: async (argv) =>
       (await import("./session.mts")).run(["ready", ...argv]),
   },
+  ...["prepare", "run", "publish", "next", "each"].map((step): Command => ({
+    words: ["session", step],
+    args: "",
+    run: async (argv) => (await import("./session.mts")).run([step, ...argv]),
+  })),
   {
     words: ["session", "repositories"],
     args: "",

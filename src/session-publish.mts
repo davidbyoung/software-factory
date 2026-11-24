@@ -20,7 +20,8 @@ import {
   type Asked,
   type ThisRun,
 } from "./handoff/requests.mts";
-import { AGENT_MARK } from "./lib/work-status.mts";
+import { costNote } from "./lib/usage.mts";
+import { AGENT_MARK, commentBody } from "./lib/work-status.mts";
 import {
   main as prMain,
   newestRuns,
@@ -31,6 +32,10 @@ import {
 } from "./pr.mts";
 import type { Runner } from "./runner/index.mts";
 import type { Tickets } from "./tickets/types.mts";
+
+/** Marks a pull request a build in the cloud opened, whose answers start by
+ * themselves. No session can write it: its text loses every hidden marker. */
+export const CLOUD_MARK = "<!-- factory: cloud-build -->";
 
 /** The answers a pull request gets, whatever asked for them. */
 export const ANSWERS = 4;
@@ -58,6 +63,8 @@ export type PublishDeps = {
   claimed(): Promise<boolean>;
   /** The message of each commit the bundle adds, from the clone. */
   messages(clone: string, tip: string): string[];
+  /** The reviews that ask for changes a pull request is answered after. */
+  reviewRounds: number;
   now(): number;
   sleep(ms: number): Promise<unknown>;
   /** Makes the sign-in new again, since waiting can outlast it. */
@@ -133,6 +140,22 @@ async function refuse(d: PublishDeps, why: string): Promise<number> {
   return 1;
 }
 
+/** The open tickets a run of this kind opened for the same pull request, by
+ * the titles their skills give them. */
+async function openedBefore(d: PublishDeps): Promise<string[]> {
+  const { kind, pull } = d.run;
+  const title =
+    kind === "conflict"
+      ? `#${pull}: merge conflict with the default branch needs a decision`
+      : kind === "dependency"
+        ? `Dependabot #${pull}: `
+        : null;
+  if (title === null) return [];
+  return (await d.tickets.listUnfinished())
+    .filter((t) => t.title.startsWith(title))
+    .map((t) => t.key);
+}
+
 /** Opens the run's pull request from what the session asked for. */
 async function open(d: PublishDeps, asked: Asked): Promise<number> {
   const at = (flag: string) => asked.argv[asked.argv.indexOf(flag) + 1];
@@ -144,29 +167,52 @@ async function open(d: PublishDeps, asked: Asked): Promise<number> {
     );
   return d.codeHost.create({
     title: withoutMarkers(at("--title")),
-    body,
+    body: `${body.trimEnd()}\n\n${CLOUD_MARK}\n`,
     head: d.run.branch,
     base: d.run.defaultBranch,
     draft: true,
   });
 }
 
-/** Starts the next answer, or says the pull request waits for a person. */
+/** Why a pull request gets no further answer, or null when it does. */
+async function spent(
+  d: PublishDeps,
+  pull: number,
+  createdAt: string,
+): Promise<string | null> {
+  const asked = (await d.codeHost.comments(pull)).filter(
+    (c) =>
+      c.author === d.runner.poster &&
+      c.body.includes("<!-- review-verdict: changes -->"),
+  ).length;
+  if (asked > d.reviewRounds)
+    return `${d.reviewRounds} reviews were answered, and the next still asks for changes`;
+  return (await d.runner.answersTo(pull, createdAt)) >= ANSWERS
+    ? `it has had ${ANSWERS} answers`
+    : null;
+}
+
+/** Starts the next answer to a pull request a build in the cloud opened, or
+ * says on it that it waits for a person. */
 export async function nextAnswer(d: PublishDeps, pull: number): Promise<void> {
-  const { createdAt } = await d.codeHost.get(pull);
-  const had = await d.runner.answersTo(pull, createdAt ?? "");
-  if (had >= ANSWERS) {
-    d.out(`${ANSWERS} answers: this waits for a person.`);
+  const { body, createdAt } = await d.codeHost.get(pull);
+  if (!body.includes(CLOUD_MARK)) {
+    d.out("No build in the cloud opened it, so a person has it answered.");
+    return;
+  }
+  const why = await spent(d, pull, createdAt ?? "");
+  if (why !== null) {
+    d.out(`No answer starts: ${why}.`);
     await d.codeHost.comment(
       pull,
       withAgentMark(
-        `This pull request has had ${ANSWERS} answers, so it waits for a person. What is still open is in its checks and threads.`,
+        `This waits for a person: ${why}. What is still open is in its checks and threads.`,
       ),
     );
     return;
   }
   await d.runner.startAnswer(pull, d.run.defaultBranch);
-  d.out(`Started answer ${had + 1} of ${ANSWERS}.`);
+  d.out(`Started an answer to #${pull}.`);
 }
 
 export async function publish(d: PublishDeps): Promise<number> {
@@ -208,9 +254,20 @@ export async function publish(d: PublishDeps): Promise<number> {
     pull,
     comments: threads.map((t) => t.commentId),
     branch: run.branch,
+    base: run.base,
+    opened: await openedBefore(d),
   };
   let failed = false;
+  let wantsReady = false;
   for (const one of asked) {
+    // It is done once CI has passed, below. A session that leaves a pull
+    // request for its owner to mark ready does not ask.
+    if (one.argv[0] === "pr" && one.argv[1] === "ready") {
+      wantsReady = true;
+      continue;
+    }
+    // What the session spent is posted from its own job's count.
+    if (one.argv[1] === "cost") continue;
     const may = allow(one, { ...mine, pull });
     if ("refused" in may) {
       d.out(`Refused: ${may.refused}`);
@@ -243,8 +300,34 @@ export async function publish(d: PublishDeps): Promise<number> {
       );
     }
   }
-  if (pull !== null && tip !== null) await settle(d, pull, tip);
+  await postCost(d, pull);
+  if (pull !== null && tip !== null) await settle(d, pull, tip, wantsReady);
   return failed ? 1 : 0;
+}
+
+/** Notes what the session cost, for the board, as its job counted it. */
+export async function postCost(
+  d: Pick<PublishDeps, "dir" | "run" | "codeHost" | "tickets" | "out">,
+  pull: number | null,
+): Promise<void> {
+  const file = join(d.dir, "out/cost.json");
+  if (!existsSync(file)) return;
+  const { dollars, session } = JSON.parse(readFileSync(file, "utf8")) as {
+    dollars: unknown;
+    session: unknown;
+  };
+  if (typeof dollars !== "number" || !/^[\w-]{1,64}$/.test(String(session)))
+    return;
+  const on = pull !== null ? `#${pull}` : d.run.ref;
+  if (on === null) return;
+  const cost = costNote(
+    { ok: true, spend: { dollars, priced: 1, unpriced: new Map() } },
+    on,
+    String(session),
+  );
+  const body = commentBody({ kind: "cost", cost });
+  if (pull !== null) await d.codeHost.comment(pull, body);
+  else if (d.run.ticket !== null) await d.tickets.comment(d.run.ticket, body);
 }
 
 type Ci = "passed" | "failed" | "not finished";
@@ -272,6 +355,7 @@ async function settle(
   d: PublishDeps,
   pull: number,
   tip: string,
+  wantsReady: boolean,
 ): Promise<void> {
   const ci = await ciOn(d, tip);
   await d.signIn();
@@ -288,6 +372,10 @@ async function settle(
   }
   const now = await d.codeHost.get(pull);
   if (!now.isDraft) return;
+  if (!wantsReady) {
+    d.out("The session left it a draft for its owner.");
+    return;
+  }
   // A person may have pushed while this waited, and that commit's CI is not
   // the one that passed.
   if (now.head.sha !== tip) {

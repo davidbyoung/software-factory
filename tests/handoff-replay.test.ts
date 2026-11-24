@@ -79,6 +79,11 @@ describe("what a session reads", () => {
     expect(session.ref("12")).toBe(tickets.ref("12"));
   });
 
+  it("has no sign-in for git", () => {
+    const host = memoryCodeHost([]).codeHost;
+    expect(replaying("codeHost", host, []).gitToken()).toBeNull();
+  });
+
   it("answers a call whether or not its last argument was left out", async () => {
     const { tickets } = memoryTickets([{ key: "12" }]);
     const calls: Call[] = [];

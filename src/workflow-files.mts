@@ -7,7 +7,7 @@
 //   .github/workflows/factory.yml          everything judged from the
 //                                          default branch's copy (run.yml)
 //   .github/workflows/factory-review.yml   what reads a pull request's own
-//                                          code (review.yml)
+//                                          code, with no secret (review.yml)
 //
 // There are two because GitHub runs a `pull_request` workflow from the pull
 // request's copy, and what decides a merge must run from the default
@@ -23,7 +23,6 @@ export const REVIEW_FILE = ".github/workflows/factory-review.yml";
 export const FACTORY_EVENTS = [
   "pull_request_target",
   "pull_request_review",
-  "workflow_run",
   "push",
   "schedule",
   "workflow_dispatch",
@@ -95,7 +94,9 @@ export const pollerCron = (minutes: number) =>
 /** The repository's own secrets as one JSON object, since a workflow in
  * another owner's repository takes a secret only by a name it declares.
  * `toJSON` quotes each value, and an unset one is an empty string. */
-function extra(names: string[]): string[] {
+function extra(secrets: string[]): string[] {
+  // A job reads packages with its own token, which cannot be passed to it.
+  const names = secrets.filter((name) => name !== "GITHUB_TOKEN");
   if (!names.length) return [];
   const shape = names.map((name, i) => `"${name}":{${i}}`).join(",");
   const values = names.map((name) => `toJSON(secrets.${name})`).join(", ");
@@ -134,7 +135,7 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     "# updates. The jobs are in the factory's own repository, at the version",
     "# below. A job whose part is off in the settings is skipped.",
     "name: Factory",
-    `run-name: ${JSON.stringify(`\${{ inputs.ticket && format('${name}', inputs.ticket) || '' }}`)}`,
+    `run-name: ${JSON.stringify(`\${{ inputs.ticket && format('${name}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}`)}`,
     "",
     "on:",
     "  pull_request_target:",
@@ -142,9 +143,6 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     ...TARGET_ACTIONS.map((action) => `      - ${action}`),
     "  pull_request_review:",
     "    types: [submitted]",
-    "  workflow_run:",
-    "    workflows: [Factory review]",
-    "    types: [completed]",
     "  push:",
     `    branches: [${scalar(o.branch)}]`,
     "  schedule:",
@@ -152,13 +150,13 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     "  workflow_dispatch:",
     "    inputs:",
     "      job:",
-    '        description: "What to run: build, review, conflicts, dependencies, updates, board, or poller"',
+    '        description: "What to run: build, answer, conflicts, dependencies, updates, board, or poller"',
     "        type: string",
     "      ticket:",
     "        description: The ticket's key, for a build",
     "        type: string",
     "      pr:",
-    "        description: The pull request's number, to answer a review",
+    "        description: The pull request's number, to answer its checks or a review",
     "        type: string",
     "      review:",
     "        description: The review's number, to answer a review",
@@ -166,9 +164,10 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     "",
     "permissions:",
     "  actions: read",
+    "  checks: read",
     "  contents: read",
     "  issues: write",
-    ...(o.secrets.includes("GITHUB_TOKEN") ? ["  packages: read"] : []),
+    "  packages: read",
     "  pull-requests: write",
     "  statuses: write",
     "",
@@ -203,9 +202,9 @@ export function reviewWorkflow(o: WorkflowOptions): string {
     ...HEADER,
     "#",
     "# What has to read a pull request's own code: the check that the",
-    "# factory's files match the settings, the automated review, and",
-    "# Dependabot's auto-merge. The jobs are in the factory's own repository,",
-    "# at the version below. Nothing here decides a merge.",
+    "# factory's files match the settings. The job is in the factory's own",
+    "# repository, at the version below. GitHub runs this file from the pull",
+    "# request's copy, so it is given no secret, and may only read.",
     "name: Factory review",
     "",
     "on:",
@@ -214,22 +213,10 @@ export function reviewWorkflow(o: WorkflowOptions): string {
     "",
     "permissions:",
     "  contents: read",
-    "  issues: read",
-    ...(o.secrets.includes("GITHUB_TOKEN") ? ["  packages: read"] : []),
-    "  pull-requests: write",
     "",
     "jobs:",
     "  review:",
     `    uses: ${uses(o, "review.yml")}`,
-    "    with:",
-    `      parts: ${JSON.stringify(o.parts.join(" "))}`,
-    "    secrets:",
-    "      build-token: ${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}",
-    "      automerge-token: ${{ secrets.FACTORY_AUTOMERGE_TOKEN }}",
-    "      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
-    "      claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
-    "      claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}",
-    ...extra(o.secrets),
   ].join("\n")}\n`;
 }
 

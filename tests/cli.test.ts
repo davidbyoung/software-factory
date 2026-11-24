@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import { COMMANDS, resolveCommand } from "../src/cli.mts";
 
 const PACKAGE = fileURLToPath(new URL("..", import.meta.url));
@@ -26,6 +27,37 @@ const factory = (
 ) => spawnSync("node", [LAUNCHER, ...args], { encoding: "utf8", ...options });
 
 describe("the commands the router knows", () => {
+  it("have every command a workflow's step runs", () => {
+    type Workflow = { jobs: Record<string, { steps?: { run?: string }[] }> };
+    const run = readdirSync(".github/workflows")
+      .filter((file) => file.endsWith(".yml"))
+      .flatMap((file) =>
+        Object.values(
+          (
+            parse(
+              readFileSync(join(".github/workflows", file), "utf8"),
+            ) as Workflow
+          ).jobs,
+        )
+          .flatMap((job) => job.steps ?? [])
+          .flatMap((step) => (step.run ?? "").split("\n"))
+          .flatMap(
+            (line) =>
+              /^\s*(?:\w+="?\$\(|[A-Z_]+="[^"]*" )?factory ([a-z][^|>&)]*)/.exec(
+                line,
+              )?.[1] ?? [],
+          )
+          .map((command) => ({ file, command: command.trim() })),
+      );
+
+    expect(run.map(({ command }) => command)).toContain("review verdict");
+    expect(
+      run
+        .filter(({ command }) => !resolveCommand(command.split(/\s+/)))
+        .map(({ file, command }) => `${file}: factory ${command}`),
+    ).toEqual([]);
+  });
+
   // A subcommand the router does not list never reaches its command: the
   // router prints the usage and exits 2.
   it.each([

@@ -910,7 +910,7 @@ describe("factory init, the events the factory's workflow starts on", () => {
     expect(
       await r.host.codeHost.eventAllowed(
         ".github/workflows/factory.yml",
-        "workflow_run",
+        "pull_request_review",
       ),
     ).toBe("allowed");
   });

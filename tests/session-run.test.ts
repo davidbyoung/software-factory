@@ -159,6 +159,32 @@ describe("a session in the cloud", () => {
     ]);
   });
 
+  it("hands on what the agent says it cost", async () => {
+    const w = world((_, line) =>
+      line(
+        JSON.stringify({
+          type: "result",
+          total_cost_usd: 1.5,
+          session_id: "abc",
+        }),
+      ),
+    );
+    await runSession(w.d);
+    expect(
+      JSON.parse(readFileSync(join(dir, "clean/cost.json"), "utf8")),
+    ).toEqual({ dollars: 1.5, session: "abc" });
+  });
+
+  it("starts with the default branch's dependencies", async () => {
+    const source = join(dir, "source");
+    git(dir, "clone", "-q", source, join(dir, "home"));
+    mkdirSync(join(dir, "home/node_modules"));
+    writeFileSync(join(dir, "home/node_modules/a.js"), "a");
+    const w = world(() => {});
+    await runSession(w.d);
+    expect(readFileSync(join(dir, "work/node_modules/a.js"), "utf8")).toBe("a");
+  });
+
   it("hands on no link it left in their place", async () => {
     const secret = join(dir, "secret");
     writeFileSync(secret, "a credential");

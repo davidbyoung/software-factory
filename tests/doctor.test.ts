@@ -393,7 +393,7 @@ describe("factory doctor", () => {
       "  - Builds in the cloud",
       "  - Builds that start when you move a card to Ready",
       "  - Pull requests that merge themselves",
-      "  - Signed commits from cloud builds",
+      "  - Signed commits on the factory's updates",
     ]);
   });
 
@@ -429,7 +429,7 @@ describe("factory doctor", () => {
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request and builds in the cloud",
       "  ✓ FACTORY_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
       "  ✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
-      "  ✓ FACTORY_SIGNING_KEY is set, for signed commits from cloud builds",
+      "  ✓ FACTORY_SIGNING_KEY is set, for signed commits on the factory's updates",
       "",
       "GitHub Issues",
       "  ✓ Board 3 has every column the settings name",

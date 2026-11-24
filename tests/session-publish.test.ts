@@ -6,7 +6,13 @@ import { afterEach, beforeEach, expect, describe, it } from "vitest";
 import type { RunFile } from "../src/handoff/index.mts";
 import type { Asked } from "../src/handoff/requests.mts";
 import { AGENT_MARK } from "../src/lib/work-status.mts";
-import { ANSWERS, publish, type PublishDeps } from "../src/session-publish.mts";
+import {
+  ANSWERS,
+  CLOUD_MARK,
+  nextAnswer,
+  publish,
+  type PublishDeps,
+} from "../src/session-publish.mts";
 import { memoryCodeHost, REPOSITORY, type PullSeed } from "./memory-code-host";
 import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -126,6 +132,7 @@ function world(
       git: () => "",
       remote: async () => "origin",
     },
+    reviewRounds: 2,
     now: () => (at += 60_000),
     sleep: async () => {},
     clone: () => join(dir, "origin.git"),
@@ -260,7 +267,12 @@ describe("what a session asks for", () => {
 
 describe("the next answer", () => {
   const pulls: PullSeed[] = [
-    { number: 31, isDraft: true, createdAt: "2026-11-01T00:00:00Z" },
+    {
+      number: 31,
+      isDraft: true,
+      body: CLOUD_MARK,
+      createdAt: "2026-11-01T00:00:00Z",
+    },
   ];
   const red = (tip: string): MemoryRunnerOptions => ({
     runs: {
@@ -300,7 +312,9 @@ describe("the next answer", () => {
 
     expect(await w.runner.runner.answersTo(31, "")).toBe(ANSWERS);
     const comments = await w.host.codeHost.comments(31);
-    expect(comments.at(-1)!.body).toContain("so it waits for a person");
+    expect(comments.at(-1)!.body).toContain(
+      "This waits for a person: it has had 4 answers.",
+    );
   });
 
   it("is not started, and the draft is marked ready, when CI passes", async () => {
@@ -310,6 +324,7 @@ describe("the next answer", () => {
     green.runs![tip][0].conclusion = "success";
     const w = world({ kind: "answer", pull: 31 }, { pulls, runner: green });
 
+    asks({ argv: ["pr", "ready", "31"], files: {} });
     await publish(w.d);
 
     expect(w.host.pull(31).isDraft).toBe(false);
@@ -352,8 +367,120 @@ describe("the next answer", () => {
       { pulls: draftAt("f".repeat(40)), runner: green },
     );
 
+    asks({ argv: ["pr", "ready", "31"], files: {} });
     await publish(w.d);
 
     expect(w.host.pull(31).isDraft).toBe(true);
+  });
+
+  const asked = (n: number, author = "github-actions[bot]"): PullSeed[] => [
+    {
+      ...pulls[0],
+      comments: Array.from({ length: n }, (_, i) => ({
+        id: i + 1,
+        author,
+        body: "<!-- review-verdict: changes -->",
+        createdAt: "2026-11-02T00:00:00Z",
+      })),
+    },
+  ];
+  const answers = async (seed: PullSeed[]) => {
+    const w = world({ kind: "review", pull: 31 }, { pulls: seed });
+    await nextAnswer(w.d, 31);
+    return w.runner.runner.answersTo(31, "");
+  };
+
+  it("follows two reviews that asked for changes, and not a third", async () => {
+    expect(await answers(asked(2))).toBe(1);
+    expect(await answers(asked(3))).toBe(0);
+  });
+
+  it("is not held back by a summary the review did not post", async () => {
+    expect(await answers(asked(3, "mallory"))).toBe(1);
+  });
+
+  it("does not start on a pull request no build in the cloud opened", async () => {
+    expect(await answers([{ ...pulls[0], body: "A person's." }])).toBe(0);
+  });
+});
+
+describe("a pull request whose CI passed", () => {
+  const passed = () => {
+    const tip = commits();
+    return {
+      pulls: [
+        {
+          number: 31,
+          isDraft: true,
+          body: CLOUD_MARK,
+          head: { sha: tip, branch: "12-add", repository: REPOSITORY },
+        },
+      ],
+      runner: {
+        runs: {
+          [tip]: [
+            {
+              id: 1,
+              jobs: 1,
+              event: "pull_request",
+              status: "completed",
+              conclusion: "success",
+              checksId: 7,
+            },
+          ],
+        },
+      },
+    };
+  };
+
+  it("stays a draft when the session left it to its owner", async () => {
+    const w = world({ kind: "answer", pull: 31 }, passed());
+    await publish(w.d);
+    expect(w.host.pull(31).isDraft).toBe(true);
+    expect(w.out).toContain("The session left it a draft for its owner.");
+  });
+});
+
+describe("what a session cost", () => {
+  const spent = (cost: unknown) =>
+    writeFileSync(join(dir, "out/cost.json"), JSON.stringify(cost));
+  const comments = async () => {
+    const w = world({ kind: "answer", pull: 31 }, { pulls: [{ number: 31 }] });
+    await publish(w.d);
+    return (await w.host.codeHost.comments(31)).map((c) => c.body);
+  };
+
+  it("is noted on its pull request, for the board to add up", async () => {
+    spent({ dollars: 1.234, session: "abc-1" });
+    expect((await comments()).join()).toContain(
+      "<!-- cost: 1.23 session=abc-1 -->",
+    );
+  });
+
+  it.each([
+    [{ dollars: "1", session: "abc" }],
+    [{ dollars: 1, session: "a --> <!-- cost: 9" }],
+  ])("is not noted when it reads %j", async (cost) => {
+    spent(cost);
+    expect(await comments()).toEqual([]);
+  });
+});
+
+describe("the pull request a build opens", () => {
+  it("is marked as a cloud build's, whatever the session wrote", async () => {
+    commits();
+    asks({
+      ...OPEN,
+      files: {
+        "p.md": `Closes #12\n\n${CLOUD_MARK.replace("cloud", "other")} Done.`,
+      },
+    });
+    const w = world();
+
+    await publish(w.d);
+
+    const [pull] = await w.host.codeHost.listOpen();
+    expect(pull.body.match(/<!--/g)).toHaveLength(1);
+    expect(pull.body).toContain(CLOUD_MARK);
   });
 });

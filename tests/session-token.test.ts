@@ -72,13 +72,7 @@ function world(
       const { status, body } = answer(url);
       return new Response(JSON.stringify(body), { status });
     }) as typeof fetch,
-    clock: {
-      now: () => now,
-      sleep: async (ms) => {
-        slept.push(ms);
-        now += ms;
-      },
-    },
+    clock: { now: () => now },
     cli: {
       run: async (args) => {
         cli.push({ args, input: null });
@@ -94,14 +88,12 @@ function world(
     repository: "acme/web",
     repositories: ["web", "factory-config"],
     out: (line) => out.push(line),
-    err: (line) => err.push(line),
     output: (line) => output.push(line),
-    stopped: () => slept.length >= (o.sleeps ?? 0),
   };
   /** Everything the command printed, handed to a later step, or gave the
    * CLI as an argument. */
   const shown = () =>
-    [...out, ...err, ...output, ...cli.flatMap((c) => c.args)].join("\n");
+    [...out, ...output, ...cli.flatMap((c) => c.args)].join("\n");
   /** What must never be shown: each token GitHub handed out, a line of the
    * key, and each token the app signed to say who it is. */
   const secrets = () => [
@@ -120,7 +112,7 @@ describe("factory session token", () => {
   it("signs the GitHub CLI and git in with a token for the run's repositories, and names the app's bot for a later step", async () => {
     const t = world();
 
-    expect(await main([], t.w)).toBe(0);
+    expect(await main(t.w)).toBe(0);
 
     const asked = JSON.parse(t.asked.at(-1)!.body!) as {
       repositories: string[];
@@ -148,7 +140,7 @@ describe("factory session token", () => {
       installation: { status: 404, body: { message: "Not Found" } },
     });
 
-    expect(await main([], t.w)).toBe(1);
+    expect(await main(t.w)).toBe(1);
 
     expect(t.out).toEqual([`::error::${NOT_INSTALLED}`]);
     expect(t.cli).toEqual([]);
@@ -158,7 +150,7 @@ describe("factory session token", () => {
   it("fails with the CLI's reason, and names no bot, when the sign-in is refused", async () => {
     const t = world({ cli: ["gh auth login: a token is in the environment"] });
 
-    expect(await main([], t.w)).toBe(1);
+    expect(await main(t.w)).toBe(1);
 
     expect(t.out).toEqual([
       "::error::gh auth login: a token is in the environment",
@@ -172,7 +164,7 @@ describe("factory session token", () => {
   ])("fails, asking GitHub nothing, without %s", async (_, env) => {
     const t = world({ env });
 
-    expect(await main([], t.w)).toBe(1);
+    expect(await main(t.w)).toBe(1);
 
     expect(t.out).toEqual([
       "::error::FACTORY_APP_CLIENT_ID and FACTORY_APP_PRIVATE_KEY do not both reach this step.",
@@ -181,98 +173,24 @@ describe("factory session token", () => {
   });
 });
 
-describe("factory session token --keep", () => {
-  it("signs the CLI in again every 45 minutes with a new token, signed for as the app at that time, and leaves git's settings alone", async () => {
-    const t = world({
-      tokens: [ok({ token: "ghs_2" }), ok({ token: "ghs_3" })],
-      sleeps: 3,
-    });
-
-    await main(["--keep"], t.w);
-
-    expect(t.slept).toEqual([45 * MINUTE, 45 * MINUTE, 45 * MINUTE]);
-    expect(signedIn(t.cli)).toEqual(["ghs_2", "ghs_3"]);
-    expect(t.cli.map((c) => c.args[1])).toEqual(["login", "login"]);
-    expect(t.asked[0]!.auth).toBe(
-      `Bearer ${appJwt("Iv23client", KEY, NOW + 45 * MINUTE)}`,
-    );
-    expect(t.out).toEqual([
-      "2026-11-23T12:45:00.000Z Renewed the app's token.",
-      "2026-11-23T13:30:00.000Z Renewed the app's token.",
-    ]);
-    expect(t.err).toEqual([]);
-  });
-
-  it("makes no token before the first 45 minutes are up, since the run already holds one", async () => {
-    const t = world({ sleeps: 1 });
-
-    await main(["--keep"], t.w);
-
-    expect(t.slept).toEqual([45 * MINUTE]);
-    expect(t.asked).toEqual([]);
-    expect(t.cli).toEqual([]);
-  });
-
-  it("says why a renewal failed on standard error, tries again each minute, and carries on once one works", async () => {
-    const t = world({
-      tokens: [
-        { status: 502, body: { message: "Bad Gateway" } },
-        ok({ token: "ghs_2" }),
-        ok({ token: "ghs_3" }),
-        ok({ token: "ghs_4" }),
-      ],
-      cli: ["gh auth login: connection reset"],
-      sleeps: 4,
-    });
-
-    await main(["--keep"], t.w);
-
-    expect(t.slept).toEqual([45 * MINUTE, MINUTE, MINUTE, 45 * MINUTE]);
-    expect(t.err).toEqual([
-      "2026-11-23T12:45:00.000Z Could not renew the app's token: GitHub gave the app no token: Bad Gateway (HTTP 502). Trying again in a minute.",
-      "2026-11-23T12:46:00.000Z Could not renew the app's token: gh auth login: connection reset. Trying again in a minute.",
-    ]);
-    expect(t.out).toEqual([
-      "2026-11-23T12:47:00.000Z Renewed the app's token.",
-    ]);
-    expect(signedIn(t.cli)).toEqual(["ghs_2", "ghs_3"]);
-  });
-});
-
 describe("what the command prints, hands to a later step, and gives the CLI as arguments", () => {
-  it.each<[string, string[], Parameters<typeof world>[0]]>([
-    ["signs in", [], {}],
+  it.each<[string, Parameters<typeof world>[0]]>([
+    ["signs in", {}],
     [
       "finds the app not installed",
-      [],
       { installation: { status: 404, body: { message: "Not Found" } } },
     ],
     [
       "is refused by GitHub",
-      [],
       { installation: { status: 401, body: { message: "Bad credentials" } } },
     ],
-    ["is refused by the CLI", [], { cli: ["gh auth login: refused"] }],
-    ["renews", ["--keep"], { tokens: [ok({ token: "ghs_2" })], sleeps: 2 }],
-    [
-      "fails to renew",
-      ["--keep"],
-      {
-        tokens: [
-          { status: 502, body: { message: "Bad Gateway" } },
-          ok({ token: "ghs_2" }),
-          ok({ token: "ghs_3" }),
-        ],
-        cli: ["gh auth login: connection reset"],
-        sleeps: 3,
-      },
-    ],
+    ["is refused by the CLI", { cli: ["gh auth login: refused"] }],
   ])(
     "holds no token, no line of the key, and no signature of the app's when it %s",
-    async (_, argv, o) => {
+    async (_, o) => {
       const t = world(o);
 
-      await main(argv, t.w);
+      await main(t.w);
 
       expect(t.secrets().length).toBeGreaterThan(1);
       for (const secret of t.secrets()) expect(t.shown()).not.toContain(secret);

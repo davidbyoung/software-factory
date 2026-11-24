@@ -339,7 +339,7 @@ describe("factory init, what the presets answer", () => {
     expect(r.checkboxes[0]!.names).toEqual([
       "Builds in the cloud",
       "Pull requests that merge themselves",
-      "Signed commits from cloud builds",
+      "Signed commits on the factory's updates",
     ]);
     expect(r.out.join("\n")).not.toContain("turn off");
   });

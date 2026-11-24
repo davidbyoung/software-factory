@@ -314,6 +314,7 @@ export function pinFaults(
   pins: Pinned[],
   base: Pinned[],
   load: (text: string) => unknown,
+  unread?: (pin: Pinned) => void,
 ): string[] {
   const same = (a: Pinned, b: Pinned) =>
     a.poller === b.poller &&
@@ -332,6 +333,10 @@ export function pinFaults(
       return same(pinAt(d, pin.name, pin.commit, load), pin) ? [] : [differs];
     } catch (e) {
       if (e instanceof PresetError) return [differs];
+      if (e instanceof FetchError && unread) {
+        unread(pin);
+        return [];
+      }
       if (e instanceof FetchError)
         return [
           `${LOCK_FILE}: ${pin.name} at ${short(pin.commit)} could not be read to check it: ${e.message}`,

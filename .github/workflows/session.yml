@@ -1,32 +1,34 @@
-# One unattended Claude Code session, for the four jobs of run.yml that run
-# one: a build, an answer to a review, the conflict sweep, and Dependabot's
-# pull requests. A repository's own factory.yml reaches it through run.yml,
-# so everything here runs in that repository, on its default branch's copy.
+# One unattended session, for the jobs of run.yml that start one: a build, a
+# review, an answer, a conflict, and a dependency. A repository's own
+# factory.yml reaches it through run.yml, so everything here runs in that
+# repository, from its default branch's copy.
 #
-# It asks whether there is work before it looks for a token, with the
-# workflow's own token (`factory session ready`), so a repository with no
-# build token gets no run that fails for want of one. The session acts as
-# whoever owns the build token, on GitHub and in git: the workflow's own
-# token is never used for the work, since GitHub starts no CI for a pull
-# request that token opened.
+# It is three jobs, each on a machine of its own, so that the AI and a
+# sign-in to the code host are never on the same one:
 #
-# Where the key of an organization's own GitHub App and the variable
-# FACTORY_APP_CLIENT_ID both reach the run, the session acts as the app
-# instead. A token of the app's lasts an hour and a session runs for longer,
-# so no step holds one: the GitHub CLI is signed in, git asks the CLI, and a
-# process left running behind the steps signs the CLI in again before each
-# token runs out.
+#   prepare   has the sign-in: claims the ticket, and hands over files
+#   session   has the AI, in its sandbox, and no sign-in of any kind
+#   publish   has the sign-in: checks what the session left, and does it
+#
+# The sign-in is a token of the organization's own GitHub App, where its key
+# and the variable FACTORY_APP_CLIENT_ID both reach the run, and otherwise
+# the build token. The workflow's own token is never used to push or to open
+# a pull request, since GitHub starts no CI for what that token does.
 name: Factory session
 
 on:
   workflow_call:
     inputs:
       kind:
-        description: "Which session: build, review, conflicts, or deps"
+        description: "Which session: build, review, answer, conflict, or dependency"
         required: true
         type: string
-      check-args:
-        description: What the kind's check takes after its name, such as a pull request's and a review's numbers
+      id:
+        description: The ticket's key, for a build, and the pull request's number for any other
+        required: true
+        type: string
+      review:
+        description: The review a person left, for an answer to it
         type: string
         default: ""
       prompt:
@@ -34,17 +36,13 @@ on:
         required: true
         type: string
       minutes:
-        description: How long the session may run. The shell stops it then, so that the job's last steps still run before the job's own limit.
+        description: How long the session may run. It is stopped then, so that the job's last steps still run before the job's own limit.
         required: true
         type: number
       limit:
-        description: The job's own limit, in minutes
+        description: The session job's own limit, in minutes
         required: true
         type: number
-      end-ticket:
-        description: The ticket whose claim is released when the run ends without a pull request, for a build
-        type: string
-        default: ""
     secrets:
       build-token:
         required: false
@@ -54,56 +52,46 @@ on:
         required: false
       claude-api-key:
         required: false
-      signing-key:
-        required: false
       extra:
         required: false
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  session:
-    name: Run the session
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.limit }}
+    timeout-minutes: 15
+    cache-mode: none
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+      statuses: read
+    outputs:
+      ran: ${{ steps.prepare.outputs.ran }}
     steps:
-      # The workflow's token stands in so that a missing build token is
-      # named by the check below, not by the checkout, and under the app,
-      # where the checkout stores no credential, so that git asks the CLI.
+      # Git asks the GitHub CLI for a sign-in, so the checkout stores none.
       - name: Checkout the default branch
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-          token: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || github.token }}
-          persist-credentials: ${{ secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '' }}
-
-      - name: Read what the repository installs with
-        id: node
-        run: |
-          if [ -f package.json ] && jq -e '.engines.node' package.json > /dev/null; then
-            echo "file=package.json" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -f package-lock.json ]; then echo "lock=true" >> "$GITHUB_OUTPUT"; fi
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          node-version-file: ${{ steps.node.outputs.file }}
-          node-version: ${{ steps.node.outputs.file == '' && '22' || '' }}
-          cache: ${{ steps.node.outputs.lock == 'true' && 'npm' || '' }}
+          node-version: 22
 
-      # The version the repository's lock names, or the checkout itself in
-      # the factory's own repository.
-      - name: Install the factory
-        id: install
+      - &install
+        name: Install the factory
         run: |
           if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
-            npm ci
+            npm ci --ignore-scripts
             npm link
-            echo "own=true" >> "$GITHUB_OUTPUT"
           else
             version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -112,7 +100,6 @@ jobs:
             fi
             npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
           fi
-          echo "installed=true" >> "$GITHUB_OUTPUT"
 
       - name: Check whether there is work, then the tokens
         id: gate
@@ -122,33 +109,136 @@ jobs:
           FACTORY_APP_KEY_SET: ${{ secrets.app-key != '' && vars.FACTORY_APP_CLIENT_ID != '' }}
           FACTORY_CLAUDE_SET: ${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}
           KIND: ${{ inputs.kind }}
-          ARGS: ${{ inputs.check-args }}
-        run: |
-          # ARGS is numbers the workflow wrote, split into words on purpose.
-          # shellcheck disable=SC2086
-          factory session ready "$KIND" $ARGS
+          ID: ${{ inputs.id }}
+          REVIEW: ${{ inputs.review }}
+        # REVIEW is empty or a number, and an empty word is not passed on.
+        run: factory session ready "$KIND" "$ID" ${REVIEW:+"$REVIEW"}
 
-      # The one step that holds the app's key. The first sign-in is made
-      # here, so that an app that is not installed fails the job, and the
-      # renewal is left running with its output in a file, which the last
-      # step prints. It comes before any step that puts a token in the
-      # environment, where the CLI would refuse to store a sign-in.
-      - name: Sign in as the app
+      # Under the app, its token signs the GitHub CLI and git in for the rest
+      # of this job. No AI and nothing a pull request holds runs in it.
+      - name: Sign in
         id: app
-        if: steps.gate.outputs.ran == 'true' && vars.FACTORY_APP_CLIENT_ID != ''
+        if: steps.gate.outputs.ran == 'true'
         env:
           FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
           FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          # A review reads, so the workflow's own token will do for it.
+          TOKEN: ${{ secrets.build-token || (inputs.kind == 'review' && github.token) || '' }}
         run: |
-          [ -n "$FACTORY_APP_PRIVATE_KEY" ] || exit 0
-          factory session token
-          nohup factory session token --keep < /dev/null > "$RUNNER_TEMP/factory-token.log" 2>&1 &
+          if [ -n "$FACTORY_APP_CLIENT_ID" ] && [ -n "$FACTORY_APP_PRIVATE_KEY" ]; then
+            factory session token
+          else
+            printf '%s\n' "$TOKEN" | gh auth login --with-token
+            gh auth setup-git
+          fi
 
-      # The secrets the repository's .npmrc and ticket system read, which
-      # its factory.yml passes as one JSON object. Each value is masked
-      # before any later step can print it.
-      - name: Take the repository's own secrets
+      # Claude is a session's author. Its committer is the app's bot, or the
+      # account that owns the build token, each by its no-reply address.
+      - name: Name the committer
         if: steps.gate.outputs.ran == 'true'
+        env:
+          APP_SLUG: ${{ steps.app.outputs.slug }}
+          KIND: ${{ inputs.kind }}
+        run: |
+          if [ "$KIND" = review ]; then
+            # A review commits nothing.
+            name=Claude
+            email=noreply@anthropic.com
+          elif [ -n "$APP_SLUG" ]; then
+            name="$APP_SLUG[bot]"
+            email="$(gh api "/users/$APP_SLUG[bot]" --jq .id)+$APP_SLUG[bot]@users.noreply.github.com"
+          else
+            user="$(gh api user)"
+            name="$(jq -r '.name // .login' <<< "$user")"
+            email="$(jq -r '"\(.id)+\(.login)@users.noreply.github.com"' <<< "$user")"
+          fi
+          { echo "FACTORY_COMMITTER_NAME=${name//$'\n'/ }"; echo "FACTORY_COMMITTER_EMAIL=$email"; } >> "$GITHUB_ENV"
+
+      # The presets the lock names are handed over too, in the cache the
+      # factory reads them from.
+      - name: Hand over what the session works from
+        id: prepare
+        if: steps.gate.outputs.ran == 'true'
+        env:
+          FACTORY_RUN: ${{ runner.temp }}/factory
+          FACTORY_APP_SLUG: ${{ steps.app.outputs.slug }}
+          KIND: ${{ inputs.kind }}
+          ID: ${{ inputs.id }}
+        run: |
+          XDG_CACHE_HOME="$FACTORY_RUN/in/cache" factory sync --check > /dev/null || true
+          factory session prepare "$KIND" "$ID"
+
+      - name: Hand it to the session
+        if: steps.prepare.outputs.ran == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: in-${{ inputs.kind }}
+          path: ${{ runner.temp }}/factory/in
+          include-hidden-files: true
+          overwrite: true
+          retention-days: 1
+
+  session:
+    name: Session
+    needs: prepare
+    if: needs.prepare.outputs.ran == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.limit }}
+    # Only for the repository's own packages, which the install below reads,
+    # and no command of the session's is given it.
+    permissions:
+      packages: read
+    cache-mode: none
+    env:
+      FACTORY_RUN: ${{ github.workspace }}
+    steps:
+      - name: Take what was handed over
+        uses: actions/download-artifact@v7
+        with:
+          name: in-${{ inputs.kind }}
+          path: in
+
+      # The session starts in the default branch, and so does everything
+      # below, so nothing on the branch it works on runs outside its sandbox.
+      - name: Lay out the default branch
+        run: |
+          git init -q home
+          git -C home fetch -q "$GITHUB_WORKSPACE/in/home.bundle" refs/handoff/home:refs/handoff/home
+          git -C home checkout -q -B "$(jq -r .defaultBranch in/run.json)" refs/handoff/home
+
+      - name: Read what the repository installs with
+        id: node
+        working-directory: home
+        run: |
+          if [ -f package.json ] && jq -e '.engines.node' package.json > /dev/null; then
+            echo "file=home/package.json" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f package-lock.json ]; then echo "lock=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ${{ steps.node.outputs.file }}
+          node-version: ${{ steps.node.outputs.file == '' && '22' || '' }}
+
+      - name: Install the factory
+        working-directory: home
+        run: |
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
+            npm ci
+            npm link
+            echo "FACTORY_INSTALL=$PWD:$(npm root --global)" >> "$GITHUB_ENV"
+          else
+            version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::.claude/factory.lock names no release of the factory. Run factory sync, and commit what it writes."
+              exit 1
+            fi
+            npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
+            echo "FACTORY_INSTALL=$(npm root --global)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Take the repository's own secrets
         env:
           EXTRA: ${{ secrets.extra }}
         run: |
@@ -163,11 +253,14 @@ jobs:
           done
 
       - name: Install the repository's dependencies
-        if: steps.gate.outputs.ran == 'true' && steps.node.outputs.lock == 'true' && steps.install.outputs.own != 'true'
+        if: steps.node.outputs.lock == 'true'
+        working-directory: home
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm ci
 
       - name: Run the build's setup commands
-        if: steps.gate.outputs.ran == 'true'
+        working-directory: home
         run: |
           factory config get commands.build-setup > "$RUNNER_TEMP/build-setup"
           while IFS= read -r command; do
@@ -176,84 +269,38 @@ jobs:
             echo "::endgroup::"
           done < "$RUNNER_TEMP/build-setup"
 
-      # Claude is the author. The committer is the account that owns the build
-      # token, by its no-reply address, which GitHub ties to the account: it
-      # must be, for a signature by that account's key to show as verified.
-      # Under the app the committer is the app's bot, by the bot's own
-      # no-reply address.
-      - name: Set git's name and email
-        if: steps.gate.outputs.ran == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}
-          APP_SLUG: ${{ steps.app.outputs.slug }}
+      # Claude Code's sandbox needs these, and Ubuntu lets bubblewrap make a
+      # user namespace only with a profile that says so
+      # (https://code.claude.com/docs/en/sandboxing). The distribution's own
+      # profile for it does not, so it goes first.
+      - name: Set up the sandbox
         run: |
-          if [ -n "$APP_SLUG" ]; then
-            id="$(gh api "/users/$APP_SLUG[bot]" --jq .id)"
-            git config --global user.name "$APP_SLUG[bot]"
-            git config --global user.email "$id+$APP_SLUG[bot]@users.noreply.github.com"
-          else
-            user="$(gh api user)"
-            login="$(jq -r .login <<< "$user")"
-            git config --global user.name "$(jq -r '.name // .login' <<< "$user")"
-            git config --global user.email "$(jq -r .id <<< "$user")+$login@users.noreply.github.com"
-          fi
-          git config --global author.name "Claude"
-          git config --global author.email "noreply@anthropic.com"
-
-      # The key goes to a file under RUNNER_TEMP, which the runner empties when
-      # the job ends, readable only by the runner's user. Nothing taken from it
-      # is echoed: GitHub masks the secret, and the script prints no part of it.
-      # Under the app nothing is signed: a person's key cannot vouch for a
-      # commit whose committer is the app's bot.
-      - name: Set up commit signing
-        if: steps.gate.outputs.ran == 'true'
-        env:
-          SIGNING_KEY_INPUT: ${{ secrets.signing-key }}
-          APP_SLUG: ${{ steps.app.outputs.slug }}
-        run: |
-          if [ -n "$APP_SLUG" ]; then
-            echo "The app is the committer: this build's commits will be unsigned."
-            exit 0
-          fi
-          if [ -z "$SIGNING_KEY_INPUT" ]; then
-            echo "No signing key: this build's commits will be unsigned."
-            exit 0
-          fi
-          key_file="$RUNNER_TEMP/factory-signing-key"
-          (umask 077; printf '%s\n' "$SIGNING_KEY_INPUT" > "$key_file")
-          chmod 600 "$key_file"
-          git config --global gpg.format ssh
-          git config --global user.signingkey "$key_file"
-          git config --global commit.gpgsign true
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends bubblewrap socat ripgrep > /dev/null
+          for profile in /etc/apparmor.d/*bwrap*; do
+            [ -f "$profile" ] || continue
+            sudo apparmor_parser -R "$profile"
+            sudo rm "$profile"
+          done
+          printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' 'profile bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' '  include if exists <local/bwrap>' '}' | sudo tee /etc/apparmor.d/bwrap > /dev/null
+          sudo systemctl reload apparmor
 
       # A factory release changes this pin.
       - name: Install Claude Code
-        if: steps.gate.outputs.ran == 'true'
         run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
 
-      # The session may switch the checkout to another branch, so the
-      # checkout goes back to this commit after it, for the last step.
-      - name: Record the commit the session starts on
-        if: steps.gate.outputs.ran == 'true'
-        run: git rev-parse HEAD > "$RUNNER_TEMP/factory-start-commit"
-
       # Exactly one Claude credential reaches the session: the subscription
-      # token when it is set, and the API key otherwise.
+      # token when it is set, and the API key otherwise. It is kept from
+      # every command the session runs.
       - name: Run the session
-        if: steps.gate.outputs.ran == 'true'
+        id: session
+        working-directory: home
         env:
           MINUTES: ${{ inputs.minutes }}
-          GH_TOKEN: ${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}
-          # A branch named after its user takes the app's slug: the app's
-          # token cannot ask who is signed in.
-          FACTORY_APP_SLUG: ${{ steps.app.outputs.slug }}
           PROMPT: ${{ inputs.prompt }}
           MODEL: ${{ vars.FACTORY_BUILD_MODEL }}
           OAUTH_TOKEN_INPUT: ${{ secrets.claude-token }}
           API_KEY_INPUT: ${{ secrets.claude-api-key }}
-          # Tells the permission hook this is an unattended run, which it
-          # answers for a write under .claude/.
-          FACTORY_UNATTENDED: "1"
         run: |
           if [ -n "$OAUTH_TOKEN_INPUT" ]; then
             export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN_INPUT"
@@ -261,54 +308,106 @@ jobs:
             export ANTHROPIC_API_KEY="$API_KEY_INPUT"
           fi
           unset OAUTH_TOKEN_INPUT API_KEY_INPUT
-          args=(-p "$PROMPT" --max-turns 1000
-            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Agent,Task,Skill"
-            --output-format stream-json --verbose)
-          if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
-          # One line for each thing the session says and each tool it runs,
-          # then the turns, minutes, and cost.
-          # The shell stops the session after MINUTES, so that a build that runs
-          # out of time ends as a failed step and the job's last step still runs.
-          timeout --kill-after=30s "${MINUTES}m" claude "${args[@]}" | jq --unbuffered -r '
-            if .type == "assistant" then
-              .message.content[]?
-              | if .type == "text" then .text | gsub("\\s*\\n\\s*"; " ")
-                elif .type == "tool_use" then
-                  "> \(.name): \((.input | to_entries | first | .value) // "" | tostring | gsub("\\s*\\n\\s*"; " ") | .[0:200])"
-                else empty end
-            elif .type == "system" and .subtype == "permission_denied" then
-              "Denied: \(.tool_name): \((.decision_reason // .message // "") | tostring | gsub("\\s*\\n\\s*"; " ") | .[0:200])"
-            elif .type == "result" then
-              "Finished (\(.subtype)): \(.num_turns) turns, \((.duration_ms / 60000) | floor) minutes, $\(.total_cost_usd) at API list prices.",
-              (.permission_denials[]? | "Denied: \(.tool_name): \((.tool_input | to_entries | first | .value) // "" | tostring | gsub("\\s*\\n\\s*"; " ") | .[0:200])")
-            else empty end'
+          factory session run
 
-      - name: Put the checkout back on the commit the session started on
-        if: always() && steps.gate.outputs.ran == 'true'
-        run: |
-          file="$RUNNER_TEMP/factory-start-commit"
-          if [ -f "$file" ]; then
-            start="$(cat "$file")"
-            # A session that updated a dependency leaves node_modules ahead
-            # of the restored files.
-            changed=false
-            if [ -f package-lock.json ]; then
-              git diff --quiet "$start" -- package-lock.json || changed=true
-            fi
-            git checkout --force --detach "$start"
-            if [ "$changed" = true ]; then npm ci; fi
-          fi
+      # What `factory session run` kept, and nothing the session named. A
+      # build that is refused keeps its commits here.
+      - name: Hand on what the session left
+        if: always() && steps.session.outcome != 'skipped'
+        uses: actions/upload-artifact@v6
+        with:
+          name: out-${{ inputs.kind }}
+          path: clean
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
 
-      # A run that ends without a pull request releases its claim, so that a
-      # failed run does not hold its ticket for 24 hours. It runs whatever
-      # happened before, once the factory was installed.
-      - name: Release the claim if no pull request was opened
-        if: always() && inputs.end-ticket != '' && steps.install.outputs.installed == 'true'
+  publish:
+    name: Publish
+    needs: [prepare, session]
+    if: always() && needs.prepare.outputs.ran == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    cache-mode: none
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      issues: write
+      pull-requests: write
+      statuses: write
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      # A job's own `env` cannot read the runner's folder.
+      - name: Name the run's folder
+        run: echo "FACTORY_RUN=$RUNNER_TEMP/factory" >> "$GITHUB_ENV"
+
+      - name: Take what was handed over
+        uses: actions/download-artifact@v7
+        with:
+          name: in-${{ inputs.kind }}
+          path: ${{ runner.temp }}/factory/in
+
+      - name: Take what the session left
+        if: needs.session.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: out-${{ inputs.kind }}
+          path: ${{ runner.temp }}/factory/out
+
+      # The review is recorded with the workflow's own token, which the rule
+      # that requires "Review verdict" names.
+      - name: Record the review
+        id: record
+        if: inputs.kind == 'review'
         env:
-          GH_TOKEN: ${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}
-          TICKET: ${{ inputs.end-ticket }}
-        run: factory ticket end "$TICKET"
+          GH_TOKEN: ${{ github.token }}
+          CONCLUSION: ${{ needs.session.result }}
+        run: factory session publish
 
-      - name: Show how the app's token was renewed
-        if: always() && steps.gate.outputs.ran == 'true' && steps.app.outputs.slug != ''
-        run: cat "$RUNNER_TEMP/factory-token.log"
+      - name: Sign in
+        id: app
+        if: inputs.kind != 'review' || steps.record.outputs.next == 'true'
+        env:
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          BUILD_TOKEN: ${{ secrets.build-token }}
+        run: |
+          if [ -n "$FACTORY_APP_CLIENT_ID" ] && [ -n "$FACTORY_APP_PRIVATE_KEY" ]; then
+            factory session token
+          elif [ -n "$BUILD_TOKEN" ]; then
+            printf '%s\n' "$BUILD_TOKEN" | gh auth login --with-token
+            gh auth setup-git
+          else
+            echo "No build token is set, so no answer starts."
+            exit 0
+          fi
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Start the next answer
+        if: inputs.kind == 'review' && steps.app.outputs.signed == 'true'
+        env:
+          ID: ${{ inputs.id }}
+        run: factory session next "$ID"
+
+      # The app's key is here to sign in again: waiting for CI can outlast
+      # its token. Nothing the session made runs in this job.
+      - name: Publish what the session left
+        if: inputs.kind != 'review'
+        env:
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+        run: factory session publish

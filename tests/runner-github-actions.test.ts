@@ -29,7 +29,14 @@ const build = (id: number, title: string, created: string) => ({
   html_url: `${SITE}/actions/runs/${id}`,
 });
 
-const REVIEWS = /actions\/workflows\/factory-review\.yml\/runs\?head_sha=h/;
+const REVIEWS =
+  /actions\/workflows\/factory\.yml\/runs\?event=pull_request_target/;
+/** A run of a pull request's event, named as factory.yml names it. */
+const pullRun = (id: number, sha: string, status = "completed") => ({
+  id,
+  status,
+  display_title: `#31 at ${sha}`,
+});
 const job = (id: number, name: string, conclusion: string | null) => ({
   id,
   name,
@@ -63,6 +70,86 @@ describe("starting a build", () => {
     const { r } = runner([[DISPATCH, refused]]);
 
     await expect(r.startBuild("12", "main")).rejects.toBe(refused);
+  });
+});
+
+describe("starting a session on a pull request", () => {
+  it("dispatches an answer on the branch, for the pull request", async () => {
+    const { r, calls } = runner([[DISPATCH, ""]]);
+
+    await r.startAnswer(31, "trunk");
+
+    expect(calls).toEqual([
+      "api -X POST repos/acme/widgets/actions/workflows/factory.yml/dispatches -f ref=trunk -f inputs[job]=answer -f inputs[pr]=31",
+    ]);
+  });
+
+  it.each(["conflict", "dependency"] as const)(
+    "dispatches a %s session on the branch, for the pull request",
+    async (kind) => {
+      const { r, calls } = runner([[DISPATCH, ""]]);
+
+      await r.startOn(kind, 31, "trunk");
+
+      expect(calls).toEqual([
+        `api -X POST repos/acme/widgets/actions/workflows/factory.yml/dispatches -f ref=trunk -f inputs[job]=${kind} -f inputs[pr]=31`,
+      ]);
+    },
+  );
+
+  it("fails with GitHub's own error when the dispatch is refused", async () => {
+    const refused = new HttpError(403, "x", "Resource not accessible");
+    const { r } = runner([[DISPATCH, refused]]);
+
+    await expect(r.startAnswer(31, "main")).rejects.toBe(refused);
+    await expect(r.startOn("conflict", 31, "main")).rejects.toBe(refused);
+  });
+});
+
+describe("counting the answers to a pull request", () => {
+  const SINCE = "2026-11-20T10:00:00Z";
+  const page = (n: number) => new RegExp(`per_page=100&page=${n}$`);
+  const runs = (...titles: string[]) => ({
+    workflow_runs: titles.map((title, i) => build(i, title, SINCE)),
+  });
+
+  it("counts the runs named for it alone, not another pull request's or a build's", async () => {
+    const { r } = runner([
+      [
+        page(1),
+        runs(
+          "Answer #3",
+          "Answer #31",
+          "Answer #310",
+          "Build #31",
+          "Answer #31",
+          "re Answer #31",
+        ),
+      ],
+    ]);
+
+    expect(await r.answersTo(31, SINCE)).toBe(2);
+  });
+
+  it("asks only for the runs started by hand or by a run since the pull request was opened", async () => {
+    const { r, calls } = runner([[page(1), runs()]]);
+
+    expect(await r.answersTo(31, SINCE)).toBe(0);
+    expect(calls).toEqual([
+      "api repos/acme/widgets/actions/workflows/factory.yml/runs?event=workflow_dispatch&created=%3E%3D2026-11-20T10%3A00%3A00Z&per_page=100&page=1",
+    ]);
+  });
+
+  it("reads page after page while each is full, and stops at one that is not", async () => {
+    const full = (title: string) => runs(...Array<string>(100).fill(title));
+    const { r, calls } = runner([
+      [page(1), full("Build #12")],
+      [page(2), full("Answer #31")],
+      [page(3), runs("Answer #31")],
+    ]);
+
+    expect(await r.answersTo(31, SINCE)).toBe(101);
+    expect(calls).toHaveLength(3);
   });
 });
 
@@ -192,83 +279,118 @@ describe("the runs for a commit", () => {
     ]);
   });
 
-  it("returns the review job of each run of the review's workflow for the commit", async () => {
-    const { r, calls } = runner([
-      [REVIEWS, { workflow_runs: [{ id: 9, status: "completed" }] }],
-      [
-        /actions\/runs\/9\/jobs/,
-        {
-          jobs: [
-            job(1, "review / Factory files in step", "failure"),
-            job(2, "review / Claude review", "success"),
-          ],
-        },
-      ],
-    ]);
+  /** The review runs the runner finds for the commit `h`, of these runs
+   * and their jobs. */
+  const reviews = (
+    runs: ReturnType<typeof pullRun>[],
+    jobs: ReturnType<typeof job>[],
+  ) =>
+    runner([
+      [REVIEWS, { workflow_runs: runs }],
+      [/actions\/runs\/\d+\/jobs/, { jobs }],
+    ]).r.reviewRuns("h");
+  const ran = (
+    prepare: string | null,
+    session: string | null,
+    publish: string | null,
+  ) => [
+    job(1, "factory / Record the verdict", "failure"),
+    job(2, "factory / Review / Prepare", prepare),
+    job(3, "factory / Review / Session", session),
+    job(4, "factory / Review / Publish", publish),
+  ];
 
-    expect(await r.reviewRuns("h")).toEqual([
-      { status: "completed", conclusion: "success" },
-    ]);
-    expect(calls).toHaveLength(2);
+  it("gives a review that ended, by its own jobs alone", async () => {
+    expect(
+      await reviews([pullRun(9, "h")], ran("success", "success", "success")),
+    ).toEqual([{ status: "completed", conclusion: "success" }]);
   });
 
-  it("leaves out a run whose review job was skipped, as for a draft", async () => {
-    const { r } = runner([
-      [REVIEWS, { workflow_runs: [{ id: 9, status: "completed" }] }],
-      [
-        /actions\/runs\/9\/jobs/,
-        {
-          jobs: [
-            job(1, "review / Factory files in step", "success"),
-            job(2, "review / Claude review", "skipped"),
-          ],
-        },
-      ],
+  it.each<[string, ReturnType<typeof ran>]>([
+    ["its session", ran("success", "failure", "success")],
+    ["its publishing", ran("success", "success", "failure")],
+  ])("gives a review that failed in %s", async (_, jobs) => {
+    expect(await reviews([pullRun(9, "h")], jobs)).toEqual([
+      { status: "completed", conclusion: "failure" },
+    ]);
+  });
+
+  it("gives a review that was canceled as canceled", async () => {
+    expect(
+      await reviews([pullRun(9, "h")], ran("success", "cancelled", "success")),
+    ).toEqual([{ status: "completed", conclusion: "cancelled" }]);
+  });
+
+  it("gives a review whose session is running as in progress", async () => {
+    expect(
+      await reviews(
+        [pullRun(9, "h", "in_progress")],
+        ran("success", null, null).slice(0, 3),
+      ),
+    ).toEqual([{ status: "in_progress", conclusion: null }]);
+  });
+
+  it("gives a review between two jobs, the next of which is not listed yet, as in progress", async () => {
+    expect(
+      await reviews(
+        [pullRun(9, "h", "in_progress")],
+        ran("success", null, null).slice(0, 2),
+      ),
+    ).toEqual([{ status: "in_progress", conclusion: null }]);
+  });
+
+  it("gives a review as ended while another job of its run still runs", async () => {
+    expect(
+      await reviews(
+        [pullRun(9, "h", "in_progress")],
+        [
+          ...ran("success", "success", "success"),
+          job(5, "factory / Sync the board", null),
+        ],
+      ),
+    ).toEqual([{ status: "completed", conclusion: "success" }]);
+  });
+
+  it("leaves out a run whose review was skipped, as for a draft", async () => {
+    expect(
+      await reviews(
+        [pullRun(9, "h")],
+        [
+          job(1, "factory / Record the verdict", "success"),
+          job(2, "factory / Review", "skipped"),
+        ],
+      ),
+    ).toEqual([]);
+  });
+
+  it("reads no job of a run for another commit, though its name ends as this one's does", async () => {
+    const { r, calls } = runner([
+      [REVIEWS, { workflow_runs: [pullRun(9, "other"), pullRun(8, "oh")] }],
     ]);
 
     expect(await r.reviewRuns("h")).toEqual([]);
-  });
-
-  it("gives the review job's conclusion in one run, whatever its other jobs did", async () => {
-    const { r } = runner([
-      [
-        /actions\/runs\/9\/jobs/,
-        {
-          jobs: [
-            job(1, "review / Factory files in step", "failure"),
-            job(2, "review / Claude review", "success"),
-          ],
-        },
-      ],
-      [/actions\/runs\/8\/jobs/, { jobs: [] }],
-    ]);
-
-    expect(await r.reviewConclusion(9)).toBe("success");
-    expect(await r.reviewConclusion(8)).toBe("skipped");
+    expect(calls).toHaveLength(1);
   });
 });
 
 describe("asking for the review again", () => {
   const RERUN = /-X POST repos\/acme\/widgets\/actions\/jobs\/\d+\/rerun/;
 
-  it("has the review job of the commit's newest run run again", async () => {
+  it("has the first job of the commit's newest review run again, and so the jobs that follow it", async () => {
     const { r, calls } = runner([
+      [REVIEWS, { workflow_runs: [pullRun(77, "h"), pullRun(70, "h")] }],
       [
-        REVIEWS,
+        /actions\/runs\/77\/jobs/,
         {
-          workflow_runs: [
-            { id: 77, status: "completed" },
-            { id: 70, status: "completed" },
+          jobs: [
+            job(6, "factory / Review / Session", "success"),
+            job(5, "factory / Review / Prepare", "success"),
           ],
         },
       ],
       [
-        /actions\/runs\/77\/jobs/,
-        { jobs: [job(5, "review / Claude review", "success")] },
-      ],
-      [
         /actions\/runs\/70\/jobs/,
-        { jobs: [job(4, "review / Claude review", "failure")] },
+        { jobs: [job(4, "factory / Review / Prepare", "failure")] },
       ],
       [RERUN, ""],
     ]);

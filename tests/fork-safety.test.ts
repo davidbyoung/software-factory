@@ -2,8 +2,9 @@
 // fork. A job that starts on `pull_request_target` or `workflow_run` runs
 // with the repository's secrets and a write token even for a fork's pull
 // request, so it must never check out the pull request's own code: the
-// factory's verdict, merge policy, and board sync start on these events,
-// and check out the default branch.
+// factory's verdict, merge policy, board sync, review, and Dependabot's
+// auto-merge start on these events, and check out the default branch or
+// nothing.
 //
 // The factory's own workflows are called, not started: run.yml by the
 // factory.yml `factory sync` writes into a repository, review.yml by its
@@ -80,6 +81,9 @@ function parts(text: string, operator: "||" | "&&"): string[] {
   found.push(text.slice(from));
   return found.map((part) => part.trim());
 }
+
+/** What an expression requires, each of which must hold. */
+const conjuncts = (text: string) => parts(text, "&&");
 
 /** Whether the whole expression is inside one pair of parentheses. */
 function wrapped(text: string): boolean {
@@ -527,23 +531,28 @@ describe("this repository's workflows", () => {
     ]);
     expect(
       calls(open(`${DIR}/run.yml`), factoryEvents).map(([file]) => file),
-    ).toEqual(Array(4).fill(`${DIR}/session.yml`));
+    ).toEqual(Array(5).fill(`${DIR}/session.yml`));
   });
 
-  it("starts only the verdict, the merge policy, and the board sync with a fork's pull request and the secrets", () => {
-    expect(factoryEvents).toEqual(expect.arrayContaining(WITH_SECRETS));
+  it("starts only the verdict, the merge policy, the board sync, the review, and Dependabot's auto-merge on an event that has the secrets", () => {
+    expect(factoryEvents).toContain("pull_request_target");
+    expect(factoryEvents).not.toContain("workflow_run");
     expect(
       jobsWithSecrets(open(`${DIR}/run.yml`), factoryEvents).map(
         ([name]) => name,
       ),
-    ).toEqual(["verdict", "merge-policy", "board"]);
+    ).toEqual(["verdict", "merge-policy", "board", "review", "dependabot"]);
   });
 
-  it("starts no session, and nothing of review.yml, with them", () => {
-    for (const [, events] of calls(open(`${DIR}/run.yml`), factoryEvents))
-      expect(events.filter((event) => WITH_SECRETS.includes(event))).toEqual(
-        [],
-      );
+  it("starts one session, the review, with them, and only for a pull request from the repository itself, and nothing of review.yml", () => {
+    const sessions = jobsWithSecrets(
+      open(`${DIR}/run.yml`),
+      factoryEvents,
+    ).filter(([, job]) => job.uses);
+    expect(sessions.map(([name]) => name)).toEqual(["review"]);
+    expect(conjuncts(sessions[0]![1].if!)).toContain(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    );
     expect(
       jobsWithSecrets(open(`${DIR}/review.yml`), ["pull_request"]),
     ).toEqual([]);
@@ -561,9 +570,3 @@ describe("this repository's workflows", () => {
     ).toEqual([]);
   });
 });
-
-// A pull_request job gets no secrets on a fork's pull request, unless a
-// private repository turns on sending them; then only a job's own guard
-// keeps a fork's code from the secrets. The two jobs of review.yml that
-// run with a pull request's code checked out, or act on its author's word,
-// each keep theirs.

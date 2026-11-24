@@ -136,15 +136,9 @@ type ReviewFile = {
 /** The two workflow files a sync wrote, read as YAML. */
 const factoryFile = (text = read(FACTORY_FILE)) => parse(text!) as FactoryFile;
 const reviewFile = (text = read(REVIEW_FILE)) => parse(text!) as ReviewFile;
-/** The parts that are on, as each file passes them. */
-const partsIn = () => {
-  const listed = (called: Called) =>
-    String(called.with.parts).split(" ").filter(Boolean);
-  return {
-    factory: listed(factoryFile().jobs.factory),
-    review: listed(reviewFile().jobs.review),
-  };
-};
+/** The parts that are on, as factory.yml passes them. */
+const partsIn = () =>
+  String(factoryFile().jobs.factory.with.parts).split(" ").filter(Boolean);
 /** What factory.yml passes that sets a session's minutes or its job's
  * limit. */
 const minutesIn = () =>
@@ -326,16 +320,13 @@ describe("factory sync", () => {
   it("writes the deps skill, and turns the dependabot part on, only where Dependabot is set up", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DEPS)).toBeNull();
-    expect(partsIn()).toEqual({ factory: [], review: [] });
+    expect(partsIn()).toEqual([]);
 
     put(root, DEPENDABOT, "version: 2\n");
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DEPS)).toBe("deps\n");
     expect(read(".claude/factory.lock")).toContain(`  - ${DEPS}`);
-    expect(partsIn()).toEqual({
-      factory: ["dependabot"],
-      review: ["dependabot"],
-    });
+    expect(partsIn()).toEqual(["dependabot"]);
   });
 
   it("removes the deps skill, and turns the part off, when Dependabot is taken out, and the check then passes", async () => {
@@ -347,7 +338,7 @@ describe("factory sync", () => {
 
     expect(read(DEPS)).toBeNull();
     expect(r.out).toContain(`deleted ${DEPS}`);
-    expect(partsIn()).toEqual({ factory: [], review: [] });
+    expect(partsIn()).toEqual([]);
     expect((await sync(["--check"], settings())).code).toBe(0);
   });
 
@@ -509,19 +500,18 @@ describe("factory sync", () => {
       { ...BOARD, builds: { trigger: "github-action" } },
     ],
   ])(
-    "turns the %s part on in both files only while %s",
+    "turns the %s part on only while %s, and changes nothing in factory-review.yml",
     async (part, _, raw) => {
       await sync([], settings());
-      expect(partsIn().factory).not.toContain(part);
-      expect(partsIn().review).not.toContain(part);
+      expect(partsIn()).not.toContain(part);
+      const review = read(REVIEW_FILE);
 
       await sync([], settings(raw));
-      expect(partsIn().factory).toContain(part);
-      expect(partsIn().review).toContain(part);
+      expect(partsIn()).toContain(part);
+      expect(read(REVIEW_FILE)).toBe(review);
 
       await sync([], settings());
-      expect(partsIn().factory).not.toContain(part);
-      expect(partsIn().review).not.toContain(part);
+      expect(partsIn()).not.toContain(part);
     },
   );
 
@@ -537,8 +527,13 @@ describe("factory sync", () => {
       }),
     );
 
-    const every = ["review", "board", "auto-merge", "poller", "dependabot"];
-    expect(partsIn()).toEqual({ factory: every, review: every });
+    expect(partsIn()).toEqual([
+      "review",
+      "board",
+      "auto-merge",
+      "poller",
+      "dependabot",
+    ]);
   });
 
   it("schedules the poller only with the github-action trigger, and takes its line out once the trigger changes", async () => {
@@ -899,7 +894,7 @@ describe("factory sync --check", () => {
     ]);
   });
 
-  it("exits 1 naming both workflow files when a part was turned on and sync did not run", async () => {
+  it("exits 1 naming factory.yml, and not factory-review.yml, when a part was turned on and sync did not run", async () => {
     await sync();
     put(root, DEPENDABOT, "version: 2\n");
 
@@ -907,7 +902,7 @@ describe("factory sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toContain(`  ${FACTORY_FILE}`);
-    expect(r.err).toContain(`  ${REVIEW_FILE}`);
+    expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 
   it("exits 1 naming both workflow files when the factory's version changed and sync did not run", async () => {
@@ -1151,20 +1146,19 @@ describe("factory sync: the ticket system in the workflow files", () => {
   it("names a build's run by the ticket as GitHub writes it", async () => {
     await sync();
 
-    expect(factoryFile()["run-name"]).toBe(
-      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || '' }}",
+    expect(factoryFile()["run-name"]).toContain(
+      "inputs.ticket && format('Build #{0}', inputs.ticket) ||",
     );
   });
 
-  it("passes each of the ticket system's secrets, by name, from both files", async () => {
+  it("passes each of the ticket system's secrets, by name, from factory.yml alone", async () => {
     const written = await workflows(withCredential);
 
     expect(
       factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets.extra,
     ).toBe(extra(NAMES));
-    expect(reviewFile(written.get(REVIEW_FILE)).jobs.review.secrets.extra).toBe(
-      extra(NAMES),
-    );
+    for (const name of NAMES)
+      expect(written.get(REVIEW_FILE)).not.toContain(name);
   });
 
   it("passes none for GitHub's tickets, which read the workflow's own token", async () => {
@@ -1173,17 +1167,16 @@ describe("factory sync: the ticket system in the workflow files", () => {
     expect(
       factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets,
     ).not.toHaveProperty("extra");
-    expect(
-      reviewFile(written.get(REVIEW_FILE)).jobs.review.secrets,
-    ).not.toHaveProperty("extra");
   });
 
-  it("adds one line to each file, and changes no other", async () => {
+  it("adds one line to factory.yml, and changes no other", async () => {
     const before = await workflows();
     for (const [path, text] of await workflows(withCredential)) {
       const was = before.get(path)!.split("\n");
       const added = text.split("\n").filter((line) => !was.includes(line));
-      expect(added).toEqual([`      extra: ${extra(NAMES)}`]);
+      expect(added, path).toEqual(
+        path === FACTORY_FILE ? [`      extra: ${extra(NAMES)}`] : [],
+      );
       expect(text.split("\n").filter((line) => !added.includes(line))).toEqual(
         was,
       );

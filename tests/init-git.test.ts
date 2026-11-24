@@ -445,7 +445,7 @@ describe("the files the sync writes, against the real sync and the real git", ()
         .filter((path) => path !== ".claude/factory.yaml")
         .sort(),
     ).toEqual([...paths].sort());
-    expect(paths).toContain(".github/workflows/factory-review.yml");
+    expect(paths).toContain(".github/workflows/factory.yml");
   });
 
   it("commits, through the whole of init, the settings and what the sync wrote or deleted, and nothing the checkout held before", async () => {
@@ -477,7 +477,7 @@ describe("the files the sync writes, against the real sync and the real git", ()
       '✓ Opened acme/web#1, "Change the software factory\'s settings".',
     );
 
-    // The review was turned off, which the settings and both workflows
+    // The review was turned off, which the settings and factory.yml
     // show; the stale workflow went, and the hand edit with it.
     const committed = git(root, "show", "--name-status", "--format=", "HEAD")
       .split("\n")
@@ -488,7 +488,6 @@ describe("the files the sync writes, against the real sync and the real git", ()
         "M\t.claude/factory.lock",
         `M\t${RULES}`,
         `D\t${STALE}`,
-        "M\t.github/workflows/factory-review.yml",
         "M\t.github/workflows/factory.yml",
       ].sort(),
     );

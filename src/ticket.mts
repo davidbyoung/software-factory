@@ -1006,9 +1006,9 @@ function claimPath(issue: Key) {
   return join(commonDir(), `work-claim-${issue}`);
 }
 
-/** `factory ticket ...` and `factory follow-up ...`. */
-export async function run(argv: string[]): Promise<number> {
-  return main(argv, {
+/** What the commands run with, outside a test. */
+export function ticketDeps(): Deps {
+  return {
     open: (settings, target) => openTickets(settings, target),
     openPulls: (repository, codeHost) =>
       openCodeHost(repository, codeHost).open(),
@@ -1045,5 +1045,14 @@ export async function run(argv: string[]): Promise<number> {
       },
       write: (issue, id) => writeFileSync(claimPath(issue), String(id)),
     },
-  });
+  };
 }
+
+/** `factory ticket ...` and `factory follow-up ...`. */
+export async function run(argv: string[]): Promise<number> {
+  return main(argv, ticketDeps());
+}
+
+/** The claim this checkout made on a ticket, by its record's ID. */
+export const claimHere = (issue: Key): string | null =>
+  ticketDeps().claimStore.read(issue);

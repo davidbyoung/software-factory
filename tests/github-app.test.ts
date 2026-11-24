@@ -520,7 +520,7 @@ describe("a run's token under the app", () => {
     ]);
   });
 
-  it("asks for what a session does and no more: never a repository's properties, which switch the rule that gates it", async () => {
+  it("asks for what a session's jobs do and no more: never a workflow's file, nor a repository's properties, which switch the rule that gates it", async () => {
     const { made, calls } = ask([
       ...FOUND,
       [/access_tokens$/, { token: "ghs_run" }],
@@ -534,7 +534,6 @@ describe("a run's token under the app", () => {
       contents: "write",
       pull_requests: "write",
       issues: "write",
-      workflows: "write",
       actions: "write",
       statuses: "read",
       checks: "read",

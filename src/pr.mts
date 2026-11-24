@@ -18,6 +18,8 @@
 //   factory pr unverified N         # the commits not shown as signed
 //   factory pr failed N             # each failed job's log, and a failed check's own report
 //   factory pr review-again N       # a fresh review of the same commit
+//   factory pr push                 # this branch, or its commits handed over
+//   factory pr pull                 # the remote's commits on this branch
 //
 // COMMENT_ID is a thread's first comment, as `threads` prints it. A failed
 // read exits 1 with the error; `review-pending` and `conflicts`, which a
@@ -42,6 +44,7 @@ import {
   type Review,
   type Thread,
 } from "./code-host/index.mts";
+import { handoffIn } from "./handoff/index.mts";
 import { openRunner, type Run, type Runner } from "./runner/index.mts";
 import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
 import { labelOf, PR_LABELS, type Labels } from "./labels.mts";
@@ -648,6 +651,35 @@ export async function main(argv: string[], d: Deps): Promise<number> {
           draft: !rest.includes("--ready"),
         });
         d.out(String(number));
+        return 0;
+      }
+      case "push": {
+        const branch = d.git(["branch", "--show-current"]).trim();
+        const h = handoffIn(d.env ?? {});
+        if (h) {
+          const range = `${h.run().base}..HEAD`;
+          const n = Number(d.git(["rev-list", "--count", range]));
+          if (n === 0) throw new Error("There is no commit to hand over.");
+          d.git(["bundle", "create", "-q", h.bundle, range]);
+          d.out(`Handed over ${n} commit${n === 1 ? "" : "s"} on ${branch}.`);
+          return 0;
+        }
+        if (branch === (await p.defaultBranch()))
+          throw new Error(`${branch} is the default branch. Push another.`);
+        const remote = await d.remote();
+        d.git(["push", "-q", "-u", remote, branch]);
+        d.out(`Pushed ${branch} to ${remote}.`);
+        return 0;
+      }
+      case "pull": {
+        const branch = d.git(["branch", "--show-current"]).trim();
+        if (handoffIn(d.env ?? {})) {
+          d.out("This is the newest commit there was when the run started.");
+          return 0;
+        }
+        const remote = await d.remote();
+        d.git(["pull", "-q", "--no-rebase", remote, branch]);
+        d.out(`Merged ${remote}'s ${branch}.`);
         return 0;
       }
       case "view": {

@@ -91,6 +91,8 @@ function world(
       });
       return { code, lines };
     },
+    deps: async (on) => on.codeHost.listOpen(),
+    pinFaults: () => [],
     git: (args) => git(checkout, ...args),
     claimOf: () => "IC_1",
     committer: { name: "factory[bot]", email: "1+factory[bot]@example.com" },
@@ -249,11 +251,52 @@ describe("a run on a pull request", () => {
     expect(w.out[0]).toContain(why);
   });
 
+  it("is not reviewed while its lock claims what no preset holds", async () => {
+    const sha = pushed("12-work");
+    const w = world({ pulls: [pull(sha)] });
+    w.d.pinFaults = (commit) => (commit === sha ? ["a forged pin"] : []);
+    await expect(prepare("review", "31", w.d)).rejects.toThrow("a forged pin");
+  });
+
   it("starts no session when the branch moves while it starts", async () => {
     pushed("12-work");
     const w = world({ pulls: [pull("e".repeat(40))] });
     expect(await prepare("review", "31", w.d)).toBeNull();
     expect(w.out[0]).toContain("moved on");
+  });
+
+  it("is handed, for a conflict, the pull requests merged since its branch left", async () => {
+    const sha = pushed("12-work");
+    git(
+      checkout,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Change a thing (#29)",
+    );
+    git(checkout, "push", "-q", "origin", "trunk");
+    const w = world({
+      pulls: [
+        pull(sha),
+        { number: 29, title: "Change a thing", state: "closed" },
+        { number: 28, state: "closed" },
+      ],
+    });
+
+    await prepare("conflict", "31", w.d);
+
+    const session = replaying("codeHost", w.d.codeHost, handedCalls());
+    expect((await session.get(29)).title).toBe("Change a thing");
+    await expect(session.get(28)).rejects.toThrow("was not handed");
+  });
+
+  it("is handed, for a dependency, the pull requests the queue is read from", async () => {
+    const sha = pushed("12-work");
+    const w = world({ pulls: [pull(sha)] });
+    await prepare("dependency", "31", w.d);
+    const session = replaying("codeHost", w.d.codeHost, handedCalls());
+    expect(await session.listOpen()).toHaveLength(1);
   });
 
   it("does not take a review's summary from anyone but the review", async () => {

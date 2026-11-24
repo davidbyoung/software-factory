@@ -142,6 +142,7 @@ export function replaying<K extends On>(
     if (c.on === on) found.set(keyOf(on, c.call, c.args), c);
   return wrapped(real, (call, method) => {
     if (PURE[on].has(call)) return method;
+    if (on === "codeHost" && call === "gitToken") return () => null;
     return async (...args: unknown[]) => {
       const known = given(args);
       const hit = found.get(keyOf(on, call, known));

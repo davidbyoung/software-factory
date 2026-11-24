@@ -42,6 +42,14 @@ export type Runner = {
   /** Starts a session that answers what a pull request's checks or review
    * found, with the jobs the branch has. */
   startAnswer(pull: number, branch: string): Promise<void>;
+  /** Starts a session of another kind on a pull request. */
+  startOn(
+    kind: "conflict" | "dependency",
+    pull: number,
+    branch: string,
+  ): Promise<void>;
+  /** The account a run's own sign-in posts as. */
+  poster: string;
   /** How many times `startAnswer` has started one for the pull request,
    * which was opened at `since`. */
   answersTo(pull: number, since: string): Promise<number>;
@@ -66,9 +74,6 @@ export type Runner = {
   /** Has the review of a commit run again, and answers false when none
    * has run on it. */
   reviewAgain(sha: string): Promise<boolean>;
-  /** How the review ended in one run of the jobs a pull request starts,
-   * whatever the run's other jobs did: `skipped` when it did not run. */
-  reviewConclusion(run: number): Promise<string>;
   /** The jobs that failed in one run, each with its log. Which runs count
    * is the caller's: `factory pr failed` takes those `wait-checks` waits on. */
   failedJobs(run: number): Promise<FailedJob[]>;
