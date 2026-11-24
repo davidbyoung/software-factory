@@ -890,6 +890,26 @@ describe("factory init, repository rules", () => {
   });
 });
 
+describe("factory init, what CI's own token may do", () => {
+  const LEFT =
+    "Set CI's own token to read, since code in a pull request could pass \"Review verdict\" with it: your repository's Settings, Actions, General, Workflow permissions. A workflow of yours that writes then says so under its own permissions";
+  const answers = (parts: string[]) => ({
+    checkbox: [parts],
+    confirm: [true],
+    secret: [AGENT],
+  });
+
+  it.each([
+    ["is left to do where it can write", ["review"], true, true],
+    ["is nothing to do where it can read", ["review"], false, false],
+    ["is nothing to do with the review off", [], true, false],
+  ])("%s", async (_, parts, jobsMayWrite, left) => {
+    const r = init({ jobsMayWrite, answers: answers(parts) });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n").includes(LEFT)).toBe(left);
+  });
+});
+
 describe("factory init, the events the factory's workflow starts on", () => {
   const ROW =
     '  policy        Let .github/workflows/factory.yml run on pull_request_target, as the policy "Software factory"';

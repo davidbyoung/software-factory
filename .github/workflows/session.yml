@@ -178,6 +178,13 @@ jobs:
           overwrite: true
           retention-days: 1
 
+      # No later job releases a ticket that was not handed on.
+      - name: Release the ticket
+        if: (failure() || cancelled()) && inputs.kind == 'build' && steps.gate.outputs.ran == 'true'
+        env:
+          ID: ${{ inputs.id }}
+        run: factory ticket end "$ID"
+
   session:
     name: Session
     needs: prepare
@@ -191,6 +198,9 @@ jobs:
     cache-mode: none
     env:
       FACTORY_RUN: ${{ github.workspace }}
+      # A file Git LFS holds stays its pointer: there is no sign-in here to
+      # fetch it with, and a branch may name any server to fetch it from.
+      GIT_LFS_SKIP_SMUDGE: "1"
     steps:
       # GitHub does not always list an artifact as soon as it has it.
       - name: Take what was handed over
@@ -287,8 +297,13 @@ jobs:
       # user namespace only with a profile that says so
       # (https://code.claude.com/docs/en/sandboxing). The distribution's own
       # profile for it does not, so it goes first.
+      #
+      # Docker is stopped, since whoever reaches its socket is outside the
+      # sandbox.
       - name: Set up the sandbox
         run: |
+          sudo systemctl stop docker.socket docker.service containerd.service || true
+          sudo rm -f /run/docker.sock /run/containerd/containerd.sock
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends bubblewrap socat ripgrep > /dev/null
           for profile in /etc/apparmor.d/*bwrap*; do
@@ -375,7 +390,20 @@ jobs:
           path: ${{ runner.temp }}/factory/in
 
       - name: Take what the session left
+        id: left
         if: needs.session.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: out-${{ inputs.kind }}
+          path: ${{ runner.temp }}/factory/out
+
+      - name: Wait for it to be listed
+        if: steps.left.outcome == 'failure'
+        run: sleep 20
+
+      - name: Take what the session left again
+        if: steps.left.outcome == 'failure'
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
@@ -394,7 +422,9 @@ jobs:
 
       - name: Sign in
         id: app
-        if: inputs.kind != 'review' || steps.record.outputs.next == 'true'
+        if: >-
+          (success() && (inputs.kind != 'review' || steps.record.outputs.next == 'true')) ||
+          (!success() && inputs.kind == 'build')
         env:
           FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
           FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
@@ -426,3 +456,11 @@ jobs:
           FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           CONCLUSION: ${{ needs.session.result }}
         run: factory session publish
+
+      # Whatever happened above. It keeps the claim of a ticket whose pull
+      # request is open.
+      - name: Release the ticket
+        if: always() && inputs.kind == 'build' && steps.app.outputs.signed == 'true'
+        env:
+          ID: ${{ inputs.id }}
+        run: factory ticket end "$ID"

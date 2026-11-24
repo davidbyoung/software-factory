@@ -215,6 +215,8 @@ export type Setup = {
   signingNeedsScope?: boolean;
   rulesRefused?: string;
   eventsHeld?: boolean;
+  /** Whether a job that does not say may write; false unless given. */
+  jobsMayWrite?: boolean;
   eventsRefused?: string;
   createRefused?: string;
   files?: Record<string, string>;
@@ -359,6 +361,7 @@ export function init(setup: Setup) {
     signingNeedsScope: setup.signingNeedsScope,
     rulesRefused: setup.rulesRefused,
     eventsHeld: setup.eventsHeld,
+    jobsMayWrite: setup.jobsMayWrite,
     eventsRefused: setup.eventsRefused,
     isPrivate: setup.private,
     defaultBranch: setup.defaultBranch ?? undefined,

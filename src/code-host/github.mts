@@ -909,6 +909,13 @@ export function githubCodeHost(o: {
         },
       });
     },
+    async jobsMayWrite() {
+      const set = await t.rest<{ default_workflow_permissions: string }>(
+        "GET",
+        `${API}/actions/permissions/workflow`,
+      );
+      return set.default_workflow_permissions !== "read";
+    },
     async eventAllowed(file, event) {
       if ((await t.rest<{ private: boolean }>("GET", API)).private)
         return "open";

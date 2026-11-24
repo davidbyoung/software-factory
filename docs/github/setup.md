@@ -344,6 +344,7 @@ request's line. Otherwise it says what is left:
 | You chose "Signed commits on the factory's updates", and it could not add the key  | Add the public key it prints to the GitHub account that made the access token you pasted: Settings, "SSH and GPG keys", "New SSH key", key type "Signing Key"                                                                                                                                                                                            |
 | You chose "Pull requests that merge themselves", and it could not allow auto-merge | An admin of the repository allows it: Settings, General, "Allow auto-merge"                                                                                                                                                                                                                                                                              |
 | The repository is public, and it could not add the policy                          | Let `.github/workflows/factory.yml` run on `pull_request_target`, in your repository's Settings, Actions, Policies. [By hand](by-hand.md#a-public-repository) has each field                                                                                                                                                                             |
+| CI's own token can write, and the review is on                                     | Set it to read: Settings, Actions, General, Workflow permissions. Code in a pull request could pass "Review verdict" with it. A workflow of yours that writes then says so under its own `permissions`                                                                                                                                                   |
 | GitHub refused the push or the pull request                                        | Push the branch `set-up-factory`, where init left its commit, if it is not pushed, and open the pull request yourself                                                                                                                                                                                                                                    |
 
 ## Optional: tune it
@@ -400,8 +401,8 @@ version your repository names and whether a newer one is released, each
 [preset](../presets.md)'s pin, who the GitHub CLI is signed in as, that
 each secret your parts read is set, those for
 [private npm packages](#private-npm-packages), the board's columns, and,
-with the review on, whether "Review verdict" is required before a merge
-to your default branch, here `main`:
+with the review on, that CI's own token can only read, and whether "Review
+verdict" is required before a merge to your default branch, here `main`:
 
 ```text
 ✓ "Review verdict" is required before a merge to main

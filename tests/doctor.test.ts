@@ -86,6 +86,8 @@ function doctor(o: {
   /** Whether the code host holds a workflow's events back, as GitHub does
    * in a public repository. */
   eventsHeld?: boolean;
+  /** Whether a job that does not say may write; false unless given. */
+  jobsMayWrite?: boolean;
   columns?: string[];
   files?: Record<string, string>;
   paint?: Paint;
@@ -136,6 +138,7 @@ function doctor(o: {
         owner: "dave",
         ownerIsOrganization: o.organization,
         eventsHeld: o.eventsHeld,
+        jobsMayWrite: o.jobsMayWrite,
         secretsWithheldBy: o.secretsWithheldBy,
         noRules: o.noRules,
         ownerRules:
@@ -341,6 +344,38 @@ describe("factory doctor, the rule that requires the review's verdict", () => {
   });
 });
 
+describe("factory doctor, what CI's own token may do", () => {
+  const on = {
+    raw: { "pr-review": null },
+    secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+  };
+
+  it("fails, saying where to set it, where it can write", async () => {
+    const { run, printed } = doctor({ ...on, jobsMayWrite: true });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(
+      `✗ CI's own token can write, so code in a pull request could pass "Review verdict": set it to read, in your repository's Settings, Actions, General, Workflow permissions`,
+    );
+  });
+
+  it("says it could not tell, and fails nothing, when it cannot be read", async () => {
+    const { run, printed } = doctor({
+      ...on,
+      codeHostFails: { jobsMayWrite: new Error("HTTP 403") },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      "? Could not tell what CI's own token may do: HTTP 403",
+    );
+  });
+
+  it("is not read with the review off, when there is no verdict to pass", async () => {
+    const { run, printed } = doctor({ jobsMayWrite: true });
+    expect(await run()).toBe(0);
+    expect(printed.join("\n")).not.toContain("CI's own token");
+  });
+});
+
 describe("factory doctor, the events the factory's workflow starts on", () => {
   const LINE =
     "pull_request_target is not allowed for .github/workflows/factory.yml, so GitHub runs no verdict, merge policy, or board sync on a pull request";
@@ -424,6 +459,7 @@ describe("factory doctor", () => {
       "GitHub",
       "  ✓ Signed in as dave",
       '  ✓ "Review verdict" is required before a merge to main',
+      "  ✓ CI's own token can only read, unless a workflow says more",
       "",
       "GitHub Actions",
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request and builds in the cloud",

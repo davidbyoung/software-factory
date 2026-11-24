@@ -261,6 +261,9 @@ function valueOf(expression: string, context: Record<string, unknown>) {
         return Array.isArray(args[0])
           ? args[0].includes(args[1])
           : String(args[0]).includes(String(args[1]));
+      // Read as in a job where every step so far has passed.
+      if (token === "success" || token === "always") return true;
+      if (token === "failure" || token === "cancelled") return false;
       throw new Error(`no function ${token}`);
     }
     return (
@@ -790,7 +793,16 @@ describe("the job that prepares a session", () => {
       "Name the committer",
       "Hand over what the session works from",
       "Hand it to the session",
+      "Release the ticket",
     ]);
+  });
+
+  it("releases the ticket of a build that fails or is canceled here", () => {
+    const release = step(prepareJob, "Release the ticket");
+    expect(release.run).toBe('factory ticket end "$ID"');
+    expect(release.if).toBe(
+      "(failure() || cancelled()) && inputs.kind == 'build' && steps.gate.outputs.ran == 'true'",
+    );
   });
 
   it("checks out the default branch with full history", () => {
@@ -812,7 +824,10 @@ describe("the job that prepares a session", () => {
       ID: "${{ inputs.id }}",
       REVIEW: "${{ inputs.review }}",
     });
-    const after = prepareJob.steps!.slice(prepareJob.steps!.indexOf(gate) + 1);
+    const after = prepareJob.steps!.slice(
+      prepareJob.steps!.indexOf(gate) + 1,
+      -1,
+    );
     expect(after.map((s) => s.if)).toEqual([
       ...Array(3).fill("steps.gate.outputs.ran == 'true'"),
       "steps.prepare.outputs.ran == 'true'",
@@ -1079,11 +1094,33 @@ describe("the job that publishes what a session left", () => {
       "Name the run's folder",
       "Take what was handed over",
       "Take what the session left",
+      "Wait for it to be listed",
+      "Take what the session left again",
       "Record the review",
       "Sign in",
       "Start the next answer",
       "Publish what the session left",
+      "Release the ticket",
     ]);
+  });
+
+  it("looks again for what the session left, as the session's job does", () => {
+    const first = step(publishJob, "Take what the session left");
+    const again = step(publishJob, "Take what the session left again");
+    expect(again.with).toEqual(first.with);
+    expect(again.if).toBe("steps.left.outcome == 'failure'");
+    expect(again["continue-on-error"]).toBe(true);
+  });
+
+  it("releases a build's ticket whatever happened before, signing in for it when it has to", () => {
+    const release = step(publishJob, "Release the ticket");
+    expect(release.run).toBe('factory ticket end "$ID"');
+    expect(release.if).toBe(
+      "always() && inputs.kind == 'build' && steps.app.outputs.signed == 'true'",
+    );
+    expect(step(publishJob, "Sign in").if).toContain(
+      "(!success() && inputs.kind == 'build')",
+    );
   });
 
   it("runs whatever the session did, once something was handed over, so a build's claim is always released", () => {
@@ -1105,6 +1142,7 @@ describe("the job that publishes what a session left", () => {
       publishJob
         .steps!.filter(
           (s) =>
+            s.name !== "Release the ticket" &&
             s.if?.includes("inputs.kind") &&
             evaluate(s.if, {
               inputs: { kind },
@@ -1260,12 +1298,26 @@ describe("the five jobs that run a session", () => {
     expect(given("review", {}, { pr: "31" })).toBe("");
   });
 
-  it("reviews a pull request's newest push alone, and sets no limit on a build or an answer", () => {
+  it("works each pull request's conflict, its dependency, and each answer once at a time, and cancels none", () => {
+    for (const [job, group] of [
+      ["conflict", "factory-conflict-${{ inputs.pr }}"],
+      ["dependency", "factory-dependency-${{ inputs.pr }}"],
+      [
+        "answer",
+        "factory-answer-${{ inputs.pr || github.event.pull_request.number }}-${{ github.event.review.id || inputs.review }}",
+      ],
+    ])
+      expect(run.jobs[job]!.concurrency, job).toEqual({
+        group,
+        "cancel-in-progress": false,
+      });
+  });
+
+  it("reviews a pull request's newest push alone, and sets no limit on a build", () => {
     expect(run.jobs.review!.concurrency).toEqual({
       group: "factory-review-${{ github.event.pull_request.number }}",
       "cancel-in-progress": true,
     });
-    expect(run.jobs.answer!.concurrency).toBeUndefined();
     expect(run.jobs.build!.concurrency).toBeUndefined();
   });
 

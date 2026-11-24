@@ -45,7 +45,12 @@ import {
   type Settings,
 } from "./config.mts";
 import { colorOn, painter, type Paint } from "./lib/color.mts";
-import { checks as doctorChecks, doctorDeps, printChecks } from "./doctor.mts";
+import {
+  checks as doctorChecks,
+  doctorDeps,
+  JOBS_SETTING,
+  printChecks,
+} from "./doctor.mts";
 import {
   branchDeps,
   needDefaultBranch,
@@ -2326,6 +2331,10 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   else if (!pull) d.out(NOT_COMMITTED);
   const left: string[] = installFailed ? [installFailed] : [];
   if (eventsLeft) left.push(eventsLeft);
+  if (parts.has("review") && (await codeHost.jobsMayWrite().catch(() => false)))
+    left.push(
+      `Set CI's own token to read, since code in a pull request could pass "${REVIEW_VERDICT}" with it: ${JOBS_SETTING}. A workflow of yours that writes then says so under its own permissions`,
+    );
   if (autoMergeLeft) left.push(autoMergeLeft);
   if (
     parts.has("from-board") &&

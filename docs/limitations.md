@@ -162,8 +162,8 @@ as a code host's billing or what its workflows can see, are in
   your machine.** A build in the cloud that could push one could read your
   repository's secrets
   ([A change to a workflow file](builds.md#a-change-to-a-workflow-file)).
-- **No Docker in a cloud session, and a browser needs `--no-sandbox`**
-  ([What a session can use](builds.md#what-a-session-can-use)).
+- **No Docker and no Git LFS files in a cloud session, and a browser needs
+  `--no-sandbox`** ([What a session can use](builds.md#what-a-session-can-use)).
 - **A cloud session reaches only the npm registry and the hosts under
   [`builds.hosts`](configuration.md#builds).** It has no web search, and
   it can't reach your code host at all. So a package your code host
@@ -210,11 +210,9 @@ as a code host's billing or what its workflows can see, are in
 - **A board owned by an organization.** It is read the same way as a
   person's, and `factory init --org` has given one its columns, but the
   board sync and the poller have only run against a person's.
-- **The factory's own skills in a cloud run, end to end.** A real Claude
-  session has built, reviewed, and answered tiny tickets as the three jobs
-  in a scratch repository, with a short prompt of its own in place of the
-  skills.
-- **A Conflict run and a Dependency run,** with a real session.
+- **A cloud run on a ticket of any size.** Each of the five kinds has run
+  with a real session and the factory's own skills, in a small scratch
+  repository of an organization.
 - **A cloud run of hours,** such as one that waits out a token.
 - **A determined attacker.** Known ways to steal the agent's credential and
   the job's own token were tried against the sandbox and failed, and a pull
@@ -231,9 +229,8 @@ as a code host's billing or what its workflows can see, are in
   command-line tool in with such a token, and a push and a pull request
   made through that sign-in; and `factory enroll`, with the
   organization's property and without it. These have not: the
-  organization-wide rule, which needs GitHub's Team plan; the poller in
-  `factory-config`, which needs a release of the factory to call; and a
-  whole cloud build as the app.
+  organization-wide rule, which needs GitHub's Team plan; and the poller in
+  `factory-config`, which needs a release of the factory to call.
 - **Whether `claude setup-token` ends the coding agent's own sign-in.**
   Once, Claude Code's sign-in on the machine expired within an hour of
   `claude setup-token`, which both setup commands run when a

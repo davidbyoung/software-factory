@@ -95,6 +95,8 @@ export type MemoryCodeHostOptions = {
   /** Whether the code host holds a workflow's events back until a policy
    * lets them through, as for a repository anyone can read. */
   eventsHeld?: boolean;
+  /** Whether a job that does not say may write; false unless given. */
+  jobsMayWrite?: boolean;
   /** Why letting a workflow start on its events fails. */
   eventsRefused?: string;
   /** The newest release's tag, by repository. */
@@ -570,6 +572,10 @@ export function memoryCodeHost(
         );
       if (options.propertyRefused) throw new Error(options.propertyRefused);
       settings.properties[name] = value;
+    },
+    async jobsMayWrite() {
+      called("jobsMayWrite");
+      return options.jobsMayWrite ?? false;
     },
     async eventAllowed(file, event) {
       called("eventAllowed", file, event);

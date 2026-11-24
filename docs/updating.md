@@ -574,7 +574,7 @@ change. Three things differ:
 - **A build's commits are not signed,** where they were. A rule that requires
   signed commits stops its pull requests from merging.
 - **A session reaches only the npm registry** unless you list more under
-  [`builds.hosts`](configuration.md#builds), and Docker does not run in it
+  [`builds.hosts`](configuration.md#builds), and neither Docker nor Git LFS works in it
   ([What a session can use](builds.md#what-a-session-can-use)).
 
 **It worked when** the next pull request you mark ready gets a review.

@@ -94,6 +94,12 @@ hijacked session could still:
   closes its own ticket. Your CI then runs that code, with whatever
   secrets your own CI gives a branch, so give CI no secret you would not
   give a session.
+- **Pass its own review, where your CI's own token can write.** That token
+  is the account the verdict is trusted from, and the code in a pull request
+  runs beside it. GitHub's default is read for a new repository and can be
+  write for an older one, so `factory doctor` checks it. A workflow of yours
+  that runs a pull request's code should say no more than
+  `permissions: contents: read`.
 - **Write text** as the account the run acts as: in the ticket's body, in
   comments on the ticket and the pull request, in replies, in a follow-up
   line, and, from a Conflict or a Dependency run, in a new ticket. It

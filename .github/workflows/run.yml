@@ -565,6 +565,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' &&
        (inputs.job == 'answer' || inputs.job == 'review'))
     uses: ./.github/workflows/session.yml
+    concurrency:
+      group: factory-answer-${{ inputs.pr || github.event.pull_request.number }}-${{ github.event.review.id || inputs.review }}
+      cancel-in-progress: false
     permissions: *session-permissions
     with:
       kind: answer
@@ -635,6 +638,9 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.job == 'conflict'
     uses: ./.github/workflows/session.yml
+    concurrency:
+      group: factory-conflict-${{ inputs.pr }}
+      cancel-in-progress: false
     permissions: *session-permissions
     with:
       kind: conflict
@@ -666,6 +672,9 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.job == 'dependency'
     uses: ./.github/workflows/session.yml
+    concurrency:
+      group: factory-dependency-${{ inputs.pr }}
+      cancel-in-progress: false
     permissions: *session-permissions
     with:
       kind: dependency

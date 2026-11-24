@@ -290,6 +290,9 @@ export type CodeHost = {
   /** Lets one workflow file start on these events, and only these, as a
    * policy named `rule`. One of that name already there is rewritten. */
   allowEvents(rule: string, file: string, events: string[]): Promise<void>;
+  /** Whether a job that says nothing of what its own sign-in may do may
+   * write to the repository. */
+  jobsMayWrite(): Promise<boolean>;
   /** Adds a public key to the signed-in account, to sign commits with.
    * Rejects with NeedsScopeError when the sign-in lacks the permission. */
   addSigningKey(title: string, publicKey: string): Promise<void>;

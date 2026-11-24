@@ -514,6 +514,21 @@ describe("the code host's setup operations, on GitHub", () => {
       "admin:ssh_signing_key",
     ]);
   });
+
+  describe("what a job that says nothing may do", () => {
+    it.each([
+      ["write", true],
+      ["read", false],
+    ])("is %s by the repository's default: %s", async (set, may) => {
+      const { host: h } = host([
+        [
+          /^api repos\/acme\/site\/actions\/permissions\/workflow$/,
+          { default_workflow_permissions: set },
+        ],
+      ]);
+      expect(await h.jobsMayWrite()).toBe(may);
+    });
+  });
 });
 
 describe("the board's setup operations, on GitHub", () => {

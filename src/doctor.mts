@@ -210,10 +210,11 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     ),
   );
   if (s.prReview)
-    out.push({
-      ...(await verdictCheck(opened.codeHost, opened.runner, s.repository)),
-      group: codeHost!.label,
-    });
+    for (const check of [
+      await verdictCheck(opened.codeHost, opened.runner, s.repository),
+      await jobsCheck(opened.codeHost),
+    ])
+      out.push({ ...check, group: codeHost!.label });
 
   // A secret the organization shares with the repository counts as set.
   const isOrganization = await opened.codeHost
@@ -364,6 +365,32 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     .map((c, i) => [c, i] as const)
     .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
     .map(([c]) => c);
+}
+
+/** Where what a job may do by default is set. */
+export const JOBS_SETTING =
+  "your repository's Settings, Actions, General, Workflow permissions";
+
+/** Whether CI's own sign-in, which the code in a pull request runs beside,
+ * can do no more than read: one that writes can post the review's verdict. */
+async function jobsCheck(codeHost: CodeHost): Promise<Check> {
+  try {
+    return (await codeHost.jobsMayWrite())
+      ? {
+          state: "fail",
+          text: `CI's own token can write, so code in a pull request could pass "${REVIEW_VERDICT}"`,
+          fix: `set it to read, in ${JOBS_SETTING}`,
+        }
+      : {
+          state: "pass",
+          text: "CI's own token can only read, unless a workflow says more",
+        };
+  } catch (e) {
+    return {
+      state: "unknown",
+      text: `Could not tell what CI's own token may do: ${reasonOf(e)}`,
+    };
+  }
 }
 
 /** Whether the rules the code host applies to the default branch, the

@@ -163,7 +163,8 @@ short list of them, and only on the run's own ticket and pull request:
 
 - Comment on the ticket or the pull request, edit the ticket, and stop or
   end the work on it.
-- Open one draft pull request, from a build.
+- Open one draft pull request, from a build. It and the commits may link
+  only the run's own ticket, in any wording that would close one.
 - Reply to and resolve the pull request's review threads, and ask for its
   review again.
 - Add a line to the [follow-ups ticket](workflow.md#follow-ups), and, from
@@ -179,7 +180,8 @@ it, with the reason. A `factory` command that reads something Prepare did not ha
 **After it pushes, Publish waits for CI,** for up to an hour, and says on
 the pull request when CI has not finished by then. When CI passes, it marks
 a draft ready, which starts the review, unless the session opened it with
-`factory pr open --draft` for you to mark ready yourself. When CI fails, or the review asks
+`factory pr open --draft` for you to mark ready yourself, or no build in the
+cloud opened it. When CI fails, or the review asks
 for changes, the next answer starts by itself, if a build in the cloud
 opened the pull request. Two reviews that asked for changes are answered
 ([`rules.review-rounds`](configuration.md#rules)), and a pull request gets at most four answers started this way. Then Publish
@@ -215,9 +217,11 @@ Build this ticket on your computer: tell a session to work it. The commits are i
 
 On your computer that is `/factory-build 12` in a session. The run's page
 keeps the commits for seven days, as the artifact whose
-name starts with `out-`. For the same reason Publish refuses commits that
-add a symbolic link or a submodule, merge anything but your default branch,
-or close another ticket in their message.
+name starts with `out-`. Publish also refuses commits that add a symbolic
+link or a submodule, merge anything but your default branch, are in another
+person's name, or whose message closes another ticket or keeps CI from
+running, and a build that asks for no pull request. Nothing else the session
+asked for is done then but a stop and a follow-up.
 
 ### What a session can use
 
@@ -237,6 +241,8 @@ or close another ticket in their message.
 
   It worked when your gate passes in a build.
 
+- **Git LFS files are pointers.** There is no sign-in to fetch them with, so
+  a gate that reads one fails.
 - **Docker does not run there.** A gate or a test that starts a container
   fails, so that ticket is built on your machine.
 - **A browser needs a flag.** Chromium can't start its own sandbox inside
