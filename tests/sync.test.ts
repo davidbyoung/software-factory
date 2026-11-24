@@ -1,4 +1,5 @@
 import type { Settings } from "../src/config.mts";
+import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -192,6 +193,7 @@ describe("factory sync", () => {
           }),
         ],
       }),
+      expect.objectContaining({ matcher: "Read|Grep|Glob" }),
     ]);
 
     expect(hooks.PermissionRequest).toEqual([
@@ -459,7 +461,7 @@ describe("factory sync", () => {
 
     const written = JSON.parse(read(".claude/settings.json")!);
     expect(written.model).toBe("x");
-    expect(written.hooks.PreToolUse).toHaveLength(2);
+    expect(written.hooks.PreToolUse).toHaveLength(3);
     expect(written.hooks.PreToolUse[0]).toEqual({
       matcher: "Edit",
       hooks: [own],
@@ -974,17 +976,21 @@ describe("launcherPath", () => {
 describe("factoryHooks", () => {
   const MISSING =
     "The factory is not installed on this machine. Install it once: npm install -g @o/factory";
-  const commands = (launcher: string | null, credentials = false) =>
-    factoryHooks(launcher, credentials, "@o/factory").map(
+  const commands = (launcher: string | null) =>
+    factoryHooks(launcher, "@o/factory").map(
       ([event, group]) => `${event}: ${group.hooks[0].command}`,
     );
+  /** What the hook on the credentials file runs before the guard: nothing
+   * more is started for a call whose input does not name the file. */
+  const NAMED =
+    'input=$(cat); case "$input" in *software-factory/credentials*) ;; *) exit 0 ;; esac; printf \'%s\' "$input" |';
 
   it("runs the machine's factory, and stops a command or a file read where there is none", () => {
-    const guard = `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; factory`;
-    expect(commands(null, true)).toEqual([
+    const installed = `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; };`;
+    expect(commands(null)).toEqual([
       `SessionStart: command -v factory >/dev/null 2>&1 || { echo "${MISSING}"; exit 0; }; factory session-start`,
-      `PreToolUse: ${guard} guard`,
-      `PreToolUse: ${guard} guard credentials`,
+      `PreToolUse: ${installed} factory guard`,
+      `PreToolUse: ${installed} ${NAMED} factory guard credentials`,
       "PermissionRequest: command -v factory >/dev/null 2>&1 || exit 0; factory guard permission",
       "SubagentStart: factory reviewers start 2>/dev/null || true",
       "SubagentStop: factory reviewers stop 2>/dev/null || true",
@@ -995,16 +1001,86 @@ describe("factoryHooks", () => {
     expect(commands("bin/factory.js")).toEqual([
       'SessionStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js session-start',
       'PreToolUse: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard',
+      `PreToolUse: ${NAMED} node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard credentials`,
       'PermissionRequest: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard permission',
       'SubagentStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers start 2>/dev/null || true',
       'SubagentStop: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers stop 2>/dev/null || true',
     ]);
   });
 
+  describe("the hook on the credentials file, run by sh", () => {
+    const [, group] = factoryHooks(null, "@o/factory").find(
+      ([, g]) => g.matcher === "Read|Grep|Glob",
+    ) ?? [null, { hooks: [{ command: "exit 99" }] }];
+    const FILE = "/home/dana/.config/software-factory/credentials.yaml";
+    let box = "";
+    afterEach(() => rmSync(box, { recursive: true, force: true }));
+
+    /** The command run on a hook's input. With `installed`, the `factory`
+     * on the PATH notes that it was started, then runs the real one. */
+    const run = (
+      tool_name: string,
+      tool_input: Record<string, string>,
+      installed = true,
+    ) => {
+      box = mkdtempSync(join(tmpdir(), "factory-hook-"));
+      const started = join(box, "started");
+      if (installed)
+        writeFileSync(
+          join(box, "factory"),
+          `#!/bin/sh\necho "$*" >> "${started}"\nexec "${process.execPath}" "${join(import.meta.dirname, "..", "bin", "factory.js")}" "$@"\n`,
+          { mode: 0o755 },
+        );
+      const r = spawnSync("/bin/sh", ["-c", group.hooks[0]!.command], {
+        input: JSON.stringify({ tool_name, tool_input }),
+        encoding: "utf8",
+        env: { PATH: installed ? `${box}:${process.env.PATH}` : box },
+      });
+      return {
+        status: r.status,
+        stderr: r.stderr.trim(),
+        started: existsSync(started)
+          ? readFileSync(started, "utf8").trim().split("\n")
+          : [],
+      };
+    };
+
+    it("reaches the guard, which refuses the call, when the input opens the file", () => {
+      expect(run("Read", { file_path: FILE })).toEqual({
+        status: 2,
+        stderr:
+          "The factory's credentials file is not for sessions to read. Its commands read it themselves: run the factory command you need, such as factory ticket view.",
+        started: ["guard credentials"],
+      });
+    });
+
+    it("starts no factory for a call that does not name the file", () => {
+      expect(run("Read", { file_path: "/home/dana/site/README.md" })).toEqual({
+        status: 0,
+        stderr: "",
+        started: [],
+      });
+    });
+
+    it("reaches the guard, which lets the call through, when a search only mentions the path in its pattern", () => {
+      expect(run("Grep", { pattern: FILE, path: "docs" })).toEqual({
+        status: 0,
+        stderr: "",
+        started: ["guard credentials"],
+      });
+    });
+
+    it("stops every call, saying how to install the factory, on a machine without it", () => {
+      expect(
+        run("Read", { file_path: "/home/dana/site/README.md" }, false),
+      ).toEqual({ status: 2, stderr: MISSING, started: [] });
+    });
+  });
+
   it("replaces an entry an earlier release wrote, which ran a copy in node_modules", () => {
     const old = withHooks(null, "node_modules/@o/factory/bin/factory.js");
-    const now = JSON.parse(withHooks(old, null, false, "@o/factory"));
-    expect(now.hooks.PreToolUse).toHaveLength(1);
+    const now = JSON.parse(withHooks(old, null, "@o/factory"));
+    expect(now.hooks.PreToolUse).toHaveLength(2);
     expect(now.hooks.PreToolUse[0].hooks[0].command).toMatch(
       /; factory guard$/,
     );
@@ -1012,6 +1088,31 @@ describe("factoryHooks", () => {
     expect(withoutHooks(JSON.stringify(now))).toBe(
       `${JSON.stringify({ attribution: now.attribution }, null, 2)}\n`,
     );
+  });
+
+  it("replaces the guard on the credentials file as an earlier release wrote it, and writes it once", () => {
+    const earlier = {
+      matcher: "Read|Grep|Glob",
+      hooks: [
+        {
+          type: "command",
+          command: `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; factory guard credentials`,
+        },
+      ],
+    };
+    const once = withHooks(
+      JSON.stringify({ hooks: { PreToolUse: [earlier] } }),
+      null,
+      "@o/factory",
+    );
+    const guards = (text: string) =>
+      (JSON.parse(text).hooks.PreToolUse as (typeof earlier)[])
+        .filter((g) => g.matcher === "Read|Grep|Glob")
+        .map((g) => g.hooks[0]!.command);
+    expect(guards(once)).toEqual([
+      expect.stringMatching(/\| factory guard credentials$/),
+    ]);
+    expect(withHooks(once, null, "@o/factory")).toBe(once);
   });
 
   it("leaves a hook of the repository's own that only mentions a factory", () => {
@@ -1110,17 +1211,17 @@ describe("factory sync: the ticket system in the workflow files", () => {
       >;
     };
 
-  it("adds the guard on the credentials file for reading, searching, and listing files when the ticket system keeps one on the machine", async () => {
-    const groups = (await settingsJson(withCredential)).hooks.PreToolUse!;
-    expect(groups.map((g) => g.matcher)).toEqual(["Bash", "Read|Grep|Glob"]);
-    expect(groups[1]!.hooks[0]!.command).toMatch(/ guard credentials$/);
-  });
-
-  it("adds no such guard with GitHub's tickets", async () => {
-    expect(
-      (await settingsJson()).hooks.PreToolUse!.map((g) => g.matcher),
-    ).toEqual(["Bash"]);
-  });
+  it.each<[string, typeof withCredential | undefined]>([
+    ["GitHub's tickets", undefined],
+    ["a ticket system that keeps a credential on the machine", withCredential],
+  ])(
+    "guards the credentials file for reading, searching, and listing files with %s",
+    async (_, systems) => {
+      const groups = (await settingsJson(systems)).hooks.PreToolUse!;
+      expect(groups.map((g) => g.matcher)).toEqual(["Bash", "Read|Grep|Glob"]);
+      expect(groups[1]!.hooks[0]!.command).toMatch(/ guard credentials$/);
+    },
+  );
 });
 
 describe("the board part", () => {

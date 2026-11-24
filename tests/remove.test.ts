@@ -402,7 +402,7 @@ describe("factory remove", () => {
   });
 
   it("takes out the guard on the credentials file with the other hooks", async () => {
-    const onlyFactory = JSON.parse(withHooks(null, LAUNCHER, true));
+    const onlyFactory = JSON.parse(withHooks(null, LAUNCHER));
     delete onlyFactory.attribution;
     expect(JSON.stringify(onlyFactory)).toContain("guard credentials");
     const r = remove({

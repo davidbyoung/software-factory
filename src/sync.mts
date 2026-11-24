@@ -261,15 +261,14 @@ type ClaudeSettings = { hooks?: Record<string, HookGroup[]> } & Record<
 export const notInstalled = (name: string) =>
   `The factory is not installed on this machine. Install it once: npm install -g ${name}`;
 
-/** The five hook entries, one per event, and with `credentials` a sixth,
- * the guard on the credentials file for the tools that read, search, and
- * list files. With no `launcher` they run the machine's `factory`, the
- * package `name` installs. Where it is missing, the two guards block the
- * call, since exit 2 is what stops a tool, the session-start hook says so
- * on stdout, which a session shows, and the rest do nothing. */
+/** The hook entries: one per event, and a second before a tool runs, the
+ * guard on the credentials file for the tools that read, search, and list
+ * files. With no `launcher` they run the machine's `factory`, the package
+ * `name` installs. Where it is missing, the two guards block the call,
+ * since exit 2 is what stops a tool, the session-start hook says so on
+ * stdout, which a session shows, and the rest do nothing. */
 export function factoryHooks(
   launcher: string | null,
-  credentials = false,
   name = "",
 ): [string, HookGroup][] {
   const factory = launcher
@@ -279,8 +278,11 @@ export function factoryHooks(
     launcher ? "" : `command -v factory >/dev/null 2>&1 || ${otherwise}; `;
   const say = `echo "${notInstalled(name)}"`;
   const run = (args: string) => `${factory} ${args}`;
-  const guard = (args: string) =>
-    `${unless(`{ ${say} >&2; exit 2; }`)}${factory} ${args}`;
+  const installed = unless(`{ ${say} >&2; exit 2; }`);
+  const guard = (args: string) => `${installed}${factory} ${args}`;
+  // It runs before every file read, search, and listing, so the shell
+  // starts the factory only for an input that holds the file's path.
+  const named = `input=$(cat); case "$input" in *software-factory/credentials*) ;; *) exit 0 ;; esac; printf '%s' "$input" | `;
   return [
     [
       "SessionStart",
@@ -308,23 +310,19 @@ export function factoryHooks(
         ],
       },
     ],
-    ...(credentials
-      ? [
-          [
-            "PreToolUse",
-            {
-              matcher: "Read|Grep|Glob",
-              hooks: [
-                {
-                  type: "command",
-                  command: guard("guard credentials"),
-                  timeout: 30,
-                },
-              ],
-            },
-          ] as [string, HookGroup],
-        ]
-      : []),
+    [
+      "PreToolUse",
+      {
+        matcher: "Read|Grep|Glob",
+        hooks: [
+          {
+            type: "command",
+            command: `${installed}${named}${run("guard credentials")}`,
+            timeout: 30,
+          },
+        ],
+      },
+    ],
     [
       "PermissionRequest",
       {
@@ -387,12 +385,11 @@ const isFactory = (h: HookEntry) =>
 export function withHooks(
   text: string | null,
   launcher: string | null,
-  credentials = false,
   name = "",
 ): string {
   const settings: ClaudeSettings = text ? JSON.parse(text) : {};
   const hooks = othersHooks(settings);
-  for (const [event, group] of factoryHooks(launcher, credentials, name))
+  for (const [event, group] of factoryHooks(launcher, name))
     (hooks[event] ??= []).push(group);
   const attribution = settings.attribution ?? NO_ATTRIBUTION;
   return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
@@ -621,12 +618,7 @@ export async function plan(
   }
   write.set(
     SETTINGS_JSON,
-    withHooks(
-      read(SETTINGS_JSON),
-      launcher,
-      Boolean(credential?.machine),
-      manifest.name,
-    ),
+    withHooks(read(SETTINGS_JSON), launcher, manifest.name),
   );
   write.set(CLAUDE_MD, withImport(read(CLAUDE_MD)));
 
