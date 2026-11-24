@@ -1681,6 +1681,17 @@ describe("factory init, the column step", () => {
         )
         .indexOf(`select: ${question}`)
     ]!;
+  /** A column for each state in turn, then yes to the table: Todo, none,
+   * a new Ready, and the board's own three. */
+  const BY_HAND = [
+    "column:Todo",
+    NONE,
+    ADD,
+    "column:In Progress",
+    "column:Code review",
+    "column:Done",
+    "yes",
+  ];
   const STEP_LINES = [
     "",
     "Board 3 has the columns Todo, In Progress, Code review, and Done.",
@@ -1889,18 +1900,72 @@ describe("factory init, the column step", () => {
       { answer: undefined },
       "it did not answer in the form asked for",
     ],
-  ])("stops before the plan, changing nothing, on %s", async (_n, got, why) => {
-    const r = shop({ agent: scriptedAgent([got]) });
-    expect(await r.run()).toBe(1);
-    expect(r.out.slice(-3)).toEqual([
-      `Claude Code's answer could not be used: ${why}.`,
-      "Run factory init again, or write tickets.columns in .claude/factory.yaml yourself.",
-      "Nothing changed.",
+  ])(
+    "asks for each state's column by hand, in place of stopping, on %s",
+    async (_n, got, why) => {
+      const r = shop({ agent: scriptedAgent([got]), select: BY_HAND });
+      expect(await r.run()).toBe(0);
+      const at = r.out.indexOf(
+        `Claude Code's answer could not be used: ${why}.`,
+      );
+      expect(at).toBeGreaterThan(-1);
+      expect(r.out[at + 1]).toBe("Choose the column for each state yourself.");
+      expect(r.out.join("\n")).not.toMatch(
+        /write tickets\.columns in \.claude\/factory\.yaml yourself|Nothing changed/,
+      );
+      expect(
+        r.asked.filter((q) => q.startsWith("select: Which column shows")),
+      ).toEqual(
+        ["backlog", "refining", "ready", "building", "review", "done"].map(
+          (state) => `select: Which column shows ${state}?`,
+        ),
+      );
+      expect(r.columns()).toEqual({
+        backlog: "Todo",
+        refining: "none",
+        ready: "Ready",
+        building: "In Progress",
+        review: "Code review",
+        done: "Done",
+      });
+    },
+  );
+
+  it("prints and asks the same on the way by hand, from the board's columns to the table", async () => {
+    const r = shop({
+      agent: scriptedAgent([
+        { failed: { code: 1, error: "Invalid API key · Please run /login" } },
+      ]),
+      select: BY_HAND,
+    });
+    expect(await r.run()).toBe(0);
+    const from = r.transcript.indexOf(
+      "Board 3 has the columns Todo, In Progress, Code review, and Done.",
+    );
+    const to = r.transcript.indexOf("? select: Use these columns?");
+    expect(r.transcript.slice(from, to + 1)).toEqual([
+      "Board 3 has the columns Todo, In Progress, Code review, and Done.",
+      "Asking Claude Code which of them shows each of the factory's six states...",
+      "Claude Code's answer could not be used: it failed: Invalid API key · Please run /login.",
+      "Choose the column for each state yourself.",
+      "? select: Which column shows backlog?",
+      "? select: Which column shows refining?",
+      "? select: Which column shows ready?",
+      "? select: Which column shows building?",
+      "? select: Which column shows review?",
+      "? select: Which column shows done?",
+      "",
+      "  State      Column",
+      "  backlog    Todo",
+      "  refining   none, shows in Todo",
+      "  ready      Ready, which init adds",
+      "  building   In Progress",
+      "  review     Code review",
+      "  done       Done",
+      "",
+      "? select: Use these columns?",
     ]);
-    expect(r.asked).not.toContain("confirm: Go ahead?");
-    expect(r.read(".claude/factory.yaml")).toBeNull();
-    expect(r.tickets.boards[0].columns).toEqual(SHOP_COLUMNS);
-    expect(r.tickets.boards[0].fields ?? []).toEqual([]);
+    expect(r.out).toContain("Added to board 3: Ready, Session, Runs in, Cost.");
   });
 
   it.each([
@@ -1985,13 +2050,19 @@ describe("factory init, the column step", () => {
   describe("with builds from the board", () => {
     const FROM_BOARD = ["board", "cloud", "from-board"];
 
-    it("tells the agent ready needs a column, and can't use an answer without one", async () => {
-      const r = shop({ parts: FROM_BOARD, select: ["github-action"] });
-      expect(await r.run()).toBe(1);
+    it("tells the agent ready needs a column, can't use an answer without one, and asks for each state's column by hand", async () => {
+      const r = shop({
+        parts: FROM_BOARD,
+        select: ["github-action", ...BY_HAND],
+      });
+      expect(await r.run()).toBe(0);
       expect(r.agent.asked[0]!.prompt).toContain("ready needs a column");
-      expect(r.out).toContain(
+      const at = r.out.indexOf(
         "Claude Code's answer could not be used: it gave ready no column, and builds start from the board.",
       );
+      expect(at).toBeGreaterThan(-1);
+      expect(r.out[at + 1]).toBe("Choose the column for each state yourself.");
+      expect(r.columns()).toMatchObject({ ready: "Ready" });
     });
 
     it("offers no No column for ready", async () => {

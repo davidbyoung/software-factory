@@ -1672,7 +1672,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
           agent: agent.agent,
           label: agent.label,
         },
-        { board, columns: names, fromBoard },
+        { board, columns: names, fromBoard, byHand: true },
       );
       if (got === 1) return 1;
       columnLines = got;

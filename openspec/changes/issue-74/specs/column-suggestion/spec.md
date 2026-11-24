@@ -9,6 +9,17 @@ The factory SHALL behave as this line says: When `factory init` will use an exis
 - **WHEN** `factory init` will use a board that already exists, the board has at least one column, its Status field lacks a column for at least one of the six states, matched by the factory's own names ignoring capitals, and neither `.claude/factory.yaml` nor a preset the repository follows has `tickets.columns`
 - **THEN** init prints `Board N has the columns A, B, C, and D.`, with the names in board order. Then it suggests a column for each state. This comes after the question of where the poller runs and before the plan.
 
+### Requirement: An answer that can't be used
+
+The factory SHALL behave as this line says: When the answer can't be used, init does not stop: it prints `<label>'s answer could not be used: <reason>.` and `Choose the column for each state yourself.`, asks which column shows each of the six states in turn, and shows the table to accept or change. Nothing is written, and the board is unchanged, until the plan is approved.
+
+#### Scenario: An answer that can't be used
+
+- **WHEN** the answer can't be used
+- **THEN** init prints two lines, and then asks one question for each state, from backlog to done, `Which column shows <state>?`, with the choices the "Change some" answer offers for that state. It then prints the table and asks `Use these columns?`, with `Yes` and `Change some`, and carries on to the plan:
+  - `<label>'s answer could not be used: <reason>.`
+  - `Choose the column for each state yourself.`
+
 ### Requirement: Each reason has its own wording
 
 The factory SHALL behave as this line says: Each reason an answer can't be used has its own wording, and when several apply, the first in the scenario's list is printed. A command that exits non-zero gives what its answer says went wrong, and its error output only when the answer says nothing.
