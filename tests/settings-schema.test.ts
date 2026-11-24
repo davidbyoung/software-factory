@@ -244,6 +244,10 @@ describe("the schema and parseSettings agree on whole files", () => {
       ...base,
       builds: { hosts: ["api.github.com"] },
     },
+    "a host of the machine's own": {
+      ...base,
+      builds: { hosts: ["localhost"] },
+    },
     "a wildcard that covers GitHub": { ...base, builds: { hosts: ["*.com"] } },
     "a value of the wrong type": { ...base, tickets: { board: "one" } },
     "site.widths that is not a list of whole numbers": {

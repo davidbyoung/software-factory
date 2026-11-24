@@ -515,7 +515,6 @@ describe("parseSettings", () => {
 
     it.each([
       "repo.packagist.org",
-      "registry",
       "Repo.Packagist.org",
       "a-b.1c.xn--p1ai",
       "*.example.com",
@@ -539,6 +538,9 @@ describe("parseSettings", () => {
       "-repo.org",
       "repo-.org",
       "repo_one.org",
+      "localhost",
+      "runner",
+      "*.com",
       "10.0.0.1",
       "2130706433",
       "127.0.0.0x1",
@@ -579,8 +581,6 @@ describe("parseSettings", () => {
       "*.github.com",
       "*.pkg.github.com",
       "*.githubusercontent.com",
-      "*.com",
-      "*.COM",
     ])("fails on %s, which is GitHub", (host) => {
       expect(() => hosts(["repo.packagist.org", host])).toThrow(
         new SettingsError(

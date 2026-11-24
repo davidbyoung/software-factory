@@ -490,10 +490,11 @@ function reviewCommands(v: unknown): string[] {
 }
 
 const LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
-/** A host name, or one after `*.`. Its last part starts with a letter, so
- * an IP address, in whatever form a URL reads one, is never a match. */
+/** A host name of two parts or more, or one after `*.`. Its last part starts
+ * with a letter, so an IP address, in whatever form a URL reads one, is
+ * never a match, and a name of one part is the machine's own. */
 const HOST = new RegExp(
-  `^(?=.{1,253}$)(?:\\*\\.)?(?:${LABEL}\\.)*(?=[a-z])${LABEL}$`,
+  `^(?=.{1,253}$)(?:\\*\\.)?(?:${LABEL}\\.)+(?=[a-z])${LABEL}$`,
   "i",
 );
 
