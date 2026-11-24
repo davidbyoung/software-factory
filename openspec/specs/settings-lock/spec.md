@@ -87,15 +87,6 @@ The factory SHALL behave as this line says: When `FACTORY_LOCK` names a file, co
 - **WHEN** `FACTORY_LOCK` names a file
 - **THEN** commands read their settings from that lock and make no stale check.
 
-### Requirement: The review reads the base commit's lock
-
-The factory SHALL behave as this line says: When the automated review lists the tools its review may use, it reads `pr-review.commands` from the base commit's `.claude/factory.lock`, or from the base commit's `.claude/factory.yaml` when that lock has no `settings`.
-
-#### Scenario: The review reads the base commit's lock
-
-- **WHEN** the automated review lists the tools its review may use
-- **THEN** it reads `pr-review.commands` from the base commit's `.claude/factory.lock`, or from the base commit's `.claude/factory.yaml` when that lock has no `settings`.
-
 ### Requirement: A missing lock
 
 The factory SHALL behave as this line says: When `.claude/factory.lock` doesn't exist, the commands of line 4 print `.claude/factory.lock is missing. Run: factory sync` and exit 1.

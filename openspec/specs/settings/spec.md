@@ -131,3 +131,12 @@ The factory SHALL behave as this line says: In `settings.schema.json`, no state 
 
 - **WHEN** `settings.schema.json` describes `tickets.columns`
 - **THEN** no state under `tickets.columns` says `Default:`, and the block's description says that with a board all six states are required, from this file or a preset. The schema doesn't require them, since it reads one file and a preset can supply the block (line 5); the settings check does.
+
+### Requirement: The hosts a session may reach
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The hosts a session may reach
+
+- **WHEN** `.claude/factory.yaml` sets `builds.hosts`
+- **THEN** `builds.hosts` is a list of host names, empty by default, and `github.com` or a host under it is refused: `builds.hosts can't name GitHub: a build has no GitHub access`. A host is a name with a dot in it.

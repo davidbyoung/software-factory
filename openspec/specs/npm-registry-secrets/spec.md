@@ -17,12 +17,12 @@ The factory SHALL behave as this line says: When a line of the `.npmrc` at the r
 
 ### Requirement: The installing jobs get the variable
 
-The factory SHALL behave as this line says: When sync takes a name, `factory.yml` and `factory-review.yml` pass it by name in one more line under `secrets`, and each job that installs has `NAME` in its environment.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The installing jobs get the variable
 
 - **WHEN** sync takes a name
-- **THEN** `factory.yml` and `factory-review.yml` pass it by name in one more line under `secrets`, and each job that installs has `NAME` in its environment.
+- **THEN** `factory.yml` passes it by name in one more line under `secrets`, and each job of it that installs has `NAME` in its environment. `factory-review.yml` passes none.
 
 ### Requirement: The agent's jobs get the variable
 
@@ -35,12 +35,12 @@ The factory SHALL behave as this line says: When sync takes a name, each job tha
 
 ### Requirement: Sync adds only lines
 
-The factory SHALL behave as this line says: With names, each of the two workflow files is what sync writes without names with only the one line under `secrets` added, and line 5's `packages: read`: removing them gives back, byte for byte, what sync writes without names.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Sync adds only lines
 
 - **WHEN** sync takes one or more names
-- **THEN** With names, each of the two workflow files is what sync writes without names with only the one line under `secrets` added, and line 5's `packages: read`: removing them gives back, byte for byte, what sync writes without names.
+- **THEN** With names, `factory.yml` is what sync writes without names with only the one line under `secrets` added, and `factory-review.yml` is the same: removing the line gives back, byte for byte, what sync writes without names.
 
 ### Requirement: No names, no change
 
@@ -53,12 +53,12 @@ The factory SHALL behave as this line says: When there is no `.npmrc`, or sync t
 
 ### Requirement: GITHUB_TOKEN is the workflow's own
 
-The factory SHALL behave as this line says: When the name taken is `GITHUB_TOKEN`, sync writes it into that line like any other name, and adds `packages: read` to the `permissions` of both workflow files.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: GITHUB_TOKEN is the workflow's own
 
 - **WHEN** the name taken is `GITHUB_TOKEN`
-- **THEN** sync writes it into that line like any other name, and adds `packages: read` to the `permissions` of both workflow files.
+- **THEN** sync passes no secret for it: the jobs that install read packages with their own token, which `factory.yml` gives `packages: read`.
 
 ### Requirement: A GITHUB_ name is refused
 

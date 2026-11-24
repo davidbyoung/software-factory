@@ -592,3 +592,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** a line of a spec this requirement lists names an old workflow file, `npm ci` for the factory, or `npx --no-install factory`
 - **THEN** Each line of `board-poller`, `board-columns`, `board-sync-trigger`, `default-branch`, `labels-setting`, `npm-registry-secrets`, `ticket-keys`, `tool-setup`, and `cli-output` that names an old workflow file, `npm ci` for the factory, or `npx --no-install factory` names `factory.yml` or `factory-review.yml`, its job, or `factory`. A secret `.npmrc` names still reaches each job that installs or runs a session, and doctor's poller lines name `factory.yml`, or `factory-poller.yml` for the poller a preset's repository runs.
+
+### Requirement: Signed commits on the factory's updates
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Signed commits on the factory's updates
+
+- **WHEN** `factory init` offers signed commits
+- **THEN** `factory init` offers signed commits as "Signed commits on the factory's updates", and `FACTORY_SIGNING_KEY` is read only by the updates' job.
