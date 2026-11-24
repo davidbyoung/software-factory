@@ -16,7 +16,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: A bundle it refuses
 
 - **WHEN** Publish checks a bundle
-- **THEN** It refuses a bundle that is not one branch, does not start from the commit Prepare handed over, or adds a commit with a symbolic link, a submodule, a change under `.github/workflows/`, or a merge of anything but the default branch; and one whose `.github/workflows/` differs from its merge base with the default branch. Nor does it push a commit in another's name, or whose message links another ticket in any wording the code host acts on or keeps CI from running; a build that asks for no pull request, one it may not open, or one that links another ticket; or commits for a pull request that is closed or has moved on. Nothing the session asked for is done then but a stop, an end, and a follow-up, and a conflict's is marked as stopped. It prints and comments the "Not pushed" lines.
+- **THEN** It refuses a bundle that is not one branch, does not start from the commit Prepare handed over, or adds a commit with a symbolic link, a submodule, a change under `.github/workflows/`, or a merge of anything but the default branch; and one whose `.github/workflows/` differs from its merge base with the default branch. Nor does it push a commit in another's name, not written in UTF-8, or whose message links another ticket in any wording the code host acts on or keeps CI from running; a build that asks for no pull request, one it may not open, or one that links another ticket; or commits for a pull request that is closed or has moved on. Nothing the session asked for is done then but a stop, an end, and a follow-up, and a conflict's is marked as stopped. It prints and comments the "Not pushed" lines, each as one short line with no marker of the session's.
 
 ### Requirement: What it pushes
 
@@ -43,7 +43,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Marking ready
 
 - **WHEN** CI has finished on what Publish pushed
-- **THEN** It marks the pull request ready only when every check finished on its newest commit and none failed. One opened with `factory pr open --draft` stays a draft for its owner to mark ready. When no check has started after ten minutes, or CI has not finished after an hour, it says so there.
+- **THEN** It marks a pull request a build opened ready only when every check finished on its newest commit and none failed. One opened with `factory pr open --draft` stays a draft for its owner to mark ready. When no check has started after ten minutes, or CI has not finished after an hour, it says so there. One the code host would close another ticket with stays a draft, and says so.
 
 ### Requirement: What it may be asked
 
