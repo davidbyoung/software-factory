@@ -153,15 +153,19 @@ as a code host's billing or what its workflows can see, are in
 ## What nobody has tested
 
 - **A board owned by an organization.** It is read the same way as a
-  person's, but the factory has only run against a person's.
-- **Setting up a real organization.** `factory init --org`, a run that
-  acts as the organization's app, and the organization's one poller are
-  tested against a stand-in for GitHub, and none has run against GitHub
-  itself. Two things were tried there, with one repository's own rule:
-  that a rule can require "Review verdict" from GitHub Actions alone,
-  and that a pull request that adds the factory's workflow waits forever
-  under such a rule. The organization-wide rule was not tried: it needs
-  a plan the test organization does not have.
+  person's, and `factory init --org` has given one its columns, but the
+  board sync and the poller have only run against a person's.
+- **Most of an organization's setup, against a real one.**
+  `factory init --org` has run once against a real organization, on
+  GitHub's Free plan: it registered the app, stored the secrets, created
+  `factory-config`, and gave an existing board its columns. With one
+  repository's own rule, two more things were tried there: that a rule
+  can require "Review verdict" from GitHub Actions alone, and that a
+  pull request that adds the factory's workflow waits forever under such
+  a rule. The rest has run only against a stand-in for GitHub: the
+  organization-wide rule, which needs a plan that organization does not
+  have, a job making a token from the app, `factory enroll`, the token's
+  renewal during a build, and the organization's poller.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
 - **A factory update reaching a repository through the update job.**

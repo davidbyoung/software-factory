@@ -95,7 +95,16 @@ runs the command you gave, commits what it wrote on a new branch,
 ✓ npm test passes here.
 ✓ Opened your-name/your-repo#1, "Set up the software factory".
 Merge it to finish. Nothing else is left to do.
+
+After it merges:
+  1. Come back to main and bring it up to date:
+       git switch main && git pull
+  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.
+  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.
 ```
+
+Under those lines it prints the address of step 4 of this page, at the
+version you installed.
 
 When the command fails, init says so and commits nothing. Fix what
 failed, or change the command in `.claude/factory.yaml`, and run
@@ -112,17 +121,12 @@ left off. `factory doctor` runs them again at any time, and
 
 ## 3. Merge the setup
 
-Merge the pull request `init` opened, as for any change. Your checkout
-is left on the branch `set-up-factory`, so go back to your default
-branch and bring it up to date. Here it is called `main`:
-
-```bash
-git switch main
-git pull
-```
-
-Start a new session of your coding agent, which loads the factory from the
-files now in your repository.
+Merge the pull request `init` opened, as for any change. Then do the
+first two steps `init` printed under "After it merges:". Your checkout
+is left on the branch `set-up-factory`, so the first brings you back to
+your default branch, which it names, and up to date. The second starts a
+new session of your coding agent, which loads the factory from the files
+now in your repository.
 
 **It worked when** typing `/factory` in the new session lists
 `factory-refine` and `factory-build`.
@@ -220,7 +224,8 @@ optional, stands alone, and can come later.
   from the board, and pull requests that merge themselves.** Run
   `factory init` again and check the parts you want. It asks for a token
   or two, sets everything else up, and opens a pull request titled
-  "Change the software factory's settings" with the files it changed. In
+  "Change the software factory's settings" with the files it changed,
+  and says how to bring your default branch up to date once it merges. In
   an organization whose owner has run the factory's setup for it, init
   asks for no token.
   [Setting up on GitHub](github/setup.md#run-factory-init) says what each

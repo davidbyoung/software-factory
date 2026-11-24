@@ -88,14 +88,22 @@ check fails, it commits nothing.
 ✓ npm run check passes here.
 ✓ Opened acme/web#41, "Set up the software factory".
 Merge it to finish. Nothing else is left to do.
+
+After it merges:
+  1. Come back to main and bring it up to date:
+       git switch main && git pull
+  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.
+  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.
+The steps in full:
+     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/quick-start.md#4-open-a-ticket
 ```
 
-Merge the pull request, then switch back to your default branch and
-pull, since your checkout is left on `set-up-factory`. With the review
-on, the first workflow run after the setup pull request merges requires
-"Review verdict", the status the automated review's verdict sets on a
-pull request. From then on, a pull request cannot merge until the review
-passes it.
+Merge the pull request, then do what those lines say: your checkout is
+left on `set-up-factory`, and the first step names your own default
+branch. With the review on, the first workflow run after the setup pull
+request merges requires "Review verdict", the status the automated
+review's verdict sets on a pull request. From then on, a pull request
+cannot merge until the review passes it.
 
 **It worked when** init printed `✓ Opened` with the pull request's
 number, and, after the merge, `factory doctor` shows ✓ on every line, or
@@ -182,31 +190,59 @@ it will do and asks "Go ahead?", where Enter alone answers no. After
 ```text
 ✓ Created board 12, "Software factory".
 ✓ Created acme/factory-config.
-Opened GitHub in your browser. Press "Create GitHub App", then "Install".
-If the page it sends you to does not load, paste that page's address here:
-✓ Registered the app and installed it on 212 repositories.
+
+Registering the GitHub App "Software Factory for acme". Two steps, both in your browser.
+
+1. Create the app. Your browser should open this address. If it does not, open it yourself:
+     http://127.0.0.1:4100/
+   Then press "Create GitHub App".
+   Waiting for GitHub to send your browser back. If that page does not load, paste its address here:
+✓ Created the app, and stored its key for acme.
+
+2. Install it. Your browser should open this address. If it does not, open it yourself:
+     https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242
+   Choose all repositories, or a selection that includes factory-config, and press "Install".
+   Waiting up to 10 minutes for the installation to show.
+✓ Installed the app on 212 repositories.
 
 The coding agent's token: running claude setup-token...
 ? Paste the token it printed (leave empty to do this later):
 ✓ Stored 2 secrets and 1 variable for acme.
 ✓ Required "Review verdict" where the property software-factory is "on".
 
-A developer sets a repository up with: factory init
+✓ acme is set up.
+
+Next, in each repository you want the factory in:
+  1. A developer installs the factory once on their machine:
+       npm install -g @davidbyoung/software-factory
+  2. In the repository's checkout, they run:
+       factory init
+     It asks them for no token, and opens the pull request that sets the repository up.
+
+The settings every repository shares are yours to edit:
+     https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml
+The steps in full:
+     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/github/setup.md#in-an-organization
 ```
 
-You do two things in the browser:
+The terminal says what to press at each of the two steps in your
+browser. What it does not say:
 
-1. On the form the command has filled in, press **Create GitHub App**.
-   If GitHub says the name is taken, change it first. GitHub then sends
-   your browser back to the command. If that page does not load, as when
-   you reach the machine over SSH, paste its address into the terminal,
-   where the command waits for it.
-2. On the next page, choose all repositories, or a selection that
-   includes `factory-config`, and press **Install**.
-   [Who can use the App's key](../credentials.md#on-github) says what
-   that choice decides.
+- **The first address is on your own machine,** where the command hands
+  GitHub the form it has filled in. If GitHub says the App's name is
+  taken, change it on the form before you press the button.
+- **Step 1's page may not load when it sends your browser back,** as
+  when you reach the machine over SSH and the browser is on another.
+  Copy that page's address from the browser into the terminal.
+- **Which repositories you choose in step 2 decides where a build can
+  act as the App.**
+  [Who can use the App's key](../credentials.md#on-github) says what
+  follows from it.
+- **Under WSL,** the command opens each page in your Windows browser
+  when `wslview` or `explorer.exe` is there. It prints the address
+  either way.
 
-**It worked when** it prints the last line above. It leaves you with:
+**It worked when** it prints `✓ acme is set up.` It leaves you with:
 
 | What it created                                                                                         | Where to find it                                            |
 | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -225,9 +261,9 @@ shows for a repository.
 **To run it again,** as after a run that stopped, give the same command.
 It does only what is missing, and offers to replace the Claude token,
 which expires. Where the App is registered and not installed yet, it
-opens the organization's list of apps: press the App's name, then
-**Install App**. **It worked when** it prints
-`✓ acme is set up. Nothing to do.`
+prints only the step that installs it, with the address to open.
+**It worked when** it prints `✓ acme is set up.`, or
+`✓ acme is set up. Nothing to do.` when nothing was missing.
 
 Three things stay by hand, on GitHub:
 
@@ -245,7 +281,12 @@ it. A private repository gets no review and no builds in the cloud,
 since the organization's secrets do not reach it. And there is no
 organization-wide rule, so once each repository's setup merges, an admin
 of that repository runs `factory init` again, which requires "Review
-verdict" there.
+verdict" there. The command's closing lines list that as a third step:
+
+```text
+  3. Once that pull request merges, an admin of the repository runs factory init there
+     again, to require "Review verdict". GitHub Free has no organization-wide rules.
+```
 
 ## What is left for you
 
@@ -300,7 +341,12 @@ Each is a few lines in `.claude/factory.yaml`, merged like any change.
 Run `factory init` again to turn a part on or off. It starts from what you
 have, and does not ask again for a secret that is already set. When it
 changes a file, it opens a pull request titled "Change the software
-factory's settings", which you merge as you did the first.
+factory's settings", which you merge as you did the first. Under the
+pull request's line it prints what to do then:
+
+```text
+After it merges, come back to main and bring it up to date: git switch main && git pull
+```
 
 ```bash
 factory doctor

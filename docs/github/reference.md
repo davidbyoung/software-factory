@@ -500,8 +500,8 @@ factory.
   commands, `factory status`, and the ticket commands.
   `factory build N` works, since it only asks GitHub to start a
   workflow.
-- **Untested against a real organization: a board one owns.** It is read
-  the same way as a person's, with the token made from the
+- **Untested against a real organization: the board sync on a board one
+  owns.** It is read the same way as a person's, with the token made from the
   organization's App, whose permissions include the organization's
   Projects. A classic token stored by hand needs access to the
   organization's projects, which an organization's settings can refuse.
