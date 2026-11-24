@@ -1210,6 +1210,9 @@ describe("one pass for every repository on an organization's board", () => {
     dispatch?: Record<string, Response>;
     /** The repositories the token cannot read. */
     unreachable?: string[];
+    /** Each repository's own `.claude/factory.yaml` on its default branch,
+     * or what GitHub answers in place of it; it has none unless given. */
+    own?: Record<string, string | Response>;
     pages?: { repoPage: unknown; boardPage: unknown };
     settings?: Partial<Parameters<typeof onceEach>[0]>;
     token?: string | null;
@@ -1260,6 +1263,13 @@ describe("one pass for every repository on an organization's board", () => {
           ? answer(200, UNREACHABLE)
           : answer(200, o.pages?.repoPage ?? repoPages[0]);
       }
+      if (url.endsWith("/contents/.claude/factory.yaml")) {
+        const file = o.own?.[repo];
+        if (file instanceof Response) return file.clone();
+        return file === undefined
+          ? answer(404, { message: "Not Found" }, "Not Found")
+          : answer(200, { content: Buffer.from(file).toString("base64") });
+      }
       if (url.endsWith("/dispatches"))
         return o.dispatch?.[repo]?.clone() ?? answer(204);
       if (url === `https://api.github.com/repos/${repo}`)
@@ -1301,6 +1311,17 @@ describe("one pass for every repository on an organization's board", () => {
         calls
           .filter((c) => c.body.includes("ReadyRepositories"))
           .map((c) => JSON.parse(c.body).variables),
+      /** The repositories whose own settings file was asked for. */
+      ownReads: () =>
+        calls
+          .filter((c) => c.url.includes("/contents/"))
+          .map((c) => /repos\/(.+)\/contents\/(.+)$/.exec(c.url)!.slice(1, 3)),
+      /** The repositories whose tickets were read. */
+      ticketReads: () =>
+        calls
+          .filter((c) => c.body.includes("issues("))
+          .map((c) => JSON.parse(c.body).variables)
+          .map((v) => `${v.owner}/${v.name}`),
     };
   }
   const build = (ref: string) => ({
@@ -1396,6 +1417,75 @@ describe("one pass for every repository on an organization's board", () => {
       "::warning::acme/web: read failed (1 in a row): Error: GitHub graphql: Could not resolve to a Repository with the name 'acme/web'.",
       "acme/api: #12 started st_0123456789ab: dispatched factory.yml",
     ]);
+  });
+
+  describe("a repository whose own settings file sets builds.trigger", () => {
+    const OWN = (trigger: string | null) =>
+      [
+        "version: 2",
+        "repository: acme/web",
+        "presets:",
+        "  - acme/factory-config",
+        ...(trigger === null ? [] : ["builds:", `  trigger: ${trigger}`]),
+        "",
+      ].join("\n");
+    const STARTED_API =
+      "acme/api: #12 started st_0123456789ab: dispatched factory.yml";
+
+    it.each(["manual", "own-server"])(
+      "is left alone when the file itself says %s, whatever the preset it follows says, and the next repository is polled",
+      async (trigger) => {
+        const o = org({
+          ready: ["acme/web", "acme/api"],
+          own: { "acme/web": OWN(trigger) },
+        });
+
+        expect(await o.run()).toBe(0);
+        expect(o.logs).toEqual([
+          `acme/web: builds.trigger is ${trigger} there, so its tickets are left`,
+          STARTED_API,
+        ]);
+        expect(o.ticketReads()).toEqual(["acme/api"]);
+        expect(o.dispatches().map(([repo]) => repo)).toEqual(["acme/api"]);
+      },
+    );
+
+    it("prints that line with no warning mark in a workflow's run: it is what the repository asked for", async () => {
+      const o = org({
+        ready: ["acme/web"],
+        own: { "acme/web": OWN("manual") },
+        env: { GITHUB_ACTIONS: "true" },
+      });
+
+      await o.run();
+
+      expect(o.logs).toEqual([
+        "acme/web: builds.trigger is manual there, so its tickets are left",
+      ]);
+    });
+
+    it.each<[string, string | Response | undefined]>([
+      ["the file itself says github-action", OWN("github-action")],
+      [
+        "the file sets no trigger of its own and follows its presets, which are not read",
+        OWN(null),
+      ],
+      ["the default branch has no such file", undefined],
+      ["the file cannot be read", answer(500, { message: "Server Error" })],
+      ["the file is not YAML", "builds: ["],
+    ])("is polled when %s", async (_, file) => {
+      const o = org({
+        ready: ["acme/web"],
+        own: file === undefined ? {} : { "acme/web": file },
+      });
+
+      expect(await o.run()).toBe(0);
+      expect(o.ownReads()).toEqual([["acme/web", ".claude/factory.yaml"]]);
+      expect(o.dispatches()).toEqual([["acme/web", build("trunk")]]);
+      expect(o.calls.map((c) => c.url)).not.toContainEqual(
+        expect.stringContaining("factory-config/contents"),
+      );
+    });
   });
 
   it("counts the hourly cap for each repository on its own", async () => {

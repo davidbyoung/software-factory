@@ -48,7 +48,7 @@ import {
   type Board,
   type RepoSnapshot,
 } from "./lib/work-status.mts";
-import { githubCodeHost } from "./code-host/github.mts";
+import { githubCodeHost, githubOrganization } from "./code-host/github.mts";
 import type { CodeHost } from "./code-host/types.mts";
 import {
   FACTORY_WORKFLOW,
@@ -242,7 +242,32 @@ export async function sources(d: Deps, c: Config) {
     ),
     codeHost: githubCodeHost({ transport, repository: d.repository }),
     runner: githubActionsRunner({ transport, repository: d.repository }),
+    /** A file's text on the default branch of any repository the token
+     * reads, or null when it has none. */
+    file: (repository: string, path: string) => {
+      const [owner, name] = repository.split("/") as [string, string];
+      return githubOrganization({ transport, name: owner }).file(name, path);
+    },
   };
+}
+
+/** The `builds.trigger` a repository's own settings file sets on its
+ * default branch: null when the file sets none, is missing, or cannot be
+ * read. Its presets are not read, so a trigger only they set is null. */
+async function ownTrigger(
+  file: (repository: string, path: string) => Promise<string | null>,
+  repository: string,
+): Promise<string | null> {
+  try {
+    const text = await file(repository, SETTINGS_FILE);
+    if (text === null) return null;
+    const { load } = await import("js-yaml");
+    const trigger = (load(text) as { builds?: { trigger?: unknown } } | null)
+      ?.builds?.trigger;
+    return typeof trigger === "string" ? trigger : null;
+  } catch {
+    return null;
+  }
 }
 
 async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
@@ -493,7 +518,8 @@ export async function presetSettings(
  * once for the repositories with a ticket in its Ready column, and each
  * gets the pass `once` makes, with its own hourly cap. The board's owner
  * is the owner of `d.repository`, the repository that holds the preset.
- * 1 when the board could not be read. A repository that could not be read
+ * A repository whose own settings file sets another `builds.trigger` is
+ * left. 1 when the board could not be read. A repository that could not be read
  * is logged, as a warning in a workflow's run, and fails nothing: one
  * ticket in a repository the token does not reach would otherwise fail
  * every pass. */
@@ -513,8 +539,11 @@ export async function onceEach(
   }
   const all = { ...d, env, ticketSystem: s.ticketSystem ?? HOSTED };
   let repositories: string[];
+  let fileOf: Awaited<ReturnType<typeof sources>>["file"];
   try {
-    const board = need((await sources(all, config)).tickets, "board");
+    const opened = await sources(all, config);
+    fileOf = opened.file;
+    const board = need(opened.tickets, "board");
     if (!board.readyRepositories)
       throw new Error(
         `the ${all.ticketSystem.type} ticket system cannot list a board's repositories`,
@@ -528,6 +557,15 @@ export async function onceEach(
   }
   const warn = d.env.GITHUB_ACTIONS === "true";
   for (const repository of repositories) {
+    // A repository that starts its builds another way, or by hand, is not
+    // started from here as well.
+    const trigger = await ownTrigger(fileOf, repository);
+    if (trigger !== null && trigger !== "github-action") {
+      d.log(
+        `${repository}: builds.trigger is ${trigger} there, so its tickets are left`,
+      );
+      continue;
+    }
     const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
     await tick(
       {
