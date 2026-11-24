@@ -193,7 +193,8 @@ them.
   `factory pr open --draft` in place of skipping that step.
 - **Commits are handed over with `factory pr push`,** once, at the end.
   Nothing is pushed, fetched, or pulled with git, and nothing is signed. A
-  commit that changes a file under `.github/workflows/` is refused, with the
+  commit that changes a file under `.github/workflows/`, other than a merge
+  that brings in the default branch's own change, is refused, with the
   rest of the session's work: when a ticket needs one, stop and say it is
   built on a person's machine.
 - **Where a skill waits** for checks or a review, the session ends with its
