@@ -10,7 +10,14 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { replaying, type Call, type On } from "./replay.mts";
-import { allow, ask, isWrite, type Asked, type Kind } from "./requests.mts";
+import {
+  allow,
+  ask,
+  isWrite,
+  withoutMarkers,
+  type Asked,
+  type Kind,
+} from "./requests.mts";
 
 export const HANDOFF = "FACTORY_HANDOFF";
 
@@ -75,6 +82,23 @@ export function handoffIn(env: Env = process.env): Handoff | null {
   };
 }
 
+/** The reads made ahead, with the run's ticket as the session last asked for
+ * it to be: a skill that edits it a line at a time reads its own edits. */
+function withEdits(calls: Call[], asked: Asked[]): Call[] {
+  const bodies = new Map<string, string>();
+  for (const { argv, files } of asked) {
+    if (argv[0] !== "ticket" || argv[1] !== "edit") continue;
+    const text = files[argv[argv.indexOf("--body-file") + 1]];
+    if (text !== undefined) bodies.set(argv[2], withoutMarkers(text));
+  }
+  return calls.map((c) => {
+    const body = bodies.get(String(c.args[0]));
+    return c.on === "tickets" && c.call === "read" && c.value && body
+      ? { ...c, value: { ...c.value, body } }
+      : c;
+  });
+}
+
 /** The adapter, reading what was read ahead for this session when there is
  * a folder to read it from. */
 export function handed<K extends On>(
@@ -85,7 +109,7 @@ export function handed<K extends On>(
   const h = handoffIn(env);
   if (!h) return real;
   const { ticket } = h.run();
-  return replaying(on, real, h.calls(), ticket);
+  return replaying(on, real, withEdits(h.calls(), h.asked()), ticket);
 }
 
 export const ENDS_HERE =

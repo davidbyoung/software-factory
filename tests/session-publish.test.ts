@@ -217,12 +217,16 @@ describe("a build", () => {
     expect(w.pushed).toEqual([]);
   });
 
-  it("opens no pull request that closes another ticket", async () => {
+  it("is not pushed when its pull request would close another ticket", async () => {
     commits();
     asks({ ...OPEN, files: { "p.md": "Closes #13" } });
     const w = world();
 
     expect(await publish(w.d)).toBe(1);
+    expect(w.pushed).toEqual([]);
+    expect((await w.tickets.tickets.read("12")).comments[0].body).toContain(
+      "Not pushed: the pull request's body links #13, which is not this run's.",
+    );
     expect(await w.host.codeHost.listOpen()).toEqual([]);
   });
 });

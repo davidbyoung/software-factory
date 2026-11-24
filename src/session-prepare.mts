@@ -15,7 +15,6 @@ import type { CodeHost, Pull } from "./code-host/index.mts";
 import type { RunFile } from "./handoff/index.mts";
 import { recording, type Call } from "./handoff/replay.mts";
 import type { Kind } from "./handoff/requests.mts";
-import { missingParts } from "./lib/refined-check.mts";
 import { ticketsOf } from "./lib/pull-tickets.mts";
 import { AGENT_MARK } from "./lib/work-status.mts";
 import type { Runner } from "./runner/index.mts";
@@ -138,9 +137,6 @@ async function build(
     await stop(
       "it has no Spec or Acceptance criteria section, so there is nothing to build yet: refine it first",
     );
-  const missing = missingParts(ticket.body, ticket.labels, labels);
-  if (missing.length > 0)
-    await stop(`it is not one a build can read: ${missing.join("; ")}`);
   await freeBranch(branch, d, stop);
   return {
     version: 1,

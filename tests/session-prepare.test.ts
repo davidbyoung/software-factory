@@ -162,6 +162,13 @@ describe("a build", () => {
     expect(w.stops[0]).toContain("no Spec or Acceptance criteria");
   });
 
+  it("is handed a ticket whose criteria stand with no Decisions", async () => {
+    const body = "The ask.\n\n## Acceptance criteria\n\n1. It works.\n";
+    const w = world({ tickets: [{ key: "12", body }] });
+    expect(await prepare("build", "12", w.d)).not.toBeNull();
+    expect(w.stops).toEqual([]);
+  });
+
   it("is stopped when an earlier build's work is on its branch", async () => {
     pushed("12-work");
     const w = world();

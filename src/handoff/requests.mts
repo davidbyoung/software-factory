@@ -36,6 +36,8 @@ function markersOf(run: ThisRun): string[] {
       ];
     case "dependency":
       return ["<!-- factory-deps -->"];
+    case "answer":
+      return ["<!-- session-handoff -->"];
     default:
       return [];
   }

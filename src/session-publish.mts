@@ -246,6 +246,16 @@ export async function publish(d: PublishDeps): Promise<number> {
   let pull = run.pull;
   let tip: string | null = null;
   if (existsSync(join(d.dir, "out/build.bundle"))) {
+    // Found after the push, it would leave a branch with no pull request.
+    for (const { argv, files } of asked) {
+      if (argv[0] !== "pr" || argv[1] !== "open") continue;
+      const other = othersLinked(d, Object.values(files).join("\n"));
+      if (other)
+        return refuse(
+          d,
+          `the pull request's body links ${d.tickets.ref(other)}, which is not this run's`,
+        );
+    }
     const clone = d.clone();
     const answer = checked(d, clone);
     if ("refused" in answer) return refuse(d, answer.refused);

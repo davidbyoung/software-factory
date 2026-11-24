@@ -11,11 +11,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openCodeHost } from "../src/code-host/index.mts";
-import { HANDOFF, type RunFile } from "../src/handoff/index.mts";
+import { handed, HANDOFF, type RunFile } from "../src/handoff/index.mts";
 import { readRequests } from "../src/handoff/requests.mts";
 import { main as prMain } from "../src/pr.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
+import { memoryTickets } from "./memory-tickets";
 
 const LAUNCHER = fileURLToPath(new URL("../bin/factory.js", import.meta.url));
 const RUN: RunFile = {
@@ -214,6 +215,34 @@ describe("factory pr push and pull", () => {
 });
 
 describe("an adapter in a session in the cloud", () => {
+  it("shows its ticket as the session last asked for it to be", async () => {
+    writeFileSync(
+      join(dir, "in/snapshot.json"),
+      JSON.stringify([
+        {
+          on: "tickets",
+          call: "read",
+          args: ["12"],
+          value: { key: "12", title: "A thing", body: "- [ ] a\n- [ ] b" },
+        },
+      ]),
+    );
+    const edit = (text: string) => {
+      writeFileSync(join(dir, "b.md"), text);
+      factory("ticket", "edit", "12", "--body-file", "b.md");
+    };
+    edit("- [x] a\n- [ ] b");
+    edit("- [x] a\n- [x] b");
+
+    const tickets = handed("tickets", memoryTickets([]).tickets, {
+      [HANDOFF]: dir,
+    });
+    expect(await tickets.read("12")).toMatchObject({
+      title: "A thing",
+      body: "- [x] a\n- [x] b",
+    });
+  });
+
   it("answers only what was handed over", async () => {
     writeFileSync(
       join(dir, "in/snapshot.json"),

@@ -65,9 +65,9 @@ const FAILED_CONCLUSIONS = new Set([
   "action_required",
 ]);
 const AGENT_MARKER = "<!-- agent -->";
-/** The review's check, as a job of the workflow a pull request starts is
- * named: the calling job, then the job. */
-const REVIEW_CHECK = "review / Claude review";
+/** The review run's checks, as a job of the workflow a pull request starts
+ * is named: the calling job, the run, then its job. */
+const REVIEW_CHECKS = "factory / Review / ";
 const REVIEW_BOT = "github-actions[bot]";
 
 export function toChecks(runs: CheckRun[], statuses: CommitStatus[]): Check[] {
@@ -112,8 +112,9 @@ function fingerprint(body: string): string {
  * and where the automated review is off there is none to wait for. */
 function reviewIsOver(snapshot: Snapshot): boolean {
   if (snapshot.reviewOn === false || reviewSummary(snapshot)) return true;
-  const run = snapshot.checks.find((check) => check.name === REVIEW_CHECK);
-  return run?.state === "failed";
+  return snapshot.checks.some(
+    (check) => check.name.startsWith(REVIEW_CHECKS) && check.state === "failed",
+  );
 }
 
 /** What needs the session now and has not been reported. A closed pull
@@ -151,10 +152,11 @@ export function newEvents(
       line: `review of ${sha}: ${verdict}`,
     });
   }
-  // The reviewer posts its findings one at a time, and a push partway through
-  // would cancel it, so they wait for it to finish.
+  // The review's findings are posted one at a time, and a push partway
+  // through would cancel it, so they wait for it to finish.
   const reviewRunning = snapshot.checks.some(
-    (check) => check.name === REVIEW_CHECK && check.state === "pending",
+    (check) =>
+      check.name.startsWith(REVIEW_CHECKS) && check.state === "pending",
   );
   for (const comment of snapshot.comments) {
     if (comment.body.includes(AGENT_MARKER)) continue;

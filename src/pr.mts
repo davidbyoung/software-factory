@@ -144,8 +144,7 @@ export function reviewExpected(pull: Pull, reviewOn = true): boolean {
     reviewOn &&
     !pull.isDraft &&
     pull.author !== "dependabot[bot]" &&
-    pull.head.repository === pull.base.repository &&
-    pull.mergeableState !== "dirty"
+    pull.head.repository === pull.base.repository
   );
 }
 

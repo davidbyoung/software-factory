@@ -487,13 +487,13 @@ describe("approverReviewsToWork", () => {
 });
 
 describe("waiting for the review", () => {
-  it("expects no review on a draft, Dependabot's, a fork's, or a conflicted pull request", () => {
+  it("expects no review on a draft, Dependabot's, or a fork's pull request", () => {
     const pull = report().pull;
 
     expect(reviewExpected(pull)).toBe(true);
     expect(reviewExpected({ ...pull, isDraft: true })).toBe(false);
     expect(reviewExpected({ ...pull, author: "dependabot[bot]" })).toBe(false);
-    expect(reviewExpected({ ...pull, mergeableState: "dirty" })).toBe(false);
+    expect(reviewExpected({ ...pull, mergeableState: "dirty" })).toBe(true);
     expect(
       reviewExpected({
         ...pull,

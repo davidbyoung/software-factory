@@ -258,6 +258,17 @@ describe("what Publish runs of it", () => {
     });
   });
 
+  it("keeps an answer's hand-off to the session watching its pull request", () => {
+    const r = allow(
+      {
+        argv: ["pr", "comment", "31", "--body-file", "b.md"],
+        files: { "b.md": "Yours.\n<!-- session-handoff -->" },
+      },
+      answer,
+    ) as Asked;
+    expect(r.files["b.md"]).toContain("<!-- session-handoff -->");
+  });
+
   it("takes every hidden marker out of what it posts", () => {
     const a: Asked = {
       argv: ["pr", "reply", "31", "901", "--body-file", "b.md"],
