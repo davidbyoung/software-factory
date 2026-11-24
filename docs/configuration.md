@@ -712,12 +712,13 @@ builds:
   trigger: own-server
 ```
 
-| Setting        | What it sets                                          | Choices                                 | Default          |
-| -------------- | ----------------------------------------------------- | --------------------------------------- | ---------------- |
-| `trigger`      | What notices you moved a ticket to Ready on the board | `manual`, `own-server`, `github-action` | `manual`         |
-| `runner`       | Where a build in the cloud runs                       | `github-actions`                        | `github-actions` |
-| `poll-minutes` | With `github-action`, how often it checks the board   | 5, 10, 15, 30, or 60                    | 5                |
-| `max-per-hour` | How many builds the poller starts in any one hour     | A whole number, 1 or more               | 20               |
+| Setting        | What it sets                                                  | Choices                                 | Default          |
+| -------------- | ------------------------------------------------------------- | --------------------------------------- | ---------------- |
+| `trigger`      | What notices you moved a ticket to Ready on the board         | `manual`, `own-server`, `github-action` | `manual`         |
+| `runner`       | Where a build in the cloud runs                               | `github-actions`                        | `github-actions` |
+| `poll-minutes` | With `github-action`, how often it checks the board           | 5, 10, 15, 30, or 60                    | 5                |
+| `max-per-hour` | How many builds the poller starts in any one hour             | A whole number, 1 or more               | 20               |
+| `hosts`        | The hosts a cloud session may reach, besides the npm registry | A list of host names                    | None             |
 
 The three triggers:
 
@@ -752,6 +753,26 @@ marks it "not started": after 5 minutes with `own-server`, and after
 `factory config check` stops on `poll-minutes` with any trigger but
 `github-action`, and on any value but the five above. It stops on a
 `max-per-hour` that isn't a whole number of 1 or more.
+
+List a host under `hosts` when your build's commands download from it:
+
+```yaml
+builds:
+  hosts:
+    - repo.packagist.org
+    - "*.example.com" # every host under example.com
+```
+
+Write a name that starts with `*.` in quotes, since YAML reads a bare `*`
+as something else. Write the name alone: `factory config check` stops on
+one with `https://`, a path, or a port, and on an IP address. It also stops
+on `github.com`, `githubusercontent.com`, any host under either, and `*.com`:
+
+```text
+builds.hosts can't name GitHub: a build has no GitHub access
+```
+
+A [preset](presets.md#how-presets-combine)'s hosts and your own add up.
 
 ### `specs`
 

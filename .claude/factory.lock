@@ -41,6 +41,7 @@ settings:
     runner: github-actions                                                     # default
     # poll-minutes: only with trigger github-action
     max-per-hour: 20                                                           # default
+    hosts: []                                                                  # default
   specs:
     type: openspec
     check: npx --no-install openspec validate --all --strict --no-interactive  # default

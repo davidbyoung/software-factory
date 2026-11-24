@@ -43,6 +43,7 @@ export function markerOf(r: Resolution): Marker {
 /** The value lists that add up across layers, whose items each carry
  * their own mark. */
 const ADDS_UP = new Set([
+  "builds.hosts",
   "pr-review.commands",
   "auto-merge.allow",
   "auto-merge.deny",
@@ -130,6 +131,7 @@ export async function explainLines(
     put(["builds", "poll-minutes"], s.builds.pollMinutes);
   else comment(1, "poll-minutes: only with trigger github-action");
   put(["builds", "max-per-hour"], s.builds.maxPerHour);
+  put(["builds", "hosts"], s.builds.hosts);
   if (s.specs === "openspec") {
     block(["specs"]);
     put(["specs", "type"], s.specs);

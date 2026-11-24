@@ -13,7 +13,11 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { DEFAULT_CODE_HOST, unsupportedCodeHost } from "./code-host/index.mts";
+import {
+  DEFAULT_CODE_HOST,
+  namesGitHub,
+  unsupportedCodeHost,
+} from "./code-host/index.mts";
 import { matchesAny } from "./lib/glob.mts";
 import { listed } from "./lib/listed.mts";
 import { DEFAULT_RUNNER, unsupportedRunner } from "./runner/index.mts";
@@ -198,6 +202,8 @@ export type Settings = {
     pollerIn?: string;
     /** How many builds either poller starts in any one hour. */
     maxPerHour: number;
+    /** The hosts a cloud session may reach besides the npm registry. */
+    hosts: string[];
   };
   specs: string;
   /** The command that checks the specs, or null when `specs` is none. */
@@ -317,7 +323,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   ],
   "code-host": ["type", "branch-name", "labels"],
   "code-host.labels": Object.keys(PR_LABELS),
-  builds: ["trigger", "runner", "poll-minutes", "max-per-hour"],
+  builds: ["trigger", "runner", "poll-minutes", "max-per-hour", "hosts"],
   specs: ["type", "check"],
   commands: [
     "build-setup",
@@ -481,6 +487,27 @@ function reviewCommands(v: unknown): string[] {
       ? fail(`${key}[${i}]`, "must hold no comma, parenthesis, or quote")
       : command,
   );
+}
+
+const LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
+/** A host name, or one after `*.`. Its last part starts with a letter, so
+ * an IP address, in whatever form a URL reads one, is never a match. */
+const HOST = new RegExp(
+  `^(?=.{1,253}$)(?:\\*\\.)?(?:${LABEL}\\.)*(?=[a-z])${LABEL}$`,
+  "i",
+);
+
+/** The hosts a cloud session may reach, beside the npm registry. */
+function buildHosts(v: unknown): string[] {
+  const key = "builds.hosts";
+  return strings(v, key).map((host, i) => {
+    if (!HOST.test(host)) fail(`${key}[${i}]`, "must be a host name");
+    if (namesGitHub(host))
+      throw new SettingsError(
+        `${key} can't name GitHub: a build has no GitHub access`,
+      );
+    return host;
+  });
 }
 
 function oneOf<T extends string>(
@@ -945,6 +972,7 @@ export function parseSettings(
       : typeof max === "number" && Number.isInteger(max) && max >= 1
         ? max
         : fail("builds.max-per-hour", "must be a whole number, 1 or more");
+  const hosts = buildHosts(builds.hosts);
   const runner = builds.runner ?? DEFAULT_RUNNER;
   if (typeof runner !== "string" || !built.runner.includes(runner))
     throw new SettingsError(
@@ -1054,7 +1082,7 @@ export function parseSettings(
       labels: ticketLabels.names,
     },
     codeHost: { type: codeHost, branchName, labels: prLabels.names },
-    builds: { trigger, runner, pollMinutes, maxPerHour },
+    builds: { trigger, runner, pollMinutes, maxPerHour, hosts },
     specs,
     specCheck,
     commands,

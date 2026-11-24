@@ -161,6 +161,14 @@ describe("the schema and parseSettings agree on whole files", () => {
     expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);
   });
 
+  it("both accept a host name and a wildcard in builds.hosts", () => {
+    const raw = {
+      ...base,
+      builds: { hosts: ["Repo.packagist.org", "*.example.com"] },
+    };
+    expect([byCode(raw), bySchema(raw)]).toEqual([true, true]);
+  });
+
   it("both accept plugins and a phase with nothing in them", () => {
     for (const plugins of [{}, { build: {} }, { test: { reviewers: [] } }])
       expect([
@@ -220,6 +228,23 @@ describe("the schema and parseSettings agree on whole files", () => {
       builds: { triger: "manual" },
     },
     "a word that is not allowed": { ...base, builds: { trigger: "sometimes" } },
+    "builds.hosts that is not a list": {
+      ...base,
+      builds: { hosts: "repo.packagist.org" },
+    },
+    "a host with a scheme": {
+      ...base,
+      builds: { hosts: ["https://repo.packagist.org"] },
+    },
+    "a host that is an IP address": {
+      ...base,
+      builds: { hosts: ["10.0.0.1"] },
+    },
+    "a host that is GitHub's": {
+      ...base,
+      builds: { hosts: ["api.github.com"] },
+    },
+    "a wildcard that covers GitHub": { ...base, builds: { hosts: ["*.com"] } },
     "a value of the wrong type": { ...base, tickets: { board: "one" } },
     "site.widths that is not a list of whole numbers": {
       ...base,

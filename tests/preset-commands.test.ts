@@ -1153,6 +1153,23 @@ describe("factory preset changes", () => {
     expect(heading).toMatch(/^acme\/factory-config [0-9a-f]{7} → [0-9a-f]{7}$/);
   });
 
+  it("says which of builds.hosts an update adds and takes away", async () => {
+    const hosts = (list: string) => `version: 2\nbuilds:\n  hosts: [${list}]\n`;
+    const move = async (settings: string) => {
+      pin(root, ACME, publish(REPO, { ...REPOS[REPO], "": { settings } }));
+      await sync();
+    };
+    await setUp([ACME, NODE], GATE);
+    await move(hosts("a.example, b.example"));
+    const lock = read(root, LOCK)!;
+    await move(hosts("b.example, c.example"));
+    const r = await preset(["changes", "main"], [], { show: () => lock });
+    expect(r.out.filter((l) => l.includes("builds.hosts"))).toEqual([
+      "- builds.hosts: + c.example",
+      "- builds.hosts: − a.example",
+    ]);
+  });
+
   it("says a file is rewritten when its hash changed between the two locks", async () => {
     const { r, heading } = await update(ACME_BASE, {
       "acme-security-reviewer": "security, rewritten\n",

@@ -150,6 +150,7 @@ async function effective(r: Resolved): Promise<Obj> {
 }
 
 const VALUE_LISTS = [
+  "builds.hosts",
   "pr-review.commands",
   "auto-merge.deny",
   "site.pages",

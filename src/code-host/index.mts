@@ -16,6 +16,7 @@ import { handed } from "../handoff/index.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
+export { namesGitHub } from "./github.mts";
 /** What a run works with under an owner's own app: a token of the app's
  * for the run's repositories, and the sign-in that takes one. */
 export { runToken, signIn } from "./github-app.mts";

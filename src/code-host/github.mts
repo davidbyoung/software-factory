@@ -988,6 +988,18 @@ export function githubCodeHost(o: {
 
 const SITE = "https://github.com";
 
+const GITHUB_DOMAINS = ["github.com", "githubusercontent.com"];
+
+/** Whether a host is GitHub's, or a wildcard that covers one that is. */
+export function namesGitHub(host: string): boolean {
+  const name = host.toLowerCase().replace(/^\*\./, "");
+  return GITHUB_DOMAINS.some(
+    (domain) =>
+      `.${name}`.endsWith(`.${domain}`) ||
+      (host.startsWith("*.") && domain.endsWith(`.${name}`)),
+  );
+}
+
 /** Whether an address is on github.com. */
 export function githubServes(address: string): boolean {
   try {

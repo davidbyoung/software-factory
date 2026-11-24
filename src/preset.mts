@@ -365,6 +365,7 @@ const STEPS = new Set([
   "commands.build-setup",
 ]);
 const VALUES = new Set([
+  "builds.hosts",
   "pr-review.commands",
   "auto-merge.allow",
   "auto-merge.deny",
