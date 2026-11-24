@@ -2097,13 +2097,18 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     d.out(`Stored ${a.name} ${forWhich(a)}.`);
   }
 
+  /** The account the code host's own tool is signed in as, asked once:
+   * null when nobody can say. */
+  let who: Promise<string | null> | undefined;
+  const signedInAs = () => (who ??= codeHost.signedInAs().catch(() => null));
+
   // The signing key.
   if (wantsKey) {
     const key = await d.keygen();
     await runner.setSecret(SIGNING_KEY, key.privateKey);
     d.out("");
     d.out(`Made a signing key and stored it as ${SIGNING_KEY}.`);
-    const signedIn = await codeHost.signedInAs().catch(() => null);
+    const signedIn = await signedInAs();
     let added = false;
     if (tokenAccount !== null && tokenAccount === signedIn) {
       for (let tries = 0; tries < 2 && !added; tries++) {
@@ -2215,11 +2220,16 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     );
   // The first run on the default branch requires the verdict, with the
   // organization's app or a person's build token. With neither, an admin
-  // does.
+  // does, and so one does when the token stored is another account's than
+  // the one signed in, which may be no admin's.
   const enrolls =
     (organization.setUp && ownerRule) ||
     [BUILD_TOKEN, BOARD_TOKEN].some((n) => isSet(n) || stored.has(n));
-  if (rule && !posts && !enrolls)
+  const waits = rule && !posts;
+  const person = waits && tokenAccount !== null ? await signedInAs() : null;
+  const anothers =
+    person !== null && person.toLowerCase() !== tokenAccount!.toLowerCase();
+  if (waits && (!enrolls || anothers))
     left.push(
       `Once it merges, an admin of ${repository} runs factory init, to require "${REVIEW_VERDICT}"`,
     );

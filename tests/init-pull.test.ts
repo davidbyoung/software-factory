@@ -4,6 +4,7 @@
 // verdict.
 import { describe, expect, it } from "vitest";
 import { fileRows, openPull, runGate, type GitResult } from "../src/init.mts";
+import { writeCredential } from "../src/lib/credentials.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 import { AGENT, GOOD, init, type Setup } from "./init-harness";
 
@@ -563,6 +564,83 @@ describe("factory init, the rule that requires the review's verdict", () => {
     });
     await r.run();
     expect(r.out.join("\n")).not.toContain("Once it merges");
+  });
+
+  describe("with a build token of an account other than the one signed in", () => {
+    const BUILDS = "tok_builds";
+    /** A token of an account a team made for its builds, which can write
+     * and no more, so the first run could not make the rule with it. */
+    const tokens = {
+      [BUILDS]: {
+        account: "acme-builds",
+        scopes: ["push", "workflows", "board"],
+      },
+    };
+    const cloud = (over: Partial<Setup> = {}) =>
+      review({
+        tokens,
+        answers: {
+          checkbox: [["review", "cloud"]],
+          confirm: [true],
+          secret: [AGENT, BUILDS],
+        },
+        ...over,
+      });
+
+    it("leaves it to an admin, since that account may not be one", async () => {
+      const r = cloud();
+      expect(await r.run()).toBe(0);
+      expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(BUILDS);
+      expect(r.out).toContain(`  2. ${LEFT}`);
+    });
+
+    it("leaves no such step for a token of the account that is signed in", async () => {
+      const r = cloud({
+        answers: {
+          checkbox: [["review", "cloud"]],
+          confirm: [true],
+          secret: [AGENT, GOOD],
+        },
+      });
+      await r.run();
+      expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(GOOD);
+      expect(r.out.join("\n")).not.toContain("Once it merges");
+    });
+
+    it("leaves it to an admin for such a token found on this machine", async () => {
+      const r = cloud({
+        answers: { checkbox: [["review", "cloud"]], confirm: [true] },
+      });
+      for (const [tool, values] of [
+        ["github", { token: BUILDS }],
+        ["claude-code", { CLAUDE_CODE_OAUTH_TOKEN: AGENT }],
+      ] as const)
+        writeCredential({
+          tool,
+          site: "code.example/acme",
+          values,
+          env: r.env,
+        });
+      expect(await r.run()).toBe(0);
+      expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
+      expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(BUILDS);
+      expect(r.out).toContain(`  2. ${LEFT}`);
+    });
+
+    it("leaves no such step when init makes the rule itself, the workflow being on the default branch", async () => {
+      const r = cloud({ workflows: { "factory.yml": "active" } });
+      await r.run();
+      expect(r.host.settings.rules).toHaveLength(1);
+      expect(r.out.join("\n")).not.toContain("Once it merges");
+    });
+
+    it("leaves no such step when nobody can say who is signed in", async () => {
+      const r = cloud({
+        codeHostFails: { signedInAs: new Error("not signed in") },
+      });
+      await r.run();
+      expect(r.out.join("\n")).not.toContain("Once it merges");
+    });
   });
 
   it("leaves it to an admin when the token was left for later", async () => {
