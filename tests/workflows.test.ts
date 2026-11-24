@@ -1785,7 +1785,8 @@ describe("the sign-in of the two jobs around a session", () => {
   const signing = (job: Job, env: Record<string, string>) => {
     const { dir, calls } = sandbox({ factory: "", gh: "" });
     const r = runScript(step(job, "Sign in").run!, dir, {
-      BUILD_TOKEN_SET: "true",
+      // Publish alone reads it: a review's answer needs a person's token.
+      ...(job === publishJob ? { BUILD_TOKEN_SET: "true" } : {}),
       ...env,
     });
     return {
@@ -1812,13 +1813,27 @@ describe("the sign-in of the two jobs around a session", () => {
     "in %s only points git at the CLI where either does not, checking no scope of the token's",
     (_, job) => {
       for (const missing of Object.keys(APP))
-        expect(signing(job, { ...APP, [missing]: "" })).toEqual({
+        expect(signing(job, { ...APP, [missing]: "" }), missing).toEqual({
           status: 0,
           said: "",
           calls: ["gh auth setup-git --hostname github.com --force"],
         });
     },
   );
+
+  it("in publish signs nothing in with neither the app nor a person's token, and says so", () => {
+    expect(
+      signing(publishJob, {
+        FACTORY_APP_CLIENT_ID: "",
+        FACTORY_APP_PRIVATE_KEY: "",
+        BUILD_TOKEN_SET: "false",
+      }),
+    ).toEqual({
+      status: 0,
+      said: "No build token is set, so no answer starts.\n",
+      calls: [],
+    });
+  });
 
   it.each(JOBS)(
     "in %s fails when the app's token cannot be made, and falls back to no other",
@@ -1896,6 +1911,9 @@ describe("the sign-in of the two jobs around a session", () => {
         expect(given(job, name, { kind, person: "" }), `${name}: ${kind}`).toBe(
           kind === "review" && job === prepareJob ? "the workflow's" : "",
         );
+  });
+
+  it("keeps a person's token out of the sign-in's own environment", () => {
     expect(step(prepareJob, "Sign in").env).toEqual(KEY);
     expect(step(publishJob, "Sign in").env).toEqual({
       ...KEY,
