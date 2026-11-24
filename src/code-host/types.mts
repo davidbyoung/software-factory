@@ -114,6 +114,13 @@ export type ChangedFile = {
   status: string;
 };
 
+export type PullCommit = {
+  sha: string;
+  /** The account the code host itself verifies as the commit's author, or
+   * null: anyone can write any name in a commit. */
+  verifiedAuthor: string | null;
+};
+
 export type CodeHost = {
   /** The pull request, or NotFoundError when there is none. */
   get(pull: number): Promise<Pull>;
@@ -166,6 +173,9 @@ export type CodeHost = {
   addLabel(pull: number, label: string): Promise<void>;
   /** NotFoundError when the pull request does not carry the label. */
   removeLabel(pull: number, label: string): Promise<void>;
+  /** The account that last added the label, which an app's bot can be, or
+   * null when the label is off or the code host does not say. */
+  labeledBy(pull: number, label: string): Promise<string | null>;
 
   reviews(pull: number): Promise<Review[]>;
   /** The comments one review carries. */
@@ -185,6 +195,9 @@ export type CodeHost = {
   /** One line for each commit on the pull request the code host does not
    * show as signed: its short ID and the reason, such as `unsigned`. */
   unverifiedCommits(pull: number): Promise<string[]>;
+  /** Every commit on the pull request. Rejects when there may be more than
+   * the code host lists. */
+  commits(pull: number): Promise<PullCommit[]>;
   /** The tickets the pull request closes when it merges, by the code
    * host's own links: only tickets the code host keeps itself. */
   closes(pull: number): Promise<Key[]>;

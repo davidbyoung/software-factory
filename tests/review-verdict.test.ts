@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { memoryCodeHost, type MemoryCodeHostOptions } from "./memory-code-host";
+import {
+  memoryCodeHost,
+  type MemoryCodeHostOptions,
+  type PullSeed,
+} from "./memory-code-host";
 import {
   apply,
   decide,
@@ -90,8 +94,19 @@ describe("decide, when the review finishes", () => {
     });
   });
 
-  it("does not overwrite the owner's override", () => {
-    expect(on({ hasOverride: true, verdict: "changes" })).toBeNull();
+  it("does not overwrite an approver's override", () => {
+    expect(
+      on({ hasOverride: true, overrideByApprover: true, verdict: "changes" }),
+    ).toBeNull();
+  });
+
+  it("removes an override no approver added, and posts what the review said", () => {
+    expect(on({ hasOverride: true, verdict: "changes" })).toEqual({
+      state: "failure",
+      description: "The review asked for changes",
+      removeOverride: true,
+      explainRemoval: "not an approver",
+    });
   });
 
   it("passes Dependabot without a review", () => {
@@ -129,7 +144,8 @@ describe("decide, on the pull request's own events", () => {
       pr({
         action: "labeled",
         label: "verdict-override",
-        senderIsApprover: true,
+        hasOverride: true,
+        overrideByApprover: true,
       }),
     ).toEqual({
       state: "success",
@@ -143,7 +159,6 @@ describe("decide, on the pull request's own events", () => {
       pr({
         action: "labeled",
         label: "verdict: owner override",
-        senderIsApprover: true,
       }),
     ).toBeNull();
   });
@@ -153,7 +168,8 @@ describe("decide, on the pull request's own events", () => {
       pr({
         action: "labeled",
         label: "verdict-override",
-        senderIsApprover: false,
+        hasOverride: true,
+        overrideByApprover: false,
         verdict: "changes",
       }),
     ).toEqual({
@@ -169,14 +185,31 @@ describe("decide, on the pull request's own events", () => {
       pr({
         action: "labeled",
         label: "verdict-override",
-        senderIsApprover: false,
-        senderUnchecked: true,
+        hasOverride: true,
+        overrideUnchecked: true,
       }),
     ).toEqual({
       state: "pending",
       description: "Waiting for the review of this commit",
       removeOverride: true,
       explainRemoval: "could not check",
+    });
+  });
+
+  it("does not pass for an override already off the pull request", () => {
+    expect(pr({ action: "labeled", label: "verdict-override" })).toEqual({
+      state: "pending",
+      description: "Waiting for the review of this commit",
+    });
+  });
+
+  it("removes an override no approver added when any other label changes", () => {
+    expect(
+      pr({ action: "labeled", label: "bug", hasOverride: true }),
+    ).toMatchObject({
+      state: "pending",
+      removeOverride: true,
+      explainRemoval: "not an approver",
     });
   });
 
@@ -202,6 +235,17 @@ describe("decide, on the pull request's own events", () => {
     ).toBe("pending");
   });
 
+  it("returns a draft to the review's verdict when the override is removed", () => {
+    expect(
+      pr({
+        action: "unlabeled",
+        label: "verdict-override",
+        isDraft: true,
+        verdict: "changes",
+      })?.state,
+    ).toBe("failure");
+  });
+
   it("keeps a draft pending when it is opened", () => {
     expect(pr({ action: "opened", isDraft: true })?.description).toBe(
       "Draft: no review until it is marked ready",
@@ -225,10 +269,21 @@ describe("decide, on the pull request's own events", () => {
     );
   });
 
-  it("keeps an override when a labeled pull request is reopened", () => {
-    expect(pr({ action: "reopened", hasOverride: true })?.state).toBe(
-      "success",
-    );
+  it("keeps an approver's override when a labeled pull request is reopened", () => {
+    expect(
+      pr({ action: "reopened", hasOverride: true, overrideByApprover: true }),
+    ).toEqual({ state: "success", description: "Overridden by an approver" });
+  });
+
+  it("removes an override no approver added when a labeled draft is reopened", () => {
+    expect(
+      pr({ action: "reopened", hasOverride: true, isDraft: true }),
+    ).toEqual({
+      state: "pending",
+      description: "Draft: no review until it is marked ready",
+      removeOverride: true,
+      explainRemoval: "not an approver",
+    });
   });
 });
 
@@ -332,8 +387,10 @@ describe("apply", () => {
       action: string,
       sender: string,
       added = override ?? "verdict-override",
-    ) =>
-      apply({
+    ) => {
+      if (action === "labeled")
+        host.change(31, { labeledBy: { [added]: sender } });
+      return apply({
         eventName: "pull_request_target",
         event: {
           action,
@@ -346,6 +403,7 @@ describe("apply", () => {
         log: (line) => void log.push(line),
         override,
       });
+    };
     return { host, log, go };
   };
   const comments = (host: ReturnType<typeof memoryCodeHost>) =>
@@ -357,18 +415,24 @@ describe("apply", () => {
   const finished = (
     over: Partial<Parameters<typeof apply>[0]> = {},
     conclusion = "failure",
+    seed: Partial<PullSeed> = {},
+    options: MemoryCodeHostOptions = {},
   ) => {
-    const host = memoryCodeHost([
-      {
-        number: 31,
-        labels: [],
-        head: { sha: HEAD, branch: "28", repository: "acme/x" },
-        comments: [
-          { ...SUMMARY, body: SUMMARY.body.replace("changes", "ready") },
-        ],
-        threads: [],
-      },
-    ]);
+    const host = memoryCodeHost(
+      [
+        {
+          number: 31,
+          labels: [],
+          head: { sha: HEAD, branch: "28", repository: "acme/x" },
+          comments: [
+            { ...SUMMARY, body: SUMMARY.body.replace("changes", "ready") },
+          ],
+          threads: [],
+          ...seed,
+        },
+      ],
+      options,
+    );
     const log: string[] = [];
     const go = () =>
       apply({
@@ -378,7 +442,7 @@ describe("apply", () => {
         log: (line) => log.push(line),
         ...over,
       });
-    return { log, go };
+    return { host, log, go };
   };
 
   it("judges the review's own job, not the run its job was in", async () => {
@@ -509,11 +573,180 @@ describe("apply", () => {
     });
   });
 
-  it("asks who can write only for the override label", async () => {
-    const { host, go } = setUp({}, []);
+  describe("where no override could pass the verdict", () => {
+    const asked = (host: ReturnType<typeof memoryCodeHost>) =>
+      host.log.filter((l) => /^(canWrite|labeledBy)/.test(l));
 
-    await go("synchronize", "bob");
-    expect(host.log.filter((l) => l.startsWith("canWrite"))).toEqual([]);
+    it.each<[string, string, string[]]>([
+      ["the label is off", "reopened", []],
+      ["a push takes it off", "synchronize", ["verdict-override"]],
+    ])("does not ask who added it when %s", async (_, action, labels) => {
+      const { host, go } = setUp({}, labels);
+
+      await go(action, "bob");
+      expect(asked(host)).toEqual([]);
+    });
+
+    it.each<[string, { reviewOn?: boolean }, Partial<PullSeed>]>([
+      ["the automated review is off", { reviewOn: false }, {}],
+      [
+        "the pull request is Dependabot's",
+        {},
+        {
+          author: "dependabot[bot]",
+          commits: [{ sha: HEAD, verifiedAuthor: "dependabot[bot]" }],
+        },
+      ],
+    ])("does not ask who added it when %s", async (_, over, seed) => {
+      const { host, go } = finished(over, "success", {
+        labels: ["verdict-override"],
+        ...seed,
+      });
+
+      await go();
+      expect(asked(host)).toEqual([]);
+    });
+  });
+
+  describe("with the override on at an event that did not add it", () => {
+    const CANNOT = (who: string) =>
+      `Removed \`verdict-override\`: @${who} cannot write to this repository, and only an account that can may pass the verdict.`;
+
+    it.each(["bob", "github-actions[bot]"])(
+      "removes it on a reopened pull request when %s added it, whoever reopened it",
+      async (adder) => {
+        const { host, log, go } = setUp();
+        host.change(31, { labeledBy: { "verdict-override": adder } });
+
+        await go("reopened", "alice");
+        expect(log).toEqual([
+          `Review verdict on ${HEAD}: failure, The review asked for changes`,
+        ]);
+        expect(host.pull(31).labels).toEqual([]);
+        expect(comments(host)).toEqual([CANNOT(adder)]);
+      },
+    );
+
+    it("keeps an approver's on a pull request someone else reopened", async () => {
+      const { host, log, go } = setUp();
+      host.change(31, { labeledBy: { "verdict-override": "alice" } });
+
+      await go("reopened", "bob");
+      expect(log).toEqual([
+        `Review verdict on ${HEAD}: success, Overridden by an approver`,
+      ]);
+      expect(host.pull(31).labels).toEqual(["verdict-override"]);
+    });
+
+    it("removes it when the review finishes, and posts what the review said", async () => {
+      const { host, log, go } = finished({}, "success", {
+        labels: ["verdict-override"],
+        labeledBy: { "verdict-override": "bob" },
+      });
+
+      await go();
+      expect(log).toEqual([
+        `Review verdict on ${HEAD}: success, The review found it ready`,
+      ]);
+      expect(host.pull(31).labels).toEqual([]);
+      expect(comments(host)).toEqual([CANNOT("bob")]);
+    });
+
+    it("judges the account that added the label now on, not an earlier event's", async () => {
+      const { host, log } = setUp();
+      host.change(31, { labeledBy: { "verdict-override": "bob" } });
+
+      await apply({
+        eventName: "pull_request_target",
+        event: {
+          action: "labeled",
+          label: { name: "verdict-override" },
+          sender: { login: "alice" },
+          pull_request: { number: 31 },
+        },
+        pulls: host.codeHost,
+        log: (line) => void log.push(line),
+      });
+      expect(log).toEqual([
+        `Review verdict on ${HEAD}: failure, The review asked for changes`,
+      ]);
+      expect(comments(host)).toEqual([CANNOT("bob")]);
+    });
+
+    it.each<[string, MemoryCodeHostOptions, string]>([
+      [
+        "names nobody",
+        {},
+        "The code host does not say who added `verdict-override`.",
+      ],
+      [
+        "cannot be read",
+        { fail: { labeledBy: new Error("gh: Server Error (HTTP 500)") } },
+        "gh: Server Error (HTTP 500)",
+      ],
+    ])(
+      "removes it, says so, and fails when its record of who added it %s",
+      async (_, options, reason) => {
+        const { host, log, go } = setUp(options);
+
+        await expect(go("reopened", "alice")).rejects.toThrow(reason);
+        expect(log).toEqual([
+          `Review verdict on ${HEAD}: failure, The review asked for changes`,
+        ]);
+        expect(host.pull(31).labels).toEqual([]);
+        expect(comments(host)).toEqual([
+          "Removed `verdict-override`: could not check who added it, and only an account that can write to this repository may pass the verdict. Add the label again to retry.",
+        ]);
+      },
+    );
+  });
+
+  describe("on a pull request from Dependabot", () => {
+    const BOT = "dependabot[bot]";
+    const PASSED = `Review verdict on ${HEAD}: success, Review skipped: Dependabot. CI and end-to-end are the gate`;
+    const JUDGED = `Review verdict on ${HEAD}: pending, The review did not run`;
+    const by = (verifiedAuthor: string | null, sha = HEAD) => ({
+      sha,
+      verifiedAuthor,
+    });
+    const bump = (seed: Partial<PullSeed>, options?: MemoryCodeHostOptions) =>
+      finished({}, "skipped", { author: BOT, ...seed }, options);
+
+    it("skips the review when the code host verifies every commit as Dependabot's", async () => {
+      const { log, go } = bump({ commits: [by(BOT, "1"), by(BOT)] });
+
+      await go();
+      expect(log).toEqual([PASSED]);
+    });
+
+    it.each<[string, Partial<PullSeed>]>([
+      ["one commit is someone else's", { commits: [by("bob", "1"), by(BOT)] }],
+      [
+        "one commit is nobody's for certain",
+        { commits: [by(null, "1"), by(BOT)] },
+      ],
+      ["the code host lists no commit", { commits: [] }],
+      ["the commit judged is not among them", { commits: [by(BOT, "1")] }],
+      ["another account opened it", { author: "bob", commits: [by(BOT)] }],
+    ])("judges it as any other when %s", async (_, seed) => {
+      const { log, go } = bump(seed);
+
+      await go();
+      expect(log).toEqual([JUDGED]);
+    });
+
+    it("judges it as any other, and says why, when its commits cannot be read", async () => {
+      const { log, go } = bump(
+        { commits: [by(BOT)] },
+        { fail: { commits: new Error("gh: Server Error (HTTP 500)") } },
+      );
+
+      await go();
+      expect(log).toEqual([
+        "Could not check that every commit is Dependabot's: gh: Server Error (HTTP 500)",
+        JUDGED,
+      ]);
+    });
   });
 
   it("honors an override from an approver whose login the event spells in another case", async () => {

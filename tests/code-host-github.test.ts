@@ -603,6 +603,92 @@ describe("the default branch, open threads, and unverified commits", () => {
       "ccccccc unknown",
     ]);
   });
+
+  describe("a pull request's commits, and whose GitHub verifies each is", () => {
+    const BOT = "dependabot[bot]";
+    const raw = (
+      author: string | null,
+      committer: string | null,
+      verified?: boolean,
+    ) => ({
+      sha: "abc",
+      author: author === null ? null : { login: author },
+      committer: committer === null ? null : { login: committer },
+      commit: verified === undefined ? {} : { verification: { verified } },
+    });
+
+    it.each<[string, ReturnType<typeof raw>, string | null]>([
+      ["GitHub signed for its author", raw(BOT, "web-flow", true), BOT],
+      ["its author signed", raw("alice", "alice", true), "alice"],
+      ["whose signature GitHub refuses", raw(BOT, "web-flow", false), null],
+      ["with no word on a signature", raw(BOT, "web-flow"), null],
+      ["someone else signed in its author's name", raw(BOT, "bob", true), null],
+      ["signed by no account", raw(BOT, null, true), null],
+      ["whose author has no account", raw(null, "web-flow", true), null],
+    ])("reads a commit %s", async (_, commit, verifiedAuthor) => {
+      const { p } = pulls([[/pulls\/9\/commits/, [[commit]]]]);
+      expect(await p.commits(9)).toEqual([{ sha: "abc", verifiedAuthor }]);
+    });
+
+    it("reads every page, and refuses a list as long as the most GitHub lists", async () => {
+      const page = (n: number) =>
+        Array.from({ length: n }, () => raw(BOT, "web-flow", true));
+      const { p } = pulls([
+        [/--paginate .*pulls\/9\/commits/, [page(100), page(100), page(49)]],
+        [/--paginate .*pulls\/8\/commits/, [page(100), page(100), page(50)]],
+      ]);
+      expect(await p.commits(9)).toHaveLength(249);
+      await expect(p.commits(8)).rejects.toThrow(
+        "GitHub lists at most 250 commits of #8, so there may be more.",
+      );
+    });
+  });
+});
+
+describe("who added a label", () => {
+  const event = (event: string, label: string, login: string | null) => ({
+    event,
+    label: { name: label },
+    actor: login === null ? null : { login },
+  });
+
+  it.each<[string, unknown[][], string | null]>([
+    [
+      "the newest account to add it, on the last page",
+      [
+        [event("labeled", "pass", "alice"), event("unlabeled", "pass", "bot")],
+        [event("labeled", "pass", "bob")],
+      ],
+      "bob",
+    ],
+    [
+      "nobody once it is removed",
+      [[event("labeled", "pass", "alice"), event("unlabeled", "pass", "bob")]],
+      null,
+    ],
+    [
+      "its own adder, whatever happened since to anything else",
+      [
+        [
+          event("labeled", "pass", "alice"),
+          event("labeled", "bug", "bob"),
+          event("unlabeled", "bug", "bob"),
+          { event: "closed", actor: { login: "bob" } },
+        ],
+      ],
+      "alice",
+    ],
+    [
+      "an app's bot, as a bot",
+      [[event("labeled", "pass", "github-actions[bot]")]],
+      "github-actions[bot]",
+    ],
+    ["nobody for a deleted account", [[event("labeled", "pass", null)]], null],
+    ["nobody where no event adds it", [[]], null],
+  ])("is %s", async (_, pages, who) => {
+    const { p } = pulls([[/--paginate .*issues\/9\/events/, pages]]);
+    expect(await p.labeledBy(9, "pass")).toBe(who);
+  });
 });
 
 describe("the address of a pull request", () => {

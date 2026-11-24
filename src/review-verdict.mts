@@ -30,17 +30,19 @@ export type Input = {
   label?: string;
   /** The override's name, as `code-host.labels` gives it. */
   override?: string;
+  /** Dependabot opened it, and the code host verifies every commit on it
+   * as Dependabot's. */
   isDependabot: boolean;
   isDraft: boolean;
   /** The override label is on the pull request. A push removes it, so it
    * always applies to the head. */
   hasOverride: boolean;
-  /** The account behind a labeled event can write to the repository.
-   * Agents act through such accounts too; the guard hook stops them on a
-   * person's laptop. This stops everyone else. */
-  senderIsApprover?: boolean;
-  /** The code host could not say whether that account can write. */
-  senderUnchecked?: boolean;
+  /** The account the code host says added the override can write to the
+   * repository. Agents act through such accounts too; the guard hook stops
+   * them on a person's laptop. This stops everyone else. */
+  overrideByApprover?: boolean;
+  /** The code host could not say who added it, or whether they can write. */
+  overrideUnchecked?: boolean;
   /** How the review's job ended in the run that finished: success, failure,
    * cancelled, skipped. */
   runConclusion?: string;
@@ -86,6 +88,27 @@ function fromVerdict(verdict: Verdict, ifMissing: Decision): Decision {
   return ifMissing;
 }
 
+/** The status an event calls for where no override counts. */
+function withoutOverride(input: Input): Decision {
+  if (input.event === "workflow_run") {
+    if (input.runConclusion === "skipped") {
+      return input.isDraft
+        ? DRAFT
+        : { state: "pending", description: "The review did not run" };
+    }
+    if (input.runConclusion !== "success") {
+      return { state: "failure", description: "The review did not finish" };
+    }
+    return fromVerdict(input.verdict, {
+      state: "failure",
+      description: "The review posted no verdict",
+    });
+  }
+  const label = input.action === "labeled" || input.action === "unlabeled";
+  if (input.isDraft && !label) return DRAFT;
+  return fromVerdict(input.verdict, WAITING);
+}
+
 /** The status to post, or null to leave the commit's status as it is. */
 export function decide(input: Input): Decision | null {
   if (input.isDependabot) {
@@ -102,47 +125,34 @@ export function decide(input: Input): Decision | null {
       input.label !== (input.override ?? OVERRIDE);
     return otherLabel ? null : OFF;
   }
-  if (input.event === "workflow_run") {
-    // An override already vouches for this commit; a late review must not
-    // overwrite it.
-    if (input.hasOverride) return null;
-    if (input.runConclusion === "skipped") {
-      return input.isDraft
-        ? DRAFT
-        : { state: "pending", description: "The review did not run" };
-    }
-    if (input.runConclusion !== "success") {
-      return { state: "failure", description: "The review did not finish" };
-    }
-    return fromVerdict(input.verdict, {
-      state: "failure",
-      description: "The review posted no verdict",
-    });
+  if (input.action === "synchronize") {
+    // The approver overrode the commit they read. The new one is unread.
+    return { ...WAITING, removeOverride: input.hasOverride };
   }
+  if (input.hasOverride && !input.overrideByApprover) {
+    return {
+      ...withoutOverride(input),
+      removeOverride: true,
+      explainRemoval: input.overrideUnchecked
+        ? "could not check"
+        : "not an approver",
+    };
+  }
+  // An override already vouches for this commit; a late review must not
+  // overwrite it.
+  if (input.event === "workflow_run" && input.hasOverride) return null;
   switch (input.action) {
     case "labeled":
       if (input.label !== (input.override ?? OVERRIDE)) return null;
-      if (!input.senderIsApprover) {
-        return {
-          ...fromVerdict(input.verdict, WAITING),
-          removeOverride: true,
-          explainRemoval: input.senderUnchecked
-            ? "could not check"
-            : "not an approver",
-        };
-      }
-      return { ...OVERRIDDEN, announceOverride: true };
+      return input.hasOverride
+        ? { ...OVERRIDDEN, announceOverride: true }
+        : withoutOverride(input);
     case "unlabeled":
       return input.label === (input.override ?? OVERRIDE)
-        ? fromVerdict(input.verdict, WAITING)
+        ? withoutOverride(input)
         : null;
-    case "synchronize":
-      // The approver overrode the commit they read. The new one is unread.
-      return { ...WAITING, removeOverride: input.hasOverride };
     default:
-      if (input.hasOverride) return OVERRIDDEN;
-      if (input.isDraft) return DRAFT;
-      return fromVerdict(input.verdict, WAITING);
+      return input.hasOverride ? OVERRIDDEN : withoutOverride(input);
   }
 }
 
@@ -182,10 +192,35 @@ export function verdictIn(
   return match ? (match[1] as Verdict) : null;
 }
 
+const DEPENDABOT = "dependabot[bot]";
+
+/** Whether Dependabot opened the pull request, and the code host verifies
+ * every commit on it, `sha` among them, as Dependabot's. */
+async function onlyDependabot(
+  pulls: CodeHost,
+  pr: { number: number; author: string },
+  sha: string,
+  log: (line: string) => void,
+): Promise<boolean> {
+  if (pr.author !== DEPENDABOT) return false;
+  try {
+    const commits = await pulls.commits(pr.number);
+    // A push since the pull request was read can have replaced `sha`.
+    return (
+      commits.some((c) => c.sha === sha) &&
+      commits.every((c) => c.verifiedAuthor === DEPENDABOT)
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    log(`Could not check that every commit is Dependabot's: ${reason}`);
+    return false;
+  }
+}
+
 /** Posts the verdict for one event, removes or announces the override,
- * and says why it removed one. When the code host cannot say whether the
- * account that added the override can write, it removes the label, then
- * rejects with the reason. */
+ * and says why it removed one. When the code host cannot say who added the
+ * override, or whether they can write, it removes the label, then rejects
+ * with the reason. */
 export async function apply(o: {
   eventName: Input["event"];
   /** The event as GitHub sends it. */
@@ -241,13 +276,25 @@ export async function apply(o: {
   ) {
     return log(`${sha} is waiting for its own review.`);
   }
-  let senderIsApprover: boolean | undefined;
+  const isDependabot = await onlyDependabot(pulls, pr, sha, log);
+  const hasOverride = labels.includes(override);
+  let overrideBy: string | null = null;
+  let overrideByApprover: boolean | undefined;
   let lookupFailure: unknown;
-  if (event.action === "labeled" && event.label?.name === override)
+  if (
+    hasOverride &&
+    !isDependabot &&
+    !reviewOff &&
+    event.action !== "synchronize"
+  )
     try {
-      senderIsApprover = await pulls.canWrite(event.sender.login);
+      overrideBy = await pulls.labeledBy(pr.number, override);
+      if (overrideBy === null)
+        throw new Error(
+          `The code host does not say who added \`${override}\`.`,
+        );
+      overrideByApprover = await pulls.canWrite(overrideBy);
     } catch (error) {
-      senderIsApprover = false;
       lookupFailure = error ?? new Error("The access lookup failed.");
     }
   const decision = decide({
@@ -255,11 +302,11 @@ export async function apply(o: {
     action: event.action,
     label: event.label?.name,
     override,
-    isDependabot: pr.author === "dependabot[bot]",
+    isDependabot,
     isDraft: pr.isDraft,
-    hasOverride: labels.includes(override),
-    senderIsApprover,
-    senderUnchecked: lookupFailure !== undefined,
+    hasOverride,
+    overrideByApprover,
+    overrideUnchecked: lookupFailure !== undefined,
     runConclusion,
     reviewOff,
     verdict: verdictIn(comments, sha),
@@ -275,16 +322,17 @@ export async function apply(o: {
   log(`${CONTEXT} on ${sha}: ${decision.state}, ${decision.description}`);
 
   if (decision.removeOverride) await pulls.removeLabel(pr.number, override);
-  const who = event.sender?.login;
   if (decision.explainRemoval === "not an approver")
     await pulls.comment(
       pr.number,
-      `Removed \`${override}\`: @${who} cannot write to this repository, and only an account that can may pass the verdict.`,
+      `Removed \`${override}\`: @${overrideBy} cannot write to this repository, and only an account that can may pass the verdict.`,
     );
   if (decision.explainRemoval === "could not check") {
     await pulls.comment(
       pr.number,
-      `Removed \`${override}\`: could not check whether @${who} can write to this repository. Add the label again to retry.`,
+      overrideBy === null
+        ? `Removed \`${override}\`: could not check who added it, and only an account that can write to this repository may pass the verdict. Add the label again to retry.`
+        : `Removed \`${override}\`: could not check whether @${overrideBy} can write to this repository. Add the label again to retry.`,
     );
     throw lookupFailure;
   }
@@ -292,7 +340,7 @@ export async function apply(o: {
     const open = await pulls.openThreadCount(pr.number);
     await pulls.comment(
       pr.number,
-      `\`${CONTEXT}\` overridden by @${event.sender.login} at ${sha.slice(0, 7)}. ` +
+      `\`${CONTEXT}\` overridden by @${overrideBy} at ${sha.slice(0, 7)}. ` +
         `${open} review thread(s) still open; each must be resolved before this can merge. ` +
         `A new push removes the override.`,
     );

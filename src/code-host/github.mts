@@ -70,6 +70,19 @@ type RestComment = {
   in_reply_to_id?: number;
 };
 
+type RestCommit = {
+  sha: string;
+  author?: { login: string } | null;
+  committer?: { login: string } | null;
+  commit: { verification?: { verified: boolean } };
+};
+
+type RestIssueEvent = {
+  event: string;
+  label?: { name: string };
+  actor?: { login: string } | null;
+};
+
 type RestReview = {
   id: number;
   user?: { login: string } | null;
@@ -144,6 +157,21 @@ const reviewOf = (raw: RestReview): Review => ({
   body: raw.body ?? "",
   submittedAt: raw.submitted_at,
 });
+
+/** The most commits of a pull request GitHub lists. */
+const MOST_COMMITS = 250;
+
+/** The account GitHub commits as for a change made through it. */
+const GITHUB_COMMITTER = "web-flow";
+
+// A signature is the committer's. The author is only what the committer
+// wrote, unless they are the same account or GitHub is the committer.
+function verifiedAuthor(raw: RestCommit): string | null {
+  const author = raw.author?.login;
+  const committer = raw.committer?.login;
+  if (!author || raw.commit.verification?.verified !== true) return null;
+  return committer === author || committer === GITHUB_COMMITTER ? author : null;
+}
 
 type GraphThread = {
   id: string;
@@ -605,6 +633,17 @@ export function githubCodeHost(o: {
         ),
       );
     },
+    // The REST events, not GraphQL's, whose name for an app's bot is one a
+    // person could have.
+    async labeledBy(n, label) {
+      const last = (
+        await list<RestIssueEvent>(`${API}/issues/${n}/events?per_page=100`)
+      )
+        .filter((e) => /^(un)?labeled$/.test(e.event))
+        .filter((e) => e.label?.name === label)
+        .at(-1);
+      return last?.event === "labeled" ? (last.actor?.login ?? null) : null;
+    },
     reviews: async (n) =>
       (await list<RestReview>(`${API}/pulls/${n}/reviews?per_page=100`)).map(
         reviewOf,
@@ -674,6 +713,19 @@ export function githubCodeHost(o: {
           (c) =>
             `${c.sha.slice(0, 7)} ${c.commit.verification?.reason ?? "unknown"}`,
         );
+    },
+    async commits(n) {
+      const commits = await list<RestCommit>(
+        `${API}/pulls/${n}/commits?per_page=100`,
+      );
+      if (commits.length >= MOST_COMMITS)
+        throw new Error(
+          `GitHub lists at most ${MOST_COMMITS} commits of #${n}, so there may be more.`,
+        );
+      return commits.map((c) => ({
+        sha: c.sha,
+        verifiedAuthor: verifiedAuthor(c),
+      }));
     },
     async closes(n) {
       const result = await t.graphql<{

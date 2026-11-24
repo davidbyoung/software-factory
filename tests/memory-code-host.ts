@@ -10,6 +10,7 @@ import type {
   CommitStatus,
   Pull,
   PullComment,
+  PullCommit,
   Review,
   Thread,
 } from "../src/code-host/types.mts";
@@ -32,6 +33,9 @@ export type PullSeed = Partial<Pull> & {
   files?: ChangedFile[];
   /** What `unverifiedCommits` answers. */
   unverified?: string[];
+  commits?: PullCommit[];
+  /** Who added each label now on it, where the code host says. */
+  labeledBy?: Record<string, string>;
   /** The tickets the code host links it to closing, by key. */
   closes?: string[];
   /** The state of its checks, as the views read it. */
@@ -132,6 +136,8 @@ export function memoryCodeHost(
       autoMerge: false,
       files: [],
       unverified: [],
+      commits: [],
+      labeledBy: {},
       closes: [],
       checks: null,
       ...p,
@@ -347,7 +353,9 @@ export function memoryCodeHost(
     async addLabel(n, label) {
       called("addLabel", n, label);
       const p = get(n);
-      if (!p.labels.includes(label)) p.labels.push(label);
+      if (p.labels.includes(label)) return;
+      p.labels.push(label);
+      p.labeledBy = { ...p.labeledBy, [label]: owner };
     },
     async removeLabel(n, label) {
       called("removeLabel", n, label);
@@ -355,6 +363,11 @@ export function memoryCodeHost(
       if (!p.labels.includes(label))
         throw new NotFoundError(`the ${label} label on #${n}`);
       p.labels = p.labels.filter((l) => l !== label);
+    },
+    async labeledBy(n, label) {
+      called("labeledBy", n, label);
+      const p = get(n);
+      return p.labels.includes(label) ? (p.labeledBy[label] ?? null) : null;
     },
     async reviews(n) {
       called("reviews", n);
@@ -423,6 +436,8 @@ export function memoryCodeHost(
         threads: [],
         files: [],
         unverified: [],
+        commits: [],
+        labeledBy: {},
         closes: [],
         checks: null,
       });
@@ -439,6 +454,10 @@ export function memoryCodeHost(
     async unverifiedCommits(n) {
       called("unverifiedCommits", n);
       return [...get(n).unverified];
+    },
+    async commits(n) {
+      called("commits", n);
+      return get(n).commits.map((c) => ({ ...c }));
     },
     async closes(n) {
       called("closes", n);
