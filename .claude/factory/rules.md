@@ -195,12 +195,19 @@ them.
   Nothing is pushed, fetched, or pulled with git, and nothing is signed. A
   commit that changes a file under `.github/workflows/`, other than a merge
   that brings in the default branch's own change, is refused, with the
-  rest of the session's work: when a ticket needs one, stop and say it is
-  built on a person's machine.
+  rest of the session's work. A setting whose `factory sync` rewrites one
+  needs such a commit too. When a ticket needs one, stop and say it is built
+  on a person's machine; a line of the follow-ups ticket that needs one
+  stays unchecked, and the pull request names it.
 - **Where a skill waits** for checks or a review, the session ends with its
   report. What comes next starts a run of its own, which remembers nothing
   but the ticket, the pull request, and its threads.
-- **No hook runs.** The gate is what checks a commit.
+- **No hook runs,** `commands.before-commit` included. The gate is what
+  checks a commit.
+- **A picture can't be attached.** The pull request says so in place of a
+  screenshot, and one whose look the owner picks is opened with `--draft`.
+- **What comes before "marked ready" comes before `factory pr open`,** the
+  fresh-agent trace included, since nobody marks it ready by hand.
 - **The report** is asked for with `factory ticket comment N`, or on an
   answer with `factory pr comment N`, and is the final message too.
 

@@ -13,7 +13,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Preparing a build
 
 - **WHEN** a build's Prepare runs
-- **THEN** `factory session prepare build N` claims the ticket, then stops it with the reason when it has no Spec or Acceptance criteria section and no `follow-up` label, or waits on a comment round. It makes the branch-name and earlier-branch checks of `factory-build` and deletes a merged branch.
+- **THEN** `factory session prepare build N` claims the ticket, then stops it with the reason when it has no Spec or Acceptance criteria section and no `follow-up` label. It makes the branch-name and earlier-branch checks of `factory-build` and deletes a merged branch.
 
 ### Requirement: What is handed over
 

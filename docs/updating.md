@@ -13,7 +13,9 @@ The others need lines in your settings file that it doesn't have:
 settings have a [`tickets.board`](configuration.md#tickets). Two more,
 [Labeling your open tickets](#labeling-your-open-tickets) and
 [A spec for every visible change](#a-spec-for-every-visible-change), ask
-nothing of most repositories, but are worth reading.
+nothing of most repositories, but are worth reading. One more,
+[Cloud runs in three jobs](#cloud-runs-in-three-jobs), asks you to pass one
+pull request's verdict by hand.
 
 A repository coming from an old release takes them in order. Move to one
 install first. If `factory update` then stops with a settings error, the
@@ -556,6 +558,26 @@ runs `factory specs new N` and `factory specs finish N` instead
 
 The next time you run `factory init`, it asks once which spec tool you
 use, and writes your answer; choosing OpenSpec installs it.
+
+## Cloud runs in three jobs
+
+From this release on, each run that uses your coding agent is
+[three jobs](builds.md#what-a-cloud-run-is), so the agent and a sign-in to
+your code host are never in the same one. Nothing in your settings has to
+change. Three things differ:
+
+- **The pull request that updates to it gets no automated review,** where
+  the review is on, because your default branch's workflow does not run one
+  yet and the new one is not merged. Its "Review verdict" stays waiting. Read
+  it yourself, then add the
+  [`verdict-override`](configuration.md#code-hostlabels) label.
+- **A build's commits are not signed,** where they were. A rule that requires
+  signed commits stops its pull requests from merging.
+- **A session reaches only the npm registry** unless you list more under
+  [`builds.hosts`](configuration.md#builds), and Docker does not run in it
+  ([What a session can use](builds.md#what-a-session-can-use)).
+
+**It worked when** the next pull request you mark ready gets a review.
 
 ## The commands
 

@@ -176,16 +176,17 @@ as a code host's billing or what its workflows can see, are in
   branch left the default branch, up to 30.
 - **A cloud session hands over at most 20 MB of commits,** and it can't
   attach a picture to a ticket or a pull request, or add a label.
-- **A cloud build's pull request is marked ready once CI passes,** whatever
-  it changed. A change whose look you want to see first is better built on
-  your machine.
+- **A cloud build can't show you a picture.** One whose look you pick stays
+  a draft for you to mark ready, with no screenshots in it, so it is better
+  built on your machine.
 - **A pull request from a fork starts no run in the cloud,** and its review
   verdict waits for a person. So does one that goes into a branch other
   than your default branch, once it is marked ready.
 - **One of Dependabot's pull requests gets the verdict's pass only while
   every commit on it is Dependabot's own.** Once a session or a person
-  pushes to it, its verdict waits, since the automated review does not run
-  on Dependabot's pull requests. Override it, with
+  pushes to it, the automated review reads it, and the next Dependency run
+  answers what it asks for. With the review off, or a push whose review did
+  not run, the verdict waits. Override it, with
   [`verdict-override`](configuration.md#code-hostlabels), after reading it.
 - **A secret your own CI gives a branch is not protected from code in a
   pull request.** A build's commits run in your CI as anyone's do. The

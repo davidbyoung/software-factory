@@ -142,7 +142,7 @@ to Ready.
 instructions beside the code it changes.
 
 **What it writes.** A branch, commits, a draft pull request, a claim comment
-on the ticket, a note of what the build cost, except in the cloud, and a
+on the ticket, a note of what the build cost, and a
 line on the [follow-ups ticket](workflow.md#follow-ups) for anything small
 it noticed and did not fix.
 

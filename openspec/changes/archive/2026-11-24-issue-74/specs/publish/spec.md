@@ -16,7 +16,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: A bundle it refuses
 
 - **WHEN** Publish checks a bundle
-- **THEN** It refuses a bundle that is not one branch, does not start from the commit Prepare handed over, or adds a commit with a symbolic link, a submodule, a change under `.github/workflows/`, or a merge of anything but the default branch; and one whose `.github/workflows/` differs from its merge base with the default branch. It prints and comments the "Not pushed" lines.
+- **THEN** It refuses a bundle that is not one branch, does not start from the commit Prepare handed over, or adds a commit with a symbolic link, a submodule, a change under `.github/workflows/`, or a merge of anything but the default branch; and one whose `.github/workflows/` differs from its merge base with the default branch. Nor does it push a build whose pull request would link another ticket. It prints and comments the "Not pushed" lines.
 
 ### Requirement: What it pushes
 

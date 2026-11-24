@@ -7,7 +7,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: A read in a session
 
 - **WHEN** a session in the cloud reads through a `factory` command
-- **THEN** In a session of line 65, each read of `factory ticket` and `factory pr` a skill makes answers from what Prepare handed over, with the same output as from the code host. One not handed over prints the line "A run in the cloud" shows and exits 1.
+- **THEN** In a session of line 65, each read of `factory ticket` and `factory pr` a skill makes answers from what Prepare handed over, with the same output as from the code host, and the run's ticket as the session last asked for it to be. One not handed over prints the line "A run in the cloud" shows and exits 1.
 
 ### Requirement: A write in a session
 

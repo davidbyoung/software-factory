@@ -12,7 +12,7 @@ as they stand, so this file never restates them.
 | A command's behavior a factory user sees: output, exit, what it writes          | `factory` running the version a repository's lock names        |
 | A setting: a new key, a default, or what a value means                          | `pr-review` and its `commands`                                 |
 | A skill, an agent, or the rules: what every repository's sessions do            | `factory-address-review` waiting for no review where it is off |
-| A workflow every repository calls: what runs in its CI                          | the review job of `review.yml`, or a job of `run.yml`          |
+| A workflow every repository calls: what runs in its CI                          | the review job of `run.yml`, or the check of `review.yml`      |
 | The workflow an organization's `factory-config` calls: what its one poller does | the poller job of `poller.yml`                                 |
 | A small bug fix with no change to what a user sees                              | the commit guard passing a repository with no settings         |
 | This repository's own CI or release workflow                                    | the release waiting on CI for its commit                       |

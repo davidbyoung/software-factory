@@ -28,7 +28,8 @@ files and settings, and the unit tests with coverage, which fail under
 the coverage floors set in `vitest.config.ts`.
 
 A hook runs the `commands.before-commit` commands in `.claude/factory.yaml`
-before every `git commit` and blocks the commit if one fails.
+before every `git commit` on a person's machine and blocks the commit if
+one fails.
 
 The other commands the factory's skills run here:
 

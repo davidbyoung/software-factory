@@ -305,8 +305,8 @@ plugins:
 
 - **The conflict sweep reads a resolver from your default branch's
   copy,** both the list in the settings and the skill's text, never from
-  the pull request's branch. The sweep runs with a token, and a pull
-  request could otherwise change what runs with it. So a new or changed
+  the pull request's branch, which could otherwise change what runs on
+  the machine. So a new or changed
   resolver is used once it has merged.
 - **A contradiction is still a stop.** When the two sides of a conflict
   disagree about what the file should say, a resolver does not settle it:

@@ -169,8 +169,8 @@ the verdict.
     replaces that whole line, so get the indentation right. Otherwise
     describe the fix.
 - **`rejections`**, at most 30: a reply to an unresolved thread whose
-  rejection you still disagree with, by the thread's `commentId`, with your
-  evidence. Leave it empty otherwise: a reply that only agrees is noise.
+  rejection you still disagree with. `thread` is the thread's `commentId`,
+  and `body` your evidence. Leave it empty otherwise: a reply that only agrees is noise.
 - **`summary`**: what you reviewed, what you could not check, and any
   rejection on a resolved thread you still disagree with. Do not repeat the
   findings, and do not write the verdict in it: the comment starts with that.

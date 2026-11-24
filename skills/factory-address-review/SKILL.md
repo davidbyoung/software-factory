@@ -6,17 +6,17 @@ description: Address a pull request's review until it can merge: the Claude revi
 # Handling a pull request review
 
 Where the automated review is on, a Claude reviewer runs in GitHub Actions
-on every push to a pull request that is not a draft (the review job of
-`.github/workflows/factory-review.yml`, instructions in
+on every push to a pull request that is not a draft (the review run of
+`.github/workflows/factory.yml`, instructions in
 `.github/factory-review.md`). It leaves inline review threads, some with
 one-click ```suggestion blocks, and one summary comment per push. The point
 of this skill is that the user does not have to relay messages between it
 and you. You decide, you act, you record the decision on the thread, and you
 report once at the end.
 
-**The merge also needs `Review verdict` on the head commit.** A workflow
-posts it from the marker at the end of each review summary: success only
-when the review said ready. A push starts the next commit without one. When
+**The merge also needs `Review verdict` on the head commit.** The review's
+run posts it as it ends, by the review's own answer and by no comment:
+success only when the review said ready. A push starts the next commit without one. When
 a round ends with rejections only and nothing to push, the verdict stays at
 the last review's failure, so ask for a fresh read of the same commit
 (`factory pr review-again N`); the reviewer
@@ -51,9 +51,8 @@ prints. A command below writes it as DEFAULT.
 
 ## 0. Is there anything to review yet
 
-**Started by the owner's review** ("the owner's review REVIEW_ID on #N",
-as the workflow that listens for it says) is the run under "A run started by the owner's review" in section 0a: it
-works the owner's comments, pushes, and then calls this skill from here.
+**A run in the cloud** is the one under that heading in section 0a: it
+works what is there now, pushes once, and ends.
 
 The reviewer runs on pull requests, not branches. One command reads
 everything sections 0 to 1b need: the open pull request for the branch,
@@ -75,8 +74,8 @@ report's first lines. If `mergeable` is `dirty` and the pull request is based on
 Dependabot's, and not from a fork, run "A conflict with the default branch" in the
 `factory-resolve-conflicts` skill first, including in a session woken by the desktop
 app, then carry on here: a fix is a push, so wait for its review as
-below. After a stop, no review is coming, so work the review threads that
-already exist and name the stop in the report. GitHub computes the state
+below. After a stop, nothing was pushed, so no new review is coming: work the
+review threads that already exist and name the stop in the report. GitHub computes the state
 lazily, so the script reads `unknown` again, up to 5 times, 10 seconds
 apart; still `unknown` counts as no conflict.
 
@@ -84,9 +83,8 @@ After a push, wait for the review of that commit, not an older one. Its
 summary ends with `<!-- claude-review sha=HEAD_SHA -->`, and the report
 reads only that commit's run and summary. With `--wait` it reports once
 the head's review has posted, or its run has failed, and every check has
-finished; a session in the cloud, which ends in place of waiting,
-uses that, and a local one is woken by
-`watch-pr` instead. Read the summary in full with
+finished. A local session is woken by
+`factory pr watch` instead, and one in the cloud waits for nothing. Read the summary in full with
 `factory pr comment-view ID`, by the ID
 the report names.
 
@@ -120,9 +118,11 @@ approver's. Match with
 
 A run in the cloud answers a pull request once and ends ("A session in the
 cloud" in `.claude/factory/rules.md`): what its checks found, the threads
-its review left, or a person's review. It merges nothing in. The run after
-its push waits for CI and the review, and starts the next answer itself, so
-sections 0 and 6 are not its own: it works what is there now.
+its review left, or a person's review. It merges nothing in. What its push
+leads to starts the next answer, on a pull request a build in the cloud
+opened; on any other, the session that opened it, or the owner, works the
+review. The rounds are counted there, so sections 0 and 6 are not its own:
+it works what is there now.
 
 A run started by a person's review is given the review's ID, and ran
 `factory session ready answer N REVIEW_ID` first, which is steps 1 to 3
@@ -220,8 +220,8 @@ Approver threads are outside section 6's round count and its escalation.
 
 The reviewer posts as `github-actions[bot]`: its threads are the review
 threads that account opened, and its summaries are the issue comments ending
-in `<!-- claude-review sha=… -->`. The inline comment tool strips HTML
-comments, so the threads carry no marker of their own.
+in `<!-- claude-review sha=… -->`. The threads carry no marker of their
+own.
 
 The unresolved threads, each with its comments in full:
 
@@ -494,9 +494,7 @@ other push: pull with
 
 Approver threads (section 0a) are outside this count, and this section's
 escalation does not apply to them: an open approver thread is already an
-approver's to decide. A run started by the owner's review has no memory of
-earlier sessions, so it counts rounds from the `claude-review sha=`
-summaries of the commits it pushed itself.
+approver's to decide.
 
 A round is one review you work: you reply to and resolve its threads, push
 your fixes, and the push triggers the next review. Handle **at most two
