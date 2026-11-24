@@ -2,8 +2,11 @@
 // a ticket system with a site address and a token of its own, and a coding
 // agent whose configuration is one file. Each proves a new tool is set up,
 // checked, and removed with no edit to init, doctor, or remove.
+import { EventEmitter } from "node:events";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
+import type { Spawn } from "../src/agent/claude-code.mts";
 import type { Agent, Answer, Question } from "../src/agent/types.mts";
 import type { CredentialStep, ToolSetup } from "../src/setup.mts";
 import { HttpError } from "../src/tickets/transport.mts";
@@ -214,4 +217,46 @@ export function withSecondRunner(base: Registry): Registry {
       },
     },
   };
+}
+
+/** How one try of a credential ends: taken, refused with what Claude Code
+ * says, or never answered. */
+export type Try = "taken" | { refused: string } | "hangs";
+
+/** A stand-in for the coding agent's command when a pasted credential is
+ * tried: each run ends as the next of `tries` says, and as taken once
+ * they run out. It records the environment each run was given, and never
+ * starts a process. */
+export function tryingSpawn(tries: Try[] = []) {
+  const queue = [...tries];
+  const envs: Record<string, string | undefined>[] = [];
+  const spawn: Spawn = (_command, _args, options) => {
+    envs.push({ ...options.env });
+    const how = queue.shift() ?? "taken";
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+      kill(): boolean;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.kill = () => {
+      setImmediate(() => child.emit("close", null));
+      return true;
+    };
+    if (how !== "hangs")
+      setImmediate(() => {
+        child.stdout.end(
+          JSON.stringify(
+            how === "taken"
+              ? { is_error: false, result: "ok" }
+              : { is_error: true, result: how.refused },
+          ),
+        );
+        child.stderr.end("");
+        setImmediate(() => child.emit("close", how === "taken" ? 0 : 1));
+      });
+    return child;
+  };
+  return { spawn, envs };
 }

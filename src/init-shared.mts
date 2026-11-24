@@ -4,6 +4,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { styleText } from "node:util";
 import { organizationHosts } from "./code-host/index.mts";
 import { columnsOf, fieldNamesOf, type Settings } from "./config.mts";
@@ -113,7 +114,7 @@ export async function askSecret(
     let checked: { lines: string[]; account?: string } = { lines: [] };
     if (step.verify)
       try {
-        checked = await step.verify(value);
+        checked = await step.verify(value, d.out);
       } catch (e) {
         d.out(message(e));
         continue;
@@ -193,6 +194,109 @@ export function docsPage(version: string, page: string): string {
 export const defaultInWords = (value: string): string =>
   value ? `Press Enter for ${value}` : "";
 
+/** The terminal a secret is read from: its keys, and where the prompt is
+ * written. A stream that is no terminal has no mode to set. */
+export type SecretIo = {
+  input: NodeJS.ReadableStream & {
+    isRaw?: boolean;
+    setRawMode?(mode: boolean): unknown;
+  };
+  output: NodeJS.WritableStream;
+};
+
+/** What a terminal sends around pasted text once bracketed paste is on,
+ * and what turns that on and off. */
+const PASTE_START = "\u001b[200~";
+const PASTE_END = "\u001b[201~";
+const BRACKETED_ON = "\u001b[?2004h";
+const BRACKETED_OFF = "\u001b[?2004l";
+/** A whole escape sequence at the start of what is left to read: a key
+ * that is no character, or one of the paste's two marks. */
+const SEQUENCE = /^\u001b(?:\[[0-9;?]*[@-~]|O[@-~]|[^[O])/;
+
+/** Reads a secret without echoing it, a dot for each character taken. It
+ * ends on Enter typed outside a paste: a token copied from two lines of a
+ * terminal is pasted with its line break, which a prompt that reads one
+ * line takes for Enter, keeping the first line alone. Stopped with Ctrl-C,
+ * or by the terminal closing, it rejects as the other prompts do, with an
+ * error named `ExitPromptError`. */
+export function readSecret(message: string, io: SecretIo): Promise<string> {
+  const { input, output } = io;
+  return new Promise((resolve, reject) => {
+    const decoder = new StringDecoder("utf8");
+    const wasRaw = input.isRaw ?? false;
+    let value = "";
+    let pending = "";
+    let pasting = false;
+    const finish = (settle: () => void) => {
+      input.off("data", read);
+      input.off("end", closed);
+      input.off("close", closed);
+      input.pause();
+      input.setRawMode?.(wasRaw);
+      output.write(`${BRACKETED_OFF}\n`);
+      settle();
+    };
+    const stopped = () => {
+      const error = new Error("User force closed the prompt");
+      error.name = "ExitPromptError";
+      return error;
+    };
+    const closed = () => finish(() => reject(stopped()));
+    const take = (text: string) => {
+      value += text;
+      output.write("•".repeat([...text].length));
+    };
+    /** Takes what `pending` holds, up to a sequence the terminal has not
+     * finished sending. True once the prompt has ended. */
+    const consume = (): boolean => {
+      while (pending) {
+        if (pending[0] === "\u001b") {
+          const sequence = SEQUENCE.exec(pending)?.[0];
+          if (sequence === undefined) return false;
+          pending = pending.slice(sequence.length);
+          if (sequence === PASTE_START) pasting = true;
+          else if (sequence === PASTE_END) pasting = false;
+          continue;
+        }
+        const character = [...pending][0]!;
+        pending = pending.slice(character.length);
+        if (pasting) take(character);
+        else if (character === "\r" || character === "\n") {
+          // Anything after the line break was pasted with no marks around
+          // it, and would otherwise answer the next question.
+          pending = "";
+          finish(() => resolve(value));
+          return true;
+        } else if (character === "\u0003") {
+          finish(() => reject(stopped()));
+          return true;
+        } else if (character === "\u007f" || character === "\b") {
+          const last = [...value].at(-1);
+          if (last !== undefined) {
+            value = value.slice(0, -last.length);
+            output.write("\b \b");
+          }
+        } else if (character >= " ") take(character);
+      }
+      return false;
+    };
+    const read = (chunk: Buffer | string) => {
+      pending += typeof chunk === "string" ? chunk : decoder.write(chunk);
+      consume();
+    };
+    output.write(
+      `${styleText("blue", "?")} ${styleText("bold", message)} ${BRACKETED_ON}`,
+    );
+
+    input.setRawMode?.(true);
+    input.on("data", read);
+    input.once("end", closed);
+    input.once("close", closed);
+    input.resume();
+  });
+}
+
 /** The questions, asked at the terminal. */
 export async function terminalAsk(): Promise<Ask> {
   const p = await import("@inquirer/prompts");
@@ -201,7 +305,8 @@ export async function terminalAsk(): Promise<Ask> {
     select: (message, choices, fallback) =>
       p.select({ message, choices, default: fallback }),
     confirm: (message, fallback) => p.confirm({ message, default: fallback }),
-    secret: (message) => p.password({ message, mask: "•" }),
+    secret: (message) =>
+      readSecret(message, { input: process.stdin, output: process.stdout }),
     input: (message, fallback) =>
       p.input({
         message,

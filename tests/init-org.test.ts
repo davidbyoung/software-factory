@@ -35,7 +35,13 @@ import {
 import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
-import { scriptedAgent, withFakeAgent, withFakeTickets } from "./fake-tools";
+import {
+  scriptedAgent,
+  tryingSpawn,
+  withFakeAgent,
+  withFakeTickets,
+  type Try,
+} from "./fake-tools";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -407,6 +413,10 @@ type Setup = {
   agentInstalled?: boolean;
   /** The installed factory's version; a release unless given. */
   version?: string;
+  /** How each try of a pasted credential ends; taken unless given. */
+  tries?: Try[];
+  /** How long a try may take, in milliseconds. */
+  tryMs?: number;
   tools?: (base: Registry) => Registry;
 };
 
@@ -519,8 +529,11 @@ function setup(o: Setup = {}) {
       return organizations.get(name)!.organization;
     },
   };
+  const trying = tryingSpawn(o.tries);
   const tools = (o.tools ?? ((b) => b))(
     memoryTools({
+      spawn: trying.spawn,
+      tryMs: o.tryMs,
       codeHost: memoryCodeHost([], { owner: "acme" }).codeHost,
       runner: memoryRunner().runner,
       tickets: recorded,
@@ -558,6 +571,8 @@ function setup(o: Setup = {}) {
     transcript,
     opened,
     ran,
+    /** The environment each try of a pasted credential ran with. */
+    tried: trying.envs,
     selects,
     confirms,
     queue,
@@ -833,6 +848,7 @@ describe("factory init --org, a first run", () => {
       "",
       "The coding agent's token: running claude setup-token...",
       "? secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
+      "Trying the token...",
       "✓ Stored 2 secrets and 2 variables for acme.",
       '✓ Required "Review verdict" where the property software-factory is "on".',
       "",
@@ -1523,6 +1539,7 @@ describe("factory init --org, the coding agent's credential", () => {
       TOKEN_PROMPT,
       `That is not the token: it starts sk-ant-oat01-, and what you pasted starts differently. If it has a # in it, it is the code the browser gave you for claude setup-token. ${COPY}`,
       TOKEN_PROMPT,
+      "Trying the token...",
       "✓ Stored 2 secrets and 2 variables for acme.",
     ]);
     expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
@@ -1561,11 +1578,71 @@ describe("factory init --org, the coding agent's credential", () => {
       KEY_PROMPT,
       'That is the token claude setup-token prints, not an API key: one starts sk-ant-api. It belongs to the choice "A Claude subscription". Paste the key from the Anthropic console.',
       KEY_PROMPT,
+      "Trying the API key...",
       "✓ Stored 2 secrets and 2 variables for acme.",
     ]);
     expect(s.org().values.get("ANTHROPIC_API_KEY")).toBe(API_KEY);
     expect(s.seed.secrets).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
     printsNoSecret(s.out);
+  });
+
+  it("tries the token before it stores it, and asks again for one Claude Code refuses", async () => {
+    const cut = TOKEN.slice(0, 15);
+    const s = setup({
+      answers: { ...FIRST, secret: [cut, TOKEN] },
+      tries: [
+        {
+          refused:
+            "Failed to authenticate. API Error: 401 OAuth access token is invalid.",
+        },
+      ],
+    });
+    expect(await s.run()).toBe(0);
+    expect(asking(s, TOKEN_PROMPT)).toEqual([
+      TOKEN_PROMPT,
+      "Trying the token...",
+      "Claude Code refused that token: API Error: 401 OAuth access token is invalid. If it was printed over two lines, copy both, then paste it again.",
+      TOKEN_PROMPT,
+      "Trying the token...",
+      "✓ Stored 2 secrets and 2 variables for acme.",
+    ]);
+    expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
+    expect(s.org().log.filter((l) => l.startsWith("setSecret"))).toEqual([
+      "setSecret FACTORY_APP_PRIVATE_KEY",
+      "setSecret CLAUDE_CODE_OAUTH_TOKEN",
+    ]);
+    // Each try had the value pasted, under the token's name.
+    expect(s.tried.map((env) => env.CLAUDE_CODE_OAUTH_TOKEN)).toEqual([
+      cut,
+      TOKEN,
+    ]);
+    expect(s.out.join("\n")).not.toContain(cut);
+  });
+
+  it("stores a token it could not try, and says it is untried", async () => {
+    const s = setup({ answers: FIRST, tries: ["hangs"], tryMs: 20 });
+    expect(await s.run()).toBe(0);
+    expect(asking(s, TOKEN_PROMPT)).toEqual([
+      TOKEN_PROMPT,
+      "Trying the token...",
+      "Could not try the token (it took longer than 0.02 seconds), so it is stored untried.",
+      "✓ Stored 2 secrets and 2 variables for acme.",
+    ]);
+    expect(s.org().values.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(TOKEN);
+  });
+
+  it("tries an API key under its own name, with no token beside it", async () => {
+    const s = setup({
+      answers: {
+        ...FIRST,
+        select: ["new", "ANTHROPIC_API_KEY", "30"],
+        secret: [API_KEY],
+      },
+    });
+    expect(await s.run()).toBe(0);
+    expect(s.tried).toHaveLength(1);
+    expect(s.tried[0]!.ANTHROPIC_API_KEY).toBe(API_KEY);
+    expect(s.tried[0]!.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
   });
 
   it("stores an API key as ANTHROPIC_API_KEY, and runs no command for it", async () => {
@@ -1867,6 +1944,7 @@ describe("factory init --org, run again", () => {
       "",
       "The coding agent's token: running claude setup-token...",
       "? secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
+      "Trying the token...",
       "✓ Stored 1 secret for acme.",
       "",
       ...ending(),

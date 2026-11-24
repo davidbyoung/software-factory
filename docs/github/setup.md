@@ -116,10 +116,10 @@ After "Go ahead?", the [steps above](#run-factory-init) also ask you
 for up to two tokens, each when a part you chose reads it, plus the
 token your `.npmrc` reads when it reads one:
 
-| Token                                 | Asked for when you chose                                                   | What you do                                                                                                                                        |
-| ------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The token `claude setup-token` prints | "An automated review of every pull request" or "Builds in the cloud"       | Init runs the command for you. Follow what it says, then paste the token it prints, as it is: init joins a token the terminal wrapped across lines |
-| A GitHub access token                 | "A board", "Builds in the cloud", or "Pull requests that merge themselves" | Init opens GitHub's page with the right scopes checked. Choose an expiry, generate the token, and paste it                                         |
+| Token                                 | Asked for when you chose                                                   | What you do                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The token `claude setup-token` prints | "An automated review of every pull request" or "Builds in the cloud"       | Init runs the command for you. If it gives you a code in the browser, paste that back to it. Then copy the token it prints, the line that starts `sk-ant-oat01-`, and paste it to init, over two lines if that is how it was printed. Init tries the token before it stores it, and asks again if Claude Code refuses it |
+| A GitHub access token                 | "A board", "Builds in the cloud", or "Pull requests that merge themselves" | Init opens GitHub's page with the right scopes checked. Choose an expiry, generate the token, and paste it                                                                                                                                                                                                               |
 
 Each of the two is typed into a masked prompt, stored in the
 repository's secrets, and kept on your machine, so your next repository
@@ -227,6 +227,7 @@ Registering the GitHub App "Software Factory for acme". Two steps, both in your 
 
 The coding agent's token: running claude setup-token...
 ? Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):
+Trying the token...
 ✓ Stored 2 secrets and 2 variables for acme.
 ✓ Required "Review verdict" where the property software-factory is "on".
 

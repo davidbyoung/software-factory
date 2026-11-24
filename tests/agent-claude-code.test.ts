@@ -1,10 +1,11 @@
 import { EventEmitter } from "node:events";
 import { existsSync, readdirSync } from "node:fs";
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   claudeCodeAgent,
   claudeCodeSetup,
+  claudeCodeSetupWith,
   keyFault,
   tokenFault,
   type Spawn,
@@ -30,6 +31,8 @@ function fakeSpawn(script: Script) {
     cwd: string;
     /** What the child's three streams were started as. */
     stdio: unknown;
+    /** The child's environment, when one was given. */
+    env: Record<string, string | undefined> | undefined;
     /** The folder's files while the command ran. */
     files: string[];
   }[] = [];
@@ -40,6 +43,7 @@ function fakeSpawn(script: Script) {
       args,
       cwd: options.cwd,
       stdio: (options as { stdio?: unknown }).stdio,
+      env: (options as { env?: Record<string, string | undefined> }).env,
       files: readdirSync(options.cwd),
     });
     const child = new EventEmitter() as EventEmitter & {
@@ -230,6 +234,7 @@ describe("the token Claude Code's setup asks for", () => {
   const KEY = "sk-ant-api03-AbC_dEf-123";
   const COPY =
     'Copy the line claude setup-token printed after "Your OAuth token", and paste that.';
+  // No value here has a token's shape, so nothing is ever tried.
   const step = () =>
     claudeCodeSetup.steps!(memoryContext(["cloud"]))[0] as SecretStep;
   /** The line a pasted value is refused with. */
@@ -243,10 +248,6 @@ describe("the token Claude Code's setup asks for", () => {
     expect(step().prompt).toBe(
       "Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):",
     );
-  });
-
-  it("takes a token", async () => {
-    expect(await step().verify!(TOKEN)).toEqual({ lines: [] });
   });
 
   it("refuses the browser's code, and says that is what a value with a # is", async () => {
@@ -298,5 +299,146 @@ describe("an API key for Claude Code", () => {
     expect(keyFault("sk-ant-oat01-AbC_dEf-123", "A Claude subscription")).toBe(
       'That is the token claude setup-token prints, not an API key: one starts sk-ant-api. It belongs to the choice "A Claude subscription". Paste the key from the Anthropic console.',
     );
+  });
+});
+
+describe("trying a pasted credential with Claude Code before it is stored", () => {
+  const TOKEN = "sk-ant-oat01-AbC_dEf-123";
+  const KEY = "sk-ant-api03-AbC_dEf-123";
+  const OK = { stdout: JSON.stringify({ is_error: false, result: "ok" }) };
+  const REFUSED = {
+    code: 1,
+    stderr: "Warning: no stdin data received in 3s, proceeding without it.\n",
+    stdout: JSON.stringify({
+      is_error: true,
+      result:
+        "Failed to authenticate. API Error: 401 OAuth access token is invalid.",
+    }),
+  };
+  /** The token's step over a scripted Claude Code, and what it said. */
+  const trying = (script: Script, tryMs?: number) => {
+    const f = fakeSpawn(script);
+    const said: string[] = [];
+    const step = claudeCodeSetupWith(f.spawn, { tryMs }).steps!(
+      memoryContext(["cloud"]),
+    )[0] as SecretStep;
+    return { f, said, step, say: (line: string) => void said.push(line) };
+  };
+
+  it("says it is trying the token, and stores one Claude Code takes with no more said", async () => {
+    const t = trying(OK);
+    expect(await t.step.verify!(TOKEN, t.say)).toEqual({ lines: [] });
+    expect(t.said).toEqual(["Trying the token..."]);
+  });
+
+  it("gives the token in the child's environment, in no argument, with nothing else that could answer for it", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-api03-from-the-shell");
+    vi.stubEnv("PATH", "/usr/bin");
+    const t = trying(OK);
+    await t.step.verify!(TOKEN, t.say);
+    expect(t.f.calls).toHaveLength(1);
+    const call = t.f.calls[0]!;
+    expect(call.command).toBe("claude");
+    expect(call.env!.CLAUDE_CODE_OAUTH_TOKEN).toBe(TOKEN);
+    expect(call.env!.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(call.env!.PATH).toBe("/usr/bin");
+    expect(call.args.join(" ")).not.toContain(TOKEN);
+    expect(call.args).toContain("-p");
+    expect(call.args.slice(call.args.indexOf("--model"))).toEqual(
+      expect.arrayContaining(["--model", "haiku"]),
+    );
+    expect(call.stdio).toEqual(["ignore", "pipe", "pipe"]);
+    expect(call.files).toEqual([]);
+    expect(existsSync(call.cwd)).toBe(false);
+  });
+
+  it("refuses a token Claude Code refuses, with its reason and nothing of the token", async () => {
+    const t = trying(REFUSED);
+    const error = await t.step.verify!(TOKEN, t.say).then(
+      () => null,
+      (e: Error) => e.message,
+    );
+    expect(error).toBe(
+      "Claude Code refused that token: API Error: 401 OAuth access token is invalid. If it was printed over two lines, copy both, then paste it again.",
+    );
+    expect(error).not.toContain(TOKEN.slice(0, 16));
+    expect(error).not.toContain(TOKEN.slice(-8));
+  });
+
+  it("stores the token untried, and says so, when Claude Code does not answer in time", async () => {
+    const t = trying({ hang: true }, 20);
+    expect(await t.step.verify!(TOKEN, t.say)).toEqual({
+      lines: [
+        "Could not try the token (it took longer than 0.02 seconds), so it is stored untried.",
+      ],
+    });
+    expect(t.f.killed()).toBe(true);
+  });
+
+  it("stores the token untried when Claude Code cannot be started", async () => {
+    const t = trying({ error: "spawn claude ENOENT" });
+    expect(await t.step.verify!(TOKEN, t.say)).toEqual({
+      lines: [
+        "Could not try the token (spawn claude ENOENT), so it is stored untried.",
+      ],
+    });
+  });
+
+  it("stores the token untried when Claude Code fails for a reason that is no refusal", async () => {
+    const t = trying({
+      code: 1,
+      stdout: JSON.stringify({
+        is_error: true,
+        result: "API Error: Connection error.",
+      }),
+    });
+    expect(await t.step.verify!(TOKEN, t.say)).toEqual({
+      lines: [
+        "Could not try the token (API Error: Connection error), so it is stored untried.",
+      ],
+    });
+  });
+
+  it("tries nothing that is not shaped as a token", async () => {
+    const t = trying(OK);
+    await expect(t.step.verify!("gho_something", t.say)).rejects.toThrow(
+      "That is not the token",
+    );
+    expect(t.f.calls).toEqual([]);
+    expect(t.said).toEqual([]);
+  });
+
+  it("offers an API key in the token's place, tried the same way under its own name", async () => {
+    vi.stubEnv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat01-from-the-shell");
+    const t = trying(OK);
+    const key = t.step.or!;
+    expect(key.storeAs).toEqual(["ANTHROPIC_API_KEY"]);
+    expect(key.prompt).toBe(
+      "Paste the API key (leave empty to do this later):",
+    );
+    expect(key.skipped).toBe("No ANTHROPIC_API_KEY stored.");
+    expect(await key.verify!(KEY, t.say)).toEqual({ lines: [] });
+    expect(t.said).toEqual(["Trying the API key..."]);
+    const call = t.f.calls[0]!;
+    expect(call.env!.ANTHROPIC_API_KEY).toBe(KEY);
+    expect(call.env!.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
+    expect(call.args.join(" ")).not.toContain(KEY);
+  });
+
+  it("refuses an API key Claude Code refuses, and one that is not shaped as a key without trying it", async () => {
+    const t = trying({
+      code: 1,
+      stdout: JSON.stringify({
+        is_error: true,
+        result: "Invalid API key · Fix external API key",
+      }),
+    });
+    await expect(t.step.or!.verify!(KEY, t.say)).rejects.toThrow(
+      "Claude Code refused that API key: Invalid API key · Fix external API key. Copy the whole key from the Anthropic console, then paste it again.",
+    );
+    await expect(t.step.or!.verify!("nothing-like-one", t.say)).rejects.toThrow(
+      "That is not an API key",
+    );
+    expect(t.f.calls).toHaveLength(1);
   });
 });

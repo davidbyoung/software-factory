@@ -54,7 +54,13 @@ export type SecretStep = {
   /** Resolves to lines to print, and the account the value belongs to
    * when the tool knows it; rejects with the line to print before asking
    * again. */
-  verify?: (value: string) => Promise<{ lines: string[]; account?: string }>;
+  verify?: (
+    value: string,
+    say?: (line: string) => void,
+  ) => Promise<{ lines: string[]; account?: string }>;
+  /** Another secret that meets the same needs, which a command may offer
+   * in this one's place. */
+  or?: SecretStep;
   /** Printed once it is stored. */
   stored: (names: string[], account?: string) => string;
   /** Set on the secret the tool's `kept` names. `serves` says whether a

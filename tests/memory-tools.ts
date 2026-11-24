@@ -1,6 +1,7 @@
 // The factory's registry with each built tool opening an in-memory fake, so
 // `init`, `doctor`, and `remove` run their real setups with no network. A
 // test adds a tool of its own by spreading the result.
+import { claudeCodeSetupWith, type Spawn } from "../src/agent/claude-code.mts";
 import type { Agent } from "../src/agent/types.mts";
 import type { CodeHost } from "../src/code-host/types.mts";
 import type { Settings } from "../src/config.mts";
@@ -11,7 +12,7 @@ import type { SpecTools } from "../src/specs/index.mts";
 import type { SpecTool } from "../src/specs/types.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import { TOOLS, type Registry } from "../src/tools.mts";
-import { scriptedAgent } from "./fake-tools";
+import { scriptedAgent, tryingSpawn } from "./fake-tools";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -22,6 +23,11 @@ export function memoryTools(o: {
   tickets: Tickets;
   /** Claude Code's answers, which never run claude. */
   agent?: Agent;
+  /** What stands in for claude when a pasted credential is tried: one
+   * that takes every credential unless given. */
+  spawn?: Spawn;
+  /** How long such a try may take, in milliseconds. */
+  tryMs?: number;
   /** The spec tools, in place of the built ones. */
   specs?: SpecTools;
 }): Registry {
@@ -37,6 +43,9 @@ export function memoryTools(o: {
     agent: {
       "claude-code": {
         ...TOOLS.agent["claude-code"]!,
+        setup: claudeCodeSetupWith(o.spawn ?? tryingSpawn().spawn, {
+          tryMs: o.tryMs,
+        }),
         agent: o.agent ?? scriptedAgent(),
       },
     },

@@ -44,7 +44,7 @@ machine already holds and the tokens an organization stores.
 #### Scenario: A tool's secret
 
 - **WHEN** a tool needs a secret that is not set
-- **THEN** `init` prints the tool's introduction, opens the tool's page and prints its address, or runs the tool's command attached to the terminal, then reads the value in a masked prompt with the tool's prompt text. It stores the value through the runner under each name the tool gives. The plan's `secrets` row lists those names before anything changes. Two cases differ. In a repository an organization owns, `init` asks for neither the code host's token nor the coding agent's credential, and lists neither. In a repository a person owns, it stores either from the credentials file without asking when the file holds one that still serves, as `machine-tokens` says.
+- **THEN** `init` prints the tool's introduction, opens the tool's page and prints its address, or runs the tool's command attached to the terminal, then reads the value in a masked prompt with the tool's prompt text. A value pasted over several lines is taken whole, its line breaks dropped: the prompt ends on Enter typed after the paste, where the terminal marks a paste, and on the first line break where it does not. It stores the value through the runner under each name the tool gives. The plan's `secrets` row lists those names before anything changes. Two cases differ. In a repository an organization owns, `init` asks for neither the code host's token nor the coding agent's credential, and lists neither. In a repository a person owns, it stores either from the credentials file without asking when the file holds one that still serves, as `machine-tokens` says.
 
 ### Requirement: A refused secret
 

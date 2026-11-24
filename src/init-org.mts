@@ -37,7 +37,7 @@ import {
 import { hasCommand } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
 import { sameName, STATE_KEYS, type StateKey } from "./lib/work-status.mts";
-import { AGENT_KEY, APP_KEY } from "./parts.mts";
+import { APP_KEY } from "./parts.mts";
 import { PRESET_FILE } from "./preset.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { RULE, type SecretStep } from "./setup.mts";
@@ -438,13 +438,13 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
         ? credential.get.command
         : null;
     storeAs =
-      getCommand && meets.includes(AGENT_KEY)
+      getCommand && credential.or
         ? await d.ask.select("What pays for sessions in the cloud?", [
             {
               name: `${SUBSCRIPTION} (it runs ${getCommand.join(" ")} for you)`,
               value: credentialNames[0]!,
             },
-            { name: API_KEY, value: AGENT_KEY },
+            { name: API_KEY, value: credential.or.storeAs[0]! },
           ])
         : credentialNames[0]!;
   }
@@ -739,25 +739,22 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
 
     if (credential && storeAs) {
       const name = storeAs;
-      const refuse = (fault: string | null) => {
-        if (fault) throw new Error(fault);
-        return { lines: [] };
-      };
+      // Each prompt names the other choice to a value that belongs to it,
+      // then checks the value as the coding agent's own step does.
+      const keyStep = credentialNames.includes(name) ? null : credential.or;
+      const taken = keyStep ?? credential;
       const got = await askSecret(
         d,
-        credentialNames.includes(name)
-          ? {
-              ...credential,
-              verify: async (value) => refuse(tokenFault(value, API_KEY)),
-            }
-          : {
-              ...credential,
-              intro: [""],
-              get: undefined,
-              verify: async (value) => refuse(keyFault(value, SUBSCRIPTION)),
-              prompt: "Paste the API key (leave empty to do this later):",
-              skipped: `No ${name} stored.`,
-            },
+        {
+          ...taken,
+          verify: async (value, say) => {
+            const fault = keyStep
+              ? keyFault(value, SUBSCRIPTION)
+              : tokenFault(value, API_KEY);
+            if (fault) throw new Error(fault);
+            return (await taken.verify?.(value, say)) ?? { lines: [] };
+          },
+        },
         `Run ${command} again to add it.`,
       );
       if (got) {
