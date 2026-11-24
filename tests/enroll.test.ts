@@ -210,6 +210,44 @@ describe("with no token of either kind", () => {
   });
 });
 
+describe("where the owner's plan has no branch rules for the repository", () => {
+  const NO_RULES = {
+    noRules: "GitHub Free has no branch rules for a private repository",
+  };
+
+  it.each<[string, Enroll["as"], MemoryCodeHostOptions]>([
+    [
+      "the app's token, in an organization with no such property",
+      "app",
+      {
+        ...NO_RULES,
+        propertyRefused: "Not Found",
+        propertyRefusedStatus: 404,
+      },
+    ],
+    ["a person's build token", "person", NO_RULES],
+    ["no token of either kind", null, NO_RULES],
+  ])(
+    "prints nothing and makes no rule, since none can be made there, with %s",
+    async (_, as, options) => {
+      const { lines, host } = run(as, options);
+
+      expect(await lines()).toEqual([]);
+      expect(
+        host.log.filter((call) => call.startsWith("requireCheck")),
+      ).toEqual([]);
+    },
+  );
+
+  it("still fails on any other failure to read the branch's rules", async () => {
+    const { lines } = run("person", {
+      fail: { requiresStatus: new Error("gh api: Server Error (HTTP 500)") },
+    });
+
+    await expect(lines()).rejects.toThrow("Server Error (HTTP 500)");
+  });
+});
+
 describe("with the review off", () => {
   it.each<[Enroll["as"]]>([["app"], ["person"], [null]])(
     "does nothing, and asks the code host nothing, holding %s",

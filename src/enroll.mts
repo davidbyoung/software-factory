@@ -12,7 +12,7 @@
 // repository's own rule. With neither, or where the code host refuses, it
 // says who does it by hand. It prints nothing when the verdict is already
 // required, and exits 0 whatever it could do.
-import type { CodeHost } from "./code-host/types.mts";
+import { NoRulesError, type CodeHost } from "./code-host/types.mts";
 import { PROPERTY } from "./init-org.mts";
 import { CONTEXT } from "./review-verdict.mts";
 import { RULE } from "./setup.mts";
@@ -74,7 +74,15 @@ export async function enroll(o: Enroll): Promise<string[]> {
     }
   }
 
-  if (await o.codeHost.requiresStatus(o.branch, CONTEXT)) return [];
+  // Where the owner's plan has no branch rules for the repository, none
+  // can be made, by this run or by an admin: there is nothing to say.
+  const settled = await o.codeHost
+    .requiresStatus(o.branch, CONTEXT)
+    .catch((error) => {
+      if (error instanceof NoRulesError) return true;
+      throw error;
+    });
+  if (settled) return [];
   if (o.as !== "person") return [notRequired];
   try {
     await o.codeHost.requireCheck(RULE, CONTEXT, "runner");
