@@ -21,6 +21,7 @@ import { TOOLS } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
 import { writeSettings } from "./locked.ts";
 import { CODE_HOST_YAML } from "./settings-fixture.ts";
+import { into } from "./printed";
 
 const pin = (name: string, commit: string): PresetPin => ({
   name,
@@ -142,7 +143,7 @@ function update(o: Setup = {}) {
       },
     },
     releaseNotes: (version) => `https://example.com/releases/v${version}`,
-    out: (line) => out.push(line),
+    out: into(out),
   };
   return {
     run: (argv: string[] = []) => main(argv, d),
@@ -510,7 +511,7 @@ describe("factory update, where an organization's poller is", () => {
         },
       },
       releaseNotes: (version) => `https://example.com/releases/v${version}`,
-      out: (line) => out.push(line),
+      out: into(out),
     };
     return {
       run: (argv: string[] = []) => updatePoller(argv, d),
@@ -692,7 +693,7 @@ describe("the settings factory update reads", () => {
     withSettings(`version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`);
     appendFileSync(join(repo, ".claude/factory.yaml"), "pr-review:\n");
     const said: string[] = [];
-    const settings = await settingsNow(repo, (l) => said.push(l));
+    const settings = await settingsNow(repo, into(said));
     expect(said).toEqual([]);
     expect(settings?.prReview).not.toBeNull();
   });
@@ -700,7 +701,7 @@ describe("the settings factory update reads", () => {
   it("says what the settings lack in one line, and reads none", async () => {
     withSettings("version: 2\nrepository: o/r\ncode-host:\n  type: github\n");
     const said: string[] = [];
-    expect(await settingsNow(repo, (l) => said.push(l))).toBeNull();
+    expect(await settingsNow(repo, into(said))).toBeNull();
     expect(said).toEqual([
       expect.stringContaining("code-host.branch-name: is required"),
     ]);

@@ -11,6 +11,7 @@ import { writeCredential } from "../src/lib/credentials.mts";
 import { IMPORT_LINE, withHooks } from "../src/sync.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 import { AGENT, GOOD, init, type Setup } from "./init-harness";
+import { into } from "./printed";
 
 const GATED = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ncommands:\n  gate:\n    - npm run check\n`;
 const OPENED_FIRST = '✓ Opened acme/site#1, "Set up the software factory".';
@@ -129,7 +130,7 @@ describe("factory init, the gate", () => {
     const passed = await runGate(
       {
         gate: async () => ({ status: 0, output: "" }),
-        out: (l) => out.push(l),
+        out: into(out),
       },
       ["npm run lint", "npm test"],
     );
@@ -172,7 +173,7 @@ describe("factory init, the gate", () => {
           ran.push(command);
           return { status: command === "b" ? 2 : 0, output: "boom\n" };
         },
-        out: (l) => out.push(l),
+        out: into(out),
       },
       ["a", "b", "c"],
     );
@@ -611,7 +612,7 @@ describe("factory init, a step that fails after the files are written", () => {
     };
     const d = (status: Partial<GitResult>) => ({
       git: git(status),
-      out: (l: string) => out.push(l),
+      out: into(out),
     });
     expect(await openPull(d({ stdout: "?? a\0" }), o)).toEqual({
       state: "opened",

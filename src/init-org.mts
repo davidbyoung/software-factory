@@ -31,11 +31,11 @@ import {
   interactive,
   message,
   openPage,
-  terminalAsk,
   type Terminal,
 } from "./init-shared.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
+import { terminalAsk } from "./lib/prompts.mts";
 import { sameName, STATE_KEYS, type StateKey } from "./lib/work-status.mts";
 import { APP_KEY } from "./parts.mts";
 import { PRESET_FILE } from "./preset.mts";
@@ -44,6 +44,7 @@ import { RULE, type SecretStep } from "./setup.mts";
 import { PACKAGE } from "./sync.mts";
 import { TOOLS, type Registry } from "./tools.mts";
 import { POLLER_FILE, pollerWorkflow } from "./workflow-files.mts";
+import * as say from "./lib/output.mts";
 
 export type InitOrgDeps = Terminal & {
   /** Each code host an organization can be on, by the name
@@ -72,8 +73,11 @@ const API_KEY = "An API key";
 const README = "README.md";
 const FILES = [README, PRESET_FILE, POLLER_FILE];
 const NOTHING = "Nothing changed.";
-const NO_RULE =
-  "- rule      Each repository's own: once its setup merges, an admin of it runs factory init";
+const NO_RULE = say.row(
+  "rule",
+  "Each repository's own: once its setup merges, an admin of it runs factory init",
+  { width: 9, indent: 0, mark: "off" },
+);
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 
@@ -87,9 +91,9 @@ const CHOOSE = `Choose all repositories, or a selection that includes ${CONFIG},
 const FIND_IT =
   'Press the app\'s name, then "Install App", choose the repositories, and press "Install".';
 const installing = (page: string, press: string) => [
-  `     ${page}`,
-  `   ${press}`,
-  "   Waiting up to 10 minutes for the installation to show.",
+  say.text(`     ${page}`),
+  say.text(`   ${press}`),
+  say.text("   Waiting up to 10 minutes for the installation to show."),
 ];
 
 /** A step that failed, as the line that says what could not be done. */
@@ -157,7 +161,7 @@ const counted = (n: number, what: string) =>
 
 export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   const stop = (...lines: string[]) => {
-    for (const l of lines) d.out(l);
+    for (const l of lines) d.out(say.text(l));
     return 1;
   };
   const address = (argv[argv.indexOf("--org") + 1] ?? "")
@@ -238,14 +242,19 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       true,
     );
     if (!grant) {
-      d.out(NOTHING);
+      d.out(say.text(NOTHING));
       return 0;
     }
     await d.interactive(lacks.fix);
   }
 
-  d.out(`Setting up the software factory for the organization ${org}`);
-  d.out("");
+  d.out(
+    say.text(
+      "Setting up the software factory for the organization ",
+      say.name(org),
+    ),
+  );
+  d.out(say.BLANK);
 
   const ticketNames = Object.keys(d.tools.tickets);
   const repository = `${org}/${CONFIG}`;
@@ -316,9 +325,9 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   const agentStored = meets.filter((n) => secrets.includes(n));
   const oneTickets = ticketNames.length === 1;
 
-  d.out("Found");
+  d.out(say.heading("Found"));
   const row = (label: string, text: string) =>
-    d.out(`  ${label.padEnd(16)} ${text}`);
+    d.out(say.row(label, text, { width: 16 }));
   row("Code host", `${host.label} (from the address)`);
   row("You", `an owner of ${org}`);
   if (!plan.rules || !plan.privateSecrets)
@@ -342,7 +351,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   row("Preset", config ? repository : "none yet");
   if (ruled)
     row("Rule", `"${REVIEW_VERDICT}" is required where ${PROPERTY} is "on"`);
-  d.out("");
+  d.out(say.BLANK);
 
   // The questions: only what is not there yet.
   let ticketsName = ticketNames[0]!;
@@ -445,7 +454,9 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   if (!needsPreset) pollMinutes = pollMinutesIn(files[PRESET_FILE]!);
   else if (isPrivate) {
     d.out(
-      "Each run of the poller bills at least one Actions minute in a private repository.",
+      say.text(
+        "Each run of the poller bills at least one Actions minute in a private repository.",
+      ),
     );
     pollMinutes = Number(
       await d.ask.select(
@@ -508,21 +519,21 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     `     ${docsPage(d.packageVersion, "github/setup.md#in-an-organization")}`,
   ];
   if (!rows.length) {
-    d.out(`✓ ${org} is set up. Nothing to do.`);
-    d.out("");
-    for (const l of addresses) d.out(l);
+    d.out(say.text(`✓ ${org} is set up. Nothing to do.`));
+    d.out(say.BLANK);
+    for (const l of addresses) d.out(say.text(l));
     return 0;
   }
-  d.out("");
-  d.out("This is everything setup will do:");
-  const lines = rows.map(([label, text]) => `  ${label.padEnd(9)} ${text}`);
+  d.out(say.BLANK);
+  d.out(say.heading("This is everything setup will do:"));
+  const lines = rows.map(([label, text]) => say.row(label, text, { width: 9 }));
   if (!plan.rules) lines.splice(ruleAt, 0, NO_RULE);
   for (const l of lines) d.out(l);
   if (!(await d.ask.confirm("Go ahead?", false))) {
-    d.out(NOTHING);
+    d.out(say.text(NOTHING));
     return 0;
   }
-  d.out("");
+  d.out(say.BLANK);
 
   const step = async <T,>(what: string, run: () => Promise<T>): Promise<T> => {
     try {
@@ -552,7 +563,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
             throw new Error("this ticket system cannot create a board");
           return ops.create(BOARD_TITLE);
         });
-        d.out(`✓ Created board ${board}, "${BOARD_TITLE}".`);
+        d.out(say.text(`✓ Created board ${board}, "${BOARD_TITLE}".`));
       }
       const number = board as number;
       await step(`give board ${number} its columns and fields`, async () => {
@@ -598,9 +609,11 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
           ),
       );
       d.out(
-        config
-          ? `✓ Wrote ${listed(missing)} in ${repository}.`
-          : `✓ Created ${repository}.`,
+        say.text(
+          config
+            ? `✓ Wrote ${listed(missing)} in ${repository}.`
+            : `✓ Created ${repository}.`,
+        ),
       );
     }
 
@@ -609,15 +622,19 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       let id = clientId;
       let key: string | null = null;
       if (id === null) {
-        d.out("");
+        d.out(say.BLANK);
         d.out(
-          `Registering the ${host.label} App "${app.name}". Two steps, both in your browser.`,
+          say.action(
+            `Registering the ${host.label} App "${app.name}". Two steps, both in your browser.`,
+          ),
         );
         if (await organization.appNamed(app.name).catch(() => null))
           d.out(
-            `An app named "${app.name}" is already registered. Delete it under ${org}'s Settings, Developer settings, or type another name in the form.`,
+            say.text(
+              `An app named "${app.name}" is already registered. Delete it under ${org}'s Settings, Developer settings, or type another name in the form.`,
+            ),
           );
-        d.out("");
+        d.out(say.BLANK);
         let shown = false;
         const made = await step("register the app", () =>
           organization.registerApp({
@@ -625,12 +642,18 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
             open: (page) => {
               if (!shown) {
                 d.out(
-                  "1. Create the app. Your browser should open this address. If it does not, open it yourself:",
+                  say.step(
+                    1,
+                    "Create the app. Your browser should open this address. If it does not, open it yourself:",
+                    { indent: 0 },
+                  ),
                 );
-                d.out(`     ${page}`);
-                d.out(`   Then press "Create ${host.label} App".`);
+                d.out(say.text(`     ${page}`));
+                d.out(say.text(`   Then press "Create ${host.label} App".`));
                 d.out(
-                  `   Waiting for ${host.label} to send your browser back. If that page does not load, paste its address here:`,
+                  say.text(
+                    `   Waiting for ${host.label} to send your browser back. If that page does not load, paste its address here:`,
+                  ),
                 );
               }
               shown = true;
@@ -639,7 +662,9 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
             pasted: (signal, again) => {
               if (again)
                 d.out(
-                  "That address is not from this run. Paste the address of the page that did not load:",
+                  say.text(
+                    "That address is not from this run. Paste the address of the page that did not load:",
+                  ),
                 );
               return d.readLine(signal);
             },
@@ -653,20 +678,24 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
                 organization.setVariable(APP_CLIENT_ID, registered.clientId),
               );
               counts.variables++;
-              d.out(`✓ Created the app, and stored its key for ${org}.`);
+              d.out(
+                say.text(`✓ Created the app, and stored its key for ${org}.`),
+              );
             },
           }),
         );
         id = made.clientId;
-        d.out("");
-        d.out(`2. ${INSTALL_IT}`);
+        d.out(say.BLANK);
+        d.out(say.step(2, INSTALL_IT, { indent: 0 }));
         for (const l of installing(made.installPage, CHOOSE)) d.out(l);
       } else {
         d.out(
-          `The ${host.label} App${known ? ` "${known.name}"` : ""} is registered and not installed yet.`,
+          say.text(
+            `The ${host.label} App${known ? ` "${known.name}"` : ""} is registered and not installed yet.`,
+          ),
         );
-        d.out("");
-        d.out(INSTALL_IT);
+        d.out(say.BLANK);
+        d.out(say.text(INSTALL_IT));
         const page = known?.installPage ?? organization.appsPage();
         for (const l of installing(page, known ? CHOOSE : FIND_IT)) d.out(l);
         d.openPage(page);
@@ -680,7 +709,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
           "✗ Could not see the app installed after 10 minutes.",
         );
       shown = found;
-      if (key === null) d.out("✓ Installed the app.");
+      if (key === null) d.out(say.text("✓ Installed the app."));
       else {
         const appKey: string = key;
         const on = await step("count the app's repositories", () =>
@@ -695,7 +724,9 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
             `✗ The app is not installed on ${repository}, which every repository's runs read. Add it: ${found.page}`,
           );
         d.out(
-          `✓ Installed the app on ${on.count} ${on.count === 1 ? "repository" : "repositories"}.`,
+          say.text(
+            `✓ Installed the app on ${on.count} ${on.count === 1 ? "repository" : "repositories"}.`,
+          ),
         );
       }
     }
@@ -731,7 +762,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       ...(counts.secrets ? [counted(counts.secrets, "secret")] : []),
       ...(counts.variables ? [counted(counts.variables, "variable")] : []),
     ];
-    if (kept.length) d.out(`✓ Stored ${listed(kept)} for ${org}.`);
+    if (kept.length) d.out(say.text(`✓ Stored ${listed(kept)} for ${org}.`));
   } catch (e) {
     if (!(e instanceof StepFailed)) throw e;
     return stop(e.message, carryOn);
@@ -751,31 +782,38 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
         source: "runner",
       });
       d.out(
-        `✓ Required "${REVIEW_VERDICT}" where the property ${PROPERTY} is "on".`,
+        say.text(
+          `✓ Required "${REVIEW_VERDICT}" where the property ${PROPERTY} is "on".`,
+        ),
       );
     } catch {
       unruled = `${host.label} refused the organization's rule.`;
     }
 
-  d.out("");
-  d.out(`✓ ${org} is set up.`);
-  d.out("");
-  d.out("Next, in each repository you want the factory in:");
-  d.out("  1. A developer installs the factory once on their machine:");
-  d.out(`       npm install -g ${d.packageName}`);
-  d.out("  2. In the repository's checkout, they run:");
-  d.out("       factory init");
+  d.out(say.BLANK);
+  d.out(say.text(`✓ ${org} is set up.`));
+  d.out(say.BLANK);
+  d.out(say.action("Next, in each repository you want the factory in:"));
+  d.out(say.step(1, "A developer installs the factory once on their machine:"));
+  d.out(say.text("       ", say.copy(`npm install -g ${d.packageName}`)));
+  d.out(say.step(2, "In the repository's checkout, they run:"));
+  d.out(say.text("       factory init"));
   d.out(
-    "     It asks them for no token, and opens the pull request that sets the repository up.",
+    say.text(
+      "     It asks them for no token, and opens the pull request that sets the repository up.",
+    ),
   );
   if (unruled) {
     d.out(
-      "  3. Once that pull request merges, an admin of the repository runs factory init there",
+      say.step(
+        3,
+        "Once that pull request merges, an admin of the repository runs factory init there",
+      ),
     );
-    d.out(`     again, to require "${REVIEW_VERDICT}". ${unruled}`);
+    d.out(say.text(`     again, to require "${REVIEW_VERDICT}". ${unruled}`));
   }
-  d.out("");
-  for (const l of addresses) d.out(l);
+  d.out(say.BLANK);
+  for (const l of addresses) d.out(say.text(l));
   return 0;
 }
 
@@ -806,7 +844,7 @@ export async function initOrgDeps(): Promise<InitOrgDeps> {
   ) as { name: string; version: string };
   return {
     ask: await terminalAsk(),
-    out: (l) => console.log(l),
+    out: say.printersFor("init").out,
     interactive,
     openPage,
     hasCommand,
@@ -823,7 +861,11 @@ export async function run(argv: string[]): Promise<number> {
     return await main(argv, await initOrgDeps());
   } catch (e) {
     if (e instanceof Error && e.name === "ExitPromptError") {
-      console.log("Stopped. Nothing after the last step shown was changed.");
+      say
+        .printersFor("init")
+        .out(
+          say.text("Stopped. Nothing after the last step shown was changed."),
+        );
       return 130;
     }
     throw e;

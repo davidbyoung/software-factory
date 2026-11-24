@@ -23,7 +23,6 @@ import {
   type GitResult,
   type InitDeps,
 } from "../src/init.mts";
-import type { Paint } from "../src/lib/color.mts";
 import { parseSettings } from "../src/config.mts";
 import { checks as doctorChecks } from "../src/doctor.mts";
 import { writeCredential } from "../src/lib/credentials.mts";
@@ -37,6 +36,8 @@ import { memoryTools } from "./memory-tools";
 import type { Registry } from "../src/tools.mts";
 import type { Agent } from "../src/agent/types.mts";
 import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
+import * as say from "../src/lib/output.mts";
+import { into } from "./printed";
 
 export const GOOD = "tok_good";
 export const NARROW = "tok_narrow";
@@ -253,7 +254,6 @@ export type Setup = {
   workflows?: Record<string, "active" | "disabled">;
   runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
   codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
-  paint?: Paint;
   checks?: Check[];
   /** Whether the closing checks are doctor's own, over the same tools, in
    * place of `checks`. */
@@ -319,6 +319,8 @@ export function init(setup: Setup) {
   for (const [site, values] of Object.entries(setup.machine ?? {}))
     writeCredential({ tool: "fake", site, values, env });
   const out: string[] = [];
+  /** Every line printed, in color. */
+  const looks: string[] = [];
   /** Every line printed and every question asked, in the order they came. */
   const transcript: string[] = [];
   /** Each question asked and each git command run, as `git fetch`, in the
@@ -455,8 +457,8 @@ export function init(setup: Setup) {
     root,
     ask,
     out: (line) => {
-      out.push(line);
-      transcript.push(line);
+      into(out, looks)(line);
+      transcript.push(out.at(-1)!);
     },
     remotes: () => {
       remotesRead++;
@@ -500,10 +502,12 @@ export function init(setup: Setup) {
       add: async (name, files, io) => {
         const preset = setup.presets?.[name];
         if (!preset || preset.refuses) {
-          io.out(preset?.refuses ?? `${name}: not found, or private.`);
+          io.out(
+            say.text(preset?.refuses ?? `${name}: not found, or private.`),
+          );
           return null;
         }
-        for (const line of preset.summary ?? []) io.out(line);
+        for (const line of preset.summary ?? []) io.out(say.verbatim(line));
         const doc = parseDocument(files.settings);
         doc.set("presets", [
           ...((doc.toJS()?.presets as string[] | undefined) ?? []),
@@ -587,7 +591,6 @@ export function init(setup: Setup) {
         : (setup.checks ?? [{ state: "pass", text: "Every check passed" }]),
     packageName: "@davidbyoung/software-factory",
     packageVersion: "0.2.0",
-    paint: setup.paint,
     install: async (argv) => {
       const at = (path: string) =>
         existsSync(join(root, path))
@@ -612,6 +615,7 @@ export function init(setup: Setup) {
     d,
     env,
     out,
+    looks,
     transcript,
     asked,
     offered,

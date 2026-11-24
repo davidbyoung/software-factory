@@ -24,7 +24,6 @@ import {
 import { lockedVersion, ownerOf } from "./preset.mts";
 import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
-import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   APP_KEY,
   neededSecrets,
@@ -46,6 +45,7 @@ import { PROPERTY } from "./init-org.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
 import { machineState, type MachineState } from "./lib/credentials.mts";
+import * as say from "./lib/output.mts";
 
 export type { Check } from "./setup.mts";
 
@@ -68,8 +68,7 @@ export type DoctorDeps = {
   root: string;
   hasCommand: (name: string) => boolean;
   tools: Registry;
-  out: (line: string) => void;
-  paint?: Paint;
+  out: say.Out;
   /** Where a credential's variables and the credentials file are read. */
   env?: Record<string, string | undefined>;
 };
@@ -664,41 +663,40 @@ export function usesRegistry(settings: string, url: string): boolean {
   );
 }
 
+const MARK_OF = { off: "off", unknown: "look", pass: "ok" } as const;
+
 /** One check as a line: a tick, a cross with what to do, or a dash for a
  * part that is off. */
-export function line(c: Check, paint: Paint = plain): string {
-  if (c.state === "off") return `${paint("dim", "-")} ${c.text}`;
-  if (c.state === "unknown") return `${paint("yellow", "?")} ${c.text}`;
-  if (c.state === "pass") return `${paint("green", "✓")} ${c.text}`;
+export function line(c: Check, indent = 0): say.Line {
+  if (c.state !== "fail") return say.mark(MARK_OF[c.state], c.text, { indent });
   const fix = c.fix ?? "";
   // An instruction follows as its own sentence; a reason, after a colon.
-  return `${paint("red", "✗")} ${c.text}${!fix ? "" : /^Run /.test(fix) ? `. ${fix}` : `: ${fix}`}`;
+  return say.mark(
+    "fail",
+    `${c.text}${!fix ? "" : /^Run /.test(fix) ? `. ${fix}` : `: ${fix}`}`,
+    { indent },
+  );
 }
 
 /** The checks under their headings, each group apart from the next, the
  * whole indented by `indent` spaces. */
-export function printChecks(
-  found: Check[],
-  paint: Paint = plain,
-  indent = 0,
-): string[] {
-  const at = " ".repeat(indent);
-  const out: string[] = [];
+export function printChecks(found: Check[], indent = 0): say.Line[] {
+  const out: say.Line[] = [];
   let heading: string | undefined;
   for (const c of found) {
     if (c.group !== heading || out.length === 0) {
-      if (out.length) out.push("");
+      if (out.length) out.push(say.BLANK);
       heading = c.group;
-      if (heading) out.push(`${at}${heading}`);
+      if (heading) out.push(say.heading(heading, { indent }));
     }
-    out.push(`${at}${heading ? "  " : ""}${line(c, paint)}`);
+    out.push(line(c, indent + (heading ? 2 : 0)));
   }
   return out;
 }
 
 export async function main(_argv: string[], d: DoctorDeps): Promise<number> {
   const found = await checks(d);
-  for (const l of printChecks(found, d.paint)) d.out(l);
+  for (const l of printChecks(found)) d.out(l);
   return found.some((c) => c.state === "fail") ? 1 : 0;
 }
 
@@ -745,8 +743,7 @@ export function doctorDeps(root = repoRoot()): DoctorDeps {
     root,
     hasCommand,
     tools: TOOLS,
-    out: (l) => console.log(l),
-    paint: painter(colorOn()),
+    out: say.printersFor("doctor").out,
   };
 }
 

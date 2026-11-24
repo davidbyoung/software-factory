@@ -6,6 +6,7 @@
 // keyboard is still asked, and so is any other workflow that runs Claude.
 import { readFileSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
+import * as say from "./lib/output.mts";
 
 export type PermissionInput = {
   cwd?: string;
@@ -56,6 +57,6 @@ export async function run(): Promise<number> {
     return 0;
   }
   const answer = permission(input, process.env);
-  if (answer) process.stdout.write(`${answer}\n`);
+  if (answer) say.plain(answer);
   return 0;
 }

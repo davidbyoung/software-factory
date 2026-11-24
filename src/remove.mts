@@ -32,11 +32,13 @@ import { CHOICES_FILE } from "./preset.mts";
 import { builtOf, inUse, keptBy, TOOLS, type Registry } from "./tools.mts";
 import { PROPERTY } from "./init-org.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
+import * as say from "./lib/output.mts";
+import { terminalAsk } from "./lib/prompts.mts";
 
 export type RemoveDeps = {
   root: string;
   confirm: (message: string, fallback: boolean) => Promise<boolean>;
-  out: (line: string) => void;
+  out: say.Out;
   tools: Registry;
   hasCommand: (name: string) => boolean;
   /** Where the credentials file is read. */
@@ -166,20 +168,27 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
     (t) => t.setup.unconfigure?.(context) ?? [],
   );
   if (deletes.length === 0 && changes.length === 0) {
-    d.out("Nothing of the factory's is here.");
+    d.out(say.text("Nothing of the factory's is here."));
     return 0;
   }
   if (unread !== null)
     d.out(
-      `Could not read ${SETTINGS_FILE}: ${unread}. Naming what ${listed(tools.map((t) => t.label))} leave behind.`,
+      say.text(
+        `Could not read ${SETTINGS_FILE}: ${unread}. Naming what ${listed(tools.map((t) => t.label))} leave behind.`,
+      ),
     );
 
-  d.out("This is everything remove will do:");
-  for (const p of deletes) d.out(`  Delete   ${p}`);
+  d.out(say.heading("This is everything remove will do:"));
+  for (const p of deletes) d.out(say.row("Delete", p, { width: 6, gap: 3 }));
   for (const c of changes)
-    d.out(`  ${c.text === null ? "Delete " : "Change "}  ${c.path}`);
+    d.out(
+      say.row(c.text === null ? "Delete" : "Change", c.path, {
+        width: 6,
+        gap: 3,
+      }),
+    );
   if (!(await d.confirm("Go ahead?", true))) {
-    d.out("Nothing changed.");
+    d.out(say.text("Nothing changed."));
     return 0;
   }
 
@@ -265,36 +274,37 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
     ),
     ["Then", ["Commit this on a branch, open a pull request, and merge it"]],
   ];
-  d.out("");
-  d.out("Nothing is committed. Left for you to do by hand:");
+  d.out(say.BLANK);
+  d.out(say.action("Nothing is committed. Left for you to do by hand:"));
   let n = 0;
   for (const [label, lines] of groups) {
     if (!lines.length) continue;
-    d.out("");
-    d.out(`  ${label}`);
-    for (const step of lines) d.out(`  ${++n}. ${step}.`);
+    d.out(say.BLANK);
+    d.out(say.heading(label, { indent: 2 }));
+    for (const step of lines) d.out(say.step(++n, `${step}.`));
   }
   return 0;
 }
 
 export async function run(argv: string[]): Promise<number> {
   const terminal = noTerminal("remove");
+  const { out } = say.printersFor("remove");
   if (terminal) {
-    console.log(terminal);
+    out(say.text(terminal));
     return 1;
   }
-  const { confirm } = await import("@inquirer/prompts");
+  const { confirm } = await terminalAsk();
   try {
     return await main(argv, {
       root: repoRoot(),
-      confirm: (message, fallback) => confirm({ message, default: fallback }),
-      out: (l) => console.log(l),
+      confirm,
+      out,
       tools: TOOLS,
       hasCommand,
     });
   } catch (e) {
     if (e instanceof Error && e.name === "ExitPromptError") {
-      console.log("Stopped. Nothing changed.");
+      out(say.text("Stopped. Nothing changed."));
       return 130;
     }
     throw e;

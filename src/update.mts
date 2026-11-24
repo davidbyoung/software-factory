@@ -26,6 +26,7 @@ import {
   repositoryRemote,
 } from "./lib/default-branch.mts";
 import { POLLER_FILE } from "./workflow-files.mts";
+import * as say from "./lib/output.mts";
 
 /** One preset as the lock pins it. */
 export type PresetPin = {
@@ -73,7 +74,7 @@ export type UpdateDeps = {
   };
   /** The page of a release's notes. */
   releaseNotes: (version: string) => string;
-  out: (line: string) => void;
+  out: say.Out;
 };
 
 const BRANCHES = "factory-update/";
@@ -196,19 +197,27 @@ function changed(status: string): string[] {
     );
 }
 
+/** A line of what moved, from its old value to its new one. */
+function moved(line: string): say.Line {
+  const [, what, was, now] = /^(.*) (\S+) → (\S+)$/.exec(line) ?? [];
+  return what === undefined
+    ? say.text(line)
+    : say.text(`${what} `, say.skip(was!), " → ", say.name(now!));
+}
+
 async function byHand(d: UpdateDeps): Promise<number> {
   const { units, current, unread, version } = await survey(d);
-  unread.forEach(d.out);
+  for (const l of unread) d.out(say.text(l));
   if (!units.length) {
     if (!unread.length || current.length || !d.presets.pins().length)
-      d.out(nothing(d.own, version, d.presets.pins()));
+      d.out(say.text(nothing(d.own, version, d.presets.pins())));
     return 0;
   }
-  for (const unit of units) unit.lines.forEach(d.out);
+  for (const unit of units) for (const l of unit.lines) d.out(moved(l));
   const pins = d.presets.pins();
   for (const name of current) {
     const pin = pins.find((p) => p.name === name)!;
-    d.out(`${name} is at its newest commit, ${short(pin.commit)}.`);
+    d.out(say.text(`${name} is at its newest commit, ${short(pin.commit)}.`));
   }
   for (const { move } of units)
     if (move) await d.presets.move(move.names, move.commit);
@@ -217,7 +226,9 @@ async function byHand(d: UpdateDeps): Promise<number> {
   const wrote = synced.lines.filter((l) => l.startsWith("wrote ")).length;
   const deleted = synced.lines.filter((l) => l.startsWith("deleted ")).length;
   d.out(
-    `✓ Wrote ${wrote} file${wrote === 1 ? "" : "s"}${deleted ? ` and deleted ${deleted}` : ""}. Commit them on a branch and open a pull request.`,
+    say.text(
+      `✓ Wrote ${wrote} file${wrote === 1 ? "" : "s"}${deleted ? ` and deleted ${deleted}` : ""}. Commit them on a branch and open a pull request.`,
+    ),
   );
   return 0;
 }
@@ -229,9 +240,11 @@ async function openedBefore(d: Opening, unit: Unit): Promise<boolean> {
   const last = await d.pulls.lastForBranch(unit.branch);
   if (last)
     d.out(
-      last.state === "open"
-        ? `- #${last.number}, ${unit.title}, is still open`
-        : `- ${unit.title} was closed, so it is not opened again`,
+      say.text(
+        last.state === "open"
+          ? `- #${last.number}, ${unit.title}, is still open`
+          : `- ${unit.title} was closed, so it is not opened again`,
+      ),
     );
   return last !== null;
 }
@@ -272,7 +285,7 @@ async function open(d: Opening, unit: Unit, base: Base, body: string) {
     body,
     draft: false,
   });
-  d.out(`✓ Opened #${number}, ${unit.title}`);
+  d.out(say.text(`✓ Opened #${number}, ${unit.title}`));
   for (const pull of await d.pulls.listOpen()) {
     const { branch } = pull.head;
     if (branch === unit.branch || sourceOf(branch) !== unit.source) continue;
@@ -285,8 +298,9 @@ async function open(d: Opening, unit: Unit, base: Base, body: string) {
 async function asPullRequests(d: UpdateDeps): Promise<number> {
   const { units, unread, version } = await survey(d);
   if (!units.length) {
-    unread.forEach(d.out);
-    if (!unread.length) d.out(nothing(d.own, version, d.presets.pins()));
+    for (const l of unread) d.out(say.text(l));
+    if (!unread.length)
+      d.out(say.text(nothing(d.own, version, d.presets.pins())));
     return 0;
   }
   const base = await baseOf(d);
@@ -306,13 +320,13 @@ async function asPullRequests(d: UpdateDeps): Promise<number> {
       : factoryBody(d, unit);
     await open(d, unit, base, body);
   }
-  unread.forEach(d.out);
+  for (const l of unread) d.out(say.text(l));
   return 0;
 }
 
 export async function main(argv: string[], d: UpdateDeps): Promise<number> {
   if (!d.hasSettings()) {
-    d.out(".claude/factory.yaml is missing. Run: factory init");
+    d.out(say.text(".claude/factory.yaml is missing. Run: factory init"));
     return 1;
   }
   try {
@@ -321,11 +335,11 @@ export async function main(argv: string[], d: UpdateDeps): Promise<number> {
       : await byHand(d);
   } catch (e) {
     if (e instanceof NoRelease) {
-      d.out(`✗ The newest release could not be read: ${e.message}`);
+      d.out(say.text(`✗ The newest release could not be read: ${e.message}`));
       return 1;
     }
     if (e instanceof NoDefaultBranch) {
-      d.out(e.message);
+      d.out(say.text(e.message));
       return 1;
     }
     throw e;
@@ -360,7 +374,9 @@ export async function updatePoller(
   const version = POLLER_VERSION.exec(d.read())?.[2];
   if (!version) {
     d.out(
-      `✗ ${POLLER_FILE} names no release of the factory after poller.yml@v. Write one there, such as poller.yml@v1.2.3.`,
+      say.text(
+        `✗ ${POLLER_FILE} names no release of the factory after poller.yml@v. Write one there, such as poller.yml@v1.2.3.`,
+      ),
     );
     return 1;
   }
@@ -368,18 +384,18 @@ export async function updatePoller(
   try {
     newest = await d.newestRelease();
   } catch (e) {
-    d.out(`✗ The newest release could not be read: ${message(e)}`);
+    d.out(say.text(`✗ The newest release could not be read: ${message(e)}`));
     return 1;
   }
   if (!older(version, newest)) {
-    d.out(nothing(false, version, []));
+    d.out(say.text(nothing(false, version, [])));
     return 0;
   }
   const unit = factoryUnit(version, newest);
   const rewrite = () =>
     d.write(d.read().replace(POLLER_VERSION, `$1${newest}`));
   if (!argv.includes("--pull-requests")) {
-    unit.lines.forEach(d.out);
+    for (const l of unit.lines) d.out(moved(l));
     rewrite();
     return 0;
   }
@@ -413,7 +429,7 @@ export class NoRelease extends Error {}
  * runs writes it from these files. */
 export async function settingsNow(
   root: string,
-  err: (line: string) => void,
+  err: say.Out,
 ): Promise<Settings | null> {
   const { filesDeps, loadSettings, SettingsError } =
     await import("./config.mts");
@@ -421,7 +437,7 @@ export async function settingsNow(
     return await loadSettings(filesDeps(root));
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;
-    err(e.message);
+    err(say.text(e.message));
     return null;
   }
 }
@@ -432,11 +448,12 @@ export async function run(argv: string[]): Promise<number> {
   const { LOCK, PACKAGE, launcherPath } = await import("./sync.mts");
   const { DEFAULT_CODE_HOST, openCodeHost } =
     await import("./code-host/index.mts");
+  const { out, err } = say.printersFor("update");
   const root = repoRoot();
   const has = (path: string) => existsSync(join(root, path));
   const kind = checkoutKind(has);
   if (kind === null) {
-    console.log(".claude/factory.yaml is missing. Run: factory init");
+    out(say.text(".claude/factory.yaml is missing. Run: factory init"));
     return 1;
   }
   const manifest = JSON.parse(
@@ -460,7 +477,7 @@ export async function run(argv: string[]): Promise<number> {
     remote: () => repositoryRemote(branchDeps(root)),
     pulls: host,
     releaseNotes: (version: string) => host.releasePage(home, `v${version}`),
-    out: (line: string) => console.log(line),
+    out,
   });
   if (kind === "poller") {
     const { TOOLS } = await import("./tools.mts");
@@ -476,8 +493,10 @@ export async function run(argv: string[]): Promise<number> {
       TOOLS.codeHost[DEFAULT_CODE_HOST]!.repositoryOf,
     );
     if (!repository) {
-      console.log(
-        `✗ This checkout's origin remote names no repository on the code host, so ${POLLER_FILE} is not updated.`,
+      out(
+        say.text(
+          `✗ This checkout's origin remote names no repository on the code host, so ${POLLER_FILE} is not updated.`,
+        ),
       );
       return 1;
     }
@@ -487,7 +506,7 @@ export async function run(argv: string[]): Promise<number> {
       write: (text) => writeFileSync(join(root, POLLER_FILE), text),
     });
   }
-  const settings = await settingsNow(root, (line) => console.error(line));
+  const settings = await settingsNow(root, err);
   if (!settings) return 1;
   const host = openCodeHost(settings.repository, settings.codeHost.type);
   const lockText = () =>
@@ -527,7 +546,7 @@ export async function run(argv: string[]): Promise<number> {
         const lines: string[] = [];
         await changes([ref], {
           ...presetDeps(root),
-          out: (l) => lines.push(l),
+          out: (l) => void lines.push(say.render(l, false)),
         });
         return lines;
       },
@@ -545,7 +564,7 @@ export async function run(argv: string[]): Promise<number> {
           },
         },
       );
-      if (r.status !== 0) process.stderr.write(`${r.stdout}${r.stderr}`);
+      if (r.status !== 0) say.write(`${r.stdout}${r.stderr}`, process.stderr);
       return { code: r.status ?? 1, lines: r.stdout.split("\n") };
     },
   });

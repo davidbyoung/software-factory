@@ -25,6 +25,7 @@ import {
 } from "../src/preset.mts";
 import { pinAt, runGit, type FetchDeps } from "../src/preset-fetch.mts";
 import { CODE_HOST_YAML } from "./settings-fixture";
+import { into } from "./printed";
 
 export type PresetFiles = {
   settings: string;
@@ -235,8 +236,8 @@ export function deps(root: string, over: Partial<Deps> = {}) {
   const d: Deps = {
     ...filesDeps(root, {}),
     listFiles: () => [],
-    out: (l) => out.push(l),
-    err: (l) => err.push(l),
+    out: into(out),
+    err: into(err),
     ...over,
   };
   return { d, out, err };

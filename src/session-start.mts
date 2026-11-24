@@ -12,6 +12,7 @@ import {
   type Deps as BranchDeps,
   type Git,
 } from "./lib/default-branch.mts";
+import * as say from "./lib/output.mts";
 
 export { gitIn };
 
@@ -155,7 +156,7 @@ export async function run(): Promise<number> {
   return main({
     dir,
     branch: branchDeps(dir),
-    out: (text) => console.log(text),
+    out: say.plainPrinter(),
     stale: async () => {
       const { defaultDeps, SETTINGS_FILE, staleOf } =
         await import("./config.mts");

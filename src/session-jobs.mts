@@ -54,12 +54,13 @@ import {
   type Deps as TicketDeps,
 } from "./ticket.mts";
 import { openTickets } from "./tickets/index.mts";
+import * as say from "./lib/output.mts";
 
 type Env = Record<string, string | undefined>;
 
 const KINDS: Kind[] = ["build", "review", "answer", "conflict", "dependency"];
 
-const out = (line: string) => console.log(line);
+const out = say.plainPrinter();
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 function folder(env: Env): string {
@@ -455,7 +456,7 @@ export async function run(step: string, argv: string[]): Promise<number> {
   try {
     return await JOBS[step](argv, process.env);
   } catch (error) {
-    console.error(`::error::${message(error)}`);
+    say.plainError(`::error::${message(error)}`);
     return 1;
   }
 }

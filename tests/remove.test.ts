@@ -25,6 +25,7 @@ import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
 import { FACTORY_COLUMNS_YAML } from "./factory-columns";
 import { CODE_HOST_YAML } from "./settings-fixture";
+import { into } from "./printed";
 
 const LAUNCHER = "node_modules/@davidbyoung/software-factory/bin/factory.js";
 const SETTINGS = [
@@ -104,7 +105,7 @@ function remove(o: {
         asked.push(message);
         return o.go ?? true;
       },
-      out: (line) => out.push(line),
+      out: into(out),
       tools: (o.tools ?? ((b) => b))(
         memoryTools({
           codeHost: memoryCodeHost([], {

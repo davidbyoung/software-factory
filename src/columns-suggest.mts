@@ -12,6 +12,7 @@ import {
   type Columns,
   type StateKey,
 } from "./lib/work-status.mts";
+import * as say from "./lib/output.mts";
 
 /** A state's column: one of the board's, by the board's spelling; the
  * factory's own name, which init adds; or none. */
@@ -149,11 +150,16 @@ function shown(key: StateKey, mapping: Mapping): string {
 }
 
 /** The table of each state's column, as `factory board check` words it. */
-export function table(mapping: Mapping): string[] {
-  const pad = (label: string) => `  ${label.padEnd(10)} `;
+export function table(mapping: Mapping): say.Line[] {
   return [
-    `${pad("State")}Column`,
-    ...KEYS.map((k) => pad(k) + shown(k, mapping)),
+    say.heads(
+      [
+        ["State", 11],
+        ["Column", 0],
+      ],
+      { indent: 2 },
+    ),
+    ...KEYS.map((k) => say.row(k, shown(k, mapping), { width: 10 })),
   ];
 }
 
@@ -175,7 +181,7 @@ export const FACTORY_LINES: [StateKey, string][] = KEYS.map((k) => [
 
 export type SuggestDeps = {
   ask: Ask;
-  out: (line: string) => void;
+  out: say.Out;
   agent: Agent;
   /** The agent's registered label, which every line names it by. */
   label: string;
@@ -282,7 +288,9 @@ async function changeSome(
       const other = name === null ? null : showing(name, key, shownBy(m));
       if (other) {
         d.out(
-          `${name} already shows ${other}. Pick another column for ${key}.`,
+          say.text(
+            `${name} already shows ${other}. Pick another column for ${key}.`,
+          ),
         );
         clash = true;
         break;
@@ -325,13 +333,17 @@ export async function chooseColumns(
         mapping[k] = choice;
         break;
       }
-      d.out(`${name} already shows ${other}. Pick another column for ${k}.`);
+      d.out(
+        say.text(
+          `${name} already shows ${other}. Pick another column for ${k}.`,
+        ),
+      );
     }
   }
   for (;;) {
-    d.out("");
+    d.out(say.BLANK);
     for (const line of table(mapping)) d.out(line);
-    d.out("");
+    d.out(say.BLANK);
     const use = await d.ask.select(
       "Use these columns?",
       [
@@ -357,10 +369,12 @@ export async function suggestColumns(
     byHand?: boolean;
   },
 ): Promise<[StateKey, string][] | 1> {
-  d.out("");
-  d.out(boardLine(o.board, o.columns));
+  d.out(say.BLANK);
+  d.out(say.text(boardLine(o.board, o.columns)));
   d.out(
-    `Asking ${d.label} which of them shows each of the factory's six states...`,
+    say.note(
+      `Asking ${d.label} which of them shows each of the factory's six states...`,
+    ),
   );
   const got = await d.agent.answer({
     prompt: prompt(o.columns, o.fromBoard),
@@ -379,20 +393,22 @@ export async function suggestColumns(
           }
         : check(got.answer, o.columns, o.fromBoard, o.board);
   if ("reason" in checked) {
-    d.out(`${d.label}'s answer could not be used: ${checked.reason}.`);
+    d.out(
+      say.text(`${d.label}'s answer could not be used: ${checked.reason}.`),
+    );
     if (o.byHand) {
-      d.out("Choose the column for each state yourself.");
+      d.out(say.text("Choose the column for each state yourself."));
       return chooseColumns(d, o);
     }
-    d.out(`Run factory init again, or ${AGAIN_OR_WRITE}`);
-    d.out("Nothing changed.");
+    d.out(say.text(`Run factory init again, or ${AGAIN_OR_WRITE}`));
+    d.out(say.text("Nothing changed."));
     return 1;
   }
   let mapping = checked.mapping;
   for (;;) {
-    d.out("");
+    d.out(say.BLANK);
     for (const line of table(mapping)) d.out(line);
-    d.out("");
+    d.out(say.BLANK);
     const use = await d.ask.select(
       "Use these columns?",
       [
@@ -414,9 +430,13 @@ export async function askReady(
   d: Pick<SuggestDeps, "ask" | "out">,
   o: { columns: readonly string[]; current: Columns },
 ): Promise<string | null> {
-  d.out("");
-  d.out("Builds from the board start when a ticket moves to the ready column,");
-  d.out("and your settings give ready no column.");
+  d.out(say.BLANK);
+  d.out(
+    say.text(
+      "Builds from the board start when a ticket moves to the ready column,",
+    ),
+  );
+  d.out(say.text("and your settings give ready no column."));
   for (;;) {
     const v = await d.ask.select("Which column shows ready?", [
       ...o.columns.map((c) => ({ name: c, value: `column:${c}` })),
@@ -428,7 +448,11 @@ export async function askReady(
     const name = v.slice(7);
     const other = showing(name, "ready", o.current);
     if (!other) return name;
-    d.out(`${name} already shows ${other}. Pick another column for ready.`);
+    d.out(
+      say.text(
+        `${name} already shows ${other}. Pick another column for ready.`,
+      ),
+    );
   }
 }
 
@@ -441,9 +465,13 @@ export function everyColumn(
   const mapping = Object.fromEntries(
     KEYS.map((k) => [k, { column: onBoard(STATE_KEYS[k], o.columns)! }]),
   ) as Mapping;
-  d.out("");
-  d.out(`Board ${o.board} has a column for each of the factory's six states:`);
-  d.out("");
+  d.out(say.BLANK);
+  d.out(
+    say.text(
+      `Board ${o.board} has a column for each of the factory's six states:`,
+    ),
+  );
+  d.out(say.BLANK);
   for (const line of table(mapping)) d.out(line);
   return written(mapping);
 }
@@ -491,16 +519,20 @@ export async function fillColumns(
       ]);
   }
   const lines = (m: Mapping) => written(m).filter(([k]) => missing.includes(k));
-  d.out("");
+  d.out(say.BLANK);
   if (!asks.length) {
-    d.out(`Your settings give no column to ${listed(missing, "or")}.`);
-    d.out(`Board ${o.board} has a column of the factory's name for each:`);
-    d.out("");
+    d.out(
+      say.text(`Your settings give no column to ${listed(missing, "or")}.`),
+    );
+    d.out(
+      say.text(`Board ${o.board} has a column of the factory's name for each:`),
+    );
+    d.out(say.BLANK);
     for (const line of table(mapping)) d.out(line);
     return lines(mapping);
   }
   for (const [k, why] of asks) {
-    d.out(`Your settings give no column to ${k}, and ${why}.`);
+    d.out(say.text(`Your settings give no column to ${k}, and ${why}.`));
     for (;;) {
       const choice = choiceOf(
         await pickColumn(
@@ -518,14 +550,18 @@ export async function fillColumns(
         lists[k] = name === null ? null : [name];
         break;
       }
-      d.out(`${name} already shows ${other}. Pick another column for ${k}.`);
+      d.out(
+        say.text(
+          `${name} already shows ${other}. Pick another column for ${k}.`,
+        ),
+      );
     }
   }
   let m = mapping;
   for (;;) {
-    d.out("");
+    d.out(say.BLANK);
     for (const line of table(m)) d.out(line);
-    d.out("");
+    d.out(say.BLANK);
     const use = await d.ask.select(
       "Use these columns?",
       [

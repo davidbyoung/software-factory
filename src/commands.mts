@@ -18,7 +18,6 @@
 // environment. An argument a command does not know prints its usage and
 // exits 2.
 import { spawnSync } from "node:child_process";
-import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   defaultDeps,
   loadSettings,
@@ -30,6 +29,7 @@ import {
 import { specTools, type SpecTools } from "./specs/index.mts";
 import { keyOf, openTickets } from "./tickets/index.mts";
 import { KeyError } from "./tickets/types.mts";
+import * as say from "./lib/output.mts";
 
 export type Deps = {
   /** The repository's root, where every command runs. */
@@ -38,9 +38,8 @@ export type Deps = {
   /** Runs one settings command from `cwd` with `env` added to the
    * environment, and returns its exit status. */
   exec: (command: string, cwd: string, env: Record<string, string>) => number;
-  out: (line: string) => void;
-  err: (line: string) => void;
-  paint?: Paint;
+  out: say.Out;
+  err: say.Out;
   specTools: SpecTools;
   /** Ticket `id`'s labels; throws when it can't be read. */
   labels: (settings: Settings, id: string) => Promise<string[]>;
@@ -80,7 +79,7 @@ function endToEndArgs(
 export async function main(argv: string[], d: Deps): Promise<number> {
   const [name, ...args] = argv as [Name, ...string[]];
   const usage = () => {
-    d.err(USAGE[name]);
+    d.err(say.text(USAGE[name]));
     return 2;
   };
   const e2e = name === "end-to-end" ? endToEndArgs(args) : null;
@@ -98,7 +97,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     s = await d.settings();
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;
-    d.err(e.message);
+    d.err(say.text(e.message));
     return 1;
   }
   if (name === "specs-new" || name === "specs-finish")
@@ -106,30 +105,31 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       keyOf(s.tickets.type)(args[0]!);
     } catch (e) {
       if (!(e instanceof KeyError)) throw e;
-      d.err(e.message);
+      d.err(say.text(e.message));
       return 1;
     }
-  const paint = d.paint ?? plain;
   /** The command's own closing line, after the output passed through. */
   const ended = (status: number, passed: string, failed: string) => {
-    if (status === 0) d.out(`${paint("green", "✓")} ${passed}`);
-    else d.err(`${paint("red", "✗")} ${failed}`);
+    if (status === 0) d.out(say.mark("ok", passed));
+    else d.err(say.mark("fail", failed));
     return status;
   };
   const notSet = (key: string) => {
-    d.err(`commands.${key} is not set`);
+    d.err(say.text(`commands.${key} is not set`));
     return 1;
   };
 
   if (name === "gate") {
     if (s.commands.gate.length === 0) {
       d.err(
-        `commands.gate is not set: add the commands that check a change to ${SETTINGS_FILE}`,
+        say.text(
+          `commands.gate is not set: add the commands that check a change to ${SETTINGS_FILE}`,
+        ),
       );
       return 1;
     }
     for (const command of s.commands.gate) {
-      d.out(`$ ${command}`);
+      d.out(say.text("$ ", say.copy(command)));
       if (d.exec(command, d.root, {}) !== 0)
         return ended(1, "", `The gate failed on: ${command}`);
     }
@@ -153,14 +153,14 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     if (times === null) return test(d.exec(command, d.root, { FILE: file }));
     for (let run = 1; run <= times; run++)
       if (d.exec(command, d.root, { FILE: file }) !== 0) {
-        d.err(`failed on run ${run} of ${times}`);
+        d.err(say.text(`failed on run ${run} of ${times}`));
         return test(1);
       }
     return test(0);
   }
   const tool = d.specTools[s.specs];
   if (s.specs === "none" || !tool) {
-    d.out(`${paint("dim", "-")} ${NO_SPEC_TOOL}`);
+    d.out(say.mark("off", NO_SPEC_TOOL));
     return 0;
   }
   if (name === "specs-check")
@@ -171,22 +171,25 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     );
   if (name === "specs-list") {
     const specs = tool.list(d.root);
-    d.out(`specs: ${s.specs}`);
-    if (specs.length === 0) d.out("  none yet");
+    d.out(say.text(`specs: ${s.specs}`));
+    if (specs.length === 0) d.out(say.text("  none yet"));
     const width = Math.max(0, ...specs.map((x) => x.name.length));
-    for (const x of specs) d.out(`  ${x.name.padEnd(width)}  ${x.path}`);
+    for (const x of specs) d.out(say.row(x.name, x.path, { width, gap: 2 }));
     return 0;
   }
   const id = args[0]!;
   const failed = (line: string) => {
-    d.err(`${paint("red", "✗")} ${line}`);
+    d.err(say.mark("fail", line));
     return 1;
   };
   if (name === "specs-finish") {
     if (!tool.started(d.root, id)) {
       if (tool.finished(d.root, id)) {
         d.out(
-          `${paint("green", "✓")} Ticket ${id}'s spec is already folded into ${tool.foldsInto}.`,
+          say.mark(
+            "ok",
+            `Ticket ${id}'s spec is already folded into ${tool.foldsInto}.`,
+          ),
         );
         return 0;
       }
@@ -198,16 +201,14 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       return failed(
         `Could not fold ticket ${id}'s spec into ${tool.foldsInto}.`,
       );
-    d.out(
-      `${paint("green", "✓")} Folded ticket ${id}'s spec into ${tool.foldsInto}.`,
-    );
+    d.out(say.mark("ok", `Folded ticket ${id}'s spec into ${tool.foldsInto}.`));
     return 0;
   }
   let labels: string[];
   try {
     labels = await d.labels(s, id);
   } catch (e) {
-    d.err(e instanceof Error ? e.message : String(e));
+    d.err(say.text(e instanceof Error ? e.message : String(e)));
     return 1;
   }
   if (!tool.runs(d.root))
@@ -216,19 +217,24 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     );
   const folder = tool.folder(id);
   if (tool.started(d.root, id))
-    d.out(`Ticket ${id}'s spec is already started in ${folder}`);
+    d.out(say.text(`Ticket ${id}'s spec is already started in ${folder}`));
   else {
     if (tool.start(d.root, id) !== 0)
       return failed(`Could not start ticket ${id}'s spec in ${folder}`);
-    d.out(`Started ticket ${id}'s spec in ${folder}`);
+    d.out(say.text(`Started ticket ${id}'s spec in ${folder}`));
   }
   const files = tool.files(id, labels.includes(s.tickets.labels.spec));
   const width = Math.max(...files.map((f) => f.path.length)) + 2;
   const kinds = Math.max(...files.map((f) => f.kind.length));
-  d.out(`Write each file from ticket ${id}'s body:`);
+  d.out(say.text(`Write each file from ticket ${id}'s body:`));
   for (const f of files)
-    d.out(`  ${f.kind.padEnd(kinds)}  ${f.path.padEnd(width)}${f.what}`);
-  d.out(`Then: ${tool.then}`);
+    d.out(
+      say.row(f.kind, `${f.path.padEnd(width)}${f.what}`, {
+        width: kinds,
+        gap: 2,
+      }),
+    );
+  d.out(say.text(`Then: ${tool.then}`));
   return 0;
 }
 
@@ -250,9 +256,7 @@ export async function run(argv: string[]): Promise<number> {
         env: { npm_config_loglevel: "warn", ...process.env, ...env },
         stdio: ["ignore", "inherit", "inherit"],
       }).status ?? 1,
-    out: (line) => console.log(line),
-    err: (line) => console.error(line),
-    paint: painter(colorOn()),
+    ...say.printersFor(argv[0]!.replace(/^specs-/, "specs ")),
     specTools: specTools(),
     labels: async (settings, id) => {
       const { tickets } = await openTickets(settings, {

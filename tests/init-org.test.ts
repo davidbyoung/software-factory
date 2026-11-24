@@ -26,12 +26,8 @@ import { delimiter, dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { main, readLineFrom, type InitOrgDeps } from "../src/init-org.mts";
-import {
-  defaultInWords,
-  onPath,
-  pageOpener,
-  type Ask,
-} from "../src/init-shared.mts";
+import { onPath, pageOpener } from "../src/init-shared.mts";
+import { defaultInWords, type Ask } from "../src/lib/prompts.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
@@ -46,6 +42,7 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
+import { into } from "./printed";
 
 /** While `on`, starting any command and asking for the repository's root
  * both throw, and each attempt is recorded. */
@@ -441,6 +438,8 @@ function setup(o: Setup = {}) {
   /** Every line printed and every question asked, in the order they came. */
   const transcript: string[] = [];
   const out: string[] = [];
+  /** Every line printed, in color. */
+  const looks: string[] = [];
   const opened: string[] = [];
   const ran: string[][] = [];
   const selects: { message: string; names: string[]; fallback?: string }[] = [];
@@ -544,8 +543,8 @@ function setup(o: Setup = {}) {
   const d: InitOrgDeps = {
     ask,
     out: (line) => {
-      out.push(line);
-      transcript.push(line);
+      into(out, looks)(line);
+      transcript.push(out.at(-1)!);
     },
     interactive: async (argv) => {
       ran.push(argv);
@@ -567,6 +566,7 @@ function setup(o: Setup = {}) {
     run: () => main(o.argv ?? ["--org", o.address ?? ADDRESS], d),
     seed,
     out,
+    looks,
     transcript,
     opened,
     ran,

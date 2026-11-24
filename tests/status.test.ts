@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { asIssue, type GithubIssue } from "./ticket-fixture.ts";
-import { painter } from "../src/lib/color.mts";
 import {
   age,
   failureLine,
-  formatRows,
+  formatRows as formatLines,
   isWatching,
   main,
   runLine,
@@ -34,6 +33,15 @@ import saved from "./fixtures/sync/repo.json";
 import boardPages from "./fixtures/sync/board.json";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
+import { styleText } from "node:util";
+import type { Line } from "../src/lib/output.mts";
+import { colored, into, look, plainOf } from "./printed";
+
+/** What formatRows gives, as it is printed: in color for a style in it. */
+const formatRows = (...args: Parameters<typeof formatLines>): string[] =>
+  formatLines(...args).map((l: Line) =>
+    args[3]?.color ? colored(l) : plainOf(l),
+  );
 
 /** The sync fixture's tickets and cards in the in-memory adapter, and its
  * open pull requests. `fail` makes the tickets' list fail. */
@@ -336,7 +344,8 @@ const LINKS = {
   run: (id: string) => `${SITE}/actions/runs/${id}`,
 };
 const TTY = { color: true, width: 120, links: LINKS };
-const p = painter(true);
+const p = (format: Parameters<typeof styleText>[0], text: string) =>
+  styleText(format, text, { validateStream: false });
 /** Text as a pattern that matches it exactly. */
 const re = (text: string) => text.replace(/[[\]\\^$.*+?()|{}]/g, "\\$&");
 /** The codes a format opens and closes with, for a line whose text a
@@ -622,17 +631,17 @@ describe("formatRows in a terminal", () => {
     );
   });
 
-  it("paints numbers blue, and dims the time in status and the closed list's label", () => {
+  it("paints numbers cyan, and dims the time in status and the closed list's label", () => {
     const lines = styled(
       [issue(1, { comments: [claimed("local", "3a5d42f4")] }), closedIssue(3)],
       [],
       [[1, "In progress", "2026-11-09T11:00:00Z"]],
     );
 
-    expect(lines.join("\n")).toContain(p("blueBright", issueLink(1, "#1")));
+    expect(lines.join("\n")).toContain(p("cyan", issueLink(1, "#1")));
     expect(lines).toContainEqual(expect.stringContaining(p("dim", "1h")));
     expect(lines.at(-1)).toBe(
-      `${p("dim", "Done in the last 24 hours:")} ${p("blueBright", issueLink(3, "#3"))}`,
+      `${p("dim", "Done in the last 24 hours:")} ${p("cyan", issueLink(3, "#3"))}`,
     );
   });
 
@@ -658,7 +667,7 @@ describe("formatRows in a terminal", () => {
     expect(text).toContain(issueLink(4, "#4"));
   });
 
-  it("colors each heading, and dims a column with no issues", () => {
+  it("underlines each heading in bold, with no color of its own, and dims a column with no issues", () => {
     const lines = styled(
       [
         issue(1),
@@ -685,12 +694,12 @@ describe("formatRows in a terminal", () => {
 
     expect(lines).toEqual(
       expect.arrayContaining([
-        `${p(["bold", "whiteBright"], "Backlog")}  ${p("dim", "1")}`,
-        `${p(["bold", "yellow"], "In refinement")}  ${p("dim", "1")}`,
-        `${p(["bold", "green"], "Ready")}  ${p("dim", "1")}`,
+        `${p(["bold", "underline"], "Backlog")}  ${p("dim", "1")}`,
+        `${p(["bold", "underline"], "In refinement")}  ${p("dim", "1")}`,
+        `${p(["bold", "underline"], "Ready")}  ${p("dim", "1")}`,
         p("dim", "In progress  0"),
-        `${p(["bold", "magenta"], "In review")}  ${p("dim", "1")}`,
-        `${p(["bold", "whiteBright"], "Pull requests that close no issue")}  ${p("dim", "1")}`,
+        `${p(["bold", "underline"], "In review")}  ${p("dim", "1")}`,
+        `${p(["bold", "underline"], "Pull requests that close no issue")}  ${p("dim", "1")}`,
       ]),
     );
     expect(
@@ -699,10 +708,10 @@ describe("formatRows in a terminal", () => {
         [],
         [[1, "In progress", "2026-11-09T11:00:00Z"]],
       ),
-    ).toContain(`${p(["bold", "cyan"], "In progress")}  ${p("dim", "1")}`);
+    ).toContain(`${p(["bold", "underline"], "In progress")}  ${p("dim", "1")}`);
   });
 
-  it("prints Waiting on you in bold yellow", () => {
+  it("prints Waiting on you in yellow, and not in bold", () => {
     const lines = styled(
       [
         issue(1, {
@@ -722,7 +731,7 @@ describe("formatRows in a terminal", () => {
 
     expect(lines).toContainEqual(
       expect.stringMatching(
-        new RegExp(` {2}${re(p(["bold", "yellow"], "Waiting on you"))}$`),
+        new RegExp(` {2}${re(p("yellow", "Waiting on you"))}$`),
       ),
     );
   });
@@ -980,7 +989,7 @@ describe("main in a terminal", () => {
       settings: fakeSettings,
       env: {},
       now: () => NOW,
-      out: (l) => out.push(l),
+      out: (line) => void out.push(colored(line)),
       sleep: async () => {},
       write: () => {},
       onInterrupt: () => {},
@@ -1011,7 +1020,7 @@ describe("main, for a Ready card", () => {
       settings: fakeSettings,
       env: {},
       now: () => NOW,
-      out: (l) => out.push(l),
+      out: into(out),
       sleep: async () => {},
       write: () => {},
       onInterrupt: () => {},
@@ -1048,7 +1057,7 @@ describe("main with a mapped board", () => {
       settings: async () => settings,
       env: {},
       now: () => NOW,
-      out: (l) => out.push(l),
+      out: into(out),
       sleep: async () => {},
       write: () => {},
       onInterrupt: () => {},
@@ -1068,7 +1077,7 @@ describe("main --hook", () => {
       settings: fakeSettings,
       env: {},
       now: () => NOW,
-      out: (l) => out.push(l),
+      out: into(out),
       sleep,
       write: () => {},
       onInterrupt: () => {},
@@ -1138,7 +1147,7 @@ describe("main --hook, with a credential to fix", () => {
       settings: fakeSettings,
       env: {},
       now: () => NOW,
-      out: (l) => out.push(l),
+      out: into(out),
       sleep: () => new Promise(() => {}),
       write: () => {},
       onInterrupt: () => {},
@@ -1170,7 +1179,7 @@ describe("main", () => {
         settings: fakeSettings,
         env: {},
         now: () => NOW,
-        out: (l) => out.push(l),
+        out: into(out),
         sleep,
         write: (text) => writes.push(text),
         onInterrupt: (leave) => interrupts.push(leave),
@@ -1241,7 +1250,7 @@ describe("main", () => {
         settings: fakeSettings,
         env: {},
         now: () => NOW,
-        out: (l) => out.push(l),
+        out: into(out),
         sleep: async () => {},
         write: (text) => writes.push(text),
         onInterrupt: () => {
@@ -1262,7 +1271,7 @@ describe("main", () => {
         settings: fakeSettings,
         env: {},
         now: () => NOW,
-        out: (l) => out.push(l),
+        out: into(out),
         sleep: async () => {},
         write: () => {},
         onInterrupt: () => {},
@@ -1500,74 +1509,51 @@ describe("reviewer rows", () => {
       start: ago(121),
       result: "running",
     };
-    expect(runLine(run, NOW, { color: false, width: null })).toBe(
+    expect(look(runLine(run, NOW))).toBe(
+      "{yourTurn:?} ui-reviewer      {skip:Opus  }  {yourTurn:no finish recorded}",
+    );
+    expect(plainOf(runLine(run, NOW))).toBe(
       "? ui-reviewer      Opus    no finish recorded",
     );
   });
 
   it("colors the mark and the result, dims the model, time, and cost, and shows the cost in subscription dollars", () => {
-    const color = { color: true, width: 80 };
-    const passed = runLine(
-      {
-        id: "a",
+    const run = (over: Partial<ReviewerRun>) =>
+      look(
+        runLine(
+          {
+            id: "a",
+            reviewer: "ui-reviewer",
+            model: "Opus",
+            start: ago(30),
+            end: ago(6),
+            result: "passed",
+            ...over,
+          },
+          NOW,
+        ),
+      );
+    expect(
+      run({
         reviewer: "factory-test-reviewer",
         model: "Sonnet",
         start: ago(5),
         end: ago(2),
-        result: "passed",
         cost: 28,
-      },
-      NOW,
-      color,
+      }),
+    ).toBe(
+      "{good:✓} factory-test-reviewer  {skip:Sonnet}  {good:passed              }  {skip:3 min      }  {skip:$0.84}",
     );
-    expect(passed).toBe(
-      `${p("green", "✓")} factory-test-reviewer  ${p("dim", "Sonnet")}  ${p("green", "passed              ")}  ${p("dim", "3 min      ")}  ${p("dim", "$0.84")}`,
-    );
-    const running = runLine(
-      {
-        id: "a",
-        reviewer: "a11y-inspector",
-        model: "Sonnet",
-        start: ago(8),
-        result: "running",
-      },
-      NOW,
-      color,
-    );
-    expect(running).toContain(p("yellow", "…"));
-    expect(running).toContain(`${ends("yellow")[0]}running`);
-    expect(running).toContain(p("dim", "8 min so far"));
-    const failed = runLine(
-      {
-        id: "a",
-        reviewer: "ui-reviewer",
-        model: "Opus",
-        start: ago(30),
-        end: ago(6),
-        result: "failed",
-        findings: 2,
-        cost: 6.1,
-      },
-      NOW,
-      color,
-    );
-    expect(failed).toContain(p("red", "✗"));
-    expect(failed).toContain(`${ends("red")[0]}2 findings to fix`);
-    const noVerdict = runLine(
-      {
-        id: "a",
-        reviewer: "ui-reviewer",
-        model: "Opus",
-        start: ago(30),
-        end: ago(6),
-        result: "no verdict",
-        cost: 5,
-      },
-      NOW,
-      color,
-    );
-    expect(noVerdict).toContain(p("dim", "?"));
-    expect(noVerdict).toContain(`${ends("dim")[0]}finished, no verdict`);
+    const running = run({ start: ago(8), end: undefined, result: "running" });
+    expect(running).toMatch(/^\{skip:…\} ui-reviewer/);
+    expect(running).toContain("{skip:running ");
+    expect(running).toContain("{skip:8 min so far}");
+    const failed = run({ result: "failed", findings: 2, cost: 6.1 });
+    expect(failed).toMatch(/^\{bad:✗\} ui-reviewer/);
+    expect(failed).toContain("{bad:2 findings to fix");
+    const noVerdict = run({ result: "no verdict", cost: 5 });
+    expect(noVerdict).toMatch(/^\{yourTurn:\?\} ui-reviewer/);
+    expect(noVerdict).toContain("{yourTurn:finished, no verdict");
   });
 });
 
@@ -1594,7 +1580,7 @@ describe("tickets without the factory label", () => {
         settings: fakeSettings,
         env: {},
         now: () => NOW,
-        out: (l) => out.push(l),
+        out: into(out),
         sleep: async () => {},
         write: () => {},
         onInterrupt: () => {},

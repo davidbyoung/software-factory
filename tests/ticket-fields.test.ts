@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { check, join, split, table } from "../src/ticket-fields.mts";
+import { plainOf } from "./printed";
 
 const MAPPING = {
   decisions: null,
@@ -275,7 +276,7 @@ describe("table", () => {
         spec: "Acceptance criteria",
         "acceptance-criteria": "Acceptance criteria",
         "for-the-builder": "Design notes",
-      }),
+      }).map(plainOf),
     ).toEqual([
       "  Factory field         Ticket field",
       "  Decisions             the description",

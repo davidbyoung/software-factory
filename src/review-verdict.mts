@@ -17,6 +17,7 @@ import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost, CommitStatus } from "./code-host/types.mts";
 import { CI_BOT } from "./lib/work-status.mts";
 import { openRunner } from "./runner/index.mts";
+import * as say from "./lib/output.mts";
 
 // The status's name, which the main ruleset requires by exactly this text.
 export const CONTEXT = "Review verdict";
@@ -321,13 +322,13 @@ export async function run(): Promise<number> {
       event: JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH!, "utf8")),
       pulls: openCodeHost(repo),
       link: openRunner(repo).thisRun(process.env)?.page,
-      log: (line) => console.log(line),
+      log: say.plainPrinter(),
       override: settings.codeHost.labels["verdict-override"],
       reviewOn: settings.prReview !== null,
     });
     return 0;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    say.plainError(error instanceof Error ? error.message : String(error));
     return 1;
   }
 }

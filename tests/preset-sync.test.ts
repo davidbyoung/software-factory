@@ -39,6 +39,7 @@ import {
   remoteOf,
   repo,
 } from "./preset-fixture.ts";
+import { into } from "./printed";
 
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -59,8 +60,8 @@ async function sync(argv: string[] = [], base: string | null = null) {
     settings: () => resolveFiles({ ...filesDeps(root, {}) }),
     stale: () => staleOf(defaultDeps(root, {})),
     defaultBranch: async () => "main",
-    out: (l) => out.push(l),
-    err: (l) => err.push(l),
+    out: into(out),
+    err: into(err),
     fetch: (s) => ({ ...fetching(s.repository), git: recording }),
     show: (ref, path) => (ref === "BASE" && path === LOCK ? base : null),
   });

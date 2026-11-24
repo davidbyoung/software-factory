@@ -32,6 +32,7 @@ import { reachOf, repoRoot } from "./config.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost } from "./code-host/types.mts";
 import { reviewPending, stoppedOn } from "./pr.mts";
+import * as say from "./lib/output.mts";
 
 /** A run on a pull request with no review's number has its work named by
  * what started it, so only a person's review is asked about. */
@@ -180,15 +181,15 @@ export async function run(argv: string[]): Promise<number> {
   if (step === "token") return (await import("./session-token.mts")).run();
   if (step === "repositories") {
     try {
-      console.log(await repositories(env));
+      say.plain(await repositories(env));
       return 0;
     } catch (error) {
-      console.error(error instanceof Error ? error.message : String(error));
+      say.plainError(error instanceof Error ? error.message : String(error));
       return 1;
     }
   }
   if (step !== "ready" || !KINDS.includes(kind as Kind)) {
-    console.error(USAGE);
+    say.plainError(USAGE);
     return 2;
   }
   try {
@@ -204,15 +205,15 @@ export async function run(argv: string[]): Promise<number> {
         kind as Kind,
         openCodeHost(repository, codeHost),
         rest.map(Number),
-        (line) => console.log(line),
+        say.plainPrinter(),
       ),
     });
-    answer.lines.forEach((line) => console.log(line));
+    for (const line of answer.lines) say.plain(line);
     if (env.GITHUB_OUTPUT)
       appendFileSync(env.GITHUB_OUTPUT, `ran=${answer.run}\n`);
     return answer.code;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    say.plainError(error instanceof Error ? error.message : String(error));
     return 1;
   }
 }

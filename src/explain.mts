@@ -11,7 +11,7 @@ import {
   type Settings,
 } from "./config.mts";
 import { itemKey, markText, type Resolution, type Source } from "./preset.mts";
-import type { Paint } from "./lib/color.mts";
+import * as say from "./lib/output.mts";
 
 /** A line of output, and its mark, or null for none. */
 type Line = { text: string; mark: string | null };
@@ -239,10 +239,10 @@ export async function explainLines(
   );
 }
 
-/** The lines as `config explain` prints them to a terminal: a default's
- * whole line dim, a comment line dim, and any other mark alone dim. It
- * works on the text alone, since the lock keeps only that. */
-export function paintExplainLines(lines: string[], paint: Paint): string[] {
+/** The lines as `config explain` prints them: a default's whole line and a
+ * comment line may be skipped, and so may any other mark alone. It works on
+ * the text alone, since the lock keeps only that. */
+export function explainedLines(lines: string[]): say.Line[] {
   const comment = (l: string) => l.trimStart().startsWith("#");
   // Every mark starts at one column, two spaces past the longest marked
   // line. A quoted value can hold "  # " too, but rarely at that column.
@@ -258,10 +258,8 @@ export function paintExplainLines(lines: string[], paint: Paint): string[] {
     ...[...counts].filter(([, n]) => n === most).map(([c]) => c),
   );
   return lines.map((l) => {
-    if (comment(l)) return paint("dim", l);
-    if (at < 0 || !l.startsWith("  # ", at - 2)) return l;
-    return l.slice(at) === "# default"
-      ? paint("dim", l)
-      : l.slice(0, at) + paint("dim", l.slice(at));
+    if (comment(l)) return say.verbatim(l, 0);
+    if (at < 0 || !l.startsWith("  # ", at - 2)) return say.verbatim(l);
+    return say.verbatim(l, l.slice(at) === "# default" ? 0 : at);
   });
 }

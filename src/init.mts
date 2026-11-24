@@ -44,7 +44,6 @@ import {
   SettingsError,
   type Settings,
 } from "./config.mts";
-import { colorOn, painter, type Paint } from "./lib/color.mts";
 import {
   checks as doctorChecks,
   doctorDeps,
@@ -146,10 +145,11 @@ import {
   message,
   openPage,
   pasted,
-  terminalAsk,
-  type Ask,
   docsPage,
 } from "./init-shared.mts";
+
+import { terminalAsk, type Ask } from "./lib/prompts.mts";
+import * as say from "./lib/output.mts";
 
 export type { Ask };
 
@@ -199,7 +199,7 @@ export type GitResult = { status: number; stdout: string; stderr: string };
 export type InitDeps = {
   root: string;
   ask: Ask;
-  out: (line: string) => void;
+  out: say.Out;
   /** Each remote of the checkout, by its name and the address it fetches
    * from. */
   remotes: () => { name: string; url: string }[];
@@ -213,7 +213,6 @@ export type InitDeps = {
   gate: (command: string) => Promise<{ status: number; output: string }>;
   presets: Presets;
   tools: Registry;
-  paint?: Paint;
   sync: () => Promise<number>;
   /** The files a sync with these files would write or delete. `host` asks
    * the code host for the default branch, where the checkout does not say.
@@ -322,7 +321,7 @@ async function askBranchName(d: InitDeps): Promise<string> {
     const answer = (await d.ask.input(BRANCH_QUESTION, "{ticket}")).trim();
     const fault = branchPatternFault(answer);
     if (!fault) return answer;
-    d.out(fault);
+    d.out(say.text(fault));
   }
 }
 
@@ -403,11 +402,13 @@ export async function whichRepository(
   if (!found.length) {
     const hosts = listed(Object.values(d.tools.codeHost).map((t) => t.label));
     d.out(
-      remotes.length === 1
-        ? `The ${remotes[0]!.name} remote, ${remotes[0]!.url}, is not on a code host the factory supports: ${hosts}.`
-        : remotes.length
-          ? `No remote here is on a code host the factory supports: ${hosts}.`
-          : "This is not a git repository with a remote. Run it in your repository's checkout.",
+      say.text(
+        remotes.length === 1
+          ? `The ${remotes[0]!.name} remote, ${remotes[0]!.url}, is not on a code host the factory supports: ${hosts}.`
+          : remotes.length
+            ? `No remote here is on a code host the factory supports: ${hosts}.`
+            : "This is not a git repository with a remote. Run it in your repository's checkout.",
+      ),
     );
     return 1;
   }
@@ -487,12 +488,14 @@ export function addRemote(
   const added = d.git(["remote", "add", where.remote, where.url!]);
   if (added.status !== 0) {
     d.out(
-      `✗ Could not add the remote ${where.remote}: ${lastGitLine(added.stderr)}`,
+      say.text(
+        `✗ Could not add the remote ${where.remote}: ${lastGitLine(added.stderr)}`,
+      ),
     );
-    d.out(NOTHING);
+    d.out(say.text(NOTHING));
     return false;
   }
-  d.out(`Added the remote ${where.remote}, ${where.repository}.`);
+  d.out(say.text(`Added the remote ${where.remote}, ${where.repository}.`));
   return true;
 }
 
@@ -513,7 +516,7 @@ export async function startRepository(
   const heads = d.git(["ls-remote", "--heads", o.remote]);
   if (heads.status !== 0 || heads.stdout.trim() !== "") return null;
   const stop = (...lines: string[]) => {
-    for (const line of lines) d.out(line);
+    for (const line of lines) d.out(say.text(line));
     return 1;
   };
   const branch = d.git(["symbolic-ref", "--short", "HEAD"]).stdout.trim();
@@ -566,7 +569,9 @@ export async function startRepository(
       unborn ? "The first commit is made here and not pushed." : NOTHING,
     );
   d.out(
-    unborn ? `✓ Pushed a first commit to ${branch}.` : `✓ Pushed ${branch}.`,
+    say.text(
+      unborn ? `✓ Pushed a first commit to ${branch}.` : `✓ Pushed ${branch}.`,
+    ),
   );
   return { branch };
 }
@@ -580,8 +585,8 @@ export function checkedOut(
   o: { repository: string; remote: string; base: string },
 ): { sha: string } | number {
   const stop = (line: string) => {
-    d.out(line);
-    d.out(NOTHING);
+    d.out(say.text(line));
+    d.out(say.text(NOTHING));
     return 1;
   };
   const fetched = d.git(["fetch", "--quiet", o.remote, o.base]);
@@ -652,7 +657,7 @@ export async function followPresets(
     if (o.listed.includes(name) || added.includes(name)) continue;
     const next = await d.presets.add(name, files, d);
     if (!next) {
-      d.out(NOTHING);
+      d.out(say.text(NOTHING));
       return 1;
     }
     files = next;
@@ -792,16 +797,26 @@ export async function runGate(
   for (const command of commands) {
     const ran = await d.gate(command);
     if (ran.status === 0) continue;
-    d.out(`✗ ${command} fails here, so a build could not finish:`);
-    for (const line of ran.output.trimEnd().split("\n").slice(-5))
-      d.out(`    ${line}`);
     d.out(
-      `Fix it, or change commands.gate in ${SETTINGS_FILE}, then run factory init again. Nothing is committed.`,
+      say.mark("fail", [
+        say.asIs(command),
+        " fails here, so a build could not finish:",
+      ]),
+    );
+    for (const line of ran.output.trimEnd().split("\n").slice(-5))
+      d.out(say.verbatim(`    ${line}`));
+    d.out(
+      say.text(
+        `Fix it, or change commands.gate in ${SETTINGS_FILE}, then run factory init again. Nothing is committed.`,
+      ),
     );
     return false;
   }
   d.out(
-    `✓ ${listed(commands)} ${commands.length === 1 ? "passes" : "pass"} here.`,
+    say.mark("ok", [
+      say.asIs(listed(commands)),
+      ` ${commands.length === 1 ? "passes" : "pass"} here.`,
+    ]),
   );
   return true;
 }
@@ -862,7 +877,7 @@ export async function openPull(
     .filter(Boolean)
     .map((entry) => entry.slice(3));
   if (status.status === 0 && !changed.length) {
-    d.out(NOTHING_TO_COMMIT);
+    d.out(say.text(NOTHING_TO_COMMIT));
     return { state: "nothing" };
   }
   for (const args of [
@@ -873,8 +888,8 @@ export async function openPull(
   ]) {
     const ran = args ? d.git(args) : status;
     if (ran.status === 0) continue;
-    d.out(`✗ Could not commit: ${lastGitLine(ran.stderr)}`);
-    d.out(NOT_COMMITTED);
+    d.out(say.text(`✗ Could not commit: ${lastGitLine(ran.stderr)}`));
+    d.out(say.text(NOT_COMMITTED));
     return { state: "failed" };
   }
   const pushed = d.git([
@@ -886,10 +901,14 @@ export async function openPull(
   ]);
   if (pushed.status !== 0) {
     d.out(
-      `✗ Could not push ${o.branch} to ${o.repository}: ${pushRefusal(pushed.stderr)}`,
+      say.text(
+        `✗ Could not push ${o.branch} to ${o.repository}: ${pushRefusal(pushed.stderr)}`,
+      ),
     );
     d.out(
-      `The commit is on the branch ${o.branch} here. Push it and open a pull request.`,
+      say.text(
+        `The commit is on the branch ${o.branch} here. Push it and open a pull request.`,
+      ),
     );
     return { state: "failed" };
   }
@@ -903,11 +922,25 @@ export async function openPull(
       draft: false,
     });
   } catch (e) {
-    d.out(`✗ Could not open a pull request in ${o.repository}: ${message(e)}`);
-    d.out(`The branch ${o.branch} is pushed. Open a pull request from it.`);
+    d.out(
+      say.text(
+        `✗ Could not open a pull request in ${o.repository}: ${message(e)}`,
+      ),
+    );
+    d.out(
+      say.text(
+        `The branch ${o.branch} is pushed. Open a pull request from it.`,
+      ),
+    );
     return { state: "failed" };
   }
-  d.out(`✓ Opened ${o.repository}#${number}, "${o.title}".`);
+  d.out(
+    say.mark("ok", [
+      "Opened ",
+      say.name(`${o.repository}#${number}`),
+      say.asIs(`, "${o.title}".`),
+    ]),
+  );
   return { state: "opened", number };
 }
 
@@ -918,20 +951,30 @@ export function afterMerge(
   branch: string,
   first: boolean,
   version: string,
-): string[] {
-  const update = `git switch ${branch} && git pull`;
+): say.Line[] {
+  const update = say.copy(`git switch ${branch} && git pull`);
   if (!first)
     return [
-      `After it merges, come back to ${branch} and bring it up to date: ${update}`,
+      say.action(
+        `After it merges, come back to ${branch} and bring it up to date:`,
+        " ",
+        update,
+      ),
     ];
   return [
-    "After it merges:",
-    `  1. Come back to ${branch} and bring it up to date:`,
-    `       ${update}`,
-    "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
-    "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
-    "The steps in full:",
-    `     ${docsPage(version, "quick-start.md#4-open-a-ticket")}`,
+    say.action("After it merges:"),
+    say.step(1, `Come back to ${branch} and bring it up to date:`),
+    say.text("       ", update),
+    say.step(
+      2,
+      "Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
+    ),
+    say.step(
+      3,
+      "Refine a ticket with /factory-refine N, then build it with /factory-build N.",
+    ),
+    say.text("The steps in full:"),
+    say.text(`     ${docsPage(version, "quick-start.md#4-open-a-ticket")}`),
   ];
 }
 
@@ -969,8 +1012,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     ...deps,
     out: (line) => {
       printed++;
-      last = line;
-      deps.out(line === NOTHING && changed ? NOTHING_ELSE : line);
+      last = say.render(line, false);
+      deps.out(last === NOTHING && changed ? say.text(NOTHING_ELSE) : line);
     },
     ask: {
       checkbox: noted(deps.ask.checkbox),
@@ -981,7 +1024,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     },
   };
   const gap = () => {
-    if (last !== "") d.out("");
+    if (last !== "") d.out(say.BLANK);
   };
   const at = (path: string) => join(d.root, path);
   const read = (path: string) =>
@@ -993,7 +1036,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
 
   const flags = presetArgs(argv);
   if (!flags) {
-    d.out(USAGE);
+    d.out(say.text(USAGE));
     return 2;
   }
   const settingsText = read(SETTINGS_FILE);
@@ -1014,7 +1057,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     }));
     const remote = remoteFor(line, remotes);
     if (remote === null) {
-      d.out(noRemoteLine(line, remotes));
+      d.out(say.text(noRemoteLine(line, remotes)));
       return 1;
     }
     where = { codeHost, repository: line, remote };
@@ -1049,8 +1092,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     try {
       settings = parse();
     } catch (e) {
-      d.out(`${SETTINGS_FILE}: ${message(e)}`);
-      d.out("Fix it, then run init again.");
+      d.out(say.text(`${SETTINGS_FILE}: ${message(e)}`));
+      d.out(say.text("Fix it, then run init again."));
       return 1;
     }
   }
@@ -1080,7 +1123,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   try {
     base = await codeHost.defaultBranch();
   } catch (e) {
-    d.out(`Could not reach the code host: ${message(e)}`);
+    d.out(say.text(`Could not reach the code host: ${message(e)}`));
     return 1;
   }
   // A remote that is yet to be added is read by its address: nothing in
@@ -1203,20 +1246,22 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       : null;
   const choosing = flags.length > 0 || (looks && (held?.length ?? 0) > 0);
 
-  d.out(`Setting up the software factory for ${repository}`);
-  d.out("");
+  d.out(say.text("Setting up the software factory for ", say.name(repository)));
+  d.out(say.BLANK);
   if (!agent.agent.installed(d.hasCommand)) {
     d.out(
-      `The factory runs in a coding agent, and ${agent.label} is not installed.`,
+      say.text(
+        `The factory runs in a coding agent, and ${agent.label} is not installed.`,
+      ),
     );
-    d.out("Install it and run factory init again.");
-    d.out(NOTHING);
+    d.out(say.text("Install it and run factory init again."));
+    d.out(say.text(NOTHING));
     return 1;
   }
-  d.out("Found");
+  d.out(say.heading("Found"));
   const width = isOrganization ? 16 : 14;
   const row = (label: string, text: string) =>
-    d.out(`  ${label.padEnd(width)} ${text}`);
+    d.out(say.row(label, text, { width }));
   row(
     "Code host",
     `${d.tools.codeHost[where.codeHost]!.label} (from your git remote)`,
@@ -1275,38 +1320,42 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       ].join(", and "),
     );
   }
-  d.out("");
+  d.out(say.BLANK);
   if (isOrganization && !organization.setUp) {
     d.out(
-      `Builds on your machine work now. The review and builds in the cloud stay off until ${owner} is set up.`,
+      say.text(
+        `Builds on your machine work now. The review and builds in the cloud stay off until ${owner} is set up.`,
+      ),
     );
-    d.out("");
+    d.out(say.BLANK);
   }
   if (machine?.state === "unreadable") {
-    d.out(machine.line);
+    d.out(say.text(machine.line));
     return 1;
   }
   if (keptProblem) {
-    d.out(keptProblem.line);
+    d.out(say.text(keptProblem.line));
     return 1;
   }
   // Variables the system refuses still win over the file, so what fixes
   // them is replacing them where they are set.
   if (machine?.state === "refused" && machine.source === "env") {
     d.out(
-      refusedEnvLine(
-        settingsTool!.label,
-        machineStep!.parts.map((p) => p.name),
-        machineSite,
-        machine.reason,
-        env,
+      say.text(
+        refusedEnvLine(
+          settingsTool!.label,
+          machineStep!.parts.map((p) => p.name),
+          machineSite,
+          machine.reason,
+          env,
+        ),
       ),
     );
-    d.out("");
+    d.out(say.BLANK);
   }
   const refused = firstRefusal(npmrc);
   if (refused) {
-    d.out(refused);
+    d.out(say.text(refused));
     return 1;
   }
 
@@ -1329,23 +1378,25 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         values: got.values,
         env,
       });
-      d.out(`It belongs to ${got.account}. Stored on this machine.`);
+      d.out(say.text(`It belongs to ${got.account}. Stored on this machine.`));
       fromMachine = got;
       changed = true;
     }
-    d.out("");
+    d.out(say.BLANK);
     try {
       await d.tools.runner[settings.builds.runner]!.open(
         repository,
       ).secretNames();
     } catch (e) {
       d.out(
-        `Could not list the repository's secrets, so the parts are left as they are: ${message(e)}`,
+        say.text(
+          `Could not list the repository's secrets, so the parts are left as they are: ${message(e)}`,
+        ),
       );
       return 0;
     }
     if (!(await d.ask.confirm("Change which parts are on?", false))) {
-      d.out(NOTHING);
+      d.out(say.text(NOTHING));
       return 0;
     }
   }
@@ -1371,8 +1422,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     try {
       settings = parse();
     } catch (e) {
-      d.out(`The settings would not be valid: ${message(e)}`);
-      d.out(NOTHING);
+      d.out(say.text(`The settings would not be valid: ${message(e)}`));
+      d.out(say.text(NOTHING));
       return 1;
     }
   }
@@ -1387,22 +1438,25 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         : part === "from-board"
           ? from.gives("builds.trigger") && settings.builds.trigger !== "manual"
           : false);
-  const notAsked: string[] = [];
+  const notAsked: say.Line[] = [];
   if (from) {
     const rows = presetRows(from, { tools: d.tools, parts: presetOn });
-    if (rows.length) notAsked.push("From the presets, so not asked");
+    if (rows.length)
+      notAsked.push(say.heading("From the presets, so not asked"));
     for (const [label, text] of rows)
-      notAsked.push(`  ${label.padEnd(width)} ${text}`);
+      notAsked.push(say.row(label, text, { width }));
   }
   if (organization.setUp)
     notAsked.push(
-      `Stored for ${owner}, so not asked`,
-      `  ${listed(organization.stored)}, which turn on builds in the cloud`,
+      say.heading(`Stored for ${owner}, so not asked`),
+      say.text(
+        `  ${listed(organization.stored)}, which turn on builds in the cloud`,
+      ),
     );
   if (notAsked.length) {
     gap();
     for (const l of notAsked) d.out(l);
-    d.out("");
+    d.out(say.BLANK);
   }
 
   const pick = async (kind: "tickets" | "runner", question: string) => {
@@ -1431,7 +1485,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   ) {
     const problem = fileProblem(env);
     if (problem) {
-      d.out(problem.line);
+      d.out(say.text(problem.line));
       return 1;
     }
   }
@@ -1500,7 +1554,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       shared = await runner.organizationSecretNames().catch(() => []);
     npm = await npmSecrets(npmrc, runner, codeHost, isOrganization);
   } catch (e) {
-    d.out(`Could not reach the code host: ${message(e)}`);
+    d.out(say.text(`Could not reach the code host: ${message(e)}`));
     return 1;
   }
   const secrets = [...own, ...shared];
@@ -1558,7 +1612,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     (part) => !isOrganization || offered.includes(part),
   );
   const parts = resolved.parts;
-  for (const note of resolved.notes) d.out(note);
+  for (const note of resolved.notes) d.out(say.text(note));
   const removed = PARTS.filter((p) => before.has(p) && !parts.has(p));
 
   // The board: the one in the settings, or one chosen now.
@@ -1574,7 +1628,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     const existing = boardOps ? await boardOps.list() : [];
     if (!offerNew && existing.length === 0) {
       d.out(
-        "No board to use instead: create one on the code host, then run factory init again.",
+        say.text(
+          "No board to use instead: create one on the code host, then run factory init again.",
+        ),
       );
       return null;
     }
@@ -1625,7 +1681,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       (await codeHost.isPrivate().catch(() => true))
     ) {
       d.out(
-        "Each run bills at least one Actions minute on a private repository.",
+        say.text(
+          "Each run bills at least one Actions minute on a private repository.",
+        ),
       );
       pollMinutes = Number(
         await d.ask.select(
@@ -1661,8 +1719,10 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       try {
         names = await boardOps.columns(board);
       } catch (e) {
-        d.out(`Could not read board ${board}'s columns: ${message(e)}`);
-        d.out(NOTHING);
+        d.out(
+          say.text(`Could not read board ${board}'s columns: ${message(e)}`),
+        );
+        d.out(say.text(NOTHING));
         return 1;
       }
     const lacks = Object.values(STATE_KEYS).some(
@@ -1708,8 +1768,10 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     try {
       text = (await tickets.fields.list()).filter((f) => f.text);
     } catch (e) {
-      d.out(`Could not read ${repository}'s ticket fields: ${message(e)}`);
-      d.out(NOTHING);
+      d.out(
+        say.text(`Could not read ${repository}'s ticket fields: ${message(e)}`),
+      );
+      d.out(say.text(NOTHING));
       return 1;
     }
     if (text.length) {
@@ -1953,9 +2015,11 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     syncs = await d.syncChanges(standingFiles(), async () => base);
   } catch (e) {
     d.out(
-      e instanceof NoDefaultBranch
-        ? e.message
-        : `The settings would not be valid: ${message(e)}`,
+      say.text(
+        e instanceof NoDefaultBranch
+          ? e.message
+          : `The settings would not be valid: ${message(e)}`,
+      ),
     );
     return 1;
   }
@@ -1965,9 +2029,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     ...asked.flatMap((a) => a.names),
     ...(wantsKey ? [SIGNING_KEY] : []),
   ];
-  const planned: string[] = [];
-  const planRow = (label: string, text: string) =>
-    planned.push(`${label.padEnd(12)}  ${text}`);
+  const planned: [label: string, what: string][] = [];
+  const planRow = (label: string, text: string) => planned.push([label, text]);
   if (where.url)
     planRow("remote", `Add the remote ${where.remote}, ${repository}`);
   const reviewers = (await standing())?.plugins
@@ -2042,10 +2105,11 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       `Push the branch ${branch} and open a pull request`,
     );
   gap();
-  d.out("This is everything setup will do:");
-  for (const l of planned) d.out(`  ${l}`);
+  d.out(say.heading("This is everything setup will do:"));
+  for (const [label, what] of planned)
+    d.out(say.row(label, what, { width: 12, gap: 2 }));
   if (!(await d.ask.confirm("Go ahead?", false))) {
-    d.out(NOTHING);
+    d.out(say.text(NOTHING));
     return 0;
   }
 
@@ -2060,9 +2124,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         if (!create)
           throw new Error("this ticket system cannot create a board");
         board = await create(name);
-        d.out(`Created board ${board}, "${name}".`);
+        d.out(say.text(`Created board ${board}, "${name}".`));
       } catch (e) {
-        d.out(`Could not create a board: ${message(e)}`);
+        d.out(say.text(`Could not create a board: ${message(e)}`));
         board = await chooseBoard(false);
       }
     }
@@ -2076,7 +2140,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         await giveBoard(d, boardOps, board, boardShape(await standing()));
       } catch (e) {
         d.out(
-          `Could not give board ${board} its columns and fields: ${message(e)}`,
+          say.text(
+            `Could not give board ${board} its columns and fields: ${message(e)}`,
+          ),
         );
       }
     }
@@ -2111,15 +2177,16 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   if (installing) {
     const { package: pkg, via } = installing.install;
     const r = await d.install([...via.split(" "), pkg]);
-    if (r.status === 0) d.out(`Installed ${pkg}.`);
+    if (r.status === 0) d.out(say.text(`Installed ${pkg}.`));
     else {
-      d.out(`Could not install ${pkg}:`);
-      for (const l of r.stderr.trimEnd().split("\n").slice(-5)) d.out(`  ${l}`);
+      d.out(say.text(`Could not install ${pkg}:`));
+      for (const l of r.stderr.trimEnd().split("\n").slice(-5))
+        d.out(say.text(`  ${l}`));
       installFailed = `Install ${installing.name}, which a build writes specs with: ${via} ${pkg}`;
     }
   }
   const synced = await d.sync();
-  if (synced !== 0) d.out("The sync failed, as above.");
+  if (synced !== 0) d.out(say.text("The sync failed, as above."));
 
   // The gate, before anything is committed: a build could not finish in a
   // repository whose own check fails.
@@ -2143,7 +2210,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         for (const n of names)
           await runner.setSecret(n, fromMachine.values[n]!);
         d.out(
-          `It belongs to ${fromMachine.account}. Stored as ${listed(names)}, from this machine.`,
+          say.text(
+            `It belongs to ${fromMachine.account}. Stored as ${listed(names)}, from this machine.`,
+          ),
         );
         continue;
       }
@@ -2158,7 +2227,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
           env,
         });
       d.out(
-        `It belongs to ${got.account}. Stored as ${listed(names)}${step.machine ? ", and on this machine" : ""}.`,
+        say.text(
+          `It belongs to ${got.account}. Stored as ${listed(names)}${step.machine ? ", and on this machine" : ""}.`,
+        ),
       );
       continue;
     }
@@ -2171,8 +2242,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       continue;
     }
     if (stale.has(step)) {
-      d.out("");
-      d.out(stale.get(step)!);
+      d.out(say.BLANK);
+      d.out(say.text(stale.get(step)!));
     }
     const got = await askSecret(d, step, AGAIN);
     if (!got) continue;
@@ -2181,7 +2252,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     if (got.account !== undefined) tokenAccount = got.account;
     const kept = keeping.find((a) => a.step === step)?.kept;
     if (!kept) {
-      d.out(step.stored(names, got.account));
+      d.out(say.text(step.stored(names, got.account)));
       continue;
     }
     writeCredential({
@@ -2191,44 +2262,58 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       env,
     });
     d.out(
-      `${got.account === undefined ? "" : `It belongs to ${got.account}. `}Stored for ${repository}, and on this machine for your next repository.`,
+      say.text(
+        `${got.account === undefined ? "" : `It belongs to ${got.account}. `}Stored for ${repository}, and on this machine for your next repository.`,
+      ),
     );
   }
   if (fromThisMachine)
     d.out(
-      `✓ Stored ${fromThisMachine} secret${fromThisMachine === 1 ? "" : "s"} for ${repository} from this machine.`,
+      say.text(
+        `✓ Stored ${fromThisMachine} secret${fromThisMachine === 1 ? "" : "s"} for ${repository} from this machine.`,
+      ),
     );
 
   // The tokens .npmrc reads, each stored where it is missing.
   for (const a of npmAsked) {
-    d.out("");
+    d.out(say.BLANK);
     let prompt = "Paste the same token again (leave empty to do this later):";
     if (a.actions && a.dependabot) {
-      d.out(`${NPMRC} reads ${a.name} for ${addressOf(npmrc, a.name)}.`);
       d.out(
-        "The factory's workflows install with it. Use a token that can only read.",
+        say.text(`${NPMRC} reads ${a.name} for ${addressOf(npmrc, a.name)}.`),
+      );
+      d.out(
+        say.text(
+          "The factory's workflows install with it. Use a token that can only read.",
+        ),
       );
       prompt = "Paste it (leave empty to do this later):";
     } else if (!a.unseen)
       d.out(
-        a.actions
-          ? `${a.name} is set for Dependabot but not for Actions, and GitHub never shows a secret's value.`
-          : `${a.name} is set for Actions but not for Dependabot, and GitHub never shows a secret's value.`,
+        say.text(
+          a.actions
+            ? `${a.name} is set for Dependabot but not for Actions, and GitHub never shows a secret's value.`
+            : `${a.name} is set for Actions but not for Dependabot, and GitHub never shows a secret's value.`,
+        ),
       );
     if (a.unseen)
       d.out(
-        `${a.name} isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.`,
+        say.text(
+          `${a.name} isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.`,
+        ),
       );
     const value = pasted(await d.ask.secret(prompt));
     if (!value) {
       d.out(
-        `No ${a.name} stored. The factory's workflows fail at npm ci until it is. ${AGAIN}`,
+        say.text(
+          `No ${a.name} stored. The factory's workflows fail at npm ci until it is. ${AGAIN}`,
+        ),
       );
       continue;
     }
     if (a.actions) await runner.setSecret(a.name, value);
     if (a.dependabot) await runner.setDependabotSecret(a.name, value);
-    d.out(`Stored ${a.name} ${forWhich(a)}.`);
+    d.out(say.text(`Stored ${a.name} ${forWhich(a)}.`));
   }
 
   /** The account the code host's own tool is signed in as, asked once:
@@ -2240,8 +2325,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   if (wantsKey) {
     const key = await d.keygen();
     await runner.setSecret(SIGNING_KEY, key.privateKey);
-    d.out("");
-    d.out(`Made a signing key and stored it as ${SIGNING_KEY}.`);
+    d.out(say.BLANK);
+    d.out(say.text(`Made a signing key and stored it as ${SIGNING_KEY}.`));
     const signedIn = await signedInAs();
     let added = false;
     if (tokenAccount !== null && tokenAccount === signedIn) {
@@ -2249,10 +2334,12 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         try {
           await codeHost.addSigningKey(SIGNING_TITLE, key.publicKey);
           added = true;
-          d.out(`Added its public half to ${signedIn} as a signing key.`);
+          d.out(
+            say.text(`Added its public half to ${signedIn} as a signing key.`),
+          );
         } catch (e) {
           if (!(e instanceof NeedsScopeError) || tries > 0) {
-            d.out(`Could not add the key: ${message(e)}`);
+            d.out(say.text(`Could not add the key: ${message(e)}`));
             break;
           }
           const grant = await d.ask.confirm(
@@ -2266,9 +2353,11 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     }
     if (!added) {
       d.out(
-        `Add this public key to ${tokenAccount ?? "the account whose token builds use"}, as a signing key under Settings, "SSH and GPG keys":`,
+        say.action(
+          `Add this public key to ${tokenAccount ?? "the account whose token builds use"}, as a signing key under Settings, "SSH and GPG keys":`,
+        ),
       );
-      d.out(`  ${key.publicKey}`);
+      d.out(say.text("  ", say.copy(key.publicKey)));
     }
   }
 
@@ -2276,7 +2365,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   let autoMergeLeft: string | null = null;
   if (parts.has("auto-merge"))
     await codeHost.allowAutoMerge().catch((e) => {
-      d.out(`Could not allow auto-merge: ${message(e)}`);
+      d.out(say.text(`Could not allow auto-merge: ${message(e)}`));
       autoMergeLeft = `An admin of ${repository} allows auto-merge: Settings, General, "Allow auto-merge"`;
     });
   if (posts)
@@ -2284,16 +2373,22 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       .requireCheck(RULE, REVIEW_VERDICT, "runner")
       .catch((e) =>
         d.out(
-          `Could not require "${REVIEW_VERDICT}": ${message(e)}. Carrying on.`,
+          say.text(
+            `Could not require "${REVIEW_VERDICT}": ${message(e)}. Carrying on.`,
+          ),
         ),
       );
 
   let eventsLeft: string | null = null;
   if (eventsHeld)
     await codeHost.allowEvents(RULE, FACTORY_FILE, FACTORY_EVENTS).then(
-      () => d.out(`✓ Allowed ${HELD_EVENT} for ${FACTORY_FILE}.`),
+      () => d.out(say.text(`✓ Allowed ${HELD_EVENT} for ${FACTORY_FILE}.`)),
       (e) => {
-        d.out(`Could not allow ${HELD_EVENT}: ${message(e)}. Carrying on.`);
+        d.out(
+          say.text(
+            `Could not allow ${HELD_EVENT}: ${message(e)}. Carrying on.`,
+          ),
+        );
         eventsLeft = `Let ${FACTORY_FILE} run on ${HELD_EVENT}: your repository's Settings, Actions, Policies`;
       },
     );
@@ -2305,7 +2400,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       : SET_UP;
   if (afterGate !== printed) gap();
   if (deletable.length)
-    d.out(`You can now delete these secrets: ${deletable.join(", ")}`);
+    d.out(
+      say.text(`You can now delete these secrets: ${deletable.join(", ")}`),
+    );
   const pull =
     branch && synced === 0
       ? await openPull(d, {
@@ -2323,12 +2420,17 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
             ]),
           ],
           title,
-          body: ["```text", ...planned, "```", ""].join("\n"),
+          body: [
+            "```text",
+            ...planned.map(([label, what]) => `${label.padEnd(12)}  ${what}`),
+            "```",
+            "",
+          ].join("\n"),
         })
       : null;
   if (pull?.state === "failed") return 1;
-  if (!branch) d.out(NOTHING_TO_COMMIT);
-  else if (!pull) d.out(NOT_COMMITTED);
+  if (!branch) d.out(say.text(NOTHING_TO_COMMIT));
+  else if (!pull) d.out(say.text(NOT_COMMITTED));
   const left: string[] = installFailed ? [installFailed] : [];
   if (eventsLeft) left.push(eventsLeft);
   if (parts.has("review") && (await codeHost.jobsMayWrite().catch(() => false)))
@@ -2373,22 +2475,31 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     );
   if (pull?.state === "opened")
     d.out(
-      left.length
-        ? "Merge it to finish. Left to do:"
-        : "Merge it to finish. Nothing else is left to do.",
+      say.action(
+        left.length
+          ? "Merge it to finish. Left to do:"
+          : "Merge it to finish. Nothing else is left to do.",
+      ),
     );
-  else if (left.length) d.out("Left to do:");
-  left.forEach((step, i) => d.out(`  ${i + 1}. ${step}`));
+  else if (left.length) d.out(say.action("Left to do:"));
+  left.forEach((step, i) => {
+    const [first, ...values] = step.split("\n");
+    const copied = values.flatMap((v): say.Piece[] => {
+      const [, indent, value] = /^(\s*)(.*)$/.exec(v)!;
+      return [say.asIs(`\n${indent}`), say.copy(value!)];
+    });
+    d.out(say.step(i + 1, [first!, ...copied]));
+  });
   if (pull?.state === "opened") {
-    d.out("");
+    d.out(say.BLANK);
     for (const l of afterMerge(base, title === SET_UP, d.packageVersion))
       d.out(l);
   }
 
-  d.out("");
-  d.out("Checks");
+  d.out(say.BLANK);
+  d.out(say.heading("Checks"));
   const found2 = await d.checks();
-  for (const l of printChecks(found2, d.paint, 2)) d.out(l);
+  for (const l of printChecks(found2, 2)) d.out(l);
   return found2.some((c) => c.state === "fail") ? 1 : 0;
 }
 
@@ -2419,7 +2530,6 @@ export function presetSource(
   o: {
     fetch?: (repository: string, codeHost: string) => FetchDeps;
     now?: () => Date;
-    paint?: Paint;
   } = {},
 ): Presets {
   const fetch =
@@ -2462,7 +2572,7 @@ export function presetSource(
       // The command's own lines, up to its last question: what it says
       // once it has applied is said by the plan here, and nothing is
       // written until that is approved.
-      let lines: string[] = [];
+      let lines: say.Line[] = [];
       let applied = false;
       const flush = () => {
         for (const l of lines) io.out(l);
@@ -2474,11 +2584,11 @@ export function presetSource(
         out: (l) => {
           if (!applied) lines.push(l);
         },
-        err: (l) => lines.push(l),
+        err: (l) => void lines.push(l),
         terminal: true,
         ask: async (question) => {
           if (question.startsWith("Apply?")) {
-            if (lines.at(-1) === "") lines.pop();
+            if (lines.at(-1) === say.BLANK) lines.pop();
             flush();
             applied = true;
             return "y";
@@ -2508,7 +2618,6 @@ export function presetSource(
               : null,
         fetch,
         now: o.now ?? (() => new Date()),
-        paint: o.paint,
       });
       flush();
       return code === 0
@@ -2567,11 +2676,10 @@ export async function initDeps(
       stderr: r.stderr || (r.error?.message ?? ""),
     };
   };
-  const paint = painter(colorOn(stream));
   return {
     root,
     ask: await terminalAsk(),
-    out: (l) => console.log(l),
+    out: say.printer(stream),
     remotes: () =>
       git(["remote", "-v"])
         .stdout.split("\n")
@@ -2596,7 +2704,7 @@ export async function initDeps(
         output: r.stdout || (r.error?.message ?? ""),
       };
     },
-    presets: presetSource(root, { paint }),
+    presets: presetSource(root),
     tools: TOOLS,
     sync: async () => (await import("./sync.mts")).run([], false),
     // The settings are not written yet, so the code host asked is the one
@@ -2649,7 +2757,6 @@ export async function initDeps(
       }
     },
     checks: () => doctorChecks(doctorDeps(root)),
-    paint,
     packageName: manifest.name,
     packageVersion: manifest.version,
   };
@@ -2657,8 +2764,9 @@ export async function initDeps(
 
 export async function run(argv: string[]): Promise<number> {
   const terminal = noTerminal("init");
+  const { out } = say.printersFor("init");
   if (terminal) {
-    console.log(terminal);
+    out(say.text(terminal));
     return 1;
   }
   if (argv.includes("--org")) return (await import("./init-org.mts")).run(argv);
@@ -2666,8 +2774,10 @@ export async function run(argv: string[]): Promise<number> {
   try {
     root = repoRoot();
   } catch {
-    console.log(
-      "This is not a git repository. Run it in your repository's checkout.",
+    out(
+      say.text(
+        "This is not a git repository. Run it in your repository's checkout.",
+      ),
     );
     return 1;
   }
@@ -2676,11 +2786,11 @@ export async function run(argv: string[]): Promise<number> {
     return await main(argv, d);
   } catch (e) {
     if (e instanceof Error && e.name === "ExitPromptError") {
-      console.log("Stopped. Nothing after the last step shown was changed.");
+      out(say.text("Stopped. Nothing after the last step shown was changed."));
       return 130;
     }
     if (e instanceof SettingsError) {
-      console.log(e.message);
+      out(say.text(e.message));
       return 1;
     }
     throw e;

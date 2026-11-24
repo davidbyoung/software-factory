@@ -14,7 +14,8 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { COMMANDS, resolveCommand } from "../src/cli.mts";
+import { resolveCommand } from "../src/cli.mts";
+import { COMMANDS } from "../src/commands-list.mts";
 
 const PACKAGE = fileURLToPath(new URL("..", import.meta.url));
 const LAUNCHER = join(PACKAGE, "bin/factory.js");

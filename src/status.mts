@@ -12,7 +12,6 @@
 // loader needs dependencies installed; before npm ci the hook prints
 // nothing.
 import { TICKET_LABELS } from "./labels.mts";
-import { colorOn, painter } from "./lib/color.mts";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   NO_DEPENDENCIES,
@@ -59,6 +58,7 @@ import { openRunner, type Runner } from "./runner/index.mts";
 import { subscriptionDollars } from "./lib/pricing.mts";
 import { dollars } from "./lib/usage.mts";
 import { minutes, resultText } from "./reviewers.mts";
+import * as say from "./lib/output.mts";
 
 const HOOK_LIMIT_MS = 20_000;
 const HOUR = 3600_000;
@@ -226,25 +226,12 @@ export function styleFor(color: boolean, columns: number | undefined): Style {
   return color ? { color: true, width: columns ?? 80 } : PLAIN;
 }
 
-const ESC = "\x1B";
-type Sgr =
-  | "bold"
-  | "dim"
-  | "underline"
-  | "red"
-  | "green"
-  | "yellow"
-  | "magenta"
-  | "cyan"
-  | "blueBright"
-  | "whiteBright";
-
-const GROUPS: { name: Status; color: Sgr }[] = [
-  { name: "Backlog", color: "whiteBright" },
-  { name: "In refinement", color: "yellow" },
-  { name: "Ready", color: "green" },
-  { name: "In progress", color: "cyan" },
-  { name: "In review", color: "magenta" },
+const GROUPS: Status[] = [
+  "Backlog",
+  "In refinement",
+  "Ready",
+  "In progress",
+  "In review",
 ];
 const UNLINKED = "Pull requests that close no issue";
 const INDENT = "  ";
@@ -252,8 +239,9 @@ const GAP = "  ";
 const MIN_TITLE = 20;
 const HEADER = ["#", "Title", "Time in status", "Cost", "Session"];
 
-/** A run of text, linked when it has a url. */
-type Seg = { text: string; url?: string };
+/** Words that color nothing themselves: a ticket's title can hold a
+ * command. */
+type Seg = say.Part;
 
 const linkTo = (row: Pick<Row, "kind" | "key">, style: Style) =>
   row.kind === "issue"
@@ -261,20 +249,9 @@ const linkTo = (row: Pick<Row, "kind" | "key">, style: Style) =>
     : style.links?.pull(Number(row.key));
 const width = (segs: Seg[]) => segs.reduce((n, s) => n + [...s.text].length, 0);
 
-function paint(text: string, style: Style, ...codes: Sgr[]): string {
-  if (!style.color || codes.length === 0) return text;
-  return painter(true)(codes, text);
-}
-
-function render(segs: Seg[], style: Style): string {
-  return segs
-    .map((s) =>
-      s.url && style.color
-        ? `${ESC}]8;;${s.url}${ESC}\\${s.text}${ESC}]8;;${ESC}\\`
-        : s.text,
-    )
-    .join("");
-}
+const as = (role: say.Role, segs: Seg[]): Seg[] =>
+  segs.map((s) => ({ ...s, role }));
+const spaces = (n: number): Seg => ({ text: " ".repeat(Math.max(0, n)) });
 
 /** Shortens the runs to `max` characters, ending in "…", when they are longer. */
 function fit(segs: Seg[], max: number | null): Seg[] {
@@ -340,36 +317,56 @@ const RUN_TIME = 11;
 /** One reviewer's row under its card: a mark that carries the result
  * without color, the name, the model, the result, how long it ran, and its
  * cost in subscription dollars. */
-export function runLine(run: ReviewerRun, now: Date, style: Style): string {
+export function runLine(run: ReviewerRun, now: Date, indent = ""): say.Line {
   const pad = (text: string, n: number) =>
     text + " ".repeat(Math.max(0, n - [...text].length));
   const stuck = isStuck(run, now);
   const result = resultText(run, now);
-  const [mark, color]: [string, Sgr] = stuck
-    ? ["?", "dim"]
+  const [mark, role]: [string, say.Role] = stuck
+    ? ["?", "yourTurn"]
     : {
-        running: ["…", "yellow"] as [string, Sgr],
-        passed: ["✓", "green"] as [string, Sgr],
-        failed: ["✗", "red"] as [string, Sgr],
-        "no verdict": ["?", "dim"] as [string, Sgr],
+        running: ["…", "skip"] as [string, say.Role],
+        passed: ["✓", "good"] as [string, say.Role],
+        failed: ["✗", "bad"] as [string, say.Role],
+        "no verdict": ["?", "yourTurn"] as [string, say.Role],
       }[run.result];
-  const parts = [
-    `${paint(mark, style, color)} ${pad(run.reviewer, RUN_NAME)}`,
-    paint(pad(run.model, RUN_MODEL), style, "dim"),
-    paint(stuck ? result : pad(result, RUN_RESULT), style, color),
+  const cells: Seg[][] = [
+    [{ role, text: mark }, { text: ` ${pad(run.reviewer, RUN_NAME)}` }],
+    [say.skip(pad(run.model, RUN_MODEL))],
+    [{ role, text: stuck ? result : pad(result, RUN_RESULT) }],
   ];
   if (!stuck && run.result === "running")
-    parts.push(
-      paint(`${minutes(run.start, now.toISOString())} so far`, style, "dim"),
-    );
+    cells.push([say.skip(`${minutes(run.start, now.toISOString())} so far`)]);
   else if (!stuck) {
     const time = run.end ? minutes(run.start, run.end) : "";
     const cost =
       run.cost === undefined ? "" : dollars(subscriptionDollars(run.cost));
-    parts.push(paint(pad(time, RUN_TIME), style, "dim"));
-    if (cost) parts.push(paint(cost, style, "dim"));
+    cells.push([say.skip(pad(time, RUN_TIME))]);
+    if (cost) cells.push([say.skip(cost)]);
   }
-  return parts.join(GAP).trimEnd();
+  return line([
+    { text: indent },
+    ...cells.flatMap((c, i) => (i ? [{ text: GAP }, ...c] : c)),
+  ]);
+}
+
+/** A line of words, with no spaces at its end. */
+function line(segs: Seg[]): say.Line {
+  const kept = [...segs];
+  for (;;) {
+    const last = kept.at(-1);
+    if (!last || last.text !== last.text.trimEnd()) {
+      if (!last) break;
+      const text = last.text.trimEnd();
+      kept.pop();
+      if (text) {
+        kept.push({ ...last, text });
+        break;
+      }
+    } else if (last.text === "") kept.pop();
+    else break;
+  }
+  return say.cells(kept);
 }
 
 /** The board's Runs in, lowercased, before a session ID; a phrase such as
@@ -404,9 +401,9 @@ export function formatRows(
   now: Date,
   withClosed = true,
   style: Style = PLAIN,
-): string[] {
-  const lines: string[] = [];
-  if (rows.length === 0) lines.push("Nothing open.");
+): say.Line[] {
+  const lines: say.Line[] = [];
+  if (rows.length === 0) lines.push(say.text("Nothing open."));
   else {
     const cells = rows.map((row) => {
       const url = linkTo(row, style);
@@ -464,38 +461,34 @@ export function formatRows(
       style.width === null
         ? null
         : Math.max(MIN_TITLE, style.width - subIndent);
-    const pad = (text: string, n: number) =>
-      " ".repeat(Math.max(0, n - [...text].length));
+    const gap = GAP.length;
     const sub = " ".repeat(subIndent);
 
-    const head = (text: string, n = 0) =>
-      paint(text, style, "bold", "underline") + pad(text, n);
     lines.push(
-      INDENT +
+      say.heads(
         [
-          head(HEADER[0], numW),
-          head(HEADER[1], titleW),
-          head(HEADER[2], timeW),
-          head(HEADER[3], costW),
-          head(HEADER[4]),
-        ].join(GAP),
+          [HEADER[0]!, numW + gap],
+          [HEADER[1]!, titleW + gap],
+          [HEADER[2]!, timeW + gap],
+          [HEADER[3]!, costW + gap],
+          [HEADER[4]!, 0],
+        ],
+        { indent: INDENT.length },
+      ),
     );
 
     const groups = [
-      ...GROUPS.map((g) => ({
-        ...g,
+      ...GROUPS.map((name) => ({
         // The repository's column for the state, or the factory's own name
         // where the board has none.
-        label: (style.columns ?? DEFAULT_COLUMNS)[g.name]?.[0] ?? g.name,
+        label: (style.columns ?? DEFAULT_COLUMNS)[name]?.[0] ?? name,
         cells: cells.filter(
-          (c) => c.row.kind === "issue" && c.row.derived?.status === g.name,
+          (c) => c.row.kind === "issue" && c.row.derived?.status === name,
         ),
         always: true,
       })),
       {
-        name: UNLINKED,
         label: UNLINKED,
-        color: "whiteBright" as Sgr,
         cells: cells.filter((c) => c.row.kind === "pull"),
         always: false,
       },
@@ -504,88 +497,67 @@ export function formatRows(
       if (!group.always && group.cells.length === 0) continue;
       const count = String(group.cells.length);
       lines.push(
-        "",
+        say.BLANK,
         group.cells.length
-          ? `${paint(group.label, style, "bold", group.color)}  ${paint(count, style, "dim")}`
-          : paint(`${group.label}  ${count}`, style, "dim"),
+          ? say.text(
+              { role: "heading", text: group.label },
+              say.asIs("  "),
+              say.skip(count),
+            )
+          : say.text(say.skip(`${group.label}  ${count}`)),
       );
       for (const c of group.cells) {
         const title = fit([{ text: c.row.title, url: c.url }], titleW);
         const session =
           c.session === "Waiting on you"
-            ? paint(c.session, style, "bold", "yellow")
-            : render(sessionSegs(c.session, c.row.derived, style.links), style);
+            ? as("yourTurn", [{ text: c.session }])
+            : sessionSegs(c.session, c.row.derived, style.links);
         lines.push(
-          (
-            INDENT +
-            paint(
-              render([{ text: c.number, url: c.url }], style),
-              style,
-              "blueBright",
-            ) +
-            pad(c.number, numW) +
-            GAP +
-            render(title, style) +
-            pad(title.map((s) => s.text).join(""), titleW) +
-            GAP +
-            paint(c.time, style, "dim") +
-            pad(c.time, timeW) +
-            GAP +
-            c.cost +
-            pad(c.cost, costW) +
-            GAP +
-            session
-          ).trimEnd(),
+          line([
+            { text: INDENT },
+            ...as("copy", [{ text: c.number, url: c.url }]),
+            spaces(numW - [...c.number].length + gap),
+            ...title,
+            spaces(titleW - width(title) + gap),
+            say.skip(c.time),
+            spaces(timeW - [...c.time].length + gap),
+            { text: c.cost },
+            spaces(costW - [...c.cost].length + gap),
+            ...session,
+          ]),
         );
         for (const pull of c.row.pulls)
           lines.push(
-            sub +
-              paint(
-                render(
-                  fit(
-                    pullLine(pull, now, c.row.kind === "issue", style),
-                    subMax,
-                  ),
-                  style,
-                ),
-                style,
-                "dim",
+            line([
+              { text: sub },
+              ...as(
+                "skip",
+                fit(pullLine(pull, now, c.row.kind === "issue", style), subMax),
               ),
+            ]),
           );
-        for (const run of c.row.runs)
-          lines.push(sub + runLine(run, now, style));
+        for (const run of c.row.runs) lines.push(runLine(run, now, sub));
         for (const flag of c.row.flags)
           lines.push(
-            sub +
-              paint(
-                render(fit([{ text: `⚠ ${flag}` }], subMax), style),
-                style,
-                "red",
-              ),
+            line([
+              { text: sub },
+              ...as("bad", fit([{ text: `⚠ ${flag}` }], subMax)),
+            ]),
           );
       }
     }
   }
   if (withClosed && closed.length > 0)
     lines.push(
-      "",
-      `${paint("Done in the last 24 hours:", style, "dim")} ${closed
-        .map((r) =>
-          paint(
-            render(
-              [
-                {
-                  text: r.name,
-                  url: linkTo(r, style),
-                },
-              ],
-              style,
-            ),
-            style,
-            "blueBright",
-          ),
-        )
-        .join(", ")}`,
+      say.BLANK,
+      say.text(
+        say.skip("Done in the last 24 hours:"),
+        say.asIs(" "),
+        ...closed.flatMap((r, i) => [
+          ...(i ? [say.asIs(", ")] : []),
+          ...as("copy", [{ text: r.name, url: linkTo(r, style) }]),
+        ]),
+      ),
     );
   return lines;
 }
@@ -674,7 +646,7 @@ export type Deps = {
   /** The ticket system and pull requests for the target. */
   source: (settings: Settings, target: Target) => Promise<Source>;
   now: () => Date;
-  out: (line: string) => void;
+  out: say.Out;
   sleep: (ms: number) => Promise<unknown>;
   /** Writes screen control and whole frames for --watch, with no newline. */
   write: (text: string) => void;
@@ -688,17 +660,6 @@ export type Deps = {
 };
 
 const WATCH_MS = 15_000;
-// The alternate screen with the cursor hidden, and back.
-const ENTER = `${ESC}[?1049h${ESC}[?25l`;
-const LEAVE = `${ESC}[?25h${ESC}[?1049l`;
-
-/** A frame that overwrites the one on screen: home, each line erased to its
- * end, then everything below. No newline ends it, which would scroll a
- * frame as tall as the window. */
-export function frame(lines: string[]): string {
-  return `${ESC}[H${lines.map((l) => `${l}${ESC}[K`).join("\n")}${ESC}[J`;
-}
-
 export async function main(argv: string[], d: Deps): Promise<number> {
   const hook = argv.includes("--hook");
   let target: Target;
@@ -709,7 +670,8 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   } catch (error) {
     if (!(error instanceof SettingsError)) throw error;
     // Before npm ci the hook stays quiet.
-    if (!(hook && error.message === NO_DEPENDENCIES)) d.out(error.message);
+    if (!(hook && error.message === NO_DEPENDENCIES))
+      d.out(say.text(error.message));
     return hook ? 0 : 1;
   }
   if (hook) {
@@ -717,54 +679,53 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     const work = (async () => {
       const source = await d.source(settings, target);
       return [
-        "## Work in progress",
-        "",
-        "```",
+        say.text("## Work in progress"),
+        say.BLANK,
+        say.text("```"),
         ...(await snapshotLines(source, target, d.now(), true)),
-        "```",
+        say.text("```"),
       ];
     })().catch((error: unknown) =>
       // A credential to fix is said in place of the tickets' state.
       error instanceof CredentialError
-        ? ["## Work in progress", "", `✗ ${error.message}`]
-        : [failureLine(error)],
+        ? [
+            say.text("## Work in progress"),
+            say.BLANK,
+            say.mark("fail", error.message),
+          ]
+        : [say.text(failureLine(error))],
     );
     const result = await Promise.race([work, limit]);
     if (result === "timeout") {
-      d.out("Work status: GitHub did not answer within 20 seconds.");
+      d.out(say.text("Work status: GitHub did not answer within 20 seconds."));
     } else result.forEach((line) => d.out(line));
     return 0;
   }
   const watch = argv.includes("--watch");
   let shown = "";
   if (watch) {
-    d.write(ENTER);
-    d.onInterrupt(() => d.write(LEAVE));
+    d.write(say.ENTER_SCREEN);
+    d.onInterrupt(() => d.write(say.LEAVE_SCREEN));
   }
   // Opened once and kept while --watch draws; a failed open is tried again
   // on the next draw.
   let source: Source | null = null;
   for (;;) {
-    let lines: string[];
+    let lines: say.Line[];
     let code = 0;
+    const style = d.style?.() ?? PLAIN;
     try {
       source ??= await d.source(settings, target);
-      lines = await snapshotLines(
-        source,
-        target,
-        d.now(),
-        false,
-        d.style?.() ?? PLAIN,
-      );
+      lines = await snapshotLines(source, target, d.now(), false, style);
     } catch (error) {
-      lines = [failureLine(error)];
+      lines = [say.text(failureLine(error))];
       code = 1;
     }
     if (!watch) {
       lines.forEach((line) => d.out(line));
       return code;
     }
-    const next = frame(lines);
+    const next = say.frame(lines, style.color);
     if (next !== shown) d.write(next);
     shown = next;
     await d.sleep(WATCH_MS);
@@ -773,7 +734,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
 
 /** The style for what `run` prints to stdout. */
 export const terminalStyle = (): Style =>
-  styleFor(colorOn(), process.stdout.columns);
+  styleFor(say.colorOn(), process.stdout.columns);
 
 /** `factory status [--watch]`, and `factory session-start`'s second half. */
 export async function run(argv: string[]): Promise<number> {
@@ -788,9 +749,10 @@ export async function run(argv: string[]): Promise<number> {
       };
     },
     now: () => new Date(),
-    out: (line) => console.log(line),
+    out: say.printersFor(argv.includes("--hook") ? "session-start" : "status")
+      .out,
     sleep,
-    write: (text) => process.stdout.write(text),
+    write: (text) => say.write(text),
     onInterrupt: (leave) => {
       for (const signal of ["SIGINT", "SIGTERM"] as const)
         process.on(signal, () => {

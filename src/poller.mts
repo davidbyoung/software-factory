@@ -67,6 +67,7 @@ import {
   type Tickets,
 } from "./tickets/types.mts";
 import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
+import * as say from "./lib/output.mts";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -634,7 +635,7 @@ function liveDeps(): Omit<Deps, "repository"> {
     fetch,
     env: process.env,
     now: () => Date.now(),
-    log: (line) => console.log(stamped(line, new Date())),
+    log: (line) => say.plain(stamped(line, new Date())),
     marker: startMarker,
   };
 }
@@ -642,7 +643,7 @@ function liveDeps(): Omit<Deps, "repository"> {
 async function main(): Promise<number> {
   const repository = process.env.FACTORY_REPOSITORY;
   if (!repository) {
-    console.error(
+    say.plainError(
       "ready-poller not started: FACTORY_REPOSITORY is not set. Set it to the repository, as owner/name.",
     );
     return 1;
@@ -672,7 +673,7 @@ export async function run(argv: string[] = []): Promise<number> {
   if (at >= 0) {
     const file = argv[at + 1];
     if (!file || !argv.includes("--once")) {
-      console.error("Usage: factory poller --once --preset FILE");
+      say.plainError("Usage: factory poller --once --preset FILE");
       process.exit(2);
     }
     process.exit(await oncePreset(file, liveDeps()));

@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { checkCommit, type HookInput } from "./guard-commit.mts";
 import { checkCredentials } from "./guard-credentials.mts";
 import { checkTicketText } from "./guard-ticket-text.mts";
+import * as say from "./lib/output.mts";
 
 export type Which = "all" | "commit" | "ticket-text" | "credentials";
 
@@ -48,6 +49,6 @@ export async function run(which: Which): Promise<number> {
     // No input: nothing to check.
   }
   return guard(which, input, (text) => {
-    if (text) process.stderr.write(`${text}\n`);
+    if (text) say.plainError(text);
   });
 }

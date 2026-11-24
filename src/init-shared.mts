@@ -4,46 +4,21 @@
 import { spawn, spawnSync } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
-import { StringDecoder } from "node:string_decoder";
-import { styleText } from "node:util";
 import { organizationHosts } from "./code-host/index.mts";
 import { columnsOf, fieldNamesOf, type Settings } from "./config.mts";
 import { refusalReason } from "./lib/credentials.mts";
+import type { Ask } from "./lib/prompts.mts";
 import { DEFAULT_COLUMNS } from "./lib/work-status.mts";
 import type { CredentialStep, SecretStep } from "./setup.mts";
 import { statusOf } from "./tickets/transport.mts";
 import type { BoardOps, NewField } from "./tickets/types.mts";
 import { FACTORY_REPOSITORY } from "./workflow-files.mts";
-
-/** The questions init asks. Each is answered at the terminal, and in tests
- * from a script. */
-export type Ask = {
-  checkbox(
-    message: string,
-    choices: {
-      name: string;
-      value: string;
-      checked: boolean;
-      /** Shown under the list while this choice is highlighted. */
-      description?: string;
-    }[],
-  ): Promise<string[]>;
-  select(
-    message: string,
-    choices: { name: string; value: string }[],
-    /** The value chosen when the person picks nothing else. */
-    fallback?: string,
-  ): Promise<string>;
-  confirm(message: string, fallback: boolean): Promise<boolean>;
-  /** Read without echoing what is typed. */
-  secret(message: string): Promise<string>;
-  input(message: string, fallback: string): Promise<string>;
-};
+import * as say from "./lib/output.mts";
 
 /** What reading a secret takes of a command's dependencies. */
 export type Terminal = {
   ask: Ask;
-  out: (line: string) => void;
+  out: say.Out;
   /** Runs a command attached to the terminal, as `claude setup-token`. */
   interactive: (argv: string[]) => Promise<number>;
   openPage: (url: string) => void;
@@ -56,6 +31,26 @@ export const pasted = (value: string) => value.replace(/\s+/g, "");
 export const message = (e: unknown) =>
   e instanceof Error ? e.message : String(e);
 
+/** A line before a credential is asked for, with the command init runs for
+ * it as one to copy. */
+function introLine(line: string, get: CredentialStep["get"]): say.Line {
+  const command = get && "command" in get ? get.command.join(" ") : null;
+  const at = command ? line.indexOf(command) : -1;
+  return line === ""
+    ? say.BLANK
+    : at < 0
+      ? say.text(line)
+      : say.text(
+          line.slice(0, at),
+          say.copy(command!),
+          say.asIs(line.slice(at + command!.length)),
+        );
+}
+
+/** A line a check prints as it runs: that it has started, or a result. */
+const progress = (line: string): say.Line =>
+  line.endsWith("...") ? say.note(line) : say.text(line);
+
 /** A credential asked for part by part and checked together; asked again
  * from its first masked part when refused. Null when a part is left
  * empty, after the step's line and `again`. */
@@ -65,7 +60,7 @@ export async function askCredential(
   site: string,
   again: string,
 ): Promise<{ values: Record<string, string>; account: string } | null> {
-  for (const l of step.intro) d.out(l);
+  for (const l of step.intro) d.out(introLine(l, step.get));
   if (step.get && "page" in step.get) d.openPage(step.get.page);
   if (step.get && "command" in step.get) await d.interactive(step.get.command);
   const values: Record<string, string> = {};
@@ -76,17 +71,21 @@ export async function askCredential(
         ? pasted(await d.ask.secret(part.prompt))
         : (await d.ask.input(part.prompt, "")).trim();
       if (!value) {
-        d.out(`${step.skipped} ${again}`);
+        d.out(say.text(`${step.skipped} ${again}`));
         return null;
       }
       values[part.name] = value;
     }
     try {
       const checked = await step.check(values, site);
-      for (const l of checked.lines) d.out(l);
+      for (const l of checked.lines) d.out(say.text(l));
       return { values, account: checked.account };
     } catch (e) {
-      d.out(statusOf(e) === 401 ? step.refused(refusalReason(e)) : message(e));
+      d.out(
+        say.text(
+          statusOf(e) === 401 ? step.refused(refusalReason(e)) : message(e),
+        ),
+      );
       from = Math.max(
         0,
         step.parts.findIndex((p) => p.masked),
@@ -102,24 +101,24 @@ export async function askSecret(
   step: SecretStep,
   again: string,
 ): Promise<{ value: string; account?: string } | null> {
-  for (const l of step.intro) d.out(l);
+  for (const l of step.intro) d.out(introLine(l, step.get));
   if (step.get && "page" in step.get) d.openPage(step.get.page);
   if (step.get && "command" in step.get) await d.interactive(step.get.command);
   for (;;) {
     const value = pasted(await d.ask.secret(step.prompt));
     if (!value) {
-      d.out(`${step.skipped} ${again}`);
+      d.out(say.text(`${step.skipped} ${again}`));
       return null;
     }
     let checked: { lines: string[]; account?: string } = { lines: [] };
     if (step.verify)
       try {
-        checked = await step.verify(value, d.out);
+        checked = await step.verify(value, (l) => d.out(progress(l)));
       } catch (e) {
-        d.out(message(e));
+        d.out(say.text(message(e)));
         continue;
       }
-    for (const l of checked.lines) d.out(l);
+    for (const l of checked.lines) d.out(say.text(l));
     return { value, account: checked.account };
   }
 }
@@ -163,7 +162,7 @@ export async function giveBoard(
   const fields = addFields ? await addFields(board, shape.fields) : [];
   const added = [...columns, ...fields];
   if (added.length && o.added !== false)
-    d.out(`Added to board ${board}: ${added.join(", ")}.`);
+    d.out(say.text(`Added to board ${board}: ${added.join(", ")}.`));
   // A ticket system that cannot add them leaves them to the owner.
   if (!addColumns) {
     const has = await boardOps.columns(board);
@@ -172,12 +171,18 @@ export async function giveBoard(
     );
     if (lacking.length)
       d.out(
-        `Add these columns to board ${board} by hand: ${lacking.join(", ")}.`,
+        say.action(
+          `Add these columns to board ${board} by hand:`,
+          say.asIs(` ${lacking.join(", ")}.`),
+        ),
       );
   }
   if (!addFields && shape.fields.length)
     d.out(
-      `Add any of these fields board ${board} lacks, by hand: ${shape.fields.map((f) => f.name).join(", ")}.`,
+      say.action(
+        `Add any of these fields board ${board} lacks, by hand:`,
+        say.asIs(` ${shape.fields.map((f) => f.name).join(", ")}.`),
+      ),
     );
 }
 
@@ -187,138 +192,6 @@ export function docsPage(version: string, page: string): string {
   const [owner, name] = FACTORY_REPOSITORY.split("/") as [string, string];
   const at = /^\d+\.\d+\.\d+$/.test(version) ? `v${version}` : "main";
   return `${organizationHosts().github!.addressOf(owner)}/${name}/blob/${at}/docs/${page}`;
-}
-
-/** The answer Enter gives to a question, as the question shows it: in
- * words, since parentheses around it read as part of the answer. */
-export const defaultInWords = (value: string): string =>
-  value ? `Press Enter for ${value}` : "";
-
-/** The terminal a secret is read from: its keys, and where the prompt is
- * written. A stream that is no terminal has no mode to set. */
-export type SecretIo = {
-  input: NodeJS.ReadableStream & {
-    isRaw?: boolean;
-    setRawMode?(mode: boolean): unknown;
-  };
-  output: NodeJS.WritableStream;
-};
-
-/** What a terminal sends around pasted text once bracketed paste is on,
- * and what turns that on and off. */
-const PASTE_START = "\u001b[200~";
-const PASTE_END = "\u001b[201~";
-const BRACKETED_ON = "\u001b[?2004h";
-const BRACKETED_OFF = "\u001b[?2004l";
-/** A whole escape sequence at the start of what is left to read: a key
- * that is no character, or one of the paste's two marks. */
-const SEQUENCE = /^\u001b(?:\[[0-9;?]*[@-~]|O[@-~]|[^[O])/;
-
-/** Reads a secret without echoing it, a dot for each character taken. It
- * ends on Enter typed outside a paste: a token copied from two lines of a
- * terminal is pasted with its line break, which a prompt that reads one
- * line takes for Enter, keeping the first line alone. Stopped with Ctrl-C,
- * or by the terminal closing, it rejects as the other prompts do, with an
- * error named `ExitPromptError`. */
-export function readSecret(message: string, io: SecretIo): Promise<string> {
-  const { input, output } = io;
-  return new Promise((resolve, reject) => {
-    const decoder = new StringDecoder("utf8");
-    const wasRaw = input.isRaw ?? false;
-    let value = "";
-    let pending = "";
-    let pasting = false;
-    const finish = (settle: () => void) => {
-      input.off("data", read);
-      input.off("end", closed);
-      input.off("close", closed);
-      input.pause();
-      input.setRawMode?.(wasRaw);
-      output.write(`${BRACKETED_OFF}\n`);
-      settle();
-    };
-    const stopped = () => {
-      const error = new Error("User force closed the prompt");
-      error.name = "ExitPromptError";
-      return error;
-    };
-    const closed = () => finish(() => reject(stopped()));
-    const take = (text: string) => {
-      value += text;
-      output.write("•".repeat([...text].length));
-    };
-    /** Takes what `pending` holds, up to a sequence the terminal has not
-     * finished sending. True once the prompt has ended. */
-    const consume = (): boolean => {
-      while (pending) {
-        if (pending[0] === "\u001b") {
-          const sequence = SEQUENCE.exec(pending)?.[0];
-          if (sequence === undefined) return false;
-          pending = pending.slice(sequence.length);
-          if (sequence === PASTE_START) pasting = true;
-          else if (sequence === PASTE_END) pasting = false;
-          continue;
-        }
-        const character = [...pending][0]!;
-        pending = pending.slice(character.length);
-        if (pasting) take(character);
-        else if (character === "\r" || character === "\n") {
-          // Anything after the line break was pasted with no marks around
-          // it, and would otherwise answer the next question.
-          pending = "";
-          finish(() => resolve(value));
-          return true;
-        } else if (character === "\u0003") {
-          finish(() => reject(stopped()));
-          return true;
-        } else if (character === "\u007f" || character === "\b") {
-          const last = [...value].at(-1);
-          if (last !== undefined) {
-            value = value.slice(0, -last.length);
-            output.write("\b \b");
-          }
-        } else if (character >= " ") take(character);
-      }
-      return false;
-    };
-    const read = (chunk: Buffer | string) => {
-      pending += typeof chunk === "string" ? chunk : decoder.write(chunk);
-      consume();
-    };
-    output.write(
-      `${styleText("blue", "?")} ${styleText("bold", message)} ${BRACKETED_ON}`,
-    );
-
-    input.setRawMode?.(true);
-    input.on("data", read);
-    input.once("end", closed);
-    input.once("close", closed);
-    input.resume();
-  });
-}
-
-/** The questions, asked at the terminal. */
-export async function terminalAsk(): Promise<Ask> {
-  const p = await import("@inquirer/prompts");
-  return {
-    checkbox: (message, choices) => p.checkbox({ message, choices }),
-    select: (message, choices, fallback) =>
-      p.select({ message, choices, default: fallback }),
-    confirm: (message, fallback) => p.confirm({ message, default: fallback }),
-    secret: (message) =>
-      readSecret(message, { input: process.stdin, output: process.stdout }),
-    input: (message, fallback) =>
-      p.input({
-        message,
-        default: fallback,
-        theme: {
-          style: {
-            defaultAnswer: (text: string) =>
-              styleText("dim", defaultInWords(text)),
-          },
-        },
-      }),
-  };
 }
 
 type Env = Record<string, string | undefined>;

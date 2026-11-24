@@ -8,7 +8,6 @@ import { join } from "node:path";
 import { chmodSync, statSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { initDeps, parseRemote } from "../src/init.mts";
-import { painter, type Paint } from "../src/lib/color.mts";
 import { credentialsPath, readCredential } from "../src/lib/credentials.mts";
 import { pagesSpecTool } from "./memory-tools";
 import {
@@ -42,6 +41,7 @@ import {
   SPEC_QUESTION,
   type Setup,
 } from "./init-harness";
+import * as say from "../src/lib/output.mts";
 
 describe("factory init, a first run with every part", () => {
   const firstSetup = (): Setup => ({
@@ -54,7 +54,7 @@ describe("factory init, a first run with every part", () => {
       secret: [AGENT, GOOD],
     },
   });
-  const first = (paint?: Paint) => init({ ...firstSetup(), paint });
+  const first = () => init(firstSetup());
 
   it("prints what it found before asking anything", async () => {
     const r = first();
@@ -179,15 +179,13 @@ describe("factory init, a first run with every part", () => {
     ]);
   });
 
-  it("colors its closing checks as doctor does, and nothing before them", async () => {
-    const paint = painter(true);
-    const r = first(paint);
+  it("colors its closing checks as doctor does, under a heading", async () => {
+    const r = first();
     await r.run();
-    const at = r.out.indexOf("Checks");
-    expect(r.out.slice(at + 1)).toEqual([
-      `  ${paint("green", "✓")} Every check passed`,
+    expect(r.looks.slice(r.out.indexOf("Checks"))).toEqual([
+      "{heading:Checks}",
+      "  {good:✓} Every check passed",
     ]);
-    expect(r.out.slice(0, at).join("\n")).not.toContain("\x1B");
   });
 
   it("prints its closing checks under doctor's headings, indented beneath Checks", async () => {
@@ -3338,21 +3336,31 @@ describe("factory init, a credential kept on the machine", () => {
 });
 
 describe("init's own dependencies", () => {
-  const stream = (tty: boolean) =>
-    Object.assign(new Writable({ write: (_c, _e, done) => done() }), {
+  const stream = (tty: boolean) => {
+    const written: string[] = [];
+    const write = (chunk: unknown, _e: unknown, done: () => void) => {
+      written.push(String(chunk));
+      done();
+    };
+    return Object.assign(new Writable({ write }), {
+      written,
       isTTY: tty,
       getColorDepth: () => (tty ? 8 : 1),
       hasColors: () => tty,
     });
+  };
 
-  it("paints its closing checks in a terminal that shows color, and not when piped", async () => {
+  it("prints in color in a terminal that shows it, and not when piped", async () => {
     vi.stubEnv("NO_COLOR", undefined);
     vi.stubEnv("FORCE_COLOR", undefined);
     const root = mkdtempSync(join(tmpdir(), "init-deps-"));
-    const shown = await initDeps(root, stream(true));
-    const piped = await initDeps(root, stream(false));
+    const printed = async (tty: boolean) => {
+      const to = stream(tty);
+      (await initDeps(root, to)).out(say.mark("ok", "done"));
+      return to.written.join("");
+    };
 
-    expect(shown.paint!("green", "✓")).not.toBe("✓");
-    expect(piped.paint!("green", "✓")).toBe("✓");
+    expect(await printed(true)).toContain("\x1B[32m✓");
+    expect(await printed(false)).toBe("✓ done\n");
   });
 });

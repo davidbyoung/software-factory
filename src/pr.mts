@@ -52,6 +52,7 @@ import { labelOf, PR_LABELS, type Labels } from "./labels.mts";
 
 import type { Tickets } from "./tickets/types.mts";
 import { takeCost, type CostDeps } from "./ticket.mts";
+import * as say from "./lib/output.mts";
 
 export type Deps = {
   /** The repository, as owner/name, from the factory's settings. */
@@ -821,7 +822,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         throw new Error(USAGE);
     }
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    say.plainError(error instanceof Error ? error.message : String(error));
     // The only-if gate reads 1 as "nothing to do", so a check that could not
     // tell exits 2.
     return command === "review-pending" || command === "conflicts" ? 2 : 1;
@@ -846,7 +847,7 @@ export function prDeps(
     codeHost: openCodeHost(repository, codeHost),
     runner: openRunner(repository, runner),
     sleep,
-    out: (line) => console.log(line),
+    out: say.plainPrinter(),
     readFile: (path) => readFileSync(path, "utf8"),
     // A branch's whole diff, which `uncovered` reads, can pass Node's 1 MB.
     // Git's own error is in the thrown message, so it is not printed twice.

@@ -4,7 +4,6 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { painter } from "../src/lib/color.mts";
 import {
   defaultDeps,
   loadSettings,
@@ -35,6 +34,7 @@ import {
 } from "./preset-fixture.ts";
 import { CODE_HOST_YAML } from "./settings-fixture";
 import { presetBranchNameAt, presetSpecsAt } from "../src/init.mts";
+import { into } from "./printed";
 
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -613,18 +613,18 @@ describe("reading the settings from the lock", () => {
   });
 
   it("colors the lock's settings lines as it colors resolved ones", async () => {
-    const paint = painter(true);
-    const r = lockDeps(lock(), { paint });
-    expect(await config(["explain"], r.d)).toBe(0);
-    expect(r.out.at(-1)).toBe(`  review-rounds: 7  ${paint("dim", "# @x/y")}`);
+    const r = lockDeps(lock());
+    const looks: string[] = [];
+    expect(await config(["explain"], { ...r.d, out: into([], looks) })).toBe(0);
+    expect(looks.at(-1)).toBe("  review-rounds: 7  {skip:# @x/y}");
   });
 
   const stops = async (d: Deps, message: string) => {
     await expect(loadSettings(d)).rejects.toThrow(message);
     const err: string[] = [];
-    expect(
-      await config(["get", "repository"], { ...d, err: (l) => err.push(l) }),
-    ).toBe(1);
+    expect(await config(["get", "repository"], { ...d, err: into(err) })).toBe(
+      1,
+    );
     expect(err).toEqual([message]);
   };
 
@@ -725,9 +725,9 @@ describe("reading the settings from the lock", () => {
       "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
     );
     const err: string[] = [];
-    expect(
-      await config(["get", "repository"], { ...d, err: (l) => err.push(l) }),
-    ).toBe(1);
+    expect(await config(["get", "repository"], { ...d, err: into(err) })).toBe(
+      1,
+    );
     expect(err).toEqual([
       "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
     ]);

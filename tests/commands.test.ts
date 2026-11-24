@@ -13,7 +13,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { writeSettings } from "./locked.ts";
 import { main, type Deps } from "../src/commands.mts";
 import { parseSettings, SettingsError } from "../src/config.mts";
-import { painter } from "../src/lib/color.mts";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 import { specTools } from "../src/specs/index.mts";
 import { openspec } from "../src/specs/openspec.mts";
@@ -21,6 +20,7 @@ import type { Run } from "../src/specs/types.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { pagesSpecTool } from "./memory-tools";
+import { into } from "./printed";
 
 const ROOT = "/repo";
 
@@ -32,6 +32,8 @@ type Ran = { command: string; cwd: string; env: Record<string, string> };
 function deps(raw: Record<string, unknown> = {}, statuses: number[] = []) {
   const ran: Ran[] = [];
   const out: string[] = [];
+  /** Every line printed, in color. */
+  const looks: string[] = [];
   const err: string[] = [];
   const left = [...statuses];
   const d: Deps = {
@@ -47,12 +49,12 @@ function deps(raw: Record<string, unknown> = {}, statuses: number[] = []) {
       ran.push({ command, cwd, env });
       return left.shift() ?? 0;
     },
-    out: (line) => out.push(line),
-    err: (line) => err.push(line),
+    out: into(out, looks),
+    err: into(err, looks),
     specTools: specTools(),
     labels: async () => [],
   };
-  return { d, ran, out, err };
+  return { d, ran, out, err, looks };
 }
 
 const GATE = { commands: { gate: ["npm run lint", "npm test"] } };
@@ -257,22 +259,16 @@ describe("factory specs check", () => {
     expect(out).toEqual(["(ran check)", "✓ The specs check passed."]);
   });
 
-  it("colors a passing closing line's mark alone when it paints", async () => {
-    const paint = painter(true);
+  it("colors a closing line's mark alone, and the command a gate runs", async () => {
     const passing = deps(GATE);
-    await main(["gate"], { ...passing.d, paint });
-    expect(passing.out.at(-1)).toBe(
-      `${paint("green", "✓")} Every gate command passed.`,
-    );
-  });
-
-  it("colors a failing closing line's mark alone when it paints", async () => {
-    const paint = painter(true);
+    await main(["gate"], passing.d);
+    expect(passing.looks[0]).toBe("$ {copy:npm run lint}");
+    expect(passing.looks.at(-1)).toBe("{good:✓} Every gate command passed.");
     const failing = deps(GATE, [1]);
-    await main(["gate"], { ...failing.d, paint });
-    expect(failing.err).toEqual([
-      `${paint("red", "✗")} The gate failed on: npm run lint`,
-    ]);
+    await main(["gate"], failing.d);
+    expect(failing.looks.at(-1)).toBe(
+      "{bad:✗} The gate failed on: npm run lint",
+    );
   });
 
   it("says there is no spec tool and exits 0 when specs.type is none", async () => {
@@ -327,14 +323,14 @@ function specDeps(
   labels: string[] | null = ["spec"],
   settings: Record<string, unknown> = {},
 ) {
-  const { d, out, err } = deps({ specs: "openspec", ...settings });
+  const { d, out, err, looks } = deps({ specs: "openspec", ...settings });
   d.root = at.root;
   d.specTools = at.tools;
   d.labels = async (_s, id) => {
     if (labels === null) throw new NotFoundError(`#${id}`);
     return labels;
   };
-  return { d, out, err };
+  return { d, out, err, looks };
 }
 
 const SPEC_FILES = [
@@ -357,11 +353,10 @@ describe("factory specs with no spec tool", () => {
     },
   );
 
-  it("dims the mark when it paints", async () => {
-    const paint = painter(true);
-    const { d, out } = deps({ specs: "none" });
-    await main(["specs-list"], { ...d, paint });
-    expect(out).toEqual([`${paint("dim", "-")} ${NONE.slice(2)}`]);
+  it("dims the mark", async () => {
+    const { d, looks } = deps({ specs: "none" });
+    await main(["specs-check"], d);
+    expect(looks).toEqual([`{skip:-} ${NONE.slice(2)}`]);
   });
 });
 

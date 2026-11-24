@@ -25,6 +25,7 @@ import {
   type CodeHost,
   type CommitStatus,
 } from "./code-host/index.mts";
+import * as say from "./lib/output.mts";
 
 export type Check = {
   /** A re-run has a new id, so its result is news on the same commit. */
@@ -261,9 +262,10 @@ const POLL_MS = 30_000;
 const MAX_FAILURES = 120;
 
 async function main(argv: string[]) {
+  const { out, err } = say.printersFor("pr watch");
   const pr = argv[0];
   if (!/^\d+$/.test(pr ?? "")) {
-    console.error("Usage: factory pr watch PR_NUMBER [--release]");
+    err(say.text("Usage: factory pr watch PR_NUMBER [--release]"));
     process.exit(2);
   }
   const { repository, codeHost } = await reachOf(process.env);
@@ -285,7 +287,7 @@ async function main(argv: string[]) {
     });
   } catch (error) {
     if (!(error instanceof NoDefaultBranch)) throw error;
-    console.error(error.message);
+    err(say.text(error.message));
     process.exit(1);
   }
 
@@ -306,7 +308,7 @@ async function main(argv: string[]) {
       const events = newEvents({ ...snapshot, reviewOn }, seen, branch);
       if (snapshot.state !== "open") {
         rmSync(seenFile, { force: true });
-        console.log(events.map((event) => event.line).join("\n"));
+        for (const event of events) out(say.text(event.line));
         return;
       }
       if (watchMarkNeedsRenewing(body, new Date())) {
@@ -314,11 +316,11 @@ async function main(argv: string[]) {
           await p.setBody(n, withWatchMark(body, new Date()));
         } catch (error) {
           // Not a reason to hold back what is ready to report.
-          console.error(`Could not renew the watch mark: ${error}`);
+          err(say.text(`Could not renew the watch mark: ${error}`));
         }
       }
       if (events.length > 0) {
-        console.log(events.map((event) => event.line).join("\n"));
+        for (const event of events) out(say.text(event.line));
         for (const event of events) seen.add(event.key);
         writeFileSync(seenFile, JSON.stringify([...seen]));
         return;

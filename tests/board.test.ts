@@ -26,6 +26,7 @@ import savedJson from "./fixtures/sync/repo.json";
 import boardPages from "./fixtures/sync/board.json";
 import { fakeSettings } from "./fake-gh";
 import { memoryTickets, type MemoryOptions } from "./memory-tickets";
+import { into, plainOf } from "./printed";
 
 const FIXTURE = "tests/fixtures/sync";
 const NOW = new Date("2026-11-09T10:00:00Z");
@@ -79,7 +80,8 @@ function deps(
     runner: () => ({ runPage: RUN_PAGE }),
     env,
     now: () => NOW,
-    out: (line) => out.push(line),
+    out: into(out),
+    err: (line) => console.error(plainOf(line)),
     readFile: (path) => files[path] ?? readFileSync(path, "utf8"),
     writeFile: (path, text) => (written[path] = text),
     settings: fakeSettings,
