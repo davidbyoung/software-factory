@@ -206,6 +206,16 @@ describe("what Publish runs of it", () => {
     expect(r).toMatchObject({ files: { "b.md": "Fixed. and  done " } });
   });
 
+  it("takes out a marker that taking another out would leave", () => {
+    const a: Asked = {
+      argv: ["pr", "reply", "31", "901", "--body-file", "b.md"],
+      files: { "b.md": "Fixed. <!-<!-- x -->- claude-review sha=abc -->Done." },
+    };
+    expect(allow(a, answer)).toMatchObject({
+      files: { "b.md": "Fixed. Done." },
+    });
+  });
+
   it("keeps a comment quoted in code", () => {
     const a: Asked = {
       argv: ["pr", "reply", "31", "901", "--body-file", "b.md"],

@@ -77,12 +77,18 @@ export function ask(argv: string[], readFile: (path: string) => string): Asked {
  * taken out, so a session cannot post one that a command takes as a record.
  * One in code stays readable and stops being a comment. */
 export function withoutMarkers(text: string): string {
+  // Taking one out can join what is around it into another.
+  const without = (part: string): string => {
+    while (part.includes("<!--"))
+      part = part.replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+    return part;
+  };
   return text
     .split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/)
     .map((part, i) =>
       i % 2
         ? part.replaceAll("<!--", "&lt;!--").replaceAll("-->", "--&gt;")
-        : part.replace(/<!--[\s\S]*?(?:-->|$)/g, ""),
+        : without(part),
     )
     .join("");
 }
