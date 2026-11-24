@@ -596,10 +596,13 @@ const READS_AND_WRITES = new Set([
   "supports",
 ]);
 
-/** The branch a build of `ticket` pushes, from `code-host.branch-name`. */
+/** The branch a build of `ticket` pushes, from `code-host.branch-name`.
+ * In a run under an organization's app the user is the app, by the slug
+ * FACTORY_APP_SLUG holds: the code host tells an app's token nothing of
+ * who is signed in. */
 async function branchOf(ticket: Key, d: Ctx): Promise<string> {
-  let user = "";
-  if (d.branchName.includes("{user}"))
+  let user = d.env.FACTORY_APP_SLUG ?? "";
+  if (!user && d.branchName.includes("{user}"))
     try {
       user = await d.signedInAs(d.repository, d.codeHost);
     } catch (e) {

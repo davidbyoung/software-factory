@@ -244,6 +244,9 @@ jobs:
         env:
           MINUTES: ${{ inputs.minutes }}
           GH_TOKEN: ${{ steps.app.outputs.slug == '' && secrets.build-token || '' }}
+          # A branch named after its user takes the app's slug: the app's
+          # token cannot ask who is signed in.
+          FACTORY_APP_SLUG: ${{ steps.app.outputs.slug }}
           PROMPT: ${{ inputs.prompt }}
           MODEL: ${{ vars.FACTORY_BUILD_MODEL }}
           OAUTH_TOKEN_INPUT: ${{ secrets.claude-token }}
