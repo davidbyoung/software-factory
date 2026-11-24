@@ -1,8 +1,10 @@
 // GitHub as the code host: the remotes it recognizes, the one access token
 // the factory's jobs use, the signed-in check, and what removing the
 // factory leaves on it.
+import { gh, type Gh } from "../lib/gh.mts";
 import { listed } from "../lib/listed.mts";
 import {
+  APP_KEY,
   AUTOMERGE_TOKEN,
   BOARD_TOKEN,
   BUILD_TOKEN,
@@ -13,6 +15,7 @@ import { PR_LABELS } from "../labels.mts";
 import {
   RULE,
   type Check,
+  type Kept,
   type Need,
   type SetupContext,
   type ToolSetup,
@@ -28,6 +31,19 @@ export function githubRepository(url: string): string | null {
       url.trim(),
     );
   return match ? `${match[1]}/${match[2]}` : null;
+}
+
+/** The repository one on GitHub was forked from, or null for one that is
+ * no fork, or whose parent is gone. Rejects without a sign-in. */
+export async function githubForkOf(
+  repository: string,
+  run: Gh = gh,
+): Promise<string | null> {
+  const found = JSON.parse(await run(["api", `repos/${repository}`])) as {
+    fork?: boolean;
+    parent?: { full_name?: string };
+  };
+  return (found.fork && found.parent?.full_name) || null;
 }
 
 /** What a token must be able to do, in words. */
@@ -59,11 +75,12 @@ function tokenNames(c: SetupContext): string[] {
   return names;
 }
 
-/** The secrets each part on reads from the token. */
+/** The secrets each part on reads from the token, each also met by the
+ * key of an organization's app. */
 function tokenReads(c: SetupContext): Need[] {
   const needs: Need[] = [];
   const add = (part: Part, anyOf: string[]) => {
-    if (c.parts.has(part)) needs.push({ part, anyOf });
+    if (c.parts.has(part)) needs.push({ part, anyOf: [...anyOf, APP_KEY] });
   };
   add("cloud", [BUILD_TOKEN, BOARD_TOKEN]);
   if (c.chosen.tickets === "github") {
@@ -75,6 +92,19 @@ function tokenReads(c: SetupContext): Need[] {
 }
 
 const ALL_TOKENS = [BOARD_TOKEN, BUILD_TOKEN, AUTOMERGE_TOKEN];
+
+const KEPT: Kept = {
+  name: "token",
+  what: "GitHub token",
+  secrets: ALL_TOKENS,
+};
+
+/** What reads the scope a token lacks, as a line names it. */
+const NEEDED_BY: Record<TokenNeed, string> = {
+  push: "a build",
+  workflows: "a build",
+  board: "a board",
+};
 
 /** Whether the factory's workflow may start on the event GitHub holds back
  * in a public repository: a line for a public one, and none for a private
@@ -107,6 +137,8 @@ async function eventsCheck(c: SetupContext): Promise<Check[]> {
 }
 
 export const githubCodeHostSetup: ToolSetup = {
+  kept: KEPT,
+
   steps: (c) => {
     const needs = tokenReads(c);
     if (!needs.length) return [];
@@ -158,6 +190,36 @@ export const githubCodeHostSetup: ToolSetup = {
         },
         stored: (names, account) =>
           `It belongs to ${account}. Stored as ${names.join(", ")}.`,
+        machine: {
+          serves: async (value, owner) => {
+            let owned: { account: string; scopes: string[] | null };
+            try {
+              owned = await codeHost.tokenOwner(value);
+            } catch {
+              throw new Error(
+                `GitHub refused the token on this machine for ${owner}. It may have expired.`,
+              );
+            }
+            const lacking = owned.scopes
+              ? scopes.filter((x) => !owned.scopes!.includes(x))
+              : [];
+            if (lacking.length) {
+              const by = [
+                ...new Set(
+                  wants
+                    .filter((n) =>
+                      codeHost.scopesFor([n]).some((x) => lacking.includes(x)),
+                    )
+                    .map((n) => NEEDED_BY[n]),
+                ),
+              ];
+              throw new Error(
+                `The token on this machine for ${owner} lacks ${listed(lacking)}, which ${listed(by)} need${by.length === 1 ? "s" : ""}.`,
+              );
+            }
+            return { account: owned.account };
+          },
+        },
       },
     ];
   },

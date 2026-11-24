@@ -9,6 +9,7 @@ import {
 } from "./agent/index.mts";
 import type { Agent } from "./agent/types.mts";
 import {
+  githubForkOf,
   githubRepository,
   githubCodeHostSetup,
 } from "./code-host/github-setup.mts";
@@ -19,6 +20,7 @@ import { openRunner, type Runner } from "./runner/index.mts";
 import type {
   Chosen,
   CredentialStep,
+  Kept,
   SecretStep,
   SetupContext,
   SetupStep,
@@ -50,6 +52,9 @@ export type Registry = {
       /** The repository a remote's address names, or null for one on
        * another code host. */
       repositoryOf(remote: string): string | null;
+      /** The repository one was forked from, or null for one that is no
+       * fork. Rejects when the code host cannot say. */
+      forkOf(repository: string): Promise<string | null>;
       open(repository: string): CodeHost;
     }
   >;
@@ -80,6 +85,7 @@ export const TOOLS: Registry = {
       label: "GitHub",
       setup: githubCodeHostSetup,
       repositoryOf: githubRepository,
+      forkOf: (repository) => githubForkOf(repository),
       open: (repository) => openCodeHost(repository),
     },
   },
@@ -146,16 +152,26 @@ export function inUse(r: Registry, chosen: Chosen): Tool[] {
   ];
 }
 
-/** Each tool's steps for the context, with the tool's label. */
-export function stepsOf(
-  r: Registry,
-  c: SetupContext,
-): { tool: string; step: SetupStep }[] {
-  return inUse(r, c.chosen).flatMap((t) =>
+/** The names the tools in use are registered under, in `inUse`'s order. */
+const namesInUse = (chosen: Chosen) => [
+  chosen.agent,
+  chosen.codeHost,
+  chosen.tickets,
+  chosen.runner,
+];
+
+/** A step with its tool's label, and the name the tool is registered
+ * under. */
+type Of<S> = { tool: string; name: string; step: S };
+
+/** Each tool's steps for the context. */
+export function stepsOf(r: Registry, c: SetupContext): Of<SetupStep>[] {
+  const names = namesInUse(c.chosen);
+  return inUse(r, c.chosen).flatMap((t, i) =>
     [
       ...(t.setup.steps?.(c) ?? []),
       ...(t.setup.credential ? [t.setup.credential] : []),
-    ].map((step) => ({ tool: t.label, step })),
+    ].map((step) => ({ tool: t.label, name: names[i]!, step })),
   );
 }
 
@@ -163,11 +179,23 @@ export function stepsOf(
 export function secretSteps(
   r: Registry,
   c: SetupContext,
-): { tool: string; step: SecretStep | CredentialStep }[] {
+): Of<SecretStep | CredentialStep>[] {
   return stepsOf(r, c).filter(
-    (s): s is { tool: string; step: SecretStep | CredentialStep } =>
+    (s): s is Of<SecretStep | CredentialStep> =>
       s.step.kind === "secret" || s.step.kind === "credential",
   );
+}
+
+/** Each tool in use that keeps a secret on a person's machine, by the name
+ * it is registered under. */
+export function keptBy(
+  r: Registry,
+  chosen: Pick<Chosen, "agent" | "codeHost">,
+): { name: string; kept: Kept }[] {
+  return [
+    { name: chosen.codeHost, kept: r.codeHost[chosen.codeHost]!.setup.kept },
+    { name: chosen.agent, kept: r.agent[chosen.agent]!.setup.kept },
+  ].filter((k): k is { name: string; kept: Kept } => k.kept !== undefined);
 }
 
 /** The same context for other parts. */

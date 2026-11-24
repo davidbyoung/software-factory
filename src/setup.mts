@@ -57,7 +57,21 @@ export type SecretStep = {
   verify?: (value: string) => Promise<{ lines: string[]; account?: string }>;
   /** Printed once it is stored. */
   stored: (names: string[], account?: string) => string;
+  /** Set on the secret the tool's `kept` names. `serves` says whether a
+   * value this machine holds still does for the parts on: it resolves to
+   * the account the value belongs to, when the tool knows, and rejects
+   * with the line to print before asking for another. */
+  machine?: {
+    serves?: (value: string, owner: string) => Promise<{ account?: string }>;
+  };
 };
+
+/** A secret a person also keeps in the file on their machine
+ * (`lib/credentials.mts`), for their next repository: the name it is filed
+ * under there, what a line calls it, such as `GitHub token`, and every
+ * secret a job reads it from. An organization stores its own once, so
+ * `init` asks for it only in a repository a person owns. */
+export type Kept = { name: string; what: string; secrets: string[] };
 
 /** One value of a credential, stored under its own name. */
 export type CredentialPart = { name: string; prompt: string; masked: boolean };
@@ -126,6 +140,9 @@ export type ToolSetup = {
   /** Its row under Found, when it says more than its label. */
   found?(c: Pick<SetupContext, "hasCommand">): string;
   steps?(c: SetupContext): SetupStep[];
+  /** The one secret among its steps that a person keeps on their machine
+   * too. */
+  kept?: Kept;
   /** The credential the tool reads, which needs no context to name, so a
    * command finds it without setting up. Asked after its steps. */
   credential?: CredentialStep;

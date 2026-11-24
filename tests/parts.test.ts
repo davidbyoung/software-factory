@@ -61,6 +61,20 @@ describe("partsOn", () => {
       set(),
     );
   });
+
+  it("takes cloud builds to be on under an organization's app, and signing to be off whatever key is set", () => {
+    expect(
+      partsOn(
+        settings(),
+        [
+          "CLAUDE_CODE_OAUTH_TOKEN",
+          "FACTORY_APP_PRIVATE_KEY",
+          "FACTORY_SIGNING_KEY",
+        ],
+        cloud,
+      ),
+    ).toEqual(set("cloud"));
+  });
 });
 
 describe("resolveParts", () => {
@@ -87,7 +101,7 @@ describe("what the parts need", () => {
   const needed = (...parts: Part[]) =>
     neededSecrets(set(...parts), secretSteps(TOOLS, memoryContext(parts)));
 
-  it("names the secrets each part reads, any one of a pair doing", () => {
+  it("names the secrets each part reads, any one of a pair doing, and an organization's app's key for each token", () => {
     expect(needed("review", "cloud", "auto-merge")).toEqual([
       {
         part: "review",
@@ -101,12 +115,16 @@ describe("what the parts need", () => {
       },
       {
         part: "cloud",
-        anyOf: ["FACTORY_BUILD_TOKEN", "FACTORY_BOARD_TOKEN"],
+        anyOf: [
+          "FACTORY_BUILD_TOKEN",
+          "FACTORY_BOARD_TOKEN",
+          "FACTORY_APP_PRIVATE_KEY",
+        ],
         tool: "GitHub",
       },
       {
         part: "auto-merge",
-        anyOf: ["FACTORY_AUTOMERGE_TOKEN"],
+        anyOf: ["FACTORY_AUTOMERGE_TOKEN", "FACTORY_APP_PRIVATE_KEY"],
         tool: "GitHub",
       },
     ]);

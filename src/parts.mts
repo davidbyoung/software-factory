@@ -49,10 +49,13 @@ export const BOARD_TOKEN = "FACTORY_BOARD_TOKEN";
 export const BUILD_TOKEN = "FACTORY_BUILD_TOKEN";
 export const AUTOMERGE_TOKEN = "FACTORY_AUTOMERGE_TOKEN";
 export const SIGNING_KEY = "FACTORY_SIGNING_KEY";
+/** The key of an organization's app, which stands in for each token above
+ * wherever the organization shares it. */
+export const APP_KEY = "FACTORY_APP_PRIVATE_KEY";
 
 /** The parts on: those with a setting, from the settings; cloud builds,
  * when every secret the tools read for them is set; and signing, from its
- * key. */
+ * key, which an organization's app never signs with. */
 export function partsOn(
   s: Settings | null,
   secrets: string[],
@@ -66,7 +69,7 @@ export function partsOn(
     on.add("cloud");
   if (s && s.builds.trigger !== "manual") on.add("from-board");
   if (s && s.autoMerge.allow.length > 0) on.add("auto-merge");
-  if (has([SIGNING_KEY])) on.add("signing");
+  if (has([SIGNING_KEY]) && !has([APP_KEY])) on.add("signing");
   return on;
 }
 

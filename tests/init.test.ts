@@ -1,40 +1,16 @@
 // `factory init`: what it finds, what it asks, the plan it shows, and what
 // it does once told to go ahead, run against the in-memory code host,
 // runner, and ticket system with scripted answers. No test reaches GitHub.
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { Writable } from "node:stream";
 import { join } from "node:path";
-import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import { chmodSync, statSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { load } from "js-yaml";
-import {
-  initDeps,
-  main,
-  parseRemote,
-  type Ask,
-  type InitDeps,
-} from "../src/init.mts";
+import { describe, expect, it, vi } from "vitest";
+import { initDeps, parseRemote } from "../src/init.mts";
 import { painter, type Paint } from "../src/lib/color.mts";
-import {
-  credentialsPath,
-  readCredential,
-  writeCredential,
-} from "../src/lib/credentials.mts";
-import type { Check } from "../src/setup.mts";
-import type { Part } from "../src/parts.mts";
-import { memoryCodeHost } from "./memory-code-host";
-import { memoryRunner } from "./memory-runner";
-import { memoryTickets } from "./memory-tickets";
-import { memoryTools, pagesSpecTool } from "./memory-tools";
+import { credentialsPath, readCredential } from "../src/lib/credentials.mts";
+import { pagesSpecTool } from "./memory-tools";
 import {
   FAKE_EMAIL,
   FAKE_PAGE,
@@ -52,369 +28,20 @@ import type { Agent } from "../src/agent/types.mts";
 import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
 import { FACTORY_COLUMNS, FACTORY_COLUMNS_YAML } from "./factory-columns";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
-
-const GOOD = "tok_good";
-const NARROW = "tok_narrow";
-const AGENT = "agent_token";
-const PRIVATE_KEY = "-----BEGIN PRIVATE-----\nsecret key\n-----END-----";
-/** Every value a test pastes or makes, none of which may be printed. */
-const VALUES = [GOOD, NARROW, AGENT, PRIVATE_KEY, "secret key"];
-
-type Answers = {
-  checkbox?: (Part | string)[][];
-  select?: string[];
-  confirm?: boolean[];
-  secret?: string[];
-  input?: string[];
-  /** Answers to the branch name question; unscripted, it takes the
-   * pattern offered, as Enter does. */
-  branch?: string[];
-  /** Answers to the spec tool question; unscripted, it takes the one
-   * offered first, as Enter does. */
-  specs?: string[];
-};
-
-const SPEC_QUESTION = "Which spec tool do you use?";
-
-const BRANCH_QUESTION =
-  "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
-
-/** Answers each question in turn from the script, and records each one. */
-function scripted(answers: Answers, log: (line: string) => void = () => {}) {
-  const asked: string[] = [];
-  /** The values each select offered, in order. */
-  const offered: string[][] = [];
-  /** Each select's choices as they read, and the one chosen if none is
-   * picked, in order. */
-  const selects: { names: string[]; fallback?: string }[] = [];
-  /** What each checkbox's choices say under them, by value. */
-  const descriptions: Record<string, string | undefined>[] = [];
-  /** Each checkbox's choices as they read, and which start picked. */
-  const checkboxes: { names: string[]; checked: string[] }[] = [];
-  const queue = {
-    checkbox: [...(answers.checkbox ?? [])],
-    select: [...(answers.select ?? [])],
-    confirm: [...(answers.confirm ?? [])],
-    secret: [...(answers.secret ?? [])],
-    input: [...(answers.input ?? [])],
-    branch: [...(answers.branch ?? [])],
-    specs: [...(answers.specs ?? [])],
-  };
-  /** The spec tool question's choices as they read, and the one chosen if
-   * none is picked, each time it is asked. */
-  const specChoices: {
-    names: string[];
-    values: string[];
-    fallback?: string;
-  }[] = [];
-  const next = <K extends keyof typeof queue>(kind: K, message: string) => {
-    asked.push(`${kind}: ${message}`);
-    log(`? ${kind}: ${message}`);
-    if (!queue[kind].length) throw new Error(`no scripted ${kind}: ${message}`);
-    return queue[kind].shift()!;
-  };
-  const ask: Ask = {
-    checkbox: async (message, choices) => {
-      descriptions.push(
-        Object.fromEntries(choices.map((c) => [c.value, c.description])),
-      );
-      checkboxes.push({
-        names: choices.map((c) => c.name),
-        checked: choices.filter((c) => c.checked).map((c) => c.value),
-      });
-      const chosen = next("checkbox", message) as string[];
-      for (const c of chosen)
-        if (!choices.some((x) => x.value === c))
-          throw new Error(`no choice ${c}`);
-      return chosen;
-    },
-    select: async (message, choices, fallback) => {
-      if (message === SPEC_QUESTION) {
-        specChoices.push({
-          names: choices.map((c) => c.name),
-          values: choices.map((c) => c.value),
-          fallback,
-        });
-        asked.push(`select: ${message}`);
-        log(`? select: ${message}`);
-        return queue.specs.shift() ?? fallback!;
-      }
-      offered.push(choices.map((c) => c.value));
-      selects.push({ names: choices.map((c) => c.name), fallback });
-      return next("select", message) as string;
-    },
-    confirm: async (message) => next("confirm", message) as boolean,
-    secret: async (message) => next("secret", message) as string,
-    input: async (message, fallback) => {
-      if (message !== BRANCH_QUESTION) return next("input", message) as string;
-      asked.push(`input: ${message}`);
-      log(`? input: ${message}`);
-      return queue.branch.shift() ?? fallback;
-    },
-  };
-  return {
-    ask,
-    asked,
-    offered,
-    selects,
-    descriptions,
-    checkboxes,
-    queue,
-    specChoices,
-  };
-}
-
-type Setup = {
-  answers: Answers;
-  settings?: string;
-  secrets?: Record<string, string>;
-  remote?: string | null;
-  packageJson?: boolean;
-  boards?: { number: number; title: string; columns: string[] }[];
-  signingNeedsScope?: boolean;
-  rulesRefused?: string;
-  eventsHeld?: boolean;
-  eventsRefused?: string;
-  createRefused?: string;
-  files?: Record<string, string>;
-  tokens?: Record<string, { account: string; scopes: string[] | null }>;
-  tools?: (base: Registry, tickets: Tickets) => Registry;
-  /** Whether the repository is private; public unless given. */
-  private?: boolean;
-  /** The code host's default branch; null when nobody can tell it. */
-  defaultBranch?: string | null;
-  /** The coding agent's answers. */
-  agent?: Agent;
-  /** The fields tickets can have, set on the ticket itself. */
-  ticketFields?: TicketField[];
-  /** The ticket system's optional groups; every one unless given. */
-  ticketGroups?: Group[];
-  ticketsFail?: NonNullable<Parameters<typeof memoryTickets>[1]>["fail"];
-  dependabotSecrets?: Record<string, string>;
-  /** Whether an organization owns the repository; a person unless given. */
-  organization?: boolean;
-  organizationSecrets?: string[];
-  organizationDependabotSecrets?: string[] | null;
-  runnerFails?: NonNullable<Parameters<typeof memoryRunner>[0]>["fail"];
-  codeHostFails?: NonNullable<Parameters<typeof memoryCodeHost>[1]>["fail"];
-  paint?: Paint;
-  checks?: Check[];
-  /** The branch name a preset in effect supplies, if any. */
-  presetBranchName?: string;
-  /** The spec tool a preset in effect names, if any. */
-  presetSpecs?: string;
-  /** The install's status and standard error; it succeeds unless given. */
-  install?: { status: number; stderr: string };
-  /** The environment, beside a config folder of the test's own. */
-  env?: Record<string, string>;
-  /** Credentials on this machine before init runs, by site. */
-  machine?: Record<string, Record<string, string>>;
-};
-
-const roots: string[] = [];
-afterEach(() => {
-  for (const root of roots.splice(0))
-    rmSync(root, { recursive: true, force: true });
-});
-
-function init(setup: Setup) {
-  const root = mkdtempSync(join(tmpdir(), "init-"));
-  roots.push(root);
-  if (setup.packageJson !== false)
-    writeFileSync(join(root, "package.json"), '{"name":"site"}\n');
-  if (setup.settings !== undefined) {
-    mkdirSync(join(root, ".claude"), { recursive: true });
-    writeFileSync(join(root, ".claude/factory.yaml"), setup.settings);
-  }
-  for (const [path, text] of Object.entries(setup.files ?? {})) {
-    mkdirSync(join(root, path, ".."), { recursive: true });
-    writeFileSync(join(root, path), text);
-  }
-  const env = {
-    XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "init-config-")),
-    ...setup.env,
-  };
-  roots.push(env.XDG_CONFIG_HOME);
-  for (const [site, values] of Object.entries(setup.machine ?? {}))
-    writeCredential({ tool: "fake", site, values, env });
-  const out: string[] = [];
-  /** Every line printed and every question asked, in the order they came. */
-  const transcript: string[] = [];
-  const ran: string[][] = [];
-  const opened: string[] = [];
-  let synced = 0;
-  const {
-    ask,
-    asked,
-    offered,
-    selects,
-    descriptions,
-    checkboxes,
-    queue,
-    specChoices,
-  } = scripted(setup.answers, (line) => transcript.push(line));
-  /** Each install init ran, and the sync count when it ran. */
-  const installs: {
-    argv: string[];
-    syncedBefore: number;
-    /** \`package.json\` and the settings as they stood when it ran. */
-    packageJson: string | null;
-    settings: string | null;
-  }[] = [];
-  const host = memoryCodeHost([], {
-    owner: "dave",
-    tokens: {
-      [GOOD]: { account: "dave", scopes: ["push", "workflows", "board"] },
-      [NARROW]: { account: "dave", scopes: ["push"] },
-      ...setup.tokens,
-    },
-    signingNeedsScope: setup.signingNeedsScope,
-    rulesRefused: setup.rulesRefused,
-    eventsHeld: setup.eventsHeld,
-    eventsRefused: setup.eventsRefused,
-    isPrivate: setup.private,
-    defaultBranch: setup.defaultBranch ?? undefined,
-    ownerIsOrganization: setup.organization,
-    fail: setup.codeHostFails,
-  });
-  /** What the code host answered each time the sync's plan asked it. */
-  const branchAsked: string[] = [];
-  const runner = memoryRunner({
-    secrets: setup.secrets ?? {},
-    dependabotSecrets: setup.dependabotSecrets,
-    organizationSecrets: setup.organizationSecrets,
-    organizationDependabotSecrets: setup.organizationDependabotSecrets,
-    fail: setup.runnerFails,
-  });
-  const tickets = memoryTickets([], {
-    boards: setup.boards ?? [],
-    createRefused: setup.createRefused,
-    ticketFields: setup.ticketFields,
-    groups: setup.ticketGroups,
-    fail: setup.ticketsFail,
-  });
-  const d: InitDeps = {
-    root,
-    ask,
-    out: (line) => {
-      out.push(line);
-      transcript.push(line);
-    },
-    remote: () =>
-      setup.remote === undefined
-        ? "git@github.com:acme/site.git"
-        : setup.remote,
-    tools: (setup.tools ?? ((b) => b))(
-      memoryTools({
-        codeHost: host.codeHost,
-        runner: runner.runner,
-        tickets: tickets.tickets,
-        agent: setup.agent,
-      }),
-      tickets.tickets,
-    ),
-    sync: async () => {
-      synced++;
-      return 0;
-    },
-    syncChanges: async (_text, askHost) => {
-      if (setup.defaultBranch === null) throw new NoDefaultBranch();
-      branchAsked.push(await askHost());
-      return [".claude/skills/factory-build/SKILL.md"];
-    },
-    interactive: async (argv) => {
-      ran.push(argv);
-      if (argv[0] === "grant") host.grantScope();
-      return 0;
-    },
-    hasCommand: () => true,
-    openPage: (url) => opened.push(url),
-    keygen: async () => ({
-      privateKey: PRIVATE_KEY,
-      publicKey: "ssh-ed25519 PUBLIC",
-    }),
-    checks: async () =>
-      setup.checks ?? [{ state: "pass", text: "Every check passed" }],
-    packageName: "@davidbyoung/software-factory",
-    packageVersion: "0.2.0",
-    paint: setup.paint,
-    presetBranchName: async () => setup.presetBranchName ?? null,
-    presetSpecs: async () => setup.presetSpecs ?? null,
-    install: async (argv) => {
-      const at = (path: string) =>
-        existsSync(join(root, path))
-          ? readFileSync(join(root, path), "utf8")
-          : null;
-      installs.push({
-        argv,
-        syncedBefore: synced,
-        packageJson: at("package.json"),
-        settings: at(".claude/factory.yaml"),
-      });
-      return setup.install ?? { status: 0, stderr: "" };
-    },
-    env,
-  };
-  const read = (path: string) =>
-    existsSync(join(root, path))
-      ? readFileSync(join(root, path), "utf8")
-      : null;
-  return {
-    run: () => main([], d),
-    env,
-    out,
-    transcript,
-    asked,
-    offered,
-    selects,
-    descriptions,
-    checkboxes,
-    queue,
-    specChoices,
-    installs,
-    ran,
-    opened,
-    synced: () => synced,
-    branchAsked,
-    read,
-    yaml: () =>
-      load(read(".claude/factory.yaml") ?? "") as Record<string, unknown>,
-    /** `tickets.columns` as the settings file stands. */
-    columns: () =>
-      (
-        load(read(".claude/factory.yaml") ?? "") as {
-          tickets?: { columns?: unknown };
-        }
-      ).tickets?.columns,
-    host,
-    runner,
-    tickets,
-  };
-}
-
-const EVERY: Part[] = [
-  "review",
-  "board",
-  "cloud",
-  "auto-merge",
-  "signing",
-  "from-board",
-];
-
-const SIX_COLUMNS = [
-  "Backlog",
-  "In refinement",
-  "Ready",
-  "In progress",
-  "In review",
-  "Done",
-];
-
-/** No pasted or made value reaches anything printed. */
-function printsNoSecret(out: string[]) {
-  const text = out.join("\n");
-  for (const v of VALUES) expect(text).not.toContain(v);
-}
+import {
+  AGENT,
+  BRANCH_QUESTION,
+  EVERY,
+  GATE_QUESTION,
+  GOOD,
+  init,
+  NARROW,
+  PRIVATE_KEY,
+  printsNoSecret,
+  SIX_COLUMNS,
+  SPEC_QUESTION,
+  type Setup,
+} from "./init-harness";
 
 describe("factory init, a first run with every part", () => {
   const firstSetup = (): Setup => ({
@@ -522,39 +149,33 @@ describe("factory init, a first run with every part", () => {
     ]);
   });
 
-  it("allows auto-merge and requires the review's verdict", async () => {
+  it("allows auto-merge, and leaves the rule for the review's verdict to the first run after the merge", async () => {
     const r = first();
     await r.run();
     expect(r.host.settings.autoMerge).toBe(true);
-    expect(r.host.settings.rules).toEqual([
-      { name: "Software factory", check: "Review verdict" },
-    ]);
+    expect(r.host.settings.rules).toEqual([]);
   });
 
   it("names what it cannot do, with the poller's variables but never the token", async () => {
     const r = first();
     await r.run();
     const text = r.out.join("\n");
-    expect(text).toContain(
-      "Install the app the review posts through: https://code.example/apps/review",
-    );
+    expect(text).not.toContain("Install the app");
     expect(text).toContain("FACTORY_REPOSITORY=acme/site");
     expect(text).toContain("FACTORY_BOARD_OWNER=acme");
     expect(text).toContain("FACTORY_BOARD_NUMBER=1");
     expect(text).toContain("Every check passed");
-    expect(text).toContain("Nothing is committed.");
+    expect(text).toContain("Merge it to finish. Left to do:");
     printsNoSecret(r.out);
   });
 
-  it("leaves the gate's commands to add, before the commit, since a new settings file has none", async () => {
+  it("leaves the gate's commands to add, last, when the question is left empty", async () => {
     const r = first();
     await r.run();
-    const left = r.out.slice(
-      r.out.indexOf("Nothing is committed. Left to do:"),
-    );
-    expect(left.slice(3, 5)).toEqual([
-      "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
-      "  4. Commit this on a branch, open a pull request, and merge it.",
+    const left = r.out.slice(r.out.indexOf("Merge it to finish. Left to do:"));
+    expect(left.slice(2, 4)).toEqual([
+      "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+      "",
     ]);
   });
 
@@ -608,7 +229,9 @@ describe("factory init, a first run with every part", () => {
     const text = plan.join("\n");
     expect(text).toContain(".claude/factory.yaml");
     expect(text).not.toContain("package.json");
-    expect(text).toContain(".claude/skills/factory-build/SKILL.md");
+    expect(text).toContain(
+      "Copy the factory's skills, agents, rules, and guards",
+    );
     expect(text).toContain("FACTORY_BOARD_TOKEN");
     expect(text).toContain('Require "Review verdict"');
     const go = r.asked.indexOf("confirm: Go ahead?");
@@ -713,6 +336,7 @@ describe("factory init, run again", () => {
     expect(r.asked).toEqual([
       "select: Which spec tool do you use?",
       "checkbox: Which parts do you want?",
+      `input: ${GATE_QUESTION}`,
       "confirm: 2 secrets these parts read are already set. Replace them?",
       "confirm: Go ahead?",
     ]);
@@ -745,9 +369,7 @@ describe("factory init, run again", () => {
     const r = rerun(`${SETTINGS}  gate:\n    - npm run check\n`);
     await r.run();
     expect(r.out.join("\n")).not.toContain("commands.gate");
-    expect(r.out).toContain(
-      "  1. Commit this on a branch, open a pull request, and merge it.",
-    );
+    expect(r.out).toContain("Merge it to finish. Nothing else is left to do.");
   });
 
   it("turns a part off, keeping the rest of the settings and their comments", async () => {
@@ -1257,6 +879,7 @@ describe("factory init, repository rules", () => {
   it("says so when the plan allows no rule, and carries on", async () => {
     const r = init({
       rulesRefused: "Upgrade to GitHub Pro or make this repository public",
+      workflows: { "factory.yml": "active" },
       answers: { checkbox: [["review"]], confirm: [true], secret: [AGENT] },
     });
     expect(await r.run()).toBe(0);
@@ -1269,7 +892,7 @@ describe("factory init, repository rules", () => {
 
 describe("factory init, the events the factory's workflow starts on", () => {
   const ROW =
-    '  Policy   Let .github/workflows/factory.yml run on pull_request_target, as the policy "Software factory"';
+    '  policy        Let .github/workflows/factory.yml run on pull_request_target, as the policy "Software factory"';
   const answers = { checkbox: [[]], confirm: [true] };
 
   it("plans the policy and adds it where the code host holds the event back", async () => {
@@ -1314,6 +937,10 @@ describe("factory init, the events the factory's workflow starts on", () => {
 });
 
 describe("factory init, word for word", () => {
+  /** The transcript, with this test's config folder as a person's own. */
+  const shown = (r: ReturnType<typeof init>) =>
+    r.transcript.map((l) => l.replace(r.env.XDG_CONFIG_HOME, "~/.config"));
+
   it("prints and asks the same on a first run with every part", async () => {
     const r = init({
       packageJson: false,
@@ -1326,17 +953,19 @@ describe("factory init, word for word", () => {
       },
     });
     expect(await r.run()).toBe(0);
-    expect(r.transcript).toMatchInlineSnapshot(`
+    expect(shown(r)).toMatchInlineSnapshot(`
       [
         "Setting up the software factory for acme/site",
         "",
         "Found",
         "  Code host      GitHub (from your git remote)",
+        "  Account        acme, a personal account",
         "  Tickets        GitHub Issues",
         "  Coding agent   Claude Code",
         "  Cloud builds   GitHub Actions",
         "  Settings       none yet",
         "  Board          none yet",
+        "  This machine   no GitHub token for cloud runs",
         "",
         "? input: How should a build name its branch? Use {ticket}, and {user} for the GitHub account:",
         "? select: Which spec tool do you use?",
@@ -1344,40 +973,42 @@ describe("factory init, word for word", () => {
         "? select: Which board?",
         "? input: Which files may merge without you? (comma-separated)",
         "? select: Where does the poller run?",
+        "? input: Which command checks a change here, such as npm test? (leave empty to add it later)",
         "",
         "This is everything setup will do:",
-        "  Write    .claude/factory.yaml",
-        "  Write    .claude/skills/factory-build/SKILL.md",
-        "  Create   board "site" under acme, linked to the repository, with the factory's columns and fields",
-        "  Secrets  CLAUDE_CODE_OAUTH_TOKEN, FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, FACTORY_SIGNING_KEY",
-        "  Settings allow auto-merge on the repository",
-        "  Rules    Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
+        "  settings      Write .claude/factory.yaml",
+        "  files         Copy the factory's skills, agents, rules, and guards",
+        "  create        board "site" under acme, linked to the repository, with the factory's columns and fields",
+        "  secrets       CLAUDE_CODE_OAUTH_TOKEN, FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, FACTORY_SIGNING_KEY",
+        "  store         your GitHub token and your Claude token on this machine, in ~/.config/software-factory/credentials.yaml",
+        "  repository    allow auto-merge on the repository",
+        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Software factory", once this pull request merges",
+        "  pull request  Push the branch set-up-factory and open a pull request",
         "? confirm: Go ahead?",
         "Created board 1, "site".",
         "Added to board 1: Backlog, In refinement, Ready, In review, Session, Runs in, Cost.",
         "",
         "The coding agent's token: running claude setup-token...",
         "? secret: Paste the token it printed (leave empty to do this later):",
-        "Stored as CLAUDE_CODE_OAUTH_TOKEN.",
+        "Stored for acme/site, and on this machine for your next repository.",
         "",
         "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: acme/site",
         "Check that push, workflows, and board are ticked, choose an expiry, and generate it.",
         "? secret: Paste it (leave empty to do this later):",
-        "It belongs to dave. Stored as FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN.",
+        "It belongs to dave. Stored for acme/site, and on this machine for your next repository.",
         "",
         "Made a signing key and stored it as FACTORY_SIGNING_KEY.",
         "Added its public half to dave as a signing key.",
         "",
-        "Nothing is committed. Left to do:",
-        "  1. Install the app the review posts through: https://code.example/apps/review",
-        "  2. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
+        "✓ Opened acme/site#1, "Set up the software factory".",
+        "Merge it to finish. Left to do:",
+        "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
              FACTORY_REPOSITORY=acme/site
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=1
              FACTORY_BOARD_TOKEN=the access token you just made
              FACTORY_READY_COLUMN=Ready",
-        "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
-        "  4. Commit this on a branch, open a pull request, and merge it.",
+        "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
         "",
         "Checks",
         "  ✓ Every check passed",
@@ -1411,42 +1042,46 @@ describe("factory init, word for word", () => {
         FACTORY_SIGNING_KEY: "x",
       },
       boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
+      workflows: { "factory.yml": "active" },
       answers: { checkbox: [EVERY], confirm: [false, true] },
     });
     expect(await r.run()).toBe(0);
-    expect(r.transcript).toMatchInlineSnapshot(`
+    expect(shown(r)).toMatchInlineSnapshot(`
       [
         "Setting up the software factory for acme/site",
         "",
         "Found",
         "  Code host      GitHub (from your git remote)",
+        "  Account        acme, a personal account",
         "  Tickets        GitHub Issues",
         "  Coding agent   Claude Code",
         "  Cloud builds   GitHub Actions",
         "  Settings       .claude/factory.yaml",
         "  Board          3, from your settings",
+        "  This machine   no GitHub token for cloud runs",
         "",
         "? checkbox: Which parts do you want?",
+        "? input: Which command checks a change here, such as npm test? (leave empty to add it later)",
         "? confirm: 4 secrets these parts read are already set. Replace them?",
         "",
         "This is everything setup will do:",
-        "  Write    .claude/skills/factory-build/SKILL.md",
-        "  Board    give board 3 any of the factory's columns and fields it lacks",
-        "  Settings allow auto-merge on the repository",
-        "  Rules    Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
+        "  files         Copy the factory's skills, agents, rules, and guards",
+        "  board         give board 3 any of the factory's columns and fields it lacks",
+        "  repository    allow auto-merge on the repository",
+        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
+        "  pull request  Push the branch set-up-factory and open a pull request",
         "? confirm: Go ahead?",
         "Added to board 3: Session, Runs in, Cost.",
         "",
-        "Nothing is committed. Left to do:",
-        "  1. Install the app the review posts through: https://code.example/apps/review",
-        "  2. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
+        "✓ Opened acme/site#1, "Change the software factory's settings".",
+        "Merge it to finish. Left to do:",
+        "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
              FACTORY_REPOSITORY=acme/site
              FACTORY_BOARD_OWNER=acme
              FACTORY_BOARD_NUMBER=3
              FACTORY_BOARD_TOKEN=the access token you just made
              FACTORY_READY_COLUMN=Ready",
-        "  3. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
-        "  4. Commit this on a branch, open a pull request, and merge it.",
+        "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
         "",
         "Checks",
         "  ✓ Every check passed",
@@ -1466,6 +1101,7 @@ describe("factory init, a secret met another way", () => {
     expect(r.asked).toEqual([
       "select: Which spec tool do you use?",
       "checkbox: Which parts do you want?",
+      `input: ${GATE_QUESTION}`,
       "confirm: 2 secrets these parts read are already set. Replace them?",
       "confirm: Go ahead?",
     ]);
@@ -1499,7 +1135,7 @@ describe("factory init, a tool's own setup", () => {
       type: "fake",
       site: "https://tickets.example",
     });
-    expect(r.out).toContain("  Write    .claude/factory.yaml");
+    expect(r.out).toContain("  settings      Write .claude/factory.yaml");
   });
 
   it("does not ask again for a value already in the settings", async () => {
@@ -1510,7 +1146,9 @@ describe("factory init, a tool's own setup", () => {
       answers: { checkbox: [[]], confirm: [false, true] },
     });
     expect(await r.run()).toBe(0);
-    expect(r.asked.some((q) => q.startsWith("input:"))).toBe(false);
+    expect(r.asked.filter((q) => q.startsWith("input:"))).toEqual([
+      `input: ${GATE_QUESTION}`,
+    ]);
   });
 
   it("gets the tool's secret its way, and stores it under the tool's name", async () => {
@@ -1520,7 +1158,7 @@ describe("factory init, a tool's own setup", () => {
       answers: { checkbox: [[]], confirm: [true], secret: [GOOD] },
     });
     expect(await r.run()).toBe(0);
-    expect(r.out).toContain(`  Secrets  ${FAKE_TOKEN}`);
+    expect(r.out).toContain(`  secrets       ${FAKE_TOKEN}`);
     expect(r.transcript).toEqual(
       expect.arrayContaining([
         `Fake Tickets' token: opening ${FAKE_PAGE}`,
@@ -1711,7 +1349,7 @@ describe("factory init, the spec tool", () => {
   const OPENSPEC_CHOICE =
     "OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/";
   const INSTALL_ROW =
-    "  Install  @fission-ai/openspec, with npm install --save-dev";
+    "  install       @fission-ai/openspec, with npm install --save-dev";
   const plain = { checkbox: [[]], confirm: [true] };
   const withSpecs = (specs: string) =>
     `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n${specs}\n`;
@@ -1767,9 +1405,9 @@ describe("factory init, the spec tool", () => {
     });
     expect(await r.run()).toBe(0);
     const row = r.out.indexOf(INSTALL_ROW);
-    expect(r.out[row - 1]).toMatch(/^ {2}Write {4}/);
+    expect(r.out[row - 1]).toMatch(/^ {2}files {9}Copy /);
     expect(r.out[row + 1]).toBe(
-      "  Turn off Pull requests that merge themselves",
+      "  turn off      Pull requests that merge themselves",
     );
   });
 
@@ -1814,7 +1452,7 @@ describe("factory init, the spec tool", () => {
       "  npm error b",
     ]);
     expect(r.synced()).toBe(1);
-    const left = r.out.indexOf("Nothing is committed. Left to do:");
+    const left = r.out.indexOf("Merge it to finish. Left to do:");
     expect(r.out[left + 1]).toBe(
       "  1. Install OpenSpec, which a build writes specs with: npm install --save-dev @fission-ai/openspec",
     );
@@ -1880,7 +1518,7 @@ describe("factory init, the spec tool", () => {
       OPENSPEC_CHOICE,
       "Pages: each ticket's spec is a page in pages/",
     ]);
-    expect(r.out).toContain("  Install  pages-cli, with pip install");
+    expect(r.out).toContain("  install       pages-cli, with pip install");
     expect(r.installs[0]!.argv).toEqual(["pip", "install", "pages-cli"]);
     expect(r.out).toContain("Could not install pages-cli:");
     expect(r.out).toContain(
@@ -2790,7 +2428,7 @@ describe("the tokens .npmrc reads", () => {
     const r = first(NPMRC);
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
-      "  Secrets  NPM_TOKEN for Actions and for Dependabot",
+      "  secrets       NPM_TOKEN for Actions and for Dependabot",
     );
     expect(after(r.transcript, INTRO[1]!).slice(0, 4)).toEqual([
       INTRO[1],
@@ -2807,7 +2445,7 @@ describe("the tokens .npmrc reads", () => {
   it("asks only for the Dependabot copy when Actions has it", async () => {
     const r = first(NPMRC, { secrets: { NPM_TOKEN: "x" } });
     await r.run();
-    expect(r.out).toContain("  Secrets  NPM_TOKEN for Dependabot");
+    expect(r.out).toContain("  secrets       NPM_TOKEN for Dependabot");
     const at =
       "NPM_TOKEN is set for Actions but not for Dependabot, and GitHub never shows a secret's value.";
     expect(after(r.transcript, at).slice(0, 3)).toEqual([
@@ -2822,7 +2460,7 @@ describe("the tokens .npmrc reads", () => {
   it("asks only for the Actions copy when Dependabot has it", async () => {
     const r = first(NPMRC, { dependabotSecrets: { NPM_TOKEN: "x" } });
     await r.run();
-    expect(r.out).toContain("  Secrets  NPM_TOKEN for Actions");
+    expect(r.out).toContain("  secrets       NPM_TOKEN for Actions");
     expect(r.out).toContain(
       "NPM_TOKEN is set for Dependabot but not for Actions, and GitHub never shows a secret's value.",
     );
@@ -2922,6 +2560,7 @@ describe("the tokens .npmrc reads", () => {
     expect(r.out.slice(at + 1)).toEqual([
       "  Settings       none yet",
       "  Board          none yet",
+      "  This machine   no GitHub token for cloud runs",
       "",
       ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: factory sync",
     ]);
@@ -2948,7 +2587,7 @@ describe("the tokens .npmrc reads", () => {
       expect(r.asked).toEqual([
         `input: ${BRANCH_QUESTION}`,
         "select: Which spec tool do you use?",
-        "checkbox: Which parts do you want?",
+        `input: ${GATE_QUESTION}`,
         "confirm: 1 secret these parts read is already set. Replace it?",
         "confirm: Go ahead?",
       ]);
@@ -2980,7 +2619,7 @@ describe("the tokens .npmrc reads", () => {
           organization: true,
           organizationSecrets: ["FACTORY_AUTOMERGE_TOKEN"],
           boards: [{ number: 3, title: "Roadmap", columns: [] }],
-          answers: { checkbox: [["board"]], confirm: [false, true] },
+          answers: { checkbox: [["board"]], confirm: [true] },
         });
         await r.run();
         expect(
@@ -3330,10 +2969,10 @@ describe("factory init, a credential kept on the machine", () => {
     it("plans the secrets, then storing the credential on this machine", async () => {
       const r = first();
       expect(await r.run()).toBe(0);
-      const at = r.out.indexOf(`  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`);
+      const at = r.out.indexOf(`  secrets       ${FAKE_EMAIL}, ${FAKE_TOKEN}`);
       expect(r.out.slice(at, at + 2)).toEqual([
-        `  Secrets  ${FAKE_EMAIL}, ${FAKE_TOKEN}`,
-        `  Store    your Fake Tickets credential on this machine, in ${credentialsPath(r.env)}`,
+        `  secrets       ${FAKE_EMAIL}, ${FAKE_TOKEN}`,
+        `  store         your Fake Tickets credential on this machine, in ${credentialsPath(r.env)}`,
       ]);
     });
 
@@ -3583,13 +3222,15 @@ describe("factory init, a credential kept on the machine", () => {
     );
   });
 
-  it("shows no This machine row and asks no such question with GitHub's tickets", async () => {
+  it("shows no ticket credential's This machine row and asks no such question with GitHub's tickets", async () => {
     const r = init({
       settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
       answers: { checkbox: [[]], confirm: [true] },
     });
     expect(await r.run()).toBe(0);
-    expect(r.out.some((l) => l.includes("This machine"))).toBe(false);
+    expect(r.out.filter((l) => l.includes("This machine"))).toEqual([
+      "  This machine   no GitHub token for cloud runs",
+    ]);
     expect(r.asked).not.toContain("confirm: Change which parts are on?");
   });
 });

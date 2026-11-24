@@ -15,7 +15,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   credentialsPath,
   hasEntry,
+  presetsPath,
   readCredential,
+  rememberedPresets,
+  rememberPresets,
   writeCredential,
 } from "../src/lib/credentials.mts";
 import { CredentialError } from "../src/tickets/types.mts";
@@ -121,5 +124,93 @@ describe("writing the file", () => {
     write({ FAKE_TICKETS_EMAIL: "c", FAKE_TICKETS_TOKEN: "d" });
     expect(hasEntry("fake", "one.site", env)).toBe(true);
     expect(read()).toMatchObject({ values: { FAKE_TICKETS_TOKEN: "d" } });
+  });
+});
+
+describe("a person's own token, which only init reads", () => {
+  const TOKEN = { tool: "github", site: "github.com/sam", names: ["token"] };
+
+  it("is read from the file alone, whatever the environment holds under its name", () => {
+    writeCredential({ ...TOKEN, values: { token: "from-file" }, env });
+    expect(
+      readCredential({
+        ...TOKEN,
+        env: { ...env, token: "from-env" },
+        fileOnly: true,
+      }),
+    ).toEqual({
+      state: "found",
+      source: "file",
+      values: { token: "from-file" },
+    });
+  });
+
+  it("is missing when only the environment holds it", () => {
+    expect(
+      readCredential({
+        ...TOKEN,
+        env: { ...env, token: "from-env" },
+        fileOnly: true,
+      }),
+    ).toEqual({ state: "missing" });
+  });
+
+  it("is filed as the ticket shows, by tool, then by host and owner", () => {
+    writeCredential({ ...TOKEN, values: { token: "ghp_x" }, env });
+    writeCredential({
+      tool: "claude-code",
+      site: "github.com/sam",
+      values: { CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-x" },
+      env,
+    });
+    expect(readFileSync(credentialsPath(env), "utf8")).toContain(
+      [
+        "github:",
+        "  github.com/sam:",
+        "    token: ghp_x",
+        "claude-code:",
+        "  github.com/sam:",
+        "    CLAUDE_CODE_OAUTH_TOKEN: sk-ant-oat01-x",
+        "",
+      ].join("\n"),
+    );
+  });
+});
+
+describe("the presets this machine last chose for an owner", () => {
+  const SITE = "github.com/acme";
+
+  it("remembers none before any is recorded", () => {
+    expect(rememberedPresets(SITE, env)).toEqual([]);
+  });
+
+  it("records an owner's presets beside the credentials file, at mode 600, keeping every other owner's", () => {
+    rememberPresets("github.com/sam", ["sam/factory-config"], env);
+    rememberPresets(SITE, ["acme/platform", "acme/platform//node"], env);
+    expect(presetsPath(env)).toBe(
+      join(env.XDG_CONFIG_HOME!, "software-factory", "presets.yaml"),
+    );
+    expect(mode(presetsPath(env))).toBe(0o600);
+    expect(rememberedPresets(SITE, env)).toEqual([
+      "acme/platform",
+      "acme/platform//node",
+    ]);
+    expect(rememberedPresets("github.com/sam", env)).toEqual([
+      "sam/factory-config",
+    ]);
+  });
+
+  it("replaces an owner's earlier choice", () => {
+    rememberPresets(SITE, ["acme/old"], env);
+    rememberPresets(SITE, ["acme/new"], env);
+    expect(rememberedPresets(SITE, env)).toEqual(["acme/new"]);
+  });
+
+  it("remembers none from a file that is not YAML, and writes over it", () => {
+    mkdirSync(join(env.XDG_CONFIG_HOME!, "software-factory"));
+    writeFileSync(presetsPath(env), "{ not yaml");
+    expect(rememberedPresets(SITE, env)).toEqual([]);
+    rememberPresets(SITE, ["acme/platform"], env);
+    expect(rememberedPresets(SITE, env)).toEqual(["acme/platform"]);
   });
 });

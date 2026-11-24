@@ -64,8 +64,9 @@ function doctor(o: {
   raw?: Record<string, unknown>;
   invalid?: string;
   outOfStep?: string[];
-  /** The default branch, which the sync writes, cannot be told. */
-  noDefaultBranch?: boolean;
+  /** The default branch, which the sync writes, cannot be told, for the
+   * reason this line gives. */
+  noDefaultBranch?: string;
   /** The version the lock names; 0.2.0 unless given, and null for none. */
   locked?: string | null;
   /** The factory's newest release, or why it cannot be read; the version
@@ -97,6 +98,9 @@ function doctor(o: {
   /** The repository whose poller starts the builds, as the lock's pins
    * give it to the settings. */
   pollerIn?: string;
+  /** The repository's value for the property its owner's rule, which
+   * requires the review's verdict, applies by; `on` unless given. */
+  enrolled?: string | null;
 }) {
   /** Each check's line, without its heading's indent; `printed` is the
    * output as printed, headings included. */
@@ -121,6 +125,16 @@ function doctor(o: {
         owner: "dave",
         ownerIsOrganization: o.organization,
         eventsHeld: o.eventsHeld,
+        ownerRules: [
+          {
+            check: "Review verdict",
+            property: "software-factory",
+            value: "on",
+          },
+        ],
+        properties: {
+          "software-factory": o.enrolled === undefined ? "on" : o.enrolled,
+        },
         fail: o.codeHostFails,
       }).codeHost,
       runner: memoryRunner({
@@ -143,7 +157,7 @@ function doctor(o: {
         : s;
     },
     outOfStep: async () => {
-      if (o.noDefaultBranch) throw new NoDefaultBranch();
+      if (o.noDefaultBranch) throw new NoDefaultBranch(o.noDefaultBranch);
       return o.outOfStep ?? [];
     },
     factory: async () => {
@@ -188,6 +202,44 @@ const SIX = [
   "In review",
   "Done",
 ];
+
+describe("factory doctor, the rule that requires the review's verdict", () => {
+  const REVIEW = { "pr-review": { commands: [] } };
+
+  it("passes when a rule the code host applies to the default branch requires it, the owner's among them", async () => {
+    const { run, printed } = doctor({ raw: REVIEW });
+    await run();
+    expect(section(printed, "GitHub")).toContain(
+      '✓ "Review verdict" is required before a merge to main',
+    );
+  });
+
+  it("fails, naming the fix, when no rule requires it", async () => {
+    const { run, printed } = doctor({ raw: REVIEW, enrolled: "off" });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(
+      '✗ "Review verdict" is not required before a merge to main. Run factory init',
+    );
+  });
+
+  it("says why when the code host cannot tell, and fails nothing", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      codeHostFails: { requiresStatus: new Error("HTTP 403") },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '? Could not tell whether "Review verdict" is required: HTTP 403',
+    );
+  });
+
+  it("prints no such line with the review off", async () => {
+    const { run, printed } = doctor({ enrolled: "off" });
+    await run();
+    expect(printed.join("\n")).not.toContain("Review verdict");
+  });
+});
 
 describe("factory doctor, the events the factory's workflow starts on", () => {
   const LINE =
@@ -271,6 +323,7 @@ describe("factory doctor", () => {
       "",
       "GitHub",
       "  ✓ Signed in as dave",
+      '  ✓ "Review verdict" is required before a merge to main',
       "",
       "GitHub Actions",
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request and builds in the cloud",
@@ -338,10 +391,24 @@ describe("factory doctor", () => {
   });
 
   it("fails, naming the fix, when it cannot tell the default branch the sync writes", async () => {
-    const { run, out } = doctor({ noDefaultBranch: true });
+    const { run, out } = doctor({
+      noDefaultBranch:
+        "Could not tell the default branch. Run: git remote set-head upstream --auto",
+    });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ The factory's files match the settings: Could not tell the default branch. Run: git remote set-head origin --auto",
+      "✗ The factory's files match the settings: Could not tell the default branch. Run: git remote set-head upstream --auto",
+    );
+  });
+
+  it("fails with the line that names the repository, under one mark, when no remote is the settings' repository", async () => {
+    const { run, out } = doctor({
+      noDefaultBranch:
+        "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.",
+    });
+    expect(await run()).toBe(1);
+    expect(out[1]).toBe(
+      "✗ The factory's files match the settings: repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.",
     );
   });
 

@@ -155,7 +155,7 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["init"],
-    args: "[--org ADDRESS]",
+    args: "[--preset NAME]... [--org ADDRESS]",
     run: async (argv) => (await import("./init.mts")).run(argv),
   },
   {
@@ -317,6 +317,22 @@ export const COMMANDS: Command[] = [
     args: "build|conflicts|deps|review [PR REVIEW]",
     run: async (argv) =>
       (await import("./session.mts")).run(["ready", ...argv]),
+  },
+  {
+    words: ["session", "repositories"],
+    args: "",
+    run: async () => (await import("./session.mts")).run(["repositories"]),
+  },
+  {
+    words: ["session", "token"],
+    args: "[--keep]",
+    run: async (argv) =>
+      (await import("./session.mts")).run(["token", ...argv]),
+  },
+  {
+    words: ["enroll"],
+    args: "",
+    run: async () => (await import("./enroll.mts")).run(),
   },
   {
     words: ["reviewers", "start"],

@@ -25,6 +25,7 @@ import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
+  APP_KEY,
   neededSecrets,
   PART_TEXT,
   PARTS,
@@ -34,10 +35,10 @@ import {
 import type { Check, Chosen, SetupContext } from "./setup.mts";
 import {
   branchDeps,
-  CANNOT_TELL,
   needDefaultBranch,
   NoDefaultBranch,
 } from "./lib/default-branch.mts";
+import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { differences, launcherPath, LOCK, PACKAGE, plan } from "./sync.mts";
 import { POLLER_FILE } from "./workflow-files.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
@@ -107,19 +108,24 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   }
   out.push({ state: "pass", text: "The settings are valid" });
 
-  let differ: string[] | null = null;
+  let differ: string[] | string;
   try {
     differ = await d.outOfStep(s);
   } catch (e) {
     if (!(e instanceof NoDefaultBranch)) throw e;
+    // The check's line has a mark of its own.
+    differ = e.message.replace(/^✗ /, "");
   }
   out.push(
-    differ?.length === 0
+    differ.length === 0
       ? { state: "pass", text: "The factory's files match the settings" }
       : {
           state: "fail",
           text: "The factory's files match the settings",
-          fix: differ ? `${differ.length} differ. ${SYNC}` : CANNOT_TELL,
+          fix:
+            typeof differ === "string"
+              ? differ
+              : `${differ.length} differ. ${SYNC}`,
         },
   );
 
@@ -198,6 +204,11 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       (await codeHost!.setup.checks?.({ ...context([]), secrets: null })) ?? [],
     ),
   );
+  if (s.prReview)
+    out.push({
+      ...(await verdictCheck(opened.codeHost)),
+      group: codeHost!.label,
+    });
 
   // A secret the organization shares with the repository counts as set.
   const isOrganization = await opened.codeHost
@@ -223,7 +234,14 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     x.step.needs.filter((n) => n.part === "cloud"),
   );
   const on = partsOn(s, secrets ?? [], cloudNeeds);
-  const needed = neededSecrets(on, secretSteps(d.tools, context(on)));
+  // An organization's app is no person's, so its key is named as a way to
+  // meet a need only in an organization's repository.
+  const needed = neededSecrets(on, secretSteps(d.tools, context(on))).map(
+    (n) =>
+      isOrganization
+        ? n
+        : { ...n, anyOf: n.anyOf.filter((name) => name !== APP_KEY) },
+  );
   const secretLine = (anyOf: string[], forWhat: string): Check => {
     const found = anyOf.find((n) => secrets!.includes(n));
     const by = found && !own!.includes(found) ? " by the organization" : "";
@@ -327,6 +345,29 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     .map((c, i) => [c, i] as const)
     .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
     .map(([c]) => c);
+}
+
+/** Whether the rules the code host applies to the default branch, the
+ * organization's among them, require the review's verdict. */
+async function verdictCheck(codeHost: CodeHost): Promise<Check> {
+  try {
+    const branch = await codeHost.defaultBranch();
+    return (await codeHost.requiresStatus(branch, REVIEW_VERDICT))
+      ? {
+          state: "pass",
+          text: `"${REVIEW_VERDICT}" is required before a merge to ${branch}`,
+        }
+      : {
+          state: "fail",
+          text: `"${REVIEW_VERDICT}" is not required before a merge to ${branch}`,
+          fix: INIT,
+        };
+  } catch (e) {
+    return {
+      state: "unknown",
+      text: `Could not tell whether "${REVIEW_VERDICT}" is required: ${message(e)}`,
+    };
+  }
 }
 
 /** Whether an organization's poller, the scheduled workflow in

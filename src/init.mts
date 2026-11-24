@@ -1,18 +1,21 @@
-// `factory init`: sets a repository up in one run. It says what it found,
-// asks which parts to turn on, shows everything it will do, and once told to
-// go ahead writes the settings, syncs, makes or connects the board, stores
-// every secret through the runner, and changes the repository's settings
-// through the code host. It commits nothing.
+// `factory init`: sets a repository up in one run. It settles which
+// repository the checkout is for, follows the owner's presets, says what
+// it found, asks only what nothing has decided, shows everything it will
+// do, and once told to go ahead writes the settings, syncs, runs the gate,
+// makes or connects the board, stores every secret through the runner,
+// changes the repository's settings through the code host, and opens a
+// pull request with the files it wrote.
 //
-// Tokens are read in a masked prompt and go straight to the runner, and a
-// ticket system's credential also to this machine's credentials file
-// (`lib/credentials.mts`): none is printed, written to any other file, or
-// passed in a command's arguments.
+// Tokens are read in a masked prompt and go straight to the runner, and to
+// this machine's credentials file (`lib/credentials.mts`) where a person
+// keeps one for their next repository: none is printed, written to any
+// other file, or passed in a command's arguments.
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -22,12 +25,13 @@ import { dirname, join } from "node:path";
 import { isMap, parseDocument, Scalar, type Document } from "yaml";
 import {
   builtOf,
+  keptBy,
   secretSteps,
-  stepsOf,
   TOOLS,
   type Registry,
 } from "./tools.mts";
 import { NeedsScopeError } from "./code-host/types.mts";
+import { organizationHosts } from "./code-host/index.mts";
 import {
   branchPatternFault,
   columnsOf,
@@ -46,6 +50,7 @@ import {
   branchDeps,
   needDefaultBranch,
   NoDefaultBranch,
+  remoteFor,
 } from "./lib/default-branch.mts";
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { DEFAULT_RUNNER, type Runner } from "./runner/index.mts";
@@ -62,12 +67,19 @@ import {
   credentialsPath,
   fileProblem,
   machineState,
+  readCredential,
   refusedEnvLine,
+  rememberedPresets,
+  rememberPresets,
   shownPath,
   writeCredential,
   type MachineState,
 } from "./lib/credentials.mts";
+import { APP_CLIENT_ID, CONFIG, PROPERTY } from "./init-org.mts";
 import {
+  APP_KEY,
+  BOARD_TOKEN,
+  BUILD_TOKEN,
   neededSecrets,
   PART_TEXT,
   PARTS,
@@ -76,6 +88,22 @@ import {
   SIGNING_KEY,
   type Part,
 } from "./parts.mts";
+import {
+  CHOICES_FILE,
+  LOCK_FILE,
+  OWN,
+  ownerOf,
+  parseName,
+  PRESET_FILE,
+} from "./preset.mts";
+import {
+  fetchCommit,
+  fetchDeps,
+  FetchError,
+  lastGitLine,
+  newestCommit,
+  type FetchDeps,
+} from "./preset-fetch.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { FACTORY_EVENTS, FACTORY_FILE, HELD_EVENT } from "./workflow-files.mts";
 import {
@@ -83,6 +111,7 @@ import {
   type Check,
   type Chosen,
   type CredentialStep,
+  type SecretStep,
   type SetupContext,
 } from "./setup.mts";
 import { differences, PACKAGE, plan as syncPlan } from "./sync.mts";
@@ -97,7 +126,7 @@ import {
 import { FACTORY_FIELDS, suggestFields } from "./ticket-fields.mts";
 import type { TicketField } from "./tickets/types.mts";
 import {
-  askCredential as readCredential,
+  askCredential as readStepCredential,
   askSecret,
   boardShape,
   giveBoard,
@@ -111,20 +140,73 @@ import {
 
 export type { Ask };
 
+/** The three files that decide the settings, as they read or will read. */
+export type Files = {
+  settings: string;
+  choices: string | null;
+  lock: string | null;
+};
+
+/** What the presets a repository follows give, combined with its own
+ * settings. */
+export type FromPresets = {
+  /** The combined settings, as one file would write them. */
+  raw: Record<string, unknown>;
+  /** Whether a preset gives the value in effect at a key, such as
+   * `tickets.board`, or any value under it. */
+  gives: (key: string) => boolean;
+  /** Each agent and skill file the presets ship, by its path here. */
+  ships: string[];
+};
+
+export type Presets = {
+  /** Each preset a repository holds, by its name and the first comment
+   * line of its file, read for the repository `from`, which is being set
+   * up. Null when the repository cannot be read. */
+  held: (
+    repository: string,
+    codeHost: string,
+    from: string,
+  ) => Promise<{ name: string; about: string }[] | null>;
+  /** Pins a preset as `factory preset add` does, in files that read as
+   * `files`, with that command's summary and questions: the files as they
+   * then read, or null when it refuses. Nothing is written. */
+  add: (
+    name: string,
+    files: Files,
+    io: Pick<InitDeps, "ask" | "out">,
+  ) => Promise<Files | null>;
+  /** What the presets the files list give, or null when they list none,
+   * or cannot be combined. */
+  combined: (files: Files) => Promise<FromPresets | null>;
+};
+
+export type GitResult = { status: number; stdout: string; stderr: string };
+
 export type InitDeps = {
   root: string;
   ask: Ask;
   out: (line: string) => void;
-  /** The `origin` remote's address, or null without one. */
-  remote: () => string | null;
+  /** Each remote of the checkout, by its name and the address it fetches
+   * from. */
+  remotes: () => { name: string; url: string }[];
+  /** Git, run in the checkout. */
+  git: (args: string[]) => GitResult;
+  /** The repository one was forked from, or null for one that is no fork,
+   * or whose parent is gone. Rejects when the code host cannot say. */
+  forkOf: (codeHost: string, repository: string) => Promise<string | null>;
+  /** Runs one gate command from the root: its status, and everything it
+   * printed. */
+  gate: (command: string) => Promise<{ status: number; output: string }>;
+  presets: Presets;
   tools: Registry;
   paint?: Paint;
   sync: () => Promise<number>;
-  /** The files a sync with these settings would write or delete. `host`
-   * asks the code host for the default branch, where the checkout does not
-   * say. It rejects with NoDefaultBranch when nobody can tell. */
+  /** The files a sync with these files would write or delete. `host` asks
+   * the code host for the default branch, where the checkout does not say.
+   * It rejects with NoDefaultBranch when nobody can tell. */
   syncChanges: (
-    settingsText: string,
+    files: Files,
     host: () => Promise<string>,
   ) => Promise<string[]> | string[];
   /** Runs a command attached to the terminal, as `claude setup-token`. */
@@ -136,12 +218,6 @@ export type InitDeps = {
   checks: () => Promise<Check[]>;
   packageName: string;
   packageVersion: string;
-  /** The branch name a preset in effect supplies to settings that read
-   * as `settingsText`, or null for none. */
-  presetBranchName: (settingsText: string) => Promise<string | null>;
-  /** The spec tool a preset in effect names for settings that read as
-   * `settingsText`, \`none\` included, or null when none names one. */
-  presetSpecs: (settingsText: string) => Promise<string | null>;
   /** Runs an install from the root; its status and standard error. */
   install: (argv: string[]) => Promise<{ status: number; stderr: string }>;
   /** Where the credentials file and a credential's variables are read. */
@@ -154,6 +230,14 @@ const POLLER_IMAGE = "ghcr.io/davidbyoung/software-factory-poller";
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 const AGAIN = "Run factory init again to add it.";
+const NOTHING = "Nothing changed.";
+const NOTHING_TO_COMMIT = "Nothing to commit: the files already match.";
+const NOT_COMMITTED = "The files are written, and nothing is committed.";
+const USAGE = "Usage: factory init [--preset NAME]... [--org ADDRESS]";
+/** The branch the setup's commit is made on. */
+const BRANCH = "set-up-factory";
+const SET_UP = "Set up the software factory";
+const CHANGE = "Change the software factory's settings";
 
 /** Each state `tickets.columns` writes, as its columns or null for none,
  * from the settings as parsed YAML. */
@@ -212,6 +296,9 @@ const NO_SPEC_TOOL = "None: each ticket holds its own spec";
 const BRANCH_QUESTION =
   "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
 
+const GATE_QUESTION =
+  "Which command checks a change here, such as npm test? (leave empty to add it later)";
+
 /** The pattern a build names its branch by, asked until the answer is one
  * the settings check takes. */
 async function askBranchName(d: InitDeps): Promise<string> {
@@ -247,7 +334,507 @@ function remove(doc: Document, path: string[]) {
   }
 }
 
-export async function main(_argv: string[], d: InitDeps): Promise<number> {
+const sameRepository = (a: string, b: string) =>
+  a.toLowerCase() === b.toLowerCase();
+
+/** The presets `--preset NAME` names, in order, or null when one has no
+ * name after it. */
+export function presetArgs(argv: string[]): string[] | null {
+  const names: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== "--preset") continue;
+    const name = argv[++i];
+    if (!name || name.startsWith("--")) return null;
+    names.push(name);
+  }
+  return names;
+}
+
+/** The repository being set up, its code host, and the remote whose
+ * address is the repository. */
+export type Where = { codeHost: string; repository: string; remote: string };
+
+/** Which repository the checkout is for, from its remotes: the one
+ * repository they name when it is no fork, and otherwise the one chosen
+ * from them and from what each fork was made from. A repository chosen
+ * that is no remote yet is added as one. An exit status when it stops. */
+export async function whichRepository(
+  d: Pick<InitDeps, "remotes" | "tools" | "ask" | "out" | "git" | "forkOf">,
+): Promise<Where | number> {
+  const remotes = d.remotes();
+  type Candidate = {
+    codeHost: string;
+    repository: string;
+    remotes: { name: string; url: string }[];
+    /** The repository it was forked from; undefined when nobody can say. */
+    parent?: string | null;
+  };
+  const found: Candidate[] = [];
+  for (const remote of remotes) {
+    const at = parseRemote(remote.url, d.tools);
+    if (!at) continue;
+    const same = found.find((c) => sameRepository(c.repository, at.repository));
+    if (same) same.remotes.push(remote);
+    else found.push({ ...at, remotes: [remote] });
+  }
+  if (!found.length) {
+    const hosts = listed(Object.values(d.tools.codeHost).map((t) => t.label));
+    d.out(
+      remotes.length === 1
+        ? `The ${remotes[0]!.name} remote, ${remotes[0]!.url}, is not on a code host the factory supports: ${hosts}.`
+        : remotes.length
+          ? `No remote here is on a code host the factory supports: ${hosts}.`
+          : "This is not a git repository with a remote. Run it in your repository's checkout.",
+    );
+    return 1;
+  }
+  for (const c of found)
+    c.parent = await d.forkOf(c.codeHost, c.repository).catch(() => undefined);
+  const only = found.length === 1 ? found[0]! : null;
+  if (only && only.parent === null)
+    return { ...only, remote: remoteName(only.remotes) };
+
+  // What a fork was made from is offered whether or not it is a remote.
+  const parents: Candidate[] = [];
+  for (const c of found) {
+    if (!c.parent) continue;
+    const known = [...found, ...parents].some((o) =>
+      sameRepository(o.repository, c.parent!),
+    );
+    if (!known)
+      parents.push({
+        codeHost: c.codeHost,
+        repository: c.parent,
+        remotes: [],
+        parent: null,
+      });
+  }
+  const offered = [
+    ...parents,
+    ...found.filter((c) => !c.parent),
+    ...found.filter((c) => c.parent),
+  ];
+  const width = Math.max(...offered.map((c) => c.repository.length));
+  const about = (c: Candidate) =>
+    c.remotes.length
+      ? `the remote${c.remotes.length === 1 ? "" : "s"} ${listed(c.remotes.map((r) => r.name))}${c.parent ? `, a fork of ${c.parent}` : ""}`
+      : "no remote here yet";
+  const picked = await d.ask.select(
+    "Which repository are you setting up?",
+    offered.map((c) => ({
+      name: `${c.repository.padEnd(width)}   ${about(c)}`,
+      value: c.repository,
+    })),
+  );
+  const chosen = offered.find((c) => c.repository === picked)!;
+  if (chosen.remotes.length)
+    return { ...chosen, remote: remoteName(chosen.remotes) };
+
+  const taken = remotes.map((r) => r.name);
+  let name = "upstream";
+  for (let n = 2; taken.includes(name); n++) name = `upstream-${n}`;
+  // The fork's own address with the repository swapped, so the new remote
+  // is reached the same way, over SSH or HTTPS.
+  const fork = found.find((c) => c.parent === chosen.repository)!;
+  const at = fork.remotes[0]!.url.lastIndexOf(fork.repository);
+  const swapped =
+    fork.remotes[0]!.url.slice(0, at) +
+    chosen.repository +
+    fork.remotes[0]!.url.slice(at + fork.repository.length);
+  const url =
+    at >= 0 && parseRemote(swapped, d.tools)?.repository === chosen.repository
+      ? swapped
+      : d.tools.codeHost[chosen.codeHost]!.open(chosen.repository).remote(
+          chosen.repository,
+        ).url;
+  const added = d.git(["remote", "add", name, url]);
+  if (added.status !== 0) {
+    d.out(`✗ Could not add the remote ${name}: ${lastGitLine(added.stderr)}`);
+    d.out(NOTHING);
+    return 1;
+  }
+  d.out(`Added the remote ${name}, ${chosen.repository}.`);
+  return { ...chosen, remote: name };
+}
+
+/** The remote to use of several with one repository: `origin` when it is
+ * among them, and otherwise the first. */
+const remoteName = (remotes: { name: string }[]) =>
+  (remotes.find((r) => r.name === "origin") ?? remotes[0]!).name;
+
+/** Fetches the default branch from the repository's remote, and says
+ * whether the commit checked out can hold the setup's commit: the commit
+ * fetched, or an exit status when the checkout has commits that branch
+ * lacks, or the fetch fails. */
+export function checkedOut(
+  d: Pick<InitDeps, "git" | "out">,
+  o: { repository: string; remote: string; base: string },
+): { sha: string } | number {
+  const stop = (line: string) => {
+    d.out(line);
+    d.out(NOTHING);
+    return 1;
+  };
+  const fetched = d.git(["fetch", "--quiet", o.remote, o.base]);
+  if (fetched.status !== 0)
+    return stop(
+      `✗ Could not fetch ${o.base} from ${o.repository}: ${lastGitLine(fetched.stderr)}`,
+    );
+  const sha = d.git(["rev-parse", "FETCH_HEAD"]).stdout.trim();
+  const ahead = Number(
+    d.git(["rev-list", "--count", `${sha}..HEAD`]).stdout.trim(),
+  );
+  if (!(ahead > 0)) return { sha };
+  const branch = d.git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.trim();
+  const again = `Switch to ${o.base}, then run factory init again.`;
+  return stop(
+    branch && branch !== "HEAD"
+      ? `✗ This checkout is on the branch ${branch}, which has commits ${o.base} does not. ${again}`
+      : `✗ This checkout has commits ${o.base} does not. ${again}`,
+  );
+}
+
+/** The presets a repository is to follow, pinned: those `--preset` names,
+ * or those chosen from the ones the owner's `factory-config` holds, or
+ * those this machine last used for the owner, when the person says so.
+ * Settings that list presets already look for no other. The files as they
+ * then read, or an exit status when a preset is refused. */
+export async function followPresets(
+  d: Pick<InitDeps, "ask" | "out" | "presets">,
+  o: {
+    owner: string;
+    files: Files;
+    /** The presets the settings list. */
+    listed: string[];
+    flags: string[];
+    /** What the owner's `factory-config` holds, or null without one. */
+    held: { name: string; about: string }[] | null;
+    remembered: string[];
+  },
+): Promise<{ files: Files; added: string[]; asked: boolean } | number> {
+  let names = o.flags;
+  let asked = false;
+  if (!o.flags.length && !o.listed.length) {
+    if (o.held?.length) {
+      const width = Math.max(...o.held.map((p) => p.name.length));
+      asked = true;
+      names = await d.ask.checkbox(
+        `Which of ${o.owner}'s presets does this repository follow?`,
+        o.held.map((p) => ({
+          name: p.about ? `${p.name.padEnd(width)}  ${p.about}` : p.name,
+          value: p.name,
+          checked: !p.name.includes("//"),
+        })),
+      );
+    } else if (!o.held && o.remembered.length) {
+      asked = true;
+      const one = o.remembered.length === 1;
+      names = (await d.ask.confirm(
+        `${o.owner}'s other repositories on this machine follow ${listed(o.remembered)}. Follow ${one ? "it" : "them"} here?`,
+        true,
+      ))
+        ? o.remembered
+        : [];
+    }
+  }
+  let files = o.files;
+  const added: string[] = [];
+  for (const name of names) {
+    if (o.listed.includes(name) || added.includes(name)) continue;
+    const next = await d.presets.add(name, files, d);
+    if (!next) {
+      d.out(NOTHING);
+      return 1;
+    }
+    files = next;
+    added.push(name);
+  }
+  return { files, added, asked };
+}
+
+/** The value at a dotted path of settings as parsed YAML. */
+function valueAt(raw: unknown, path: string[]): unknown {
+  let at = raw;
+  for (const key of path) {
+    if (typeof at !== "object" || at === null || Array.isArray(at))
+      return undefined;
+    at = (at as Record<string, unknown>)[key];
+  }
+  return at;
+}
+
+/** A part the presets turn on, as the row that lists them names it. */
+const PRESET_PARTS: [Part, string][] = [
+  ["board", "a board"],
+  ["review", "the review"],
+  ["from-board", "builds that start from the board"],
+];
+
+/** The rows under "From the presets, so not asked": each answer the
+ * presets give to a question setup would ask. */
+export function presetRows(
+  from: FromPresets,
+  o: { tools: Registry; parts: (part: Part) => boolean },
+): [string, string][] {
+  const rows: [string, string][] = [];
+  const at = (key: string) => valueAt(from.raw, key.split("."));
+  if (from.gives("tickets.type") || from.gives("tickets.board")) {
+    const type = String(at("tickets.type") ?? "github");
+    const board = from.gives("tickets.board") ? at("tickets.board") : null;
+    rows.push([
+      "Tickets",
+      `${o.tools.tickets[type]?.label ?? type}${board == null ? "" : ` on board ${board}`}`,
+    ]);
+  }
+  if (from.gives("code-host.branch-name"))
+    rows.push(["Branch names", String(at("code-host.branch-name"))]);
+  if (from.gives("specs")) {
+    const specs = at("specs");
+    rows.push([
+      "Spec tool",
+      String(
+        typeof specs === "object" && specs !== null
+          ? ((specs as { type?: unknown }).type ?? "none")
+          : specs,
+      ),
+    ]);
+  }
+  const gate = at("commands.gate");
+  if (from.gives("commands.gate") && Array.isArray(gate) && gate.length)
+    rows.push(["Gate", listed(gate.map(String))]);
+  const parts = PRESET_PARTS.filter(([part]) => o.parts(part));
+  if (parts.length) rows.push(["Parts", listed(parts.map(([, name]) => name))]);
+  return rows;
+}
+
+/** What the presets ship that a sync would write, as the plan's `files`
+ * row says it: `acme's own reviewer and skill`, with a count where there
+ * is more than one of a kind. Null when they ship nothing. */
+export function shipsText(
+  paths: string[],
+  o: { owner: string; ownPresets: boolean; reviewers: string[] },
+): string | null {
+  const agents = paths
+    .map((p) => /^\.claude\/agents\/([^/]+)\.md$/.exec(p)?.[1])
+    .filter((n): n is string => n !== undefined);
+  const skills = new Set(
+    paths
+      .map((p) => /^\.claude\/skills\/([^/]+)\//.exec(p)?.[1])
+      .filter((n): n is string => n !== undefined),
+  ).size;
+  const reviewers = agents.filter((a) => o.reviewers.includes(a)).length;
+  const kinds: [number, string][] = [
+    [reviewers, "reviewer"],
+    [agents.length - reviewers, "agent"],
+    [skills, "skill"],
+  ];
+  const shipped = kinds.filter(([n]) => n > 0);
+  if (!shipped.length) return null;
+  const counted = shipped.some(([n]) => n > 1);
+  const words = shipped.map(([n, kind]) =>
+    n > 1
+      ? `${n} ${kind}s`
+      : counted
+        ? `${/^[aeiou]/.test(kind) ? "an" : "a"} ${kind}`
+        : kind,
+  );
+  return `${o.ownPresets ? `${o.owner}'s` : "the presets'"} own ${listed(words)}`;
+}
+
+/** The plan's rows for the files setup writes: the settings, the copies,
+ * and the workflows, in place of a row for each file. */
+export function fileRows(
+  paths: string[],
+  ships: string | null,
+): [string, string][] {
+  const SETTINGS = [
+    SETTINGS_FILE,
+    LOCK_FILE,
+    CHOICES_FILE,
+    "package.json",
+    ".gitignore",
+  ];
+  const settings = SETTINGS.filter((p) => paths.includes(p));
+  const workflows = paths.filter((p) => p.startsWith(".github/workflows/"));
+  const copies = paths.filter(
+    (p) => !settings.includes(p) && !workflows.includes(p),
+  );
+  const rows: [string, string][] = [];
+  if (settings.length) rows.push(["settings", `Write ${listed(settings)}`]);
+  if (copies.length)
+    rows.push([
+      "files",
+      `Copy the factory's skills, agents, rules, and guards${ships ? `, and ${ships}` : ""}`,
+    ]);
+  if (workflows.length)
+    rows.push([
+      "workflows",
+      `Write ${listed([workflows[0]!, ...workflows.slice(1).map((p) => p.split("/").at(-1)!)])}`,
+    ]);
+  return rows;
+}
+
+/** Runs each gate command in turn, and says they pass, or which fails,
+ * with the last five lines it printed. Whether they passed. */
+export async function runGate(
+  d: Pick<InitDeps, "gate" | "out">,
+  commands: string[],
+): Promise<boolean> {
+  for (const command of commands) {
+    const ran = await d.gate(command);
+    if (ran.status === 0) continue;
+    d.out(`✗ ${command} fails here, so a build could not finish:`);
+    for (const line of ran.output.trimEnd().split("\n").slice(-5))
+      d.out(`    ${line}`);
+    d.out(
+      `Fix it, or change commands.gate in ${SETTINGS_FILE}, then run factory init again. Nothing is committed.`,
+    );
+    return false;
+  }
+  d.out(
+    `✓ ${listed(commands)} ${commands.length === 1 ? "passes" : "pass"} here.`,
+  );
+  return true;
+}
+
+/** The first name of the setup's branch that is taken neither here nor on
+ * the remote: `set-up-factory`, then `set-up-factory-2`, and so on. */
+export function freeBranch(d: Pick<InitDeps, "git">, remote: string): string {
+  for (let n = 1; ; n++) {
+    const name = n === 1 ? BRANCH : `${BRANCH}-${n}`;
+    const here =
+      d.git(["show-ref", "--verify", "--quiet", `refs/heads/${name}`])
+        .status === 0;
+    const there =
+      d.git(["ls-remote", "--exit-code", "--heads", remote, name]).status === 0;
+    if (!here && !there) return name;
+  }
+}
+
+/** Why a push failed: what the remote said, or git's own last line. */
+const pushRefusal = (stderr: string) =>
+  stderr
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.startsWith("remote:") && l.length > "remote:".length) ??
+  lastGitLine(stderr);
+
+/** Commits the paths setup wrote or deleted on a new branch, pushes it to
+ * the repository's remote, and opens a pull request into the default
+ * branch. Anything else changed or staged stays as it was. `opened` with
+ * the pull request's number, `nothing` when no path changed, or `failed`
+ * after the lines that say which step did and where the work is. */
+export async function openPull(
+  d: Pick<InitDeps, "git" | "out">,
+  o: {
+    codeHost: Pick<CodeHost, "create">;
+    repository: string;
+    remote: string;
+    base: string;
+    branch: string;
+    paths: string[];
+    title: string;
+    body: string;
+  },
+): Promise<
+  { state: "opened"; number: number } | { state: "nothing" | "failed" }
+> {
+  const status = d.git([
+    "status",
+    "--porcelain",
+    "-z",
+    "--no-renames",
+    "--untracked-files=all",
+    "--",
+    ...o.paths,
+  ]);
+  const changed = status.stdout
+    .split("\0")
+    .filter(Boolean)
+    .map((entry) => entry.slice(3));
+  if (status.status === 0 && !changed.length) {
+    d.out(NOTHING_TO_COMMIT);
+    return { state: "nothing" };
+  }
+  for (const args of [
+    ...(status.status === 0 ? [] : [null]),
+    ["switch", "--quiet", "-c", o.branch],
+    ["add", "--all", "--", ...changed],
+    ["commit", "--quiet", "--message", o.title, "--", ...changed],
+  ]) {
+    const ran = args ? d.git(args) : status;
+    if (ran.status === 0) continue;
+    d.out(`✗ Could not commit: ${lastGitLine(ran.stderr)}`);
+    d.out(NOT_COMMITTED);
+    return { state: "failed" };
+  }
+  const pushed = d.git([
+    "push",
+    "--quiet",
+    "--set-upstream",
+    o.remote,
+    o.branch,
+  ]);
+  if (pushed.status !== 0) {
+    d.out(
+      `✗ Could not push ${o.branch} to ${o.repository}: ${pushRefusal(pushed.stderr)}`,
+    );
+    d.out(
+      `The commit is on the branch ${o.branch} here. Push it and open a pull request.`,
+    );
+    return { state: "failed" };
+  }
+  let number: number;
+  try {
+    number = await o.codeHost.create({
+      title: o.title,
+      head: o.branch,
+      base: o.base,
+      body: o.body,
+      draft: false,
+    });
+  } catch (e) {
+    d.out(`✗ Could not open a pull request in ${o.repository}: ${message(e)}`);
+    d.out(`The branch ${o.branch} is pushed. Open a pull request from it.`);
+    return { state: "failed" };
+  }
+  d.out(`✓ Opened ${o.repository}#${number}, "${o.title}".`);
+  return { state: "opened", number };
+}
+
+/** An organization's setup as one of its repositories sees it: whether the
+ * app's client ID, its key, and a credential of the coding agent's reach
+ * the repository, and which of the agent's is the one that does. */
+export function organizationState(o: {
+  variables: string[];
+  secrets: string[];
+  /** The names the coding agent's credential is read under. */
+  agent: string[];
+}): { setUp: boolean; stored: string[] } {
+  const credential = o.agent.find((n) => o.secrets.includes(n));
+  const setUp =
+    o.variables.includes(APP_CLIENT_ID) &&
+    o.secrets.includes(APP_KEY) &&
+    credential !== undefined;
+  return { setUp, stored: setUp ? [credential!, APP_KEY] : [] };
+}
+
+export async function main(argv: string[], deps: InitDeps): Promise<number> {
+  // Every line goes through here, so a blank line is put only between
+  // lines that were printed.
+  let printed = 0;
+  let last = "";
+  const d: InitDeps = {
+    ...deps,
+    out: (line) => {
+      printed++;
+      last = line;
+      deps.out(line);
+    },
+  };
+  const gap = () => {
+    if (last !== "") d.out("");
+  };
   const at = (path: string) => join(d.root, path);
   const read = (path: string) =>
     existsSync(at(path)) ? readFileSync(at(path), "utf8") : null;
@@ -256,47 +843,103 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     writeFileSync(at(path), text);
   };
 
-  const remote = d.remote();
-  const found = remote ? parseRemote(remote, d.tools) : null;
-  if (!found) {
-    d.out(
-      remote
-        ? `The origin remote, ${remote}, is not on a code host the factory supports: ${listed(Object.values(d.tools.codeHost).map((t) => t.label))}.`
-        : "This is not a git repository with an origin remote. Run it in your repository's checkout.",
-    );
-    return 1;
+  const flags = presetArgs(argv);
+  if (!flags) {
+    d.out(USAGE);
+    return 2;
   }
-  const { repository } = found;
-  const [owner, name] = repository.split("/");
-
   const settingsText = read(SETTINGS_FILE);
-  const doc = parseDocument(settingsText ?? "");
+  let doc = parseDocument(settingsText ?? "");
+
+  // The repository: the settings' line, or the one the remotes name.
+  const line = doc.get("repository");
+  let where: Where;
+  if (typeof line === "string" && line) {
+    const type = doc.getIn(["code-host", "type"]);
+    const codeHost =
+      typeof type === "string" && type in d.tools.codeHost
+        ? type
+        : Object.keys(d.tools.codeHost)[0]!;
+    const remotes = d.remotes().map((r) => ({
+      name: r.name,
+      repository: parseRemote(r.url, d.tools)?.repository ?? null,
+    }));
+    const remote = remoteFor(line, remotes);
+    if (remote === null) {
+      const origin = remotes.find((r) => r.name === "origin")?.repository;
+      d.out(
+        `✗ repository: ${SETTINGS_FILE} says ${line}, and no remote here is ${line}. ${origin ? `origin is ${origin}. ` : ""}Add the remote, or change the line and run factory sync.`,
+      );
+      return 1;
+    }
+    where = { codeHost, repository: line, remote };
+  } else {
+    const found = await whichRepository(d);
+    if (typeof found === "number") return found;
+    where = found;
+  }
+  const { repository } = where;
+  const [owner, name] = repository.split("/") as [string, string];
+  const built = builtOf(d.tools);
+
+  let files: Files = {
+    settings: settingsText ?? "",
+    choices: read(CHOICES_FILE),
+    lock: read(LOCK_FILE),
+  };
+  /** What the presets give, as the files stand. */
+  let from: FromPresets | null = await d.presets.combined(files);
+  /** The settings in effect: the presets', under the repository's own. */
   let settings: Settings | null = null;
+  const parse = () =>
+    parseSettings(
+      from?.raw ?? doc.toJS(),
+      // A file a preset ships is there once the sync has run.
+      (p) => existsSync(at(p)) || (from?.ships.includes(p) ?? false),
+      built,
+      // A block that leaves states out is what the column step fills in.
+      { partial: true },
+    );
   if (settingsText !== null) {
     try {
-      // A block that leaves states out is what the column step fills in.
-      settings = parseSettings(
-        doc.toJS(),
-        (p) => existsSync(at(p)),
-        builtOf(d.tools),
-        { partial: true },
-      );
+      settings = parse();
     } catch (e) {
       d.out(`${SETTINGS_FILE}: ${message(e)}`);
       d.out("Fix it, then run init again.");
       return 1;
     }
   }
+  /** Whether the repository's own settings or a preset give a value. */
+  const given = (...path: string[]) =>
+    doc.hasIn(path) || (from?.gives(path.join(".")) ?? false);
+  /** A value as the settings in effect have it. */
+  const inEffect = (...path: string[]) =>
+    doc.getIn(path) ?? valueAt(from?.raw, path);
+  /** The files as they will read, with the settings as they now stand. */
+  const standingFiles = (): Files => ({ ...files, settings: String(doc) });
   /** The settings as the file will stand, for the board's columns and
-   * fields; files the sync has yet to write don't matter to those. */
-  const standing = (): Settings | null => {
+   * fields and the gate; files the sync has yet to write don't matter to
+   * those. */
+  const standing = async (): Promise<Settings | null> => {
     try {
-      return parseSettings(doc.toJS(), () => true, builtOf(d.tools));
+      const combined = from ? await d.presets.combined(standingFiles()) : null;
+      return parseSettings(combined?.raw ?? doc.toJS(), () => true, built);
     } catch {
       return settings;
     }
   };
   const hasPackage = existsSync(at("package.json"));
+
+  const codeHost = d.tools.codeHost[where.codeHost]!.open(repository);
+  let base: string;
+  try {
+    base = await codeHost.defaultBranch();
+  } catch (e) {
+    d.out(`Could not reach the code host: ${message(e)}`);
+    return 1;
+  }
+  const checkout = checkedOut(d, { repository, remote: where.remote, base });
+  if (typeof checkout === "number") return checkout;
 
   // A kind with one tool is that tool; with several, the settings' choice,
   // or one asked for below.
@@ -304,21 +947,18 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     const names = Object.keys(r);
     return names.length === 1 ? names[0]! : null;
   };
-  const named = {
+  const named = () => ({
     tickets: settings?.tickets.type ?? null,
     runner: settings?.builds.runner ?? null,
-  };
-  const choice = {
-    tickets: only(d.tools.tickets) ?? named.tickets,
-    runner: only(d.tools.runner) ?? named.runner,
-  };
+  });
   const agentName = Object.keys(d.tools.agent)[0]!;
   const agent = d.tools.agent[agentName]!;
   const shown = (kind: "tickets" | "runner") => {
     const tools = d.tools[kind];
     if (only(tools)) return tools[only(tools)!]!.label;
-    return choice[kind]
-      ? `${tools[choice[kind]!]!.label}, from your settings`
+    const choice = named()[kind];
+    return choice
+      ? `${tools[choice]!.label}, from your settings`
       : "chosen below";
   };
 
@@ -344,6 +984,59 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
    * asking. */
   let fromMachine: { values: Record<string, string>; account: string } | null =
     machine?.state === "accepted" ? machine : null;
+
+  // An owner the code host cannot tell is read as an organization, which
+  // is asked for no token of a person's.
+  const isOrganization = await codeHost.ownerIsOrganization().catch(() => true);
+  const runnerName = only(d.tools.runner) ?? named().runner;
+  let organization = { setUp: false, stored: [] as string[] };
+  if (isOrganization && runnerName) {
+    const early = d.tools.runner[runnerName]!.open(repository);
+    const [shared, variables, own] = await Promise.all([
+      early.organizationSecretNames().catch(() => []),
+      early.organizationVariableNames().catch(() => []),
+      early.secretNames().catch(() => []),
+    ]);
+    organization = organizationState({
+      variables,
+      secrets: [...own, ...shared],
+      agent: agent.setup.kept?.secrets ?? [],
+    });
+  }
+  // What a person keeps on this machine for their next repository, filed
+  // under the code host's name for the account.
+  const site = `${codeHost.remote(repository).host}/${owner}`;
+  const everyKept = keptBy(d.tools, {
+    agent: agentName,
+    codeHost: where.codeHost,
+  });
+  const keeps = isOrganization ? [] : everyKept;
+  const keptProblem = keeps.length ? fileProblem(env) : null;
+  const heldOn = (tool: string, entry: string): string | null => {
+    if (keptProblem) return null;
+    const found = readCredential({
+      tool,
+      site,
+      names: [entry],
+      env,
+      fileOnly: true,
+    });
+    return found.state === "found" ? found.values[entry]! : null;
+  };
+
+  // The owner's presets, looked for by name unless something names them.
+  const listedPresets = (): string[] => {
+    const names = doc.toJS()?.presets;
+    return Array.isArray(names) ? names.map(String) : [];
+  };
+  const config = `${owner}/${CONFIG}`;
+  const looks = !flags.length && !listedPresets().length;
+  const held =
+    looks || (isOrganization && !organization.setUp)
+      ? await d.presets.held(config, where.codeHost, repository)
+      : null;
+  const choosing = flags.length > 0 || (looks && (held?.length ?? 0) > 0);
+
   d.out(`Setting up the software factory for ${repository}`);
   d.out("");
   if (!agent.agent.installed(d.hasCommand)) {
@@ -351,17 +1044,33 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       `The factory runs in a coding agent, and ${agent.label} is not installed.`,
     );
     d.out("Install it and run factory init again.");
-    d.out("Nothing changed.");
+    d.out(NOTHING);
     return 1;
   }
   d.out("Found");
+  const width = isOrganization ? 16 : 14;
   const row = (label: string, text: string) =>
-    d.out(`  ${label.padEnd(14)} ${text}`);
+    d.out(`  ${label.padEnd(width)} ${text}`);
   row(
     "Code host",
-    `${d.tools.codeHost[found.codeHost]!.label} (from your git remote)`,
+    `${d.tools.codeHost[where.codeHost]!.label} (from your git remote)`,
   );
-  row("Tickets", shown("tickets"));
+  if (!isOrganization) row("Account", `${owner}, a personal account`);
+  else if (organization.setUp)
+    row(
+      "Organization",
+      `${owner}, set up: its app's key and its ${agent.setup.kept?.what ?? "coding agent's token"} are stored`,
+    );
+  else
+    row(
+      "Organization",
+      held
+        ? `${owner}, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories, or an owner narrowed them`
+        : `${owner}, not set up: an owner runs factory init --org ${organizationHosts()[where.codeHost]?.addressOf(owner) ?? owner}`,
+    );
+  if (looks && held) row("Presets", `${config} holds ${held.length}`);
+  // The presets chosen below say which ticket system and board.
+  if (!choosing) row("Tickets", shown("tickets"));
   row(
     "Coding agent",
     agent.setup.found?.({ hasCommand: d.hasCommand }) ?? agent.label,
@@ -369,12 +1078,13 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   row("Cloud builds", shown("runner"));
   if (npmrc.names.length) row(NPMRC, `reads ${npmrc.names.join(", ")}`);
   row("Settings", settingsText === null ? "none yet" : SETTINGS_FILE);
-  row(
-    "Board",
-    settings?.tickets.board != null
-      ? `${settings.tickets.board}, from your settings`
-      : "none yet",
-  );
+  if (!choosing)
+    row(
+      "Board",
+      settings?.tickets.board != null
+        ? `${settings.tickets.board}, from your settings`
+        : "none yet",
+    );
   if (machine && machine.state !== "unreadable")
     row(
       "This machine",
@@ -384,9 +1094,34 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
           ? `${settingsTool!.label} refused the credential for ${machineSite}`
           : `${settingsTool!.label} credential for ${machineSite}`,
     );
+  if (keeps.length && !keptProblem) {
+    // The code host's token first, which every cloud run needs.
+    const [token, ...others] = keeps;
+    row(
+      "This machine",
+      [
+        heldOn(token!.name, token!.kept.name)
+          ? `a ${token!.kept.what} for ${owner}`
+          : `no ${token!.kept.what} for cloud runs`,
+        ...others
+          .filter((k) => heldOn(k.name, k.kept.name))
+          .map((k) => `a ${k.kept.what}`),
+      ].join(", and "),
+    );
+  }
   d.out("");
+  if (isOrganization && !organization.setUp) {
+    d.out(
+      `Builds on your machine work now. The review and builds in the cloud stay off until ${owner} is set up.`,
+    );
+    d.out("");
+  }
   if (machine?.state === "unreadable") {
     d.out(machine.line);
+    return 1;
+  }
+  if (keptProblem) {
+    d.out(keptProblem.line);
     return 1;
   }
   // Variables the system refuses still win over the file, so what fixes
@@ -409,8 +1144,8 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     return 1;
   }
 
-  const askCredential = (step: CredentialStep, site: string) =>
-    readCredential(d, step, site, AGAIN);
+  const askCredential = (step: CredentialStep, at: string) =>
+    readStepCredential(d, step, at, AGAIN);
 
   // This machine's credential, missing or refused: asked for first, since
   // a teammate may not be allowed to list the repository's secrets.
@@ -448,10 +1183,73 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
   }
 
+  // The presets, pinned in files that are written only once told to go
+  // ahead. A first run's settings start as the two lines every file has.
+  const beforePresets = printed;
+  const followed = await followPresets(d, {
+    owner,
+    files:
+      settingsText === null
+        ? { ...files, settings: `version: 2\nrepository: ${repository}\n` }
+        : files,
+    listed: listedPresets(),
+    flags,
+    held: looks ? held : null,
+    remembered: looks && !held ? rememberedPresets(site, env) : [],
+  });
+  if (typeof followed === "number") return followed;
+  if (followed.added.length) {
+    files = followed.files;
+    doc = parseDocument(files.settings);
+    from = await d.presets.combined(files);
+    try {
+      settings = parse();
+    } catch (e) {
+      d.out(`The settings would not be valid: ${message(e)}`);
+      d.out(NOTHING);
+      return 1;
+    }
+  }
+  /** Whether a preset turns a part on. */
+  const presetOn = (part: Part): boolean =>
+    from !== null &&
+    settings !== null &&
+    (part === "review"
+      ? from.gives("pr-review")
+      : part === "board"
+        ? from.gives("tickets.board") && settings.tickets.board !== null
+        : part === "from-board"
+          ? from.gives("builds.trigger") && settings.builds.trigger !== "manual"
+          : false);
+  const notAsked: string[] = [];
+  if (from) {
+    const rows = presetRows(from, { tools: d.tools, parts: presetOn });
+    if (rows.length) notAsked.push("From the presets, so not asked");
+    for (const [label, text] of rows)
+      notAsked.push(`  ${label.padEnd(width)} ${text}`);
+  }
+  if (organization.setUp)
+    notAsked.push(
+      `Stored for ${owner}, so not asked`,
+      `  ${listed(organization.stored)}, which turn on builds in the cloud`,
+    );
+  if (notAsked.length) {
+    // A question leaves no line of its own behind it.
+    if (followed.asked && printed === beforePresets) d.out("");
+    else if (followed.added.length) gap();
+    for (const l of notAsked) d.out(l);
+    d.out("");
+  }
+
   const pick = async (kind: "tickets" | "runner", question: string) => {
     const tools = d.tools[kind];
     if (only(tools)) return only(tools)!;
-    const first = named[kind];
+    const first = named()[kind];
+    if (
+      first &&
+      from?.gives(kind === "tickets" ? "tickets.type" : "builds.runner")
+    )
+      return first;
     const names = Object.keys(tools).sort((a, b) =>
       a === first ? -1 : b === first ? 1 : 0,
     );
@@ -463,7 +1261,10 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const chosenTickets = await pick("tickets", "Which ticket system?");
   // A credentials file that cannot be read stops a first setup once the
   // ticket system that would read it is chosen.
-  if (!settings && d.tools.tickets[chosenTickets]!.setup.credential?.machine) {
+  if (
+    settingsText === null &&
+    d.tools.tickets[chosenTickets]!.setup.credential?.machine
+  ) {
     const problem = fileProblem(env);
     if (problem) {
       d.out(problem.line);
@@ -471,22 +1272,22 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     }
   }
   const chosen: Chosen = {
-    codeHost: found.codeHost,
+    codeHost: where.codeHost,
     tickets: chosenTickets,
     runner: await pick("runner", "Where do cloud builds run?"),
     agent: agentName,
   };
-  const branchName =
-    doc.hasIn(["code-host", "branch-name"]) ||
-    (await d.presetBranchName(String(doc))) !== null
-      ? null
-      : await askBranchName(d);
-  const ownSpecs = doc.get("specs");
+  const branchName = given("code-host", "branch-name")
+    ? null
+    : await askBranchName(d);
+  const ownSpecs = inEffect("specs");
   const writtenSpecs = isMap(ownSpecs)
     ? String(ownSpecs.get("type") ?? "none")
-    : ownSpecs === undefined
-      ? await d.presetSpecs(String(doc))
-      : String(ownSpecs);
+    : typeof ownSpecs === "object" && ownSpecs !== null
+      ? String((ownSpecs as { type?: unknown }).type ?? "none")
+      : ownSpecs === undefined
+        ? null
+        : String(ownSpecs);
   const specsAnswer =
     writtenSpecs === null
       ? await d.ask.select(
@@ -510,7 +1311,6 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const withNpm = installing?.install.via.startsWith("npm ") ?? false;
   const ignored = /^\/?node_modules\/?$/m.test(read(".gitignore") ?? "");
 
-  const codeHost = d.tools.codeHost[chosen.codeHost]!.open(repository);
   const runner = d.tools.runner[chosen.runner]!.open(repository);
   const tickets = await d.tools.tickets[chosen.tickets]!.open(
     { repository, board: null },
@@ -529,7 +1329,6 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   let own: string[];
   let npm: NpmSecrets;
   // A secret the organization shares with the repository counts as set.
-  const isOrganization = await codeHost.ownerIsOrganization().catch(() => true);
   let shared: string[] = [];
   try {
     own = await runner.secretNames();
@@ -542,24 +1341,55 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   }
   const secrets = [...own, ...shared];
   const isSet = (n: string) => secrets.includes(n);
+  /** A secret a person keeps on their machine too, which an organization
+   * stores once for all its repositories. */
+  const isKept = (s: { step: SecretStep | CredentialStep }) =>
+    s.step.kind === "secret" && s.step.machine !== undefined;
 
   const cloudNeeds = secretSteps(d.tools, context(["cloud"])).flatMap((s) =>
     s.step.needs.filter((n) => n.part === "cloud"),
   );
   const before = partsOn(settings, secrets, cloudNeeds);
   const first = settingsText === null;
-  const chosenParts = await d.ask.checkbox(
-    "Which parts do you want?",
-    PARTS.map((part) => ({
-      name: PART_TEXT[part].name,
-      description: PART_TEXT[part].gives,
-      value: part,
-      checked: first
-        ? part === "review" || part === "board" || part === "cloud"
-        : before.has(part),
-    })),
+  // In an organization's repository no token of a person's is asked for,
+  // so a part is offered only when the secrets it reads are there.
+  const met = (part: Part) =>
+    secretSteps(d.tools, context([part]))
+      .filter(isKept)
+      .flatMap((s) => s.step.needs.filter((n) => n.part === part))
+      .every((n) => n.anyOf.some(isSet));
+  const reachable = (part: Part) =>
+    met(part) &&
+    (part !== "from-board" || (met("cloud") && met("board"))) &&
+    (part !== "signing" || met("cloud"));
+  const offered = PARTS.filter(
+    (part) =>
+      !presetOn(part) &&
+      (!isOrganization ||
+        (organization.setUp
+          ? part !== "cloud" && part !== "signing"
+          : reachable(part))),
   );
-  const resolved = resolveParts(before, new Set(chosenParts as Part[]));
+  const chosenParts = offered.length
+    ? await d.ask.checkbox(
+        isOrganization ? "Also turn on here?" : "Which parts do you want?",
+        offered.map((part) => ({
+          name: PART_TEXT[part].name,
+          description: PART_TEXT[part].gives,
+          value: part,
+          checked: first
+            ? part === "review" || part === "board" || part === "cloud"
+            : before.has(part),
+        })),
+      )
+    : [];
+  const resolved = resolveParts(
+    before,
+    new Set([
+      ...(chosenParts as Part[]),
+      ...PARTS.filter((p) => before.has(p) && !offered.includes(p)),
+    ]),
+  );
   const parts = resolved.parts;
   for (const note of resolved.notes) d.out(note);
   const removed = PARTS.filter((p) => before.has(p) && !parts.has(p));
@@ -569,6 +1399,8 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   let board: number | "new" | null = parts.has("board")
     ? (settings?.tickets.board ?? null)
     : null;
+  /** A board a preset names is its owner's to shape. */
+  const ownBoard = !(from?.gives("tickets.board") ?? false);
   const chooseBoard = async (
     offerNew: boolean,
   ): Promise<number | "new" | null> => {
@@ -647,7 +1479,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   // column is asked for when builds from the board turn on without one.
   let columnLines: [string, string][] = [];
   let readyColumn: string | null | undefined;
-  const writtenColumns = writtenColumnsOf(doc.toJS());
+  const writtenColumns = writtenColumnsOf(from?.raw ?? doc.toJS());
   const missing = (Object.keys(STATE_KEYS) as StateKey[]).filter(
     (k) => !(k in writtenColumns),
   );
@@ -663,7 +1495,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         names = await boardOps.columns(board);
       } catch (e) {
         d.out(`Could not read board ${board}'s columns: ${message(e)}`);
-        d.out("Nothing changed.");
+        d.out(NOTHING);
         return 1;
       }
     const lacks = Object.values(STATE_KEYS).some(
@@ -703,14 +1535,14 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   let fieldLines: [string, string][] = [];
   if (
     tickets.fields &&
-    !FACTORY_FIELDS.some((f) => doc.hasIn(["tickets", "fields", f.key]))
+    !FACTORY_FIELDS.some((f) => given("tickets", "fields", f.key))
   ) {
     let text: TicketField[];
     try {
       text = (await tickets.fields.list()).filter((f) => f.text);
     } catch (e) {
       d.out(`Could not read ${repository}'s ticket fields: ${message(e)}`);
-      d.out("Nothing changed.");
+      d.out(NOTHING);
       return 1;
     }
     if (text.length) {
@@ -730,14 +1562,15 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   }
 
   // The settings as they will stand, keeping every other key and comment.
+  // A value a preset gives is not written again.
   if (!doc.has("version")) doc.set("version", 2);
   if (!doc.has("repository")) doc.set("repository", repository);
   // A tool other than the one a setting defaults to is written down.
-  if ((doc.getIn(["tickets", "type"]) ?? "github") !== chosen.tickets)
+  if ((inEffect("tickets", "type") ?? "github") !== chosen.tickets)
     doc.setIn(["tickets", "type"], chosen.tickets);
-  if ((doc.getIn(["builds", "runner"]) ?? DEFAULT_RUNNER) !== chosen.runner)
+  if ((inEffect("builds", "runner") ?? DEFAULT_RUNNER) !== chosen.runner)
     doc.setIn(["builds", "runner"], chosen.runner);
-  if (parts.has("board") && typeof board === "number")
+  if (parts.has("board") && typeof board === "number" && ownBoard)
     doc.setIn(["tickets", "board"], board);
   for (const [key, name] of columnLines)
     doc.setIn(["tickets", "columns", key], name);
@@ -759,8 +1592,9 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     doc.setIn(["code-host", "branch-name"], quoted);
   }
   if (specsAnswer !== null) doc.set("specs", specsAnswer);
-  if (parts.has("from-board")) doc.setIn(["builds", "trigger"], trigger);
-  else if (before.has("from-board")) remove(doc, ["builds", "trigger"]);
+  if (parts.has("from-board")) {
+    if (!presetOn("from-board")) doc.setIn(["builds", "trigger"], trigger);
+  } else if (before.has("from-board")) remove(doc, ["builds", "trigger"]);
   if (pollMinutes !== null && pollMinutes !== 5)
     doc.setIn(["builds", "poll-minutes"], pollMinutes);
   if (!parts.has("from-board") || trigger !== "github-action")
@@ -769,7 +1603,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   else remove(doc, ["auto-merge", "allow"]);
   // The review is on while its setting is written; the sync writes its
   // workflow then, and removes it once the setting is gone.
-  if (parts.has("review") && !doc.has("pr-review"))
+  if (parts.has("review") && !given("pr-review"))
     doc.setIn(["pr-review", "commands"], []);
   if (!parts.has("review")) doc.delete("pr-review");
 
@@ -781,7 +1615,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     );
   for (const step of values(parts)) {
     if (step.part !== null && !parts.has(step.part)) continue;
-    if (doc.hasIn(["tickets", step.key])) continue;
+    if (given("tickets", step.key)) continue;
     doc.setIn(
       ["tickets", step.key],
       await d.ask.input(step.ask, step.fallback ?? ""),
@@ -791,9 +1625,16 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     if (step.part !== null && removed.includes(step.part))
       remove(doc, ["tickets", step.key]);
 
+  // The one command that checks a change, when nothing names any.
+  if (!settings?.commands.gate.length) {
+    const command = (await d.ask.input(GATE_QUESTION, "")).trim();
+    if (command) doc.setIn(["commands", "gate"], [command]);
+  }
+
   // The secrets: those the parts read that are not set, or all of them when
   // you choose to replace them.
-  const steps = secretSteps(d.tools, context(parts));
+  const every = secretSteps(d.tools, context(parts));
+  const steps = isOrganization ? every.filter((s) => !isKept(s)) : every;
   const needed = neededSecrets(parts, steps);
   const npmBothSet = npm.tokens.filter(
     (n) => isSet(n) && npm.dependabot(n) === "set",
@@ -818,8 +1659,9 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     );
   const asked = steps
     .filter(({ step }) => replace || unmet(step))
-    .map(({ step }) => ({
+    .map(({ step, name: tool }) => ({
       step,
+      tool,
       // A credential's parts are checked together, so all are stored.
       names:
         step.kind === "secret"
@@ -832,23 +1674,42 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   // A credential kept on the machine: the site it is filed under, and on
   // a first setup the one the file already holds for it, when accepted.
   const siteOf = (step: CredentialStep) =>
-    step.machine
-      ? String(doc.getIn(["tickets", step.machine.under]) ?? "")
-      : "";
+    step.machine ? String(inEffect("tickets", step.machine.under) ?? "") : "";
   const machineAsked = asked.find(
-    (a): a is { step: CredentialStep; names: string[] } =>
+    (a): a is { step: CredentialStep; tool: string; names: string[] } =>
       a.step.kind === "credential" && a.step.machine !== null,
   );
   if (machineAsked && !fromMachine) {
-    const held = await machineState(
+    const found = await machineState(
       machineAsked.step,
       chosen.tickets,
       siteOf(machineAsked.step),
       env,
     );
-    if (held.state === "accepted") fromMachine = held;
+    if (found.state === "accepted") fromMachine = found;
   }
   const storesOnMachine = machineAsked !== undefined && !fromMachine;
+  // A person's own tokens: each one this machine holds that still serves
+  // is stored from here, and each other is asked for and kept here.
+  const keptAsked = asked.flatMap((a) => {
+    const kept = keeps.find((k) => k.name === a.tool)?.kept;
+    return a.step.kind === "secret" && a.step.machine && kept
+      ? [{ ...a, step: a.step, kept }]
+      : [];
+  });
+  const servedFrom = new Map<SecretStep, { value: string; account?: string }>();
+  const stale = new Map<SecretStep, string>();
+  for (const a of keptAsked) {
+    const value = heldOn(a.tool, a.kept.name);
+    if (value === null) continue;
+    try {
+      const served = (await a.step.machine!.serves?.(value, owner)) ?? {};
+      servedFrom.set(a.step, { value, account: served.account });
+    } catch (e) {
+      stale.set(a.step, message(e));
+    }
+  }
+  const keeping = keptAsked.filter((a) => !servedFrom.has(a.step));
   const wantsKey = parts.has("signing") && (replace || !isSet(SIGNING_KEY));
   const npmAsked = npm.tokens
     .map((name) => {
@@ -862,25 +1723,58 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     })
     .filter((a) => a.actions || a.dependabot);
 
-  const stillRead = new Set(needed.flatMap((n) => n.anyOf));
+  // A secret a part that went read is the repository's to delete, and so
+  // is its own copy of one the organization now stores for it.
+  const stillRead = new Set(
+    neededSecrets(parts, every).flatMap((n) => n.anyOf),
+  );
+  const covered = organization.setUp
+    ? [...everyKept.flatMap((k) => k.kept.secrets), SIGNING_KEY].filter((n) =>
+        own.includes(n),
+      )
+    : [];
   const deletable = [
-    ...new Set(
-      neededSecrets(new Set(removed), secretSteps(d.tools, context(removed)))
+    ...new Set([
+      ...neededSecrets(new Set(removed), secretSteps(d.tools, context(removed)))
         .flatMap((n) => n.anyOf)
         .filter((n) => own.includes(n) && !stillRead.has(n)),
-    ),
+      ...covered,
+    ]),
   ];
+
+  // The rule that requires the review's verdict. An organization's own
+  // rule covers a repository with its property, and a repository's rule
+  // waits for the workflow that posts the verdict to be on the default
+  // branch: a pull request that adds the workflow would wait forever.
+  const properties = isOrganization
+    ? await codeHost.properties().catch(() => ({}))
+    : {};
+  const ownerRule = isOrganization && PROPERTY in properties;
+  const rule = parts.has("review") && !ownerRule;
+  const posts =
+    rule &&
+    (await runner
+      .workflowState(FACTORY_FILE.split("/").at(-1)!)
+      .catch(() => "missing")) !== "missing";
 
   // The plan.
   const newText = String(doc);
   const writes = [
     ...(newText !== settingsText ? [SETTINGS_FILE] : []),
+    ...(files.lock !== null && files.lock !== read(LOCK_FILE)
+      ? [LOCK_FILE]
+      : []),
+    ...(files.choices !== null && files.choices !== read(CHOICES_FILE)
+      ? [CHOICES_FILE]
+      : []),
     ...(withNpm && !hasPackage ? ["package.json"] : []),
     ...(withNpm && !ignored ? [".gitignore"] : []),
   ];
   let syncs: string[];
   try {
-    syncs = await d.syncChanges(newText, () => codeHost.defaultBranch());
+    syncs = await d.syncChanges(standingFiles(), () =>
+      codeHost.defaultBranch(),
+    );
   } catch (e) {
     d.out(
       e instanceof NoDefaultBranch
@@ -889,38 +1783,63 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     );
     return 1;
   }
+  const paths = [...new Set([...writes, ...syncs])];
+  const branch = paths.length ? freeBranch(d, where.remote) : null;
   const toStore = [
     ...asked.flatMap((a) => a.names),
     ...(wantsKey ? [SIGNING_KEY] : []),
   ];
-  d.out("");
-  d.out("This is everything setup will do:");
+  const planned: string[] = [];
   const planRow = (label: string, text: string) =>
-    d.out(`  ${label.padEnd(8)} ${text}`);
-  for (const path of [...writes, ...syncs]) planRow("Write", path);
+    planned.push(`${label.padEnd(12)}  ${text}`);
+  const reviewers = (await standing())?.plugins
+    .filter((p) => p.kind === "agent" && /reviewer$/.test(p.role))
+    .map((p) => p.name);
+  for (const [label, text] of fileRows(
+    paths,
+    shipsText(
+      syncs.filter((p) => from?.ships.includes(p)),
+      {
+        owner,
+        ownPresets: listedPresets().every(
+          (p) =>
+            ownerOf(parseName(p).repo).toLowerCase() === owner.toLowerCase(),
+        ),
+        reviewers: reviewers ?? [],
+      },
+    ),
+  ))
+    planRow(label, text);
   if (board === "new")
     planRow(
-      "Create",
+      "create",
       `board "${name}" under ${owner}, linked to the repository, with the factory's columns and fields`,
     );
-  else if (parts.has("board") && typeof board === "number")
+  else if (parts.has("board") && typeof board === "number" && ownBoard)
     planRow(
-      "Board",
+      "board",
       `give board ${board} any of the factory's columns and fields it lacks`,
     );
-  if (toStore.length) planRow("Secrets", toStore.join(", "));
-  if (storesOnMachine)
+  if (toStore.length) planRow("secrets", toStore.join(", "));
+  if (storesOnMachine || keeping.length)
     planRow(
-      "Store",
-      `your ${d.tools.tickets[chosen.tickets]!.label} credential on this machine, in ${shownPath(credentialsPath(env))}`,
+      "store",
+      `${listed([
+        ...keeps
+          .filter((k) => keeping.some((a) => a.tool === k.name))
+          .map((k) => `your ${k.kept.what}`),
+        ...(storesOnMachine
+          ? [`your ${d.tools.tickets[chosen.tickets]!.label} credential`]
+          : []),
+      ])} on this machine, in ${shownPath(credentialsPath(env))}`,
     );
-  for (const a of npmAsked) planRow("Secrets", `${a.name} ${forWhich(a)}`);
+  for (const a of npmAsked) planRow("secrets", `${a.name} ${forWhich(a)}`);
   if (parts.has("auto-merge"))
-    planRow("Settings", "allow auto-merge on the repository");
-  if (parts.has("review"))
+    planRow("repository", "allow auto-merge on the repository");
+  if (rule)
     planRow(
-      "Rules",
-      `Require "${REVIEW_VERDICT}" before a merge to the default branch, as the rule "${RULE}"`,
+      "rules",
+      `Require "${REVIEW_VERDICT}" before a merge to the default branch, as the rule "${RULE}"${posts ? "" : ", once this pull request merges"}`,
     );
   // A code host may hold a workflow's events back in a repository anyone
   // can read. One that cannot say gets no row, and doctor's line instead.
@@ -930,22 +1849,30 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       .catch(() => null)) === "blocked";
   if (eventsHeld)
     planRow(
-      "Policy",
+      "policy",
       `Let ${FACTORY_FILE} run on ${HELD_EVENT}, as the policy "${RULE}"`,
     );
   if (installing)
     planRow(
-      "Install",
+      "install",
       `${installing.install.package}, with ${installing.install.via}`,
     );
-  for (const part of removed) planRow("Turn off", PART_TEXT[part].name);
-  if (!(await d.ask.confirm("Go ahead?", true))) {
-    d.out("Nothing changed.");
+  for (const part of removed) planRow("turn off", PART_TEXT[part].name);
+  if (branch)
+    planRow(
+      "pull request",
+      `Push the branch ${branch} and open a pull request`,
+    );
+  d.out("");
+  d.out("This is everything setup will do:");
+  for (const l of planned) d.out(`  ${l}`);
+  if (!(await d.ask.confirm("Go ahead?", false))) {
+    d.out(NOTHING);
     return 0;
   }
 
   // The board first, since the settings name its number.
-  if (parts.has("board") && boardOps) {
+  if (parts.has("board") && boardOps && ownBoard) {
     const { create } = boardOps;
     const creating = board === "new";
     while (board === "new") {
@@ -966,7 +1893,7 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         for (const [key, name] of FACTORY_LINES)
           doc.setIn(["tickets", "columns", key], name);
       try {
-        await giveBoard(d, boardOps, board, boardShape(standing()));
+        await giveBoard(d, boardOps, board, boardShape(await standing()));
       } catch (e) {
         d.out(
           `Could not give board ${board} its columns and fields: ${message(e)}`,
@@ -995,6 +1922,11 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
     );
   }
   write(SETTINGS_FILE, String(doc));
+  if (followed.added.length) {
+    if (files.lock !== null) write(LOCK_FILE, files.lock);
+    if (files.choices !== null) write(CHOICES_FILE, files.choices);
+    rememberPresets(site, listedPresets(), env);
+  }
   let installFailed: string | null = null;
   if (installing) {
     const { package: pkg, via } = installing.install;
@@ -1009,11 +1941,24 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const synced = await d.sync();
   if (synced !== 0) d.out("The sync failed, as above.");
 
+  // The gate, before anything is committed: a build could not finish in a
+  // repository whose own check fails.
+  const standingNow = await standing();
+  const gate = standingNow?.commands.gate ?? [];
+  let afterGate = -1;
+  if (gate.length && synced === 0) {
+    gap();
+    if (!(await runGate(d, gate))) return 1;
+    afterGate = printed;
+  }
+
   // Each tool's secrets, in the tools' order.
   let tokenAccount: string | null = null;
-  for (const { step, names } of asked) {
+  const stored = new Set<string>();
+  let fromThisMachine = 0;
+  for (const { step, names, tool } of asked) {
     if (step.kind === "credential") {
-      const site = siteOf(step);
+      const at = siteOf(step);
       if (step.machine && fromMachine) {
         for (const n of names)
           await runner.setSecret(n, fromMachine.values[n]!);
@@ -1022,13 +1967,13 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         );
         continue;
       }
-      const got = await askCredential(step, site);
+      const got = await askCredential(step, at);
       if (!got) continue;
       for (const n of names) await runner.setSecret(n, got.values[n]!);
       if (step.machine)
         writeCredential({
           tool: chosen.tickets,
-          site,
+          site: at,
           values: got.values,
           env,
         });
@@ -1037,12 +1982,42 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       );
       continue;
     }
+    const served = servedFrom.get(step);
+    if (served) {
+      for (const n of names) await runner.setSecret(n, served.value);
+      for (const n of names) stored.add(n);
+      fromThisMachine += names.length;
+      if (served.account !== undefined) tokenAccount = served.account;
+      continue;
+    }
+    if (stale.has(step)) {
+      d.out("");
+      d.out(stale.get(step)!);
+    }
     const got = await askSecret(d, step, AGAIN);
     if (!got) continue;
     for (const n of names) await runner.setSecret(n, got.value);
+    for (const n of names) stored.add(n);
     if (got.account !== undefined) tokenAccount = got.account;
-    d.out(step.stored(names, got.account));
+    const kept = keeping.find((a) => a.step === step)?.kept;
+    if (!kept) {
+      d.out(step.stored(names, got.account));
+      continue;
+    }
+    writeCredential({
+      tool,
+      site,
+      values: { [kept.name]: got.value },
+      env,
+    });
+    d.out(
+      `${got.account === undefined ? "" : `It belongs to ${got.account}. `}Stored for ${repository}, and on this machine for your next repository.`,
+    );
   }
+  if (fromThisMachine)
+    d.out(
+      `✓ Stored ${fromThisMachine} secret${fromThisMachine === 1 ? "" : "s"} for ${repository} from this machine.`,
+    );
 
   // The tokens .npmrc reads, each stored where it is missing.
   for (const a of npmAsked) {
@@ -1113,13 +2088,15 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   }
 
   // The repository's settings.
+  let autoMergeLeft: string | null = null;
   if (parts.has("auto-merge"))
+    await codeHost.allowAutoMerge().catch((e) => {
+      d.out(`Could not allow auto-merge: ${message(e)}`);
+      autoMergeLeft = `An admin of ${repository} allows auto-merge: Settings, General, "Allow auto-merge"`;
+    });
+  if (posts)
     await codeHost
-      .allowAutoMerge()
-      .catch((e) => d.out(`Could not allow auto-merge: ${message(e)}`));
-  if (parts.has("review"))
-    await codeHost
-      .requireCheck(RULE, REVIEW_VERDICT)
+      .requireCheck(RULE, REVIEW_VERDICT, "runner")
       .catch((e) =>
         d.out(
           `Could not require "${REVIEW_VERDICT}": ${message(e)}. Carrying on.`,
@@ -1136,15 +2113,38 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
       },
     );
 
-  // What is left for you.
-  d.out("");
+  // The pull request, and what is left for you.
+  if (afterGate !== printed) gap();
   if (deletable.length)
     d.out(`You can now delete these secrets: ${deletable.join(", ")}`);
+  const pull =
+    branch && synced === 0
+      ? await openPull(d, {
+          codeHost,
+          repository,
+          remote: where.remote,
+          base,
+          branch,
+          paths: [
+            ...paths,
+            ...(installing && withNpm
+              ? ["package.json", "package-lock.json"]
+              : []),
+          ],
+          title:
+            d.git(["cat-file", "-e", `${checkout.sha}:${SETTINGS_FILE}`])
+              .status === 0
+              ? CHANGE
+              : SET_UP,
+          body: ["```text", ...planned, "```", ""].join("\n"),
+        })
+      : null;
+  if (pull?.state === "failed") return 1;
+  if (!branch) d.out(NOTHING_TO_COMMIT);
+  else if (!pull) d.out(NOT_COMMITTED);
   const left: string[] = installFailed ? [installFailed] : [];
   if (eventsLeft) left.push(eventsLeft);
-  const app = codeHost.reviewAppPage();
-  if (parts.has("review") && app)
-    left.push(`Install the app the review posts through: ${app}`);
+  if (autoMergeLeft) left.push(autoMergeLeft);
   if (
     parts.has("from-board") &&
     trigger === "own-server" &&
@@ -1157,17 +2157,31 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
         `       FACTORY_BOARD_OWNER=${owner}`,
         `       FACTORY_BOARD_NUMBER=${board}`,
         "       FACTORY_BOARD_TOKEN=the access token you just made",
-        `       FACTORY_READY_COLUMN=${columnsOf(standing()!).Ready?.[0]}`,
+        `       FACTORY_READY_COLUMN=${columnsOf(standingNow!).Ready?.[0]}`,
       ].join("\n"),
     );
-  // Init asks for no command, so a gate is the owner's to add: without one
-  // `factory gate` fails, and a build cannot finish.
-  if (!settings?.commands.gate.length)
+  // Without a gate `factory gate` fails, and a build cannot finish.
+  if (!gate.length)
     left.push(
       `Add the commands that check a change, under commands.gate in ${SETTINGS_FILE}`,
     );
-  left.push("Commit this on a branch, open a pull request, and merge it.");
-  d.out("Nothing is committed. Left to do:");
+  // The first run on the default branch requires the verdict, with the
+  // organization's app or a person's build token. With neither, an admin
+  // does.
+  const enrolls =
+    (organization.setUp && ownerRule) ||
+    [BUILD_TOKEN, BOARD_TOKEN].some((n) => isSet(n) || stored.has(n));
+  if (rule && !posts && !enrolls)
+    left.push(
+      `Once it merges, an admin of ${repository} runs factory init, to require "${REVIEW_VERDICT}"`,
+    );
+  if (pull?.state === "opened")
+    d.out(
+      left.length
+        ? "Merge it to finish. Left to do:"
+        : "Merge it to finish. Nothing else is left to do.",
+    );
+  else if (left.length) d.out("Left to do:");
   left.forEach((step, i) => d.out(`  ${i + 1}. ${step}`));
 
   d.out("");
@@ -1175,6 +2189,158 @@ export async function main(_argv: string[], d: InitDeps): Promise<number> {
   const found2 = await d.checks();
   for (const l of printChecks(found2, d.paint, 2)) d.out(l);
   return found2.some((c) => c.state === "fail") ? 1 : 0;
+}
+
+/** The folders of a checkout that hold a preset, "" for its root first. */
+function presetFolders(dir: string, under = ""): string[] {
+  const here = join(dir, under);
+  return [
+    ...(existsSync(join(here, PRESET_FILE)) ? [under] : []),
+    ...readdirSync(here, { withFileTypes: true })
+      .filter(
+        (e) =>
+          e.isDirectory() && e.name !== ".git" && e.name !== "node_modules",
+      )
+      .map((e) => e.name)
+      .sort()
+      .flatMap((sub) => presetFolders(dir, under ? `${under}/${sub}` : sub)),
+  ];
+}
+
+/** The first comment line of a preset's file, without its mark. */
+const firstComment = (text: string) =>
+  /^#\s*(.*)$/m.exec(text)?.[1]?.trim() ?? "";
+
+/** The presets as `init` reads and pins them, for the repository at
+ * `root`. `fetch` gives what reads a preset's repository. */
+export function presetSource(
+  root: string,
+  o: {
+    fetch?: (repository: string, codeHost: string) => FetchDeps;
+    now?: () => Date;
+    paint?: Paint;
+  } = {},
+): Presets {
+  const fetch =
+    o.fetch ?? ((repository, codeHost) => fetchDeps(repository, codeHost));
+  const resolve = (files: Files, partial: boolean) =>
+    resolveFiles(
+      {
+        ...filesDeps(root),
+        readFile: () => files.settings,
+        readChoices: () => files.choices,
+        readLock: () => files.lock,
+      },
+      { partial },
+    );
+  return {
+    held: async (repository, codeHost, from) => {
+      const f = fetch(from, codeHost);
+      let dir: string;
+      try {
+        dir = fetchCommit(f, repository, newestCommit(f, repository));
+      } catch (e) {
+        if (e instanceof FetchError) return null;
+        throw e;
+      }
+      return presetFolders(dir).map((folder) => ({
+        name: folder ? `${repository}//${folder}` : repository,
+        about: firstComment(
+          readFileSync(join(dir, folder, PRESET_FILE), "utf8"),
+        ),
+      }));
+    },
+
+    add: async (name, files, io) => {
+      const { add } = await import("./preset-commands.mts");
+      const next: Record<string, string | null> = {
+        [SETTINGS_FILE]: files.settings,
+        [CHOICES_FILE]: files.choices,
+        [LOCK_FILE]: files.lock,
+      };
+      // The command's own lines, up to its last question: what it says
+      // once it has applied is said by the plan here, and nothing is
+      // written until that is approved.
+      let lines: string[] = [];
+      let applied = false;
+      const flush = () => {
+        for (const l of lines) io.out(l);
+        lines = [];
+      };
+      const code = await add([name], {
+        root,
+        cwd: root,
+        out: (l) => {
+          if (!applied) lines.push(l);
+        },
+        err: (l) => lines.push(l),
+        terminal: true,
+        ask: async (question) => {
+          if (question.startsWith("Apply?")) {
+            if (lines.at(-1) === "") lines.pop();
+            flush();
+            applied = true;
+            return "y";
+          }
+          flush();
+          return io.ask.input(question.trim(), "");
+        },
+        sync: async () => 0,
+        show: () => null,
+        resolve: (own, choices, lock) =>
+          resolve(
+            {
+              settings: own,
+              choices,
+              lock: lock === undefined ? next[LOCK_FILE]! : lock,
+            },
+            true,
+          ),
+        write: (path, text) => {
+          next[path] = text;
+        },
+        read: (path) =>
+          path in next
+            ? next[path]!
+            : existsSync(join(root, path))
+              ? readFileSync(join(root, path), "utf8")
+              : null,
+        fetch,
+        now: o.now ?? (() => new Date()),
+        paint: o.paint,
+      });
+      flush();
+      return code === 0
+        ? {
+            settings: next[SETTINGS_FILE]!,
+            choices: next[CHOICES_FILE]!,
+            lock: next[LOCK_FILE]!,
+          }
+        : null;
+    },
+
+    combined: async (files) => {
+      try {
+        const r = await resolve(files, true);
+        if (!r.presets.length) return null;
+        const sources = [...r.resolution.sources];
+        return {
+          raw: r.resolution.raw,
+          gives: (key) =>
+            sources.some(
+              ([k, source]) =>
+                source.from !== OWN &&
+                (k === key ||
+                  k.startsWith(`${key}.`) ||
+                  k.startsWith(`${key}[`)),
+            ),
+          ships: [...r.resolution.files.keys()],
+        };
+      } catch {
+        return null;
+      }
+    },
+  };
 }
 
 /** The dependencies `run` gives `main`, for the repository at `root`. Its
@@ -1186,35 +2352,69 @@ export async function initDeps(
   const manifest = JSON.parse(
     readFileSync(join(PACKAGE, "package.json"), "utf8"),
   ) as { name: string; version: string };
+  const git: InitDeps["git"] = (args) => {
+    // Its input is the terminal's, for a signing key that asks for a
+    // passphrase.
+    const r = spawnSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["inherit", "pipe", "pipe"],
+    });
+    return {
+      status: r.status ?? 1,
+      stdout: r.stdout ?? "",
+      stderr: r.stderr || (r.error?.message ?? ""),
+    };
+  };
+  const paint = painter(colorOn(stream));
   return {
     root,
     ask: await terminalAsk(),
     out: (l) => console.log(l),
-    remote: () => {
-      try {
-        return execFileSync("git", ["remote", "get-url", "origin"], {
-          cwd: root,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-        }).trim();
-      } catch {
-        return null;
-      }
+    remotes: () =>
+      git(["remote", "-v"])
+        .stdout.split("\n")
+        .flatMap((line) => {
+          const match = /^(\S+)\t(.+) \(fetch\)$/.exec(line);
+          return match ? [{ name: match[1]!, url: match[2]! }] : [];
+        }),
+    git,
+    forkOf: (codeHost, repository) =>
+      TOOLS.codeHost[codeHost]!.forkOf(repository),
+    gate: async (command) => {
+      const r = spawnSync("bash", ["-c", `exec 2>&1\n${command}`], {
+        cwd: root,
+        encoding: "utf8",
+        // npm 11 prints a notice line for every script and npx it runs.
+        env: { npm_config_loglevel: "warn", ...process.env },
+        stdio: ["ignore", "pipe", "ignore"],
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      return {
+        status: r.status ?? 1,
+        output: r.stdout || (r.error?.message ?? ""),
+      };
     },
+    presets: presetSource(root, { paint }),
     tools: TOOLS,
     sync: async () => (await import("./sync.mts")).run([], false),
     // The settings are not written yet, so the code host asked is the one
-    // setup has just opened, not the one a settings file names.
-    syncChanges: async (text, host) => {
+    // setup has just opened, and the remote read is the one of the
+    // repository it chose.
+    syncChanges: async (files, host) => {
       const r = await resolveFiles({
         ...filesDeps(root),
-        readFile: () => text,
+        readFile: () => files.settings,
+        readChoices: () => files.choices,
+        readLock: () => files.lock,
       });
-      const branch = await needDefaultBranch({ ...branchDeps(root), host });
+      const branch = await needDefaultBranch({
+        ...branchDeps(root),
+        host,
+        repository: async () => r.settings.repository,
+      });
       return differences(root, await syncPlan(PACKAGE, root, r, branch));
     },
-    presetBranchName: presetBranchNameAt(root),
-    presetSpecs: presetSpecsAt(root),
     install: async (argv2) => {
       const r = spawnSync(argv2[0]!, argv2.slice(1), {
         cwd: root,
@@ -1244,7 +2444,7 @@ export async function initDeps(
       }
     },
     checks: () => doctorChecks(doctorDeps(root)),
-    paint: painter(colorOn(stream)),
+    paint,
     packageName: manifest.name,
     packageVersion: manifest.version,
   };

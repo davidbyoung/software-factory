@@ -27,6 +27,12 @@ const read = (root: string, path: string) =>
   existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null;
 
 export const claudeCodeSetup: ToolSetup = {
+  kept: {
+    name: AGENT_TOKEN,
+    what: "Claude token",
+    secrets: [AGENT_TOKEN, AGENT_KEY],
+  },
+
   steps: (c) => {
     const parts = READS.filter((p) => c.parts.has(p));
     if (!parts.length) return [];
@@ -43,6 +49,7 @@ export const claudeCodeSetup: ToolSetup = {
         prompt: "Paste the token it printed (leave empty to do this later):",
         skipped: `No ${AGENT_TOKEN} stored.`,
         stored: (names) => `Stored as ${names.join(", ")}.`,
+        machine: {},
       },
     ];
   },
