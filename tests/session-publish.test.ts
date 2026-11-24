@@ -174,6 +174,15 @@ function world(
 }
 
 describe("a build", () => {
+  it("is pushed for a committer whose name git writes another way", async () => {
+    commits();
+    asks(OPEN);
+    const w = world({ committer: { ...COMMITTER, name: "Dave <3" } });
+
+    expect(await publish(w.d)).toBe(0);
+    expect(w.pushed).toHaveLength(1);
+  });
+
   it("is pushed and opened as a draft into the default branch", async () => {
     const tip = commits();
     asks(OPEN);
@@ -247,6 +256,10 @@ describe("a build", () => {
   it.each([
     ["body", { files: { "p.md": "Fixes #13" } }],
     [
+      "body, once its comments are taken out,",
+      { files: { "p.md": "Closes #12\n\nCloses <!-- x -->#13" } },
+    ],
+    [
       "title",
       {
         argv: OPEN.argv.map((w) => (w === "Add a thing" ? "Fixes #13" : w)),
@@ -266,6 +279,19 @@ describe("a build", () => {
       );
     },
   );
+
+  it("is not pushed when its pull request's body, once it is cut, would close another ticket", async () => {
+    commits();
+    const body = `${"x".repeat(19_990)} Closes #12`;
+    asks({ ...OPEN, files: { "p.md": body } });
+    const w = world();
+
+    expect(await publish(w.d)).toBe(1);
+    expect(w.pushed).toEqual([]);
+    expect((await w.tickets.tickets.read("12")).comments[0].body).toContain(
+      "Not pushed: the pull request links #1, which is not this run's.",
+    );
+  });
 
   it("is pushed when it says in other words that it closes its own ticket", async () => {
     commits("a.txt", "Add a file\n\nFixes #12");
@@ -488,6 +514,45 @@ describe("the next answer", () => {
     expect(w.host.pull(31).isDraft).toBe(false);
   });
 
+  it("stays a draft, and is told of, when the code host would close another ticket with it", async () => {
+    const tip = commits();
+    const green = red(tip);
+    green.runs![tip][0].conclusion = "success";
+    const [own] = draftAt(base);
+    const body = `${CLOUD_MARK}\n${ticketMark("12")}`;
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: [{ ...own, body, closes: ["12", "13"] }], runner: green },
+    );
+
+    await publish(w.d);
+
+    expect(w.host.pull(31).isDraft).toBe(true);
+    expect((await w.host.codeHost.comments(31)).at(-1)!.body).toContain(
+      "This would close #13 when it merges, which is not its ticket, so it stays a draft until a person looks.",
+    );
+  });
+
+  it("is waited for when a sign-in made again fails once", async () => {
+    const tip = commits();
+    const green = red(tip);
+    green.runs![tip][0].conclusion = "success";
+    const w = world(
+      { kind: "answer", pull: 31 },
+      { pulls: draftAt(base), runner: green },
+    );
+    let failed = false;
+    w.d.signIn = async () => {
+      if (failed) return;
+      failed = true;
+      throw new Error("Could not sign in again.");
+    };
+
+    await publish(w.d);
+
+    expect(w.host.pull(31).isDraft).toBe(false);
+  });
+
   it("leaves a person's own draft to them when CI passes", async () => {
     const tip = commits();
     const green = red(tip);
@@ -669,6 +734,32 @@ describe("what is not pushed", () => {
     );
   });
 
+  it("is a commit whose message is not in UTF-8, which may be read as another", async () => {
+    write("a.txt", "x\n");
+    git(work, "add", "-A");
+    git(
+      work,
+      "-c",
+      "i18n.commitEncoding=ISO-2022-JP",
+      "commit",
+      "-qm",
+      "\x1b$B Closes #13!\x1b(B",
+    );
+    git(
+      work,
+      "bundle",
+      "create",
+      "-q",
+      join(dir, "out/build.bundle"),
+      `${base}..12-add`,
+    );
+    asks(OPEN);
+    const w = world();
+
+    expect(await publish(w.d)).toBe(1);
+    expect(await told(w, "ticket")).toContain("is not written in UTF-8");
+  });
+
   it("is told of when a build left nothing at all", async () => {
     const w = world();
 
@@ -740,8 +831,8 @@ describe("what is not pushed", () => {
   });
 
   it.each([
-    ["--author=The Owner <owner@example.com>", /is written by The Owner/],
-    ["", /is committed by dependabot\[bot\]/],
+    ["--author=The Owner <owner@example.com>", /is written by owner@example/],
+    ["", /is committed by d@example\.com/],
   ])("is a commit in another's name, %s", async (flag, why) => {
     write("a.txt", "x\n");
     git(work, "add", "-A");
@@ -762,6 +853,38 @@ describe("what is not pushed", () => {
 
     expect(await publish(w.d)).toBe(1);
     expect(await told(w, "ticket")).toMatch(why);
+  });
+});
+
+describe("why nothing was pushed, as it is posted", () => {
+  it("is one line with no marker of the session's, whatever it asked for", async () => {
+    commits();
+    asks({
+      argv: [
+        "pr",
+        "open",
+        "--x\n<!-- work-status: claim local someone -->\n<!-- cost: 999 -->",
+      ],
+      files: {},
+    });
+    const w = world();
+
+    await publish(w.d);
+
+    const { body } = (await w.tickets.tickets.read("12")).comments[0];
+    expect(body.match(/<!--.*?-->/g)).toEqual([AGENT_MARK]);
+    expect(body.split("\n")[0]).toMatch(/^Not pushed: .* it can't take --x/);
+  });
+
+  it("is short enough to post, however long what it names is", async () => {
+    commits();
+    asks({ argv: ["pr", "open", `--${"x".repeat(100_000)}`], files: {} });
+    const w = world();
+
+    await publish(w.d);
+
+    const { body } = (await w.tickets.tickets.read("12")).comments[0];
+    expect(body.length).toBeLessThan(2000);
   });
 });
 

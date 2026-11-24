@@ -31,7 +31,8 @@ import { join } from "node:path";
 import { reachOf, repoRoot } from "./config.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost } from "./code-host/types.mts";
-import { reviewPending } from "./pr.mts";
+import { setTimeout as sleep } from "node:timers/promises";
+import { conflicts, reviewPending } from "./pr.mts";
 
 /** A run on a pull request with no review's number has its work named by
  * what started it, so only a person's review is asked about. */
@@ -150,6 +151,11 @@ export function workOf(
     if (kind === "build") return "";
     const [pr, review] = numbers;
     if (!pr) throw new Error(USAGE);
+    // It may have waited for another run on the same pull request.
+    if (kind === "conflict" && !(await conflicts(p, pr, sleep))) {
+      out(`nothing to do: #${pr} does not conflict, or a run stopped on it`);
+      return null;
+    }
     if (kind !== "answer" || !review) return foundLine(kind, pr);
     const answer = await reviewPending(p, pr, review);
     if (!answer.pending) out(`nothing to do: ${answer.why}`);

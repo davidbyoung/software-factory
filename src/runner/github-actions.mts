@@ -31,6 +31,7 @@ type DispatchedRun = {
   display_title: string;
   created_at: string;
   html_url: string;
+  conclusion?: string | null;
 };
 
 /** A terminal's escape sequences, such as the color codes a job's log is
@@ -156,7 +157,10 @@ export function githubActionsRunner(o: {
           "GET",
           `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=workflow_dispatch&created=${from}&per_page=100&page=${page}`,
         );
-        count += runs.filter((r) => r.display_title === name).length;
+        // One waiting is canceled when another takes its place.
+        count += runs.filter(
+          (r) => r.display_title === name && r.conclusion !== "cancelled",
+        ).length;
         if (runs.length < 100) return count;
       }
     },

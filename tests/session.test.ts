@@ -19,7 +19,11 @@ import {
   workOf,
   type Ready,
 } from "../src/session.mts";
-import { memoryCodeHost, type PullSeed } from "./memory-code-host.ts";
+import {
+  memoryCodeHost,
+  REPOSITORY,
+  type PullSeed,
+} from "./memory-code-host.ts";
 
 const NOTICE =
   "so no session ran. Builds in the cloud are off: factory init turns them on.";
@@ -116,10 +120,25 @@ describe("the work a run on a pull request is for", () => {
     };
   };
 
+  it("is nothing for a conflict that was resolved, or stopped on, since it was found", async () => {
+    const conflict = (over: Partial<PullSeed>) =>
+      work("conflict", [41], [{ number: 41, mergeableState: "dirty", ...over }])
+        .found;
+    expect(await conflict({})).toBe("#41 conflicts");
+    expect(await conflict({ mergeableState: "clean" })).toBeNull();
+    const head = { sha: "abc", branch: "b", repository: REPOSITORY };
+    const stop = {
+      id: 1,
+      author: "factory[bot]",
+      body: "Why.\n<!-- conflict-stop head=abc -->",
+      createdAt: "2026-11-24T09:00:00Z",
+    };
+    expect(await conflict({ head, comments: [stop] })).toBeNull();
+  });
+
   it.each([
     ["review", "#41 waits for a review"],
     ["answer", "#41 waits for an answer"],
-    ["conflict", "#41 conflicts"],
     ["dependency", "#41 is Dependabot's"],
   ] as const)("is named for a %s", async (kind, line) => {
     expect(await work(kind, [41]).found).toBe(line);

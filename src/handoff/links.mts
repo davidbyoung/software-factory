@@ -28,35 +28,39 @@ export function textFault(on: On, text: string): string | undefined {
 
 export type Commit = {
   id: string;
+  /** What its message says it is written in, empty for UTF-8. */
+  encoding: string;
+  /** Their addresses: git writes some names another way than it is given. */
   author: string;
   committer: string;
   message: string;
 };
 
 /** The format `git log -z` prints what `commitsIn` reads in. */
-export const COMMITS = "--format=%H%n%an <%ae>%n%cn <%ce>%n%B";
+export const COMMITS = "--format=%H%n%e%n%ae%n%ce%n%B";
 
 export const commitsIn = (log: string): Commit[] =>
   log
     .split("\0")
     .filter((c) => c.trim() !== "")
     .map((c) => {
-      const [id, author, committer, ...message] = c.split("\n");
-      return { id, author, committer, message: message.join("\n") };
+      const [id, encoding, author, committer, ...message] = c.split("\n");
+      return { id, encoding, author, committer, message: message.join("\n") };
     });
 
 /** What is wrong with the first commit that has something wrong with it. */
 export function commitsFault(on: On, commits: Commit[]): string | undefined {
-  const named = (who: { name: string; email: string }) =>
-    `${who.name} <${who.email}>`;
-  const committer = named(on.run.committer);
+  const committer = on.run.committer.email;
   for (const c of commits) {
+    const short = c.id.slice(0, 7);
+    if (c.encoding && !/^utf-?8$/i.test(c.encoding))
+      return `commit ${short} is not written in UTF-8`;
     const fault = textFault(on, c.message);
     if (fault) return `a commit's message ${fault}`;
     if (c.committer !== committer)
-      return `commit ${c.id.slice(0, 7)} is committed by ${c.committer}, not ${committer}`;
-    if (c.author !== named(AUTHOR) && c.author !== committer)
-      return `commit ${c.id.slice(0, 7)} is written by ${c.author}, not ${named(AUTHOR)}`;
+      return `commit ${short} is committed by ${c.committer}, not ${committer}`;
+    if (c.author !== AUTHOR.email && c.author !== committer)
+      return `commit ${short} is written by ${c.author}, not ${AUTHOR.email}`;
   }
   return undefined;
 }

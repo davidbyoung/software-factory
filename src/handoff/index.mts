@@ -130,25 +130,28 @@ const waits = (argv: string[]) =>
 
 const POSTED = /^(?:ticket (?:comment|edit|open)|pr (?:comment|open))$/;
 
-/** Why Publish would leave out what a command posts, by its text. */
+/** Every word a command posts. */
+const wordsOf = ({ argv, files }: Asked) => [
+  ...(argv.includes("--title") ? [argv[argv.indexOf("--title") + 1]] : []),
+  ...Object.values(files),
+];
+
+/** Why Publish would leave out what a command posts, by its text: as it was
+ * written, and `may`, as Publish would post it. */
 function textRefused(
   asked: Asked,
-  argv: string[],
+  may: Asked,
   fault: (text: string) => string | undefined,
 ): string | null {
-  const name = argv.slice(0, 2).join(" ");
+  const name = asked.argv.slice(0, 2).join(" ");
   if (!POSTED.test(name)) return null;
-  const title = argv[argv.indexOf("--title") + 1];
-  const texts = [
-    ...(argv.includes("--title") ? [title] : []),
-    ...Object.values(asked.files),
-  ];
   try {
-    texts.forEach(refuseBareTags);
+    wordsOf(asked).forEach(refuseBareTags);
   } catch (error) {
     return (error as Error).message;
   }
-  const found = name === "pr open" ? fault(texts.join("\n\n")) : undefined;
+  const found =
+    name === "pr open" ? fault(wordsOf(may).join("\n\n")) : undefined;
   return found ? `factory pr open: it ${found}` : null;
 }
 
@@ -187,7 +190,7 @@ export function intercept(
   // Told now, the session can ask again; Publish would only leave it out.
   const may = allow(asked, { ...run, comments: null, opened: [] });
   const refused =
-    "refused" in may ? may.refused : textRefused(asked, argv, fault);
+    "refused" in may ? may.refused : textRefused(asked, may, fault);
   if (refused) {
     out(`✗ Can't ask for this. ${refused}`);
     return 1;

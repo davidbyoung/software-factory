@@ -117,8 +117,17 @@ function filesOf(asked: Asked): {
 const marked = (text: string) =>
   text.includes(AGENT_MARK) ? text : withAgentMark(text);
 
-async function tell(d: PublishDeps, text: string): Promise<void> {
-  const body = withAgentMark(text);
+/** The most of one line that Publish says of its own accord. */
+const SAID = 500;
+
+/** A reason as one line with no marker, since some of it may be a session's
+ * own words. */
+const plain = (text: string) =>
+  withoutMarkers(text).replace(/\s+/g, " ").trim().slice(0, SAID);
+
+/** Posts the lines, and after them a marker of Publish's own. */
+async function tell(d: PublishDeps, lines: string[], mark = ""): Promise<void> {
+  const body = withAgentMark(`${lines.map(plain).join("\n")}${mark}`);
   if (d.run.pull !== null) await d.codeHost.comment(d.run.pull, body);
   else if (d.run.ticket !== null) await d.tickets.comment(d.run.ticket, body);
 }
@@ -162,9 +171,10 @@ async function faultBefore(
   for (const one of opens) {
     const may = allow(one, mine);
     if ("refused" in may) return may.refused;
+    // As it would be posted: what is taken out or cut off can make a link.
     const fault = textFault(
       d,
-      [...one.argv, ...Object.values(one.files)].join("\n\n"),
+      [...may.argv, ...Object.values(may.files)].join("\n\n"),
     );
     if (fault) return `the pull request ${fault}`;
   }
@@ -178,12 +188,12 @@ async function refuse(d: PublishDeps, why: string): Promise<void> {
     `Not pushed: ${why}${why.includes(" changes ") ? ", which a build in the cloud can't push" : ""}.`,
     `Build this ticket on your computer: tell a session to work it.${inRun(d, "The commits are in the run")}`,
   ];
-  lines.forEach((line) => d.out(line));
+  lines.map(plain).forEach((line) => d.out(line));
   const mark =
     d.run.kind === "conflict"
       ? `\n\n<!-- conflict-stop head=${d.run.base} -->`
       : "";
-  await tell(d, `${lines.join("\n")}${mark}`);
+  await tell(d, lines, mark);
 }
 
 /** Where to read more, when the run has a page. */
@@ -330,7 +340,7 @@ export async function publish(d: PublishDeps): Promise<number> {
   if (d.session === "success" && endedFile(d) === null) {
     const why = `What the session left did not arrive, so nothing was done with it.${inRun(d, "Its run")}`;
     d.out(why);
-    await tell(d, why);
+    await tell(d, [why]);
     return 1;
   }
 
@@ -389,20 +399,18 @@ export async function publish(d: PublishDeps): Promise<number> {
   await postCost(d, pull);
   if (d.session !== "success" && tip === null && !refused) {
     d.out("The session did not finish.");
-    await tell(
-      d,
+    await tell(d, [
       `The session did not finish, and nothing of its was pushed.${inRun(d, "Its run")}`,
-    );
+    ]);
   }
   const said = asked.some(
     (a) => isStop(a) || (a.argv[0] === "ticket" && a.argv[1] === "comment"),
   );
   if (run.kind === "build" && d.session === "success" && tip === null)
     if (!refused && !said)
-      await tell(
-        d,
+      await tell(d, [
         `The session ended with nothing to push, and did not say why.${inRun(d, "Its run")}`,
-      );
+      ]);
   if (pull !== null && tip !== null) await settle(d, pull, tip);
   return failed ? 1 : 0;
 }
@@ -442,11 +450,11 @@ async function ciOn(d: PublishDeps, tip: string): Promise<Ci> {
   let signedIn = start;
   for (;;) {
     const waited = d.now() - start;
-    if (d.now() - signedIn >= SIGN_IN_MS) {
-      await d.signIn();
-      signedIn = d.now();
-    }
     try {
+      if (d.now() - signedIn >= SIGN_IN_MS) {
+        await d.signIn();
+        signedIn = d.now();
+      }
       const runs = newestRuns(await d.runner.runs(tip));
       if (runs.length === 0 && waited >= START_MS) return "not started";
       if (runs.length > 0 && runs.every((r) => r.status === "completed"))
@@ -468,6 +476,24 @@ const WAITS: Partial<Record<Ci, string>> = {
     "No check has started on this commit, so it stays as it is until a person looks.",
 };
 
+/** Signs in again, trying a few times, or fails naming what is left as it
+ * is. */
+async function signedIn(d: PublishDeps, pull: number): Promise<void> {
+  for (let left = 3; ; left--)
+    try {
+      return await d.signIn();
+    } catch (error) {
+      if (left === 0)
+        throw new Error(
+          `#${pull} is left as it is: ${(error as Error).message}`,
+          {
+            cause: error,
+          },
+        );
+      await d.sleep(POLL_MS);
+    }
+}
+
 /** Waits for CI on the commit, then marks the pull request ready or starts
  * the next answer. */
 async function settle(
@@ -476,7 +502,7 @@ async function settle(
   tip: string,
 ): Promise<void> {
   const ci = await ciOn(d, tip);
-  await d.signIn();
+  await signedIn(d, pull);
   d.out(`CI ${ci}.`);
   if (ci === "failed") return nextAnswer(d, pull);
   const waits = WAITS[ci];
@@ -494,6 +520,18 @@ async function settle(
   // the one that passed.
   if (now.head.sha !== tip) {
     d.out("The pull request has a newer commit, so it is not marked ready.");
+    return;
+  }
+  // What the code host itself will do, whatever was read in the text.
+  const own = recordedTicket(now.body) ?? d.run.ticket;
+  const other = (await d.codeHost.closes(pull)).find((key) => key !== own);
+  if (other !== undefined) {
+    await d.codeHost.comment(
+      pull,
+      withAgentMark(
+        `This would close ${d.tickets.ref(other)} when it merges, which is not its ticket, so it stays a draft until a person looks.`,
+      ),
+    );
     return;
   }
   await d.codeHost.ready(pull);

@@ -25,7 +25,7 @@
 // read exits 1 with the error; `review-pending` and `conflicts`, which a
 // workflow's only-if gate reads 0 as work and 1 as none, exit 2 on a failed read.
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, rmSync, statSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { loadSettings, reachOf, repoRoot } from "./config.mts";
 import { branchDeps, repositoryRemote } from "./lib/default-branch.mts";
@@ -442,22 +442,29 @@ export async function conflicting(
         a.number - b.number,
     );
   const found: number[] = [];
-  for (const { number } of queue) {
-    let pull = await p.get(number);
-    for (
-      let read = 1;
-      pull.mergeableState === "unknown" && read < CONFLICT_READS;
-      read++
-    ) {
-      await sleepFor(CONFLICT_WAIT_MS);
-      pull = await p.get(number);
-    }
-    if (pull.mergeableState !== "dirty") continue;
-    const stop = `conflict-stop head=${pull.head.sha}`;
-    if ((await p.comments(number)).some((c) => c.body.includes(stop))) continue;
-    found.push(number);
-  }
+  for (const { number } of queue)
+    if (await conflicts(p, number, sleepFor)) found.push(number);
   return found;
+}
+
+/** Whether a pull request is `dirty`, with no stop comment for its head. */
+export async function conflicts(
+  p: CodeHost,
+  number: number,
+  sleepFor: (ms: number) => Promise<unknown>,
+): Promise<boolean> {
+  let pull = await p.get(number);
+  for (
+    let read = 1;
+    pull.mergeableState === "unknown" && read < CONFLICT_READS;
+    read++
+  ) {
+    await sleepFor(CONFLICT_WAIT_MS);
+    pull = await p.get(number);
+  }
+  if (pull.mergeableState !== "dirty") return false;
+  const stop = `conflict-stop head=${pull.head.sha}`;
+  return !(await p.comments(number)).some((c) => c.body.includes(stop));
 }
 
 export async function main(argv: string[], d: Deps): Promise<number> {
@@ -675,10 +682,12 @@ export async function main(argv: string[], d: Deps): Promise<number> {
               `Nothing is handed over: ${fault}. Change that commit, then run this again.`,
             );
           d.git(["bundle", "create", "-q", h.bundle, ...range]);
-          if (statSync(h.bundle).size > BUNDLE_LIMIT)
+          if (statSync(h.bundle).size > BUNDLE_LIMIT) {
+            rmSync(h.bundle);
             throw new Error(
               "Nothing is handed over: its commits are larger than 20 MB.",
             );
+          }
           d.out(`Handed over ${n} commit${n === 1 ? "" : "s"} on ${branch}.`);
           return 0;
         }

@@ -239,6 +239,26 @@ describe("factory pr push and pull", () => {
     expect(existsSync(join(dir, "out/build.bundle"))).toBe(false);
   });
 
+  it("hands nothing over when it is more than 20 MB", async () => {
+    writeFileSync(join(work, "big.bin"), randomBytes(20_100_000));
+    git(work, "add", "-A");
+    commit();
+    expect((await asked("push", { [HANDOFF]: dir })).code).not.toBe(0);
+    expect(existsSync(join(dir, "out/build.bundle"))).toBe(false);
+  });
+
+  it("is told at once when a pull request's text would close another ticket once its comments are out", () => {
+    const out: string[] = [];
+    const code = intercept(
+      ["pr", "open", "--title", "Fix it", "--body-file", "b.md"],
+      handoffIn({ [HANDOFF]: build() })!,
+      (line) => out.push(line),
+      () => "Closes <!-- x -->#13",
+      (text) => (/Closes +#13/.test(text) ? "links #13" : undefined),
+    );
+    expect(code).toBe(1);
+  });
+
   it("leaves out what was merged in from the default branch", async () => {
     commit();
     git(work, "switch", "-q", "trunk");
