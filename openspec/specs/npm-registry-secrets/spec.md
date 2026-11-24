@@ -17,12 +17,12 @@ The factory SHALL behave as this line says: When a line of the `.npmrc` at the r
 
 ### Requirement: The installing jobs get the variable
 
-The factory SHALL behave as this line says: When sync takes a name, `factory.yml` and `factory-review.yml` pass it by name in one more line under `secrets`, and each job that installs has `NAME` in its environment.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The installing jobs get the variable
 
 - **WHEN** sync takes a name
-- **THEN** `factory.yml` and `factory-review.yml` pass it by name in one more line under `secrets`, and each job that installs has `NAME` in its environment.
+- **THEN** `factory.yml` passes it by name in one more line under `secrets`, and each job of it that installs has `NAME` in its environment. `factory-review.yml` passes none.
 
 ### Requirement: The agent's jobs get the variable
 
@@ -35,12 +35,12 @@ The factory SHALL behave as this line says: When sync takes a name, each job tha
 
 ### Requirement: Sync adds only lines
 
-The factory SHALL behave as this line says: With names, each of the two workflow files is what sync writes without names with only the one line under `secrets` added, and line 5's `packages: read`: removing them gives back, byte for byte, what sync writes without names.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Sync adds only lines
 
 - **WHEN** sync takes one or more names
-- **THEN** With names, each of the two workflow files is what sync writes without names with only the one line under `secrets` added, and line 5's `packages: read`: removing them gives back, byte for byte, what sync writes without names.
+- **THEN** With names, `factory.yml` is what sync writes without names with only the one line under `secrets` added, and `factory-review.yml` is the same: removing the line gives back, byte for byte, what sync writes without names.
 
 ### Requirement: No names, no change
 
@@ -53,12 +53,12 @@ The factory SHALL behave as this line says: When there is no `.npmrc`, or sync t
 
 ### Requirement: GITHUB_TOKEN is the workflow's own
 
-The factory SHALL behave as this line says: When the name taken is `GITHUB_TOKEN`, sync writes it into that line like any other name, and adds `packages: read` to the `permissions` of both workflow files.
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: GITHUB_TOKEN is the workflow's own
 
 - **WHEN** the name taken is `GITHUB_TOKEN`
-- **THEN** sync writes it into that line like any other name, and adds `packages: read` to the `permissions` of both workflow files.
+- **THEN** sync passes no secret for it: the jobs that install read packages with their own token, which `factory.yml` gives `packages: read`.
 
 ### Requirement: A GITHUB_ name is refused
 
@@ -94,7 +94,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Init asks for a token
 
 - **WHEN** a name other than `GITHUB_TOKEN` is set neither as an Actions secret nor as a Dependabot secret
-- **THEN** `init`'s plan has a `Secrets` row of its own for each such name, after the tools' row, reading `NAME for Actions and for Dependabot`; for a name that needs one copy, `NAME for Actions` or `NAME for Dependabot`, a Dependabot copy it cannot see (line 12) counting as needed. After "Go ahead?" it prints `.npmrc reads NAME for ADDRESS.` and `The factory's workflows install with it. Use a token that can only read.`, reads the value in a masked prompt `Paste it (leave empty to do this later):`, stores it as both, and prints `Stored NAME for Actions and for Dependabot.`
+- **THEN** `init`'s plan has a `secrets` row of its own for each such name, after the tools' row and any `store` row, reading `NAME for Actions and for Dependabot`; for a name that needs one copy, `NAME for Actions` or `NAME for Dependabot`, a Dependabot copy it cannot see (line 12) counting as needed. After "Go ahead?" it prints `.npmrc reads NAME for ADDRESS.` and `The factory's workflows install with it. Use a token that can only read.`, reads the value in a masked prompt `Paste it (leave empty to do this later):`, stores it as both, and prints `Stored NAME for Actions and for Dependabot.`
 
 ### Requirement: The address init names
 
@@ -152,12 +152,12 @@ The factory SHALL behave as this line says: `init` asks nothing and stores nothi
 
 ### Requirement: Init on a refused name
 
-The factory SHALL behave as this line says: When `.npmrc` reads a name lines 6 or 7 refuse, `factory init` prints that line's message right after the "Found" block, before any question, changes nothing, and exits 1.
+The factory SHALL behave as this line says: When `.npmrc` reads a name lines 6 or 7 refuse, `factory init` prints that line's message after the "Found" block and any line under it about the organization, before any question but which repository, changes nothing else, and exits 1.
 
 #### Scenario: Init on a refused name
 
 - **WHEN** `.npmrc` reads a name lines 6 or 7 refuse
-- **THEN** `factory init` prints that line's message right after the "Found" block, before any question, changes nothing, and exits 1.
+- **THEN** `factory init` prints that line's message after the "Found" block and any line under it about the organization, before any question but which repository, changes nothing else, and exits 1.
 
 ### Requirement: Doctor's Actions line
 

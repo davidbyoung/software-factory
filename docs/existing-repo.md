@@ -6,10 +6,12 @@ and what it leaves alone.
 
 ## Try it without committing to it
 
-Do the [quick start](quick-start.md) on a branch and do not merge it. Start
-an agent session on that branch and refine and build one ticket. If you
-decide against it, delete the branch. [Removing it](removing.md) covers the
-case where you have already merged.
+Do the [quick start](quick-start.md), and do not merge the pull request
+`factory init` opens. Your checkout is left on that pull request's
+branch, `set-up-factory`: start an agent session there and refine and
+build one ticket. If you decide against it, close the pull request and
+delete the branch. [Removing it](removing.md) covers the case where you
+have already merged.
 
 ## A repository that is not JavaScript
 
@@ -29,11 +31,12 @@ Python, or Go repository that means:
 - **Your own CI does not change.** The factory's cloud jobs install Node
   and the factory for themselves. They run `npm ci` for your project only
   when its root has a `package-lock.json`, so in a repository without one
-  they install nothing of yours. What a cloud build needs beyond that,
-  such as `composer install`, goes under
-  [`commands.build-setup`](configuration.md#commandsbuild-setup). The
-  automated review installs nothing else, and runs only the commands
-  you list under [`pr-review.commands`](configuration.md#pr-review).
+  they install nothing of yours. What a session in the cloud needs on its
+  machine beyond that, such as a language, goes under
+  [`commands.build-setup`](configuration.md#commandsbuild-setup). It
+  installs your project's dependencies itself, from the registries you
+  list under [`builds.hosts`](configuration.md#builds)
+  ([What a session can use](builds.md#what-a-session-can-use)).
 - **Your commands stay yours.** The gate a build runs, and everything
   else under [`commands`](configuration.md#commands) in the settings, is
   whatever your project runs: `composer test`, `make check`,
@@ -56,6 +59,16 @@ call the states `backlog`, `refining`, `ready`, `building`, `review`, and
 `done`, in that order. `factory init` saves which of your columns shows
 each in [`tickets.columns`](configuration.md#ticketscolumns), always all
 six, and every factory command needs all six there.
+
+**In an organization,** the board is chosen once, by the owner who runs
+[`factory init --org`](github/setup.md#set-an-organization-up-once).
+For a board the organization already has, that command asks about its
+columns exactly as this section shows `factory init` doing, and saves
+the answer in the organization's [preset](presets.md), the file
+`factory-preset.yaml` that its repositories share, where this section
+says `.claude/factory.yaml`. `factory init` in a repository that
+follows the preset takes the board from it, and asks nothing about
+boards or columns.
 
 When you run `factory init`, step 2 of the
 [quick start](quick-start.md#2-set-it-up), it lists your boards to choose
@@ -143,12 +156,22 @@ Checks
   ✓ Board 3 has every column the settings name
 ```
 
-**Init stops, and changes nothing, when it can't get an answer:** when
-Claude Code isn't signed in, or when its answer can't be used, such as
-one column for two states. It prints why. Then do one of these, and run
-`factory init` again:
+**When init can't get an answer, it asks you instead.** That happens
+when Claude Code isn't signed in, or when its answer can't be used, such
+as one column for two states. Init prints Claude Code's own reason, then
+asks for each state's column in turn, offering your columns, no column,
+or a new column with the factory's name, and shows you the table to
+confirm as above:
 
-- sign in to Claude Code, by running `claude` once;
+```text
+Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth session expired and could not be refreshed.
+Choose the column for each state yourself.
+? Which column shows backlog?
+```
+
+To be asked nothing about columns at all, do one of these before you
+run `factory init`:
+
 - write a `columns` block like the one above in `.claude/factory.yaml`
   yourself, with all six states, beside your `board`, as
   [`tickets.columns`](configuration.md#ticketscolumns) describes. When
@@ -328,8 +351,9 @@ ticket field too: see [`tickets.fields`](configuration.md#ticketsfields).
   named `factory-...`, so nothing collides.
 - **Your CI workflows:** untouched. The factory's are two files,
   `factory.yml` and `factory-review.yml`.
-- **`factory init` lists every file** it would write or
-  change before it writes, and changes nothing if you say no.
+- **`factory init` says what it will write** before it writes, as three
+  rows of its plan, `settings`, `files`, and `workflows`, and changes
+  nothing if you say no. The pull request it opens shows every file.
 
 On GitHub with Claude Code, [the reference](github/reference.md#what-setup-adds)
 names each file.
@@ -342,10 +366,13 @@ names each file.
   `factory init` once for their own token.
   [Where your tokens are kept](credentials.md) says what to do.
 - **A person's own session acts as that person.** A commit made by a
-  teammate's session goes out under that teammate's account. A cloud build
-  acts as the one account that owns its token: yours, or an account you
-  create for the team's builds
-  ([Secrets](github/by-hand.md#secrets)).
+  teammate's session goes out under that teammate's account. On your own
+  account, a cloud build acts as the one account that owns its token:
+  yours, or an account you create for the team's builds
+  ([Secrets](github/by-hand.md#secrets)). In an organization whose
+  owner has run `factory init --org`, a cloud build acts as the
+  organization's own GitHub App
+  ([Where your tokens are kept](credentials.md#on-github)).
 - **Anyone who can write to the repository is obeyed.** A session takes
   instructions from a review or a comment by an account with write
   access, and from nobody else. There is nothing to list: give a
@@ -383,7 +410,8 @@ and how to undo each. The short version:
 - Hooks that stop a session committing on your default branch or force
   pushing, and that run your
   [`commands.before-commit`](configuration.md#commandsbefore-commit)
-  commands. They apply to agent sessions, not to your own terminal.
+  commands. They apply to agent sessions on a machine, not to your own
+  terminal, and not in the cloud.
 - Two CI workflow files, `factory.yml` and `factory-review.yml`. Their
   jobs check that the factory's files are in step, run sessions in the
   cloud, open the factory's updates as pull requests, and run each

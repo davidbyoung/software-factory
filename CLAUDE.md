@@ -28,7 +28,8 @@ files and settings, and the unit tests with coverage, which fail under
 the coverage floors set in `vitest.config.ts`.
 
 A hook runs the `commands.before-commit` commands in `.claude/factory.yaml`
-before every `git commit` and blocks the commit if one fails.
+before every `git commit` on a person's machine and blocks the commit if
+one fails.
 
 The other commands the factory's skills run here:
 
@@ -109,7 +110,8 @@ pull request gets a `merge-automatic` or `merge-manual` label or a
 `specs` is `openspec` here. A ticket gets the `spec` label when it changes
 what a factory user sees: a command's output or exit, a setting, which
 files the factory writes into their repository and where, or when a job
-of the workflows their two files call runs. The text of
+of the workflows their two files call runs, or of `poller.yml`, the
+workflow an organization's `factory-poller.yml` calls. The text of
 its skills, agents, rules, and review instructions is not spec-tracked,
 since prose has no test to map a scenario to: a change to it goes through
 the fresh-agent trace in "Changing the process" instead. `openspec/specs/` holds a spec for
@@ -183,17 +185,24 @@ they are.
   `factory.yml` and `factory-review.yml`, call the copies in the same
   commit, so a pull request's own `review.yml` runs on it, and `run.yml`
   runs from `main`.
+- `.github/workflows/poller.yml`, the workflow an organization's
+  `factory-poller.yml` calls. No file here calls it.
 - `.claude/agents/docs-reader.md`, this repository's own reviewer.
 - `.claude/skills/dx-first/` and `.claude/skills/ticket-order/`, its own
   skills.
 
 The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
-gate runs: in particular `merge-policy.mts`, `review-verdict.mts`,
-`review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
+gate runs, and the commands a person runs to set a repository or an
+organization up: in particular `merge-policy.mts`, `review-verdict.mts`,
+`poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
 `ticket.mts`, which starts the board sync,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
-`workflow-files.mts`, `session.mts`, `update.mts`,
+`workflow-files.mts`, `session.mts` and the `session-*.mts` files,
+`handoff/`, `agent/claude-code-session.mts`, `review-record.mts`,
+`enroll.mts`,
+`init.mts`, `init-org.mts`, `setup.mts`, `code-host/github-app.mts`,
+which holds the App's permissions, `update.mts`,
 `lib/default-branch.mts`, `lib/refined-check.mts`, `specs/`, whose
 adapters name the files the merge policy holds, and `config.mts`'s
 `pluginsOf`.
@@ -206,6 +215,11 @@ that installs the factory.
 
 ## Stepping back from a rabbit hole: this repository
 
-No case here yet. The first one to meet the rule's three rounds is
-recorded here, with the custom code, the library that replaced it, and the
-size before and after.
+- **Reading what GitHub would close** (#74, 2026-11-24). A matcher of closing
+  words in a cloud build's text was got past in three rounds, each by a form
+  it did not read, and by the third it refused honest text. No library was
+  tried, since one reads words too, and does not ask GitHub. It went back to
+  the forms GitHub documents, in one expression, and Publish asks GitHub
+  itself what the pull request would close. What is left is in "What a
+  hijacked session could still do" in `docs/credentials.md`: do not extend
+  the matcher for it.

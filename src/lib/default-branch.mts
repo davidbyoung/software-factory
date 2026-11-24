@@ -2,17 +2,24 @@
 // assume `main`. Each source is asked in turn, and the first to answer wins:
 //
 //   1. In a workflow run, the event's payload, which names it.
-//   2. `origin/HEAD`, which a clone sets.
-//   3. The code host. Its answer is written to `origin/HEAD`, so the next
+//   2. `REMOTE/HEAD`, which a clone sets.
+//   3. The code host. Its answer is written to `REMOTE/HEAD`, so the next
 //      run asks nobody.
 //
-// A checkout with no `origin` remote has nobody to ask, and takes git's own
-// default: `init.defaultBranch`, or `main`. With a remote and no answer,
-// nothing is assumed: the caller stops with CANNOT_TELL.
+// REMOTE is the remote whose address is the repository the settings'
+// `repository` line names, whatever that remote is called, or `origin`
+// where no remote's is and `origin`'s address names no repository the
+// factory can read. A checkout whose settings name a repository no remote
+// has stops with the line that says so. A checkout with no settings reads
+// `origin`, and with no `origin` remote it has nobody to ask, and takes
+// git's own default: `init.defaultBranch`, or `main`. With a remote and no
+// answer, nothing is assumed: the caller stops with the line `cannotTell`
+// gives.
 //
 //   factory default-branch   # prints the name, or exits 1 with the fix
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /** A git command's exit, and what it printed. */
 export type Git = (args: string[]) => { ok: boolean; out: string };
@@ -36,20 +43,85 @@ export type Deps = {
   git: Git;
   /** The code host's answer. It rejects when the host cannot be asked. */
   host: () => Promise<string>;
+  /** The settings' `repository` line, or null in a checkout whose settings
+   * have none, or that has no settings. */
+  repository: () => Promise<string | null>;
+  /** The repository a remote's address names, or null for an address on
+   * no code host the factory supports. */
+  repositoryOf: (address: string) => Promise<string | null>;
 };
 
-/** What a caller lets answer: every source, or `origin/HEAD` alone, for a
- * caller that must ask nobody and assume nothing. */
+/** What a caller lets answer: every source, or the remote's HEAD alone, for
+ * a caller that must ask nobody and assume nothing. */
 export type Sources = "all" | "origin-head";
 
-export const CANNOT_TELL =
-  "Could not tell the default branch. Run: git remote set-head origin --auto";
+/** The line for a checkout whose remote, `remote`, has no answer. */
+export const cannotTell = (remote: string) =>
+  `Could not tell the default branch. Run: git remote set-head ${remote} --auto`;
 
-/** Thrown where a command cannot go on without the default branch. */
+/** Thrown where a command cannot go on without the default branch. Its
+ * message is the line to print. */
 export class NoDefaultBranch extends Error {
-  constructor() {
-    super(CANNOT_TELL);
+  constructor(line: string) {
+    super(line);
   }
+}
+
+/** Thrown where the settings name a repository no remote has. */
+export class NoRemote extends NoDefaultBranch {}
+
+/** A remote, and the repository its address names, null for an address on
+ * no code host the factory supports. */
+export type Remote = { name: string; repository: string | null };
+
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** The name of the remote whose address names `repository`, whatever
+ * address it has. Where several do, `origin` is the one, and otherwise the
+ * first. Where none does, it is `origin` when that remote's address names
+ * no repository, as an SSH host alias or a proxy's address does not: the
+ * factory cannot tell which repository that is. Otherwise null. */
+export function remoteFor(
+  repository: string,
+  remotes: Remote[],
+): string | null {
+  const names = remotes
+    .filter((r) => r.repository !== null && same(r.repository, repository))
+    .map((r) => r.name);
+  if (names.length > 0) return names.includes("origin") ? "origin" : names[0]!;
+  return remotes.some((r) => r.name === "origin" && r.repository === null)
+    ? "origin"
+    : null;
+}
+
+/** The line for a checkout whose settings name a repository none of its
+ * remotes has, naming `origin`'s repository when there is an `origin`. */
+export function noRemoteLine(repository: string, remotes: Remote[]): string {
+  const origin = remotes.find((r) => r.name === "origin")?.repository;
+  return `✗ repository: .claude/factory.yaml says ${repository}, and no remote here is ${repository}. ${origin ? `origin is ${origin}. ` : ""}Add the remote, or change the line and run factory sync.`;
+}
+
+/** The checkout's remotes, each by the address it fetches from. */
+async function remotesOf(d: Deps): Promise<Remote[]> {
+  const remotes: Remote[] = [];
+  for (const name of d.git(["remote"]).out.split("\n").filter(Boolean)) {
+    const address = d.git(["remote", "get-url", name]).out.trim();
+    remotes.push({ name, repository: await d.repositoryOf(address) });
+  }
+  return remotes;
+}
+
+/** The remote the default branch is read from: the one `remoteFor` gives
+ * for the `repository` line, or `origin` in a checkout with no settings.
+ * It rejects with NoRemote when the line names a repository no remote
+ * has. */
+export async function repositoryRemote(d: Deps): Promise<string> {
+  const repository = await d.repository();
+  if (repository === null) return "origin";
+  const remotes = await remotesOf(d);
+  const name = remoteFor(repository, remotes);
+  if (name !== null) return name;
+  throw new NoRemote(noRemoteLine(repository, remotes));
 }
 
 /** The default branch a workflow run's event names, or null outside a run
@@ -69,7 +141,7 @@ function fromEvent(d: Deps): string | null {
 }
 
 /** The default branch's name, or null when no source the caller allows
- * answers. */
+ * answers. It rejects with NoRemote where `repositoryRemote` does. */
 export async function defaultBranch(
   d: Deps,
   sources: Sources = "all",
@@ -78,12 +150,20 @@ export async function defaultBranch(
     const named = fromEvent(d);
     if (named) return named;
   }
-  const head = d.git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
-  const pointed = head.out.trim().replace(/^origin\//, "");
-  if (head.ok && pointed) return pointed;
+  const remote = await repositoryRemote(d);
+  const head = d.git([
+    "symbolic-ref",
+    "--short",
+    `refs/remotes/${remote}/HEAD`,
+  ]);
+  const pointed = head.out.trim();
+  if (head.ok && pointed)
+    return pointed.startsWith(`${remote}/`)
+      ? pointed.slice(remote.length + 1)
+      : pointed;
   if (sources === "origin-head") return null;
 
-  if (!d.git(["remote", "get-url", "origin"]).ok) {
+  if (!d.git(["remote", "get-url", remote]).ok) {
     const own = d.git(["config", "init.defaultBranch"]);
     return (own.ok && own.out.trim()) || "main";
   }
@@ -96,7 +176,7 @@ export async function defaultBranch(
   if (!name) return null;
   // Remembered, so the next run asks nobody. It can fail in a shallow or
   // single-branch checkout, where the host is asked again next time.
-  d.git(["remote", "set-head", "origin", name]);
+  d.git(["remote", "set-head", remote, name]);
   return name;
 }
 
@@ -106,13 +186,16 @@ export async function needDefaultBranch(
   sources: Sources = "all",
 ): Promise<string> {
   const name = await defaultBranch(d, sources);
-  if (name === null) throw new NoDefaultBranch();
+  if (name === null)
+    throw new NoDefaultBranch(cannotTell(await repositoryRemote(d)));
   return name;
 }
 
 /** The sources of the checkout at `root`. The code host is the one the
  * checkout's settings name, and is loaded only when it is asked, so a
- * caller that runs before every command stays quick. */
+ * caller that runs before every command stays quick. The `repository` line
+ * is read from the settings file alone, since no preset may set it, so a
+ * lock that is stale or missing does not stop the lookup. */
 export const branchDeps = (
   root: string,
   env: Record<string, string | undefined> = process.env,
@@ -131,6 +214,32 @@ export const branchDeps = (
     );
     return openCodeHost(repository, codeHost).defaultBranch();
   },
+  repository: async () => {
+    let text: string;
+    try {
+      text = readFileSync(
+        env.FACTORY_SETTINGS || join(root, ".claude/factory.yaml"),
+        "utf8",
+      );
+    } catch {
+      return null;
+    }
+    const { parse } = await import("yaml");
+    try {
+      const line = (parse(text) as { repository?: unknown } | null)?.repository;
+      return typeof line === "string" && line ? line : null;
+    } catch {
+      return null;
+    }
+  },
+  repositoryOf: async (address) => {
+    const { TOOLS } = await import("../tools.mts");
+    for (const host of Object.values(TOOLS.codeHost)) {
+      const repository = host.repositoryOf(address);
+      if (repository) return repository;
+    }
+    return null;
+  },
 });
 
 export async function main(
@@ -143,13 +252,14 @@ export async function main(
     err("Usage: factory default-branch");
     return 2;
   }
-  const name = await defaultBranch(d);
-  if (name === null) {
-    err(CANNOT_TELL);
+  try {
+    out(await needDefaultBranch(d));
+    return 0;
+  } catch (e) {
+    if (!(e instanceof NoDefaultBranch)) throw e;
+    err(e.message);
     return 1;
   }
-  out(name);
-  return 0;
 }
 
 /** `factory default-branch`. */

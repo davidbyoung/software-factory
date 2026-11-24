@@ -3,7 +3,10 @@
 // by a user account sends no event, so this reads it once a minute. It runs
 // as a worker on a server the repository's owner hosts, or, with `--once`,
 // as one pass of a scheduled workflow, which reads the board and the Ready
-// column from the settings in its checkout and needs only the token.
+// column from the settings in its checkout and needs only the token. With
+// `--once --preset FILE` that pass is an organization's: it reads them from
+// the organization's preset, and starts the builds of every repository
+// with a ticket in the Ready column of the one board.
 //
 // Hosted, its environment: FACTORY_REPOSITORY (owner/name), FACTORY_BOARD_OWNER,
 // FACTORY_BOARD_NUMBER, FACTORY_BOARD_TOKEN (a classic token with the
@@ -22,10 +25,14 @@
 // the runner, each over the `fetch` transport, since it runs with no `gh`.
 import { TICKET_LABELS } from "./labels.mts";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   columnsOf,
   loadSettings,
   MAX_PER_HOUR,
+  parseSettings,
+  SETTINGS_FILE,
+  SettingsError,
   type Settings,
 } from "./config.mts";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -41,7 +48,7 @@ import {
   type Board,
   type RepoSnapshot,
 } from "./lib/work-status.mts";
-import { githubCodeHost } from "./code-host/github.mts";
+import { githubCodeHost, githubOrganization } from "./code-host/github.mts";
 import type { CodeHost } from "./code-host/types.mts";
 import {
   FACTORY_WORKFLOW,
@@ -55,6 +62,7 @@ import {
   boardOf,
   compareKeys,
   CredentialError,
+  need,
   type Key,
   type Tickets,
 } from "./tickets/types.mts";
@@ -234,7 +242,32 @@ export async function sources(d: Deps, c: Config) {
     ),
     codeHost: githubCodeHost({ transport, repository: d.repository }),
     runner: githubActionsRunner({ transport, repository: d.repository }),
+    /** A file's text on the default branch of any repository the token
+     * reads, or null when it has none. */
+    file: (repository: string, path: string) => {
+      const [owner, name] = repository.split("/") as [string, string];
+      return githubOrganization({ transport, name: owner }).file(name, path);
+    },
   };
+}
+
+/** The `builds.trigger` a repository's own settings file sets on its
+ * default branch: null when the file sets none, is missing, or cannot be
+ * read. Its presets are not read, so a trigger only they set is null. */
+async function ownTrigger(
+  file: (repository: string, path: string) => Promise<string | null>,
+  repository: string,
+): Promise<string | null> {
+  try {
+    const text = await file(repository, SETTINGS_FILE);
+    if (text === null) return null;
+    const { load } = await import("js-yaml");
+    const trigger = (load(text) as { builds?: { trigger?: unknown } } | null)
+      ?.builds?.trigger;
+    return typeof trigger === "string" ? trigger : null;
+  } catch {
+    return null;
+  }
 }
 
 async function readAll(tickets: Tickets, codeHost: CodeHost, d: Deps) {
@@ -419,27 +452,8 @@ export function onceSettings(s: Settings): OnceSettings {
  * the settings, the board's owner is the repository's, and only the token
  * comes from the environment. 1 when it read nothing or could not read. */
 export async function once(s: OnceSettings, d: Deps): Promise<number> {
-  if (s.board === null) {
-    d.log(
-      "No board to read: tickets.board is not set in .claude/factory.yaml.",
-    );
-    return 1;
-  }
-  if (s.ready === null) {
-    d.log(
-      "No card can start a build: the Ready column is none in .claude/factory.yaml.",
-    );
-    return 1;
-  }
-  const env = {
-    ...d.env,
-    FACTORY_BOARD_OWNER: d.repository.split("/")[0],
-    FACTORY_BOARD_NUMBER: String(s.board),
-    FACTORY_READY_COLUMN: s.ready,
-    FACTORY_FOLLOW_UP_LABEL: s.followUp,
-    FACTORY_LABEL: s.factory,
-    FACTORY_MAX_PER_HOUR: String(s.maxPerHour ?? FIRE_LIMIT),
-  };
+  const env = onceEnv(s, d, SETTINGS_FILE);
+  if (env === null) return 1;
   const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
   await tick(
     { ...d, env, ...(s.ticketSystem ? { ticketSystem: s.ticketSystem } : {}) },
@@ -448,14 +462,179 @@ export async function once(s: OnceSettings, d: Deps): Promise<number> {
   return state.failuresInARow > 0 ? 1 : 0;
 }
 
-/** The parts of the dependencies that are the same however it runs. */
-function liveDeps(repository: string): Deps {
+/** The environment `tick` reads, from what `file` set, or null once it has
+ * logged that `file` names no board or no Ready column. */
+function onceEnv(s: OnceSettings, d: Deps, file: string): Deps["env"] | null {
+  if (s.board === null) {
+    d.log(`No board to read: tickets.board is not set in ${file}.`);
+    return null;
+  }
+  if (s.ready === null) {
+    d.log(`No card can start a build: the Ready column is none in ${file}.`);
+    return null;
+  }
   return {
-    repository,
+    ...d.env,
+    FACTORY_BOARD_OWNER: d.repository.split("/")[0],
+    FACTORY_BOARD_NUMBER: String(s.board),
+    FACTORY_READY_COLUMN: s.ready,
+    FACTORY_FOLLOW_UP_LABEL: s.followUp,
+    FACTORY_LABEL: s.factory,
+    FACTORY_MAX_PER_HOUR: String(s.maxPerHour ?? FIRE_LIMIT),
+  };
+}
+
+/** What a pass for an organization reads from its preset's text, parsed
+ * as a repository that follows only that preset would read it. Throws a
+ * SettingsError that names `file`. */
+export async function presetSettings(
+  text: string,
+  file: string,
+  repository: string,
+): Promise<OnceSettings> {
+  const { load } = await import("js-yaml");
+  const { presetFaults } = await import("./preset.mts");
+  let raw: unknown;
+  try {
+    raw = load(text);
+  } catch (e) {
+    throw new SettingsError(`${file}: ${(e as Error).message.split("\n")[0]}`);
+  }
+  const fault = presetFaults(raw)[0];
+  if (fault) throw new SettingsError(`${file}: ${fault.key}: ${fault.message}`);
+  try {
+    return onceSettings(
+      parseSettings({ ...(raw as object), repository }, () => true, undefined, {
+        partial: true,
+      }),
+    );
+  } catch (e) {
+    if (!(e instanceof SettingsError)) throw e;
+    throw new SettingsError(`${file}${e.message.slice(SETTINGS_FILE.length)}`);
+  }
+}
+
+/** One pass for an organization: the board `file`'s preset names is read
+ * once for the repositories with a ticket in its Ready column, and each
+ * gets the pass `once` makes, with its own hourly cap. The board's owner
+ * is the owner of `d.repository`, the repository that holds the preset.
+ * A repository whose own settings file sets another `builds.trigger` is
+ * left. 1 when the board could not be read. A repository that could not be read
+ * is logged, as a warning in a workflow's run, and fails nothing: one
+ * ticket in a repository the token does not reach would otherwise fail
+ * every pass. */
+export async function onceEach(
+  s: OnceSettings,
+  d: Deps,
+  file: string,
+): Promise<number> {
+  const env = onceEnv(s, d, file);
+  if (env === null) return 1;
+  const config = readConfig(env);
+  if ("missing" in config || "wrong" in config) {
+    d.log(
+      `not polling: ${"missing" in config ? `${config.missing.join(", ")} not set` : config.wrong}`,
+    );
+    return 1;
+  }
+  const all = { ...d, env, ticketSystem: s.ticketSystem ?? HOSTED };
+  let repositories: string[];
+  let fileOf: Awaited<ReturnType<typeof sources>>["file"];
+  try {
+    const opened = await sources(all, config);
+    fileOf = opened.file;
+    const board = need(opened.tickets, "board");
+    if (!board.readyRepositories)
+      throw new Error(
+        `the ${all.ticketSystem.type} ticket system cannot list a board's repositories`,
+      );
+    repositories = await board.readyRepositories(config.number, s.ready!);
+  } catch (error) {
+    d.log(
+      `read failed: ${error instanceof CredentialError ? error.message : String(error)}`,
+    );
+    return 1;
+  }
+  const warn = d.env.GITHUB_ACTIONS === "true";
+  for (const repository of repositories) {
+    // A repository that starts its builds another way, or by hand, is not
+    // started from here as well.
+    const trigger = await ownTrigger(fileOf, repository);
+    if (trigger !== null && trigger !== "github-action") {
+      d.log(
+        `${repository}: builds.trigger is ${trigger} there, so its tickets are left`,
+      );
+      continue;
+    }
+    const state: State = { failuresInARow: 0, lastHeartbeat: d.now() };
+    await tick(
+      {
+        ...all,
+        repository,
+        defaultBranch: undefined,
+        // A failed read is counted before it is logged, so only its line
+        // is the warning.
+        log: (line) =>
+          d.log(
+            `${warn && state.failuresInARow > 0 ? WARNING : ""}${repository}: ${line}`,
+          ),
+      },
+      state,
+    );
+  }
+  return 0;
+}
+
+/** `factory poller --once --preset FILE`: one pass for the organization
+ * whose preset the file at `path` is, in a workflow of the repository that
+ * holds it, which GITHUB_REPOSITORY names. */
+export async function oncePreset(
+  path: string,
+  d: Omit<Deps, "repository">,
+  read: (path: string) => string = (p) => readFileSync(p, "utf8"),
+): Promise<number> {
+  const repository = d.env.GITHUB_REPOSITORY;
+  if (!repository) {
+    d.log(
+      `GITHUB_REPOSITORY is not set, so no owner's board can be read. Run this in a workflow of the repository that holds ${path}.`,
+    );
+    return 1;
+  }
+  let text: string;
+  try {
+    text = read(path);
+  } catch (e) {
+    d.log(`${path} could not be read: ${(e as Error).message}`);
+    return 1;
+  }
+  let settings: OnceSettings;
+  try {
+    settings = await presetSettings(text, path, repository);
+  } catch (e) {
+    if (!(e instanceof SettingsError)) throw e;
+    d.log(e.message);
+    return 1;
+  }
+  return onceEach(settings, { ...d, repository }, path);
+}
+
+/** What marks a line as a warning in a workflow's run, which reads it only
+ * at the start of the line. */
+const WARNING = "::warning::";
+
+/** A line as the poller prints it, after the time. */
+export function stamped(line: string, at: Date): string {
+  const mark = line.startsWith(WARNING) ? WARNING : "";
+  return `${mark}${at.toISOString()} ${line.slice(mark.length)}`;
+}
+
+/** The parts of the dependencies that are the same however it runs. */
+function liveDeps(): Omit<Deps, "repository"> {
+  return {
     fetch,
     env: process.env,
     now: () => Date.now(),
-    log: (line) => console.log(`${new Date().toISOString()} ${line}`),
+    log: (line) => console.log(stamped(line, new Date())),
     marker: startMarker,
   };
 }
@@ -469,7 +648,7 @@ async function main(): Promise<number> {
     return 1;
   }
   const state: State = { failuresInARow: 0, lastHeartbeat: 0 };
-  const d = liveDeps(repository);
+  const d = { ...liveDeps(), repository };
   process.on("unhandledRejection", (error) =>
     d.log(`unhandled: ${String(error)}`),
   );
@@ -484,12 +663,25 @@ async function main(): Promise<number> {
   }
 }
 
-/** `factory poller`, and `factory poller --once`. The settings are loaded
- * only for `--once`, since the hosted poller has no checkout. */
+/** `factory poller`, `factory poller --once`, and `factory poller --once
+ * --preset FILE`. The settings are loaded only for `--once` alone, since
+ * the hosted poller has no checkout and an organization's has no settings
+ * but its preset. */
 export async function run(argv: string[] = []): Promise<number> {
+  const at = argv.indexOf("--preset");
+  if (at >= 0) {
+    const file = argv[at + 1];
+    if (!file || !argv.includes("--once")) {
+      console.error("Usage: factory poller --once --preset FILE");
+      process.exit(2);
+    }
+    process.exit(await oncePreset(file, liveDeps()));
+  }
   if (argv.includes("--once")) {
     const s = await loadSettings();
-    process.exit(await once(onceSettings(s), liveDeps(s.repository)));
+    process.exit(
+      await once(onceSettings(s), { ...liveDeps(), repository: s.repository }),
+    );
   }
   process.exit(await main());
 }

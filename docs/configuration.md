@@ -102,9 +102,10 @@ commands:
   and names it. `"{ticket}"` is a pattern: ticket 12 is built on a branch
   named `12`. The code host is GitHub unless you say otherwise.
 - [`commands.gate`](#commandsgate) is how a session checks a change, such
-  as your tests and linter. `factory init` doesn't write it: it lists it
-  under "Left to do", and you add it. Without it the factory still
-  [refines](workflow.md) tickets, but a session can't build one.
+  as your tests and linter. `factory init` asks for one command and
+  writes it. Left empty, it lists the gate under "Left to do", and you
+  add it. Without it the factory still [refines](workflow.md) tickets,
+  but a session can't build one.
 
 With these, the factory refines a ticket when you run `/factory-refine N`
 in a session, builds it when you run `/factory-build N`, nothing merges
@@ -186,9 +187,18 @@ Write `2`.
 
 Your repository, as `owner/name`, such as `harbor-goods/storefront`.
 
-- **Default:** none. `factory init` writes it.
+- **Default:** none. `factory init` writes it. It proposes the
+  repository from your checkout's remotes, whatever each is called, and
+  asks which one you are setting up when they name a fork or more than
+  one repository. Once the line is written, nothing works it out again.
 - **If it is wrong,** commands read and write another repository's
-  tickets, or fail because it does not exist.
+  tickets, or fail because it does not exist. A command that reads the
+  default branch, such as `factory sync`, stops when no remote of your
+  checkout is that repository:
+
+  ```text
+  ✗ repository: .claude/factory.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run factory sync.
+  ```
 
 It is written down rather than worked out from your checkout, because the
 [poller](#builds), which watches your board from outside any checkout,
@@ -216,6 +226,9 @@ presets:
   one commit of its repository in `.claude/factory.lock`, or drop that
   pin, and sync. A name written here by hand is not pinned, so the next
   sync stops and names the command that pins it.
+- **A repository not set up yet** names its presets as `factory init`
+  sets it up: with `factory init --preset NAME`, once for each, or from
+  the list init offers ([Adding a preset](presets.md#adding-a-preset)).
 - **A preset can't set** `repository`, `auto-merge.allow`, or
   `auto-merge.commands`, and can't list other presets
   ([why](presets.md#what-a-preset-cant-set)).
@@ -573,7 +586,9 @@ as, exactly as GitHub spells it, so the same ticket built by two people
 gets two branches. In GitHub Actions, it is the owner of
 the [token the build runs with](github/reference.md#workflows), not
 whoever approved the ticket, so with a shared bot account every branch
-built in Actions carries the bot's name.
+built in Actions carries the bot's name. Where a build acts as an
+organization's App, `{user}` is the App's name as GitHub writes it in
+an address, such as `software-factory-for-acme`.
 
 Keep the quotes, as in the examples. YAML reads an unquoted
 `branch-name: {ticket}` as a map rather than as text, and
@@ -697,12 +712,13 @@ builds:
   trigger: own-server
 ```
 
-| Setting        | What it sets                                          | Choices                                 | Default          |
-| -------------- | ----------------------------------------------------- | --------------------------------------- | ---------------- |
-| `trigger`      | What notices you moved a ticket to Ready on the board | `manual`, `own-server`, `github-action` | `manual`         |
-| `runner`       | Where a build in the cloud runs                       | `github-actions`                        | `github-actions` |
-| `poll-minutes` | With `github-action`, how often it checks the board   | 5, 10, 15, 30, or 60                    | 5                |
-| `max-per-hour` | How many builds the poller starts in any one hour     | A whole number, 1 or more               | 20               |
+| Setting        | What it sets                                                  | Choices                                 | Default          |
+| -------------- | ------------------------------------------------------------- | --------------------------------------- | ---------------- |
+| `trigger`      | What notices you moved a ticket to Ready on the board         | `manual`, `own-server`, `github-action` | `manual`         |
+| `runner`       | Where a build in the cloud runs                               | `github-actions`                        | `github-actions` |
+| `poll-minutes` | With `github-action`, how often it checks the board           | 5, 10, 15, 30, or 60                    | 5                |
+| `max-per-hour` | How many builds the poller starts in any one hour             | A whole number, 1 or more               | 20               |
+| `hosts`        | The hosts a cloud session may reach, besides the npm registry | A list of host names                    | None             |
 
 The three triggers:
 
@@ -716,7 +732,13 @@ The three triggers:
   `poll-minutes` minutes, with nothing for you to host. On a private
   repository, each check is billed as at least one Actions minute.
   `factory sync` writes its schedule into
-  `.github/workflows/factory.yml`.
+  `.github/workflows/factory.yml`, with one exception: a repository that
+  follows a [preset](presets.md) whose repository runs the poller, as an
+  organization's `factory-config` does, gets no schedule of its own. The
+  one schedule is then that repository's
+  `.github/workflows/factory-poller.yml`, and `poll-minutes` in the
+  preset must match that file's `cron` line, which `factory preset check`
+  compares ([Checking and releasing](presets.md#checking-and-releasing)).
 
 Watch the spelling: the trigger is `github-action`, singular, and the
 runner is `github-actions`, plural.
@@ -731,6 +753,35 @@ marks it "not started": after 5 minutes with `own-server`, and after
 `factory config check` stops on `poll-minutes` with any trigger but
 `github-action`, and on any value but the five above. It stops on a
 `max-per-hour` that isn't a whole number of 1 or more.
+
+A [session in the cloud](builds.md#what-a-session-can-use) reaches the npm
+registry and no other host, unless you list it. List a host under `hosts`
+when a command the session runs downloads from it, such as your package
+manager's registry:
+
+```yaml
+builds:
+  hosts:
+    - repo.packagist.org
+    - "*.example.com" # every host under example.com
+```
+
+It worked when that command succeeds in your next build. Each host is also
+one a [hijacked session](credentials.md#what-a-hijacked-session-could-still-do)
+could send what it was handed to, so list few. What
+[`commands.build-setup`](#commandsbuild-setup) downloads needs no entry,
+since it runs before the session, outside its sandbox.
+
+Write a name that starts with `*.` in quotes, since YAML reads a bare `*`
+as something else. Write the name alone: `factory config check` stops on
+one with `https://`, a path, or a port, and on an IP address. It also stops
+on `github.com`, `githubusercontent.com`, any host under either, and `*.com`:
+
+```text
+builds.hosts can't name GitHub: a build has no GitHub access
+```
+
+A [preset](presets.md#how-presets-combine)'s hosts and your own add up.
 
 ### `specs`
 
@@ -831,8 +882,8 @@ commands:
 
 | Setting         | Runs                                                             | Default                    |
 | --------------- | ---------------------------------------------------------------- | -------------------------- |
-| `build-setup`   | Before a cloud build starts work                                 | none                       |
-| `before-commit` | Before every commit a session makes                              | none                       |
+| `build-setup`   | Before a session in the cloud starts work                        | none                       |
+| `before-commit` | Before every commit a session on your machine makes              | none                       |
 | `gate`          | Before a session calls a task done                               | none, and a build needs it |
 | `test-one`      | When a session runs one test alone                               | none                       |
 | `end-to-end`    | When a session runs one end-to-end test file alone               | none                       |
@@ -847,10 +898,10 @@ commands:
 
 #### `commands.build-setup`
 
-Commands that run before a cloud build starts work, to install what the
-session will need. When your repository's root has a
-`package-lock.json`, your npm dependencies are already installed by
-then, with `npm ci`. Nothing else is.
+Commands that run before a session in the cloud starts work, in your default
+branch's copy, to install what the session will need. When your repository's
+root has a `package-lock.json`, your npm dependencies are already installed
+by then, with `npm ci`. Nothing else is.
 
 ```yaml
 commands:
@@ -858,17 +909,32 @@ commands:
     - npx playwright install --with-deps chromium # a browser for end-to-end tests
 ```
 
-In a project that isn't JavaScript, install its dependencies here too,
-such as `composer install` or `pip install -r requirements.txt`.
+Install here what the machine lacks, such as a language or a tool. Your
+project's own dependencies are another matter: what is installed here is
+for your default branch's copy, and the session works in a copy of its
+own branch, beside it. It installs that copy's dependencies itself, as
+your `CLAUDE.md` or the project's files say, so list the registry they
+come from under [`builds.hosts`](#builds), such as `pypi.org` and
+`files.pythonhosted.org` for pip.
+
+A package that GitHub itself serves, as it does most of Composer's, can't
+be downloaded by a session, since GitHub is never reachable there. Run
+`composer install` here, and have your `CLAUDE.md` say to copy what it
+installed into the branch's copy, with `cp -R vendor ../work/`.
 
 - **Default:** none.
-- **If one fails,** the build stops before the session starts, and the
-  run's log shows that command's output.
+- **If one fails,** the run stops before the session starts, and its log
+  shows that command's output.
+- **It runs as your default branch has it,** so a pull request that changes
+  it is built with the old commands until it merges.
 
 #### `commands.before-commit`
 
-Quick checks that run before every commit a session makes. If one fails,
-the commit is blocked and the session sees why.
+Quick checks that run before every commit a session on your machine makes.
+If one fails, the commit is blocked and the session sees why. No hook runs
+in a [session in the cloud](builds.md#what-a-session-can-use), so these do
+not either: put a check a build has to pass in
+[`commands.gate`](#commandsgate) too.
 
 ```yaml
 commands:
@@ -955,7 +1021,8 @@ Leave out:
 
 There is no default. Without a gate, `factory gate` fails with
 `commands.gate is not set`, and a build stops there, because an empty gate
-would pass every change. `factory init` lists it under "Left to do".
+would pass every change. `factory init` asks for one gate command, and
+lists the gate under "Left to do" when you leave that question empty.
 
 When a command fails, `factory gate` prints `✗ The gate failed on:` and
 the command, and runs none after it. The session fixes the cause and runs the
@@ -1048,12 +1115,12 @@ session-minutes:
   build: 300
 ```
 
-| Setting        | Limits the session that is                                | Default |
-| -------------- | --------------------------------------------------------- | ------- |
-| `build`        | Building a ticket                                         | `230`   |
-| `conflicts`    | Fixing a pull request's conflicts with the default branch | `110`   |
-| `review`       | Answering your review of a pull request                   | `50`    |
-| `dependencies` | Working through dependency updates                        | `50`    |
+| Setting        | Limits the session that is                                  | Default |
+| -------------- | ----------------------------------------------------------- | ------- |
+| `build`        | Building a ticket                                           | `230`   |
+| `conflicts`    | Fixing a pull request's conflicts with the default branch   | `110`   |
+| `review`       | Reviewing a pull request, or answering its review or its CI | `50`    |
+| `dependencies` | Working through dependency updates                          | `50`    |
 
 - **Each is a whole number above zero.**
 - **Run `factory sync` after changing one,** since it writes them into
@@ -1345,31 +1412,27 @@ verdict that [`auto-merge`](#auto-merge) waits for. It is separate from
 your own CI, which keeps running your tests as before.
 
 ```yaml
-pr-review:
-  commands:
-    - npm test
-    - npx tsc --noEmit
+pr-review: {}
 ```
 
 - **Default:** off. Writing `pr-review` turns it on, even with nothing
   under it (`pr-review: {}`), and `factory sync` then turns the review's
-  job on in `.github/workflows/factory-review.yml`. While it is off,
+  run on in `.github/workflows/factory.yml`. While it is off,
   each pull request's "Review verdict" status passes, reading "The
   automated review is off". `factory config get pr-review` prints `on`
   or `off`.
   [Setting up on GitHub](github/setup.md) has what it needs there.
-- **`commands` is what the reviewer may run** to confirm something it
-  suspects, beyond reading the code and commenting. It doesn't run them on
-  every pull request. Without any, it only reads. A command can't contain
-  a comma, a parenthesis, or a quote.
-- **Each command you list runs the pull request's own code,** in a job
-  that holds the review's token. Only list commands you'd be comfortable
-  running on any pull request.
-- **It reads this list from the branch the pull request merges into,** so
-  a pull request can't widen what its own review may run.
+- **The reviewer may run the pull request's own code** to confirm something
+  it suspects, such as one test. It does so in
+  [the session's sandbox](builds.md#what-a-cloud-run-is), with no sign-in
+  to your code host. It doesn't run your tests on every pull request: your
+  CI does that.
+- **`commands` does nothing today, so leave it out.** It once listed what
+  the reviewer could run. The sandbox now confines it instead, and it may
+  run any command there. A list already in your settings is still checked:
+  a command in it can't contain a comma, a parenthesis, or a quote.
 - **To turn it off,** delete `pr-review` and run `factory sync`, which
-  turns the job off again.
-- `factory review tools` prints everything the reviewer may use.
+  turns the run off again.
 
 ### `rules`
 
@@ -1386,7 +1449,7 @@ rules:
 | Setting              | What it sets                                                                                                                                                                      | Default |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | `small-change-lines` | How many changed lines, outside tests, specs, and content, a change can have and still count as [small](workflow.md#sizing-the-work-to-the-change), which skips the heavier steps | `30`    |
-| `review-rounds`      | How many rounds of review comments a session answers before it hands what is left to you                                                                                          | `2`     |
+| `review-rounds`      | How many rounds of review comments are answered, on your machine and in the cloud, before what is left is handed to you                                                           | `2`     |
 
 Each must be a whole number above zero. Any rule that isn't a number, you
 change by saying so in your own instructions for the coding agent, such as
@@ -1494,9 +1557,7 @@ auto-merge:
   commands:
     - node scripts/public-api-changed.mjs
 
-pr-review:
-  commands:
-    - npm test
+pr-review: {}
 ```
 
 ### A small website
@@ -1534,9 +1595,10 @@ commands:
 
 ### A project that isn't JavaScript
 
-A PHP library. Its commands are Composer's and PHPUnit's, and a cloud
-build installs its dependencies first. Docs merge unread, and one reviewer
-of its own reads changes to its public API.
+A PHP library. Its commands are Composer's and PHPUnit's, and a session in
+the cloud copies the dependencies installed before it started, as its
+`CLAUDE.md` says. Docs merge unread, and one reviewer of its own reads
+changes to its public API.
 
 ```yaml
 # $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
@@ -1556,6 +1618,10 @@ tickets:
 code-host:
   type: github
   branch-name: "{ticket}"
+
+builds:
+  hosts:
+    - repo.packagist.org
 
 commands:
   build-setup:

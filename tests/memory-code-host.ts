@@ -10,11 +10,14 @@ import type {
   CommitStatus,
   Pull,
   PullComment,
+  PullCommit,
   Review,
   Thread,
 } from "../src/code-host/types.mts";
-import { NeedsScopeError } from "../src/code-host/types.mts";
+import { githubClosesIn } from "../src/code-host/github.mts";
+import { NeedsScopeError, NoRulesError } from "../src/code-host/types.mts";
 import type { PullRequest } from "../src/lib/work-status.mts";
+import { HttpError } from "../src/tickets/transport.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
 
 export const REPOSITORY = "acme/widgets";
@@ -31,6 +34,9 @@ export type PullSeed = Partial<Pull> & {
   files?: ChangedFile[];
   /** What `unverifiedCommits` answers. */
   unverified?: string[];
+  commits?: PullCommit[];
+  /** Who added each label now on it, where the code host says. */
+  labeledBy?: Record<string, string>;
   /** The tickets the code host links it to closing, by key. */
   closes?: string[];
   /** The state of its checks, as the views read it. */
@@ -68,13 +74,36 @@ export type MemoryCodeHostOptions = {
   signingNeedsScope?: boolean;
   /** Why requiring a check fails, as for a plan without rulesets. */
   rulesRefused?: string;
+  /** The repository's value for each property its owner defines. */
+  properties?: Record<string, string | string[] | null>;
+  /** The properties the repository's owner defines for its repositories:
+   * those it has a value for, unless given. */
+  definedProperties?: string[];
+  /** The plan of the owner's that keeps its shared secrets from the
+   * repository, when one does. */
+  secretsWithheldBy?: string;
+  /** Why the code host can hold no branch rule for the repository, when
+   * it cannot. */
+  noRules?: string;
+  /** Why setting a property's value fails. */
+  propertyRefused?: string;
+  /** The status it fails with, when the code host answers with one. */
+  propertyRefusedStatus?: number;
+  /** The checks the owner's own rules require on the default branch of a
+   * repository whose property has that value. */
+  ownerRules?: { check: string; property: string; value: string }[];
   /** Whether the code host holds a workflow's events back until a policy
    * lets them through, as for a repository anyone can read. */
   eventsHeld?: boolean;
+  /** Whether a job that does not say may write; false unless given. */
+  jobsMayWrite?: boolean;
   /** Why letting a workflow start on its events fails. */
   eventsRefused?: string;
   /** The newest release's tag, by repository. */
   releases?: Record<string, string>;
+  /** Where `commentOn` can open a thread, as PATH:LINE; anywhere unless
+   * given. */
+  lines?: string[];
   /** When a comment is posted, for its createdAt. */
   now?: () => string;
 };
@@ -90,7 +119,11 @@ export function memoryCodeHost(
   let nextId = 5000;
   const settings = {
     autoMerge: false,
-    rules: [] as { name: string; check: string }[],
+    rules: [] as { name: string; check: string; source?: string }[],
+    properties: { ...options.properties } as Record<
+      string,
+      string | string[] | null
+    >,
     events: [] as { rule: string; file: string; events: string[] }[],
     signingKeys: [] as { title: string; key: string }[],
     signingNeedsScope: options.signingNeedsScope ?? false,
@@ -109,6 +142,8 @@ export function memoryCodeHost(
       autoMerge: false,
       files: [],
       unverified: [],
+      commits: [],
+      labeledBy: {},
       closes: [],
       checks: null,
       ...p,
@@ -298,6 +333,7 @@ export function memoryCodeHost(
         name: status.name,
         state: status.state,
         link: status.link,
+        author: "github-actions[bot]",
       };
       const at = statuses.findIndex((s) => s.name === status.name);
       if (at === -1) statuses.push(set);
@@ -324,7 +360,9 @@ export function memoryCodeHost(
     async addLabel(n, label) {
       called("addLabel", n, label);
       const p = get(n);
-      if (!p.labels.includes(label)) p.labels.push(label);
+      if (p.labels.includes(label)) return;
+      p.labels.push(label);
+      p.labeledBy = { ...p.labeledBy, [label]: owner };
     },
     async removeLabel(n, label) {
       called("removeLabel", n, label);
@@ -332,6 +370,11 @@ export function memoryCodeHost(
       if (!p.labels.includes(label))
         throw new NotFoundError(`the ${label} label on #${n}`);
       p.labels = p.labels.filter((l) => l !== label);
+    },
+    async labeledBy(n, label) {
+      called("labeledBy", n, label);
+      const p = get(n);
+      return p.labels.includes(label) ? (p.labeledBy[label] ?? null) : null;
     },
     async reviews(n) {
       called("reviews", n);
@@ -363,6 +406,21 @@ export function memoryCodeHost(
     async openThreadCount(n) {
       called("openThreadCount", n);
       return get(n).threads.filter((t) => !t.isResolved).length;
+    },
+    async commentOn(n, at) {
+      called("commentOn", n, at.sha, `${at.path}:${at.line}`);
+      if (options.lines?.includes(`${at.path}:${at.line}`) === false)
+        return false;
+      const id = nextId++;
+      get(n).threads.push({
+        commentId: id,
+        isResolved: false,
+        isOutdated: false,
+        path: at.path,
+        line: at.line,
+        comments: [{ id, author: owner, body: at.body }],
+      });
+      return true;
     },
     async reply(n, commentId, body) {
       called("reply", n, commentId);
@@ -400,6 +458,8 @@ export function memoryCodeHost(
         threads: [],
         files: [],
         unverified: [],
+        commits: [],
+        labeledBy: {},
         closes: [],
         checks: null,
       });
@@ -417,6 +477,11 @@ export function memoryCodeHost(
       called("unverifiedCommits", n);
       return [...get(n).unverified];
     },
+    async commits(n) {
+      called("commits", n);
+      return get(n).commits.map((c) => ({ ...c }));
+    },
+    closesIn: (text) => githubClosesIn(text, REPOSITORY),
     async closes(n) {
       called("closes", n);
       return [...get(n).closes];
@@ -461,11 +526,56 @@ export function memoryCodeHost(
       called("allowAutoMerge");
       settings.autoMerge = true;
     },
-    async requireCheck(rule, check) {
+    async requireCheck(rule, check, source) {
       called("requireCheck", rule, check);
       if (options.rulesRefused) throw new Error(options.rulesRefused);
       if (!settings.rules.some((r) => r.name === rule))
-        settings.rules.push({ name: rule, check });
+        settings.rules.push({
+          name: rule,
+          check,
+          ...(source ? { source } : {}),
+        });
+    },
+    async secretsWithheldBy() {
+      called("secretsWithheldBy");
+      return options.secretsWithheldBy ?? null;
+    },
+    async requiresStatus(branch, status) {
+      called("requiresStatus", branch, status);
+      if (options.noRules) throw new NoRulesError(options.noRules);
+      if (branch !== (options.defaultBranch ?? "main")) return false;
+      return (
+        settings.rules.some((r) => r.check === status) ||
+        (options.ownerRules ?? []).some(
+          (r) =>
+            r.check === status && settings.properties[r.property] === r.value,
+        )
+      );
+    },
+    async properties() {
+      called("properties");
+      return { ...settings.properties };
+    },
+    async ownerDefines(name) {
+      called("ownerDefines", name);
+      return (
+        options.definedProperties ?? Object.keys(settings.properties)
+      ).includes(name);
+    },
+    async setProperty(name, value) {
+      called("setProperty", name, value);
+      if (options.propertyRefused && options.propertyRefusedStatus)
+        throw new HttpError(
+          options.propertyRefusedStatus,
+          `${options.propertyRefused} (HTTP ${options.propertyRefusedStatus})`,
+          options.propertyRefused,
+        );
+      if (options.propertyRefused) throw new Error(options.propertyRefused);
+      settings.properties[name] = value;
+    },
+    async jobsMayWrite() {
+      called("jobsMayWrite");
+      return options.jobsMayWrite ?? false;
     },
     async eventAllowed(file, event) {
       called("eventAllowed", file, event);
@@ -504,8 +614,8 @@ export function memoryCodeHost(
     },
     /** The check runs and statuses on a commit, as they stand. */
     commit,
-    /** The repository's settings as they stand: auto-merge, rules, and the
-     * account's signing keys. */
+    /** The repository's settings as they stand: auto-merge, rules, its
+     * properties' values, and the account's signing keys. */
     settings,
     /** Gives the sign-in the permission a signing key needs. */
     grantScope() {

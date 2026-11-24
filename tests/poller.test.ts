@@ -8,10 +8,14 @@ import {
   dispatchFailure,
   nextDelay,
   once,
+  onceEach,
+  oncePreset,
   onceSettings,
+  presetSettings,
   readConfig,
   sources,
   selectToStart,
+  stamped,
   startMarker,
   tick,
   type Deps,
@@ -893,6 +897,18 @@ describe("once", () => {
   );
 });
 
+describe("a line the poller prints", () => {
+  it("starts with the time, and keeps a warning's mark before it, where a workflow's run reads it", () => {
+    const at = new Date("2026-11-09T10:00:00Z");
+    expect(stamped("#12 waits on #3", at)).toBe(
+      "2026-11-09T10:00:00.000Z #12 waits on #3",
+    );
+    expect(stamped("::warning::acme/web: read failed", at)).toBe(
+      "::warning::2026-11-09T10:00:00.000Z acme/web: read failed",
+    );
+  });
+});
+
 describe("the poller's start", () => {
   it("exits with a message naming FACTORY_REPOSITORY when it is not set", () => {
     const env = { ...process.env };
@@ -1083,5 +1099,495 @@ describe("the board's order", () => {
     expect(
       selectToStart({ issues: keys.map(ready), pulls: [] }, board),
     ).toEqual(["9", "12", "30", "5"]);
+  });
+});
+
+/** The preset `factory init --org` writes for acme. */
+const PRESET = [
+  "# The preset for every acme repository.",
+  "version: 2",
+  "tickets:",
+  "  type: github",
+  "  board: 12",
+  "  columns:",
+  "    backlog: Backlog",
+  "    refining: In refinement",
+  "    ready: Ready",
+  "    building: In progress",
+  "    review: In review",
+  "    done: Done",
+  "pr-review:",
+  "  commands: []",
+  "builds:",
+  "  trigger: github-action",
+  "  poll-minutes: 30",
+];
+
+describe("an organization's preset, as its one poller reads it", () => {
+  const read = (lines: string[]) =>
+    presetSettings(
+      lines.join("\n"),
+      "factory-preset.yaml",
+      "acme/factory-config",
+    );
+
+  it("takes the ticket system, the board, the Ready column, the labels, and the hourly cap", async () => {
+    expect(await read(PRESET)).toEqual({
+      board: 12,
+      ready: "Ready",
+      followUp: "follow-up",
+      factory: "factory",
+      maxPerHour: 20,
+      ticketSystem: { type: "github", options: {}, own: true },
+    });
+  });
+
+  it("takes the names and the cap the preset changes", async () => {
+    const lines = PRESET.map((l) =>
+      l === "    ready: Ready" ? "    ready: Ready for dev" : l,
+    );
+    lines.splice(
+      lines.indexOf("pr-review:"),
+      0,
+      "  labels:",
+      "    follow-up: follow-ups",
+      "    factory: built-by-factory",
+    );
+    expect(await read([...lines, "  max-per-hour: 3"])).toMatchObject({
+      ready: "Ready for dev",
+      followUp: "follow-ups",
+      factory: "built-by-factory",
+      maxPerHour: 3,
+    });
+  });
+
+  it.each([
+    [
+      [...PRESET, "repository: acme/web"],
+      "factory-preset.yaml: repository: a preset can't set this",
+    ],
+    [
+      PRESET.map((l) => (l === "  board: 12" ? "  board: twelve" : l)),
+      "factory-preset.yaml: tickets.board: must be a whole number above zero, or none",
+    ],
+    [["version: 2", "tickets: ["], /^factory-preset\.yaml: /],
+  ])(
+    "refuses a preset no repository could follow, naming the file",
+    async (lines, said) => {
+      await expect(read(lines)).rejects.toThrow(said);
+    },
+  );
+});
+
+describe("one pass for every repository on an organization's board", () => {
+  const TOKEN = "ghs_secret_app";
+  const SETTINGS = {
+    board: 12,
+    ready: "Ready",
+    followUp: "follow-up",
+    factory: "factory",
+  };
+  const answer = (status: number, body: unknown = {}, statusText = "") =>
+    new Response(status === 204 ? null : JSON.stringify(body), {
+      status,
+      statusText,
+    });
+  const UNREACHABLE = {
+    data: { repository: null },
+    errors: [
+      {
+        message: "Could not resolve to a Repository with the name 'acme/web'.",
+      },
+    ],
+  };
+
+  /** GitHub as an installation's token sees it: `ready` lists the board's
+   * repositories with a ticket in Ready, each of which holds the recorded
+   * tickets, with #12 Ready. */
+  function org(o: {
+    ready: string[] | Response;
+    /** What a repository answers a dispatch with, by its name. */
+    dispatch?: Record<string, Response>;
+    /** The repositories the token cannot read. */
+    unreachable?: string[];
+    /** Each repository's own `.claude/factory.yaml` on its default branch,
+     * or what GitHub answers in place of it; it has none unless given. */
+    own?: Record<string, string | Response>;
+    pages?: { repoPage: unknown; boardPage: unknown };
+    settings?: Partial<Parameters<typeof onceEach>[0]>;
+    token?: string | null;
+    env?: Record<string, string>;
+  }) {
+    const calls: { url: string; body: string }[] = [];
+    const board = structuredClone(
+      (o.pages?.boardPage ?? boardPages[0]) as (typeof boardPages)[0],
+    );
+    const items = board.data.owner.projectV2.items;
+    items.nodes = (Array.isArray(o.ready) ? o.ready : []).flatMap((repo) =>
+      items.nodes.map((n) => ({
+        ...n,
+        id: `${n.id}_${repo}`,
+        content: { ...n.content, repository: { nameWithOwner: repo } },
+      })),
+    );
+    const fake = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = String(init?.body ?? "");
+      calls.push({ url, body });
+      const repo = /repos\/([^/]+\/[^/]+)/.exec(url)?.[1] ?? "";
+      if (url.endsWith("/graphql")) {
+        const { query, variables } = JSON.parse(body);
+        if (query.includes("ReadyRepositories"))
+          return o.ready instanceof Response
+            ? o.ready
+            : answer(200, {
+                data: {
+                  owner: {
+                    projectV2: {
+                      items: {
+                        pageInfo: { hasNextPage: false, endCursor: null },
+                        nodes: o.ready.map((r) => ({
+                          content: {
+                            state: "OPEN",
+                            repository: { nameWithOwner: r },
+                          },
+                          status: { name: "Ready" },
+                        })),
+                      },
+                    },
+                  },
+                },
+              });
+        if (query.includes("projectV2")) return answer(200, board);
+        return o.unreachable?.includes(`${variables.owner}/${variables.name}`)
+          ? answer(200, UNREACHABLE)
+          : answer(200, o.pages?.repoPage ?? repoPages[0]);
+      }
+      if (url.endsWith("/contents/.claude/factory.yaml")) {
+        const file = o.own?.[repo];
+        if (file instanceof Response) return file.clone();
+        return file === undefined
+          ? answer(404, { message: "Not Found" }, "Not Found")
+          : answer(200, { content: Buffer.from(file).toString("base64") });
+      }
+      if (url.endsWith("/dispatches"))
+        return o.dispatch?.[repo]?.clone() ?? answer(204);
+      if (url === `https://api.github.com/repos/${repo}`)
+        return answer(200, {
+          default_branch: repo === "acme/api" ? "main" : "trunk",
+        });
+      if (url.includes("blocked_by")) return answer(200, []);
+      if (url.endsWith("/comments")) return answer(201, { id: 1 });
+      throw new Error(`unexpected fetch ${url}`);
+    }) as typeof fetch;
+    const logs: string[] = [];
+    const d: Deps = {
+      repository: "acme/factory-config",
+      fetch: fake,
+      env: {
+        ...(o.token === null ? {} : { FACTORY_BOARD_TOKEN: o.token ?? TOKEN }),
+        ...o.env,
+      },
+      now: () => NOW,
+      log: (line) => logs.push(line),
+      marker: () => "st_0123456789ab",
+    };
+    const sent = (end: string) =>
+      calls
+        .filter((c) => c.url.endsWith(end))
+        .map((c) => [
+          /repos\/([^/]+\/[^/]+)/.exec(c.url)![1],
+          JSON.parse(c.body),
+        ]);
+    return {
+      d,
+      run: () =>
+        onceEach({ ...SETTINGS, ...o.settings }, d, "factory-preset.yaml"),
+      logs,
+      calls,
+      dispatches: () => sent("/dispatches"),
+      comments: () => sent("/comments").map(([repo, c]) => [repo, c.body]),
+      readyReads: () =>
+        calls
+          .filter((c) => c.body.includes("ReadyRepositories"))
+          .map((c) => JSON.parse(c.body).variables),
+      /** The repositories whose own settings file was asked for. */
+      ownReads: () =>
+        calls
+          .filter((c) => c.url.includes("/contents/"))
+          .map((c) => /repos\/(.+)\/contents\/(.+)$/.exec(c.url)!.slice(1, 3)),
+      /** The repositories whose tickets were read. */
+      ticketReads: () =>
+        calls
+          .filter((c) => c.body.includes("issues("))
+          .map((c) => JSON.parse(c.body).variables)
+          .map((v) => `${v.owner}/${v.name}`),
+    };
+  }
+  const build = (ref: string) => ({
+    ref,
+    inputs: { job: "build", ticket: "12" },
+  });
+  const STARTED =
+    "Starting a build in GitHub Actions: the card moved to Ready.\n\n<!-- work-status: started actions st_0123456789ab -->\n<!-- agent -->";
+
+  it("reads the board once for its repositories, as GITHUB_REPOSITORY's owner's, then starts each one's Ready ticket", async () => {
+    const o = org({ ready: ["acme/web", "acme/api"] });
+
+    expect(await o.run()).toBe(0);
+    expect(o.readyReads()).toEqual([
+      { owner: "acme", number: 12, after: null },
+    ]);
+    expect(o.comments()).toEqual([
+      ["acme/web", STARTED],
+      ["acme/api", STARTED],
+    ]);
+    expect(o.dispatches()).toEqual([
+      ["acme/web", build("trunk")],
+      ["acme/api", build("main")],
+    ]);
+    expect(o.logs).toEqual([
+      "acme/web: #12 started st_0123456789ab: dispatched factory.yml",
+      "acme/api: #12 started st_0123456789ab: dispatched factory.yml",
+    ]);
+  });
+
+  it("starts each build on its own repository's default branch", async () => {
+    const o = org({ ready: ["acme/web", "acme/api"] });
+
+    await o.run();
+
+    expect(o.dispatches().map(([repo, sent]) => [repo, sent.ref])).toEqual([
+      ["acme/web", "trunk"],
+      ["acme/api", "main"],
+    ]);
+  });
+
+  it("starts nothing, and reads no repository, with no ticket in Ready", async () => {
+    const o = org({ ready: [] });
+
+    expect(await o.run()).toBe(0);
+    expect(o.calls).toHaveLength(1);
+  });
+
+  it("comments that the build could not start in a repository with no factory.yml, and goes on to the next", async () => {
+    const o = org({
+      ready: ["acme/web", "acme/api"],
+      dispatch: { "acme/web": answer(404, {}, "Not Found") },
+    });
+
+    expect(await o.run()).toBe(0);
+    expect(o.comments()).toEqual([
+      ["acme/web", STARTED],
+      [
+        "acme/web",
+        "Could not start a build in GitHub Actions: GitHub answered 404 (Not Found). The card stays In progress, waiting on you. Move it to Ready to try again.\n\n<!-- work-status: released -->\n<!-- agent -->",
+      ],
+      ["acme/api", STARTED],
+    ]);
+    expect(o.dispatches().map(([repo]) => repo)).toEqual([
+      "acme/web",
+      "acme/api",
+    ]);
+  });
+
+  it("says which repository the token cannot read, goes on to the next, and still returns 0", async () => {
+    const o = org({
+      ready: ["acme/web", "acme/api"],
+      unreachable: ["acme/web"],
+    });
+
+    expect(await o.run()).toBe(0);
+    expect(o.logs).toEqual([
+      "acme/web: read failed (1 in a row): Error: GitHub graphql: Could not resolve to a Repository with the name 'acme/web'.",
+      "acme/api: #12 started st_0123456789ab: dispatched factory.yml",
+    ]);
+    expect(o.dispatches()).toEqual([["acme/api", build("main")]]);
+  });
+
+  it("marks that repository's line as a warning in a workflow's run, and no other line", async () => {
+    const o = org({
+      ready: ["acme/web", "acme/api"],
+      unreachable: ["acme/web"],
+      env: { GITHUB_ACTIONS: "true" },
+    });
+
+    expect(await o.run()).toBe(0);
+    expect(o.logs).toEqual([
+      "::warning::acme/web: read failed (1 in a row): Error: GitHub graphql: Could not resolve to a Repository with the name 'acme/web'.",
+      "acme/api: #12 started st_0123456789ab: dispatched factory.yml",
+    ]);
+  });
+
+  describe("a repository whose own settings file sets builds.trigger", () => {
+    const OWN = (trigger: string | null) =>
+      [
+        "version: 2",
+        "repository: acme/web",
+        "presets:",
+        "  - acme/factory-config",
+        ...(trigger === null ? [] : ["builds:", `  trigger: ${trigger}`]),
+        "",
+      ].join("\n");
+    const STARTED_API =
+      "acme/api: #12 started st_0123456789ab: dispatched factory.yml";
+
+    it.each(["manual", "own-server"])(
+      "is left alone when the file itself says %s, whatever the preset it follows says, and the next repository is polled",
+      async (trigger) => {
+        const o = org({
+          ready: ["acme/web", "acme/api"],
+          own: { "acme/web": OWN(trigger) },
+        });
+
+        expect(await o.run()).toBe(0);
+        expect(o.logs).toEqual([
+          `acme/web: builds.trigger is ${trigger} there, so its tickets are left`,
+          STARTED_API,
+        ]);
+        expect(o.ticketReads()).toEqual(["acme/api"]);
+        expect(o.dispatches().map(([repo]) => repo)).toEqual(["acme/api"]);
+      },
+    );
+
+    it("prints that line with no warning mark in a workflow's run: it is what the repository asked for", async () => {
+      const o = org({
+        ready: ["acme/web"],
+        own: { "acme/web": OWN("manual") },
+        env: { GITHUB_ACTIONS: "true" },
+      });
+
+      await o.run();
+
+      expect(o.logs).toEqual([
+        "acme/web: builds.trigger is manual there, so its tickets are left",
+      ]);
+    });
+
+    it.each<[string, string | Response | undefined]>([
+      ["the file itself says github-action", OWN("github-action")],
+      [
+        "the file sets no trigger of its own and follows its presets, which are not read",
+        OWN(null),
+      ],
+      ["the default branch has no such file", undefined],
+      ["the file cannot be read", answer(500, { message: "Server Error" })],
+      ["the file is not YAML", "builds: ["],
+    ])("is polled when %s", async (_, file) => {
+      const o = org({
+        ready: ["acme/web"],
+        own: file === undefined ? {} : { "acme/web": file },
+      });
+
+      expect(await o.run()).toBe(0);
+      expect(o.ownReads()).toEqual([["acme/web", ".claude/factory.yaml"]]);
+      expect(o.dispatches()).toEqual([["acme/web", build("trunk")]]);
+      expect(o.calls.map((c) => c.url)).not.toContainEqual(
+        expect.stringContaining("factory-config/contents"),
+      );
+    });
+  });
+
+  it("counts the hourly cap for each repository on its own", async () => {
+    const o = org({
+      ready: ["acme/web", "acme/api"],
+      pages: withStarts({ ready: 2, started: 0, minutesAgo: 0 }),
+      settings: { maxPerHour: 1 },
+    });
+
+    await o.run();
+
+    expect(o.dispatches().map(([repo]) => repo)).toEqual([
+      "acme/web",
+      "acme/api",
+    ]);
+  });
+
+  it("returns 1, saying why, when the board cannot be read", async () => {
+    const o = org({ ready: answer(502) });
+
+    expect(await o.run()).toBe(1);
+    expect(o.logs).toHaveLength(1);
+    expect(o.logs[0]).toMatch(/^read failed: /);
+  });
+
+  it("returns 1, naming the token, when FACTORY_BOARD_TOKEN is not set", async () => {
+    const o = org({ ready: ["acme/web"], token: null });
+
+    expect(await o.run()).toBe(1);
+    expect(o.logs).toEqual(["not polling: FACTORY_BOARD_TOKEN not set"]);
+    expect(o.calls).toEqual([]);
+  });
+
+  it.each([
+    [
+      { board: null },
+      "No board to read: tickets.board is not set in factory-preset.yaml.",
+    ],
+    [
+      { ready: null },
+      "No card can start a build: the Ready column is none in factory-preset.yaml.",
+    ],
+  ])(
+    "returns 1 and reads nothing when the preset gives it nothing to poll",
+    async (settings, said) => {
+      const o = org({ ready: ["acme/web"], settings });
+
+      expect(await o.run()).toBe(1);
+      expect(o.calls).toEqual([]);
+      expect(o.logs).toEqual([said]);
+    },
+  );
+
+  describe("factory poller --once --preset FILE", () => {
+    const from = (
+      o: ReturnType<typeof org>,
+      env: Record<string, string>,
+      read: (path: string) => string = () => PRESET.join("\n"),
+    ) => {
+      const { repository: _, ...rest } = o.d;
+      return oncePreset(
+        "factory-preset.yaml",
+        { ...rest, env: { ...rest.env, ...env } },
+        read,
+      );
+    };
+    const RUN = { GITHUB_REPOSITORY: "acme/factory-config" };
+
+    it("reads the board the file names, owned by GITHUB_REPOSITORY's owner, and starts its repositories' tickets", async () => {
+      const o = org({ ready: ["acme/web"] });
+
+      expect(await from(o, RUN)).toBe(0);
+      expect(o.readyReads()).toEqual([
+        { owner: "acme", number: 12, after: null },
+      ]);
+      expect(o.dispatches()).toEqual([["acme/web", build("trunk")]]);
+    });
+
+    it("stops, reading nothing, outside a workflow's run", async () => {
+      const o = org({ ready: ["acme/web"] });
+
+      expect(await from(o, {})).toBe(1);
+      expect(o.logs).toEqual([
+        "GITHUB_REPOSITORY is not set, so no owner's board can be read. Run this in a workflow of the repository that holds factory-preset.yaml.",
+      ]);
+      expect(o.calls).toEqual([]);
+    });
+
+    it("stops with what is wrong with the file, reading nothing", async () => {
+      const o = org({ ready: ["acme/web"] });
+
+      expect(await from(o, RUN, () => "version: 1\n")).toBe(1);
+      expect(
+        await from(o, RUN, () => {
+          throw new Error("ENOENT: no such file or directory");
+        }),
+      ).toBe(1);
+      expect(o.logs).toEqual([
+        "factory-preset.yaml: version: must be 2",
+        "factory-preset.yaml could not be read: ENOENT: no such file or directory",
+      ]);
+      expect(o.calls).toEqual([]);
+    });
   });
 });

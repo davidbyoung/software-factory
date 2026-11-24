@@ -5,19 +5,21 @@ each step, and what the factory will not do on its own.
 
 ## From a ticket to a merge
 
-| Step              | Who                                                | Where it runs                                      | What comes out                                                                |
-| ----------------- | -------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Write a ticket    | You                                                | Your ticket system                                 | A ticket saying what, why, and when it is done                                |
-| Refine it         | A session you start                                | Your machine, in your coding agent                 | The ticket rewritten into acceptance criteria, after you answer its decisions |
-| Approve it        | **You**                                            | A session, or your board                           | Run `/factory-build N` in a session, or move its card to Ready                |
-| Build it          | A session                                          | Your machine, or the cloud when started from Ready | A tested change in a pull request that closes the ticket                      |
-| Review it         | The automated review, if you set it up             | Your CI                                            | Comments and a verdict on the pull request                                    |
-| Answer the review | The session that built it                          | Where it was built                                 | Each comment fixed, or rejected with evidence                                 |
-| Merge it          | **You**, or the merge policy for files you allowed | Your code host                                     | The change on your default branch, and the ticket closed                      |
+| Step              | Who                                                    | Where it runs                                      | What comes out                                                                |
+| ----------------- | ------------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Write a ticket    | You                                                    | Your ticket system                                 | A ticket saying what, why, and when it is done                                |
+| Refine it         | A session you start                                    | Your machine, in your coding agent                 | The ticket rewritten into acceptance criteria, after you answer its decisions |
+| Approve it        | **You**                                                | A session, or your board                           | Run `/factory-build N` in a session, or move its card to Ready                |
+| Build it          | A session                                              | Your machine, or the cloud when started from Ready | A tested change in a pull request that closes the ticket                      |
+| Review it         | The automated review, if you set it up                 | The cloud                                          | Comments and a verdict on the pull request                                    |
+| Answer the review | The session that built it, or, in the cloud, a new one | Where it was built                                 | Each comment fixed, or rejected with evidence                                 |
+| Merge it          | **You**, or the merge policy for files you allowed     | Your code host                                     | The change on your default branch, and the ticket closed                      |
 
-Everything a session does, it does as you: through your account on the
-code host and your coding agent's subscription, on your machine or in the
-cloud. No step needs a service of the factory's own.
+Everything a session on your machine does, it does as you: through your
+account on the code host and your coding agent's subscription. A session
+in the cloud has no account: a job with no AI checks what it left, and does
+it as [the account builds act as](builds.md#what-a-build-in-the-cloud-does).
+No step needs a service of the factory's own.
 
 ## Which tickets are the factory's
 
@@ -160,7 +162,8 @@ own relationship between tickets. A build never starts on a ticket with an open 
 starts at the poller's first pass after the blocker closes if the ticket is in Ready.
 
 Two tickets touching the same file is not a blocker. That is a merge
-conflict, and the session that owns the pull request resolves it.
+conflict, and the session that owns the pull request resolves it, or a run
+in the cloud.
 
 ## Sizing the work to the change
 
@@ -232,7 +235,8 @@ Two more things guard a merge:
 - **"Review verdict"** is a status, which you can make required on your
   default branch, that passes only when the automated
   review of the newest commit said it is ready, or an approver overrode it
-  with the `verdict-override` label. Sessions never add that label.
+  with the `verdict-override` label. It goes by the review's own run, and
+  by no comment, whoever posted it. Sessions never add that label.
 - **Every review thread must be resolved.** A session answers each one,
   fixed or rejected with evidence, before resolving it.
 

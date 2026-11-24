@@ -122,6 +122,9 @@ export type BoardOps = {
   move(itemId: string, column: string): Promise<void>;
   /** Writes the factory's own fields of a card already on the board. */
   set(itemId: string, writes: Write[]): Promise<void>;
+  /** The repositories with an unfinished ticket in that column of board
+   * `number`, each once, in the board's order. Optional. */
+  readyRepositories?(number: number, column: string): Promise<string[]>;
   /** The open boards the repository's owner has. */
   list(): Promise<{ number: number; title: string }[]>;
   /** Creates a board under the repository's owner, linked to the
@@ -130,6 +133,8 @@ export type BoardOps = {
   /** Board `number`'s columns, its Status field's options in the board's
    * order, or none when it has no Status field. */
   columns(number: number): Promise<string[]>;
+  /** The names of every field board `number` has. */
+  fieldNames(number: number): Promise<string[]>;
   /** Gives board `number` each of `columns` it lacks, the columns in that
    * order before any other it has, and returns the ones it added. */
   addColumns?(number: number, columns: string[]): Promise<string[]>;

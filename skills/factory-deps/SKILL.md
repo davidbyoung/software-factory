@@ -30,9 +30,10 @@ When it prints nothing, `commands.gate` is not set, and no fix here could
 be checked: do nothing for any pull request, open no issue, and say so
 once in the report.
 
-A run started by the workflow ran `factory session ready deps` first, and
-starts a session only when a Dependabot pull request is open.
-Read the list again, since time has passed.
+The workflow starts one run in the cloud for each open pull request of
+Dependabot's, and names it: that run works that one alone, through the steps
+below, and ends in place of waiting for its checks ("A session in the cloud"
+in `.claude/factory/rules.md`).
 
 ```bash
 factory deps
@@ -77,6 +78,10 @@ conflict in `.claude/factory.lock` is resolved first, by `factory sync`, as
 
 Then go on: a branch with a conflict can be failing as well.
 
+**A review that asked for changes:** a pull request a session pushed to is
+reviewed. Work each thread `factory pr threads N` lists as
+`factory-address-review` sections 2 to 5 say, in the same push.
+
 ## 3. Failing checks
 
 Check out the branch and reproduce the failure before changing anything:
@@ -84,6 +89,8 @@ Check out the branch and reproduce the failure before changing anything:
 ```bash
 git fetch origin HEAD_REF && git switch HEAD_REF
 ```
+
+A session in the cloud is on the branch already.
 
 Install what the branch's lock file lists, the way the repository's
 `CLAUDE.md` says to install, which is `npm ci` for npm. Then
@@ -114,7 +121,8 @@ If the only fix is one of those, or needs a decision about how the site
 should look or behave, stop and open an issue (step 6).
 
 Run the gate again (`factory gate`), then commit one coherent
-change whose message describes the defect, and push to the same branch.
+change whose message describes the defect, and push to the same branch with
+`factory pr push`.
 No attribution trailer naming an AI assistant. Never push to the default
 branch and never force push.
 
@@ -130,8 +138,9 @@ each passed or was skipped, or `failure:` with the name of each check that
 failed, and exits 3. A `timeout` exit of 124 means the checks were still
 running after 20 minutes: leave the bump for the next run.
 
-If one still fails, try once more in the same run. A second failure is the
-end for this run: comment what was tried and leave it for the next one.
+If one still fails, try once more in the same run, on a person's machine. A
+second failure, or the first in the cloud, is the end for this run: comment
+what was tried and leave it for the next one.
 
 ## 4. A pull request that names the factory
 

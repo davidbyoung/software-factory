@@ -8,6 +8,7 @@ import { listed } from "./lib/listed.mts";
 import { existsSync, readFileSync } from "node:fs";
 import { load } from "js-yaml";
 import type { CodeHost } from "./code-host/index.mts";
+import { NoRulesError } from "./code-host/types.mts";
 import { bareRegistry, npmrcAt, privateRegistries } from "./npmrc.mts";
 import type { Runner } from "./runner/index.mts";
 import { join } from "node:path";
@@ -20,11 +21,12 @@ import {
   staleOf,
   type Settings,
 } from "./config.mts";
-import { lockedVersion } from "./preset.mts";
+import { lockedVersion, ownerOf } from "./preset.mts";
 import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
+  APP_KEY,
   neededSecrets,
   PART_TEXT,
   PARTS,
@@ -34,11 +36,13 @@ import {
 import type { Check, Chosen, SetupContext } from "./setup.mts";
 import {
   branchDeps,
-  CANNOT_TELL,
   needDefaultBranch,
   NoDefaultBranch,
 } from "./lib/default-branch.mts";
+import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { differences, launcherPath, LOCK, PACKAGE, plan } from "./sync.mts";
+import { FACTORY_FILE, POLLER_FILE } from "./workflow-files.mts";
+import { PROPERTY } from "./init-org.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
 import { machineState, type MachineState } from "./lib/credentials.mts";
@@ -75,6 +79,9 @@ const INIT = "Run factory init";
 const SETTINGS = "Settings and files";
 const OFF = "Parts that are off";
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** Why a read failed, in the code host's words: without the command its
+ * own tool names before them. */
+const reasonOf = (e: unknown) => message(e).replace(/^gh [^\n]*?: gh: /, "");
 
 /** -1, 0, or 1 as version `a` is older than, the same as, or newer than `b`. */
 function compareVersions(a: string, b: string): number {
@@ -106,19 +113,24 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   }
   out.push({ state: "pass", text: "The settings are valid" });
 
-  let differ: string[] | null = null;
+  let differ: string[] | string;
   try {
     differ = await d.outOfStep(s);
   } catch (e) {
     if (!(e instanceof NoDefaultBranch)) throw e;
+    // The check's line has a mark of its own.
+    differ = e.message.replace(/^✗ /, "");
   }
   out.push(
-    differ?.length === 0
+    differ.length === 0
       ? { state: "pass", text: "The factory's files match the settings" }
       : {
           state: "fail",
           text: "The factory's files match the settings",
-          fix: differ ? `${differ.length} differ. ${SYNC}` : CANNOT_TELL,
+          fix:
+            typeof differ === "string"
+              ? differ
+              : `${differ.length} differ. ${SYNC}`,
         },
   );
 
@@ -197,14 +209,34 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       (await codeHost!.setup.checks?.({ ...context([]), secrets: null })) ?? [],
     ),
   );
+  if (s.prReview)
+    for (const check of [
+      await verdictCheck(opened.codeHost, opened.runner, s.repository),
+      await jobsCheck(opened.codeHost),
+    ])
+      out.push({ ...check, group: codeHost!.label });
 
   // A secret the organization shares with the repository counts as set.
   const isOrganization = await opened.codeHost
     .ownerIsOrganization()
     .catch(() => true);
-  const shared = isOrganization
+  // A plan may keep an organization's secrets from a private repository
+  // while the runner still lists them for it: those count as stored, and
+  // not as set.
+  const withheldBy = isOrganization
+    ? await opened.codeHost.secretsWithheldBy().catch(() => null)
+    : null;
+  const stored = isOrganization
     ? await opened.runner.organizationSecretNames().catch(() => [])
     : [];
+  const shared = withheldBy ? [] : stored;
+  const withheld = (name: string): Check | null =>
+    withheldBy && stored.includes(name)
+      ? {
+          state: "fail",
+          text: `${name} is stored for ${ownerOf(s.repository)}, and ${withheldBy} does not share it with a private repository`,
+        }
+      : null;
   let own: string[] | null;
   try {
     own = await opened.runner.secretNames();
@@ -222,17 +254,24 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     x.step.needs.filter((n) => n.part === "cloud"),
   );
   const on = partsOn(s, secrets ?? [], cloudNeeds);
-  const needed = neededSecrets(on, secretSteps(d.tools, context(on)));
+  // An organization's app is no person's, so its key is named as a way to
+  // meet a need only in an organization's repository.
+  const needed = neededSecrets(on, secretSteps(d.tools, context(on))).map(
+    (n) =>
+      isOrganization
+        ? n
+        : { ...n, anyOf: n.anyOf.filter((name) => name !== APP_KEY) },
+  );
   const secretLine = (anyOf: string[], forWhat: string): Check => {
     const found = anyOf.find((n) => secrets!.includes(n));
     const by = found && !own!.includes(found) ? " by the organization" : "";
     return found
       ? { state: "pass", text: `${found} is set${by}, for ${forWhat}` }
-      : {
+      : (anyOf.map(withheld).find((c) => c !== null) ?? {
           state: "fail",
           text: `${anyOf.join(" or ")} is not set, for ${forWhat}`,
           fix: INIT,
-        };
+        });
   };
   // One line per secret, naming every part that reads it.
   const reads = new Map<string, { anyOf: string[]; fors: string[] }>();
@@ -271,7 +310,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   out.push(
     ...under(
       runner!.label,
-      await npmChecks(d.root, opened, isOrganization, own, shared),
+      await npmChecks(d.root, opened, isOrganization, own, shared, withheld),
     ),
   );
 
@@ -293,6 +332,14 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
         (await tool!.setup.checks?.({ ...context(on), secrets })) ?? [],
       ),
     );
+  if (s.builds.pollerIn)
+    out.push({
+      ...(await pollerCheck(
+        d.tools.runner[chosen.runner]!.open(s.builds.pollerIn),
+        s.builds.pollerIn,
+      )),
+      group: runner!.label,
+    });
   if (reachable)
     out.push(
       ...under(
@@ -318,6 +365,112 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     .map((c, i) => [c, i] as const)
     .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
     .map(([c]) => c);
+}
+
+/** Where what a job may do by default is set. */
+export const JOBS_SETTING =
+  "your repository's Settings, Actions, General, Workflow permissions";
+
+/** Whether CI's own sign-in, which the code in a pull request runs beside,
+ * can do no more than read: one that writes can post the review's verdict. */
+async function jobsCheck(codeHost: CodeHost): Promise<Check> {
+  try {
+    return (await codeHost.jobsMayWrite())
+      ? {
+          state: "fail",
+          text: `CI's own token can write, so code in a pull request could pass "${REVIEW_VERDICT}"`,
+          fix: `set it to read, in ${JOBS_SETTING}`,
+        }
+      : {
+          state: "pass",
+          text: "CI's own token can only read, unless a workflow says more",
+        };
+  } catch (e) {
+    return {
+      state: "unknown",
+      text: `Could not tell what CI's own token may do: ${reasonOf(e)}`,
+    };
+  }
+}
+
+/** Whether the rules the code host applies to the default branch, the
+ * organization's among them, require the review's verdict. Until the
+ * factory's workflow is on that branch nothing posts the verdict and
+ * nothing has made the rule, which is no fault. After that, what fixes a
+ * missing rule depends on whose it is: the owner's, which applies once
+ * the repository's property is on, or the repository's own. */
+async function verdictCheck(
+  codeHost: CodeHost,
+  runner: Runner,
+  repository: string,
+): Promise<Check> {
+  try {
+    const branch = await codeHost.defaultBranch();
+    if (await codeHost.requiresStatus(branch, REVIEW_VERDICT))
+      return {
+        state: "pass",
+        text: `"${REVIEW_VERDICT}" is required before a merge to ${branch}`,
+      };
+    const workflow = await runner
+      .workflowState(FACTORY_FILE.split("/").at(-1)!)
+      .catch(() => null);
+    if (workflow === "missing")
+      return {
+        state: "off",
+        text: `"${REVIEW_VERDICT}" is not required yet: the rule is made once the setup's pull request merges`,
+      };
+    const text = `"${REVIEW_VERDICT}" is not required before a merge to ${branch}`;
+    const values: Record<string, unknown> = await codeHost
+      .properties()
+      .catch(() => ({}));
+    const owners =
+      (await codeHost.ownerDefines(PROPERTY).catch(() => false)) &&
+      values[PROPERTY] !== "on";
+    return owners
+      ? {
+          state: "fail",
+          text: `${text}. The next push to ${branch} sets it, or an owner of ${ownerOf(repository)} sets ${PROPERTY} to "on" for this repository`,
+        }
+      : { state: "fail", text, fix: INIT };
+  } catch (e) {
+    if (e instanceof NoRulesError)
+      return {
+        state: "off",
+        text: `"${REVIEW_VERDICT}" cannot be required here: ${e.message}`,
+      };
+    return {
+      state: "unknown",
+      text: `Could not tell whether "${REVIEW_VERDICT}" is required: ${reasonOf(e)}`,
+    };
+  }
+}
+
+/** Whether an organization's poller, the scheduled workflow in
+ * `repository` that starts this repository's builds, is switched on. */
+async function pollerCheck(runner: Runner, repository: string): Promise<Check> {
+  const file = POLLER_FILE.split("/").at(-1)!;
+  let state: Awaited<ReturnType<Runner["workflowState"]>>;
+  try {
+    state = await runner.workflowState(file);
+  } catch (e) {
+    return {
+      state: "unknown",
+      text: `Could not tell whether ${file} is enabled in ${repository}: ${message(e)}`,
+    };
+  }
+  if (state === "active")
+    return { state: "pass", text: `${file} is enabled in ${repository}` };
+  return state === "disabled"
+    ? {
+        state: "fail",
+        text: `${file} is disabled in ${repository}`,
+        fix: `Enable it on the Actions tab of ${repository}`,
+      }
+    : {
+        state: "fail",
+        text: `${file} is not on the default branch of ${repository}`,
+        fix: `An owner of ${ownerOf(repository)} runs factory init --org again`,
+      };
 }
 
 /** The one line on the credential this machine holds, with its fix in
@@ -383,6 +536,9 @@ async function npmChecks(
   isOrganization: boolean,
   own: string[] | null,
   shared: string[],
+  /** The line for a secret the organization stores that does not reach
+   * the repository, or null for one that is not such a secret. */
+  withheld: (name: string) => Check | null,
 ): Promise<Check[]> {
   const npmrc = npmrcAt(root);
   if (!npmrc.names.length) return [];
@@ -424,11 +580,11 @@ async function npmChecks(
                 state: "pass",
                 text: `${name} is set by the organization, ${FOR_NPM}`,
               }
-            : {
+            : (withheld(name) ?? {
                 state: "fail",
                 text: `${name} is not set, ${FOR_NPM}`,
                 fix: INIT,
-              },
+              }),
       );
     if (dependabot === null) continue;
     out.push(

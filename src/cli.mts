@@ -63,6 +63,8 @@ const PR_STEPS = [
   "uncovered",
   "failed",
   "review-again",
+  "push",
+  "pull",
 ];
 
 const ticket = (sub: string, args: string): Command => ({
@@ -93,7 +95,7 @@ const TICKET_ARGS: Record<string, string> = {
 const PR_ARGS: Record<string, string> = {
   state: "[N] [--wait]",
   threads: "N [--all]",
-  open: "--title TITLE --body-file FILE [--base BRANCH] [--ready]",
+  open: "--title TITLE --body-file FILE [--base BRANCH] [--ready|--draft]",
   view: "N --field FIELD",
   review: "N REVIEW",
   reply: "N COMMENT --body-file FILE",
@@ -104,6 +106,8 @@ const PR_ARGS: Record<string, string> = {
   label: "N --add LABEL | --remove LABEL",
   "review-pending": "N REVIEW",
   conflicts: "",
+  push: "",
+  pull: "",
   "for-branch": "BRANCH",
   uncovered: "[BASE] [LCOV]",
 };
@@ -155,7 +159,7 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["init"],
-    args: "",
+    args: "[--preset NAME]... [--org ADDRESS]",
     run: async (argv) => (await import("./init.mts")).run(argv),
   },
   {
@@ -284,7 +288,7 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["poller"],
-    args: "[--once]",
+    args: "[--once [--preset FILE]]",
     run: async (argv) => (await import("./poller.mts")).run(argv),
   },
   {
@@ -298,25 +302,31 @@ export const COMMANDS: Command[] = [
     run: async () => (await import("./review-verdict.mts")).run(),
   },
   {
-    words: ["review", "cost"],
-    args: "",
-    run: async () => (await import("./review-cost.mts")).run(),
-  },
-  {
-    words: ["review", "tools"],
-    args: "",
-    run: async () => (await import("./review-tools.mts")).run(),
-  },
-  {
-    words: ["review", "tickets"],
-    args: "N",
-    run: async (argv) => (await import("./review-tickets.mts")).run(argv),
-  },
-  {
     words: ["session", "ready"],
     args: "build|conflicts|deps|review [PR REVIEW]",
     run: async (argv) =>
       (await import("./session.mts")).run(["ready", ...argv]),
+  },
+  ...["prepare", "run", "publish", "next", "each"].map((step): Command => ({
+    words: ["session", step],
+    args: "",
+    run: async (argv) => (await import("./session.mts")).run([step, ...argv]),
+  })),
+  {
+    words: ["session", "repositories"],
+    args: "",
+    run: async () => (await import("./session.mts")).run(["repositories"]),
+  },
+  {
+    words: ["session", "token"],
+    args: "[--keep]",
+    run: async (argv) =>
+      (await import("./session.mts")).run(["token", ...argv]),
+  },
+  {
+    words: ["enroll"],
+    args: "",
+    run: async () => (await import("./enroll.mts")).run(),
   },
   {
     words: ["reviewers", "start"],
@@ -469,6 +479,17 @@ export async function main(argv: string[]): Promise<number> {
     return 2;
   }
   try {
+    if (process.env.FACTORY_HANDOFF) {
+      const { handoffIn, intercept } = await import("./handoff/index.mts");
+      const h = handoffIn()!;
+      const fault =
+        argv[0] === "pr" && argv[1] === "open"
+          ? await (await import("./handoff/links.mts")).sessionFault(h.run())
+          : undefined;
+      const say = (line: string) => console.log(line);
+      const code = intercept(argv, h, say, undefined, fault);
+      if (code !== null) return code;
+    }
     return (await found.command.run(found.rest)) ?? 0;
   } catch (e) {
     // A ticket system's credential to fix is one line, with no stack.

@@ -13,8 +13,6 @@ export type MemoryRunnerOptions = {
   runs?: Record<string, Run[]>;
   /** The review's runs for each commit, newest first. */
   reviewRuns?: Record<string, ReviewRun[]>;
-  /** How the review ended in a run, by the run's ID: `success` otherwise. */
-  reviewConclusions?: Record<number, string>;
   /** The jobs that failed in each run, by the run's ID, with their logs. */
   failedJobs?: Record<number, FailedJob[]>;
   /** The run the session is in; outside one unless given. */
@@ -35,9 +33,13 @@ export type MemoryRunnerOptions = {
   dependabotSecrets?: Record<string, string>;
   /** The organization's secrets shared with the repository. */
   organizationSecrets?: string[];
+  /** The organization's variables shared with the repository. */
+  organizationVariables?: string[];
   /** The organization's Dependabot secrets that reach the repository, or
    * null when the organization will not list them; none unless given. */
   organizationDependabotSecrets?: string[] | null;
+  /** How many answers each pull request has had, by its number. */
+  answers?: Record<number, number>;
   /** Each workflow's state, by its file name; missing unless given. */
   workflows?: Record<string, "active" | "disabled">;
 };
@@ -52,6 +54,9 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     [];
   const runName = options.runName ?? ((ticket: string) => `Build #${ticket}`);
   const reviewsAsked: string[] = [];
+  const answers = new Map(
+    Object.entries(options.answers ?? {}).map(([k, v]) => [Number(k), v]),
+  );
   const secrets = new Map(Object.entries(options.secrets ?? {}));
   const dependabotSecrets = new Map(
     Object.entries(options.dependabotSecrets ?? {}),
@@ -71,6 +76,19 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       called("startBuild", ticket, branch);
       builds.push({ id: builds.length + 1, ticket, branch, at: now() });
     },
+    async startAnswer(pull, branch) {
+      called("startAnswer", pull, branch);
+      answers.set(pull, (answers.get(pull) ?? 0) + 1);
+    },
+    async answersTo(pull, since) {
+      called("answersTo", pull, since);
+      return answers.get(pull) ?? 0;
+    },
+    async startOn(kind, pull, branch) {
+      called("startOn", kind, pull, branch);
+    },
+    poster: "github-actions[bot]",
+    workflowsFolder: ".github/workflows",
     async startSync(branch) {
       called("startSync", branch);
     },
@@ -98,10 +116,6 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       if (!reviewRuns.get(sha)?.length) return false;
       reviewsAsked.push(sha);
       return true;
-    },
-    async reviewConclusion(run) {
-      called("reviewConclusion", String(run));
-      return options.reviewConclusions?.[run] ?? "success";
     },
     async failedJobs(run) {
       called("failedJobs", run);
@@ -131,6 +145,10 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     async organizationSecretNames() {
       called("organizationSecretNames");
       return [...(options.organizationSecrets ?? [])];
+    },
+    async organizationVariableNames() {
+      called("organizationVariableNames");
+      return [...(options.organizationVariables ?? [])];
     },
     async organizationDependabotSecretNames(isPrivate) {
       called("organizationDependabotSecretNames", isPrivate);

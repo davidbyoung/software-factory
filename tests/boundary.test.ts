@@ -149,9 +149,9 @@ export function factoryAfterCdIn(text: string): string[] {
 }
 
 /** The factory's own workflows, which the two files `factory sync` writes
- * into a repository call. */
-const WORKFLOWS = ["run.yml", "review.yml", "session.yml"].map((file) =>
-  join(PACKAGE, ".github/workflows", file),
+ * into a repository call, and the one an organization's poller file calls. */
+const WORKFLOWS = ["run.yml", "review.yml", "session.yml", "poller.yml"].map(
+  (file) => join(PACKAGE, ".github/workflows", file),
 );
 
 const instructionFiles = () => [
@@ -161,12 +161,10 @@ const instructionFiles = () => [
   join(PACKAGE, "review.md"),
 ];
 
-const skillsAgentsAndRules = () => [
+const guidesWithNoHost = () => [
   ...["skills", "agents"].flatMap((d) => filesUnder(join(PACKAGE, d))),
-  // Not `review.md`: the review's checkout is the pull request's head, so
-  // the factory's commands there are the code under review, and its reads
-  // go through GitHub's CLI on purpose.
   join(PACKAGE, "rules.md"),
+  join(PACKAGE, "review.md"),
 ];
 
 /** The guides every repository gets: each skill, agent, the rules, and the
@@ -627,11 +625,12 @@ describe("the boundaries", () => {
         ".github/workflows/run.yml",
         ".github/workflows/review.yml",
         ".github/workflows/session.yml",
+        ".github/workflows/poller.yml",
         "rules.md",
         "review.md",
       ]),
     );
-    expect(skillsAgentsAndRules()).toEqual(
+    expect(guidesWithNoHost()).toEqual(
       expect.arrayContaining([
         "skills/factory-build/SKILL.md",
         "agents/factory-test-reviewer.md",
@@ -679,8 +678,8 @@ describe("the boundaries", () => {
     expect(found).toEqual([]);
   });
 
-  it("no skill, agent, or rule names GitHub's CLI or its word for whether a pull request can merge", () => {
-    const found = skillsAgentsAndRules().flatMap((path) =>
+  it("no skill, agent, rule, or review instruction names GitHub's CLI or its word for whether a pull request can merge", () => {
+    const found = guidesWithNoHost().flatMap((path) =>
       hostToolIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
     );
     expect(found).toEqual([]);

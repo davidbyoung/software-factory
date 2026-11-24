@@ -6,17 +6,17 @@ description: Address a pull request's review until it can merge: the Claude revi
 # Handling a pull request review
 
 Where the automated review is on, a Claude reviewer runs in GitHub Actions
-on every push to a pull request that is not a draft (the review job of
-`.github/workflows/factory-review.yml`, instructions in
+on every push to a pull request that is not a draft (the review run of
+`.github/workflows/factory.yml`, instructions in
 `.github/factory-review.md`). It leaves inline review threads, some with
 one-click ```suggestion blocks, and one summary comment per push. The point
 of this skill is that the user does not have to relay messages between it
 and you. You decide, you act, you record the decision on the thread, and you
 report once at the end.
 
-**The merge also needs `Review verdict` on the head commit.** A workflow
-posts it from the marker at the end of each review summary: success only
-when the review said ready. A push starts the next commit without one. When
+**The merge also needs `Review verdict` on the head commit.** The review's
+run posts it as it ends, by the review's own answer and by no comment:
+success only when the review said ready. A push starts the next commit without one. When
 a round ends with rejections only and nothing to push, the verdict stays at
 the last review's failure, so ask for a fresh read of the same commit
 (`factory pr review-again N`); the reviewer
@@ -51,9 +51,8 @@ prints. A command below writes it as DEFAULT.
 
 ## 0. Is there anything to review yet
 
-**Started by the owner's review** ("the owner's review REVIEW_ID on #N",
-as the workflow that listens for it says) is the run under "A run started by the owner's review" in section 0a: it
-works the owner's comments, pushes, and then calls this skill from here.
+**A run in the cloud** is the one under that heading in section 0a: it
+works what is there now, pushes once, and ends.
 
 The reviewer runs on pull requests, not branches. One command reads
 everything sections 0 to 1b need: the open pull request for the branch,
@@ -75,8 +74,8 @@ report's first lines. If `mergeable` is `dirty` and the pull request is based on
 Dependabot's, and not from a fork, run "A conflict with the default branch" in the
 `factory-resolve-conflicts` skill first, including in a session woken by the desktop
 app, then carry on here: a fix is a push, so wait for its review as
-below. After a stop, no review is coming, so work the review threads that
-already exist and name the stop in the report. GitHub computes the state
+below. After a stop, nothing was pushed, so no new review is coming: work the
+review threads that already exist and name the stop in the report. GitHub computes the state
 lazily, so the script reads `unknown` again, up to 5 times, 10 seconds
 apart; still `unknown` counts as no conflict.
 
@@ -84,9 +83,8 @@ After a push, wait for the review of that commit, not an older one. Its
 summary ends with `<!-- claude-review sha=HEAD_SHA -->`, and the report
 reads only that commit's run and summary. With `--wait` it reports once
 the head's review has posted, or its run has failed, and every check has
-finished; a run in GitHub Actions, which nothing can wake later,
-uses that, and a local one is woken by
-`watch-pr` instead. Read the summary in full with
+finished. A local session is woken by
+`factory pr watch` instead, and one in the cloud waits for nothing. Read the summary in full with
 `factory pr comment-view ID`, by the ID
 the report names.
 
@@ -116,19 +114,19 @@ comment without it, from an account those commands count, is an
 approver's. Match with
 "contains", not "ends with": an automatic footer can follow the marker.
 
-### A run started by the owner's review
+### A run in the cloud
 
-The run's setup, and the commands it uses, are as the `factory-resolve-conflicts`
-skill's opening says: the workflow has set the run up, so a run does no
-setup of its own, and tickets go through `factory ticket` and a pull
-request through `factory pr`.
+A run in the cloud answers a pull request once and ends ("A session in the
+cloud" in `.claude/factory/rules.md`): what its checks found, the threads
+its review left, or a person's review. It merges nothing in. What its push
+leads to starts the next answer, on a pull request a build in the cloud
+opened; on any other, the session that opened it, or the owner, works the
+review. The rounds are counted there, so sections 0 and 6 are not its own:
+it works what is there now.
 
-The workflow starts one run for each submitted review and passes the pull
-request and the review's ID ("the owner's review REVIEW_ID on #N"). It
-ran `factory session ready review N REVIEW_ID` first, which is steps 1 to 3
-below without the hand-off to a watching local session, and starts a
-session only when the review has something to work. Read what it read again, since time has
-passed.
+A run started by a person's review is given the review's ID, and ran
+`factory session ready answer N REVIEW_ID` first, which is steps 1 to 3
+below without the hand-off to a watching local session.
 
 1. **Closed or merged:** stop.
 2. **Read that review** and its comments:
@@ -161,39 +159,17 @@ passed.
 
    An older mark is from a session that has gone, so go on.
 
-4. Check out the pull request's branch, Dependabot's included. Read whether
-   it can merge as `factory-address-review` section 0 does, and if that is `dirty`
-   and the pull request is one the conflict sweep's queue admits, run "A
-   conflict with the default branch" in the `factory-resolve-conflicts` skill first, then work each comment as "Each approver comment"
-   below says. Run the gate ("Gate" under "A
-   conflict with the default branch" in that skill), commit, and push to that branch
-   only, never with force. **A push refused because the branch moved**
-   means another run, working another review, pushed first: pull with
-   `git pull --no-rebase`, run the gate again, and push. Then reply and
-   resolve.
-5. **When the Claude review runs on the push,** that is, the review is on
-   (`factory config get pr-review` prints `on`), and the
-   pull request is not a draft, not Dependabot's, not from a fork, and not
-   `dirty`, run this skill from section 0, past its note on a run started by the owner's review: wait for the review of the
-   push, and work it as a whole, its preamble through
-   section 8, reporting as section 8 lays out. Otherwise no review is
-   coming: work the review threads that already exist, and end with the
-   same report. In this loop, section 1 works only the threads
-   `github-actions[bot]` opened; approver threads belong to the runs their
-   reviews started.
-6. **Only the latest push's run goes on.** In step 5's loop only, before
-   working a Claude review and again before each push it makes, compare the pull request's head with your
-   last commit (`factory pr view N --field head`). If
-   another run has pushed since, stop: its push starts the next Claude
-   review, and that run works it, open threads included. A push of approver
-   fixes in step 4 that is refused is still pulled and pushed again.
+4. Work each comment as "Each approver comment" below says, and, in a run
+   no person's review started, each failed check and each thread as sections
+   1 to 5 say. Run the gate, commit, and hand the commits over with
+   `factory pr push`. Then reply and resolve: both are done once the push is.
 
-Each run works only its own review, and only the run that pushed last
-works the Claude review, so two runs never take the same thread, and no
-lock is needed.
+Each run a person's review started works only its own review's threads, and
+any other run only those `github-actions[bot]` opened, so two runs never
+take the same thread.
 
-If the gate or the push fails, reply on the affected threads with the
-error and leave them open.
+If the gate fails, reply on the affected threads with the error and leave
+them open.
 
 This run never merges, enables auto-merge, marks a draft ready, or adds the
 `verdict-override` label, and it pushes only to the pull request's
@@ -244,8 +220,8 @@ Approver threads are outside section 6's round count and its escalation.
 
 The reviewer posts as `github-actions[bot]`: its threads are the review
 threads that account opened, and its summaries are the issue comments ending
-in `<!-- claude-review sha=… -->`. The inline comment tool strips HTML
-comments, so the threads carry no marker of their own.
+in `<!-- claude-review sha=… -->`. The threads carry no marker of their
+own.
 
 The unresolved threads, each with its comments in full:
 
@@ -518,9 +494,7 @@ other push: pull with
 
 Approver threads (section 0a) are outside this count, and this section's
 escalation does not apply to them: an open approver thread is already an
-approver's to decide. A run started by the owner's review has no memory of
-earlier sessions, so it counts rounds from the `claude-review sha=`
-summaries of the commits it pushed itself.
+approver's to decide.
 
 A round is one review you work: you reply to and resolve its threads, push
 your fixes, and the push triggers the next review. Handle **at most two

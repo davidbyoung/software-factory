@@ -29,7 +29,9 @@ import type {
 } from "./setup.mts";
 import { LOCK } from "./sync.mts";
 import { CHOICES_FILE } from "./preset.mts";
-import { builtOf, inUse, TOOLS, type Registry } from "./tools.mts";
+import { builtOf, inUse, keptBy, TOOLS, type Registry } from "./tools.mts";
+import { PROPERTY } from "./init-org.mts";
+import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 
 export type RemoveDeps = {
   root: string;
@@ -203,12 +205,50 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
     secrets = await context.opened.runner.secretNames().catch(() => null);
   const withSecrets = { ...context, secrets };
   const ticketTool = d.tools.tickets[chosen.tickets]!;
+  const env = d.env ?? process.env;
+  const owner = repository.split("/")[0]!;
+  // What a person kept on this machine for their next repository: the
+  // file's keys are read, and no token.
+  const keptLines = (tool: string): string[] => {
+    if (!settings) return [];
+    const site = `${context.opened.codeHost.remote(repository).host}/${owner}`;
+    const held = keptBy(d.tools, chosen).some((k) => k.name === tool)
+      ? hasEntry(tool, site, env)
+      : false;
+    return held === false
+      ? []
+      : [
+          `Delete ${site} under ${tool} from ${shownPath(credentialsPath(env))}, unless another repository of ${owner}'s uses it${held === null ? ", if it is there" : ""}`,
+        ];
+  };
+  // An organization's rule requires the verdict wherever its property is
+  // on, and only an owner of the organization may change the value.
+  const enrolled =
+    settings !== null &&
+    (await context.opened.codeHost.properties().catch(() => null))?.[
+      PROPERTY
+    ] === "on";
+  const own = new Map<unknown, { first: string[]; last: string[] }>([
+    [
+      tools[1],
+      {
+        first: enrolled
+          ? [
+              `Ask an owner of ${owner} to set the ${PROPERTY} property to "off" for ${repository}: until then every pull request waits on its "${REVIEW_VERDICT}" check`,
+            ]
+          : [],
+        last: keptLines(chosen.codeHost),
+      },
+    ],
+    [tools[0], { first: [], last: keptLines(chosen.agent) }],
+  ]);
   // Each tool's lines under its name, numbered straight through.
   const groups: [string, string[]][] = [
     ...[tools[1]!, tools[2]!, tools[3]!, tools[0]!].map(
       (t): [string, string[]] => [
         t.label,
         [
+          ...(own.get(t)?.first ?? []),
           ...(t.setup.leftovers?.(withSecrets) ?? []),
           ...(t === ticketTool && t.setup.credential
             ? credentialLeftovers(
@@ -216,9 +256,10 @@ export async function main(_argv: string[], d: RemoveDeps): Promise<number> {
                 chosen.tickets,
                 settings,
                 secrets,
-                d.env ?? process.env,
+                env,
               )
             : []),
+          ...(own.get(t)?.last ?? []),
         ],
       ],
     ),

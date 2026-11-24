@@ -11,21 +11,24 @@
 //   factory pr wait-checks N        # every check on HEAD
 //   factory pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
 //   factory pr conflicts            # the pull requests the conflict sweep takes
-//   factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready]
+//   factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft]
 //   factory pr view N --field FIELD # one field of a pull request
 //   factory pr review N REVIEW      # a review's author, body, and line comments
 //   factory pr comments N [--from-approvers]  # conversation comments, or only an approver's
 //   factory pr unverified N         # the commits not shown as signed
 //   factory pr failed N             # each failed job's log, and a failed check's own report
 //   factory pr review-again N       # a fresh review of the same commit
+//   factory pr push                 # this branch, or its commits handed over
+//   factory pr pull                 # the remote's commits on this branch
 //
 // COMMENT_ID is a thread's first comment, as `threads` prints it. A failed
 // read exits 1 with the error; `review-pending` and `conflicts`, which a
 // workflow's only-if gate reads 0 as work and 1 as none, exit 2 on a failed read.
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync, statSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
-import { loadSettings, reachOf } from "./config.mts";
+import { loadSettings, reachOf, repoRoot } from "./config.mts";
+import { branchDeps, repositoryRemote } from "./lib/default-branch.mts";
 import { openTickets } from "./tickets/index.mts";
 import { ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
 import { readClock, writeClock } from "./lib/clock.mts";
@@ -41,6 +44,8 @@ import {
   type Review,
   type Thread,
 } from "./code-host/index.mts";
+import { BUNDLE_LIMIT, handoffIn } from "./handoff/index.mts";
+import { COMMITS, commitsFault, commitsIn } from "./handoff/links.mts";
 import { openRunner, type Run, type Runner } from "./runner/index.mts";
 import { refuseBareTags, refuseOverride } from "./guard-ticket-text.mts";
 import { labelOf, PR_LABELS, type Labels } from "./labels.mts";
@@ -57,6 +62,10 @@ export type Deps = {
   out: (line: string) => void;
   readFile: (path: string) => string;
   git: (args: string[]) => string;
+  /** The name of the repository's remote in the checkout, for the base
+   * `uncovered` compares with. It rejects with why when no remote is the
+   * repository's. */
+  remote: () => Promise<string>;
   /** Milliseconds, for how long `wait-checks` has waited. */
   now?: () => number;
   /** For GITHUB_ACTIONS, which says GraphQL is open without asking. */
@@ -136,8 +145,7 @@ export function reviewExpected(pull: Pull, reviewOn = true): boolean {
     reviewOn &&
     !pull.isDraft &&
     pull.author !== "dependabot[bot]" &&
-    pull.head.repository === pull.base.repository &&
-    pull.mergeableState !== "dirty"
+    pull.head.repository === pull.base.repository
   );
 }
 
@@ -269,13 +277,13 @@ const POLL_MS = 30_000;
 
 /** How long `wait-checks` waits for a first run before it decides the
  * repository runs no CI on this commit. */
-const NO_CHECKS_MS = 120_000;
+export const NO_CHECKS_MS = 120_000;
 
 /** The events whose runs `wait-checks` waits on. The factory's own
  * workflows start on pull_request_target and workflow_run, and a failed
  * board sync should not stop a pull request being marked ready. */
 const WAITED_EVENTS = ["pull_request", "push"];
-const PASSED = ["success", "skipped", "neutral"];
+export const PASSED = ["success", "skipped", "neutral"];
 const passed = (conclusion: string | null) => PASSED.includes(conclusion ?? "");
 
 /** The newest run of each workflow, among the waited-on events. */
@@ -341,7 +349,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
+const USAGE = `Usage: factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -434,22 +442,33 @@ export async function conflicting(
         a.number - b.number,
     );
   const found: number[] = [];
-  for (const { number } of queue) {
-    let pull = await p.get(number);
-    for (
-      let read = 1;
-      pull.mergeableState === "unknown" && read < CONFLICT_READS;
-      read++
-    ) {
-      await sleepFor(CONFLICT_WAIT_MS);
-      pull = await p.get(number);
-    }
-    if (pull.mergeableState !== "dirty") continue;
-    const stop = `conflict-stop head=${pull.head.sha}`;
-    if ((await p.comments(number)).some((c) => c.body.includes(stop))) continue;
-    found.push(number);
-  }
+  for (const { number } of queue)
+    if (await conflicts(p, number, sleepFor)) found.push(number);
   return found;
+}
+
+/** Whether a pull request is `dirty`, with no stop comment for its head. */
+async function conflicts(
+  p: CodeHost,
+  number: number,
+  sleepFor: (ms: number) => Promise<unknown>,
+): Promise<boolean> {
+  let pull = await p.get(number);
+  for (
+    let read = 1;
+    pull.mergeableState === "unknown" && read < CONFLICT_READS;
+    read++
+  ) {
+    await sleepFor(CONFLICT_WAIT_MS);
+    pull = await p.get(number);
+  }
+  return pull.mergeableState === "dirty" && !(await stoppedOn(p, pull));
+}
+
+/** Whether a conflict run stopped on the pull request's newest commit. */
+export async function stoppedOn(p: CodeHost, pull: Pull): Promise<boolean> {
+  const stop = `conflict-stop head=${pull.head.sha}`;
+  return (await p.comments(pull.number)).some((c) => c.body.includes(stop));
 }
 
 export async function main(argv: string[], d: Deps): Promise<number> {
@@ -645,6 +664,55 @@ export async function main(argv: string[], d: Deps): Promise<number> {
         d.out(String(number));
         return 0;
       }
+      case "push": {
+        const branch = d.git(["branch", "--show-current"]).trim();
+        const h = handoffIn(d.env ?? {});
+        if (h) {
+          const run = h.run();
+          // What was merged in from the default branch is there already.
+          const main = `origin/${run.defaultBranch}`;
+          const range = ["HEAD", "--not", run.base, main];
+          const n = Number(d.git(["rev-list", "--count", ...range]));
+          if (n === 0) throw new Error("There is no commit to hand over.");
+          if (!d.tickets)
+            throw new Error("No ticket system to read links with.");
+          const { tickets } = await d.tickets();
+          const fault = commitsFault(
+            { codeHost: p, tickets, run },
+            commitsIn(d.git(["log", "-z", COMMITS, ...range])),
+          );
+          if (fault)
+            throw new Error(
+              `Nothing is handed over: ${fault}. Change that commit, then run this again.`,
+            );
+          d.git(["bundle", "create", "-q", h.bundle, ...range]);
+          if (statSync(h.bundle).size > BUNDLE_LIMIT) {
+            rmSync(h.bundle);
+            throw new Error(
+              "Nothing is handed over: its commits are larger than 20 MB.",
+            );
+          }
+          d.out(`Handed over ${n} commit${n === 1 ? "" : "s"} on ${branch}.`);
+          return 0;
+        }
+        if (branch === (await p.defaultBranch()))
+          throw new Error(`${branch} is the default branch. Push another.`);
+        const remote = await d.remote();
+        d.git(["push", "-q", "-u", remote, branch]);
+        d.out(`Pushed ${branch} to ${remote}.`);
+        return 0;
+      }
+      case "pull": {
+        const branch = d.git(["branch", "--show-current"]).trim();
+        if (handoffIn(d.env ?? {})) {
+          d.out("This is the newest commit there was when the run started.");
+          return 0;
+        }
+        const remote = await d.remote();
+        d.git(["pull", "-q", "--no-rebase", remote, branch]);
+        d.out(`Merged ${remote}'s ${branch}.`);
+        return 0;
+      }
       case "view": {
         const pr = Number(rest[0]);
         const field = option(rest, "--field");
@@ -695,7 +763,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
           );
           return 1;
         }
-        const from = base ?? `origin/${await p.defaultBranch()}`;
+        const from = base ?? `${await d.remote()}/${await p.defaultBranch()}`;
         const diff = d.git(["diff", "-U0", `${from}...HEAD`]);
         const source = (path: string) => {
           try {
@@ -788,6 +856,7 @@ export function prDeps(
         maxBuffer: 256 << 20,
         stdio: ["ignore", "pipe", "pipe"],
       }),
+    remote: () => repositoryRemote(branchDeps(repoRoot())),
     env: process.env,
     tickets: async () => {
       const settings = await loadSettings();

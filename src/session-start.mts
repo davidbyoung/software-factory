@@ -6,22 +6,25 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   branchDeps,
-  CANNOT_TELL,
-  defaultBranch,
   gitIn,
+  needDefaultBranch,
+  repositoryRemote,
   type Deps as BranchDeps,
   type Git,
 } from "./lib/default-branch.mts";
 
 export { gitIn };
 
-/** Each local branch but the default one, `branch`, with work
- * origin/BRANCH lacks, as "NAME (N commits not on origin/BRANCH)". Pull
- * requests are squash-merged, so a merged branch still has commits the
- * default branch lacks: it counts as merged when merging it into the
- * default branch would change nothing. */
-export function unmergedBranches(git: Git, branch: string): string[] {
-  const base = `origin/${branch}`;
+/** The default branch, and the remote of the repository it is read from. */
+export type Base = { remote: string; branch: string };
+
+/** Each local branch but the default one with work REMOTE/BRANCH lacks, as
+ * "NAME (N commits not on REMOTE/BRANCH)". Pull requests are
+ * squash-merged, so a merged branch still has commits the default branch
+ * lacks: it counts as merged when merging it into the default branch would
+ * change nothing. */
+export function unmergedBranches(git: Git, { remote, branch }: Base): string[] {
+  const base = `${remote}/${branch}`;
   const baseTree = git(["rev-parse", `${base}^{tree}`]).out.trim();
   const branches = git([
     "for-each-ref",
@@ -42,11 +45,11 @@ export function unmergedBranches(git: Git, branch: string): string[] {
   return found;
 }
 
-/** What the hook prints before the tickets' state. `branch` is the default
- * branch, or null when it could not be told: then no branch is compared
- * with anything, and the line that names the fix stands in for the list. */
-export function repositoryState(git: Git, branch: string | null): string[] {
-  if (branch !== null) git(["fetch", "-q", "origin", branch]);
+/** What the hook prints before the tickets' state. `base` is the default
+ * branch, or the line that says why it could not be told: then no branch
+ * is compared with anything, and that line stands in for the list. */
+export function repositoryState(git: Git, base: Base | string): string[] {
+  if (typeof base !== "string") git(["fetch", "-q", base.remote, base.branch]);
   const lines = [
     "## Repository state at session start",
     "",
@@ -55,11 +58,11 @@ export function repositoryState(git: Git, branch: string | null): string[] {
     "```",
     "",
   ];
-  if (branch === null) return [...lines, CANNOT_TELL];
-  const unmerged = unmergedBranches(git, branch);
+  if (typeof base === "string") return [...lines, base];
+  const unmerged = unmergedBranches(git, base);
   if (unmerged.length) {
     lines.push(
-      `Local branches with work not on origin/${branch}:`,
+      `Local branches with work not on ${base.remote}/${base.branch}:`,
       "",
       ...unmerged.map((b) => `- ${b}`),
       "",
@@ -119,9 +122,19 @@ export type Deps = {
   stale?: () => Promise<string | null>;
 };
 
+/** The default branch and its remote, or the line that says why either
+ * could not be told. */
+async function baseOf(d: BranchDeps): Promise<Base | string> {
+  try {
+    const branch = await needDefaultBranch(d);
+    return { remote: await repositoryRemote(d), branch };
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+}
+
 export async function main(d: Deps): Promise<number> {
-  const branch = await defaultBranch(d.branch).catch(() => null);
-  d.out(repositoryState(gitIn(d.dir), branch).join("\n"));
+  d.out(repositoryState(gitIn(d.dir), await baseOf(d.branch)).join("\n"));
   const behind = installBehind(d.dir);
   if (behind) d.out(`\n${behind}\n`);
   // A stale lock stops every command but `factory sync`, so the session is

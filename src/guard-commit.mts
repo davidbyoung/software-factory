@@ -7,10 +7,10 @@
 //
 // The default branch is whatever the repository calls it
 // (`lib/default-branch.mts`). In a checkout with the factory's settings,
-// every source may answer, and a commit or push is blocked when none does.
-// Any other checkout is not the factory's to govern: there the guard reads
-// `origin/HEAD` alone, asks nobody, and lets the call through when it is
-// not set.
+// every source may answer, and a commit or push is blocked when none does,
+// or when no remote is the repository the settings name. Any other checkout
+// is not the factory's to govern: there the guard reads `origin/HEAD`
+// alone, asks nobody, and lets the call through when it is not set.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
@@ -20,9 +20,11 @@ import { defaultDeps, loadSettings, settingsPath } from "./config.mts";
 import { PR_LABELS } from "./labels.mts";
 import {
   branchDeps,
-  CANNOT_TELL,
   defaultBranch,
-  type Sources,
+  needDefaultBranch,
+  NoDefaultBranch,
+  repositoryRemote,
+  type Deps as BranchDeps,
 } from "./lib/default-branch.mts";
 
 export type HookInput = { cwd?: string; tool_input?: { command?: string } };
@@ -185,15 +187,8 @@ export function ownLauncher(top: string): string | null {
   }
 }
 
-/** The default branch of the checkout at `top`, from the sources allowed,
- * or null when none of them answers. */
-export type BranchOf = (
-  top: string,
-  sources: Sources,
-) => Promise<string | null>;
-
-const branchOf: BranchOf = (top, sources) =>
-  defaultBranch(branchDeps(top), sources);
+/** The sources of the default branch's name for the checkout at `top`. */
+export type BranchOf = (top: string) => BranchDeps;
 
 /** The checkout `dir` is in, or `dir` itself when it is in none. */
 function checkoutOf(dir: string): string {
@@ -213,12 +208,12 @@ const pushesTo = (segment: string, branch: string) =>
   ).test(segment);
 
 /** The block message for this Bash call, or null to let it through. Writes
- * the failing gate command's output to `err` first. `defaultOf` stands in
+ * the failing gate command's output to `err` first. `sourcesOf` stands in
  * for the default branch's sources in tests. */
 export async function checkCommit(
   input: HookInput,
   err: (text: string) => void,
-  defaultOf: BranchOf = branchOf,
+  sourcesOf: BranchOf = branchDeps,
 ): Promise<string | null> {
   const raw = input.tool_input?.command ?? "";
   const cwd = input.cwd ?? ".";
@@ -237,20 +232,27 @@ export async function checkCommit(
   const pushedTo: { segment: string; branch: string }[] = [];
   for (const { kind, segment, dir } of calls) {
     const top = checkoutOf(dir);
-    if (!defaults.has(top)) {
-      const governed = existsSync(settingsPath(top));
-      const name = await defaultOf(top, governed ? "all" : "origin-head");
-      if (name === null && governed) return CANNOT_TELL;
-      defaults.set(top, name);
+    const sources = sourcesOf(top);
+    try {
+      if (!defaults.has(top))
+        defaults.set(
+          top,
+          existsSync(settingsPath(top))
+            ? await needDefaultBranch(sources)
+            : await defaultBranch(sources, "origin-head"),
+        );
+      const name = defaults.get(top);
+      if (!name) continue;
+      const branch = spawnSync("git", ["-C", dir, "branch", "--show-current"], {
+        encoding: "utf8",
+      }).stdout;
+      if (branch?.trim() === name)
+        return `${name} is checked out. Create a branch from ${await repositoryRemote(sources)}/${name} first.`;
+      if (kind === "push") pushedTo.push({ segment, branch: name });
+    } catch (e) {
+      if (!(e instanceof NoDefaultBranch)) throw e;
+      return e.message;
     }
-    const name = defaults.get(top);
-    if (!name) continue;
-    const branch = spawnSync("git", ["-C", dir, "branch", "--show-current"], {
-      encoding: "utf8",
-    }).stdout;
-    if (branch?.trim() === name)
-      return `${name} is checked out. Create a branch from origin/${name} first.`;
-    if (kind === "push") pushedTo.push({ segment, branch: name });
   }
 
   const pushes = calls.filter((c) => c.kind === "push").map((c) => c.segment);

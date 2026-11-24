@@ -125,6 +125,23 @@ describe("the runner's Dependabot and organization secrets, on GitHub Actions", 
     expect(await runner(g).organizationSecretNames()).toEqual(["NPM_TOKEN"]);
   });
 
+  it("lists every page of the organization's variables shared with the repository", async () => {
+    const first = Array.from({ length: 100 }, (_, i) => ({ name: `V${i}` }));
+    const g = gh([
+      [
+        /repos\/acme\/site\/actions\/organization-variables\?per_page=100&page=1$/,
+        { variables: first },
+      ],
+      [
+        /repos\/acme\/site\/actions\/organization-variables\?per_page=100&page=2$/,
+        { variables: [{ name: "FACTORY_APP_CLIENT_ID" }] },
+      ],
+    ]);
+    const names = await runner(g).organizationVariableNames();
+    expect(names).toHaveLength(101);
+    expect(names.at(-1)).toBe("FACTORY_APP_CLIENT_ID");
+  });
+
   it("lists the organization's Dependabot secrets that reach the repository, by visibility", async () => {
     const g = gh([
       [
@@ -497,6 +514,21 @@ describe("the code host's setup operations, on GitHub", () => {
       "admin:ssh_signing_key",
     ]);
   });
+
+  describe("what a job that says nothing may do", () => {
+    it.each([
+      ["write", true],
+      ["read", false],
+    ])("is %s by the repository's default: %s", async (set, may) => {
+      const { host: h } = host([
+        [
+          /^api repos\/acme\/site\/actions\/permissions\/workflow$/,
+          { default_workflow_permissions: set },
+        ],
+      ]);
+      expect(await h.jobsMayWrite()).toBe(may);
+    });
+  });
 });
 
 describe("the board's setup operations, on GitHub", () => {
@@ -664,6 +696,48 @@ describe("the board's fields, on GitHub", () => {
     expect(made[0]).toContain("dataType: SINGLE_SELECT");
     expect(made[0]).toContain('name: "Actions"');
     expect(made[1]).toContain("dataType: NUMBER");
+  });
+});
+
+describe("a board's fields by name, on GitHub", () => {
+  it("lists every field the board has, and changes nothing", async () => {
+    const g = gh([
+      [
+        /query BoardFields/,
+        {
+          data: {
+            owner: {
+              projectV2: {
+                id: "PVT_9",
+                fields: {
+                  nodes: [{ name: "Status" }, {}, { name: "Session" }],
+                },
+              },
+            },
+          },
+        },
+      ],
+    ]);
+    const board = githubTickets({
+      transport: ghTransport(g.run),
+      repository: REPO,
+      board: null,
+    }).board!;
+    expect(await board.fieldNames(9)).toEqual(["Status", "Session"]);
+    expect(g.calls).toHaveLength(1);
+    expect(g.calls[0]!.line).toContain("number=9");
+  });
+
+  it("fails for a board that cannot be read", async () => {
+    const g = gh([[/query BoardFields/, { data: { owner: null } }]]);
+    const board = githubTickets({
+      transport: ghTransport(g.run),
+      repository: REPO,
+      board: null,
+    }).board!;
+    await expect(board.fieldNames(9)).rejects.toThrow(
+      "Board 9 could not be read.",
+    );
   });
 });
 

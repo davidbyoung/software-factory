@@ -51,13 +51,7 @@ commands:
     report: coverage/lcov.info
 
 # The automated review of every pull request, on while this is written.
-# "commands" are what it may run to confirm a finding, beside reading the
-# pull request and commenting on it.
-pr-review:
-  commands:
-    - npm test
-    - npm run typecheck
-    - node
+pr-review: {}
 
 # This repository's own reviewer: it reads a changed page of the docs as
 # someone who has never seen the factory.

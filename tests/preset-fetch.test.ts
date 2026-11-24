@@ -329,6 +329,7 @@ describe("a preset at one commit", () => {
     expect(pinAt(fetching(), ACME, commit, load)).toEqual({
       name: ACME,
       commit,
+      poller: false,
       settings: { rules: { "review-rounds": 3 } },
       files: {
         ".claude/agents/a.md": fileHash("one\n"),
@@ -338,6 +339,30 @@ describe("a preset at one commit", () => {
     expect(pinAt(fetching(), NODE, commit, load).files).toEqual({
       ".claude/agents/n.md": fileHash("node\n"),
     });
+  });
+
+  it("says whether the commit's repository holds an organization's poller, for a preset in any folder of it", () => {
+    root = repo(own([]));
+    const commit = publish(REPO, {
+      "": {
+        settings: "version: 2\n",
+        others: {
+          ".github/workflows/factory-poller.yml": "name: Factory poller\n",
+        },
+      },
+      node: { settings: "version: 2\n" },
+    });
+    expect(pinAt(fetching(), ACME, commit, load).poller).toBe(true);
+    expect(pinAt(fetching(), NODE, commit, load).poller).toBe(true);
+    const without = publish(REPO, {
+      node: {
+        settings: "version: 2\n",
+        others: {
+          ".github/workflows/factory-poller.yml": "name: Factory poller\n",
+        },
+      },
+    });
+    expect(pinAt(fetching(), NODE, without, load).poller).toBe(false);
   });
 
   it("says where it looked when the commit holds no preset file", () => {
@@ -457,6 +482,7 @@ describe("moving a preset's pin in the lock", () => {
     expect(moved).toEqual({
       name: ACME,
       commit: next,
+      poller: false,
       settings: { rules: { "review-rounds": 4 } },
       files: { ".claude/agents/a.md": fileHash("two\n") },
     });
@@ -510,6 +536,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
   it.each([
     ["settings", { settings: { rules: { "review-rounds": 9 } } }],
     ["hashes", { files: { ".claude/agents/a.md": fileHash("mine\n") } }],
+    ["poller's record", { poller: true }],
   ])(
     "names a new pin whose %s are not what its commit holds",
     (_what, change) => {
@@ -534,6 +561,7 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
   it.each([
     ["settings", { settings: { rules: { "review-rounds": 9 } } }],
     ["hashes", { files: { ".claude/agents/a.md": fileHash("mine\n") } }],
+    ["poller's record", { poller: true }],
   ])(
     "names a pin whose %s changed while its commit did not",
     (_what, change) => {
@@ -559,6 +587,39 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
     expect(faults[0]).toMatch(
       /^\.claude\/factory\.lock: acme\/factory-config at 0123456 could not be read to check it: fatal: /,
     );
+  });
+
+  it("hands a pin whose commit cannot be read to a caller that takes it, and is nothing for it", () => {
+    const [pinned] = setUp();
+    const gone = {
+      ...pinned!,
+      commit: "0123456789abcdef".repeat(3).slice(0, 40),
+    };
+    const unread: string[] = [];
+    expect(
+      pinFaults(fetching(), [gone], [pinned!], load, (pin) =>
+        unread.push(`${pin.name} ${pin.commit}`),
+      ),
+    ).toEqual([]);
+    expect(unread).toEqual([`${ACME} ${gone.commit}`]);
+  });
+
+  it("still names a pin it can read that does not hold what its commit holds, and hands over none", () => {
+    const [pinned] = setUp();
+    const unread: string[] = [];
+    expect(
+      pinFaults(
+        fetching(),
+        [
+          { ...pinned!, settings: { rules: { "review-rounds": 9 } } },
+          { ...pinned!, name: `${REPO}//go` },
+        ],
+        [],
+        load,
+        (pin) => unread.push(pin.name),
+      ),
+    ).toHaveLength(2);
+    expect(unread).toEqual([]);
   });
 });
 

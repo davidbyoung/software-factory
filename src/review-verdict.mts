@@ -1,52 +1,58 @@
 #!/usr/bin/env node
-// Post the "Review verdict" commit status from a GitHub Actions event.
+// Post the "Review verdict" commit status.
 //
 //   factory review verdict    # reads GITHUB_EVENT_NAME and _PATH
 //
-// Runs from main's copy, on two events: the pull request's own workflow
-// finishing (workflow_run), whose review job is what it judges, and the
-// pull request itself (pull_request_target: opened, pushed to, marked ready,
-// or labeled with the override). The verdict is posted on one commit, so a
-// new push always starts without one.
+// It is posted on two occasions: a review ending, by the review's own run
+// (`review-record.mts`), and an event of the pull request itself
+// (pull_request_target: opened, pushed to, marked ready, or labeled with the
+// override), by this command, from main's copy. What the review found is
+// read from the status its run sets on the commit, never from a comment.
+// The verdict is posted on one commit, so a new push always starts without
+// one.
 import { loadSettings } from "./config.mts";
 import { PR_LABELS } from "./labels.mts";
 import { readFileSync } from "node:fs";
 import { openCodeHost } from "./code-host/index.mts";
-import type { CodeHost } from "./code-host/types.mts";
+import type { CodeHost, CommitStatus } from "./code-host/types.mts";
+import { CI_BOT } from "./lib/work-status.mts";
 import { openRunner } from "./runner/index.mts";
 
 // The status's name, which the main ruleset requires by exactly this text.
 export const CONTEXT = "Review verdict";
+/** The status a review's run sets on the commit it reviewed. */
+export const REVIEW = "Automated review";
 /** The override's name when the settings give it no other. */
 export const OVERRIDE = PR_LABELS["verdict-override"];
 
 export type Verdict = "ready" | "changes" | null;
 
 export type Input = {
-  event: "workflow_run" | "pull_request_target";
+  event: "review" | "pull_request_target";
   /** pull_request_target's action, such as synchronize or labeled. */
   action?: string;
   /** The label added or removed, on a labeled or unlabeled action. */
   label?: string;
   /** The override's name, as `code-host.labels` gives it. */
   override?: string;
+  /** Dependabot opened it, and the code host verifies every commit on it
+   * as Dependabot's. */
   isDependabot: boolean;
   isDraft: boolean;
   /** The override label is on the pull request. A push removes it, so it
    * always applies to the head. */
   hasOverride: boolean;
-  /** The account behind a labeled event can write to the repository.
-   * Agents act through such accounts too; the guard hook stops them on a
-   * person's laptop. This stops everyone else. */
-  senderIsApprover?: boolean;
-  /** The code host could not say whether that account can write. */
-  senderUnchecked?: boolean;
-  /** How the review's job ended in the run that finished: success, failure,
-   * cancelled, skipped. */
-  runConclusion?: string;
+  /** The account the code host says added the override can write to the
+   * repository. Agents act through such accounts too; the guard hook stops
+   * them on a person's laptop. This stops everyone else. */
+  overrideByApprover?: boolean;
+  /** The code host could not say who added it, or whether they can write. */
+  overrideUnchecked?: boolean;
+  /** How the review ended: success, failure, cancelled, or skipped. */
+  conclusion?: string;
   /** The settings turn the automated review off, so none is coming. */
   reviewOff?: boolean;
-  /** The marker in the review's summary for this commit; null if none. */
+  /** What the review's status on this commit says; null with none. */
   verdict: Verdict;
 };
 
@@ -86,6 +92,27 @@ function fromVerdict(verdict: Verdict, ifMissing: Decision): Decision {
   return ifMissing;
 }
 
+/** The status an event calls for where no override counts. */
+function withoutOverride(input: Input): Decision {
+  if (input.event === "review") {
+    if (input.conclusion === "skipped") {
+      return input.isDraft
+        ? DRAFT
+        : { state: "pending", description: "The review did not run" };
+    }
+    if (input.conclusion !== "success") {
+      return { state: "failure", description: "The review did not finish" };
+    }
+    return fromVerdict(input.verdict, {
+      state: "failure",
+      description: "The review posted no verdict",
+    });
+  }
+  const label = input.action === "labeled" || input.action === "unlabeled";
+  if (input.isDraft && !label) return DRAFT;
+  return fromVerdict(input.verdict, WAITING);
+}
+
 /** The status to post, or null to leave the commit's status as it is. */
 export function decide(input: Input): Decision | null {
   if (input.isDependabot) {
@@ -102,167 +129,145 @@ export function decide(input: Input): Decision | null {
       input.label !== (input.override ?? OVERRIDE);
     return otherLabel ? null : OFF;
   }
-  if (input.event === "workflow_run") {
-    // An override already vouches for this commit; a late review must not
-    // overwrite it.
-    if (input.hasOverride) return null;
-    if (input.runConclusion === "skipped") {
-      return input.isDraft
-        ? DRAFT
-        : { state: "pending", description: "The review did not run" };
-    }
-    if (input.runConclusion !== "success") {
-      return { state: "failure", description: "The review did not finish" };
-    }
-    return fromVerdict(input.verdict, {
-      state: "failure",
-      description: "The review posted no verdict",
-    });
+  if (input.action === "synchronize") {
+    // The approver overrode the commit they read. The new one is unread.
+    return { ...WAITING, removeOverride: input.hasOverride };
   }
+  if (input.hasOverride && !input.overrideByApprover) {
+    return {
+      ...withoutOverride(input),
+      removeOverride: true,
+      explainRemoval: input.overrideUnchecked
+        ? "could not check"
+        : "not an approver",
+    };
+  }
+  // An override already vouches for this commit; a late review must not
+  // overwrite it.
+  if (input.event === "review" && input.hasOverride) return null;
   switch (input.action) {
     case "labeled":
       if (input.label !== (input.override ?? OVERRIDE)) return null;
-      if (!input.senderIsApprover) {
-        return {
-          ...fromVerdict(input.verdict, WAITING),
-          removeOverride: true,
-          explainRemoval: input.senderUnchecked
-            ? "could not check"
-            : "not an approver",
-        };
-      }
-      return { ...OVERRIDDEN, announceOverride: true };
+      return input.hasOverride
+        ? { ...OVERRIDDEN, announceOverride: true }
+        : withoutOverride(input);
     case "unlabeled":
       return input.label === (input.override ?? OVERRIDE)
-        ? fromVerdict(input.verdict, WAITING)
+        ? withoutOverride(input)
         : null;
-    case "synchronize":
-      // The approver overrode the commit they read. The new one is unread.
-      return { ...WAITING, removeOverride: input.hasOverride };
     default:
-      if (input.hasOverride) return OVERRIDDEN;
-      if (input.isDraft) return DRAFT;
-      return fromVerdict(input.verdict, WAITING);
+      return input.hasOverride ? OVERRIDDEN : withoutOverride(input);
   }
 }
 
-/** Whether a finished review should set the head's verdict. It should when
- * it reviewed the head, or when it finished and its summary is for the head
- * anyway, as when the event that started it named an older commit. Once the
- * head has a verdict of its own, a run of an older commit that was
- * cancelled, failed, or timed out leaves it alone: GitHub delivers a run's
- * completion minutes after the fact, so one can arrive after the head's own
- * review has concluded. Until the head has a verdict, a run that failed or
- * timed out sets it, since it may have been reviewing the head and no other
- * review is coming; a run a newer push cancelled leaves the head to its
- * own. */
-export function reviewIsAboutHead(
-  reviewed: string,
-  head: string,
-  verdictForHead: Verdict,
-  conclusion?: string,
-): boolean {
-  if (reviewed === head) return true;
-  if (verdictForHead !== null) return conclusion === "success";
-  return conclusion === "failure" || conclusion === "timed_out";
+/** What the review's own run says of the commit whose statuses these are.
+ * Anyone who can write to the repository can set a status, so only the
+ * workflow's account's counts. */
+export function verdictIn(statuses: CommitStatus[]): Verdict {
+  const status = statuses.find((s) => s.name === REVIEW && s.author === CI_BOT);
+  if (!status || status.state === "pending") return null;
+  return status.state === "success" ? "ready" : "changes";
 }
 
-/** The verdict marker in the last review summary for `sha`, if any. */
-export function verdictIn(
-  comments: { author: string; body: string }[],
+const DEPENDABOT = "dependabot[bot]";
+
+/** Whether Dependabot opened the pull request, and the code host verifies
+ * every commit on it, `sha` among them, as Dependabot's. */
+async function onlyDependabot(
+  pulls: CodeHost,
+  pr: { number: number; author: string },
   sha: string,
-): Verdict {
-  const summaries = comments.filter(
-    (c) =>
-      c.author === "github-actions[bot]" &&
-      c.body.includes(`<!-- claude-review sha=${sha} -->`),
-  );
-  const body = summaries.at(-1)?.body ?? "";
-  const match = /<!-- review-verdict: (ready|changes) -->/.exec(body);
-  return match ? (match[1] as Verdict) : null;
+  log: (line: string) => void,
+): Promise<boolean> {
+  if (pr.author !== DEPENDABOT) return false;
+  try {
+    const commits = await pulls.commits(pr.number);
+    // A push since the pull request was read can have replaced `sha`.
+    return (
+      commits.some((c) => c.sha === sha) &&
+      commits.every((c) => c.verifiedAuthor === DEPENDABOT)
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    log(`Could not check that every commit is Dependabot's: ${reason}`);
+    return false;
+  }
 }
+
+export type VerdictEvent =
+  /** The event as GitHub sends it. */
+  | { eventName: "pull_request_target"; event: any }
+  /** A review of the commit `sha` ended. */
+  | {
+      eventName: "review";
+      event: { pull: number; sha: string; conclusion: string };
+    };
 
 /** Posts the verdict for one event, removes or announces the override,
- * and says why it removed one. When the code host cannot say whether the
- * account that added the override can write, it removes the label, then
- * rejects with the reason. */
-export async function apply(o: {
-  eventName: Input["event"];
-  /** The event as GitHub sends it. */
-  event: any;
-  pulls: CodeHost;
-  /** The page of the run posting the status. */
-  link?: string;
-  log: (line: string) => void;
-  /** The override's name, as `code-host.labels` gives it. */
-  override?: string;
-  /** False where the settings turn the automated review off. */
-  reviewOn?: boolean;
-  /** How the review's job ended in a run, by the run's ID. Without it, the
-   * run's own conclusion stands in. */
-  reviewConclusion?: (run: number) => Promise<string>;
-}): Promise<void> {
-  const { eventName, event, pulls, log } = o;
+ * and says why it removed one. When the code host cannot say who added the
+ * override, or whether they can write, it removes the label, then rejects
+ * with the reason. */
+export async function apply(
+  o: VerdictEvent & {
+    pulls: CodeHost;
+    /** The page of the run posting the status. */
+    link?: string;
+    log: (line: string) => void;
+    /** The override's name, as `code-host.labels` gives it. */
+    override?: string;
+    /** False where the settings turn the automated review off. */
+    reviewOn?: boolean;
+  },
+): Promise<void> {
+  const { pulls, log } = o;
   const override = o.override ?? OVERRIDE;
+  const review = o.eventName === "review" ? o.event : null;
+  const event = o.eventName === "review" ? {} : o.event;
 
   // Read the pull request as it is now. The event's copy can be stale: a
   // "marked ready" event sent just after a push carries the previous commit.
-  let number: number;
-  if (eventName === "workflow_run") {
-    const reviewed = event.workflow_run.head_sha;
-    const open = (await pulls.forCommit(reviewed)).find(
-      (p) => p.state === "open",
-    );
-    if (!open) return log(`No open pull request has ${reviewed}.`);
-    number = open.number;
-  } else {
-    number = event.pull_request.number;
-  }
-  const pr = await pulls.get(number);
+  const pr = await pulls.get(review ? review.pull : event.pull_request.number);
   const sha: string = pr.head.sha;
+  if (review && pr.state !== "open") return log(`#${pr.number} is not open.`);
+  if (review && review.sha !== sha)
+    return log(`${sha} is waiting for its own review.`);
 
   const { labels } = pr;
-  const comments = await pulls.comments(pr.number);
   const reviewOff = o.reviewOn === false;
-  const runConclusion: string | undefined =
-    eventName === "workflow_run" && !reviewOff
-      ? ((await o.reviewConclusion?.(event.workflow_run.id)) ??
-        event.workflow_run.conclusion)
-      : undefined;
-  if (
-    eventName === "workflow_run" &&
-    !reviewOff &&
-    !reviewIsAboutHead(
-      event.workflow_run.head_sha,
-      sha,
-      verdictIn(comments, sha),
-      runConclusion,
-    )
-  ) {
-    return log(`${sha} is waiting for its own review.`);
-  }
-  let senderIsApprover: boolean | undefined;
+  const isDependabot = await onlyDependabot(pulls, pr, sha, log);
+  const hasOverride = labels.includes(override);
+  let overrideBy: string | null = null;
+  let overrideByApprover: boolean | undefined;
   let lookupFailure: unknown;
-  if (event.action === "labeled" && event.label?.name === override)
+  if (
+    hasOverride &&
+    !isDependabot &&
+    !reviewOff &&
+    event.action !== "synchronize"
+  )
     try {
-      senderIsApprover = await pulls.canWrite(event.sender.login);
+      overrideBy = await pulls.labeledBy(pr.number, override);
+      if (overrideBy === null)
+        throw new Error(
+          `The code host does not say who added \`${override}\`.`,
+        );
+      overrideByApprover = await pulls.canWrite(overrideBy);
     } catch (error) {
-      senderIsApprover = false;
       lookupFailure = error ?? new Error("The access lookup failed.");
     }
   const decision = decide({
-    event: eventName,
+    event: o.eventName,
     action: event.action,
     label: event.label?.name,
     override,
-    isDependabot: pr.author === "dependabot[bot]",
+    isDependabot,
     isDraft: pr.isDraft,
-    hasOverride: labels.includes(override),
-    senderIsApprover,
-    senderUnchecked: lookupFailure !== undefined,
-    runConclusion,
+    hasOverride,
+    overrideByApprover,
+    overrideUnchecked: lookupFailure !== undefined,
+    conclusion: review?.conclusion,
     reviewOff,
-    verdict: verdictIn(comments, sha),
+    verdict: verdictIn(await pulls.statuses(sha)),
   });
   if (!decision) return log("Nothing to post.");
 
@@ -275,16 +280,17 @@ export async function apply(o: {
   log(`${CONTEXT} on ${sha}: ${decision.state}, ${decision.description}`);
 
   if (decision.removeOverride) await pulls.removeLabel(pr.number, override);
-  const who = event.sender?.login;
   if (decision.explainRemoval === "not an approver")
     await pulls.comment(
       pr.number,
-      `Removed \`${override}\`: @${who} cannot write to this repository, and only an account that can may pass the verdict.`,
+      `Removed \`${override}\`: @${overrideBy} cannot write to this repository, and only an account that can may pass the verdict.`,
     );
   if (decision.explainRemoval === "could not check") {
     await pulls.comment(
       pr.number,
-      `Removed \`${override}\`: could not check whether @${who} can write to this repository. Add the label again to retry.`,
+      overrideBy === null
+        ? `Removed \`${override}\`: could not check who added it, and only an account that can write to this repository may pass the verdict. Add the label again to retry.`
+        : `Removed \`${override}\`: could not check whether @${overrideBy} can write to this repository. Add the label again to retry.`,
     );
     throw lookupFailure;
   }
@@ -292,7 +298,7 @@ export async function apply(o: {
     const open = await pulls.openThreadCount(pr.number);
     await pulls.comment(
       pr.number,
-      `\`${CONTEXT}\` overridden by @${event.sender.login} at ${sha.slice(0, 7)}. ` +
+      `\`${CONTEXT}\` overridden by @${overrideBy} at ${sha.slice(0, 7)}. ` +
         `${open} review thread(s) still open; each must be resolved before this can merge. ` +
         `A new push removes the override.`,
     );
@@ -304,17 +310,20 @@ export async function apply(o: {
 export async function run(): Promise<number> {
   const repo = process.env.GITHUB_REPOSITORY!;
   try {
+    const eventName = process.env.GITHUB_EVENT_NAME;
+    if (eventName !== "pull_request_target")
+      throw new Error(
+        `factory review verdict reads pull_request_target, not ${eventName}: a review's run posts its own verdict.`,
+      );
     const settings = await loadSettings();
-    const runner = openRunner(repo);
     await apply({
-      eventName: process.env.GITHUB_EVENT_NAME as Input["event"],
+      eventName,
       event: JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH!, "utf8")),
       pulls: openCodeHost(repo),
-      link: runner.thisRun(process.env)?.page,
+      link: openRunner(repo).thisRun(process.env)?.page,
       log: (line) => console.log(line),
       override: settings.codeHost.labels["verdict-override"],
       reviewOn: settings.prReview !== null,
-      reviewConclusion: (run) => runner.reviewConclusion(run),
     });
     return 0;
   } catch (error) {

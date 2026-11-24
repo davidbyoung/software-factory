@@ -3,6 +3,11 @@
 // the value of the setting the tool names (such as its site), then by each
 // part's name. An environment variable of the same name takes priority, as
 // CI and hosted sessions inject it from their own secret stores.
+//
+// The file also holds a person's code host token and coding agent's
+// credential, filed by tool and then by `HOST/OWNER`, which only
+// `factory init` reads, and never from the environment. Beside it,
+// `presets.yaml` records the presets last chosen for each owner.
 import {
   chmodSync,
   closeSync,
@@ -25,7 +30,8 @@ type Env = Record<string, string | undefined>;
 
 const HEADER = [
   "# Written by factory init. Readable only by you.",
-  "# An environment variable of the same name takes priority over a value here.",
+  "# For a ticket system, an environment variable of the same name takes",
+  "# priority over a value here.",
 ];
 
 /** The file, under `$XDG_CONFIG_HOME` when it is set, else `~/.config`. */
@@ -101,16 +107,17 @@ export type Found =
   | { state: "missing" };
 
 /** The credential for `tool` at `site`: from the environment when every
- * name is set there and not empty, else from the file. Throws
- * CredentialError when the file is open to others or not YAML. */
+ * name is set there and not empty, unless `fileOnly`, else from the file.
+ * Throws CredentialError when the file is open to others or not YAML. */
 export function readCredential(o: {
   tool: string;
   site: string;
   names: string[];
   env?: Env;
+  fileOnly?: boolean;
 }): Found {
   const env = o.env ?? process.env;
-  if (o.names.every((n) => env[n]?.trim()))
+  if (!o.fileOnly && o.names.every((n) => env[n]?.trim()))
     return {
       state: "found",
       source: "env",
@@ -154,18 +161,35 @@ export function writeCredential(o: {
   env?: Env;
 }): void {
   const path = credentialsPath(o.env ?? process.env);
-  const dir = dirname(path);
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  if ((statSync(dir).mode & 0o077) !== 0) chmodSync(dir, 0o700);
+  ownFolder(dirname(path));
   const old = load(path);
   if (old && "unreadable" in old) throw new CredentialError(old.line);
-  const doc = old ?? parseDocument(`${HEADER.join("\n")}\n{}\n`);
+  const doc = old ?? emptyDocument(HEADER);
   for (const [name, value] of Object.entries(o.values))
     doc.setIn([o.tool, o.site, name], value);
+  writeOwned(path, String(doc));
+}
+
+/** A document with no entry yet under these comment lines, written one
+ * key to a line. */
+function emptyDocument(header: string[]) {
+  const doc = parseDocument(`${header.join("\n")}\n{}\n`);
+  if (isMap(doc.contents)) doc.contents.flow = false;
+  return doc;
+}
+
+function ownFolder(dir: string): void {
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  if ((statSync(dir).mode & 0o077) !== 0) chmodSync(dir, 0o700);
+}
+
+/** Writes a file at 600 in a folder at 700, as `writeCredential` says. */
+function writeOwned(path: string, text: string): void {
+  ownFolder(dirname(path));
   const temporary = `${path}.${process.pid}.tmp`;
   const fd = openSync(temporary, "wx", 0o600);
   try {
-    writeSync(fd, String(doc));
+    writeSync(fd, text);
   } finally {
     closeSync(fd);
   }
@@ -175,6 +199,44 @@ export function writeCredential(o: {
     rmSync(temporary, { force: true });
     throw e;
   }
+}
+
+/** `presets.yaml`, beside the credentials file. */
+export const presetsPath = (env: Env = process.env) =>
+  join(dirname(credentialsPath(env)), "presets.yaml");
+
+/** The presets this machine last chose for an owner, filed as
+ * `HOST/OWNER`: none when the file has no list for it, or cannot be
+ * read. */
+export function rememberedPresets(
+  site: string,
+  env: Env = process.env,
+): string[] {
+  const path = presetsPath(env);
+  if (!existsSync(path)) return [];
+  const doc = parseDocument(readFileSync(path, "utf8"));
+  const names = doc.errors.length ? null : doc.toJS()?.[site];
+  return Array.isArray(names)
+    ? names.filter((n): n is string => typeof n === "string")
+    : [];
+}
+
+/** Records the presets chosen for an owner, keeping every other owner's. */
+export function rememberPresets(
+  site: string,
+  names: string[],
+  env: Env = process.env,
+): void {
+  const path = presetsPath(env);
+  const old = existsSync(path)
+    ? parseDocument(readFileSync(path, "utf8"))
+    : null;
+  const doc =
+    old && !old.errors.length && isMap(old.contents)
+      ? old
+      : emptyDocument(["# Written by factory init."]);
+  doc.set(site, names);
+  writeOwned(path, String(doc));
 }
 
 /** What a refusal says: the status and its text, such as

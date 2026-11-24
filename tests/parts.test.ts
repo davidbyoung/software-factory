@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseSettings } from "../src/config.mts";
 import {
   neededSecrets,
+  PARTS,
   partsOn,
   resolveParts,
   type Part,
@@ -61,6 +62,20 @@ describe("partsOn", () => {
       set(),
     );
   });
+
+  it("takes cloud builds to be on under an organization's app, and signing to be off whatever key is set", () => {
+    expect(
+      partsOn(
+        settings(),
+        [
+          "CLAUDE_CODE_OAUTH_TOKEN",
+          "FACTORY_APP_PRIVATE_KEY",
+          "FACTORY_SIGNING_KEY",
+        ],
+        cloud,
+      ),
+    ).toEqual(set("cloud"));
+  });
 });
 
 describe("resolveParts", () => {
@@ -70,6 +85,18 @@ describe("resolveParts", () => {
     expect(notes).toEqual([
       "Builds that start from the board need a board, so that is on too.",
       "Builds that start from the board need builds in the cloud, so that is on too.",
+    ]);
+  });
+
+  it("leaves off, with no note, a needed part that cannot be turned on here", () => {
+    const { parts, notes } = resolveParts(
+      set(),
+      set("from-board"),
+      (part) => part !== "cloud",
+    );
+    expect(parts).toEqual(set("from-board", "board"));
+    expect(notes).toEqual([
+      "Builds that start from the board need a board, so that is on too.",
     ]);
   });
 
@@ -87,8 +114,14 @@ describe("what the parts need", () => {
   const needed = (...parts: Part[]) =>
     neededSecrets(set(...parts), secretSteps(TOOLS, memoryContext(parts)));
 
+  const APP_KEY = "FACTORY_APP_PRIVATE_KEY";
+
   it("names the secrets each part reads, any one of a pair doing", () => {
-    expect(needed("review", "cloud", "auto-merge")).toEqual([
+    const own = needed("review", "cloud", "auto-merge").map((n) => ({
+      ...n,
+      anyOf: n.anyOf.filter((name) => name !== APP_KEY),
+    }));
+    expect(own).toEqual([
       {
         part: "review",
         anyOf: ["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
@@ -109,6 +142,18 @@ describe("what the parts need", () => {
         anyOf: ["FACTORY_AUTOMERGE_TOKEN"],
         tool: "GitHub",
       },
+    ]);
+  });
+
+  it("lets an organization's app's key meet each need for a token of the code host's, and none of the coding agent's", () => {
+    const met = needed(...PARTS)
+      .filter((n) => n.anyOf.includes(APP_KEY))
+      .map((n) => `${n.tool}: ${n.part}`);
+    expect(met).toEqual([
+      "GitHub: cloud",
+      "GitHub: board",
+      "GitHub: from-board",
+      "GitHub: auto-merge",
     ]);
   });
 

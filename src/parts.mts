@@ -38,8 +38,8 @@ export const PART_TEXT: Record<Part, { name: string; gives: string }> = {
     gives: "changes to files you list as safe do not wait for you",
   },
   signing: {
-    name: "Signed commits from cloud builds",
-    gives: "a cloud build's commits show as verified",
+    name: "Signed commits on the factory's updates",
+    gives: "the pull requests that update the factory show as verified",
   },
 };
 
@@ -49,10 +49,13 @@ export const BOARD_TOKEN = "FACTORY_BOARD_TOKEN";
 export const BUILD_TOKEN = "FACTORY_BUILD_TOKEN";
 export const AUTOMERGE_TOKEN = "FACTORY_AUTOMERGE_TOKEN";
 export const SIGNING_KEY = "FACTORY_SIGNING_KEY";
+/** The key of an organization's app, which stands in for each token above
+ * wherever the organization shares it. */
+export const APP_KEY = "FACTORY_APP_PRIVATE_KEY";
 
 /** The parts on: those with a setting, from the settings; cloud builds,
  * when every secret the tools read for them is set; and signing, from its
- * key. */
+ * key, which an organization's app never signs with. */
 export function partsOn(
   s: Settings | null,
   secrets: string[],
@@ -66,7 +69,7 @@ export function partsOn(
     on.add("cloud");
   if (s && s.builds.trigger !== "manual") on.add("from-board");
   if (s && s.autoMerge.allow.length > 0) on.add("auto-merge");
-  if (has([SIGNING_KEY])) on.add("signing");
+  if (has([SIGNING_KEY]) && !has([APP_KEY])) on.add("signing");
   return on;
 }
 
@@ -88,10 +91,12 @@ const NEEDS: { part: Part; needs: Part; parts: string; need: string }[] = [
 
 /** The parts chosen, with what one needs turned on alongside it, and a part
  * turned off when one it needs was just turned off. `before` is what was on,
- * so turning a needed part off wins over keeping the part that needs it. */
+ * so turning a needed part off wins over keeping the part that needs it. A
+ * needed part that cannot be turned on here is left off, with no note. */
 export function resolveParts(
   before: Set<Part>,
   chosen: Set<Part>,
+  available: (part: Part) => boolean = () => true,
 ): { parts: Set<Part>; notes: string[] } {
   const parts = new Set(chosen);
   const notes: string[] = [];
@@ -100,7 +105,7 @@ export function resolveParts(
     if (before.has(n.needs)) {
       parts.delete(n.part);
       notes.push(`${n.parts} need ${n.need}, so they are off too.`);
-    } else {
+    } else if (available(n.needs)) {
       parts.add(n.needs);
       notes.push(`${n.parts} need ${n.need}, so that is on too.`);
     }

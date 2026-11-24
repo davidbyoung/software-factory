@@ -1,4 +1,5 @@
 import type { Settings } from "../src/config.mts";
+import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -14,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import { parse } from "yaml";
 import { resolveFiles, type Resolved } from "../src/config.mts";
+import { NoDefaultBranch } from "../src/lib/default-branch.mts";
 import {
   factoryHooks,
   hasAnyFactoryHook,
@@ -68,8 +70,12 @@ const FULL = {
   "auto-merge": { allow: ["docs/**"] },
 };
 
+const NO_REMOTE =
+  "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.";
+
 /** A sync of the made-up package into the repository, whose default branch
- * is `branch`, or cannot be told when that is null. */
+ * is `branch`, or cannot be told when that is null, for the reason the
+ * line NO_REMOTE gives. */
 async function sync(
   argv: string[] = [],
   s = settings(FULL),
@@ -83,7 +89,10 @@ async function sync(
     pkg,
     settings: () => resolved(s),
     stale: async () => null,
-    defaultBranch: async () => branch,
+    defaultBranch: async () => {
+      if (branch === null) throw new NoDefaultBranch(NO_REMOTE);
+      return branch;
+    },
     out: (l) => out.push(l),
     err: (l) => err.push(l),
     ...extra,
@@ -127,15 +136,9 @@ type ReviewFile = {
 /** The two workflow files a sync wrote, read as YAML. */
 const factoryFile = (text = read(FACTORY_FILE)) => parse(text!) as FactoryFile;
 const reviewFile = (text = read(REVIEW_FILE)) => parse(text!) as ReviewFile;
-/** The parts that are on, as each file passes them. */
-const partsIn = () => {
-  const listed = (called: Called) =>
-    String(called.with.parts).split(" ").filter(Boolean);
-  return {
-    factory: listed(factoryFile().jobs.factory),
-    review: listed(reviewFile().jobs.review),
-  };
-};
+/** The parts that are on, as factory.yml passes them. */
+const partsIn = () =>
+  String(factoryFile().jobs.factory.with.parts).split(" ").filter(Boolean);
 /** What factory.yml passes that sets a session's minutes or its job's
  * limit. */
 const minutesIn = () =>
@@ -184,6 +187,7 @@ describe("factory sync", () => {
           }),
         ],
       }),
+      expect.objectContaining({ matcher: "Read|Grep|Glob" }),
     ]);
 
     expect(hooks.PermissionRequest).toEqual([
@@ -316,16 +320,13 @@ describe("factory sync", () => {
   it("writes the deps skill, and turns the dependabot part on, only where Dependabot is set up", async () => {
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DEPS)).toBeNull();
-    expect(partsIn()).toEqual({ factory: [], review: [] });
+    expect(partsIn()).toEqual([]);
 
     put(root, DEPENDABOT, "version: 2\n");
     expect((await sync([], settings())).code).toBe(0);
     expect(read(DEPS)).toBe("deps\n");
     expect(read(".claude/factory.lock")).toContain(`  - ${DEPS}`);
-    expect(partsIn()).toEqual({
-      factory: ["dependabot"],
-      review: ["dependabot"],
-    });
+    expect(partsIn()).toEqual(["dependabot"]);
   });
 
   it("removes the deps skill, and turns the part off, when Dependabot is taken out, and the check then passes", async () => {
@@ -337,7 +338,7 @@ describe("factory sync", () => {
 
     expect(read(DEPS)).toBeNull();
     expect(r.out).toContain(`deleted ${DEPS}`);
-    expect(partsIn()).toEqual({ factory: [], review: [] });
+    expect(partsIn()).toEqual([]);
     expect((await sync(["--check"], settings())).code).toBe(0);
   });
 
@@ -451,7 +452,7 @@ describe("factory sync", () => {
 
     const written = JSON.parse(read(".claude/settings.json")!);
     expect(written.model).toBe("x");
-    expect(written.hooks.PreToolUse).toHaveLength(2);
+    expect(written.hooks.PreToolUse).toHaveLength(3);
     expect(written.hooks.PreToolUse[0]).toEqual({
       matcher: "Edit",
       hooks: [own],
@@ -499,19 +500,18 @@ describe("factory sync", () => {
       { ...BOARD, builds: { trigger: "github-action" } },
     ],
   ])(
-    "turns the %s part on in both files only while %s",
+    "turns the %s part on only while %s, and changes nothing in factory-review.yml",
     async (part, _, raw) => {
       await sync([], settings());
-      expect(partsIn().factory).not.toContain(part);
-      expect(partsIn().review).not.toContain(part);
+      expect(partsIn()).not.toContain(part);
+      const review = read(REVIEW_FILE);
 
       await sync([], settings(raw));
-      expect(partsIn().factory).toContain(part);
-      expect(partsIn().review).toContain(part);
+      expect(partsIn()).toContain(part);
+      expect(read(REVIEW_FILE)).toBe(review);
 
       await sync([], settings());
-      expect(partsIn().factory).not.toContain(part);
-      expect(partsIn().review).not.toContain(part);
+      expect(partsIn()).not.toContain(part);
     },
   );
 
@@ -527,8 +527,13 @@ describe("factory sync", () => {
       }),
     );
 
-    const every = ["review", "board", "auto-merge", "poller", "dependabot"];
-    expect(partsIn()).toEqual({ factory: every, review: every });
+    expect(partsIn()).toEqual([
+      "review",
+      "board",
+      "auto-merge",
+      "poller",
+      "dependabot",
+    ]);
   });
 
   it("schedules the poller only with the github-action trigger, and takes its line out once the trigger changes", async () => {
@@ -798,13 +803,11 @@ describe("factory sync: the default branch in the push trigger", () => {
     ]);
   });
 
-  it("writes nothing, names the fix, and exits 1 when it cannot tell the default branch", async () => {
+  it("writes nothing, prints the lookup's line, and exits 1 when it cannot tell the default branch", async () => {
     const r = await sync([], settings(), null);
 
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([
-      "Could not tell the default branch. Run: git remote set-head origin --auto",
-    ]);
+    expect(r.err).toEqual([NO_REMOTE]);
     expect(r.out).toEqual([]);
     expect(read(FACTORY_FILE)).toBeNull();
     expect(read("CLAUDE.md")).toBeNull();
@@ -816,9 +819,7 @@ describe("factory sync: the default branch in the push trigger", () => {
     const r = await sync(["--check"], settings(), null);
 
     expect(r.code).toBe(1);
-    expect(r.err).toEqual([
-      "Could not tell the default branch. Run: git remote set-head origin --auto",
-    ]);
+    expect(r.err).toEqual([NO_REMOTE]);
   });
 
   it("quotes a name that YAML would not read as plain text", async () => {
@@ -893,7 +894,7 @@ describe("factory sync --check", () => {
     ]);
   });
 
-  it("exits 1 naming both workflow files when a part was turned on and sync did not run", async () => {
+  it("exits 1 naming factory.yml, and not factory-review.yml, when a part was turned on and sync did not run", async () => {
     await sync();
     put(root, DEPENDABOT, "version: 2\n");
 
@@ -901,7 +902,7 @@ describe("factory sync --check", () => {
 
     expect(r.code).toBe(1);
     expect(r.err).toContain(`  ${FACTORY_FILE}`);
-    expect(r.err).toContain(`  ${REVIEW_FILE}`);
+    expect(r.err).not.toContain(`  ${REVIEW_FILE}`);
   });
 
   it("exits 1 naming both workflow files when the factory's version changed and sync did not run", async () => {
@@ -970,17 +971,21 @@ describe("launcherPath", () => {
 describe("factoryHooks", () => {
   const MISSING =
     "The factory is not installed on this machine. Install it once: npm install -g @o/factory";
-  const commands = (launcher: string | null, credentials = false) =>
-    factoryHooks(launcher, credentials, "@o/factory").map(
+  const commands = (launcher: string | null) =>
+    factoryHooks(launcher, "@o/factory").map(
       ([event, group]) => `${event}: ${group.hooks[0].command}`,
     );
+  /** What the hook on the credentials file runs before the guard: nothing
+   * more is started for a call whose input does not name the file. */
+  const NAMED =
+    'input=$(cat); case "$input" in *software-factory/credentials*) ;; *) exit 0 ;; esac; printf \'%s\' "$input" |';
 
   it("runs the machine's factory, and stops a command or a file read where there is none", () => {
-    const guard = `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; factory`;
-    expect(commands(null, true)).toEqual([
+    const installed = `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; };`;
+    expect(commands(null)).toEqual([
       `SessionStart: command -v factory >/dev/null 2>&1 || { echo "${MISSING}"; exit 0; }; factory session-start`,
-      `PreToolUse: ${guard} guard`,
-      `PreToolUse: ${guard} guard credentials`,
+      `PreToolUse: ${installed} factory guard`,
+      `PreToolUse: ${installed} ${NAMED} factory guard credentials`,
       "PermissionRequest: command -v factory >/dev/null 2>&1 || exit 0; factory guard permission",
       "SubagentStart: factory reviewers start 2>/dev/null || true",
       "SubagentStop: factory reviewers stop 2>/dev/null || true",
@@ -991,16 +996,86 @@ describe("factoryHooks", () => {
     expect(commands("bin/factory.js")).toEqual([
       'SessionStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js session-start',
       'PreToolUse: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard',
+      `PreToolUse: ${NAMED} node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard credentials`,
       'PermissionRequest: node "$CLAUDE_PROJECT_DIR"/bin/factory.js guard permission',
       'SubagentStart: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers start 2>/dev/null || true',
       'SubagentStop: node "$CLAUDE_PROJECT_DIR"/bin/factory.js reviewers stop 2>/dev/null || true',
     ]);
   });
 
+  describe("the hook on the credentials file, run by sh", () => {
+    const [, group] = factoryHooks(null, "@o/factory").find(
+      ([, g]) => g.matcher === "Read|Grep|Glob",
+    ) ?? [null, { hooks: [{ command: "exit 99" }] }];
+    const FILE = "/home/dana/.config/software-factory/credentials.yaml";
+    let box = "";
+    afterEach(() => rmSync(box, { recursive: true, force: true }));
+
+    /** The command run on a hook's input. With `installed`, the `factory`
+     * on the PATH notes that it was started, then runs the real one. */
+    const run = (
+      tool_name: string,
+      tool_input: Record<string, string>,
+      installed = true,
+    ) => {
+      box = mkdtempSync(join(tmpdir(), "factory-hook-"));
+      const started = join(box, "started");
+      if (installed)
+        writeFileSync(
+          join(box, "factory"),
+          `#!/bin/sh\necho "$*" >> "${started}"\nexec "${process.execPath}" "${join(import.meta.dirname, "..", "bin", "factory.js")}" "$@"\n`,
+          { mode: 0o755 },
+        );
+      const r = spawnSync("/bin/sh", ["-c", group.hooks[0]!.command], {
+        input: JSON.stringify({ tool_name, tool_input }),
+        encoding: "utf8",
+        env: { PATH: installed ? `${box}:${process.env.PATH}` : box },
+      });
+      return {
+        status: r.status,
+        stderr: r.stderr.trim(),
+        started: existsSync(started)
+          ? readFileSync(started, "utf8").trim().split("\n")
+          : [],
+      };
+    };
+
+    it("reaches the guard, which refuses the call, when the input opens the file", () => {
+      expect(run("Read", { file_path: FILE })).toEqual({
+        status: 2,
+        stderr:
+          "The factory's credentials file is not for sessions to read. Its commands read it themselves: run the factory command you need, such as factory ticket view.",
+        started: ["guard credentials"],
+      });
+    });
+
+    it("starts no factory for a call that does not name the file", () => {
+      expect(run("Read", { file_path: "/home/dana/site/README.md" })).toEqual({
+        status: 0,
+        stderr: "",
+        started: [],
+      });
+    });
+
+    it("reaches the guard, which lets the call through, when a search only mentions the path in its pattern", () => {
+      expect(run("Grep", { pattern: FILE, path: "docs" })).toEqual({
+        status: 0,
+        stderr: "",
+        started: ["guard credentials"],
+      });
+    });
+
+    it("stops every call, saying how to install the factory, on a machine without it", () => {
+      expect(
+        run("Read", { file_path: "/home/dana/site/README.md" }, false),
+      ).toEqual({ status: 2, stderr: MISSING, started: [] });
+    });
+  });
+
   it("replaces an entry an earlier release wrote, which ran a copy in node_modules", () => {
     const old = withHooks(null, "node_modules/@o/factory/bin/factory.js");
-    const now = JSON.parse(withHooks(old, null, false, "@o/factory"));
-    expect(now.hooks.PreToolUse).toHaveLength(1);
+    const now = JSON.parse(withHooks(old, null, "@o/factory"));
+    expect(now.hooks.PreToolUse).toHaveLength(2);
     expect(now.hooks.PreToolUse[0].hooks[0].command).toMatch(
       /; factory guard$/,
     );
@@ -1008,6 +1083,31 @@ describe("factoryHooks", () => {
     expect(withoutHooks(JSON.stringify(now))).toBe(
       `${JSON.stringify({ attribution: now.attribution }, null, 2)}\n`,
     );
+  });
+
+  it("replaces the guard on the credentials file as an earlier release wrote it, and writes it once", () => {
+    const earlier = {
+      matcher: "Read|Grep|Glob",
+      hooks: [
+        {
+          type: "command",
+          command: `command -v factory >/dev/null 2>&1 || { echo "${MISSING}" >&2; exit 2; }; factory guard credentials`,
+        },
+      ],
+    };
+    const once = withHooks(
+      JSON.stringify({ hooks: { PreToolUse: [earlier] } }),
+      null,
+      "@o/factory",
+    );
+    const guards = (text: string) =>
+      (JSON.parse(text).hooks.PreToolUse as (typeof earlier)[])
+        .filter((g) => g.matcher === "Read|Grep|Glob")
+        .map((g) => g.hooks[0]!.command);
+    expect(guards(once)).toEqual([
+      expect.stringMatching(/\| factory guard credentials$/),
+    ]);
+    expect(withHooks(once, null, "@o/factory")).toBe(once);
   });
 
   it("leaves a hook of the repository's own that only mentions a factory", () => {
@@ -1046,20 +1146,19 @@ describe("factory sync: the ticket system in the workflow files", () => {
   it("names a build's run by the ticket as GitHub writes it", async () => {
     await sync();
 
-    expect(factoryFile()["run-name"]).toBe(
-      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || '' }}",
+    expect(factoryFile()["run-name"]).toContain(
+      "inputs.ticket && format('Build #{0}', inputs.ticket) ||",
     );
   });
 
-  it("passes each of the ticket system's secrets, by name, from both files", async () => {
+  it("passes each of the ticket system's secrets, by name, from factory.yml alone", async () => {
     const written = await workflows(withCredential);
 
     expect(
       factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets.extra,
     ).toBe(extra(NAMES));
-    expect(reviewFile(written.get(REVIEW_FILE)).jobs.review.secrets.extra).toBe(
-      extra(NAMES),
-    );
+    for (const name of NAMES)
+      expect(written.get(REVIEW_FILE)).not.toContain(name);
   });
 
   it("passes none for GitHub's tickets, which read the workflow's own token", async () => {
@@ -1068,17 +1167,16 @@ describe("factory sync: the ticket system in the workflow files", () => {
     expect(
       factoryFile(written.get(FACTORY_FILE)).jobs.factory.secrets,
     ).not.toHaveProperty("extra");
-    expect(
-      reviewFile(written.get(REVIEW_FILE)).jobs.review.secrets,
-    ).not.toHaveProperty("extra");
   });
 
-  it("adds one line to each file, and changes no other", async () => {
+  it("adds one line to factory.yml, and changes no other", async () => {
     const before = await workflows();
     for (const [path, text] of await workflows(withCredential)) {
       const was = before.get(path)!.split("\n");
       const added = text.split("\n").filter((line) => !was.includes(line));
-      expect(added).toEqual([`      extra: ${extra(NAMES)}`]);
+      expect(added, path).toEqual(
+        path === FACTORY_FILE ? [`      extra: ${extra(NAMES)}`] : [],
+      );
       expect(text.split("\n").filter((line) => !added.includes(line))).toEqual(
         was,
       );
@@ -1106,17 +1204,17 @@ describe("factory sync: the ticket system in the workflow files", () => {
       >;
     };
 
-  it("adds the guard on the credentials file for reading, searching, and listing files when the ticket system keeps one on the machine", async () => {
-    const groups = (await settingsJson(withCredential)).hooks.PreToolUse!;
-    expect(groups.map((g) => g.matcher)).toEqual(["Bash", "Read|Grep|Glob"]);
-    expect(groups[1]!.hooks[0]!.command).toMatch(/ guard credentials$/);
-  });
-
-  it("adds no such guard with GitHub's tickets", async () => {
-    expect(
-      (await settingsJson()).hooks.PreToolUse!.map((g) => g.matcher),
-    ).toEqual(["Bash"]);
-  });
+  it.each<[string, typeof withCredential | undefined]>([
+    ["GitHub's tickets", undefined],
+    ["a ticket system that keeps a credential on the machine", withCredential],
+  ])(
+    "guards the credentials file for reading, searching, and listing files with %s",
+    async (_, systems) => {
+      const groups = (await settingsJson(systems)).hooks.PreToolUse!;
+      expect(groups.map((g) => g.matcher)).toEqual(["Bash", "Read|Grep|Glob"]);
+      expect(groups[1]!.hooks[0]!.command).toMatch(/ guard credentials$/);
+    },
+  );
 });
 
 describe("the board part", () => {

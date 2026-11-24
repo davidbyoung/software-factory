@@ -30,6 +30,7 @@ import {
   yamlDump,
   type Pinned,
 } from "./preset.mts";
+import { POLLER_FILE } from "./workflow-files.mts";
 
 export type GitResult = { status: number; stdout: string; stderr: string };
 
@@ -258,7 +259,12 @@ export function pinAt(
   load: (text: string) => unknown,
 ): Pinned {
   const dir = fetchCommit(d, parseName(name).repo, commit);
-  return { name, commit, ...readPreset(dir, name, load) };
+  return {
+    name,
+    commit,
+    poller: existsSync(join(dir, POLLER_FILE)),
+    ...readPreset(dir, name, load),
+  };
 }
 
 /** The text of a file the preset pinned at `pin` ships, by its path in a
@@ -308,8 +314,10 @@ export function pinFaults(
   pins: Pinned[],
   base: Pinned[],
   load: (text: string) => unknown,
+  unread?: (pin: Pinned) => void,
 ): string[] {
   const same = (a: Pinned, b: Pinned) =>
+    a.poller === b.poller &&
     stable(a.settings) === stable(b.settings) &&
     stable(a.files) === stable(b.files);
   return pins.flatMap((pin) => {
@@ -325,6 +333,10 @@ export function pinFaults(
       return same(pinAt(d, pin.name, pin.commit, load), pin) ? [] : [differs];
     } catch (e) {
       if (e instanceof PresetError) return [differs];
+      if (e instanceof FetchError && unread) {
+        unread(pin);
+        return [];
+      }
       if (e instanceof FetchError)
         return [
           `${LOCK_FILE}: ${pin.name} at ${short(pin.commit)} could not be read to check it: ${e.message}`,

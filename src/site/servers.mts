@@ -17,8 +17,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   branchDeps,
-  CANNOT_TELL,
-  defaultBranch,
+  needDefaultBranch,
+  NoDefaultBranch,
+  repositoryRemote,
   type Deps as BranchDeps,
 } from "../lib/default-branch.mts";
 
@@ -124,18 +125,25 @@ export function stopProcess(pid: number): void {
 }
 
 /** The ref a comparison's base is started from when none is given: the
- * default branch, as `origin` has it, or the checkout's own branch of that
- * name where there is no such ref, as in a checkout with no remote. It
- * fails, naming the fix, when the default branch cannot be told. */
+ * default branch, as the repository's remote has it, or the checkout's own
+ * branch of that name where there is no such ref, as in a checkout with no
+ * remote. It fails, naming the fix, when the default branch cannot be
+ * told. */
 export async function defaultBase(
   root: string,
   d: BranchDeps = branchDeps(root),
 ): Promise<string> {
-  const name = await defaultBranch(d);
-  if (name === null) throw new SiteError(CANNOT_TELL);
-  const remote = `refs/remotes/origin/${name}`;
-  return d.git(["rev-parse", "--verify", "--quiet", remote]).ok
-    ? `origin/${name}`
+  let ref: string;
+  let name: string;
+  try {
+    name = await needDefaultBranch(d);
+    ref = `${await repositoryRemote(d)}/${name}`;
+  } catch (e) {
+    if (!(e instanceof NoDefaultBranch)) throw e;
+    throw new SiteError(e.message);
+  }
+  return d.git(["rev-parse", "--verify", "--quiet", `refs/remotes/${ref}`]).ok
+    ? ref
     : name;
 }
 

@@ -540,6 +540,77 @@ describe("GitHub adapter: board", () => {
     expect((await read("dave")).projectId).toBe("PVT_1");
   });
 
+  describe("the repositories with a ticket in a column", () => {
+    const item = (repo: string, status: string | null, state = "OPEN") => ({
+      content: { state, repository: { nameWithOwner: repo } },
+      status: status === null ? null : { name: status },
+    });
+    const page = (nodes: unknown[], endCursor: string | null = null) => ({
+      data: {
+        owner: {
+          projectV2: {
+            items: {
+              pageInfo: { hasNextPage: endCursor !== null, endCursor },
+              nodes,
+            },
+          },
+        },
+      },
+    });
+
+    it("names each repository once, in the board's order, from every page of the board asked for", async () => {
+      const pages = [
+        page(
+          [
+            item("acme/web", "Ready"),
+            item("acme/api", "Backlog"),
+            item("acme/web", "Ready"),
+          ],
+          "p1",
+        ),
+        page([item("acme/api", "ready"), item("acme/docs", null)]),
+      ];
+      let at = 0;
+      const { t, calls } = tickets([
+        [/ReadyRepositories\(/, () => pages[at++]],
+      ]);
+
+      expect(await t.board!.readyRepositories!(12, "Ready")).toEqual([
+        "acme/web",
+        "acme/api",
+      ]);
+      expect(calls).toHaveLength(2);
+      expect(calls[0]).toContain("owner=acme");
+      expect(calls[0]).toContain("number=12");
+      expect(calls[1]).toContain("after=p1");
+    });
+
+    it("leaves out a closed ticket, a draft, and a pull request", async () => {
+      const { t } = tickets([
+        [
+          /ReadyRepositories\(/,
+          page([
+            item("acme/web", "Ready", "CLOSED"),
+            { content: {}, status: { name: "Ready" } },
+            { content: null, status: { name: "Ready" } },
+          ]),
+        ],
+      ]);
+
+      expect(await t.board!.readyRepositories!(12, "Ready")).toEqual([]);
+    });
+
+    it("fails when the Project cannot be read", async () => {
+      const { t } = tickets([
+        [/ReadyRepositories\(/, { data: { owner: null } }],
+      ]);
+
+      await expect(t.board!.readyRepositories!(12, "Ready")).rejects.toThrow(
+        "The Project could not be read.",
+      );
+    });
+  });
+
   it("reads an empty board when the settings name none", async () => {
     const { t, calls } = tickets([], { board: null });
     const board = await t.board!.read();

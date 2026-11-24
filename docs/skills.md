@@ -130,7 +130,9 @@ leave for the build. To add questions to this one, write them under
 7. Opens a draft pull request that closes the ticket, saying what changed,
    how it was checked, and what each reviewer found.
 8. Marks it ready once CI passes on the pushed commit, then works the
-   review with `factory-address-review`.
+   review with `factory-address-review`. A build in the cloud ends at step
+   7: its run waits for CI and marks it ready, and the review's answers are
+   runs of their own ([What a cloud run is](builds.md#what-a-cloud-run-is)).
 
 **When to use it.** On a ticket that has acceptance criteria and your
 approval. Running `/factory-build 12` in a session is approval. So is moving the ticket
@@ -139,10 +141,10 @@ to Ready.
 **What it reads.** The ticket, its Decisions, and your project's
 instructions beside the code it changes.
 
-**What it writes.** A branch, commits, a draft pull request, a claim
-comment on the ticket, a note of what the build cost, and a line on the
-[follow-ups ticket](workflow.md#follow-ups) for anything small it noticed
-and did not fix.
+**What it writes.** A branch, commits, a draft pull request, a claim comment
+on the ticket, a note of what the build cost, and a
+line on the [follow-ups ticket](workflow.md#follow-ups) for anything small
+it noticed and did not fix.
 
 **When it stops.** On a question only you can answer, a step only you can
 do, an open blocker, or a gate that will not pass or is not set. It
@@ -166,7 +168,8 @@ checks, a conflict with your default branch, and, when
 changed lines no test covers.
 
 **When to use it.** After every push to a branch with an open pull request.
-The session that built the pull request runs it without being asked.
+The session that built the pull request, on your machine, runs it without
+being asked.
 
 **How it treats a finding.**
 
@@ -177,15 +180,16 @@ The session that built the pull request runs it without being asked.
 - Every thread gets a reply before it is resolved, accepted or rejected.
 - A rejection cites evidence: a quoted source or a failing repro.
 
-**Also a job in the cloud.** The job that starts when you review a pull
-request runs it too, answering your review: it checks first that there is
-something to do, and starts no session when there is not.
+**Also a run in the cloud.** An Answer run uses it once, to answer a review
+you submit, or CI or the automated review on a pull request a build in the
+cloud opened. It checks first that there is something to do, and starts no
+session when there is not. It pushes once and ends.
 
 **What it writes.** Commits on the branch, a reply on each thread, and one
 report.
 
-**When it stops.** After two rounds (`rules.review-rounds`), whatever
-is still in dispute goes to you instead of through another round.
+**When it stops.** After two rounds (`rules.review-rounds`), whatever is still in dispute goes to you instead of through
+another round. In the cloud a pull request also gets at most four answers.
 
 **What it never does.** Resolve a thread it neither fixed nor disproved.
 Dismiss a failing test as flaky without reproducing it. Merge.
@@ -226,13 +230,14 @@ to merged: resolves a conflict with your default branch, fixes failing checks,
 does the migration a major version asks for, and opens a ticket for
 anything it cannot fix.
 
-**When to use it.** When dependency pull requests are stuck, or from the
-job in the cloud that runs it for you. It is written, and its two jobs
-run, only in a repository that has a `.github/dependabot.yml`. A
-security update GitHub opens in a repository without that file waits for
-you: nothing moves it along or lets it merge itself. An update of the
-factory itself, or of a preset, is not Dependabot's: the factory's own
-update job opens it ([Updating](updating.md)).
+**When to use it.** When dependency pull requests are stuck. A run in the
+cloud also uses it, one run for each of Dependabot's open pull requests,
+three times a day. It is written, and its jobs run, only in a repository
+that has a `.github/dependabot.yml`. A security update GitHub opens in a
+repository without that file waits for you: nothing moves it along or lets
+it merge itself. An update of the factory itself, or of a preset, is not
+Dependabot's: the factory's own update job opens it
+([Updating](updating.md)).
 
 **What it never does.** Merge. Make only the changes CI caught when a
 migration guide calls for more.
@@ -289,10 +294,9 @@ is your decision.
 
 **When to use it.** Ask it for one pull request ("resolve the conflicts on
 280"). `factory-address-review` calls it when the pull request it is
-working conflicts. A job in the cloud also runs it as the conflict sweep, after each
-push to your default branch and nightly, over every pull request that
-conflicts. The sweep checks first that there is something to do, and starts
-no session when there is not.
+working conflicts. Runs in the cloud also use it, after each push to your
+default branch and nightly: one run for each pull request that conflicts,
+and none when there is not one.
 
 ## The built-in agents
 

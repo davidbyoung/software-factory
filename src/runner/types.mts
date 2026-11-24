@@ -39,6 +39,22 @@ export type Runner = {
   /** Starts the board sync on the branch, so the board follows what a
    * command just recorded. */
   startSync(branch: string): Promise<void>;
+  /** Starts a session that answers what a pull request's checks or review
+   * found, with the jobs the branch has. */
+  startAnswer(pull: number, branch: string): Promise<void>;
+  /** Starts a session of another kind on a pull request. */
+  startOn(
+    kind: "conflict" | "dependency",
+    pull: number,
+    branch: string,
+  ): Promise<void>;
+  /** The account a run's own sign-in posts as. */
+  poster: string;
+  /** How many times `startAnswer` has started one for the pull request,
+   * which was opened at `since`. */
+  answersTo(pull: number, since: string): Promise<number>;
+  /** The folder in a repository whose files say what the runner runs. */
+  workflowsFolder: string;
   /** The page of the build named `runName`, such as `Build #12`, started at
    * or after `since`, in milliseconds, or null when none shows yet. */
   findBuild(runName: string, since: number): Promise<string | null>;
@@ -58,9 +74,6 @@ export type Runner = {
   /** Has the review of a commit run again, and answers false when none
    * has run on it. */
   reviewAgain(sha: string): Promise<boolean>;
-  /** How the review ended in one run of the jobs a pull request starts,
-   * whatever the run's other jobs did: `skipped` when it did not run. */
-  reviewConclusion(run: number): Promise<string>;
   /** The jobs that failed in one run, each with its log. Which runs count
    * is the caller's: `factory pr failed` takes those `wait-checks` waits on. */
   failedJobs(run: number): Promise<FailedJob[]>;
@@ -80,6 +93,9 @@ export type Runner = {
   /** The names of the secrets the repository's organization shares with
    * it. Not called on a repository a person owns. */
   organizationSecretNames(): Promise<string[]>;
+  /** The names of the variables the repository's organization shares
+   * with it. Not called on a repository a person owns. */
+  organizationVariableNames(): Promise<string[]>;
   /** The names of the organization's secrets for the dependency bot that
    * reach this repository, which private ones do only when it is private,
    * or null when the organization will not list them. Not called on a

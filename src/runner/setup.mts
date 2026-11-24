@@ -1,13 +1,18 @@
 // GitHub Actions' part of setting up and checking the factory: the
 // workflow the scheduled poller is a job of, which GitHub switches off in
 // a public repository after 60 days with no activity, and a poller hosted
-// elsewhere, which `remove` cannot reach.
+// elsewhere, which `remove` cannot reach. An organization's poller, in
+// another repository, is `doctor`'s own check.
 import type { ToolSetup } from "../setup.mts";
 import { FACTORY_WORKFLOW as POLLER } from "./github-actions.mts";
 
 export const githubActionsSetup: ToolSetup = {
   checks: async (c) => {
-    if (c.settings?.builds.trigger !== "github-action") return [];
+    if (
+      c.settings?.builds.trigger !== "github-action" ||
+      c.settings.builds.pollerIn
+    )
+      return [];
     const state = await c.opened.runner.workflowState(POLLER);
     if (state === "active")
       return [{ state: "pass", text: `${POLLER} is enabled` }];

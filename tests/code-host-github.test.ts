@@ -1,10 +1,17 @@
+import { generateKeyPairSync } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   githubCodeHost,
+  githubOrganization,
+  githubOwner,
+  githubServes,
   type LinkingPage,
   type RawPull,
 } from "../src/code-host/github.mts";
-import { NotSignedInError } from "../src/code-host/types.mts";
+import type { Reply } from "../src/code-host/github-app.mts";
+import { organizationHosts } from "../src/code-host/index.mts";
+import { NoRulesError, NotSignedInError } from "../src/code-host/types.mts";
 import { GhError } from "../src/lib/gh.mts";
 import { NotFoundError } from "../src/tickets/types.mts";
 import { fetchTransport, ghTransport } from "../src/tickets/transport.mts";
@@ -230,24 +237,38 @@ describe("pull request reads", () => {
     expect(calls[0]).toMatch(/ -F draft=false$/);
   });
 
-  it("reads a commit's statuses, each by its name", async () => {
+  it("reads a commit's statuses, the newest of each name, with who set it", async () => {
+    const status = (id: number, context: string, state: string) => ({
+      id,
+      context,
+      state,
+      target_url: `https://ci/${id}`,
+      creator: { login: "bot" },
+    });
     const { p } = pulls([
       [
-        /commits\/h\/status$/,
-        {
-          statuses: [
-            {
-              id: 2,
-              context: "verdict",
-              state: "success",
-              target_url: "https://ci/2",
-            },
-          ],
-        },
+        /--paginate --slurp repos\/acme\/widgets\/commits\/h\/statuses\?per_page=100$/,
+        [
+          [status(3, "verdict", "success"), status(2, "verdict", "pending")],
+          [{ ...status(1, "ci", "failure"), creator: null }],
+        ],
       ],
     ]);
     expect(await p.statuses("h")).toEqual([
-      { id: 2, name: "verdict", state: "success", link: "https://ci/2" },
+      {
+        id: 3,
+        name: "verdict",
+        state: "success",
+        link: "https://ci/3",
+        author: "bot",
+      },
+      {
+        id: 1,
+        name: "ci",
+        state: "failure",
+        link: "https://ci/1",
+        author: "ghost",
+      },
     ]);
   });
 
@@ -347,6 +368,59 @@ describe("pull request conversation and labels", () => {
       "api -X POST repos/acme/widgets/pulls/5/comments/10/replies -f body=Done.",
     ]);
   });
+});
+
+describe("a comment on a line", () => {
+  const AT = { sha: "h", path: "a.ts", line: 3, body: "Off by one." };
+  const ON_LINE = / -F line=3 /;
+  const ON_FILE = / -f subject_type=file /;
+  const invalid = () => new Error("gh api: Validation Failed (HTTP 422)");
+
+  it("is posted on the new side of the commit's line", async () => {
+    const { p, calls } = pulls([[ON_LINE, { id: 1 }]]);
+
+    expect(await p.commentOn(5, AT)).toBe(true);
+    expect(calls).toEqual([
+      "api -X POST repos/acme/widgets/pulls/5/comments -f commit_id=h -f path=a.ts -F line=3 -f side=RIGHT -f body=Off by one.",
+    ]);
+  });
+
+  it("goes on the file, naming the line, where the line takes none", async () => {
+    const { p, calls } = pulls([
+      [ON_LINE, invalid()],
+      [ON_FILE, { id: 1 }],
+    ]);
+
+    expect(await p.commentOn(5, AT)).toBe(true);
+    expect(calls[1]).toBe(
+      "api -X POST repos/acme/widgets/pulls/5/comments -f commit_id=h -f path=a.ts -f subject_type=file -f body=Off by one.\n\n(Line 3.)",
+    );
+  });
+
+  it("answers false where neither the line nor the file takes one", async () => {
+    const { p } = pulls([[/comments/, invalid()]]);
+
+    expect(await p.commentOn(5, AT)).toBe(false);
+  });
+
+  it.each([
+    ["on the line", [[ON_LINE, new Error("gh: Server Error (HTTP 500)")]]],
+    [
+      "on the file",
+      [
+        [ON_LINE, invalid()],
+        [ON_FILE, new Error("gh: Server Error (HTTP 500)")],
+      ],
+    ],
+  ] satisfies [string, [RegExp, Error][]][])(
+    "fails when GitHub fails %s in any other way",
+    async (_, routes) => {
+      const { p, calls } = pulls(routes);
+
+      await expect(p.commentOn(5, AT)).rejects.toThrow("HTTP 500");
+      expect(calls).toHaveLength(routes.length);
+    },
+  );
 });
 
 const graphThreads = {
@@ -596,6 +670,92 @@ describe("the default branch, open threads, and unverified commits", () => {
       "ccccccc unknown",
     ]);
   });
+
+  describe("a pull request's commits, and whose GitHub verifies each is", () => {
+    const BOT = "dependabot[bot]";
+    const raw = (
+      author: string | null,
+      committer: string | null,
+      verified?: boolean,
+    ) => ({
+      sha: "abc",
+      author: author === null ? null : { login: author },
+      committer: committer === null ? null : { login: committer },
+      commit: verified === undefined ? {} : { verification: { verified } },
+    });
+
+    it.each<[string, ReturnType<typeof raw>, string | null]>([
+      ["GitHub signed for its author", raw(BOT, "web-flow", true), BOT],
+      ["its author signed", raw("alice", "alice", true), "alice"],
+      ["whose signature GitHub refuses", raw(BOT, "web-flow", false), null],
+      ["with no word on a signature", raw(BOT, "web-flow"), null],
+      ["someone else signed in its author's name", raw(BOT, "bob", true), null],
+      ["signed by no account", raw(BOT, null, true), null],
+      ["whose author has no account", raw(null, "web-flow", true), null],
+    ])("reads a commit %s", async (_, commit, verifiedAuthor) => {
+      const { p } = pulls([[/pulls\/9\/commits/, [[commit]]]]);
+      expect(await p.commits(9)).toEqual([{ sha: "abc", verifiedAuthor }]);
+    });
+
+    it("reads every page, and refuses a list as long as the most GitHub lists", async () => {
+      const page = (n: number) =>
+        Array.from({ length: n }, () => raw(BOT, "web-flow", true));
+      const { p } = pulls([
+        [/--paginate .*pulls\/9\/commits/, [page(100), page(100), page(49)]],
+        [/--paginate .*pulls\/8\/commits/, [page(100), page(100), page(50)]],
+      ]);
+      expect(await p.commits(9)).toHaveLength(249);
+      await expect(p.commits(8)).rejects.toThrow(
+        "GitHub lists at most 250 commits of #8, so there may be more.",
+      );
+    });
+  });
+});
+
+describe("who added a label", () => {
+  const event = (event: string, label: string, login: string | null) => ({
+    event,
+    label: { name: label },
+    actor: login === null ? null : { login },
+  });
+
+  it.each<[string, unknown[][], string | null]>([
+    [
+      "the newest account to add it, on the last page",
+      [
+        [event("labeled", "pass", "alice"), event("unlabeled", "pass", "bot")],
+        [event("labeled", "pass", "bob")],
+      ],
+      "bob",
+    ],
+    [
+      "nobody once it is removed",
+      [[event("labeled", "pass", "alice"), event("unlabeled", "pass", "bob")]],
+      null,
+    ],
+    [
+      "its own adder, whatever happened since to anything else",
+      [
+        [
+          event("labeled", "pass", "alice"),
+          event("labeled", "bug", "bob"),
+          event("unlabeled", "bug", "bob"),
+          { event: "closed", actor: { login: "bob" } },
+        ],
+      ],
+      "alice",
+    ],
+    [
+      "an app's bot, as a bot",
+      [[event("labeled", "pass", "github-actions[bot]")]],
+      "github-actions[bot]",
+    ],
+    ["nobody for a deleted account", [[event("labeled", "pass", null)]], null],
+    ["nobody where no event adds it", [[]], null],
+  ])("is %s", async (_, pages, who) => {
+    const { p } = pulls([[/--paginate .*issues\/9\/events/, pages]]);
+    expect(await p.labeledBy(9, "pass")).toBe(who);
+  });
 });
 
 describe("the address of a pull request", () => {
@@ -800,6 +960,863 @@ describe("the factory's releases, and closing a pull request", () => {
     await p.close(41);
     expect(calls).toEqual([
       "api -X PATCH repos/acme/widgets/pulls/41 -f state=closed",
+    ]);
+  });
+});
+
+/** A gh that answers by the first route whose pattern matches the joined
+ * arguments, and records each call with the JSON body `--input` named and
+ * what it was given on standard input. */
+function recordingGh(routes: [RegExp, unknown | (() => unknown)][]) {
+  const calls: { line: string; input?: unknown; stdin?: string }[] = [];
+  const answer = (line: string) => {
+    const route = routes.find(([p]) => p.test(line));
+    if (!route) throw new Error(`unexpected gh call: ${line}`);
+    const said =
+      typeof route[1] === "function" ? (route[1] as () => unknown)() : route[1];
+    if (said instanceof Error) throw said;
+    return typeof said === "string" ? said : JSON.stringify(said);
+  };
+  const run = async (args: string[]) => {
+    const line = args.join(" ");
+    const at = args.indexOf("--input");
+    calls.push({
+      line,
+      ...(at >= 0
+        ? { input: JSON.parse(readFileSync(args[at + 1]!, "utf8")) }
+        : {}),
+    });
+    return answer(line);
+  };
+  const runIn = async (args: string[], stdin: string) => {
+    calls.push({ line: args.join(" "), stdin });
+    return answer(args.join(" "));
+  };
+  return { run, runIn, calls };
+}
+
+describe("the rules and properties of a repository", () => {
+  const host = (routes: [RegExp, unknown][]) => {
+    const g = recordingGh(routes);
+    return {
+      h: githubCodeHost({ transport: ghTransport(g.run), repository: REPO }),
+      calls: g.calls,
+    };
+  };
+  const required = (context: string) => ({
+    type: "required_status_checks",
+    parameters: { required_status_checks: [{ context }] },
+  });
+
+  it("names GitHub Actions as the source of a required status when asked to", async () => {
+    const { h, calls } = host([
+      [/^api repos\/acme\/widgets\/rulesets/, []],
+      [/-X POST repos\/acme\/widgets\/rulesets/, { id: 1 }],
+    ]);
+    await h.requireCheck("Software factory", "Review verdict", "runner");
+    const body = calls[1]!.input as {
+      rules: { parameters: { required_status_checks: unknown[] } }[];
+    };
+    expect(body.rules[0]!.parameters.required_status_checks).toEqual([
+      { context: "Review verdict", integration_id: 15368 },
+    ]);
+  });
+
+  it("says a status is required when a rule GitHub applies to the branch names it", async () => {
+    const { h, calls } = host([
+      [
+        /rules\/branches\/main/,
+        [[{ type: "deletion" }, required("Review verdict")]],
+      ],
+    ]);
+    expect(await h.requiresStatus("main", "Review verdict")).toBe(true);
+    expect(await h.requiresStatus("main", "Merge order")).toBe(false);
+    expect(calls[0]!.line).toBe(
+      "api --paginate --slurp repos/acme/widgets/rules/branches/main?per_page=100",
+    );
+  });
+
+  it("says no status is required on a branch with no rules", async () => {
+    const { h } = host([[/rules\/branches\/release%2F1/, [[]]]]);
+    expect(await h.requiresStatus("release/1", "Review verdict")).toBe(false);
+  });
+
+  it("reads the repository's value for each property", async () => {
+    const { h, calls } = host([
+      [
+        /properties\/values$/,
+        [
+          { property_name: "software-factory", value: "on" },
+          { property_name: "team", value: null },
+          { property_name: "languages", value: ["go", "ts"] },
+        ],
+      ],
+    ]);
+    expect(await h.properties()).toEqual({
+      "software-factory": "on",
+      team: null,
+      languages: ["go", "ts"],
+    });
+    expect(calls[0]!.line).toBe("api repos/acme/widgets/properties/values");
+  });
+
+  it("says the owner defines a property its schema has", async () => {
+    const { h, calls } = host([
+      [
+        /properties\/schema\/software-factory$/,
+        { property_name: "software-factory", value_type: "single_select" },
+      ],
+    ]);
+    expect(await h.ownerDefines("software-factory")).toBe(true);
+    expect(calls[0]!.line).toBe(
+      "api orgs/acme/properties/schema/software-factory",
+    );
+  });
+
+  it("says the owner defines no property its schema lacks", async () => {
+    const { h } = host([[/properties\/schema\//, notFound()]]);
+    expect(await h.ownerDefines("software-factory")).toBe(false);
+  });
+
+  it("rejects when the owner will not show its schema, so a caller can tell that from a property that is not there", async () => {
+    const { h } = host([
+      [/properties\/schema\//, new Error("gh: Forbidden (HTTP 403)")],
+    ]);
+    await expect(h.ownerDefines("software-factory")).rejects.toThrow(
+      "Forbidden",
+    );
+  });
+
+  const UPGRADE = new Error(
+    "gh api --paginate --slurp repos/acme/widgets/rules/branches/main?per_page=100: gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)",
+  );
+
+  it("says the plan has no branch rules for the repository, in its own words, when that is why the rules cannot be read", async () => {
+    const { h } = host([[/rules\/branches\/main/, UPGRADE]]);
+    const refusal = await h.requiresStatus("main", "Review verdict").then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(refusal).toBeInstanceOf(NoRulesError);
+    expect((refusal as Error).message).toBe(
+      "GitHub Free has no branch rules for a private repository",
+    );
+  });
+
+  it("rejects as it was refused for any other reason the rules cannot be read", async () => {
+    const { h } = host([
+      [
+        /rules\/branches\/main/,
+        new Error("gh: Resource not accessible by integration (HTTP 403)"),
+      ],
+    ]);
+    const refusal = await h.requiresStatus("main", "Review verdict").then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(refusal).not.toBeInstanceOf(NoRulesError);
+    expect(String(refusal)).toContain("Resource not accessible");
+  });
+
+  describe("whether the secrets the owner shares reach the repository", () => {
+    const withheld = (isPrivate: boolean, organization: unknown) =>
+      host([
+        [/^api repos\/acme\/widgets$/, { private: isPrivate }],
+        [/^api orgs\/acme$/, organization],
+      ]).h.secretsWithheldBy();
+
+    it("names the plan that keeps them from a private repository", async () => {
+      expect(await withheld(true, { plan: { name: "free" } })).toBe(
+        "GitHub Free",
+      );
+    });
+
+    it("says they reach a repository anyone can read, whatever the plan", async () => {
+      expect(await withheld(false, { plan: { name: "free" } })).toBeNull();
+    });
+
+    it("says they reach a private repository on a plan that shares them", async () => {
+      expect(await withheld(true, { plan: { name: "team" } })).toBeNull();
+    });
+
+    it("says they reach it when the plan cannot be read, as by a member who is no owner", async () => {
+      expect(await withheld(true, { login: "acme" })).toBeNull();
+      expect(
+        await withheld(true, new Error("gh: Forbidden (HTTP 403)")),
+      ).toBeNull();
+    });
+  });
+
+  it("sets the repository's value for a property", async () => {
+    const { h, calls } = host([[/properties\/values/, ""]]);
+    await h.setProperty("software-factory", "on");
+    expect(calls[0]!.line).toMatch(
+      /^api -X PATCH repos\/acme\/widgets\/properties\/values --input /,
+    );
+    expect(calls[0]!.input).toEqual({
+      properties: [{ property_name: "software-factory", value: "on" }],
+    });
+  });
+});
+
+describe("an organization's address, on GitHub", () => {
+  it("names the owner of an address with or without a last slash", () => {
+    expect(githubOwner("https://github.com/acme")).toBe("acme");
+    expect(githubOwner("https://github.com/acme/")).toBe("acme");
+  });
+
+  it("names no owner for a repository's address, a bare host, or plain http", () => {
+    expect(githubOwner("https://github.com/acme/web")).toBeNull();
+    expect(githubOwner("https://github.com/")).toBeNull();
+    expect(githubOwner("http://github.com/acme")).toBeNull();
+    expect(githubOwner("https://github.com/acme?tab=repositories")).toBeNull();
+    expect(githubOwner("acme")).toBeNull();
+  });
+
+  it("serves github.com and no other host", () => {
+    expect(githubServes("https://github.com/acme/web")).toBe(true);
+    expect(githubServes("http://github.com/acme")).toBe(true);
+    expect(githubServes("https://code.acme.example/acme")).toBe(false);
+    expect(githubServes("acme")).toBe(false);
+  });
+});
+
+describe("the code hosts an organization can be set up on", () => {
+  it("has GitHub, which opens an organization over the GitHub CLI", async () => {
+    const g = recordingGh([
+      [/^api users\/acme$/, { type: "Organization" }],
+      [/^secret set/, ""],
+    ]);
+    const { github } = organizationHosts(g.run, g.runIn);
+    expect(github!.label).toBe("GitHub");
+    expect(github!.addressOf("acme")).toBe("https://github.com/acme");
+    expect(github!.ownerOf("https://github.com/acme/")).toBe("acme");
+    expect(github!.serves("https://gitlab.com/acme")).toBe(false);
+    const organization = github!.organization("acme");
+    expect(await organization.kind()).toBe("organization");
+    await organization.setSecret("A", "value");
+    expect(g.calls.at(-1)).toEqual({
+      line: "secret set A --org acme --visibility all",
+      stdin: "value",
+    });
+  });
+});
+
+describe("an organization, on GitHub", () => {
+  const SECRET = "-----BEGIN RSA PRIVATE KEY-----\nkey\n-----END-----";
+  function org(
+    routes: [RegExp, unknown][],
+    extra: Partial<Parameters<typeof githubOrganization>[0]> = {},
+  ) {
+    const g = recordingGh(routes);
+    return {
+      o: githubOrganization({
+        transport: ghTransport(g.run),
+        name: "acme",
+        cli: g.runIn,
+        ...extra,
+      }),
+      calls: g.calls,
+    };
+  }
+  /** GitHub's answer about the signed-in token, with its scopes. */
+  const scoped = (scopes: string | null) =>
+    (async () =>
+      new Response(JSON.stringify({ login: "priya" }), {
+        headers: scopes === null ? {} : { "x-oauth-scopes": scopes },
+      })) as unknown as typeof fetch;
+
+  it("tells an organization from a person's account, and from no account", async () => {
+    const { o, calls } = org([[/users\/acme$/, { type: "Organization" }]]);
+    expect(await o.kind()).toBe("organization");
+    expect(calls[0]!.line).toBe("api users/acme");
+    expect(await org([[/users\/acme$/, { type: "User" }]]).o.kind()).toBe(
+      "person",
+    );
+    expect(await org([[/users\/acme$/, notFound()]]).o.kind()).toBeNull();
+  });
+
+  it("fails when GitHub cannot be asked what the account is", async () => {
+    const { o } = org([[/users\/acme$/, new Error("HTTP 503")]]);
+    await expect(o.kind()).rejects.toThrow("HTTP 503");
+  });
+
+  it("gives the signed-in account's role", async () => {
+    const membership = (role: string, state = "active") =>
+      org([[/user\/memberships\/orgs\/acme$/, { role, state }]]).o.role();
+    expect(await membership("admin")).toBe("owner");
+    expect(await membership("member")).toBe("member");
+    expect(await membership("admin", "pending")).toBeNull();
+    expect(await org([[/memberships/, notFound()]]).o.role()).toBeNull();
+    expect(
+      await org([
+        [/memberships/, new Error("gh: Forbidden (HTTP 403)")],
+      ]).o.role(),
+    ).toBeNull();
+  });
+
+  it("says what GitHub Free leaves out, and that any other plan has it", async () => {
+    const plan = (name?: string) =>
+      org([[/^api orgs\/acme$/, name ? { plan: { name } } : {}]]).o.plan();
+    expect(await plan("free")).toEqual({
+      name: "GitHub Free",
+      rules: false,
+      privateSecrets: false,
+    });
+    expect(await plan("team")).toEqual({
+      name: "GitHub Team",
+      rules: true,
+      privateSecrets: true,
+    });
+    expect(await plan()).toEqual({
+      name: "GitHub",
+      rules: true,
+      privateSecrets: true,
+    });
+  });
+
+  it("names the permissions the GitHub CLI's sign-in lacks, and the command that asks for them", async () => {
+    const lacks = (scopes: string | null, token: string | null = "gho_1") =>
+      org([], { fetch: scoped(scopes), token: () => token }).o.signInLacks();
+    expect(await lacks("gist, read:org, repo, workflow")).toEqual({
+      scopes: ["admin:org", "project"],
+      tool: "the GitHub CLI",
+      fix: [
+        "gh",
+        "auth",
+        "refresh",
+        "-h",
+        "github.com",
+        "-s",
+        "admin:org,project",
+      ],
+    });
+    expect((await lacks("admin:org, project, repo"))!.scopes).toEqual([
+      "workflow",
+    ]);
+    expect(await lacks("admin:org, project, repo, workflow")).toBeNull();
+    // A token that carries no scopes, and no token at all, cannot say.
+    expect(await lacks(null)).toBeNull();
+    expect(await lacks("repo", null)).toBeNull();
+  });
+
+  it("asks GitHub about the sign-in with its token in a header, not an argument", async () => {
+    const seen: { url: string; auth: string | null }[] = [];
+    const { o, calls } = org([], {
+      token: () => "gho_secret",
+      fetch: (async (url: unknown, init: RequestInit = {}) => {
+        seen.push({
+          url: String(url),
+          auth: new Headers(init.headers).get("authorization"),
+        });
+        return new Response("{}", {
+          headers: { "x-oauth-scopes": "admin:org, project, workflow" },
+        });
+      }) as typeof fetch,
+    });
+    await o.signInLacks();
+    expect(seen).toEqual([
+      { url: "https://api.github.com/user", auth: "Bearer gho_secret" },
+    ]);
+    expect(calls).toEqual([]);
+  });
+
+  it("finds a repository of the organization's, or none", async () => {
+    const { o, calls } = org([
+      [/repos\/acme\/factory-config$/, { private: true }],
+    ]);
+    expect(await o.repository("factory-config")).toEqual({ isPrivate: true });
+    expect(calls[0]!.line).toBe("api repos/acme/factory-config");
+    expect(
+      await org([[/repos\/acme/, notFound()]]).o.repository("factory-config"),
+    ).toBeNull();
+  });
+
+  it("creates a repository, private or public", async () => {
+    const { o, calls } = org([[/-X POST orgs\/acme\/repos/, { id: 1 }]]);
+    await o.createRepository("factory-config", {
+      isPrivate: true,
+      description: "The software factory's settings",
+    });
+    expect(calls[0]!.input).toEqual({
+      name: "factory-config",
+      private: true,
+      description: "The software factory's settings",
+    });
+  });
+
+  it("reads a file's text, and null for one that is not there", async () => {
+    const text = "version: 2\n# café\n";
+    const { o, calls } = org([
+      [
+        /contents\/factory-preset\.yaml$/,
+        {
+          encoding: "base64",
+          content: Buffer.from(text)
+            .toString("base64")
+            .replace(/(.{20})/g, "$1\n"),
+        },
+      ],
+      [/contents\//, notFound()],
+    ]);
+    expect(await o.file("factory-config", "factory-preset.yaml")).toBe(text);
+    expect(calls[0]!.line).toBe(
+      "api repos/acme/factory-config/contents/factory-preset.yaml",
+    );
+    expect(
+      await o.file("factory-config", ".github/workflows/factory-poller.yml"),
+    ).toBeNull();
+  });
+
+  it("writes each file as a commit of its own, and names no file to replace", async () => {
+    const { o, calls } = org([
+      [/-X PUT repos\/acme\/factory-config\/contents\//, {}],
+    ]);
+    await o.putFiles("factory-config", {
+      "README.md": "# Hello\n",
+      ".github/workflows/factory-poller.yml": "name: Factory poller\n",
+    });
+    expect(calls.map((c) => c.line.split(" --input")[0])).toEqual([
+      "api -X PUT repos/acme/factory-config/contents/README.md",
+      "api -X PUT repos/acme/factory-config/contents/.github/workflows/factory-poller.yml",
+    ]);
+    expect(calls[0]!.input).toEqual({
+      message: "Add README.md",
+      content: Buffer.from("# Hello\n").toString("base64"),
+    });
+  });
+
+  it("lists every page of the organization's secrets", async () => {
+    const first = Array.from({ length: 100 }, (_, i) => ({ name: `S${i}` }));
+    const { o } = org([
+      [
+        /orgs\/acme\/actions\/secrets\?per_page=100&page=1$/,
+        { secrets: first },
+      ],
+      [
+        /orgs\/acme\/actions\/secrets\?per_page=100&page=2$/,
+        { secrets: [{ name: "FACTORY_APP_PRIVATE_KEY" }] },
+      ],
+    ]);
+    const names = await o.secretNames();
+    expect(names).toHaveLength(101);
+    expect(names.at(-1)).toBe("FACTORY_APP_PRIVATE_KEY");
+  });
+
+  it("stores a secret for every repository, with its value on standard input", async () => {
+    const { o, calls } = org([[/^secret set/, ""]]);
+    await o.setSecret("FACTORY_APP_PRIVATE_KEY", SECRET);
+    expect(calls).toEqual([
+      {
+        line: "secret set FACTORY_APP_PRIVATE_KEY --org acme --visibility all",
+        stdin: SECRET,
+      },
+    ]);
+  });
+
+  it("refuses to store a secret without the GitHub CLI", async () => {
+    const { o } = org([], { cli: undefined });
+    await expect(o.setSecret("A", "b")).rejects.toThrow(
+      "Storing a secret needs the GitHub CLI.",
+    );
+  });
+
+  it("reads a variable, and null for one that is not set", async () => {
+    const { o, calls } = org([
+      [/variables\/FACTORY_APP_CLIENT_ID$/, { value: "Iv23client" }],
+    ]);
+    expect(await o.variable("FACTORY_APP_CLIENT_ID")).toBe("Iv23client");
+    expect(calls[0]!.line).toBe(
+      "api orgs/acme/actions/variables/FACTORY_APP_CLIENT_ID",
+    );
+    expect(
+      await org([[/variables/, notFound()]]).o.variable(
+        "FACTORY_APP_CLIENT_ID",
+      ),
+    ).toBeNull();
+  });
+
+  it("stores a variable for every repository", async () => {
+    const { o, calls } = org([[/^variable set/, ""]]);
+    await o.setVariable("FACTORY_APP_CLIENT_ID", "Iv23client");
+    expect(calls).toEqual([
+      {
+        line: "variable set FACTORY_APP_CLIENT_ID --org acme --visibility all",
+        stdin: "Iv23client",
+      },
+    ]);
+  });
+
+  it("defines a property with the values given, which a repository's own actors may set", async () => {
+    const { o, calls } = org([[/properties\/schema/, {}]]);
+    await o.defineProperty("software-factory", ["on", "off"]);
+    expect(calls[0]!.line).toMatch(
+      /^api -X PUT orgs\/acme\/properties\/schema\/software-factory --input /,
+    );
+    expect(calls[0]!.input).toEqual({
+      value_type: "single_select",
+      required: false,
+      allowed_values: ["on", "off"],
+      values_editable_by: "org_and_repo_actors",
+    });
+  });
+
+  it("lists the names of the organization's rules", async () => {
+    const { o, calls } = org([
+      [/orgs\/acme\/rulesets/, [[{ name: "Software factory" }, { name: "x" }]]],
+    ]);
+    expect(await o.ruleNames()).toEqual(["Software factory", "x"]);
+    expect(calls[0]!.line).toBe(
+      "api --paginate --slurp orgs/acme/rulesets?per_page=100",
+    );
+  });
+
+  it("requires a status from GitHub Actions where a property has a value", async () => {
+    const { o, calls } = org([
+      [/--slurp orgs\/acme\/rulesets/, [[]]],
+      [/-X POST orgs\/acme\/rulesets/, { id: 1 }],
+    ]);
+    await o.requireCheckWhere("Software factory", "Review verdict", {
+      property: "software-factory",
+      value: "on",
+      source: "runner",
+    });
+    expect(calls[1]!.input).toEqual({
+      name: "Software factory",
+      target: "branch",
+      enforcement: "active",
+      conditions: {
+        ref_name: { include: ["~DEFAULT_BRANCH"], exclude: [] },
+        repository_property: {
+          include: [{ name: "software-factory", property_values: ["on"] }],
+          exclude: [],
+        },
+      },
+      rules: [
+        {
+          type: "required_status_checks",
+          parameters: {
+            required_status_checks: [
+              { context: "Review verdict", integration_id: 15368 },
+            ],
+            strict_required_status_checks_policy: false,
+            do_not_enforce_on_create: true,
+          },
+        },
+      ],
+    });
+  });
+
+  it("leaves an organization's rule of that name as it is", async () => {
+    const { o, calls } = org([
+      [/--slurp orgs\/acme\/rulesets/, [[{ name: "Software factory" }]]],
+    ]);
+    await o.requireCheckWhere("Software factory", "Review verdict", {
+      property: "software-factory",
+      value: "on",
+    });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("names the organization's app, within the 34 characters GitHub allows", () => {
+    expect(org([]).o.appName()).toEqual({
+      name: "Software Factory for acme",
+      shortened: false,
+    });
+    expect(
+      org([], { name: "a-very-long-organization-name" }).o.appName(),
+    ).toEqual({ name: "Software Factory for a-very-long-o", shortened: true });
+  });
+
+  it("finds the app of a name by the address GitHub gives it", async () => {
+    const { o, calls } = org([
+      [/apps\/software-factory-for-acme$/, { owner: { login: "acme" } }],
+    ]);
+    expect(await o.appNamed("Software Factory for acme")).toEqual({
+      owner: "acme",
+    });
+    expect(calls[0]!.line).toBe("api apps/software-factory-for-acme");
+    expect(
+      await org([[/apps\//, notFound()]]).o.appNamed(
+        "Software Factory for acme",
+      ),
+    ).toBeNull();
+  });
+
+  const INSTALLATIONS = {
+    installations: [
+      { id: 1, client_id: "Iv23other", app_slug: "other" },
+      {
+        id: 52811,
+        client_id: "Iv23client",
+        app_slug: "software-factory-for-acme",
+        repository_selection: "selected",
+        html_url:
+          "https://github.com/organizations/acme/settings/installations/52811",
+      },
+    ],
+  };
+
+  it("finds the installation of an app by its client ID", async () => {
+    const { o } = org([
+      [/orgs\/acme\/installations\?per_page=100&page=1$/, INSTALLATIONS],
+      [
+        /apps\/software-factory-for-acme$/,
+        { name: "Software Factory for acme" },
+      ],
+    ]);
+    expect(await o.installation("Iv23client")).toEqual({
+      id: 52811,
+      app: "Software Factory for acme",
+      all: false,
+      page: "https://github.com/organizations/acme/settings/installations/52811",
+    });
+    expect(await o.installation("Iv23absent")).toBeNull();
+  });
+
+  it("names an installed app by its address when GitHub will not give its name", async () => {
+    const { o } = org([
+      [/orgs\/acme\/installations/, INSTALLATIONS],
+      [/apps\//, notFound()],
+    ]);
+    expect((await o.installation("Iv23client"))!.app).toBe(
+      "software-factory-for-acme",
+    );
+  });
+
+  it("waits for an installation, looking every 3 seconds", async () => {
+    let looks = 0;
+    const slept: number[] = [];
+    const { o } = org(
+      [
+        [
+          /orgs\/acme\/installations/,
+          () => (++looks < 3 ? { installations: [] } : INSTALLATIONS),
+        ],
+        [/apps\//, { name: "Software Factory for acme" }],
+      ],
+      {
+        clock: {
+          now: () => slept.reduce((a, b) => a + b, 0),
+          sleep: async (ms) => {
+            slept.push(ms);
+          },
+        },
+      },
+    );
+    expect((await o.awaitInstallation("Iv23client"))!.id).toBe(52811);
+    expect(slept).toEqual([3000, 3000]);
+  });
+
+  it("gives up on an installation that has not shown after 10 minutes", async () => {
+    let looks = 0;
+    let at = 0;
+    const { o } = org(
+      [
+        [
+          /orgs\/acme\/installations/,
+          () => {
+            looks++;
+            return { installations: [] };
+          },
+        ],
+      ],
+      {
+        clock: {
+          now: () => at,
+          sleep: async (ms) => {
+            at += ms;
+          },
+        },
+      },
+    );
+    expect(await o.awaitInstallation("Iv23client")).toBeNull();
+    expect(at).toBe(10 * 60 * 1000);
+    // One look at the start, and one after each 3 seconds.
+    expect(looks).toBe(201);
+  });
+
+  it("counts an installation's repositories as the app, not as the signed-in account", async () => {
+    const asked: string[] = [];
+    const { o, calls } = org([], {
+      clock: { now: () => 0, sleep: async () => {} },
+      fetch: (async (url: unknown) => {
+        asked.push(String(url).replace("https://api.github.com/", ""));
+        return new Response(
+          JSON.stringify(
+            String(url).endsWith("access_tokens")
+              ? { token: "ghs_1" }
+              : { total_count: 1, repositories: [{ name: "factory-config" }] },
+          ),
+        );
+      }) as typeof fetch,
+    });
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    expect(
+      await o.installedOn(
+        52811,
+        {
+          clientId: "Iv23client",
+          key: privateKey.export({ type: "pkcs1", format: "pem" }).toString(),
+        },
+        "factory-config",
+      ),
+    ).toEqual({ count: 1, covered: true });
+    expect(asked).toEqual([
+      "app/installations/52811/access_tokens",
+      "installation/repositories?per_page=100&page=1",
+    ]);
+    expect(calls).toEqual([]);
+  });
+
+  it("registers an app through the manifest form, and sends the browser to install it on the organization", async () => {
+    let visit!: (path: string) => Promise<Reply>;
+    const opened: string[] = [];
+    const kept: string[] = [];
+    const { o } = org([[/^api orgs\/acme$/, { id: 4242 }]], {
+      state: () => "state-1",
+      listen: async (handle) => {
+        visit = handle;
+        return { origin: "http://127.0.0.1:4100", close: async () => {} };
+      },
+      fetch: (async () =>
+        new Response(
+          JSON.stringify({
+            id: 9,
+            slug: "software-factory-for-acme",
+            client_id: "Iv23client",
+            pem: SECRET,
+          }),
+        )) as unknown as typeof fetch,
+    });
+    const result = o.registerApp({
+      name: "Software Factory for acme",
+      open: (page) => opened.push(page),
+      pasted: (signal) =>
+        new Promise((_, reject) =>
+          signal.addEventListener("abort", () => reject(new Error("stopped"))),
+        ),
+      keep: async (app) => {
+        kept.push(app.key);
+      },
+    });
+    await expect.poll(() => opened).toEqual(["http://127.0.0.1:4100/"]);
+    expect((await visit("/")).body).toContain("state=state-1");
+    const reply = await visit("/registered?code=c1&state=state-1");
+    expect(reply.headers).toEqual({
+      location:
+        "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242",
+    });
+    expect(await result).toEqual({
+      id: 9,
+      slug: "software-factory-for-acme",
+      clientId: "Iv23client",
+      installPage:
+        "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242",
+    });
+    expect(kept).toEqual([SECRET]);
+  });
+
+  describe("the organization's app, before it is installed", () => {
+    const APP = {
+      name: "Software Factory for acme",
+      slug: "software-factory-for-acme",
+      client_id: "Iv23client",
+      owner: { login: "Acme", id: 4242 },
+    };
+    const registered = (answer: unknown) =>
+      org([[/^api apps\/software-factory-for-acme$/, answer]]).o.registeredApp(
+        "Iv23client",
+      );
+
+    it("is found by the name it was registered under, with the page that installs it", async () => {
+      expect(await registered(APP)).toEqual({
+        name: "Software Factory for acme",
+        installPage:
+          "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242",
+      });
+    });
+
+    it("is not found when no app has that name, as when she typed another in the form", async () => {
+      expect(await registered(notFound())).toBeNull();
+    });
+
+    it("is not another account's app of that name, or another app of the organization's", async () => {
+      expect(
+        await registered({ ...APP, owner: { login: "someone", id: 7 } }),
+      ).toBeNull();
+      expect(await registered({ ...APP, client_id: "Iv23other" })).toBeNull();
+    });
+
+    it("is not found when GitHub cannot be asked", async () => {
+      expect(await registered(new Error("HTTP 503"))).toBeNull();
+    });
+  });
+
+  it("gives the page of a file in one of the organization's repositories", () => {
+    expect(org([]).o.filePage("factory-config", "factory-preset.yaml")).toBe(
+      "https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml",
+    );
+  });
+
+  it("gives the page that lists the organization's apps", () => {
+    expect(org([]).o.appsPage()).toBe(
+      "https://github.com/organizations/acme/settings/apps",
+    );
+  });
+});
+
+describe("the tickets a text closes when it is merged, on GitHub", () => {
+  const host = () =>
+    githubCodeHost({
+      transport: ghTransport(async () => ""),
+      repository: "acme/widgets",
+    });
+
+  it.each([
+    ["Closes #13", "#13"],
+    ["closed #13", "#13"],
+    ["close #13", "#13"],
+    ["fix #13", "#13"],
+    ["Fixes #13", "#13"],
+    ["fixed #13", "#13"],
+    ["resolve #13", "#13"],
+    ["Resolves #13", "#13"],
+    ["RESOLVED #13", "#13"],
+    ["Closes: #13", "#13"],
+    ["Closes GH-13", "#13"],
+    ["fixes acme/widgets#13", "#13"],
+    ["fixes Acme/Widgets#13", "#13"],
+    ["fixes other/thing#13", "other/thing#13"],
+    ["fixes https://github.com/acme/widgets/issues/13", "#13"],
+    ["fixes http://github.com/other/thing/issues/13", "other/thing#13"],
+    ["Add a thing, closes #13", "#13"],
+  ])("%s", (text, ref) => {
+    expect(host().closesIn(text)).toEqual([ref]);
+  });
+
+  it.each([
+    "This fixes the crash users reported ([upstream](https://github.com/vitejs/vite/issues/9))",
+    "closed by default, see [the docs](https://github.com/actions/runner/issues/1)",
+    "Fixed: [link text](#3-heading)",
+    "Fix the parse bug from #99",
+    "Merge main: carry #129's shapes",
+    "The bug is fixed. #14 tracks the rest",
+    "Fixes C#12 warnings",
+  ])("are none in %s", (text) => {
+    expect(host().closesIn(text)).toEqual([]);
+  });
+
+  it("are none in a text that only names one, or has another word", () => {
+    expect(
+      host().closesIn("See #13. Encloses #14. Fixes the #15 case. part of #16"),
+    ).toEqual([]);
+  });
+
+  it("are each named once, in order", () => {
+    expect(host().closesIn("Fixes #2, closes #1, fixes #2")).toEqual([
+      "#2",
+      "#1",
     ]);
   });
 });

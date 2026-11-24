@@ -64,8 +64,9 @@ function doctor(o: {
   raw?: Record<string, unknown>;
   invalid?: string;
   outOfStep?: string[];
-  /** The default branch, which the sync writes, cannot be told. */
-  noDefaultBranch?: boolean;
+  /** The default branch, which the sync writes, cannot be told, for the
+   * reason this line gives. */
+  noDefaultBranch?: string;
   /** The version the lock names; 0.2.0 unless given, and null for none. */
   locked?: string | null;
   /** The factory's newest release, or why it cannot be read; the version
@@ -85,6 +86,8 @@ function doctor(o: {
   /** Whether the code host holds a workflow's events back, as GitHub does
    * in a public repository. */
   eventsHeld?: boolean;
+  /** Whether a job that does not say may write; false unless given. */
+  jobsMayWrite?: boolean;
   columns?: string[];
   files?: Record<string, string>;
   paint?: Paint;
@@ -94,6 +97,23 @@ function doctor(o: {
   ticketGroups?: Group[];
   ticketsFail?: NonNullable<Parameters<typeof memoryTickets>[1]>["fail"];
   env?: Record<string, string | undefined>;
+  /** The repository whose poller starts the builds, as the lock's pins
+   * give it to the settings. */
+  pollerIn?: string;
+  /** The repository's value for the property its owner's rule, which
+   * requires the review's verdict, applies by; `on` unless given. */
+  enrolled?: string | null;
+  /** Whether the repository's owner defines that property, and has the
+   * rule that applies by it; it does unless given. */
+  ownerRule?: boolean;
+  /** Each workflow on the default branch; none unless given. */
+  workflows?: Record<string, "active" | "disabled">;
+  /** The plan of the owner's that keeps its shared secrets from the
+   * repository, when one does. */
+  secretsWithheldBy?: string;
+  /** Why the code host can hold no branch rule for the repository, when
+   * it cannot. */
+  noRules?: string;
 }) {
   /** Each check's line, without its heading's indent; `printed` is the
    * output as printed, headings included. */
@@ -118,6 +138,23 @@ function doctor(o: {
         owner: "dave",
         ownerIsOrganization: o.organization,
         eventsHeld: o.eventsHeld,
+        jobsMayWrite: o.jobsMayWrite,
+        secretsWithheldBy: o.secretsWithheldBy,
+        noRules: o.noRules,
+        ownerRules:
+          o.ownerRule === false
+            ? []
+            : [
+                {
+                  check: "Review verdict",
+                  property: "software-factory",
+                  value: "on",
+                },
+              ],
+        definedProperties: o.ownerRule === false ? [] : ["software-factory"],
+        properties: {
+          "software-factory": o.enrolled === undefined ? "on" : o.enrolled,
+        },
         fail: o.codeHostFails,
       }).codeHost,
       runner: memoryRunner({
@@ -125,6 +162,7 @@ function doctor(o: {
         dependabotSecrets: o.dependabotSecrets,
         organizationSecrets: o.organizationSecrets,
         organizationDependabotSecrets: o.organizationDependabotSecrets,
+        workflows: o.workflows,
         fail: o.runnerFails,
       }).runner,
       tickets,
@@ -134,10 +172,13 @@ function doctor(o: {
   const d: DoctorDeps = {
     settings: async () => {
       if (o.invalid) throw new SettingsError(o.invalid);
-      return settings(o.raw, tools);
+      const s = settings(o.raw, tools);
+      return o.pollerIn
+        ? { ...s, builds: { ...s.builds, pollerIn: o.pollerIn } }
+        : s;
     },
     outOfStep: async () => {
-      if (o.noDefaultBranch) throw new NoDefaultBranch();
+      if (o.noDefaultBranch) throw new NoDefaultBranch(o.noDefaultBranch);
       return o.outOfStep ?? [];
     },
     factory: async () => {
@@ -182,6 +223,158 @@ const SIX = [
   "In review",
   "Done",
 ];
+
+describe("factory doctor, the rule that requires the review's verdict", () => {
+  const REVIEW = { "pr-review": { commands: [] } };
+
+  it("passes when a rule the code host applies to the default branch requires it, the owner's among them", async () => {
+    const { run, printed } = doctor({ raw: REVIEW });
+    await run();
+    expect(section(printed, "GitHub")).toContain(
+      '✓ "Review verdict" is required before a merge to main',
+    );
+  });
+
+  const ON_MAIN = { "factory.yml": "active" } as const;
+  const SET = { CLAUDE_CODE_OAUTH_TOKEN: "x" };
+
+  it("says it is not required yet, as off on purpose, while the default branch has no factory workflow to post it", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      enrolled: null,
+      secrets: SET,
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '- "Review verdict" is not required yet: the rule is made once the setup\'s pull request merges',
+    );
+    expect(printed.join("\n")).not.toContain("is not required before");
+  });
+
+  it("fails, naming init as the fix, once the workflow is on the default branch, where the owner has no rule of its own", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      enrolled: null,
+      ownerRule: false,
+      workflows: ON_MAIN,
+      secrets: SET,
+    });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(
+      '✗ "Review verdict" is not required before a merge to main. Run factory init',
+    );
+  });
+
+  it.each([["off"], [null]])(
+    "fails, saying what sets the property, where the owner defines it and the repository's value is %s",
+    async (enrolled) => {
+      const { run, printed } = doctor({
+        raw: REVIEW,
+        enrolled,
+        workflows: ON_MAIN,
+        secrets: SET,
+      });
+      expect(await run()).toBe(1);
+      expect(section(printed, "GitHub")).toContain(
+        '✗ "Review verdict" is not required before a merge to main. The next push to main sets it, or an owner of acme sets software-factory to "on" for this repository',
+      );
+      expect(printed.join("\n")).not.toContain("Run factory init");
+    },
+  );
+
+  it("takes the workflow to be there when the runner cannot say, so a missing rule still fails", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      enrolled: null,
+      ownerRule: false,
+      runnerFails: { workflowState: new Error("HTTP 500") },
+      secrets: SET,
+    });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(
+      '✗ "Review verdict" is not required before a merge to main. Run factory init',
+    );
+  });
+
+  it("says why when the code host cannot tell, and fails nothing", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      codeHostFails: { requiresStatus: new Error("HTTP 403") },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '? Could not tell whether "Review verdict" is required: HTTP 403',
+    );
+  });
+
+  it("says the verdict cannot be required, as off on purpose, where the plan has no branch rules for the repository", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      noRules: "GitHub Free has no branch rules for a private repository",
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '- "Review verdict" cannot be required here: GitHub Free has no branch rules for a private repository',
+    );
+    expect(printed.join("\n")).not.toContain("Could not tell");
+  });
+
+  it("gives the code host's reason for any other failed read, without the command that made it", async () => {
+    const { run, printed } = doctor({
+      raw: REVIEW,
+      codeHostFails: {
+        requiresStatus: new Error(
+          "gh api --paginate --slurp repos/acme/site/rules/branches/main?per_page=100: gh: Server Error (HTTP 500)",
+        ),
+      },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      '? Could not tell whether "Review verdict" is required: Server Error (HTTP 500)',
+    );
+  });
+
+  it("prints no such line with the review off", async () => {
+    const { run, printed } = doctor({ enrolled: "off" });
+    await run();
+    expect(printed.join("\n")).not.toContain("Review verdict");
+  });
+});
+
+describe("factory doctor, what CI's own token may do", () => {
+  const on = {
+    raw: { "pr-review": null },
+    secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+  };
+
+  it("fails, saying where to set it, where it can write", async () => {
+    const { run, printed } = doctor({ ...on, jobsMayWrite: true });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(
+      `✗ CI's own token can write, so code in a pull request could pass "Review verdict": set it to read, in your repository's Settings, Actions, General, Workflow permissions`,
+    );
+  });
+
+  it("says it could not tell, and fails nothing, when it cannot be read", async () => {
+    const { run, printed } = doctor({
+      ...on,
+      codeHostFails: { jobsMayWrite: new Error("HTTP 403") },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub")).toContain(
+      "? Could not tell what CI's own token may do: HTTP 403",
+    );
+  });
+
+  it("is not read with the review off, when there is no verdict to pass", async () => {
+    const { run, printed } = doctor({ jobsMayWrite: true });
+    expect(await run()).toBe(0);
+    expect(printed.join("\n")).not.toContain("CI's own token");
+  });
+});
 
 describe("factory doctor, the events the factory's workflow starts on", () => {
   const LINE =
@@ -235,7 +428,7 @@ describe("factory doctor", () => {
       "  - Builds in the cloud",
       "  - Builds that start when you move a card to Ready",
       "  - Pull requests that merge themselves",
-      "  - Signed commits from cloud builds",
+      "  - Signed commits on the factory's updates",
     ]);
   });
 
@@ -265,12 +458,14 @@ describe("factory doctor", () => {
       "",
       "GitHub",
       "  ✓ Signed in as dave",
+      '  ✓ "Review verdict" is required before a merge to main',
+      "  ✓ CI's own token can only read, unless a workflow says more",
       "",
       "GitHub Actions",
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request and builds in the cloud",
       "  ✓ FACTORY_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
       "  ✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
-      "  ✓ FACTORY_SIGNING_KEY is set, for signed commits from cloud builds",
+      "  ✓ FACTORY_SIGNING_KEY is set, for signed commits on the factory's updates",
       "",
       "GitHub Issues",
       "  ✓ Board 3 has every column the settings name",
@@ -332,10 +527,24 @@ describe("factory doctor", () => {
   });
 
   it("fails, naming the fix, when it cannot tell the default branch the sync writes", async () => {
-    const { run, out } = doctor({ noDefaultBranch: true });
+    const { run, out } = doctor({
+      noDefaultBranch:
+        "Could not tell the default branch. Run: git remote set-head upstream --auto",
+    });
     expect(await run()).toBe(1);
     expect(out[1]).toBe(
-      "✗ The factory's files match the settings: Could not tell the default branch. Run: git remote set-head origin --auto",
+      "✗ The factory's files match the settings: Could not tell the default branch. Run: git remote set-head upstream --auto",
+    );
+  });
+
+  it("fails with the line that names the repository, under one mark, when no remote is the settings' repository", async () => {
+    const { run, out } = doctor({
+      noDefaultBranch:
+        "✗ repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.",
+    });
+    expect(await run()).toBe(1);
+    expect(out[1]).toBe(
+      "✗ The factory's files match the settings: repository: .claude/factory.yaml says o/r, and no remote here is o/r. Add the remote, or change the line and run factory sync.",
     );
   });
 
@@ -680,6 +889,41 @@ describe("factory doctor", () => {
         ]);
       });
 
+      it("counts no secret the organization's plan keeps from a private repository as set, and says why", async () => {
+        const { run, out } = doctor({
+          raw: { "pr-review": null },
+          files: { ".npmrc": NPMRC },
+          organization: true,
+          organizationSecrets: ["NPM_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"],
+          organizationDependabotSecrets: ["NPM_TOKEN"],
+          secretsWithheldBy: "GitHub Free",
+        });
+        expect(await run()).toBe(1);
+        expect(out).toContain(
+          "✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository",
+        );
+        expect(out).toContain(
+          "✗ NPM_TOKEN is stored for acme, and GitHub Free does not share it with a private repository",
+        );
+        expect(out.join("\n")).not.toMatch(
+          /(CLAUDE_CODE_OAUTH_TOKEN|NPM_TOKEN) is set by the organization,/,
+        );
+      });
+
+      it("counts the repository's own copy as set, whatever the plan keeps back", async () => {
+        const { run, out } = doctor({
+          raw: { "pr-review": null },
+          organization: true,
+          secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+          organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+          secretsWithheldBy: "GitHub Free",
+        });
+        expect(await run()).toBe(0);
+        expect(out).toContain(
+          "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request",
+        );
+      });
+
       it("marks a Dependabot secret it can't see as unknown, without failing", async () => {
         const { run, out } = doctor({
           files: { ".npmrc": NPMRC },
@@ -968,5 +1212,90 @@ describe("factory doctor, a credential kept on the machine", () => {
     expect(r.lines).toEqual([
       `✗ ${r.path} is not valid YAML. Fix or delete it. Run factory init`,
     ]);
+  });
+});
+
+describe("factory doctor, where the organization's poller starts the builds", () => {
+  const ORG = "acme/factory-config";
+  /** Doctor in a repository whose builds that repository's poller starts,
+   * with the state of each workflow there, and of this repository's own. */
+  const run = async (
+    there: Record<string, "active" | "disabled"> | Error,
+    pollerIn: string | undefined = ORG,
+  ) => {
+    const opened: string[] = [];
+    const { run, printed } = doctor({
+      raw: { builds: { trigger: "github-action" } },
+      pollerIn,
+      tools: (base) => ({
+        ...base,
+        runner: {
+          "github-actions": {
+            ...base.runner["github-actions"]!,
+            open: (repository) => {
+              opened.push(repository);
+              return memoryRunner({
+                secrets: { FACTORY_BOARD_TOKEN: "ghp_x" },
+                workflows:
+                  repository !== ORG
+                    ? { "factory.yml": "active" }
+                    : there instanceof Error
+                      ? {}
+                      : there,
+                fail:
+                  repository === ORG && there instanceof Error
+                    ? { workflowState: there }
+                    : {},
+              }).runner;
+            },
+          },
+        },
+      }),
+    });
+    const code = await run();
+    return {
+      code,
+      lines: section(printed, "GitHub Actions").filter((l) => /\.yml/.test(l)),
+      opened,
+    };
+  };
+
+  it("says its workflow is enabled there, in place of this repository's own workflow", async () => {
+    const r = await run({ "factory-poller.yml": "active" });
+    expect(r.lines).toEqual([
+      "✓ factory-poller.yml is enabled in acme/factory-config",
+    ]);
+    expect(r.code).toBe(0);
+    expect(r.opened).toEqual(["acme/site", ORG]);
+  });
+
+  it("fails when it is disabled there, naming that repository's Actions tab", async () => {
+    const r = await run({ "factory-poller.yml": "disabled" });
+    expect(r.lines).toEqual([
+      "✗ factory-poller.yml is disabled in acme/factory-config: Enable it on the Actions tab of acme/factory-config",
+    ]);
+    expect(r.code).toBe(1);
+  });
+
+  it("fails when the default branch there no longer has it", async () => {
+    const r = await run({});
+    expect(r.lines).toEqual([
+      "✗ factory-poller.yml is not on the default branch of acme/factory-config: An owner of acme runs factory init --org again",
+    ]);
+    expect(r.code).toBe(1);
+  });
+
+  it("cannot tell, and fails nothing, when that repository's workflows cannot be read", async () => {
+    const r = await run(new Error("HTTP 404: Not Found"));
+    expect(r.lines).toEqual([
+      "? Could not tell whether factory-poller.yml is enabled in acme/factory-config: HTTP 404: Not Found",
+    ]);
+    expect(r.code).toBe(0);
+  });
+
+  it("checks this repository's own workflow where no other repository's poller starts its builds", async () => {
+    const r = await run({}, "");
+    expect(r.lines).toEqual(["✓ factory.yml is enabled"]);
+    expect(r.opened).toEqual(["acme/site"]);
   });
 });

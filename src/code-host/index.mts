@@ -3,13 +3,23 @@
 // `code-host.type` before this runs (`config.mts`). A command that has not
 // read the settings asks for the default.
 import { spawnSync } from "node:child_process";
-import { gh, type Gh } from "../lib/gh.mts";
+import { gh, ghIn, type Gh, type GhIn } from "../lib/gh.mts";
 import { ghTransport } from "../tickets/transport.mts";
-import { githubCodeHost } from "./github.mts";
-import type { CodeHost } from "./types.mts";
+import {
+  githubCodeHost,
+  githubOrganization,
+  githubOwner,
+  githubServes,
+} from "./github.mts";
+import type { CodeHost, OrganizationHost } from "./types.mts";
+import { handed } from "../handoff/index.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
+export { namesGitHub } from "./github.mts";
+/** What a run works with under an owner's own app: a token of the app's
+ * for the run's repositories, and the sign-in that takes one. */
+export { runToken, signIn } from "./github-app.mts";
 
 export const DEFAULT_CODE_HOST = "github" as const;
 
@@ -37,10 +47,36 @@ export function openCodeHost(
   run: Gh = gh,
 ): CodeHost {
   if (type !== "github") throw new Error(unsupportedCodeHost(type));
-  return githubCodeHost({
-    transport: ghTransport(run),
-    repository,
-    cli: run,
-    token: ghToken,
-  });
+  return handed(
+    "codeHost",
+    githubCodeHost({
+      transport: ghTransport(run),
+      repository,
+      cli: run,
+      token: ghToken,
+    }),
+  );
+}
+
+/** Each code host an organization can be set up on, by the name
+ * `code-host.type` gives it, reached through the GitHub CLI. */
+export function organizationHosts(
+  run: Gh = gh,
+  runIn: GhIn = ghIn,
+): Record<string, OrganizationHost> {
+  return {
+    github: {
+      label: "GitHub",
+      serves: githubServes,
+      ownerOf: githubOwner,
+      addressOf: (owner) => `https://github.com/${owner}`,
+      organization: (name) =>
+        githubOrganization({
+          transport: ghTransport(run),
+          name,
+          cli: runIn,
+          token: ghToken,
+        }),
+    },
+  };
 }

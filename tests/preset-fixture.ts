@@ -30,6 +30,8 @@ export type PresetFiles = {
   settings: string;
   agents?: Record<string, string>;
   skills?: Record<string, string>;
+  /** Any other file beside the preset, by its path from the folder. */
+  others?: Record<string, string>;
 };
 
 export const put = (root: string, path: string, text: string) => {
@@ -99,6 +101,8 @@ export function publish(
       put(dir, `${at}agents/${name}.md`, text);
     for (const [name, text] of Object.entries(p.skills ?? {}))
       put(dir, `${at}skills/${name}/SKILL.md`, text);
+    for (const [path, text] of Object.entries(p.others ?? {}))
+      put(dir, `${at}${path}`, text);
   }
   git("add", "--all");
   git("commit", "--quiet", "--allow-empty", "--message", "Change the presets");

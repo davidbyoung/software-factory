@@ -36,9 +36,10 @@ the ticket system writes it in prose, such as `#12`, which
   tab. The two are the same run. The run's prompt says so. There is no
   start check, since only someone with write access can dispatch a
   workflow: go straight to the claim, which names the run and who started
-  it. The run cannot be woken later, and nobody can answer
-  its questions: every stop ends it with a report. If it ends without a
-  pull request, its last step, `factory ticket end`, releases the claim.
+  it. Nobody can answer its questions: every stop ends it with a report,
+  and a run that ends without a pull request releases the claim. How its
+  session differs is "A session in the cloud" in
+  `.claude/factory/rules.md`.
 
 There is no queue: each build takes the one issue it was given.
 
@@ -227,6 +228,8 @@ command lists fewer files for it.
 
 ## 1. Branch
 
+A session in the cloud is on its branch, so it skips to step 2.
+
 First, `git status --short`. If it shows anything, stop and ask the user
 whether to commit it, on the current branch or on a new branch of its own if
 the current one is the default branch, or to stash it with `git stash -u`. A plain
@@ -393,8 +396,8 @@ command, run each with `factory end-to-end FILE`, and a
 new one ten times, with `--times 10` after FILE. Where it prints `none`,
 run them the way the repository's `CLAUDE.md` says, or say there is no
 end-to-end suite. CI runs the full suite on the draft (step 6).
-Commit and push as "Branching, pushing, and review" in
-`.claude/factory/rules.md` describes: one commit per coherent change,
+Commit, and push with `factory pr push`, as "Branching, pushing, and
+review" in `.claude/factory/rules.md` describes: one commit per coherent change,
 describing the defect or the feature, not the ticket's key alone.
 
 ## 6. Open the pull request
@@ -457,7 +460,7 @@ same holds when the owner has said they want to see the pull request
 before it is marked ready. Someone
 still works the review that click starts. A local session starts the
 watcher now, as the paragraph after the ready step says, and works the
-review when it lands. A run in GitHub Actions
+review when it lands. A session in the cloud
 cannot wait that long, so its step 7
 report tells the owner the review is theirs to start and work, with
 `factory-address-review` in a session they open, as a skill that runs as parallel
@@ -480,10 +483,10 @@ factory pr ready PR         # only after success or no checks
 refuses while GitHub shows a commit on the pull request as not verified.
 
 That triggers the review. In a local session, start the watcher "Branching,
-pushing, and review" in `.claude/factory/rules.md` describes. A run in GitHub Actions, which nothing
-can wake later, waits for the review with
-`factory pr state PR --wait` instead, and does not start
-`factory pr watch`. Work the review with the `factory-address-review` skill.
+pushing, and review" in `.claude/factory/rules.md` describes, and work the
+review with the `factory-address-review` skill. A session in the cloud ends
+before this step: its run waits for CI, and then marks the pull request
+ready.
 
 Where the settings list a file under `auto-merge.allow`, the merge policy labels the pull request `merge-automatic` or `merge-manual` from
 the files it changes, and turns auto-merge on for `merge-automatic` ones, which

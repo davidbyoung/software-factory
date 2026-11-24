@@ -6,6 +6,7 @@ import { gh, ghIn, type Gh, type GhIn } from "../lib/gh.mts";
 import { ghTransport } from "../tickets/transport.mts";
 import { githubActionsRunner } from "./github-actions.mts";
 import type { Runner } from "./types.mts";
+import { handed } from "../handoff/index.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
@@ -27,9 +28,12 @@ export function openRunner(
   runIn: GhIn = ghIn,
 ): Runner {
   if (name !== "github-actions") throw new Error(unsupportedRunner(name));
-  return githubActionsRunner({
-    transport: ghTransport(run),
-    repository,
-    cli: runIn,
-  });
+  return handed(
+    "runner",
+    githubActionsRunner({
+      transport: ghTransport(run),
+      repository,
+      cli: runIn,
+    }),
+  );
 }

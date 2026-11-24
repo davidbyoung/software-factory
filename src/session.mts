@@ -1,27 +1,42 @@
 #!/usr/bin/env node
 // Whether a cloud session runs, for the workflow that would run one.
 //
-//   factory session ready build
-//   factory session ready conflicts
-//   factory session ready deps
-//   factory session ready review PR REVIEW
+//   factory session ready build TICKET
+//   factory session ready review|answer|conflict|dependency PR [REVIEW]
 //
 // It asks whether there is work first, with whatever token the step gives
 // it as GH_TOKEN, the workflow's own, and only then whether the build token
 // and Claude's credential are set (FACTORY_BUILD_TOKEN_SET and
-// FACTORY_CLAUDE_SET, each `true` or not). With work and a token missing, a
-// run that a push, a schedule, or a review started says so and passes; a
-// run someone started by hand, or the poller did, fails. It writes
-// `ran=true` or `ran=false` to GITHUB_OUTPUT.
-import { appendFileSync } from "node:fs";
-import { setTimeout as sleep } from "node:timers/promises";
-import { reachOf } from "./config.mts";
+// FACTORY_CLAUDE_SET, each `true` or not). The key of the organization's
+// app counts as the build token (FACTORY_APP_KEY_SET). With work and a
+// token missing, a run that a push, a schedule, or a review started says so
+// and passes; a run someone started by hand, or the poller did, fails. It
+// writes `ran=true` or `ran=false` to GITHUB_OUTPUT.
+//
+//   factory session repositories
+//
+// The repositories a run's token of the organization's app is made for, by
+// name and separated by commas: the run's own, and each of the same owner
+// that holds a preset the lock names.
+//
+//   factory session token
+//
+// Signs a job in as that app: `session-token.mts`.
+//
+//   factory session prepare|run|publish|next|each
+//
+// The jobs of a run that starts a session: `session-jobs.mts`.
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { reachOf, repoRoot } from "./config.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost } from "./code-host/types.mts";
-import { conflicting, reviewPending } from "./pr.mts";
+import { reviewPending, stoppedOn } from "./pr.mts";
 
-export type Kind = "build" | "review" | "conflicts" | "deps";
-const KINDS: Kind[] = ["build", "review", "conflicts", "deps"];
+/** A run on a pull request with no review's number has its work named by
+ * what started it, so only a person's review is asked about. */
+export type Kind = "build" | "review" | "answer" | "conflict" | "dependency";
+const KINDS: Kind[] = ["build", "review", "answer", "conflict", "dependency"];
 
 export type Ready = {
   kind: Kind;
@@ -34,13 +49,18 @@ export type Ready = {
   work: () => Promise<string | null>;
 };
 
-/** What a check found, for the notice a run without a token prints. */
-export function foundLine(kind: Exclude<Kind, "build">, n: number): string {
-  if (kind === "review") return `A review on #${n} waits for an answer`;
-  const one = n === 1;
-  return kind === "conflicts"
-    ? `${n} pull request${one ? " conflicts" : "s conflict"}`
-    : `${n} Dependabot pull request${one ? " is" : "s are"} open`;
+/** What a kind's run is for, for the notice a run without a token prints. */
+export function foundLine(kind: Exclude<Kind, "build">, pull: number): string {
+  switch (kind) {
+    case "review":
+      return `#${pull} waits for a review`;
+    case "answer":
+      return `#${pull} waits for an answer`;
+    case "conflict":
+      return `#${pull} conflicts`;
+    case "dependency":
+      return `#${pull} is Dependabot's`;
+  }
 }
 
 const MISSING = {
@@ -61,11 +81,13 @@ export async function ready(
 ): Promise<{ run: boolean; code: number; lines: string[] }> {
   const found = o.kind === "build" ? "" : await o.work();
   if (found === null) return { run: false, code: 0, lines: ["Nothing to do."] };
-  const missing = !o.buildToken
-    ? MISSING.build
-    : !o.claude
-      ? MISSING.claude
-      : null;
+  // A review is recorded with the workflow's own token.
+  const missing =
+    !o.buildToken && o.kind !== "review"
+      ? MISSING.build
+      : !o.claude
+        ? MISSING.claude
+        : null;
   if (!missing) return { run: true, code: 0, lines: [] };
   if (o.byHand || o.kind === "build")
     return { run: false, code: 1, lines: [`::error::${missing.error}`] };
@@ -79,9 +101,45 @@ export async function ready(
 }
 
 const USAGE =
-  "Usage: factory session ready build|conflicts|deps|review [PR REVIEW]";
+  "Usage: factory session ready build|review|answer|conflict|dependency ID [REVIEW]";
 
-/** What a kind's check finds in the repository, through the code host. */
+/** All of a repository's name but its last part, and that part. */
+const split = (repository: string) => {
+  const at = repository.lastIndexOf("/");
+  return { owner: repository.slice(0, at), name: repository.slice(at + 1) };
+};
+
+/** The repository's name, then each of `presets`, the repositories that
+ * hold a preset, that has the same owner, once each. */
+export function repositoriesOf(repository: string, presets: string[]): string {
+  const own = split(repository);
+  const names = presets
+    .map(split)
+    .filter((p) => p.owner.toLowerCase() === own.owner.toLowerCase())
+    .map((p) => p.name);
+  return [...new Set([own.name, ...names])].join(",");
+}
+
+/** Those names for this checkout: the run's repository, and the presets
+ * its lock names. */
+export async function repositories(
+  env: Record<string, string | undefined>,
+): Promise<string> {
+  const { load } = await import("js-yaml");
+  const { LOCK_FILE, parseName, pinsOf } = await import("./preset.mts");
+  const lock = join(repoRoot(), LOCK_FILE);
+  const pins = pinsOf(
+    existsSync(lock) ? readFileSync(lock, "utf8") : null,
+    load,
+  );
+  return repositoriesOf(
+    (await reachOf(env)).repository,
+    pins.map((pin) => parseName(pin.name).repo),
+  );
+}
+
+/** What a kind's check finds on the pull request: a person's review may
+ * have been answered since, and anything else is work. */
 export function workOf(
   kind: Kind,
   p: CodeHost,
@@ -89,38 +147,58 @@ export function workOf(
   out: (line: string) => void,
 ): () => Promise<string | null> {
   return async () => {
-    if (kind === "conflicts") {
-      const found = await conflicting(p, sleep);
-      return found.length ? foundLine("conflicts", found.length) : null;
-    }
-    if (kind === "deps") {
-      const open = (await p.listOpen()).filter(
-        (pull) => pull.author === "dependabot[bot]",
-      );
-      return open.length ? foundLine("deps", open.length) : null;
-    }
+    if (kind === "build") return "";
     const [pr, review] = numbers;
-    if (!pr || !review) throw new Error(USAGE);
+    if (!pr) throw new Error(USAGE);
+    // It may have waited for another run on the same pull request.
+    if (kind === "conflict") {
+      const pull = await p.get(pr);
+      const gone = !["dirty", "unknown"].includes(pull.mergeableState);
+      if (gone || (await stoppedOn(p, pull))) {
+        out(
+          `nothing to do: ${gone ? `#${pr} does not conflict` : `a run stopped on #${pr}`}`,
+        );
+        return null;
+      }
+    }
+    if (kind !== "answer" || !review) return foundLine(kind, pr);
     const answer = await reviewPending(p, pr, review);
     if (!answer.pending) out(`nothing to do: ${answer.why}`);
-    return answer.pending ? foundLine("review", pr) : null;
+    return answer.pending ? foundLine(kind, pr) : null;
   };
 }
 
-/** `factory session ready KIND [PR REVIEW]`. */
+/** `factory session ready KIND ID [REVIEW]`, `factory session
+ * repositories`, and `factory session token`. */
 export async function run(argv: string[]): Promise<number> {
   const [step, kind, ...rest] = argv;
+  const env = process.env;
+  if (step !== "ready" && step !== "repositories" && step !== "token") {
+    const jobs = await import("./session-jobs.mts");
+    if (jobs.isJob(step)) return jobs.run(step, argv.slice(1));
+  }
+  if (step === "token") return (await import("./session-token.mts")).run();
+  if (step === "repositories") {
+    try {
+      console.log(await repositories(env));
+      return 0;
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+  }
   if (step !== "ready" || !KINDS.includes(kind as Kind)) {
     console.error(USAGE);
     return 2;
   }
-  const env = process.env;
   try {
     const { repository, codeHost } = await reachOf(env);
     const answer = await ready({
       kind: kind as Kind,
       byHand: env.GITHUB_EVENT_NAME === "workflow_dispatch",
-      buildToken: env.FACTORY_BUILD_TOKEN_SET === "true",
+      buildToken:
+        env.FACTORY_BUILD_TOKEN_SET === "true" ||
+        env.FACTORY_APP_KEY_SET === "true",
       claude: env.FACTORY_CLAUDE_SET === "true",
       work: workOf(
         kind as Kind,

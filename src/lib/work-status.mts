@@ -587,18 +587,22 @@ export function isStale(derived: Derived, now: Date): boolean {
 /** How long a card may sit in Ready before the poller should have started
  * it, and what the flag asks then; null when nothing starts builds from
  * the board. A schedule runs every few minutes and often late, so it gets
- * its interval and 15 minutes more. */
+ * its interval and 15 minutes more. `pollerIn` is the repository whose
+ * schedule it is, when it is not the repository's own. */
 export type Watch = { minutes: number; flag: string };
 
 export function watchOf(
   trigger: "own-server" | "github-action" | "manual",
   pollMinutes: number,
+  pollerIn?: string,
 ): Watch | null {
   if (trigger === "manual") return null;
   if (trigger === "github-action")
     return {
       minutes: pollMinutes + 15,
-      flag: "not started, is the poller's job in factory.yml running?",
+      flag: pollerIn
+        ? `not started, is the poller in ${pollerIn} running?`
+        : "not started, is the poller's job in factory.yml running?",
     };
   return { minutes: 5, flag: "not started, is the poller running?" };
 }

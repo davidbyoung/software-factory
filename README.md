@@ -43,7 +43,7 @@ flowchart LR
     C -->|move its card to Ready| E[Build: in the cloud]
     D --> F[A pull request, with tests and a review]
     E --> F
-    F --> G[The session answers the review]
+    F --> G[A session answers the review]
     G --> H{You merge}
 ```
 
@@ -87,20 +87,24 @@ nothing to host. Everything else is optional and comes later.
    commits name your coding agent as their author. People approve the
    ticket, review the pull request, and merge it, and whoever merges
    answers for it.
-2. **Everything waits for you unless you said otherwise.**
-3. **It asks for almost nothing.** Every setting has a default, and a
+2. **In the cloud, your agent holds no key.** It works in a sandbox with no
+   sign-in to your code host, and a job with no AI checks what it left
+   before doing any of it
+   ([What a cloud run is](docs/builds.md#what-a-cloud-run-is)).
+3. **Everything waits for you unless you said otherwise.**
+4. **It asks for almost nothing.** Every setting has a default, and a
    build needs one thing from you: the commands that check a change.
 
 ## The docs
 
 **Start here**
 
-| Page                                         | For                                                            |
-| -------------------------------------------- | -------------------------------------------------------------- |
-| [Quick start](docs/quick-start.md)           | Your first built ticket, step by step                          |
-| [Setting up on GitHub](docs/github/setup.md) | What `factory init` asks on GitHub, and what it leaves for you |
-| [Workflow](docs/workflow.md)                 | How a ticket moves, and which steps are yours                  |
-| [Glossary](docs/glossary.md)                 | Any word here you do not know                                  |
+| Page                                         | For                                                         |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| [Quick start](docs/quick-start.md)           | Your first built ticket, step by step                       |
+| [Setting up on GitHub](docs/github/setup.md) | Setting a repository up on GitHub, or an organization, once |
+| [Workflow](docs/workflow.md)                 | How a ticket moves, and which steps are yours               |
+| [Glossary](docs/glossary.md)                 | Any word here you do not know                               |
 
 **Guides**
 

@@ -178,6 +178,21 @@ describe("combining presets", () => {
     ]);
   });
 
+  it("adds up every layer's builds.hosts, each once", async () => {
+    root = repo(
+      own([ACME], ["builds:", "  hosts: [own.example, shared.example]"]),
+    );
+    installAcme(
+      root,
+      "version: 2\nbuilds:\n  hosts: [acme.example, shared.example]\n",
+    );
+    expect((await resolveAt(root)).settings.builds.hosts).toEqual([
+      "acme.example",
+      "shared.example",
+      "own.example",
+    ]);
+  });
+
   it("takes a later layer's whole block when it names a different type", async () => {
     root = repo(own([ACME], ["specs: none"]));
     install(root, ACME, {
@@ -318,7 +333,13 @@ describe("what a preset can't do", () => {
     files: Record<string, string> = {},
   ) => {
     root = repo(own([ACME]));
-    lockPin(root, { name: ACME, commit: "1".repeat(40), settings, files });
+    lockPin(root, {
+      name: ACME,
+      commit: "1".repeat(40),
+      poller: false,
+      settings,
+      files,
+    });
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([expected]);
@@ -538,6 +559,16 @@ describe("factory config explain with presets", () => {
     expect(lineOf(out, "- agent: acme-security-reviewer")).toMatch(
       /# acme\/factory-config$/,
     );
+  });
+
+  it("marks each of builds.hosts with the layer it came from, a wildcard in quotes", async () => {
+    root = repo(own([ACME], ["builds:", '  hosts: ["*.own.example"]']));
+    installAcme(root, "version: 2\nbuilds:\n  hosts: [acme.example]\n");
+    const { out } = await explain();
+    expect(lineOf(out, "- acme.example")).toMatch(
+      /^- acme\.example +# acme\/factory-config$/,
+    );
+    expect(lineOf(out, '- "*.own')).toBe('- "*.own.example"');
   });
 });
 

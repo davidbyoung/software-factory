@@ -9,6 +9,8 @@ import {
   FACTORY_EVENTS,
   factoryWorkflow,
   HELD_EVENT,
+  POLLER_FILE,
+  pollerWorkflow,
   reviewWorkflow,
   type WorkflowOptions,
 } from "../src/workflow-files.mts";
@@ -63,10 +65,6 @@ describe("factory.yml", () => {
       "unlabeled",
     ]);
     expect(on.pull_request_review.types).toEqual(["submitted"]);
-    expect(on.workflow_run).toEqual({
-      workflows: ["Factory review"],
-      types: ["completed"],
-    });
     expect(Object.keys(on.workflow_dispatch.inputs)).toEqual([
       "job",
       "ticket",
@@ -91,20 +89,22 @@ describe("factory.yml", () => {
     expect(crons({ pollMinutes: 60 })).toEqual([...fixed, "0 * * * *"]);
   });
 
-  it("names a build's run by the ticket as its system writes it, and no other run", () => {
+  it("names a build's run by the ticket as its system writes it, an answer's by its pull request, a pull request's by its commit, and no other run", () => {
     expect(factory()["run-name"]).toBe(
-      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || '' }}",
+      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}",
     );
     expect(factory({ ref: (key) => `it's ${key}` })["run-name"]).toBe(
-      "${{ inputs.ticket && format('Build it''s {0}', inputs.ticket) || '' }}",
+      "${{ inputs.ticket && format('Build it''s {0}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}",
     );
   });
 
   it("grants what the factory's jobs post with, and no more", () => {
     expect(factory().permissions).toEqual({
       actions: "read",
+      checks: "read",
       contents: "read",
       issues: "write",
+      packages: "read",
       "pull-requests": "write",
       statuses: "write",
     });
@@ -124,6 +124,7 @@ describe("factory.yml", () => {
         "${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}",
       "board-token": "${{ secrets.FACTORY_BOARD_TOKEN }}",
       "automerge-token": "${{ secrets.FACTORY_AUTOMERGE_TOKEN }}",
+      "app-key": "${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
       "signing-key": "${{ secrets.FACTORY_SIGNING_KEY }}",
       "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
       "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
@@ -159,13 +160,6 @@ describe("factory.yml", () => {
       `\${{ format('{{"NPM_TOKEN":{0},"FACTORY_JIRA_TOKEN":{1}}}', toJSON(secrets.NPM_TOKEN), toJSON(secrets.FACTORY_JIRA_TOKEN)) }}`,
     );
   });
-
-  it("lets the workflow's own token read packages when .npmrc signs in with it", () => {
-    expect(factory().permissions).not.toHaveProperty("packages");
-    expect(factory({ secrets: ["GITHUB_TOKEN"] }).permissions.packages).toBe(
-      "read",
-    );
-  });
 });
 
 describe("factory-review.yml", () => {
@@ -181,26 +175,23 @@ describe("factory-review.yml", () => {
     expect(file.jobs.review.uses).toBe(
       "davidbyoung/software-factory/.github/workflows/review.yml@v0.3.0",
     );
-    expect(file.jobs.review.with).toEqual({ parts: "review dependabot" });
     expect(review({ version: null }).jobs.review.uses).toBe(
       "./.github/workflows/review.yml",
     );
   });
 
-  it("grants reading the code and commenting, and passes the tokens its jobs read", () => {
-    const file = review({ secrets: ["NPM_TOKEN"] });
-    expect(file.permissions).toEqual({
-      contents: "read",
-      issues: "read",
-      "pull-requests": "write",
-    });
-    expect(Object.keys(file.jobs.review.secrets)).toEqual([
-      "build-token",
-      "automerge-token",
-      "claude-token",
-      "claude-api-key",
-      "extra",
-    ]);
+  // GitHub runs this file from the pull request's copy.
+  it("may only read the code, and passes nothing to the job it calls, whatever the settings turn on", () => {
+    const text = reviewWorkflow(
+      options({
+        parts: ["review", "board", "auto-merge", "poller", "dependabot"],
+        secrets: ["NPM_TOKEN", "GITHUB_TOKEN", "FACTORY_JIRA_TOKEN"],
+      }),
+    );
+    const file = parse(text);
+    expect(file.permissions).toEqual({ contents: "read" });
+    expect(Object.keys(file.jobs.review)).toEqual(["uses"]);
+    expect(text).not.toMatch(/secrets\.|secrets:/);
   });
 });
 
@@ -220,6 +211,66 @@ describe("both files", () => {
         secrets: ["NPM_TOKEN", "GITHUB_TOKEN"],
       }),
     );
+    expect(await format(text, { parser: "yaml" })).toBe(text);
+  });
+});
+
+describe("factory-poller.yml", () => {
+  const text = pollerWorkflow({
+    owner: "acme",
+    version: "0.4.0",
+    pollMinutes: 30,
+  });
+
+  it("is the file an organization's setup writes, word for word", () => {
+    expect(POLLER_FILE).toBe(".github/workflows/factory-poller.yml");
+    expect(text).toBe(
+      [
+        "# .github/workflows/factory-poller.yml, written by factory init --org.",
+        "# The one poller for acme's board. The cron line is yours to change, with",
+        "# builds.poll-minutes in factory-preset.yaml: factory preset check fails",
+        "# when the two differ.",
+        "name: Factory poller",
+        "on:",
+        "  schedule:",
+        '    - cron: "*/30 * * * *" # the poller',
+        '    - cron: "0 1 * * *" # updates',
+        "  workflow_dispatch:",
+        "permissions:",
+        "  contents: read",
+        "jobs:",
+        "  poller:",
+        "    uses: davidbyoung/software-factory/.github/workflows/poller.yml@v0.4.0",
+        "    secrets:",
+        "      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("calls the factory's poller.yml from one job, with the app's key as its one secret", () => {
+    const file = parse(text);
+    expect(Object.keys(file.jobs)).toEqual(["poller"]);
+    expect(file.jobs.poller.secrets).toEqual({
+      "app-key": "${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+    });
+    expect(file.permissions).toEqual({ contents: "read" });
+  });
+
+  it.each([
+    [5, "*/5 * * * *"],
+    [60, "0 * * * *"],
+  ])(
+    "polls every %s minutes on %s, before the updates' schedule",
+    (pollMinutes, cron) => {
+      const file = parse(
+        pollerWorkflow({ owner: "acme", version: "0.4.0", pollMinutes }),
+      );
+      expect(file.on.schedule).toEqual([{ cron }, { cron: "0 1 * * *" }]);
+    },
+  );
+
+  it("is written as Prettier would leave it", async () => {
     expect(await format(text, { parser: "yaml" })).toBe(text);
   });
 });

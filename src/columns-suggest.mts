@@ -293,11 +293,69 @@ async function changeSome(
   }
 }
 
+/** The column step by hand: a column asked for each state in turn, then
+ * the table to accept or change. The `tickets.columns` lines to write. */
+export async function chooseColumns(
+  d: Pick<SuggestDeps, "ask" | "out">,
+  o: { columns: readonly string[]; fromBoard: boolean },
+): Promise<[StateKey, string][]> {
+  let mapping = {} as Mapping;
+  const now = (): Columns =>
+    Object.fromEntries(
+      KEYS.map((k) => {
+        const name = k in mapping ? nameOf(k, mapping[k]) : null;
+        return [STATE_KEYS[k], name === null ? null : [name]];
+      }),
+    ) as Columns;
+  for (const k of KEYS) {
+    const own = onBoard(STATE_KEYS[k], o.columns);
+    for (;;) {
+      const choice = choiceOf(
+        await pickColumn(
+          d,
+          k,
+          o.columns,
+          own === null ? ADD : `column:${own}`,
+          noColumnFor(k, now(), o.fromBoard),
+        ),
+      );
+      const name = nameOf(k, choice);
+      const other = name === null ? null : showing(name, k, now());
+      if (other === null) {
+        mapping[k] = choice;
+        break;
+      }
+      d.out(`${name} already shows ${other}. Pick another column for ${k}.`);
+    }
+  }
+  for (;;) {
+    d.out("");
+    for (const line of table(mapping)) d.out(line);
+    d.out("");
+    const use = await d.ask.select(
+      "Use these columns?",
+      [
+        { name: "Yes", value: "yes" },
+        { name: "Change some", value: "change" },
+      ],
+      "yes",
+    );
+    if (use === "yes") return written(mapping);
+    mapping = await changeSome(d, mapping, o.columns, o.fromBoard);
+  }
+}
+
 /** The column step: the mapping's `tickets.columns` lines to write, or 1
- * when init stops. */
+ * when the command stops. An answer that can't be used stops it, or with
+ * `byHand` leaves each state's column to be chosen by hand. */
 export async function suggestColumns(
   d: SuggestDeps,
-  o: { board: number; columns: readonly string[]; fromBoard: boolean },
+  o: {
+    board: number;
+    columns: readonly string[];
+    fromBoard: boolean;
+    byHand?: boolean;
+  },
 ): Promise<[StateKey, string][] | 1> {
   d.out("");
   d.out(boardLine(o.board, o.columns));
@@ -322,6 +380,10 @@ export async function suggestColumns(
         : check(got.answer, o.columns, o.fromBoard, o.board);
   if ("reason" in checked) {
     d.out(`${d.label}'s answer could not be used: ${checked.reason}.`);
+    if (o.byHand) {
+      d.out("Choose the column for each state yourself.");
+      return chooseColumns(d, o);
+    }
     d.out(`Run factory init again, or ${AGAIN_OR_WRITE}`);
     d.out("Nothing changed.");
     return 1;

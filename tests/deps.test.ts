@@ -274,14 +274,16 @@ describe("main", () => {
       (l) => out.push(l),
       [],
       async () => {
-        throw new NoDefaultBranch();
+        throw new NoDefaultBranch(
+          "Could not tell the default branch. Run: git remote set-head upstream --auto",
+        );
       },
     );
 
     expect(code).toBe(1);
     expect(out).toEqual([]);
     expect(error).toHaveBeenCalledWith(
-      "Could not tell the default branch. Run: git remote set-head origin --auto",
+      "Could not tell the default branch. Run: git remote set-head upstream --auto",
     );
   });
 

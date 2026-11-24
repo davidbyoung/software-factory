@@ -109,12 +109,12 @@ discovering it at push time.
   check fails, a review or comment lands, or a conflict appears, which wakes
   the session. Work what it reports, then run it again, until it prints
   `merged` or `closed`. A session that stops watching an open PR first runs
-  it with `--release`. A run in GitHub Actions, which nothing can wake
-  later, works its review under `factory-address-review`, waiting with
-  `factory pr state N --wait`, and does not run it, since
-  nothing can wake it once it stops. A pull request `factory update`
+  it with `--release`. A session in the cloud watches nothing ("A session in
+  the cloud" below). A pull request `factory update`
   opened was built by no session: its review waits for the owner, who
   merges it or tells a session to work it with `factory-address-review`.
+  So does the pull request `factory init` opens, which a person's command
+  opens ready, not as a draft.
 - **A pull request that resolves an issue closes it.** When asked to open
   one, start the body with the line `factory ticket link N`
   prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
@@ -167,6 +167,50 @@ discovering it at push time.
   branch and says which. Work has been lost by sitting on a branch the user
   thought was already in a PR.
 
+## A session in the cloud
+
+A run that starts a session in the cloud is three jobs: one hands over what
+the session works from, the session has no sign-in of any kind, and a third,
+with no AI, checks what it left and does it. The skills are the same there
+as on a person's machine, with these differences, and no skill restates
+them.
+
+- **The folder it starts in is the default branch,** with the rules, skills,
+  and settings it follows, and it cannot change it. The branch it works on is
+  in `../work`, already checked out. Every command runs there, after
+  `cd ../work`, and every change is made there. A file under `.claude/` is
+  written by a command, since the file tools refuse it.
+- **It is claimed and branched already.** A skill's steps that claim a
+  ticket, name a branch, look for an earlier one, or check one out are done.
+- **A `factory` command that reads** answers from what was handed over. One
+  that says something `was not handed to this run` is not retried: go on
+  without it, or stop as it says.
+- **A `factory` command that writes** prints `Asked:`. It is done after the
+  session ends, if it is one this run may make, so nothing waits for its
+  result. A number that is not known yet, such as the pull request's after
+  `factory pr open`, is left out. The pull request is marked ready once CI
+  has passed. One its owner marks ready is opened with
+  `factory pr open --draft` in place of skipping that step.
+- **Commits are handed over with `factory pr push`,** once, at the end.
+  Nothing is pushed, fetched, or pulled with git, and nothing is signed. A
+  commit that changes a file under `.github/workflows/`, other than a merge
+  that brings in the default branch's own change, is refused, with the
+  rest of the session's work. A setting whose `factory sync` rewrites one
+  needs such a commit too. When a ticket needs one, stop and say it is built
+  on a person's machine; a line of the follow-ups ticket that needs one
+  stays unchecked, and the pull request names it.
+- **Where a skill waits** for checks or a review, the session ends with its
+  report. What comes next starts a run of its own, which remembers nothing
+  but the ticket, the pull request, and its threads.
+- **No hook runs,** `commands.before-commit` included. The gate is what
+  checks a commit.
+- **A picture can't be attached.** The pull request says so in place of a
+  screenshot, and one whose look the owner picks is opened with `--draft`.
+- **What comes before "marked ready" comes before `factory pr open`,** the
+  fresh-agent trace included, since nobody marks it ready by hand.
+- **The report** is asked for with `factory ticket comment N`, or on an
+  answer with `factory pr comment N`, and is the final message too.
+
 ## What merges without the owner
 
 A pull request merges itself only when the merge policy labels it
@@ -202,8 +246,9 @@ criteria" with no spec files and no "For the builder" section, since the
 area's `CLAUDE.md` says how it is built. A small change that makes a
 spec line false is the one exception ("Small changes" above). Neither
 skill removes `spec` or adds it back once the owner removed it: both act
-through the owner's GitHub account, so a label already decided is the
-owner's call.
+through the owner's GitHub account, or through the organization's app in
+an organization's cloud build, and either way a label already decided is
+the owner's call.
 
 A spec tool, which `factory config get specs` names,
 also keeps each Spec in the repository: `factory-build` starts it with

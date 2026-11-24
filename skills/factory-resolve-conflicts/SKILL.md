@@ -9,30 +9,29 @@ One workflow starts the conflict sweep, and a local `factory-address-review`
 session calls "A conflict with the default branch" when its pull request conflicts.
 Working the review itself, the threads, the checks, the coverage report,
 the replies, the rounds, and the report, is in the `factory-address-review`
-skill, as is the run a review of the owner's starts; this one says what a
-run does before and around that. The section numbers below are
+skill; this one says what a run does before and around that. The section numbers below are
 `factory-address-review`'s. Who is an approver, whose reviews count, and
 the `<!-- agent -->` marker are defined in `factory-address-review`
 section 0a, and where the marker goes in a comment in its section 4.
 
 Tickets go through `factory ticket` and a pull request through
-`factory pr`. The workflow has set the run up: the dependencies are installed and the
-`commands.build-setup` commands have run, so a run does no setup of its own.
+`factory pr`.
 
 The default branch's name is what `factory default-branch`
 prints. The commands below write it as DEFAULT.
 
-Asked to resolve the conflicts on one pull request N, a session skips the
-sweep: it checks the stop marker and that the sweep's queue admits the pull
-request, as "A conflict with the default branch" says, runs that section for N, and then
-works the review of its push as `factory-address-review` section 0 says.
+Asked to resolve the conflicts on one pull request N, as every run in the
+cloud is ("A session in the cloud" in `.claude/factory/rules.md`), a session
+skips the sweep: it checks the stop marker and that the sweep's queue admits the pull
+request, as "A conflict with the default branch" says, and runs that section for N.
+On a person's machine it then works the review of its push as
+`factory-address-review` section 0 says. In the cloud it ends.
 
 ## The conflict sweep
 
-Run as "the conflict sweep", by the workflow that starts after each push
-to the default branch and nightly. It ran `factory session ready conflicts` first,
-which is steps 1 to 3 below, and starts a session only when it finds one.
-Read what it read again, since time has passed. It finds every pull request that conflicts with
+After each push to the default branch and nightly, the workflow starts one
+run in the cloud for each pull request steps 1 to 3 find. A session asked to
+run the whole sweep works them one by one. It finds every pull request that conflicts with
 the default branch and sends each through "A conflict with the default branch" and then its review.
 
 Before it lists the queue, the sweep checks that the settings name a gate:
@@ -88,7 +87,7 @@ in the report.
    it a stop comment.
 
 4. **Nothing `dirty` without a stop comment:** stop, with no comment, no
-   push. Otherwise go on: the workflow has already run the setup. Before
+   push. Otherwise go on. Before
    switching to any pull request's branch, list the resolvers, the
    repository's own skills that rebuild a file after a conflict, and read
    each one's text from the default branch's copy:
@@ -100,15 +99,13 @@ in the report.
 
    The first prints one line for each resolver: `skill`, its NAME,
    `resolver`, then its `files`. The sweep uses that list and those texts
-   for every pull request, never a branch's copy of either: it holds a
-   token, and a pull request's branch could otherwise change what runs
-   with it.
+   for every pull request, never a branch's copy of either: a pull
+   request's branch could otherwise change what runs on the machine.
 
 5. **Each conflicted pull request in turn**, oldest first: run "A
    conflict with the default branch". If it ended `fixed`, work the review of that push
    as `factory-address-review` section 0 describes, under that skill as a whole, its
-   preamble through section 8, and step 6 of the owner's-review run in
-   `factory-address-review`, before the next pull request, so a
+   preamble through section 8, before the next pull request, so a
    "changes" verdict does not stall an auto-merge pull request. If it
    ended `stopped`, go on to the next.
 6. **Report** each pull request as `skip` (with why), `fixed`, or
@@ -134,10 +131,11 @@ the owner has told this session what to keep.
 
 ### Merge
 
-Work from `origin` refs, since a run may start on another commit:
+Work from `origin` refs. A session in the cloud has both already, so it
+starts at the merge:
 
 ```bash
-git fetch origin && git switch BRANCH && git pull --no-rebase origin BRANCH
+git fetch origin && git switch BRANCH && factory pr pull
 git merge origin/DEFAULT
 git diff --name-only --diff-filter=U
 git log --merge --format='%h %s' -- FILE
@@ -207,9 +205,7 @@ pull request's own branch only, never with force.
 (the conflict sweep, step 2). If it is no longer `dirty`, discard the local merge
 and end `skip`, with no comment. If it is, discard the local merge, run
 this once more from "Merge", and a second refusal is a stop. **Refused for
-any other reason**, such as a merge that brings in `.github/workflows`
-changes the credential may not push: a stop, with GitHub's error. Do not
-work around it.
+any other reason**: a stop, with GitHub's error. Do not work around it.
 
 Then comment on the pull request with
 `factory pr comment N --body-file file`: what
@@ -278,8 +274,6 @@ once the merge is committed locally. Then:
    fi
    ```
 
-This ends `stopped`. No new review is coming: GitHub runs no `pull_request`
-workflows on a commit that conflicts, so the run that called this, from
-`factory-address-review` section 0 or from step 4 of the owner's-review run in `factory-address-review`, works the
-review threads that already exist, without waiting for a new review, and
-names the stop in its report.
+This ends `stopped`. Nothing was pushed, so no new review is coming: the
+session that called this, from `factory-address-review` section 0, works the
+review threads that already exist and names the stop in its report.

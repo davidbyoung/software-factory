@@ -13,7 +13,9 @@ The others need lines in your settings file that it doesn't have:
 settings have a [`tickets.board`](configuration.md#tickets). Two more,
 [Labeling your open tickets](#labeling-your-open-tickets) and
 [A spec for every visible change](#a-spec-for-every-visible-change), ask
-nothing of most repositories, but are worth reading.
+nothing of most repositories, but are worth reading. One more,
+[Cloud runs in three jobs](#cloud-runs-in-three-jobs), asks you to pass one
+pull request's verdict by hand.
 
 A repository coming from an old release takes them in order. Move to one
 install first. If `factory update` then stops with a settings error, the
@@ -46,8 +48,9 @@ that version.
    ```
 
 The job needs [builds in the cloud](github/setup.md), since it pushes a
-branch and opens a pull request with the build's token. Without them,
-[do it yourself](#doing-it-yourself).
+branch and opens a pull request with the build's token, or, in an
+organization that is set up, with a token made from the organization's
+App. Without them, [do it yourself](#doing-it-yourself).
 
 ## What the pull request holds
 
@@ -394,9 +397,9 @@ stops with one of these, the second naming the states you left out:
 ```
 
 So the update to that release cannot sync: `factory update`
-([Doing it yourself](#doing-it-yourself)) stops with the same line. On a
-branch, from your repository's root, run `factory init` at the new
-release:
+([Doing it yourself](#doing-it-yourself)) stops with the same line. On
+your default branch, from your repository's root, run `factory init` at
+the new release:
 
 ```bash
 FACTORY_VERSION=$(npm view @davidbyoung/software-factory version) factory init
@@ -432,15 +435,22 @@ factory's name. When it needs Claude Code to suggest columns, it asks
 as [You already have a board](existing-repo.md#you-already-have-a-board)
 shows.
 
+Init then lists what it will do and asks "Go ahead?". Once you type
+`y`, it syncs at the new release, which rewrites the factory's files
+for it, runs your gate, and opens a pull request titled "Change the
+software factory's settings" from a new branch, `set-up-factory`, or
+`set-up-factory-2` when that name is taken. It holds `.claude/factory.yaml` and every file the new
+release wrote, so it is the update: merge it as you would the update
+job's.
+
 You can add the lines by hand instead. For each state your block leaves
 out, the factory used the name in the table in
 [`tickets.columns`](configuration.md#ticketscolumns), so write that name
 to keep things as they were. If your board has no column of that name,
-write one of your columns, or `none`.
-
-Then run `factory update` again, which rewrites the factory's files for
-the new version, commit what changed, `.claude/factory.yaml` included,
-and open a pull request.
+write one of your columns, or `none`. Then run `factory update` again,
+which rewrites the factory's files for the new version, commit what
+changed on a branch, `.claude/factory.yaml` included, and open a pull
+request.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory sync --check` passes.
@@ -461,7 +471,7 @@ already pushed keep their names, and their pull requests carry on as
 before.
 
 So the update to that release cannot sync: `factory update` stops with
-the same line. On a branch, from your repository's root, run
+the same line. On your default branch, from your repository's root, run
 `factory init` at the new release:
 
 ```bash
@@ -480,6 +490,8 @@ Enter to keep it, or type your team's pattern, such as
 lists what a pattern can hold. If the update also needs [Naming every
 column](#naming-every-column), the same run fills in both. When a
 [preset](presets.md) you follow sets the pattern, init asks nothing.
+Then it opens the update's pull request itself, as
+[Naming every column](#naming-every-column) says.
 
 You can add the lines by hand instead:
 
@@ -490,8 +502,9 @@ code-host:
 ```
 
 Keep the quotes: without them, YAML reads `{ticket}` as a map rather
-than as text. Then run `factory update` again, commit what changed,
-`.claude/factory.yaml` included, and open a pull request.
+than as text. After adding them by hand, run `factory update` again,
+commit what changed on a branch, `.claude/factory.yaml` included, and
+open a pull request.
 
 **It worked when** `factory config check` prints
 `✓ The settings are valid.`, and `factory ticket branch 12` prints the
@@ -503,7 +516,8 @@ From this release the factory works only on tickets with its label
 ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
 Before it, every open ticket was the factory's, so you label each open
 ticket once, before you merge the update, and no card changes column.
-Run this on the update's branch, after `factory update`:
+Run this on the update's branch, after `factory update` or the
+`factory init` that opened the update's pull request:
 
 ```console
 $ factory ticket adopt --all-open
@@ -544,6 +558,29 @@ runs `factory specs new N` and `factory specs finish N` instead
 
 The next time you run `factory init`, it asks once which spec tool you
 use, and writes your answer; choosing OpenSpec installs it.
+
+## Cloud runs in three jobs
+
+From this release on, each run that uses your coding agent is
+[three jobs](builds.md#what-a-cloud-run-is), so the agent and a sign-in to
+your code host are never in the same one. Nothing in your settings has to
+change. Four things differ:
+
+- **The pull request that updates to it gets no automated review,** where
+  the review is on, because your default branch's workflow does not run one
+  yet and the new one is not merged. Its "Review verdict" stays waiting. Read
+  it yourself, then add the
+  [`verdict-override`](configuration.md#code-hostlabels) label.
+- **A review you submit on that pull request starts a run that fails,** in
+  "Answer / Prepare". It runs the new workflow with the old version of the
+  factory. No rule requires it, and it passes once the update has merged.
+- **A build's commits are not signed,** where they were. A rule that requires
+  signed commits stops its pull requests from merging.
+- **A session reaches only the npm registry** unless you list more under
+  [`builds.hosts`](configuration.md#builds), and neither Docker nor Git LFS works in it
+  ([What a session can use](builds.md#what-a-session-can-use)).
+
+**It worked when** the next pull request you mark ready gets a review.
 
 ## The commands
 

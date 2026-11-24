@@ -8,7 +8,7 @@
 //
 //   factory sync           # write what differs
 //   factory sync --check   # write nothing; exit 1 naming what differs
-//   factory sync --check --against COMMIT
+//   factory sync --check --against COMMIT [--public]
 //                          # and check each pin that differs from the
 //                          # lock at COMMIT against its preset's repository
 //
@@ -74,8 +74,8 @@ import {
 } from "./preset-fetch.mts";
 import {
   branchDeps,
-  CANNOT_TELL,
-  defaultBranch,
+  needDefaultBranch,
+  NoDefaultBranch,
 } from "./lib/default-branch.mts";
 
 /** The package's own folder: the parent of `src/`, or of `dist/` once
@@ -111,7 +111,7 @@ export function partsOn(s: Settings, has: Has): Part[] {
     ["review", s.prReview !== null],
     ["board", s.tickets.board !== null || s.tickets.statuses],
     ["auto-merge", s.autoMerge.allow.length > 0],
-    ["poller", s.builds.trigger === "github-action"],
+    ["poller", s.builds.trigger === "github-action" && !s.builds.pollerIn],
     ["dependabot", has(DEPENDABOT)],
   ];
   return on.filter(([, is]) => is).map(([part]) => part);
@@ -261,15 +261,14 @@ type ClaudeSettings = { hooks?: Record<string, HookGroup[]> } & Record<
 export const notInstalled = (name: string) =>
   `The factory is not installed on this machine. Install it once: npm install -g ${name}`;
 
-/** The five hook entries, one per event, and with `credentials` a sixth,
- * the guard on the credentials file for the tools that read, search, and
- * list files. With no `launcher` they run the machine's `factory`, the
- * package `name` installs. Where it is missing, the two guards block the
- * call, since exit 2 is what stops a tool, the session-start hook says so
- * on stdout, which a session shows, and the rest do nothing. */
+/** The hook entries: one per event, and a second before a tool runs, the
+ * guard on the credentials file for the tools that read, search, and list
+ * files. With no `launcher` they run the machine's `factory`, the package
+ * `name` installs. Where it is missing, the two guards block the call,
+ * since exit 2 is what stops a tool, the session-start hook says so on
+ * stdout, which a session shows, and the rest do nothing. */
 export function factoryHooks(
   launcher: string | null,
-  credentials = false,
   name = "",
 ): [string, HookGroup][] {
   const factory = launcher
@@ -279,8 +278,11 @@ export function factoryHooks(
     launcher ? "" : `command -v factory >/dev/null 2>&1 || ${otherwise}; `;
   const say = `echo "${notInstalled(name)}"`;
   const run = (args: string) => `${factory} ${args}`;
-  const guard = (args: string) =>
-    `${unless(`{ ${say} >&2; exit 2; }`)}${factory} ${args}`;
+  const installed = unless(`{ ${say} >&2; exit 2; }`);
+  const guard = (args: string) => `${installed}${factory} ${args}`;
+  // It runs before every file read, search, and listing, so the shell
+  // starts the factory only for an input that holds the file's path.
+  const named = `input=$(cat); case "$input" in *software-factory/credentials*) ;; *) exit 0 ;; esac; printf '%s' "$input" | `;
   return [
     [
       "SessionStart",
@@ -308,23 +310,19 @@ export function factoryHooks(
         ],
       },
     ],
-    ...(credentials
-      ? [
-          [
-            "PreToolUse",
-            {
-              matcher: "Read|Grep|Glob",
-              hooks: [
-                {
-                  type: "command",
-                  command: guard("guard credentials"),
-                  timeout: 30,
-                },
-              ],
-            },
-          ] as [string, HookGroup],
-        ]
-      : []),
+    [
+      "PreToolUse",
+      {
+        matcher: "Read|Grep|Glob",
+        hooks: [
+          {
+            type: "command",
+            command: `${installed}${named}${run("guard credentials")}`,
+            timeout: 30,
+          },
+        ],
+      },
+    ],
     [
       "PermissionRequest",
       {
@@ -387,12 +385,11 @@ const isFactory = (h: HookEntry) =>
 export function withHooks(
   text: string | null,
   launcher: string | null,
-  credentials = false,
   name = "",
 ): string {
   const settings: ClaudeSettings = text ? JSON.parse(text) : {};
   const hooks = othersHooks(settings);
-  for (const [event, group] of factoryHooks(launcher, credentials, name))
+  for (const [event, group] of factoryHooks(launcher, name))
     (hooks[event] ??= []).push(group);
   const attribution = settings.attribution ?? NO_ATTRIBUTION;
   return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
@@ -583,7 +580,9 @@ export async function plan(
     branch,
     parts: partsOn(s, has),
     pollMinutes:
-      s.builds.trigger === "github-action" ? s.builds.pollMinutes : null,
+      s.builds.trigger === "github-action" && !s.builds.pollerIn
+        ? s.builds.pollMinutes
+        : null,
     ref: refOf(s.tickets.type),
     minutes: s.sessionMinutes,
     overrideLabel: s.codeHost.labels["verdict-override"],
@@ -619,12 +618,7 @@ export async function plan(
   }
   write.set(
     SETTINGS_JSON,
-    withHooks(
-      read(SETTINGS_JSON),
-      launcher,
-      Boolean(credential?.machine),
-      manifest.name,
-    ),
+    withHooks(read(SETTINGS_JSON), launcher, manifest.name),
   );
   write.set(CLAUDE_MD, withImport(read(CLAUDE_MD)));
 
@@ -697,8 +691,9 @@ export async function main(
     settings: () => Promise<Resolved>;
     /** Why the lock is stale, or null when it is current. */
     stale: () => Promise<string | null>;
-    /** The repository's default branch, or null when it cannot be told. */
-    defaultBranch: (s: Settings) => Promise<string | null>;
+    /** The repository's default branch. It rejects with NoDefaultBranch
+     * when it cannot be told. */
+    defaultBranch: (s: Settings) => Promise<string>;
     out: (line: string) => void;
     err: (line: string) => void;
     paint?: Paint;
@@ -718,7 +713,7 @@ export async function main(
   const againstAt = argv.indexOf("--against");
   const against = againstAt < 0 ? null : argv[againstAt + 1];
   if (againstAt >= 0 && (!check || !against)) {
-    d.err("Usage: factory sync [--check [--against COMMIT]]");
+    d.err("Usage: factory sync [--check [--against COMMIT [--public]]]");
     return 2;
   }
   let r: Resolved;
@@ -743,9 +738,12 @@ export async function main(
   }
   // Nothing is written with a guessed name: a push trigger that names the
   // wrong branch never runs.
-  const branch = await d.defaultBranch(r.settings);
-  if (branch === null) {
-    d.err(CANNOT_TELL);
+  let branch: string;
+  try {
+    branch = await d.defaultBranch(r.settings);
+  } catch (e) {
+    if (!(e instanceof NoDefaultBranch)) throw e;
+    d.err(e.message);
     return 1;
   }
   const fetch = d.fetch?.(r.settings);
@@ -757,6 +755,12 @@ export async function main(
       r.presets,
       pinsOf(d.show?.(against, LOCK) ?? null, load),
       load,
+      argv.includes("--public")
+        ? (pin) =>
+            d.out(
+              `- ${pin.name} can't be read here without a sign-in: the review's run checks it.`,
+            )
+        : undefined,
     );
     for (const fault of faults) d.err(`${fail} ${fault}`);
     if (faults.length) return 1;
@@ -817,7 +821,7 @@ export const syncDeps = (root: string) => ({
   settings: () => resolveFiles(filesDeps(root)),
   stale: () => staleOf(defaultDeps(root)),
   defaultBranch: (s: Settings) =>
-    defaultBranch(branchDeps(root, process.env, async () => s)),
+    needDefaultBranch(branchDeps(root, process.env, async () => s)),
   out: (line: string) => console.log(line),
   err: (line: string) => console.error(line),
   fetch: (s: Settings) => fetchDeps(s.repository, s.codeHost.type),

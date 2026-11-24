@@ -66,6 +66,21 @@ You need the factory already set up in the repository, which it is when
 able to read the preset's repository:
 [Who can read a preset](#who-can-read-a-preset) says what that takes.
 
+A repository that is not set up yet needs none of this section:
+`factory init` adds its presets as it sets the repository up
+([Run `factory init`](github/setup.md#run-factory-init)). It takes them
+from the first of these that applies:
+
+- the presets you name, with `factory init --preset NAME`, once for
+  each;
+- the presets you check in a list init shows, when the same owner has a
+  repository named `factory-config`;
+- the presets your machine last followed for that owner, which init
+  offers.
+
+For each one, init prints the summary shown below and pins the preset,
+as `preset add` does.
+
 In this example the repository already follows `acme/factory-config` and
 adds the Node one. Run:
 
@@ -120,7 +135,8 @@ each change by what happens to it:
   repository.
 - **Runs** is a command the preset would have the factory run here, and
   when: "in the review" is the automated review of each pull request,
-  whose commands are [`pr-review.commands`](configuration.md#pr-review).
+  whose commands are listed in
+  [`pr-review.commands`](configuration.md#pr-review).
   A command your own settings replace is not listed, since it never
   runs.
 
@@ -344,11 +360,11 @@ and the copies in your own repository. So a preset's repository that is
 deleted, renamed, or made private breaks nothing that is already set up.
 It stops only updates to that preset, and adding it elsewhere.
 
-| Who owns the preset's repository                                                | How your machine reads it                         | How a run in the cloud reads it                                         |
-| ------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------- |
-| The same person or organization as your repository, whether it is public or not | With your sign-in to the code host, as `git` does | With the [build token](credentials.md), which has to be able to read it |
-| Someone else, and it is public                                                  | With no sign-in                                   | With no sign-in                                                         |
-| Someone else, and it is private                                                 | It is refused                                     | It is refused                                                           |
+| Who owns the preset's repository                                                | How your machine reads it                         | How a run in the cloud reads it                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The same person or organization as your repository, whether it is public or not | With your sign-in to the code host, as `git` does | Prepare reads it, with the [build token](credentials.md), which has to be able to. In an organization that is set up, Prepare reads it with the token it makes from the organization's App, which covers the preset's repository when the App is installed on it. The check of a pull request reads only a public one, and the automated review's run checks a private one whose pin moved |
+| Someone else, and it is public                                                  | With no sign-in                                   | With no sign-in                                                                                                                                                                                                                                                                                                                                                                            |
+| Someone else, and it is private                                                 | It is refused                                     | It is refused                                                                                                                                                                                                                                                                                                                                                                              |
 
 ### A preset from someone else
 
@@ -411,7 +427,11 @@ bring the original's later changes into it yourself.
 ### Making the repository
 
 1. **Create a repository** on your code host, or use one you have. It can
-   have any name, and hold other things too.
+   have any name, and hold other things too. If you name it
+   `factory-config`, `factory init` finds it without being told, in
+   every repository of the same owner. For an organization,
+   [`factory init --org`](github/setup.md#set-an-organization-up-once)
+   creates `factory-config` with a first preset in it.
 2. **Write `factory-preset.yaml` at its root.** It takes the
    same settings as `.claude/factory.yaml` ([Configuration](configuration.md#every-setting)),
    except [three](#what-a-preset-cant-set), so a line moves between the
@@ -442,6 +462,10 @@ bring the original's later changes into it yourself.
              - src/**
    ```
 
+   When the file's first line is a comment, as in
+   `# The preset for every acme repository.`, `factory init` shows that
+   line beside the preset's name in the list it offers.
+
 3. **Add the agents and skills its settings name** in `agents/` and
    `skills/`, beside `factory-preset.yaml`, written the way your coding
    agent expects them ([Plugins](plugins.md)). `factory sync` copies them
@@ -467,6 +491,20 @@ the factory it works with. A factory refuses a settings file with a key
 it does not know, and names the key, so a preset written for a newer
 factory stops `factory preset add`, and fails the check on an update's
 pull request, with that key's name.
+
+### The ticket system is set through a company preset
+
+A company, or any organization, whose repositories share one ticket
+system and one board puts [`tickets`](configuration.md#tickets) in its
+preset, as the file above does: the system, the board's number, and its
+columns. Every repository that follows the preset then has its tickets
+on that board, `factory init` asks
+none of them about tickets or a board, and one poller starts the builds
+of all of them ([The poller](builds.md#the-poller)). The preset that
+`factory init --org` writes for an organization is one of these.
+
+Presets stay optional. A repository that follows none writes `tickets`
+in its own `.claude/factory.yaml`.
 
 ### What a preset can't set
 
@@ -502,6 +540,17 @@ a line saying what to change, and the command fails:
 
 ```text
 node/factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it
+```
+
+In an organization's `factory-config`, the command also compares the
+schedule of `.github/workflows/factory-poller.yml` with
+[`builds.poll-minutes`](configuration.md#builds) in the preset beside
+it, and fails when they differ: the poller runs on the file's schedule,
+and `factory status` in each repository takes the interval from the
+preset:
+
+```text
+✗ .github/workflows/factory-poller.yml runs on "*/5 * * * *", and builds.poll-minutes is 30. Write "*/30 * * * *" there.
 ```
 
 A plugin that names an agent or a skill the repository doesn't ship gets

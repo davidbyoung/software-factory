@@ -1640,6 +1640,32 @@ describe("the ticket commands", () => {
       expect(out).toEqual(["feature/dave/7-7"]);
     });
 
+    it("fills the user with the app's slug in a run under an organization's app, whose token may not ask who it is", async () => {
+      const { d, out } = deps([SEVEN], {
+        branchName: "{user}/{ticket}",
+        signedInAs: async () => {
+          throw new Error(
+            "gh api user: Resource not accessible by integration (HTTP 403)",
+          );
+        },
+      });
+      d.env = { ...d.env, FACTORY_APP_SLUG: "software-factory-for-acme" };
+
+      expect(await main(["branch", "7"], d)).toBe(0);
+      expect(out).toEqual(["software-factory-for-acme/7"]);
+    });
+
+    it("asks the code host who is signed in when the slug is empty, as in a run with no app", async () => {
+      const { d, out } = deps([SEVEN], {
+        branchName: "{user}/{ticket}",
+        signedInAs: async () => "dave",
+      });
+      d.env = { ...d.env, FACTORY_APP_SLUG: "" };
+
+      expect(await main(["branch", "7"], d)).toBe(0);
+      expect(out).toEqual(["dave/7"]);
+    });
+
     it("asks nobody who is signed in when the pattern has no {user}", async () => {
       const { d, out } = deps([SEVEN], { branchName: "issue-{ticket}" });
 

@@ -246,6 +246,51 @@ describe("the base a comparison starts when none is given", () => {
   });
 });
 
+describe("the base a comparison starts, in a checkout whose settings have a repository line", () => {
+  /** A repository on a feature branch with the remotes `origin`, a fork
+   * whose default branch is main, and `upstream`, whose default branch is
+   * develop, and the sources of its default branch when its settings name
+   * `repository`. */
+  function forkOf(repository: string) {
+    const dir = repo();
+    git(dir, "checkout", "-q", "-b", "feature");
+    for (const [remote, name, branch] of [
+      ["origin", "dev/web", "main"],
+      ["upstream", "acme/web", "develop"],
+    ] as const) {
+      git(dir, "remote", "add", remote, `https://github.com/${name}.git`);
+      git(dir, "update-ref", `refs/remotes/${remote}/${branch}`, "HEAD");
+      git(
+        dir,
+        "symbolic-ref",
+        `refs/remotes/${remote}/HEAD`,
+        `refs/remotes/${remote}/${branch}`,
+      );
+    }
+    return {
+      dir,
+      sources: { ...branchDeps(dir, {}), repository: async () => repository },
+    };
+  }
+
+  it("is the default branch as the remote that is that repository has it", async () => {
+    const { dir, sources } = forkOf("acme/web");
+
+    expect(await defaultBase(dir, sources)).toBe("upstream/develop");
+  });
+
+  it("fails with the line that names the repository when no remote is that repository's", async () => {
+    const { dir, sources } = forkOf("acme/site");
+
+    const failed = defaultBase(dir, sources);
+
+    await expect(failed).rejects.toBeInstanceOf(SiteError);
+    await expect(failed).rejects.toThrow(
+      "✗ repository: .claude/factory.yaml says acme/site, and no remote here is acme/site. origin is dev/web. Add the remote, or change the line and run factory sync.",
+    );
+  });
+});
+
 describe("runChecks", () => {
   it("gives the command the JSON on its standard input and takes each non-empty line as a finding", () => {
     const out = runChecks(

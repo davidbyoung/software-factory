@@ -65,6 +65,7 @@ import {
   type FetchDeps,
 } from "./preset-fetch.mts";
 import type { Check } from "./setup.mts";
+import { POLLER_FILE, pollerCron } from "./workflow-files.mts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
@@ -149,6 +150,7 @@ async function effective(r: Resolved): Promise<Obj> {
 }
 
 const VALUE_LISTS = [
+  "builds.hosts",
   "pr-review.commands",
   "auto-merge.deny",
   "site.pages",
@@ -900,6 +902,24 @@ const ADVICE: Record<string, string> = {
   unknown: "",
 };
 
+/** What is wrong with the schedule of an organization's poller beside the
+ * preset at `dir`: its first `cron` line is not the one the preset's
+ * `builds.poll-minutes` gives, 5 when it sets none. Null when it is, and
+ * with no such file. */
+function scheduleFault(dir: string, raw: unknown): string | null {
+  if (!existsSync(join(dir, POLLER_FILE))) return null;
+  const minutes = getPath(raw, ["builds", "poll-minutes"]) ?? 5;
+  if (typeof minutes !== "number") return null;
+  const cron = /^\s*-\s*cron:\s*(["']?)(.*?)\1\s*(?:#.*)?$/m.exec(
+    readFileSync(join(dir, POLLER_FILE), "utf8"),
+  )?.[2];
+  const wanted = pollerCron(minutes);
+  if (cron === wanted) return null;
+  return cron === undefined
+    ? `${POLLER_FILE} has no cron line, and builds.poll-minutes is ${minutes}. Write - cron: "${wanted}" under schedule there.`
+    : `${POLLER_FILE} runs on "${cron}", and builds.poll-minutes is ${minutes}. Write "${wanted}" there.`;
+}
+
 /** Each folder under `dir` with a preset file, `dir` itself first. */
 function presetFolders(dir: string, base = dir): string[] {
   const here = existsSync(join(dir, PRESET_FILE))
@@ -946,6 +966,9 @@ export async function check(_argv: string[], d: PresetDeps): Promise<number> {
       problems.push(
         `${file}: ${fault.key}: ${fault.message}${ADVICE[fault.kind]}`,
       );
+    const schedule = f === "" ? scheduleFault(d.cwd, raw) : null;
+    if (schedule)
+      problems.push(`${(d.paint ?? plain)("red", "✗")} ${schedule}`);
     const plugins = isObj(raw) ? raw.plugins : undefined;
     for (const path of [
       ...PLUGIN_LISTS,

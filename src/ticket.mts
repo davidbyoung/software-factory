@@ -596,10 +596,13 @@ const READS_AND_WRITES = new Set([
   "supports",
 ]);
 
-/** The branch a build of `ticket` pushes, from `code-host.branch-name`. */
+/** The branch a build of `ticket` pushes, from `code-host.branch-name`.
+ * In a run under an organization's app the user is the app, by the slug
+ * FACTORY_APP_SLUG holds: the code host tells an app's token nothing of
+ * who is signed in. */
 async function branchOf(ticket: Key, d: Ctx): Promise<string> {
-  let user = "";
-  if (d.branchName.includes("{user}"))
+  let user = d.env.FACTORY_APP_SLUG ?? "";
+  if (!user && d.branchName.includes("{user}"))
     try {
       user = await d.signedInAs(d.repository, d.codeHost);
     } catch (e) {
@@ -1003,9 +1006,9 @@ function claimPath(issue: Key) {
   return join(commonDir(), `work-claim-${issue}`);
 }
 
-/** `factory ticket ...` and `factory follow-up ...`. */
-export async function run(argv: string[]): Promise<number> {
-  return main(argv, {
+/** What the commands run with, outside a test. */
+export function ticketDeps(): Deps {
+  return {
     open: (settings, target) => openTickets(settings, target),
     openPulls: (repository, codeHost) =>
       openCodeHost(repository, codeHost).open(),
@@ -1042,5 +1045,14 @@ export async function run(argv: string[]): Promise<number> {
       },
       write: (issue, id) => writeFileSync(claimPath(issue), String(id)),
     },
-  });
+  };
 }
+
+/** `factory ticket ...` and `factory follow-up ...`. */
+export async function run(argv: string[]): Promise<number> {
+  return main(argv, ticketDeps());
+}
+
+/** The claim this checkout made on a ticket, by its record's ID. */
+export const claimHere = (issue: Key): string | null =>
+  ticketDeps().claimStore.read(issue);

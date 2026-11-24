@@ -85,6 +85,8 @@ export type CommitStatus = {
   name: string;
   state: string;
   link?: string;
+  /** The account that set it, where the code host says. */
+  author?: string;
 };
 
 export type NewStatus = {
@@ -112,6 +114,13 @@ export type ChangedFile = {
   /** The path it had before, when the pull request renamed it. */
   previousPath?: string;
   status: string;
+};
+
+export type PullCommit = {
+  sha: string;
+  /** The account the code host itself verifies as the commit's author, or
+   * null: anyone can write any name in a commit. */
+  verifiedAuthor: string | null;
 };
 
 export type CodeHost = {
@@ -166,6 +175,9 @@ export type CodeHost = {
   addLabel(pull: number, label: string): Promise<void>;
   /** NotFoundError when the pull request does not carry the label. */
   removeLabel(pull: number, label: string): Promise<void>;
+  /** The account that last added the label, which an app's bot can be, or
+   * null when the label is off or the code host does not say. */
+  labeledBy(pull: number, label: string): Promise<string | null>;
 
   reviews(pull: number): Promise<Review[]>;
   /** The comments one review carries. */
@@ -174,6 +186,13 @@ export type CodeHost = {
   reviewComments(pull: number): Promise<PullComment[]>;
   threads(pull: number): Promise<Thread[]>;
   openThreadCount(pull: number): Promise<number>;
+  /** Opens a thread on a line of the commit, as the pull request leaves it,
+   * or on the file where the line takes none, and says whether either
+   * would take one. */
+  commentOn(
+    pull: number,
+    at: { sha: string; path: string; line: number; body: string },
+  ): Promise<boolean>;
   /** Replies on the thread `commentId` starts, and returns the reply's ID. */
   reply(pull: number, commentId: number, body: string): Promise<number>;
   /** Resolves the thread that holds the comment. */
@@ -185,9 +204,16 @@ export type CodeHost = {
   /** One line for each commit on the pull request the code host does not
    * show as signed: its short ID and the reason, such as `unsigned`. */
   unverifiedCommits(pull: number): Promise<string[]>;
+  /** Every commit on the pull request. Rejects when there may be more than
+   * the code host lists. */
+  commits(pull: number): Promise<PullCommit[]>;
   /** The tickets the pull request closes when it merges, by the code
    * host's own links: only tickets the code host keeps itself. */
   closes(pull: number): Promise<Key[]>;
+  /** The tickets this text says it closes, in the wordings the code host
+   * documents, as it writes them: `#12`, or `owner/repo#4` for another
+   * repository's. */
+  closesIn(text: string): string[];
 
   /** The open pull requests, as the views and the sync read them: with
    * their check state when `checks` is asked, and their comments, for the
@@ -225,8 +251,35 @@ export type CodeHost = {
   /** Lets a pull request be set to merge itself once its gates pass. */
   allowAutoMerge(): Promise<void>;
   /** Requires `check` to pass before a merge to the default branch, as a
-   * rule named `rule`. A rule of that name already there is left alone. */
-  requireCheck(rule: string, check: string): Promise<void>;
+   * rule named `rule`. A rule of that name already there is left alone.
+   * With a `source`, a status of that name from anywhere else does not
+   * count. */
+  requireCheck(
+    rule: string,
+    check: string,
+    source?: StatusSource,
+  ): Promise<void>;
+  /** Whether the rules the code host applies to a branch, the
+   * organization's among them, require a status of that name. Rejects
+   * with NoRulesError where the owner's plan has no rules for the
+   * repository. */
+  requiresStatus(branch: string, status: string): Promise<boolean>;
+  /** The plan of the repository's owner that keeps the secrets the owner
+   * shares from this repository, whatever the runner lists for it, by the
+   * plan's name: one that shares them only with repositories anyone can
+   * read, for a repository that is private. Null when they reach it, or
+   * the code host cannot say. */
+  secretsWithheldBy(): Promise<string | null>;
+  /** The repository's value for each property it has one for. A property
+   * its owner defines that has no value here is left out, so a name that
+   * is missing says nothing of whether the owner defines it. */
+  properties(): Promise<Record<string, string | string[] | null>>;
+  /** Whether the repository's owner defines a property of that name for
+   * its repositories. Rejects when the owner will not say, as to a member
+   * who may not read its properties. */
+  ownerDefines(property: string): Promise<boolean>;
+  /** Sets the repository's value for a property its owner defines. */
+  setProperty(name: string, value: string): Promise<void>;
   /** Whether the code host starts a workflow file on an event, which it may
    * hold back in a repository anyone can read: `open` where it holds
    * nothing back, and otherwise `allowed` or `blocked`. */
@@ -237,9 +290,154 @@ export type CodeHost = {
   /** Lets one workflow file start on these events, and only these, as a
    * policy named `rule`. One of that name already there is rewritten. */
   allowEvents(rule: string, file: string, events: string[]): Promise<void>;
+  /** Whether a job that says nothing of what its own sign-in may do may
+   * write to the repository. */
+  jobsMayWrite(): Promise<boolean>;
   /** Adds a public key to the signed-in account, to sign commits with.
    * Rejects with NeedsScopeError when the sign-in lacks the permission. */
   addSigningKey(title: string, publicKey: string): Promise<void>;
+};
+
+/** Where a required status comes from: `runner`, the account the runner's
+ * own token posts as. */
+export type StatusSource = "runner";
+
+/** An organization's plan, as far as setup depends on it. */
+export type OrganizationPlan = {
+  /** The plan's name as the code host writes it, such as `GitHub Free`. */
+  name: string;
+  /** Whether one rule can cover the organization's repositories. */
+  rules: boolean;
+  /** Whether the organization's secrets reach its private repositories. */
+  privateSecrets: boolean;
+};
+
+/** An app the code host has just registered. `key` is its private key,
+ * which the code host hands over once. */
+export type NewApp = {
+  id: number;
+  slug: string;
+  clientId: string;
+  key: string;
+};
+
+/** An app installed on an account. */
+export type Installation = {
+  id: number;
+  /** The app's name. */
+  app: string;
+  /** Whether it is installed on every repository, not a chosen few. */
+  all: boolean;
+  /** The page that chooses its repositories. */
+  page: string;
+};
+
+/** An account that owns repositories, and what setting it up once asks of
+ * the code host. Every call acts as the signed-in account. */
+export type Organization = {
+  /** What the name is: an organization, a person's account, or null for
+   * no account. */
+  kind(): Promise<"organization" | "person" | null>;
+  /** The signed-in account's place in it, or null for none. */
+  role(): Promise<"owner" | "member" | null>;
+  plan(): Promise<OrganizationPlan>;
+  /** The permissions setup needs that the sign-in lacks, as the code host
+   * names them, with the command that asks for them and the name of the
+   * tool that is signed in. Null when it lacks none, or cannot say. */
+  signInLacks(): Promise<{
+    scopes: string[];
+    tool: string;
+    fix: string[];
+  } | null>;
+
+  /** A repository of the organization's, by its name alone, or null. */
+  repository(name: string): Promise<{ isPrivate: boolean } | null>;
+  createRepository(
+    name: string,
+    o: { isPrivate: boolean; description: string },
+  ): Promise<void>;
+  /** A file's text on the repository's default branch, or null. */
+  file(repository: string, path: string): Promise<string | null>;
+  /** Writes each file, by its path, one commit each. A file already there
+   * is refused, never replaced. */
+  putFiles(repository: string, files: Record<string, string>): Promise<void>;
+
+  /** The names of the secrets the organization shares. */
+  secretNames(): Promise<string[]>;
+  /** Stores a secret every repository of the organization can read. The
+   * value never appears in a command's arguments or its output. */
+  setSecret(name: string, value: string): Promise<void>;
+  /** A variable the organization shares, or null. */
+  variable(name: string): Promise<string | null>;
+  /** Stores a variable every repository of the organization can read. */
+  setVariable(name: string, value: string): Promise<void>;
+
+  /** Defines a property each repository has one of `values` for, which
+   * whoever may set a repository's properties may set. */
+  defineProperty(name: string, values: string[]): Promise<void>;
+  /** The names of the organization's rules. */
+  ruleNames(): Promise<string[]>;
+  /** Requires `check` before a merge to the default branch of each
+   * repository whose `property` is `value`, as a rule named `rule`. */
+  requireCheckWhere(
+    rule: string,
+    check: string,
+    where: { property: string; value: string; source?: StatusSource },
+  ): Promise<void>;
+
+  /** The organization's app's name, and whether the code host's limit
+   * on a name cut the organization short in it. */
+  appName(): { name: string; shortened: boolean };
+  /** The app of that name, whoever registered it, or null. */
+  appNamed(name: string): Promise<{ owner: string } | null>;
+  /** Registers an app of the organization's own from a form the person
+   * sends in a browser. `open` is given the page to open, `pasted` reads
+   * an address typed in place of the browser's return, again when the
+   * one before was refused, and `keep` is handed the app the moment the
+   * code host gives it. The browser is then sent on to `installPage`,
+   * through `open` when it did not come back itself. */
+  registerApp(o: {
+    name: string;
+    open(page: string): void;
+    pasted(signal: AbortSignal, again: boolean): Promise<string>;
+    keep(app: NewApp): Promise<void>;
+  }): Promise<Omit<NewApp, "key"> & { installPage: string }>;
+  /** The organization's app with that client ID, found with no
+   * installation to go by: its name and the page that installs it. Null
+   * when the code host cannot find it. */
+  registeredApp(
+    clientId: string,
+  ): Promise<{ name: string; installPage: string } | null>;
+  /** The installation of the app with that client ID, or null. */
+  installation(clientId: string): Promise<Installation | null>;
+  /** The same, looked for until it shows: null when it never does. */
+  awaitInstallation(clientId: string): Promise<Installation | null>;
+  /** How many repositories an installation covers, and whether one of
+   * that name is among them, asked as the app with its key. */
+  installedOn(
+    installation: number,
+    app: { clientId: string; key: string },
+    repository: string,
+  ): Promise<{ count: number; covered: boolean }>;
+  /** The page that lists the organization's apps. */
+  appsPage(): string;
+  /** The page of a file on the default branch of one of the
+   * organization's repositories. */
+  filePage(repository: string, path: string): string;
+};
+
+/** A code host before any repository is named: whose addresses are its
+ * own, and the organizations on it. */
+export type OrganizationHost = {
+  label: string;
+  /** Whether the address is on this code host. */
+  serves(address: string): boolean;
+  /** The owner an address names, such as `acme` for
+   * `https://github.com/acme`, or null when it names none. */
+  ownerOf(address: string): string | null;
+  /** An owner's address. */
+  addressOf(owner: string): string;
+  organization(name: string): Organization;
 };
 
 /** What a token for the factory's jobs may need to do: push a branch,
@@ -252,6 +450,16 @@ export class NotSignedInError extends Error {
   constructor() {
     super("The code host's command-line tool is not signed in.");
     this.name = "NotSignedInError";
+  }
+}
+
+/** The owner's plan has no branch rules for the repository, so none can
+ * be read or made. Its message says so in a few words, such as `GitHub
+ * Free has no branch rules for a private repository`. */
+export class NoRulesError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NoRulesError";
   }
 }
 

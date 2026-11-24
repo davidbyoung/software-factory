@@ -27,6 +27,16 @@
             "statusMessage": "Checking the factory's guards"
           }
         ]
+      },
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); case \"$input\" in *software-factory/credentials*) ;; *) exit 0 ;; esac; printf '%s' \"$input\" | node \"$CLAUDE_PROJECT_DIR\"/bin/factory.js guard credentials",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PermissionRequest": [

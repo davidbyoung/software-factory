@@ -21,7 +21,9 @@ the copy this repository's own sessions follow. The sync also writes the
 two workflow files every repository gets, `factory.yml` and
 `factory-review.yml`, which here call `./.github/workflows/run.yml` and
 `./.github/workflows/review.yml`, the same commit's copies, where any
-other repository's call them at a released version. `CLAUDE.md` says
+other repository's call them at a released version. `poller.yml` is
+called by no file here: an organization's `factory-config` repository
+calls it. `CLAUDE.md` says
 what is this repository's own, and the `factory` command, run here, runs
 this repository's source.
 
@@ -35,57 +37,67 @@ repository's update job opens with the files the version writes
 The factory is the npm package `@davidbyoung/software-factory`. Parts not
 marked working below exist only in these docs.
 
-| Part                                                                                                                    | State                                               |
-| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Refining, building, and working a pull request's review                                                                 | Working                                             |
-| The board, its sync, and `status`                                                                                       | Working                                             |
-| Builds from the board, with a poller you host                                                                           | Working                                             |
-| Builds that run in GitHub Actions, started by a command                                                                 | Working                                             |
-| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                        | Working                                             |
-| Who merges, and the review's verdict                                                                                    | Working                                             |
-| The labels `merge-manual` and `verdict-override`                                                                        | Working                                             |
-| These docs                                                                                                              | Working                                             |
-| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                              | Working                                             |
-| The follow-ups ticket as one checklist                                                                                  | Working                                             |
-| The `factory` tool, `sync`, and the package folder                                                                      | Working                                             |
-| One install on a machine: the `factory` command runs the version each repository's lock names, downloading it once      | Working                                             |
-| Nothing of the factory's installed in a repository: no `package.json` entry, and hooks that run the machine's `factory` | Working                                             |
-| Two workflow files in a repository, which call the factory's own workflows at the version its lock names                | Working                                             |
-| A job that passes or is skipped when its part is off, and a session job that looks for work before a token              | Working                                             |
-| The Actions policy a public repository needs for `pull_request_target`, added by `init` and checked by `doctor`         | Working                                             |
-| The automated review as one of the factory's jobs, and [`pr-review`](configuration.md#pr-review)                        | Working                                             |
-| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball           | Working                                             |
-| The `factory-` names and the `FACTORY_` secrets                                                                         | Working                                             |
-| Ticket commands that go through one interface                                                                           | Working                                             |
-| The code host and the runner, each behind one interface                                                                 | Working                                             |
-| A published package                                                                                                     | Working                                             |
-| `factory update`, and the update job that opens a pull request for each release and each preset's change                | Working                                             |
-| Presets from a repository, each pinned to a commit in the lock                                                          | Working                                             |
-| `factory board --dry-run`                                                                                               | Working                                             |
-| Your own column names on a board                                                                                        | Working                                             |
-| `init` suggesting a board's columns through the coding agent                                                            | Working                                             |
-| Refinement's factory fields in your ticket fields, suggested by `init`                                                  | Working                                             |
-| A UI reviewer for any website                                                                                           | Working                                             |
-| Built-in measurements for any website                                                                                   | Working                                             |
-| A design skill for any website                                                                                          | Working                                             |
-| `init`, which can be re-run, and `doctor`                                                                               | Working                                             |
-| A second repository set up and removed from the quick start alone                                                       | Working                                             |
-| `factory remove`                                                                                                        | Working                                             |
-| Starting builds from a scheduled job, `factory poller --once`, and a poller built from an installed package             | Working                                             |
-| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill              | Working                                             |
-| Settings version 2: commands, a spec check, and plugins grouped by phase                                                | Working                                             |
-| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                           | Working                                             |
-| The default branch read from Git and the code host, never assumed, and `factory default-branch`                         | Working                                             |
-| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`                     | Working                                             |
-| `factory ticket refined` refusing a ticket a build could not read                                                       | Working                                             |
-| No skill, agent, rule, or review instruction names a stack, checked by a test                                           | Working                                             |
-| A ticket system's token kept in the repository's secrets and on your machine                                            | Working                                             |
-| Another ticket system, such as Jira                                                                                     | Planned: #63                                        |
-| A ticket system or code host named by a package, for an adapter you write yourself                                      | Not planned. The design leaves room                 |
-| Another code host or runner                                                                                             | Not planned. The design leaves room                 |
-| Another spec tool, such as Spec Kit                                                                                     | Not planned. An adapter under `src/specs/` adds one |
-| Each tool's setup, checks, and removal declared by the tool                                                             | Working                                             |
-| Sharing plugins between repositories                                                                                    | Not planned                                         |
+| Part                                                                                                                                                                           | State                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| Refining, building, and working a pull request's review                                                                                                                        | Working                                             |
+| The board, its sync, and `status`                                                                                                                                              | Working                                             |
+| Builds from the board, with a poller you host                                                                                                                                  | Working                                             |
+| Builds that run in GitHub Actions, started by a command                                                                                                                        | Working                                             |
+| Starting builds from the board, and the review, conflict, and dependency runs, in GitHub Actions                                                                               | Working                                             |
+| Who merges, and the review's verdict                                                                                                                                           | Working                                             |
+| The labels `merge-manual` and `verdict-override`                                                                                                                               | Working                                             |
+| These docs                                                                                                                                                                     | Working                                             |
+| `.claude/factory.yaml`, and the factory's files kept apart from the host's                                                                                                     | Working                                             |
+| The follow-ups ticket as one checklist                                                                                                                                         | Working                                             |
+| The `factory` tool, `sync`, and the package folder                                                                                                                             | Working                                             |
+| One install on a machine: the `factory` command runs the version each repository's lock names, downloading it once                                                             | Working                                             |
+| Nothing of the factory's installed in a repository: no `package.json` entry, and hooks that run the machine's `factory`                                                        | Working                                             |
+| Two workflow files in a repository, which call the factory's own workflows at the version its lock names                                                                       | Working                                             |
+| A job that passes or is skipped when its part is off, and a session job that looks for work before a token                                                                     | Working                                             |
+| The Actions policy a public repository needs for `pull_request_target`, added by `init` and checked by `doctor`                                                                | Working                                             |
+| The automated review as one of the factory's runs, and [`pr-review`](configuration.md#pr-review)                                                                               | Working                                             |
+| Nothing in the package names the repository it was drawn out of, checked in the folder and the packed tarball                                                                  | Working                                             |
+| The `factory-` names and the `FACTORY_` secrets                                                                                                                                | Working                                             |
+| Ticket commands that go through one interface                                                                                                                                  | Working                                             |
+| The code host and the runner, each behind one interface                                                                                                                        | Working                                             |
+| A published package                                                                                                                                                            | Working                                             |
+| `factory update`, and the update job that opens a pull request for each release and each preset's change                                                                       | Working                                             |
+| Presets from a repository, each pinned to a commit in the lock                                                                                                                 | Working                                             |
+| `factory board --dry-run`                                                                                                                                                      | Working                                             |
+| Your own column names on a board                                                                                                                                               | Working                                             |
+| `init` suggesting a board's columns through the coding agent                                                                                                                   | Working                                             |
+| Refinement's factory fields in your ticket fields, suggested by `init`                                                                                                         | Working                                             |
+| A UI reviewer for any website                                                                                                                                                  | Working                                             |
+| Built-in measurements for any website                                                                                                                                          | Working                                             |
+| A design skill for any website                                                                                                                                                 | Working                                             |
+| `init`, which can be re-run, and `doctor`                                                                                                                                      | Working                                             |
+| A second repository set up and removed from the quick start alone                                                                                                              | Working                                             |
+| `factory remove`                                                                                                                                                               | Working                                             |
+| Starting builds from a scheduled job, `factory poller --once`, and a poller built from an installed package                                                                    | Working                                             |
+| [`rules`](configuration.md#rules) in the settings, `factory config explain`, and the `factory-trace` skill                                                                     | Working                                             |
+| Settings version 2: commands, a spec check, and plugins grouped by phase                                                                                                       | Working                                             |
+| `factory gate`, `test-one`, `end-to-end`, and `specs check`, which run the settings' commands                                                                                  | Working                                             |
+| The default branch read from Git and the code host, never assumed, and `factory default-branch`                                                                                | Working                                             |
+| A refiner, a prover, test reviewers, and conflict resolvers of your own, and `factory-e2e-reviewer`                                                                            | Working                                             |
+| `factory ticket refined` refusing a ticket a build could not read                                                                                                              | Working                                             |
+| No skill, agent, rule, or review instruction names a stack, checked by a test                                                                                                  | Working                                             |
+| A ticket system's token kept in the repository's secrets and on your machine                                                                                                   | Working                                             |
+| An organization set up once, with `factory init --org`: its own GitHub App, its secrets, the repository that holds its preset, and the rule that requires the review's verdict | Working                                             |
+| A run that acts as the organization's App, with a token made by each job that needs one, and none by a session                                                                 | Working                                             |
+| A cloud run as three jobs, Prepare, Session, and Publish, with no sign-in beside the AI: a build, a review, an answer, a conflict, and a dependency                            | Built. Not yet run end to end                       |
+| [`builds.hosts`](configuration.md#builds), the hosts a session in the cloud may reach                                                                                          | Working                                             |
+| The review's verdict taken from its own run, and no comment                                                                                                                    | Working                                             |
+| An organization's one poller, in the repository that holds its preset                                                                                                          | Working                                             |
+| `init` choosing the repository from the checkout's remotes, reading presets before it asks, running the gate, and opening the setup pull request                               | Working                                             |
+| The verdict made a required check by the first run after a repository's setup merges, with `factory enroll`                                                                    | Working                                             |
+| A person's GitHub and Claude tokens kept on their machine, for their next repository                                                                                           | Working                                             |
+| Verified commits from a build that acts as an organization's App                                                                                                               | Planned: #77                                        |
+| Another ticket system, such as Jira                                                                                                                                            | Planned: #63                                        |
+| A ticket system or code host named by a package, for an adapter you write yourself                                                                                             | Not planned. The design leaves room                 |
+| Another code host or runner                                                                                                                                                    | Not planned. The design leaves room                 |
+| Another spec tool, such as Spec Kit                                                                                                                                            | Not planned. An adapter under `src/specs/` adds one |
+| Each tool's setup, checks, and removal declared by the tool                                                                                                                    | Working                                             |
+| Sharing plugins between repositories                                                                                                                                           | Not planned                                         |
 
 When a part is built, its pull request updates this table, and corrects any
 page the build had to differ from. [The CLI](cli.md) marks each command
@@ -104,12 +116,21 @@ built or planned.
   src/tickets/                 the ticket interface, its GitHub adapter, and the transports
   src/code-host/               the code host's interface and GitHub's implementation of it
   src/runner/                  the runner's interface and GitHub Actions' implementation of it
+  src/agent/                   the coding agent's interface, Claude Code's implementation, and how it is confined in the cloud
+  src/handoff/                 what a session in the cloud reads, asks for, and hands over, and the check of its commits
+  src/session.mts              factory session: whether a run has work, and the repositories its token is for
+  src/session-jobs.mts         the three jobs of a cloud run with the real tools, and the start of the next run
+  src/session-prepare.mts      Prepare: what is handed over
+  src/session-run.mts          Session: the folders, the environment, and what is kept
+  src/session-publish.mts      Publish: what is checked and done, the wait for CI, and the rounds
+  src/session-token.mts        signs a job in as an organization's App
+  src/review-record.mts        what Publish does with a review's answer
   skills/factory-*/SKILL.md    the skills
   agents/factory-*.md          the built-in reviewers
   rules.md                     the process rules
   review.md                    the pull request reviewer's instructions
-  src/workflow-files.mts       writes the two workflow files a repository gets
-  .github/workflows/           run.yml, review.yml, and session.yml: the jobs those two files call
+  src/workflow-files.mts       writes the two workflow files a repository gets, and an organization's factory-poller.yml
+  .github/workflows/           run.yml, review.yml, session.yml, and poller.yml: the jobs those files call
   poller.Dockerfile            the poller's image
   docs/                        these pages
   tests/                       the tool's tests and their fixtures
@@ -208,24 +229,74 @@ file in the repository turns it on: add it to `NEEDS` in `src/sync.mts`,
 so a repository that does not use it never carries it.
 
 **The workflows are source, not copies.** `.github/workflows/run.yml`,
-`review.yml`, and `session.yml` are edited where they are, and nothing
-copies them. A repository that uses the factory gets two files,
+`review.yml`, `session.yml`, and `poller.yml` are edited where they are,
+and nothing copies them. A repository that uses the factory gets two files,
 `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`,
 which `src/workflow-files.mts` writes from its settings: the default
 branch, the parts that are on, the poller's schedule, each session's
 minutes, and the names of its secrets. Each has one job, which calls
 `run.yml` or `review.yml` in this repository at `@v` and the version the
 lock names, and `run.yml` calls `session.yml` for each job that runs a
-session. `tests/workflow-files.test.ts` shows each setting's effect on
-the two files, and `tests/workflows.test.ts` reads the three workflows'
-YAML.
+session. `factory init --org` writes a third file, into the repository
+that holds an organization's preset: `.github/workflows/factory-poller.yml`,
+from `pollerWorkflow` in the same module, which calls `poller.yml` at the
+version it names. `tests/workflow-files.test.ts` shows each setting's
+effect on the files, and `tests/workflows.test.ts` reads the four
+workflows' YAML.
+
+Where the key of an organization's App and its client ID reach a run,
+each job that needs more than the workflow's own token makes one of the
+App's, for the repositories `factory session repositories` prints, and
+uses it in place of the build, board, and auto-merge tokens. Prepare and
+Publish make theirs with `factory session token` (`src/session-token.mts`),
+which signs the GitHub CLI and git in, and the others with
+`actions/create-github-app-token`. The Session job makes none and is given
+no key. A review is recorded, and the verdict posted, with the workflow's
+own token.
 
 A job that a part turns off carries an `if` on `inputs.parts`, so it is
 skipped without starting a machine, and `partsOn` in `src/sync.mts` says
-which setting turns each part on. A job that runs a session asks
-`factory session ready` whether there is work before it looks for a
-token. A change to one of the three workflows reaches a repository only
-at the next release, since each calls them at a version.
+which setting turns each part on. Prepare asks `factory session ready`
+whether there is work before it looks for a token. A change to one of the
+four workflows reaches a repository only at the next release, since each
+calls them at a version.
+
+### A run in the cloud
+
+`session.yml` is the three jobs of every run that uses the coding agent
+([What a cloud run is](builds.md#what-a-cloud-run-is)), which `run.yml`
+calls once for each kind. The skills are the same ones a session on a
+machine follows, so nothing in a skill asks where it runs. The difference
+is below the commands: `FACTORY_HANDOFF` names a folder, and where it is
+set, every `factory` command works from that folder.
+
+| File                | Who writes it                      | What it holds                                                                                    |
+| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `in/run.json`       | Prepare                            | The run: its kind, ticket, pull request, branch, and the commit it starts from                   |
+| `in/snapshot.json`  | Prepare                            | Each read it made ahead, by the method's name and its arguments                                  |
+| `in/home.bundle`    | Prepare                            | The default branch, which the session starts in and can't change                                 |
+| `in/work.bundle`    | Prepare                            | The same, and the branch the session works on                                                    |
+| `out/request.json`  | Each `factory` command that writes | The commands asked for, with the text of each file they name                                     |
+| `out/build.bundle`  | `factory pr push`                  | The commits                                                                                      |
+| `clean/answer.json` | `factory session run`              | A review's answer, from what the agent itself printed, so no command of the session can write it |
+
+- **A read** goes through the real adapter, wrapped twice in
+  `src/handoff/replay.mts`: Prepare records each answer, and the session
+  replays it. One nobody recorded throws `NotHandedError`, since an empty
+  answer would be taken for the truth. A new read in a skill needs its
+  command in `readsOf` in `src/session-prepare.mts`.
+- **A write** is a command listed in `src/handoff/requests.mts`, which
+  records it in place of running it. Publish runs only those `RULES` there
+  names, with each argument checked against the run's own ticket and pull
+  request, and every hidden marker taken out of the text but the ones the
+  kind of run may post. A new write needs its name in both lists, and a
+  flag it takes in its rule.
+- **The commits** are checked by `src/handoff/bundle.mts`, in a bare clone,
+  with hooks and the machine's git settings off. Nothing in them is checked
+  out or run.
+- **The sandbox** is the agent's own: `src/agent/claude-code-session.mts`
+  writes its settings, which pass on the command line, so a repository's
+  own settings can't loosen them.
 
 A factory file must name nothing that belongs to the host repository: not
 its paths, its commands, its subject, or its own skills. A test fails when
@@ -302,13 +373,13 @@ whole or not at all, and `factory ticket supports GROUP` prints `yes` or
 `no`. A skill asks before it relies on one; a command that needs a group
 its adapter lacks exits non-zero, names the group, and posts nothing.
 
-| Group           | In `Tickets`   | Operations                                                                                                                                                                                                                                                                                                                        |
-| --------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `board`         | `board`        | Read every card, with its place in the board's order, and the board's fields; list a board's columns, in the board's order; add a ticket to the board; move it to a column; set the factory's fields. Creating a board, adding columns, and adding fields are optional, and `factory init` names what to add by hand without them |
-| `blockers`      | `blockers`     | List what a ticket waits on; record that it waits on another; remove that                                                                                                                                                                                                                                                         |
-| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how the factory knows the owner took `spec` off                                                                                                                                                                                                                          |
-| `attachments`   | `attachments`  | Comment with images attached, or write a body with them                                                                                                                                                                                                                                                                           |
-| `fields`        | `fields`       | List the ticket fields that hold text, with their descriptions; say whether a ticket can hold one, and how much; read a ticket's field values; set or clear them                                                                                                                                                                  |
+| Group           | In `Tickets`   | Operations                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `board`         | `board`        | Read every card, with its place in the board's order, and the board's fields; list a board's columns, in the board's order; add a ticket to the board; move it to a column; set the factory's fields. Creating a board, adding columns, and adding fields are optional, and `factory init` names what to add by hand without them. Listing the repositories with a ticket in a column, `readyRepositories`, is optional too: an organization's poller needs it |
+| `blockers`      | `blockers`     | List what a ticket waits on; record that it waits on another; remove that                                                                                                                                                                                                                                                                                                                                                                                      |
+| `label-history` | `labelHistory` | Whether a label was ever removed from a ticket, which is how the factory knows the owner took `spec` off                                                                                                                                                                                                                                                                                                                                                       |
+| `attachments`   | `attachments`  | Comment with images attached, or write a body with them                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `fields`        | `fields`       | List the ticket fields that hold text, with their descriptions; say whether a ticket can hold one, and how much; read a ticket's field values; set or clear them                                                                                                                                                                                                                                                                                               |
 
 The GitHub adapter has every group, except that `attachments` needs the
 GitHub CLI, so an adapter built without it has none. With
@@ -367,34 +438,61 @@ workflow's step; it asks for the default. The poller you host has no
 settings at all and names its implementations itself; a scheduled pass
 reads the settings only for its board and Ready column.
 
-| Operation                                | In `CodeHost`                                       | What it returns or does                                                                                                                                                                                                                  |
-| ---------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read a pull request; list the open ones  | `get`, `listOpen`                                   | Its number, title, state, whether it is merged or a draft, body, mergeable state, author, labels, head and base (commit, branch, repository), and auto-merge                                                                             |
-| Open a pull request                      | `create`                                            | From one branch into another, with a title and a body, as a draft or not. Returns its number, and fails in the code host's own words when the branch has nothing new or already has one open                                             |
-| Find a pull request                      | `forBranch`, `forCommit`                            | The open pull request from a branch, or none; the pull requests that hold a commit                                                                                                                                                       |
-| What a pull request changes              | `files`, `mergeBase`                                | Each file's path, its path before a rename, and its status; the commit two commits both descend from                                                                                                                                     |
-| The default branch                       | `defaultBranch`                                     |                                                                                                                                                                                                                                          |
-| The checks on a commit                   | `checkRuns`, `statuses`, `setStatus`                | Check runs and commit statuses, kept apart because `factory deps` reads check runs alone and `factory pr watch` reads both; sets a status by name. A check run carries what the check wrote about its own result, when it wrote anything |
-| Conversation comments                    | `comments`, `commentView`, `comment`, `editComment` | Each with its ID, author, time, and body. `comment` returns the new comment's ID, and hidden markers pass through unchanged                                                                                                              |
-| Not found                                | `NotFoundError`                                     | Reading a pull request or a comment that does not exist throws this, the same error the ticket interface throws                                                                                                                          |
-| Add or remove a label                    | `addLabel`, `removeLabel`                           |                                                                                                                                                                                                                                          |
-| Reviews                                  | `reviews`, `reviewCommentsOf`, `reviewComments`     | Each review's ID, author, body, and time; the comments one review left on lines; every such comment on the pull request. A reply in a thread carries the comment it replies to                                                           |
-| Review threads                           | `threads`, `openThreadCount`, `reply`, `resolve`    | Each thread's first comment, file and line, comments, and whether it is resolved or outdated. `reply` and `resolve` take a comment's ID                                                                                                  |
-| Write a body; mark ready                 | `setBody`, `ready`                                  |                                                                                                                                                                                                                                          |
-| Commits not shown as signed              | `unverifiedCommits`                                 | One line for each, its short ID and the reason, which `factory pr ready` prints when it refuses                                                                                                                                          |
-| The tickets a pull request closes        | `closes`                                            | Their numbers                                                                                                                                                                                                                            |
-| The pull requests as the views read them | `open`, `linking`                                   | The open ones with their closing links, open threads, and check state; and those, open or not, that link to a ticket, which the board sync reads for cost notes                                                                          |
-| The address of a pull request            | `address`                                           | Its page, which the views link a pull request's number to                                                                                                                                                                                |
+| Operation                                | In `CodeHost`                                                 | What it returns or does                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read a pull request; list the open ones  | `get`, `listOpen`                                             | Its number, title, state, whether it is merged or a draft, body, mergeable state, author, labels, head and base (commit, branch, repository), and auto-merge                                                                                                                                             |
+| Open a pull request                      | `create`                                                      | From one branch into another, with a title and a body, as a draft or not. Returns its number, and fails in the code host's own words when the branch has nothing new or already has one open                                                                                                             |
+| Find a pull request                      | `forBranch`, `forCommit`                                      | The open pull request from a branch, or none; the pull requests that hold a commit                                                                                                                                                                                                                       |
+| What a pull request changes              | `files`, `mergeBase`                                          | Each file's path, its path before a rename, and its status; the commit two commits both descend from                                                                                                                                                                                                     |
+| The default branch                       | `defaultBranch`                                               |                                                                                                                                                                                                                                                                                                          |
+| The checks on a commit                   | `checkRuns`, `statuses`, `setStatus`                          | Check runs and commit statuses, kept apart because `factory deps` reads check runs alone and `factory pr watch` reads both; sets a status by name. A check run carries what the check wrote about its own result, when it wrote anything, and a status the account that set it, where the code host says |
+| Conversation comments                    | `comments`, `commentView`, `comment`, `editComment`           | Each with its ID, author, time, and body. `comment` returns the new comment's ID, and hidden markers pass through unchanged                                                                                                                                                                              |
+| Not found                                | `NotFoundError`                                               | Reading a pull request or a comment that does not exist throws this, the same error the ticket interface throws                                                                                                                                                                                          |
+| Add or remove a label                    | `addLabel`, `removeLabel`                                     |                                                                                                                                                                                                                                                                                                          |
+| Who added a label                        | `labeledBy`                                                   | The account that last added it, or null when the label is off or the code host does not say. The override counts only by this                                                                                                                                                                            |
+| Reviews                                  | `reviews`, `reviewCommentsOf`, `reviewComments`               | Each review's ID, author, body, and time; the comments one review left on lines; every such comment on the pull request. A reply in a thread carries the comment it replies to                                                                                                                           |
+| Review threads                           | `threads`, `openThreadCount`, `commentOn`, `reply`, `resolve` | Each thread's first comment, file and line, comments, and whether it is resolved or outdated. `commentOn` opens one on a line of a commit, or on the file where the line takes none, and says whether either would. `reply` and `resolve` take a comment's ID                                            |
+| Write a body; mark ready                 | `setBody`, `ready`                                            |                                                                                                                                                                                                                                                                                                          |
+| Commits not shown as signed              | `unverifiedCommits`                                           | One line for each, its short ID and the reason, which `factory pr ready` prints when it refuses                                                                                                                                                                                                          |
+| A pull request's commits                 | `commits`                                                     | Each commit, and the account the code host itself verifies as its author, or null. Rejects when there may be more than it lists                                                                                                                                                                          |
+| The tickets a pull request closes        | `closes`                                                      | Their numbers                                                                                                                                                                                                                                                                                            |
+| The pull requests as the views read them | `open`, `linking`                                             | The open ones with their closing links, open threads, and check state; and those, open or not, that link to a ticket, which the board sync reads for cost notes                                                                                                                                          |
+| The address of a pull request            | `address`                                                     | Its page, which the views link a pull request's number to                                                                                                                                                                                                                                                |
+| What must pass before a merge            | `requireCheck`, `requiresStatus`                              | Requires a status before a merge to the default branch, as a rule of a given name, and with a source, counts that status only from the runner's own token. Says whether the rules that apply to a branch, the organization's among them, require a status                                                |
+| A repository's properties                | `properties`, `setProperty`                                   | The repository's value for each property its owner defines, and sets one, which is how a repository comes under an organization's rule                                                                                                                                                                   |
 
 There are no optional groups. Every operation is one a command uses
 today, so a group is carved out on the day a second code host lacks one.
 
+**An organization is reached before any repository is named.**
+`factory init --org` is given an address and no checkout, so it asks
+`organizationHosts` in `src/code-host/index.mts` for the code host that
+serves the address: an `OrganizationHost`, whose `organization(name)`
+returns an `Organization`, both in `src/code-host/types.mts`. GitHub's
+is in `src/code-host/github.mts`, and its App's registration, tokens,
+and sign-in are in `src/code-host/github-app.mts`.
+
+| What it gives                        | In `OrganizationHost` or `Organization`                                                              | What it returns or does                                                                                                                                                                                                  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Whose address it is                  | `serves`, `ownerOf`, `addressOf`, `label`                                                            | Whether an address is on this code host, the owner it names, and an owner's address. An owner is an address, not one word, so a code host with nested owners fits                                                        |
+| What the name is, and who is asking  | `kind`, `role`, `plan`, `signInLacks`                                                                | An organization, a person, or nothing; the signed-in account's place in it; whether its plan has organization-wide rules and shares secrets with private repositories; the permissions the sign-in lacks, with their fix |
+| The repository that holds the preset | `repository`, `createRepository`, `file`, `putFiles`                                                 | A file already there is never replaced                                                                                                                                                                                   |
+| Secrets and variables                | `secretNames`, `setSecret`, `variable`, `setVariable`                                                | Each for every repository of the organization. A value never appears in a command's arguments                                                                                                                            |
+| What is required before a merge      | `defineProperty`, `ruleNames`, `requireCheckWhere`                                                   | A property each repository has a value for, and a rule that requires a check where the property has one value. What "required" means is the code host's to define                                                        |
+| The organization's own app           | `appName`, `appNamed`, `registerApp`, `installation`, `awaitInstallation`, `installedOn`, `appsPage` | Registers an app from a form the person sends in a browser, hands its key over once, to `keep`, and finds where it is installed                                                                                          |
+
+`init-org` names no code host: its lines say `host.label`, and its steps
+are these members. A run's credential is the code host's too: GitHub
+makes one from the App's key (`runToken`), and a code host that stores
+one would read it. `tests/init-org.test.ts` runs the command against an
+in-memory organization, and `tests/github-app.test.ts` has the App's
+flow against faked replies.
+
 **No skill, agent, or rule reaches the code host or the runner itself.**
 Each runs a `factory pr` command, and a test fails when one names GitHub's
 CLI, as a command or in a sentence. The review's instructions, `review.md`,
-are the one exception: the review's checkout is the pull request's head, so
-the factory's commands there are the code under review, and its reads go
-through GitHub's CLI on purpose.
+do the same, from the folder the session starts in, which is the default
+branch and not the code under review.
 
 A commit's checks and statuses belong to the code host, not the runner: a
 pull request shows them whatever ran them. A check run carries `checksId`,
@@ -411,7 +509,7 @@ interface does not carry, such as a comment's `html_url`, is not among
 them.
 
 A second implementation exists from the start, `tests/memory-code-host.ts`,
-that the tests of `pr`, `deps`, `build`, and `review cost` run against.
+that the tests of `pr`, `deps`, and `build` run against.
 GitHub's has its own tests against faked replies, which is where a test
 of which call GitHub is sent belongs.
 
@@ -425,22 +523,27 @@ one module in `src/runner/` that implements the `Runner` type in
 every command that reads the settings and reaches the runner, with
 `builds.runner "X" is not supported. "github-actions" is the only runner built.`
 
-| Operation                      | In `Runner`   | What it returns or does                                                                                                                    |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Start a build of a ticket      | `startBuild`  | On a branch. A refused start throws the runner's own error, whose status and reason the poller's comment on the ticket carries             |
-| Find the run a start made      | `findBuild`   | The page of the ticket's build started at or after a time, or nothing while none shows: a runner may answer a start with no run            |
-| The page that lists builds     | `buildsPage`  | What `factory build` prints when the run is not found                                                                                      |
-| The page of a run              | `runPage`     | From the run's ID, which a ticket's claim comment records                                                                                  |
-| The run this session is in     | `thisRun`     | Its ID, its page, and who started it, read from the session's environment; nothing outside a run                                           |
-| The runs for a commit          | `runs`        | Each run's ID, which set of jobs it is a run of, what started it, its status and conclusion, and its `checksId`                            |
-| The review's runs for a commit | `reviewRuns`  | Their status and conclusion, newest first                                                                                                  |
-| Have the review run again      | `reviewAgain` | The newest run of a commit's review, run again; false when none has run on it                                                              |
-| The jobs that failed in a run  | `failedJobs`  | Each failed job's name and everything it printed. Which runs count is the caller's: `factory pr failed` takes those `wait-checks` waits on |
+| Operation                            | In `Runner`       | What it returns or does                                                                                                                    |
+| ------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Start a build of a ticket            | `startBuild`      | On a branch. A refused start throws the runner's own error, whose status and reason the poller's comment on the ticket carries             |
+| Start an answer to a pull request    | `startAnswer`     | On a branch. The run answers what the pull request's checks or review found                                                                |
+| How many answers it has had          | `answersTo`       | How many `startAnswer` has started for the pull request since it was opened, which is what limits them                                     |
+| Start a Conflict or a Dependency run | `startOn`         | One session on one pull request, on a branch                                                                                               |
+| Find the run a start made            | `findBuild`       | The page of the ticket's build started at or after a time, or nothing while none shows: a runner may answer a start with no run            |
+| The page that lists builds           | `buildsPage`      | What `factory build` prints when the run is not found                                                                                      |
+| The page of a run                    | `runPage`         | From the run's ID, which a ticket's claim comment records                                                                                  |
+| The run this session is in           | `thisRun`         | Its ID, its page, and who started it, read from the session's environment; nothing outside a run                                           |
+| The runs for a commit                | `runs`            | Each run's ID, which set of jobs it is a run of, what started it, its status and conclusion, and its `checksId`                            |
+| The account a run posts as           | `poster`          | The account the run's own sign-in posts as, so a review's comment is told from anyone else's. GitHub Actions' is `github-actions[bot]`     |
+| The folder of its job files          | `workflowsFolder` | The folder in a repository whose files say what the runner runs, which no session may change. GitHub Actions' is `.github/workflows`       |
+| The review's runs for a commit       | `reviewRuns`      | Their status and conclusion, newest first                                                                                                  |
+| Have the review run again            | `reviewAgain`     | The newest run of a commit's review, run again; false when none has run on it                                                              |
+| The jobs that failed in a run        | `failedJobs`      | Each failed job's name and everything it printed. Which runs count is the caller's: `factory pr failed` takes those `wait-checks` waits on |
 
 **A runner also needs its own job files, which no interface covers.**
-`run.yml`, `review.yml`, and `session.yml` under `.github/workflows/`,
-the two files `src/workflow-files.mts` writes that call them, and their
-secrets are GitHub Actions' own. `factory sync` writes the two files whatever
+`run.yml`, `review.yml`, `session.yml`, and `poller.yml` under
+`.github/workflows/`, the files `src/workflow-files.mts` writes that
+call them, and their secrets are GitHub Actions' own. `factory sync` writes the two files whatever
 `builds.runner` says, and another runner would need its own set, written
 for it.
 
@@ -448,7 +551,7 @@ Three things stay in GitHub Actions' words whatever the runner: the
 factory's messages and comments say "GitHub Actions", the marker comments
 on tickets say `actions`, and the board's "Runs in" field says "Actions".
 The commands only a workflow runs (`review verdict`, `merge-policy`, and
-`review cost`) read GitHub Actions' event file and its `GITHUB_*`
+those of `factory session`) read GitHub Actions' event file and its `GITHUB_*`
 variables, and reach pull requests through the code host.
 
 The in-memory runner is `tests/memory-runner.ts`, and GitHub Actions' has
@@ -504,18 +607,22 @@ A tool is a code host, a ticket system, a runner, or a coding agent. Each
 says what it needs, so `factory init` sets it up, `factory doctor` checks
 it, and `factory remove` takes it out, with no edit to those commands.
 `src/tools.mts` registers each one by the name a setting gives it, with
-how to open it and its setup, the `ToolSetup` type in `src/setup.mts`. The
+how to open it and its setup, the `ToolSetup` type in `src/setup.mts`. A
+code host also registers `repositoryOf`, the repository a remote's
+address names, and `forkOf`, the repository one was forked from, which
+is how `init` proposes the repository a checkout is for. The
 names the settings accept are in `src/tool-names.mts`, and a test fails
 when the two differ. Every member of a setup is optional.
 
-| Member        | What it gives                                                                                                                           | Used by                                              |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `found`       | Its row under "Found", when it says more than the tool's name, such as where it was found                                               | `init`                                               |
-| `steps`       | A value to write under the tool's block of the settings, or a secret: which parts read it, how to get it, and how to check a pasted one | `init`                                               |
-| `checks`      | Its own lines in `doctor`: that it is reachable, signed in, or configured, each failure with its fix in the tool's words                | `doctor`                                             |
-| `credential`  | A secret of more than one part, checked together, which a ticket system that is not GitHub also keeps on the machine                    | `init`, `doctor`, `remove`, and every ticket command |
-| `leftovers`   | What removing the factory leaves outside the repository, such as its secrets                                                            | `remove`                                             |
-| `unconfigure` | Its own files with the factory's part taken out, such as a coding agent's settings without the factory's hooks                          | `remove`                                             |
+| Member        | What it gives                                                                                                                                                                               | Used by                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `found`       | Its row under "Found", when it says more than the tool's name, such as where it was found                                                                                                   | `init`                                               |
+| `steps`       | A value to write under the tool's block of the settings, or a secret: which parts read it, how to get it, and how to check a pasted one                                                     | `init`                                               |
+| `checks`      | Its own lines in `doctor`: that it is reachable, signed in, or configured, each failure with its fix in the tool's words                                                                    | `doctor`                                             |
+| `credential`  | A secret of more than one part, checked together, which a ticket system that is not GitHub also keeps on the machine                                                                        | `init`, `doctor`, `remove`, and every ticket command |
+| `kept`        | The one secret among its steps that a person also keeps on their machine, for their next repository: the name it is filed under, what a line calls it, and every secret a job reads it from | `init`, `remove`                                     |
+| `leftovers`   | What removing the factory leaves outside the repository, such as its secrets                                                                                                                | `remove`                                             |
+| `unconfigure` | Its own files with the factory's part taken out, such as a coding agent's settings without the factory's hooks                                                                              | `remove`                                             |
 
 **A value** is asked for once, after the parts are chosen, and written
 under the tool's block: a ticket system's under `tickets`, which accepts a
@@ -527,6 +634,16 @@ through the runner under each name the tool gives. Its words are the
 tool's: the prompt, the reason it refuses a value, and the line when
 nothing is pasted.
 
+**A secret a person keeps on their machine** is the one the tool's `kept`
+names, and its step carries `machine`. In a repository a person owns,
+`init` also writes it to the credentials file, filed under the tool and
+`HOST/OWNER`, and in that person's next repository stores it from there
+without asking, once the step's `machine.serves` says the value still
+does for the parts that are on. In a repository an organization owns,
+`init` asks for no such secret: the organization stores its own once.
+GitHub's access token and Claude Code's token are the two. No other
+command reads them, and no environment variable stands in for one.
+
 **A credential** is a secret with more than one part, such as an email and
 a token, checked together and stored under one name each: the `credential`
 member of a setup, asked after its steps. A ticket system that is not
@@ -534,13 +651,24 @@ GitHub also keeps its credential on the machine: `init` writes it to
 `~/.config/software-factory/credentials.yaml`, filed under the tool and
 the value its setup names, such as `tickets.site`, and every command reads
 it from there, or from an environment variable of the same name, which
-takes priority. GitHub keeps nothing there, since the `gh` CLI's login
-does that job.
+takes priority. GitHub's tickets keep no credential there, since the
+`gh` CLI's login does that job.
 
 With more than one tool of a kind, `init` asks which, except for the code
-host, which it reads from the git remote: each code host says which
-remotes are its own. The coding agent has no setting until there is a
+host, which follows from the repository it is setting up: each code host
+says which remotes are its own, and `init` reads every remote, asks
+`forkOf` about each repository they name, and asks the person when they
+name a fork or more than one. The coding agent has no setting until there is a
 second.
+
+A coding agent also runs a session in the cloud. What it is given is the
+`CloudSession` type in `src/agent/types.mts`, and another agent confines
+its commands its own way:
+
+| What it gives      | For Claude Code, in `src/agent/claude-code-session.mts` | What it returns                                                                                                                                   |
+| ------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| How it is confined | `sandboxSettings`                                       | The sandbox's settings: required, the hosts, the folders it may write, the ones it may not, and the agent's own credential kept from its commands |
+| How it is started  | `sessionCommand`                                        | The command and its arguments, with the shape of the answer when the session is a review                                                          |
 
 A coding agent also answers one question for `init`: given a prompt and
 the shape of the answer as a JSON schema, it runs once, with no tools and
@@ -560,14 +688,14 @@ one file.
 
 ## Checking a change
 
-| Check                  | What it proves                                                                                                                                                                                                               |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`, which only a build that deleted well-covered code may lower, saying so. A new test is seen failing before it is trusted          |
-| `factory sync --check` | The copies match the source                                                                                                                                                                                                  |
-| Pack and install       | CI packs the folder, installs the tarball once as a machine does, and runs `sync`, `config check`, and one read-only command in an empty scratch repository, which is left with no `package.json`. It works outside its host |
-| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                                                                           |
-| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`)                                                   |
-| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                                                                             |
+| Check                  | What it proves                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The tool's unit tests  | Each command does what it says, with coverage at or above the floors in `vitest.config.ts`, which only a build that deleted well-covered code may lower, saying so. A new test is seen failing before it is trusted                                                                                                                                             |
+| `factory sync --check` | The copies match the source                                                                                                                                                                                                                                                                                                                                     |
+| Pack and install       | CI packs the folder, installs the tarball once as a machine does, and runs `sync`, `config check`, and one read-only command in an empty scratch repository, which is left with no `package.json`. It works outside its host                                                                                                                                    |
+| `factory-trace`        | A change to a rule did not make some kind of change heavier, lighter, or ambiguous                                                                                                                                                                                                                                                                              |
+| Fork safety            | No `pull_request_target` or `workflow_run` job it runs or ships checks out a pull request's code, which would run a fork's code with secrets (`tests/fork-safety.test.ts`). A cloud run lays a pull request's branch out from a bundle, only for one from the same repository, and only on the Session job's machine, where nothing runs it outside the sandbox |
+| One throwaway ticket   | After each stage, one small ticket goes through refine, build, and review for real. Nothing else tests the prose                                                                                                                                                                                                                                                |
 
 The skills are instructions, and instructions cannot be unit tested. The
 last row is the only real proof that a change to one still works.

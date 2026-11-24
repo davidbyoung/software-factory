@@ -7,6 +7,7 @@ import {
   NO_DEPENDENCIES,
   parseSettings,
   SETTINGS_KEYS,
+  SettingsError,
   ROLES,
   patternWarnings,
   pluginsOf,
@@ -71,6 +72,7 @@ describe("parseSettings", () => {
         runner: "github-actions",
         pollMinutes: 5,
         maxPerHour: 20,
+        hosts: [],
       },
       specs: "none",
       specCheck: null,
@@ -466,6 +468,7 @@ describe("parseSettings", () => {
       runner: "github-actions",
       pollMinutes: 5,
       maxPerHour: 20,
+      hosts: [],
     });
   });
 
@@ -504,6 +507,87 @@ describe("parseSettings", () => {
     ).toThrow(
       ".claude/factory.yaml: builds.max-per-hour: must be a whole number, 1 or more",
     );
+  });
+
+  describe("builds.hosts", () => {
+    const hosts = (v: unknown) =>
+      parse({ ...MINIMAL, builds: { hosts: v } }).builds.hosts;
+
+    it.each([
+      "repo.packagist.org",
+      "Repo.Packagist.org",
+      "a-b.1c.xn--p1ai",
+      "*.example.com",
+      "notgithub.com",
+      "github.com.example.org",
+      `${"a".repeat(63)}.example`,
+    ])("takes %s as written", (host) => {
+      expect(hosts([host])).toEqual([host]);
+    });
+
+    it.each([
+      "https://repo.packagist.org",
+      "repo.packagist.org/packages",
+      "repo.packagist.org:443",
+      "repo packagist.org",
+      " repo.packagist.org",
+      "repo.packagist.org\n",
+      "repo.packagist.org.",
+      "github.com.",
+      "repo..org",
+      "-repo.org",
+      "repo-.org",
+      "repo_one.org",
+      "localhost",
+      "runner",
+      "*.com",
+      "10.0.0.1",
+      "2130706433",
+      "127.0.0.0x1",
+      "::1",
+      "[::1]",
+      "*",
+      "*.",
+      "*.*.example.com",
+      "repo.*.org",
+      "*repo.org",
+      `${"a".repeat(64)}.example`,
+      `${"a.".repeat(126)}ab`,
+    ])("fails on %j, which is not a host name", (host) => {
+      expect(() => hosts(["repo.packagist.org", host])).toThrow(
+        new SettingsError(
+          ".claude/factory.yaml: builds.hosts[1]: must be a host name",
+        ),
+      );
+    });
+
+    it.each([
+      ["repo.packagist.org", "builds.hosts: must be a list"],
+      [[""], "builds.hosts[0]: must be text"],
+      [[443], "builds.hosts[0]: must be text"],
+    ])("fails on %j as any list of text does", (v, message) => {
+      expect(() => hosts(v)).toThrow(
+        new SettingsError(`.claude/factory.yaml: ${message}`),
+      );
+    });
+
+    it.each([
+      "github.com",
+      "GitHub.com",
+      "api.github.com",
+      "npm.pkg.github.com",
+      "githubusercontent.com",
+      "raw.githubusercontent.com",
+      "*.github.com",
+      "*.pkg.github.com",
+      "*.githubusercontent.com",
+    ])("fails on %s, which is GitHub", (host) => {
+      expect(() => hosts(["repo.packagist.org", host])).toThrow(
+        new SettingsError(
+          "builds.hosts can't name GitHub: a build has no GitHub access",
+        ),
+      );
+    });
   });
 
   it("checks the board every 5 minutes when builds.poll-minutes is not set", () => {
@@ -1367,6 +1451,7 @@ describe("factory config explain", () => {
         runner: github-actions                                                     # default
         # poll-minutes: only with trigger github-action
         max-per-hour: 20                                                           # default
+        hosts: []                                                                  # default
       specs:
         type: openspec
         check: npx --no-install openspec validate --all --strict --no-interactive  # default
@@ -1892,6 +1977,18 @@ describe("main", () => {
       "commands.coverage.report",
     ])("prints none for %s when it is not set", async (key) => {
       expect(await get(BARE, key)).toEqual({ code: 0, out: ["none"], err: [] });
+    });
+
+    it("prints builds.hosts one host per line, and nothing when it is not set", async () => {
+      const key = "builds.hosts";
+      const written =
+        "builds:\n  hosts: [repo.packagist.org, '*.example.org']\n";
+      expect(await get(`${BARE}${written}`, key)).toEqual({
+        code: 0,
+        out: ["repo.packagist.org", "*.example.org"],
+        err: [],
+      });
+      expect(await get(BARE, key)).toEqual({ code: 0, out: [], err: [] });
     });
 
     it("prints whether the automated review is on, for pr-review", async () => {

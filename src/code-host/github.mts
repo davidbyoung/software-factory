@@ -4,20 +4,37 @@
 //
 // GitHub serves a pull request's conversation comments and labels from its
 // issues API, so those calls are here too, not in the ticket adapter.
-import { GhError, type Gh } from "../lib/gh.mts";
+import { GhError, type Gh, type GhIn } from "../lib/gh.mts";
 import type { IssueComment, PullRequest } from "../lib/work-status.mts";
 import { NotFoundError } from "../tickets/types.mts";
 import { writeAccess } from "../tickets/github-access.mts";
-import { statusOf, type Transport } from "../tickets/transport.mts";
-import { NeedsScopeError, NotSignedInError } from "./types.mts";
+import {
+  statusOf,
+  type Fields,
+  type Transport,
+} from "../tickets/transport.mts";
+import { randomBytes } from "node:crypto";
+import {
+  appName,
+  installed,
+  listenLocally,
+  register,
+  waitFor,
+  type Clock,
+  type Listen,
+} from "./github-app.mts";
+import { NeedsScopeError, NoRulesError, NotSignedInError } from "./types.mts";
 import type {
   ChangedFile,
   CheckRun,
   CodeHost,
   CommitStatus,
+  Installation,
+  Organization,
   Pull,
   PullComment,
   Review,
+  StatusSource,
   Thread,
 } from "./types.mts";
 
@@ -57,6 +74,19 @@ type RestComment = {
   in_reply_to_id?: number;
 };
 
+type RestCommit = {
+  sha: string;
+  author?: { login: string } | null;
+  committer?: { login: string } | null;
+  commit: { verification?: { verified: boolean } };
+};
+
+type RestIssueEvent = {
+  event: string;
+  label?: { name: string };
+  actor?: { login: string } | null;
+};
+
 type RestReview = {
   id: number;
   user?: { login: string } | null;
@@ -83,6 +113,7 @@ type RestStatus = {
   context: string;
   state: string;
   target_url?: string;
+  creator?: { login: string } | null;
 };
 
 type RestFile = {
@@ -131,6 +162,21 @@ const reviewOf = (raw: RestReview): Review => ({
   body: raw.body ?? "",
   submittedAt: raw.submitted_at,
 });
+
+/** The most commits of a pull request GitHub lists. */
+const MOST_COMMITS = 250;
+
+/** The account GitHub commits as for a change made through it. */
+const GITHUB_COMMITTER = "web-flow";
+
+// A signature is the committer's. The author is only what the committer
+// wrote, unless they are the same account or GitHub is the committer.
+function verifiedAuthor(raw: RestCommit): string | null {
+  const author = raw.author?.login;
+  const committer = raw.committer?.login;
+  if (!author || raw.commit.verification?.verified !== true) return null;
+  return committer === author || committer === GITHUB_COMMITTER ? author : null;
+}
 
 type GraphThread = {
   id: string;
@@ -367,6 +413,33 @@ type EventPolicy = {
   rules?: { type: string; parameters?: { allowed_events?: string[] } }[] | null;
 };
 
+/** GitHub Actions' own app, whose ID pins a required status to the
+ * workflow's token. */
+const ACTIONS_APP = 15368;
+
+const requiredStatus = (check: string, source?: StatusSource) => ({
+  context: check,
+  ...(source === "runner" ? { integration_id: ACTIONS_APP } : {}),
+});
+
+// https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue
+const CLOSING =
+  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(?:https?:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)|([\w.-]+\/[\w.-]+)?#(\d+)|gh-(\d+))/gi;
+
+/** What `CodeHost.closesIn` gives for a text in `repository`: the forms
+ * GitHub documents. What it would close with a pull request is GitHub's to
+ * say, by `closes`. */
+export function githubClosesIn(text: string, repository: string): string[] {
+  const found = [...text.matchAll(CLOSING)].map((m) => {
+    const of = m[1] ?? m[3];
+    const number = m[2] ?? m[4] ?? m[5];
+    return !of || of.toLowerCase() === repository.toLowerCase()
+      ? `#${number}`
+      : `${of}#${number}`;
+  });
+  return [...new Set(found)];
+}
+
 export function githubCodeHost(o: {
   transport: Transport;
   repository: string;
@@ -518,17 +591,22 @@ export function githubCodeHost(o: {
         report: reportOf(c.output),
       }));
     },
+    // Every status set on the commit, newest first: the combined status
+    // holds the newest of each name, but not who set it.
     async statuses(sha) {
-      const answer = await t.rest<{ statuses: RestStatus[] }>(
-        "GET",
-        `${API}/commits/${sha}/status`,
-      );
-      return answer.statuses.map((s): CommitStatus => ({
-        id: s.id,
-        name: s.context,
-        state: s.state,
-        link: s.target_url,
-      }));
+      const newest = new Map<string, CommitStatus>();
+      for (const s of await list<RestStatus>(
+        `${API}/commits/${sha}/statuses?per_page=100`,
+      ))
+        if (!newest.has(s.context))
+          newest.set(s.context, {
+            id: s.id,
+            name: s.context,
+            state: s.state,
+            link: s.target_url,
+            author: s.creator?.login ?? "ghost",
+          });
+      return [...newest.values()];
     },
     async setStatus(sha, status) {
       await t.rest("POST", `${API}/statuses/${sha}`, {
@@ -583,6 +661,17 @@ export function githubCodeHost(o: {
         ),
       );
     },
+    // The REST events, not GraphQL's, whose name for an app's bot is one a
+    // person could have.
+    async labeledBy(n, label) {
+      const last = (
+        await list<RestIssueEvent>(`${API}/issues/${n}/events?per_page=100`)
+      )
+        .filter((e) => /^(un)?labeled$/.test(e.event))
+        .filter((e) => e.label?.name === label)
+        .at(-1);
+      return last?.event === "labeled" ? (last.actor?.login ?? null) : null;
+    },
     reviews: async (n) =>
       (await list<RestReview>(`${API}/pulls/${n}/reviews?per_page=100`)).map(
         reviewOf,
@@ -614,6 +703,26 @@ export function githubCodeHost(o: {
       return result.data.repository.pullRequest.reviewThreads.nodes.filter(
         (x) => !x.isResolved,
       ).length;
+    },
+    async commentOn(n, at) {
+      const placed = async (fields: Fields): Promise<boolean> => {
+        try {
+          await t.rest("POST", `${API}/pulls/${n}/comments`, {
+            fields: { commit_id: at.sha, path: at.path, ...fields },
+          });
+          return true;
+        } catch (error) {
+          if (statusOf(error) === 422) return false;
+          throw error;
+        }
+      };
+      return (
+        (await placed({ line: at.line, side: "RIGHT", body: at.body })) ||
+        (await placed({
+          subject_type: "file",
+          body: `${at.body}\n\n(Line ${at.line}.)`,
+        }))
+      );
     },
     async reply(n, commentId, body) {
       const made = await t.rest<{ id: number }>(
@@ -652,6 +761,19 @@ export function githubCodeHost(o: {
           (c) =>
             `${c.sha.slice(0, 7)} ${c.commit.verification?.reason ?? "unknown"}`,
         );
+    },
+    async commits(n) {
+      const commits = await list<RestCommit>(
+        `${API}/pulls/${n}/commits?per_page=100`,
+      );
+      if (commits.length >= MOST_COMMITS)
+        throw new Error(
+          `GitHub lists at most ${MOST_COMMITS} commits of #${n}, so there may be more.`,
+        );
+      return commits.map((c) => ({
+        sha: c.sha,
+        verifiedAuthor: verifiedAuthor(c),
+      }));
     },
     async closes(n) {
       const result = await t.graphql<{
@@ -702,6 +824,7 @@ export function githubCodeHost(o: {
       } while (after);
       return fromLinkingPages(pages, o.repository, skip);
     },
+    closesIn: (text) => githubClosesIn(text, o.repository),
     address: (n) => `https://github.com/${o.repository}/pull/${n}`,
     remote: (repository) => ({
       url: `https://github.com/${repository}.git`,
@@ -756,7 +879,7 @@ export function githubCodeHost(o: {
     async allowAutoMerge() {
       await t.rest("PATCH", API, { fields: { allow_auto_merge: true } });
     },
-    async requireCheck(rule, check) {
+    async requireCheck(rule, check, source) {
       const existing = await t.rest<{ name: string }[]>(
         "GET",
         `${API}/rulesets?per_page=100`,
@@ -774,13 +897,20 @@ export function githubCodeHost(o: {
             {
               type: "required_status_checks",
               parameters: {
-                required_status_checks: [{ context: check }],
+                required_status_checks: [requiredStatus(check, source)],
                 strict_required_status_checks_policy: false,
               },
             },
           ],
         },
       });
+    },
+    async jobsMayWrite() {
+      const set = await t.rest<{ default_workflow_permissions: string }>(
+        "GET",
+        `${API}/actions/permissions/workflow`,
+      );
+      return set.default_workflow_permissions !== "read";
     },
     async eventAllowed(file, event) {
       if ((await t.rest<{ private: boolean }>("GET", API)).private)
@@ -829,6 +959,66 @@ export function githubCodeHost(o: {
         },
       );
     },
+    async requiresStatus(branch, status) {
+      const path = branch.split("/").map(encodeURIComponent).join("%2F");
+      const rules = await list<{
+        type: string;
+        parameters?: { required_status_checks?: { context: string }[] };
+      }>(`${API}/rules/branches/${path}?per_page=100`).catch((error) => {
+        // GitHub refuses the read where the plan has no rules to list.
+        if (statusOf(error) === 403 && /upgrade to/i.test(String(error)))
+          throw new NoRulesError(
+            `${PLANS.free} has no branch rules for a private repository`,
+          );
+        throw error;
+      });
+      return rules.some(
+        (r) =>
+          r.type === "required_status_checks" &&
+          r.parameters?.required_status_checks?.some(
+            (c) => c.context === status,
+          ),
+      );
+    },
+    async secretsWithheldBy() {
+      try {
+        const { private: isPrivate } = await t.rest<{ private: boolean }>(
+          "GET",
+          API,
+        );
+        if (!isPrivate) return null;
+        const { plan } = await t.rest<{ plan?: { name: string } }>(
+          "GET",
+          `orgs/${owner}`,
+        );
+        return plan?.name === "free" ? PLANS.free! : null;
+      } catch {
+        return null;
+      }
+    },
+    async properties() {
+      const values = await t.rest<
+        { property_name: string; value: string | string[] | null }[]
+      >("GET", `${API}/properties/values`);
+      return Object.fromEntries(values.map((v) => [v.property_name, v.value]));
+    },
+    async ownerDefines(property) {
+      try {
+        await t.rest(
+          "GET",
+          `orgs/${owner}/properties/schema/${encodeURIComponent(property)}`,
+        );
+        return true;
+      } catch (error) {
+        if (statusOf(error) === 404) return false;
+        throw error;
+      }
+    },
+    async setProperty(property, value) {
+      await t.rest("PATCH", `${API}/properties/values`, {
+        body: { properties: [{ property_name: property, value }] },
+      });
+    },
     async addSigningKey(title, key) {
       try {
         await t.rest("POST", "user/ssh_signing_keys", {
@@ -849,5 +1039,352 @@ export function githubCodeHost(o: {
         throw error;
       }
     },
+  };
+}
+
+const SITE = "https://github.com";
+
+const GITHUB_DOMAINS = ["github.com", "githubusercontent.com"];
+
+/** Whether a host is GitHub's, or a wildcard that covers one that is. */
+export function namesGitHub(host: string): boolean {
+  const name = host.toLowerCase().replace(/^\*\./, "");
+  return GITHUB_DOMAINS.some(
+    (domain) =>
+      `.${name}`.endsWith(`.${domain}`) ||
+      (host.startsWith("*.") && domain.endsWith(`.${name}`)),
+  );
+}
+
+/** Whether an address is on github.com. */
+export function githubServes(address: string): boolean {
+  try {
+    return new URL(address).host === "github.com";
+  } catch {
+    return false;
+  }
+}
+
+/** The owner `https://github.com/NAME` names, with or without a last
+ * slash, or null for any other address. */
+export function githubOwner(address: string): string | null {
+  const match = /^https:\/\/github\.com\/([A-Za-z0-9-]+)\/?$/.exec(
+    address.trim(),
+  );
+  return match ? match[1]! : null;
+}
+
+/** What GitHub calls each plan. */
+const PLANS: Record<string, string> = {
+  free: "GitHub Free",
+  team: "GitHub Team",
+  business: "GitHub Enterprise",
+  enterprise: "GitHub Enterprise",
+};
+
+/** What the GitHub CLI's sign-in needs to set an organization up: its
+ * secrets and rules, its Projects, and a workflow's file. */
+const SETUP_SCOPES = ["admin:org", "project", "workflow"];
+
+/** The address GitHub gives an app of that name. */
+const appSlug = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+/** The page that installs an app on the account with that ID. */
+const installPage = (slug: string, account: number) =>
+  `${SITE}/apps/${slug}/installations/new/permissions?suggested_target_id=${account}`;
+
+const systemClock: Clock = {
+  now: () => Date.now(),
+  sleep: (ms) => new Promise((done) => setTimeout(done, ms)),
+};
+
+export function githubOrganization(o: {
+  transport: Transport;
+  name: string;
+  /** The GitHub CLI, given a value on standard input. Without it, nothing
+   * can be stored. */
+  cli?: GhIn;
+  /** For asking GitHub as the app, and about the sign-in's token. */
+  fetch?: typeof fetch;
+  /** The token the GitHub CLI is signed in with, or null for nobody. */
+  token?: () => string | null;
+  listen?: Listen;
+  clock?: Clock;
+  /** What the app's form carries out and back. */
+  state?: () => string;
+}): Organization {
+  const t = o.transport;
+  const ORG = `orgs/${o.name}`;
+  const ask = o.fetch ?? fetch;
+  const clock = o.clock ?? systemClock;
+  const absent = async <T,>(call: Promise<T>): Promise<T | null> => {
+    try {
+      return await call;
+    } catch (error) {
+      if (statusOf(error) === 404) return null;
+      throw error;
+    }
+  };
+  /** Every item of a list GitHub wraps in an object, page by page. */
+  const paged = async <T,>(path: string, key: string): Promise<T[]> => {
+    const all: T[] = [];
+    for (let page = 1; ; page++) {
+      const listed = await t.rest<Record<string, T[]>>(
+        "GET",
+        `${path}?per_page=100&page=${page}`,
+      );
+      const items = listed[key] ?? [];
+      all.push(...items);
+      if (items.length < 100) return all;
+    }
+  };
+  const store = async (
+    kind: "secret" | "variable",
+    name: string,
+    value: string,
+  ) => {
+    if (!o.cli) throw new Error(`Storing a ${kind} needs the GitHub CLI.`);
+    await o.cli(
+      [kind, "set", name, "--org", o.name, "--visibility", "all"],
+      value,
+    );
+  };
+  const ruleNames = async () =>
+    (
+      await t.rest<{ name: string }[]>("GET", `${ORG}/rulesets?per_page=100`, {
+        paginate: true,
+      })
+    ).map((r) => r.name);
+  const contents = (repository: string, path: string) =>
+    `repos/${o.name}/${repository}/contents/${path.split("/").map(encodeURIComponent).join("/")}`;
+
+  async function installation(clientId: string): Promise<Installation | null> {
+    const found = (
+      await paged<{
+        id: number;
+        client_id?: string;
+        app_slug: string;
+        repository_selection: string;
+        html_url: string;
+      }>(`${ORG}/installations`, "installations")
+    ).find((i) => i.client_id === clientId);
+    if (!found) return null;
+    const app = await t
+      .rest<{ name: string }>("GET", `apps/${found.app_slug}`)
+      .catch(() => null);
+    return {
+      id: found.id,
+      app: app?.name ?? found.app_slug,
+      all: found.repository_selection === "all",
+      page: found.html_url,
+    };
+  }
+
+  return {
+    async kind() {
+      const account = await absent(
+        t.rest<{ type: string }>("GET", `users/${o.name}`),
+      );
+      if (!account) return null;
+      return account.type === "Organization" ? "organization" : "person";
+    },
+    // GitHub answers 404 to an account that is no member, and 403 where
+    // the organization keeps its members from this sign-in.
+    async role() {
+      let membership: { role: string; state: string };
+      try {
+        membership = await t.rest("GET", `user/memberships/orgs/${o.name}`);
+      } catch (error) {
+        if ([403, 404].includes(statusOf(error) ?? 0)) return null;
+        throw error;
+      }
+      if (membership.state !== "active") return null;
+      return membership.role === "admin" ? "owner" : "member";
+    },
+    async plan() {
+      const { plan } = await t.rest<{ plan?: { name: string } }>("GET", ORG);
+      const free = plan?.name === "free";
+      return {
+        name: (plan && PLANS[plan.name]) ?? "GitHub",
+        rules: !free,
+        privateSecrets: !free,
+      };
+    },
+    async signInLacks() {
+      const token = o.token?.();
+      if (!token) return null;
+      const response = await ask("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "software-factory",
+        },
+      });
+      const header = response.headers.get("x-oauth-scopes");
+      if (header === null) return null;
+      const has = header.split(",").map((x) => x.trim());
+      const scopes = SETUP_SCOPES.filter((x) => !has.includes(x));
+      if (!scopes.length) return null;
+      return {
+        scopes,
+        tool: "the GitHub CLI",
+        fix: [
+          "gh",
+          "auth",
+          "refresh",
+          "-h",
+          "github.com",
+          "-s",
+          scopes.join(","),
+        ],
+      };
+    },
+
+    async repository(name) {
+      const repo = await absent(
+        t.rest<{ private: boolean }>("GET", `repos/${o.name}/${name}`),
+      );
+      return repo ? { isPrivate: repo.private } : null;
+    },
+    async createRepository(name, { isPrivate, description }) {
+      await t.rest("POST", `${ORG}/repos`, {
+        body: { name, private: isPrivate, description },
+      });
+    },
+    async file(repository, path) {
+      const found = await absent(
+        t.rest<{ content: string }>("GET", contents(repository, path)),
+      );
+      return found
+        ? Buffer.from(found.content, "base64").toString("utf8")
+        : null;
+    },
+    // No `sha` is sent, so GitHub refuses a path that already has a file.
+    async putFiles(repository, files) {
+      for (const [path, text] of Object.entries(files))
+        await t.rest("PUT", contents(repository, path), {
+          body: {
+            message: `Add ${path.split("/").at(-1)}`,
+            content: Buffer.from(text).toString("base64"),
+          },
+        });
+    },
+
+    secretNames: async () =>
+      (await paged<{ name: string }>(`${ORG}/actions/secrets`, "secrets")).map(
+        (x) => x.name,
+      ),
+    setSecret: (name, value) => store("secret", name, value),
+    async variable(name) {
+      const found = await absent(
+        t.rest<{ value: string }>("GET", `${ORG}/actions/variables/${name}`),
+      );
+      return found?.value ?? null;
+    },
+    setVariable: (name, value) => store("variable", name, value),
+
+    async defineProperty(name, values) {
+      await t.rest("PUT", `${ORG}/properties/schema/${name}`, {
+        body: {
+          value_type: "single_select",
+          required: false,
+          allowed_values: values,
+          values_editable_by: "org_and_repo_actors",
+        },
+      });
+    },
+    ruleNames,
+    async requireCheckWhere(rule, check, where) {
+      if ((await ruleNames()).includes(rule)) return;
+      await t.rest("POST", `${ORG}/rulesets`, {
+        body: {
+          name: rule,
+          target: "branch",
+          enforcement: "active",
+          conditions: {
+            ref_name: { include: ["~DEFAULT_BRANCH"], exclude: [] },
+            repository_property: {
+              include: [
+                { name: where.property, property_values: [where.value] },
+              ],
+              exclude: [],
+            },
+          },
+          rules: [
+            {
+              type: "required_status_checks",
+              parameters: {
+                required_status_checks: [requiredStatus(check, where.source)],
+                strict_required_status_checks_policy: false,
+                do_not_enforce_on_create: true,
+              },
+            },
+          ],
+        },
+      });
+    },
+
+    appName: () => appName(o.name),
+    // An app registered under another name is not found: nothing lists
+    // an organization's apps to the signed-in account.
+    async registeredApp(clientId) {
+      const slug = appSlug(appName(o.name).name);
+      const app = await t
+        .rest<{
+          name: string;
+          client_id?: string;
+          owner?: { login: string; id: number } | null;
+        }>("GET", `apps/${slug}`)
+        .catch(() => null);
+      if (app?.owner?.login.toLowerCase() !== o.name.toLowerCase()) return null;
+      if (app.client_id !== undefined && app.client_id !== clientId)
+        return null;
+      return {
+        name: app.name,
+        installPage: installPage(slug, app.owner.id),
+      };
+    },
+    async appNamed(name) {
+      const app = await absent(
+        t.rest<{ owner?: { login: string } | null }>(
+          "GET",
+          `apps/${appSlug(name)}`,
+        ),
+      );
+      return app ? { owner: app.owner?.login ?? "" } : null;
+    },
+    async registerApp(app) {
+      const { id } = await t.rest<{ id: number }>("GET", ORG);
+      const made = await register({
+        organization: o.name,
+        name: app.name,
+        state: (o.state ?? (() => randomBytes(16).toString("hex")))(),
+        listen: o.listen ?? listenLocally,
+        fetch: ask,
+        open: app.open,
+        pasted: app.pasted,
+        keep: app.keep,
+        installPage: ({ slug }) => installPage(slug, id),
+      });
+      return { ...made, installPage: installPage(made.slug, id) };
+    },
+    installation,
+    awaitInstallation: (clientId) =>
+      waitFor(() => installation(clientId), clock),
+    installedOn: (id, app, repository) =>
+      installed({
+        fetch: ask,
+        now: clock.now,
+        installation: id,
+        app,
+        repository,
+      }),
+    appsPage: () => `${SITE}/organizations/${o.name}/settings/apps`,
+    filePage: (repository, path) =>
+      `${SITE}/${o.name}/${repository}/blob/HEAD/${path}`,
   };
 }

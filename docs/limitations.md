@@ -24,8 +24,9 @@ as a code host's billing or what its workflows can see, are in
   repository written in another language. Nothing of Node's goes in the
   repository
   ([A repository that is not JavaScript](existing-repo.md#a-repository-that-is-not-javascript)).
-- **A cloud session of your coding agent's own is a machine too.** One
-  such as Claude Code on the web starts without the factory, and the
+- **A session your coding agent's vendor hosts is a machine too.** One
+  such as Claude Code on the web, which is not the factory's session in the
+  cloud, starts without the factory, and the
   factory's hooks stop its commands until it is there. Put the install
   line in the setup of the environment the session runs in:
   `npm install -g @davidbyoung/software-factory`. The hooks then run,
@@ -38,9 +39,49 @@ as a code host's billing or what its workflows can see, are in
   `factory preset add`, and fails the check on its update's pull
   request, with that setting's name
   ([Writing a preset](presets.md#making-the-repository)).
-- **A build never changes the coding agent's settings files,** which hold
-  the hooks that guard the run. It may write the factory's other files
-  there. A change to those settings is a person's to make.
+- **An organization is set up on github.com only.** GitHub Enterprise
+  Server is not supported: its servers cannot call the factory's
+  workflows on github.com. `factory init --org` refuses any other
+  address.
+- **Your own account gets no app.** `factory init --org` is for an
+  organization. On your own account, builds act with one access
+  token of yours, since a board a person owns refuses an app's token
+  ([Where your tokens are kept](credentials.md#on-github)).
+- **An organization's poller runs only on a schedule,** in its
+  `factory-config` repository. Nobody can host one for a whole
+  organization. A repository in an organization that is set up keeps its
+  tickets from that poller by setting `builds.trigger: manual` in its
+  own settings.
+- **No command replaces the key of an organization's app, or takes an
+  organization's setup out.** GitHub makes a new key only on the app's
+  own page: [Replacing the App's key](credentials.md#replacing-the-apps-key)
+  has the steps, and
+  [Taking an organization's setup out](removing.md#taking-an-organizations-setup-out)
+  lists what an owner deletes.
+- **`factory doctor` does not check the two tokens `factory init` keeps
+  on your machine** on your own account, the code host's access token
+  and the coding agent's
+  ([The file on your machine](credentials.md#the-file-on-your-machine)).
+  Init checks them itself, the next time it would store them.
+- **A session in the cloud can't install from GitHub Packages itself.** Your
+  default branch's packages are installed before it starts, and after that it
+  has no GitHub token and its commands can't reach GitHub
+  ([GitHub Packages](github/setup.md#github-packages)).
+- **Dependabot's pull requests do not merge themselves under an
+  organization's app, as set up.** The job that turns auto-merge on for
+  one reads Dependabot's secrets, not the Actions ones, and
+  `factory init --org` stores the app's key for Actions alone. An owner
+  who wants it makes a new key, as
+  [Replacing the App's key](credentials.md#replacing-the-apps-key)
+  shows, and stores it a second time for Dependabot, with
+  `--app dependabot` added to that page's `gh secret set` line.
+- **No hook runs in a session in the cloud.** The hooks that guard a session
+  on your machine, and
+  [`commands.before-commit`](configuration.md#commandsbefore-commit), are
+  off there. A build may change the coding agent's settings in its pull
+  request, hooks included. Nothing in the cloud follows the change until it
+  merges, and no [`auto-merge`](configuration.md#auto-merge) rule allows it,
+  so a person reads it first.
 - **One ticket, one repository.** A change that spans repositories is two
   tickets.
 - **Review by teams is your code host's to enforce.** A session obeys
@@ -61,7 +102,9 @@ as a code host's billing or what its workflows can see, are in
   checked.
 - **A renamed default branch is read under its old name** until
   `git remote set-head origin --auto` runs in the checkout, which keeps
-  the name in `origin/HEAD`. The factory reads the name there before it
+  the name in `origin/HEAD`. Where the remote whose address is your
+  `repository` line's has another name, such as `upstream`, write that
+  name in place of `origin`. The factory reads the name there before it
   asks the code host, so a stale one gives a stale answer: the commit hook
   then guards the old branch and not the new one. After the rename, run
   that command in each checkout, then `factory sync`, which writes the
@@ -87,23 +130,113 @@ as a code host's billing or what its workflows can see, are in
   command's.
 - **No budgets.** What each ticket cost is recorded. Nothing caps it.
 - **Nothing retries on its own.** A build that stops waits for you.
-- **A cloud build's commits are unsigned unless you give it a signing
-  key.** `factory init` makes one when you choose that part
-  ([Setting up on GitHub](github/setup.md#run-factory-init)).
+- **A cloud session's commits are never signed,** on your own account or
+  in an organization. No job that runs a session holds a signing key. The
+  pull requests that update the factory can be signed, on your own account
+  ([Setting up on GitHub](github/setup.md#run-factory-init)). Verified
+  commits under an app are _[Planned](developing.md#what-is-built)_, as
+  ticket 77. A repository whose rules require signed commits on every
+  branch cannot use cloud builds.
+- **Under an organization's app, `{user}` in a branch name is the app's
+  name,** such as `software-factory-for-acme`, not a person's: an app's
+  token names no user
+  ([`code-host`](configuration.md#code-host)).
 - **A cloud build cannot be steered.** You can read its log as it runs, and
   cancel it, but not answer it: where it would ask, it stops and reports.
-- **Nothing watches a pull request after its cloud build ends.** Your own
-  review comments are answered by a session you open, or by a cloud session
-  started for your review, which has only the pull request and the ticket
-  to go on.
+- **Nothing watches a pull request after its cloud build ends.** What comes
+  next starts runs of their own
+  ([What a cloud run is](builds.md#what-a-cloud-run-is)), and each has only
+  the ticket, the pull request, and its threads to go on. No conversation
+  is carried from one run to the next.
+- **A cloud build's pull request gets two rounds of review and four
+  answers,** then waits for a person.
+  [`rules.review-rounds`](configuration.md#rules) changes the first. The
+  four is fixed.
+- **A round of review in the cloud is slow.** Each answer is a new run on
+  new machines, which installs everything again.
 - **A cloud build runs for up to 230 minutes by default**
   ([`session-minutes`](configuration.md#session-minutes)), and its minutes
-  may cost money, depending on your cloud runner and plan.
+  may cost money, depending on your cloud runner and plan. Its last job
+  waits for CI for an hour at most, and the wait is billed.
+- **A ticket that changes a file under `.github/workflows/` is built on
+  your machine.** A build in the cloud that could push one could read your
+  repository's secrets
+  ([A change to a workflow file](builds.md#a-change-to-a-workflow-file)).
+- **No Docker and no Git LFS files in a cloud session, and a browser needs
+  `--no-sandbox`** ([What a session can use](builds.md#what-a-session-can-use)).
+- **A cloud session reaches only the npm registry and the hosts under
+  [`builds.hosts`](configuration.md#builds).** It has no web search, and
+  it can't reach your code host at all. So a package your code host
+  serves, as GitHub does most of Composer's, can't be installed in a
+  session ([`commands.build-setup`](configuration.md#commandsbuild-setup)
+  says what to do instead).
+- **A cloud session reads only what the job before it handed over:** its own ticket and
+  pull request, their threads and check results, up to 20 tickets its
+  ticket names, and, for a Conflict, the pull requests merged since its
+  branch left the default branch, up to 30.
+- **A cloud session hands over at most 20 MB of commits,** and it can't
+  attach a picture to a ticket or a pull request, or add a label.
+- **A cloud build can't show you a picture.** One whose look you pick stays
+  a draft for you to mark ready, with no screenshots in it, so it is better
+  built on your machine.
+- **A pull request from a fork starts no run in the cloud,** and its review
+  verdict waits for a person. So does one that goes into a branch other
+  than your default branch, once it is marked ready.
+- **One of Dependabot's pull requests gets the verdict's pass only while
+  every commit on it is Dependabot's own.** Once a session or a person
+  pushes to it, the automated review reads it, and the next Dependency run
+  answers what it asks for. With the review off, or a push whose review did
+  not run, the verdict waits. Override it, with
+  [`verdict-override`](configuration.md#code-hostlabels), after reading it.
+- **A secret your own CI gives a branch is not protected from code in a
+  pull request.** A build's commits run in your CI as anyone's do. The
+  same is true of the repository's own secrets that a session's commands
+  read, such as the one your `.npmrc` names: make each read-only.
+- **A team's cloud builds share one credential for the coding agent,** an
+  owner's choice: a subscription by default, or an API key, which the
+  agent's own documentation advises for a secret that several repositories
+  share.
+- **In a public repository, what a run hands over can be downloaded.**
+  Anyone signed in to the code host can download a run's artifacts: for a
+  day, what the session read, which holds the ticket and any
+  [preset](presets.md) the repository follows, and for seven days, what it
+  left. Keep builds in the cloud off in a public repository whose tickets
+  are kept somewhere private, or that follows a private preset: leave
+  "Builds in the cloud" unchecked in `factory init`. Nothing checks this
+  for you.
 
 ## What nobody has tested
 
 - **A board owned by an organization.** It is read the same way as a
-  person's, but the factory has only run against a person's.
+  person's, and `factory init --org` has given one its columns, but the
+  board sync and the poller have only run against a person's.
+- **A cloud run on a ticket of any size.** Each of the five kinds has run
+  with a real session and the factory's own skills, in a small scratch
+  repository of an organization.
+- **A cloud run of hours,** such as one that waits out a token.
+- **A determined attacker.** Known ways to steal the agent's credential and
+  the job's own token were tried against the sandbox and failed, and a pull
+  request written to talk the review into "ready" failed too. Nobody has been
+  asked to break it. Claude Code's documentation says of its sandbox:
+  "Sandboxing reduces risk but is not a complete isolation boundary."
+- **A browser in a cloud session,** and a cloud build of a repository that
+  is not JavaScript, whose dependencies are copied or installed as
+  [`commands.build-setup`](configuration.md#commandsbuild-setup) says.
+- **Parts of an organization's setup, against a real one.** These have
+  run on GitHub, once each, in an organization on the Free plan:
+  `factory init --org` from start to finish; a job making a token from
+  the app, with that job's own permissions; signing the code host's
+  command-line tool in with such a token, and a push and a pull request
+  made through that sign-in; and `factory enroll`, with the
+  organization's property and without it. These have not: the
+  organization-wide rule, which needs GitHub's Team plan; and the poller in
+  `factory-config`, which needs a release of the factory to call.
+- **Whether `claude setup-token` ends the coding agent's own sign-in.**
+  Once, Claude Code's sign-in on the machine expired within an hour of
+  `claude setup-token`, which both setup commands run when a
+  subscription pays for sessions. Claude Code's documentation does not
+  say whether one affects the other. If a later step says the session
+  expired, run `claude` and sign in again.
 - **Your board's own automations,** such as moving a closed ticket to Done.
   They may fight the board sync.
 - **A factory update reaching a repository through the update job.**

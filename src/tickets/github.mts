@@ -277,6 +277,47 @@ export function toBoard(pages: BoardPage[], repository: string): Board {
   };
 }
 
+/** Each card's repository and column, and nothing else of the board. */
+const READY_QUERY = `
+query ReadyRepositories($owner: String!, $number: Int!, $after: String) {
+  owner: repositoryOwner(login: $owner) {
+    ... on ProjectV2Owner {
+      projectV2(number: $number) {
+        items(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            content {
+              ... on Issue { state repository { nameWithOwner } }
+            }
+            status: fieldValueByName(name: "Status") {
+              ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+type ReadyPage = {
+  data: {
+    owner: {
+      projectV2: {
+        items: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: {
+            content: {
+              state?: string;
+              repository?: { nameWithOwner: string };
+            } | null;
+            status: { name?: string } | null;
+          }[];
+        };
+      } | null;
+    } | null;
+  };
+};
+
 const ADD_CARD =
   "mutation AddCard($project: ID!, $content: ID!) { addProjectV2ItemById(input: {projectId: $project, contentId: $content}) { item { id } } }";
 const CLEAR_FIELD =
@@ -451,6 +492,23 @@ export function githubTickets(o: GithubOptions): Tickets {
     if (raw.pull_request) throw new NotFoundError(`#${n}`);
     issues.add(n);
   };
+
+  /** Board `number`'s own ID and its fields' names. */
+  async function boardFields(number: number) {
+    const answer = await t.graphql<{
+      data: {
+        owner: {
+          projectV2: {
+            id: string;
+            fields: { nodes: { name?: string }[] };
+          } | null;
+        } | null;
+      };
+    }>(BOARD_FIELDS, { owner: o.boardOwner ?? repoOwner, number });
+    const project = answer.data.owner?.projectV2;
+    if (!project) throw new Error(`Board ${number} could not be read.`);
+    return project;
+  }
 
   /** Board `number`'s Status field, or null when it has none. */
   const statusField = async (number: number) => {
@@ -699,6 +757,29 @@ export function githubTickets(o: GithubOptions): Tickets {
           }
         }
       },
+      async readyRepositories(number, column) {
+        const found = new Set<string>();
+        let after: string | null = null;
+        do {
+          const page: ReadyPage = await t.graphql<ReadyPage>(READY_QUERY, {
+            owner: o.boardOwner ?? repoOwner,
+            number,
+            after,
+          });
+          const items = page.data.owner?.projectV2?.items;
+          if (!items) throw new Error("The Project could not be read.");
+          for (const { content, status } of items.nodes)
+            if (
+              content?.state === "OPEN" &&
+              content.repository &&
+              status?.name !== undefined &&
+              sameName(status.name, column)
+            )
+              found.add(content.repository.nameWithOwner);
+          after = items.pageInfo.hasNextPage ? items.pageInfo.endCursor : null;
+        } while (after);
+        return [...found];
+      },
       async list() {
         const answer = await t.graphql<{
           data: {
@@ -730,6 +811,10 @@ export function githubTickets(o: GithubOptions): Tickets {
         const field = await statusField(number);
         return (field?.options ?? []).map((x) => x.name);
       },
+      fieldNames: async (number) =>
+        (await boardFields(number)).fields.nodes.flatMap((n) =>
+          n.name ? [n.name] : [],
+        ),
       async addColumns(number, columns) {
         const field = await statusField(number);
         if (!field) throw new Error(`Board ${number} has no Status field.`);
@@ -747,18 +832,7 @@ export function githubTickets(o: GithubOptions): Tickets {
         return added;
       },
       async addFields(number, fields) {
-        const answer = await t.graphql<{
-          data: {
-            owner: {
-              projectV2: {
-                id: string;
-                fields: { nodes: { name?: string }[] };
-              } | null;
-            } | null;
-          };
-        }>(BOARD_FIELDS, { owner: o.boardOwner ?? repoOwner, number });
-        const project = answer.data.owner?.projectV2;
-        if (!project) throw new Error(`Board ${number} could not be read.`);
+        const project = await boardFields(number);
         const missing = fields.filter(
           (f) =>
             !project.fields.nodes.some(

@@ -85,6 +85,8 @@ function remove(o: {
   go?: boolean;
   tools?: (base: Registry, tickets: Tickets) => Registry;
   env?: Record<string, string>;
+  /** The repository's value for each property its owner defines. */
+  properties?: Record<string, string | null>;
 }) {
   const root = mkdtempSync(join(tmpdir(), "remove-"));
   roots.push(root);
@@ -105,7 +107,10 @@ function remove(o: {
       out: (line) => out.push(line),
       tools: (o.tools ?? ((b) => b))(
         memoryTools({
-          codeHost: memoryCodeHost([], { owner: "dave" }).codeHost,
+          codeHost: memoryCodeHost([], {
+            owner: "dave",
+            properties: o.properties,
+          }).codeHost,
           runner: memoryRunner({ secrets: o.secrets ?? {} }).runner,
           tickets,
         }),
@@ -397,7 +402,7 @@ describe("factory remove", () => {
   });
 
   it("takes out the guard on the credentials file with the other hooks", async () => {
-    const onlyFactory = JSON.parse(withHooks(null, LAUNCHER, true));
+    const onlyFactory = JSON.parse(withHooks(null, LAUNCHER));
     delete onlyFactory.attribution;
     expect(JSON.stringify(onlyFactory)).toContain("guard credentials");
     const r = remove({
@@ -510,4 +515,75 @@ describe("factory remove, a credential kept on the machine", () => {
     expect(r.out).toContain("  Fake Tickets");
     expect(r.out.join("\n")).not.toContain(r.path);
   });
+});
+
+describe("factory remove, a person's tokens kept on the machine", () => {
+  const config = () => ({
+    XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "remove-config-")),
+  });
+  const SITE = "code.example/acme";
+  const lineFor = (path: string, tool: string) =>
+    `Delete ${SITE} under ${tool} from ${path}, unless another repository of acme's uses it.`;
+  const numbered = (out: string[]) =>
+    out.map((l) => l.replace(/^ {2}\d+\. /, ""));
+
+  it("lists the code host's token and the coding agent's credential among what is left by hand, each under its tool", async () => {
+    const env = config();
+    writeCredential({
+      tool: "github",
+      site: SITE,
+      values: { token: "tok_kept" },
+      env,
+    });
+    writeCredential({
+      tool: "claude-code",
+      site: SITE,
+      values: { CLAUDE_CODE_OAUTH_TOKEN: "claude_kept" },
+      env,
+    });
+    const r = remove({ env });
+    expect(await r.run()).toBe(0);
+    const out = numbered(r.out);
+    const path = credentialsPath(env);
+    expect(
+      out.slice(out.indexOf("  GitHub"), out.indexOf("  GitHub Issues")),
+    ).toContain(lineFor(path, "github"));
+    expect(out.slice(out.indexOf("  Claude Code"))).toContain(
+      lineFor(path, "claude-code"),
+    );
+    expect(r.out.join("\n")).not.toMatch(/tok_kept|claude_kept/);
+  });
+
+  it("lists neither when the file holds no entry for the account", async () => {
+    const env = config();
+    writeCredential({
+      tool: "github",
+      site: "code.example/other",
+      values: { token: "t" },
+      env,
+    });
+    const r = remove({ env });
+    expect(await r.run()).toBe(0);
+    expect(r.out.join("\n")).not.toContain(credentialsPath(env));
+  });
+});
+
+describe("factory remove, in an organization's repository that is set up", () => {
+  const ASK =
+    '  1. Ask an owner of acme to set the software-factory property to "off" for acme/site: until then every pull request waits on its "Review verdict" check.';
+
+  it("lists asking an owner to turn the property off, first under the code host", async () => {
+    const r = remove({ properties: { "software-factory": "on" } });
+    expect(await r.run()).toBe(0);
+    expect(r.out[r.out.indexOf("  GitHub") + 1]).toBe(ASK);
+  });
+
+  it.each([["off"], [null]])(
+    "lists no such step where the property is %s",
+    async (value) => {
+      const r = remove({ properties: { "software-factory": value } });
+      expect(await r.run()).toBe(0);
+      expect(r.out.join("\n")).not.toContain("Ask an owner");
+    },
+  );
 });

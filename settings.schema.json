@@ -345,6 +345,17 @@
           "type": "integer",
           "minimum": 1,
           "description": "How many builds the poller starts in any one hour. Default: 20."
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?=.{1,253}$)(?:\\*\\.)?(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+(?=[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$",
+            "not": {
+              "pattern": "^(?:\\*\\.com|(?:.*\\.)?github(?:usercontent)?\\.com)$"
+            }
+          },
+          "description": "The hosts a cloud session may reach besides the npm registry, such as repo.packagist.org. A leading *. covers every host under a name. GitHub is never one. Default: none."
         }
       }
     },

@@ -14,7 +14,7 @@ import {
   ROLES,
   SESSION_MINUTES,
 } from "../src/config.mts";
-import { reviewWorkflow } from "../src/workflow-files.mts";
+import { factoryWorkflow } from "../src/workflow-files.mts";
 
 const PACKAGE = ".";
 const CLI = "docs/cli.md";
@@ -658,9 +658,9 @@ describe("the docs", () => {
     expect(found).toEqual([]);
   });
 
-  it("ship a review workflow that reads either credential init can store", () => {
+  it("ship the workflows a session runs in, which read either credential init can store", () => {
     const written = load(
-      reviewWorkflow({
+      factoryWorkflow({
         version: "1.0.0",
         branch: "main",
         parts: ["review"],
@@ -670,14 +670,16 @@ describe("the docs", () => {
         overrideLabel: "verdict-override",
         secrets: [],
       }),
-    ) as { jobs: { review: { secrets: Record<string, string> } } };
-    expect(written.jobs.review.secrets).toMatchObject({
+    ) as { jobs: { factory: { secrets: Record<string, string> } } };
+    expect(written.jobs.factory.secrets).toMatchObject({
       "claude-token": "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
       "claude-api-key": "${{ secrets.ANTHROPIC_API_KEY }}",
     });
-    const review = read(".github/workflows/review.yml");
-    expect(review).toContain("secrets.claude-token");
-    expect(review).toContain("secrets.claude-api-key");
+    for (const file of ["run.yml", "session.yml"]) {
+      const text = read(`.github/workflows/${file}`);
+      expect(text, file).toContain("secrets.claude-token");
+      expect(text, file).toContain("secrets.claude-api-key");
+    }
   });
 
   it("carry no banner saying the pages are not built", () => {
@@ -996,16 +998,18 @@ describe("the docs on spec tools", () => {
     expect(workflow).not.toContain("acceptance criteria are the whole spec");
   });
 
-  it("show init's spec tool question on the setup page", () => {
+  it("say on the setup page what to answer init's spec tool question, and when it is skipped", () => {
     const setup = sectionOf(
       read("docs/github/setup.md"),
       "## Run `factory init`",
     );
-    expect(setup).toContain(
-      "? Which spec tool do you use?\n❯ None: each ticket holds its own spec\n",
+    const row = rows(setup).find(
+      ([question]) => question === "Which spec tool you use",
     );
+    expect(row?.[2]).toContain("Choose None");
+    expect(row?.[2]).toContain("[`specs`](../configuration.md#specs)");
     expect(setup.replace(/\s+/g, " ")).toContain(
-      "the spec tool question when they set `specs`",
+      "skips any that a preset or your settings already answer",
     );
   });
 

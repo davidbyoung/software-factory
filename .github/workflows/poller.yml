@@ -1,0 +1,135 @@
+# An organization's one poller, and the update of the file that calls it.
+# The repository that holds an organization's preset has a
+# .github/workflows/factory-poller.yml, which `factory init --org` writes.
+# It calls this file at the version it names, on its two schedules, so
+# nothing here is copied into that repository.
+#
+# Both jobs act with a token of the organization's own GitHub App, made for
+# every repository the App is installed on: the workflow's own token
+# reaches only the repository it runs in. The key arrives by name, since a
+# workflow in another owner's repository cannot inherit it.
+name: Factory poller run
+
+on:
+  workflow_call:
+    secrets:
+      app-key:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  # One pass over the organization's board: a build starts in each
+  # repository with a ticket in the Ready column. Every schedule of
+  # factory-poller.yml but the one below is the poller's own.
+  poller:
+    name: Start the Ready tickets
+    if: github.event_name == 'schedule' && github.event.schedule != '0 1 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A late run waits for the one before it, so two passes never read the
+    # same Ready card before either has posted its start comment.
+    concurrency:
+      group: factory-poller
+      cancel-in-progress: false
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - &node
+        name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - &install
+        name: Install the factory
+        run: |
+          version="$(sed -n 's|^ *uses: .*/poller\.yml@v\([0-9][0-9.]*\) *$|\1|p' .github/workflows/factory-poller.yml | head -n 1)"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::.github/workflows/factory-poller.yml names no release of the factory after poller.yml@v."
+            exit 1
+          fi
+          npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
+
+      - &key
+        name: Check the app's key reaches the repository
+        env:
+          APP_KEY_SET: ${{ secrets.app-key != '' }}
+          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+        run: |
+          if [ "$APP_KEY_SET" != "true" ] || [ -z "$CLIENT_ID" ]; then
+            echo "::error::FACTORY_APP_PRIVATE_KEY or FACTORY_APP_CLIENT_ID does not reach $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER runs: factory init --org $GITHUB_SERVER_URL/$GITHUB_REPOSITORY_OWNER"
+            exit 1
+          fi
+
+      # With an owner and no repository named, the token is for every
+      # repository of the installation. It carries the permissions this
+      # job's steps use and no others: with none named, it would carry all
+      # the app has.
+      - name: Make the app's token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          permission-organization-projects: read
+          permission-issues: write
+          permission-pull-requests: read
+          permission-actions: write
+          permission-contents: read
+
+      - name: Start the Ready tickets
+        env:
+          FACTORY_BOARD_TOKEN: ${{ steps.app.outputs.token }}
+        run: factory poller --once --preset factory-preset.yaml
+
+  # A pull request that raises the release factory-poller.yml names, when a
+  # newer one is out.
+  updates:
+    name: Open the update's pull request
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && github.event.schedule == '0 1 * * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: factory-poller-updates
+      cancel-in-progress: false
+    steps:
+      - *key
+
+      - name: Make the app's token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+          permission-workflows: write
+          permission-pull-requests: write
+
+      # The app's token, so the push of the update's branch is the app's:
+      # the workflow's own may not change a workflow's file.
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+
+      - *node
+
+      - *install
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          id="$(gh api "/users/$APP_SLUG[bot]" --jq .id)"
+          git config --global user.name "$APP_SLUG[bot]"
+          git config --global user.email "$id+$APP_SLUG[bot]@users.noreply.github.com"
+          factory update --pull-requests
