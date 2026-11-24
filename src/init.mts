@@ -246,6 +246,8 @@ const USAGE = "Usage: factory init [--preset NAME]... [--org ADDRESS]";
 /** The branch the setup's commit is made on. */
 const BRANCH = "set-up-factory";
 const SET_UP = "Set up the software factory";
+/** The message of the commit that gives an empty repository a branch. */
+const FIRST_COMMIT = "Start the repository";
 const CHANGE = "Change the software factory's settings";
 
 /** Each state `tickets.columns` writes, as its columns or null for none,
@@ -493,6 +495,76 @@ export function addRemote(
  * among them, and otherwise the first. */
 const remoteName = (remotes: { name: string }[]) =>
   (remotes.find((r) => r.name === "origin") ?? remotes[0]!).name;
+
+/** A repository with no branch yet has nothing for a pull request to merge
+ * into, so its first branch is pushed here, once the person says so: the
+ * branch checked out, with a first, empty commit when the checkout has
+ * none. The branch pushed, null for a repository that has a branch, or
+ * that cannot be asked, and an exit status when it stops. */
+export async function startRepository(
+  d: Pick<InitDeps, "git" | "ask" | "out">,
+  o: { repository: string; remote: string },
+): Promise<{ branch: string } | null | number> {
+  const heads = d.git(["ls-remote", "--heads", o.remote]);
+  if (heads.status !== 0 || heads.stdout.trim() !== "") return null;
+  const stop = (...lines: string[]) => {
+    for (const line of lines) d.out(line);
+    return 1;
+  };
+  const branch = d.git(["symbolic-ref", "--short", "HEAD"]).stdout.trim();
+  if (!branch)
+    return stop(
+      `✗ ${o.repository} has no commits yet, and this checkout is on no branch. Switch to one, then run factory init again.`,
+      NOTHING,
+    );
+  const unborn =
+    d.git(["rev-parse", "--verify", "--quiet", "HEAD"]).status !== 0;
+  const nothing = `${o.repository} has no commits yet, so a pull request has nothing to merge into.`;
+  const push = `git push -u ${o.remote} ${branch}`;
+  if (unborn) {
+    const make = await d.ask.confirm(
+      `${nothing} Make a first, empty commit on ${branch} and push it?`,
+      true,
+    );
+    if (!make)
+      return stop(
+        `Push a first commit, then run factory init again: git commit --allow-empty -m "${FIRST_COMMIT}" && ${push}`,
+        NOTHING,
+      );
+    // Only: whatever is staged stays staged, and out of the commit.
+    const made = d.git([
+      "commit",
+      "--quiet",
+      "--only",
+      "--allow-empty",
+      "--message",
+      FIRST_COMMIT,
+    ]);
+    if (made.status !== 0)
+      return stop(`✗ Could not commit: ${lastGitLine(made.stderr)}`, NOTHING);
+  } else {
+    const count = Number(d.git(["rev-list", "--count", "HEAD"]).stdout.trim());
+    const go = await d.ask.confirm(
+      `${nothing} Push ${branch}, which has ${count} commit${count === 1 ? "" : "s"} here?`,
+      true,
+    );
+    if (!go)
+      return stop(
+        `Push ${branch}, then run factory init again: ${push}`,
+        NOTHING,
+      );
+  }
+  const pushed = d.git(["push", "--quiet", "--set-upstream", o.remote, branch]);
+  if (pushed.status !== 0)
+    return stop(
+      `✗ Could not push ${branch} to ${o.repository}: ${pushRefusal(pushed.stderr)}`,
+      unborn ? "The first commit is made here and not pushed." : NOTHING,
+    );
+  d.out(
+    unborn ? `✓ Pushed a first commit to ${branch}.` : `✓ Pushed ${branch}.`,
+  );
+  return { branch };
+}
 
 /** Fetches the default branch from the repository's remote, and says
  * whether the commit checked out can hold the setup's commit: the commit
@@ -1009,6 +1081,14 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   // A remote that is yet to be added is read by its address: nothing in
   // the checkout changes before setup is told to go ahead.
   const reach = where.url ?? where.remote;
+  // The one commit made on the default branch: an empty repository has no
+  // other branch for the setup's pull request to merge into.
+  const started = await startRepository(d, { repository, remote: reach });
+  if (typeof started === "number") return started;
+  if (started) {
+    base = started.branch;
+    changed = true;
+  }
   const checkout = checkedOut(d, { repository, remote: reach, base });
   if (typeof checkout === "number") return checkout;
 
@@ -1844,9 +1924,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   ];
   let syncs: string[];
   try {
-    syncs = await d.syncChanges(standingFiles(), () =>
-      codeHost.defaultBranch(),
-    );
+    syncs = await d.syncChanges(standingFiles(), async () => base);
   } catch (e) {
     d.out(
       e instanceof NoDefaultBranch

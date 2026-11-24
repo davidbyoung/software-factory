@@ -424,3 +424,189 @@ describe("whether a repository on GitHub is a fork", () => {
     ).rejects.toThrow("not signed in");
   });
 });
+
+describe("factory init, a repository with no commits yet", () => {
+  const NOTHING_YET =
+    "acme/site has no commits yet, so a pull request has nothing to merge into.";
+  const FIRST = `confirm: ${NOTHING_YET} Make a first, empty commit on trunk and push it?`;
+  const PUSH = (n: string) =>
+    `confirm: ${NOTHING_YET} Push trunk, which has ${n} here?`;
+  const unborn = (over: Partial<Setup> = {}) =>
+    init({
+      empty: { branch: "trunk", commits: 0 },
+      answers: { checkbox: [[]], confirm: [true, true] },
+      ...over,
+    });
+  const ran = (r: ReturnType<typeof init>, command: string) =>
+    r.git.filter((args) => args[0] === command);
+
+  it("asks nothing of the kind when the repository has a branch", async () => {
+    const r = quick();
+    await r.run();
+    expect(r.asked.filter((q) => q.includes("no commits yet"))).toEqual([]);
+    expect(ran(r, "push")).toHaveLength(1);
+  });
+
+  it("asks whether to make a first, empty commit and push it, yes for Enter, before the checkout is checked and before any other question", async () => {
+    const r = unborn();
+    expect(await r.run()).toBe(0);
+    expect(r.asked[0]).toBe(FIRST);
+    expect(r.fallbacks[FIRST.slice("confirm: ".length)]).toBe(true);
+    expect(r.events.indexOf(`? ${FIRST}`)).toBeLessThan(
+      r.events.indexOf("git fetch"),
+    );
+  });
+
+  it("makes the commit, empty and of nothing staged, pushes the branch with its upstream set, and says so", async () => {
+    const r = unborn();
+    await r.run();
+    const [made] = ran(r, "commit");
+    expect(made).toEqual(
+      expect.arrayContaining([
+        "--allow-empty",
+        "--only",
+        "--message",
+        "Start the repository",
+      ]),
+    );
+    const [first] = ran(r, "push");
+    expect(first).toEqual(
+      expect.arrayContaining(["--set-upstream", "origin", "trunk"]),
+    );
+    expect(r.out[0]).toBe("✓ Pushed a first commit to trunk.");
+    expect(r.out[1]).toBe("Setting up the software factory for acme/site");
+  });
+
+  it("carries on with that branch as the default branch", async () => {
+    const r = unborn();
+    expect(await r.run()).toBe(0);
+    expect(r.git).toContainEqual(["fetch", "--quiet", "origin", "trunk"]);
+    expect(r.branchAsked).toEqual(["trunk"]);
+    expect(await r.host.codeHost.get(1)).toMatchObject({
+      head: { branch: "set-up-factory" },
+      base: { branch: "trunk" },
+    });
+    expect(r.out.join("\n")).toContain("git switch trunk && git pull");
+  });
+
+  it("stops on a no, with the commands to run, having changed nothing", async () => {
+    const r = unborn({ answers: { confirm: [false] } });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      'Push a first commit, then run factory init again: git commit --allow-empty -m "Start the repository" && git push -u origin trunk',
+      "Nothing changed.",
+    ]);
+    expect(ran(r, "commit")).toEqual([]);
+    expect(ran(r, "push")).toEqual([]);
+  });
+
+  it("asks instead whether to push the branch, with how many commits it has, when the checkout has some", async () => {
+    const r = unborn({ empty: { branch: "trunk", commits: 2 } });
+    expect(await r.run()).toBe(0);
+    expect(r.asked[0]).toBe(PUSH("2 commits"));
+    expect(r.fallbacks[PUSH("2 commits").slice("confirm: ".length)]).toBe(true);
+    expect(ran(r, "commit")).toHaveLength(1);
+    expect(ran(r, "commit")[0]).not.toContain("--allow-empty");
+    expect(ran(r, "push")[0]).toEqual(
+      expect.arrayContaining(["--set-upstream", "origin", "trunk"]),
+    );
+    expect(r.out[0]).toBe("✓ Pushed trunk.");
+    expect(r.git).toContainEqual(["fetch", "--quiet", "origin", "trunk"]);
+  });
+
+  it("says 1 commit for one", async () => {
+    const r = unborn({
+      empty: { branch: "trunk", commits: 1 },
+      answers: { confirm: [false] },
+    });
+    await r.run();
+    expect(r.asked).toEqual([PUSH("1 commit")]);
+  });
+
+  it("stops on a no to pushing the branch, with the command to run", async () => {
+    const r = unborn({
+      empty: { branch: "trunk", commits: 2 },
+      answers: { confirm: [false] },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      "Push trunk, then run factory init again: git push -u origin trunk",
+      "Nothing changed.",
+    ]);
+    expect(ran(r, "push")).toEqual([]);
+  });
+
+  const refused = (args: string[]) =>
+    args[0] === "push"
+      ? {
+          status: 1,
+          stderr:
+            "remote: Permission to acme/site.git denied to dev.\nfatal: unable to access\n",
+        }
+      : undefined;
+
+  it("says what the remote said when the first commit cannot be pushed, and that the commit is made here", async () => {
+    const r = unborn({ answers: { confirm: [true] }, git: refused });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      "✗ Could not push trunk to acme/site: remote: Permission to acme/site.git denied to dev.",
+      "The first commit is made here and not pushed.",
+    ]);
+  });
+
+  it("says nothing changed when a branch with commits cannot be pushed", async () => {
+    const r = unborn({
+      empty: { branch: "trunk", commits: 2 },
+      answers: { confirm: [true] },
+      git: refused,
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out).toEqual([
+      "✗ Could not push trunk to acme/site: remote: Permission to acme/site.git denied to dev.",
+      "Nothing changed.",
+    ]);
+  });
+
+  it("asks after which repository, when that is asked", async () => {
+    const r = init({
+      empty: { branch: "trunk", commits: 0 },
+      remotes: [
+        { name: "origin", url: "git@github.com:dev/web.git" },
+        { name: "upstream", url: "git@github.com:acme/web.git" },
+      ],
+      answers: { select: ["acme/web"], confirm: [false] },
+    });
+    await r.run();
+    expect(r.asked).toEqual([
+      QUESTION,
+      "confirm: acme/web has no commits yet, so a pull request has nothing to merge into. Make a first, empty commit on trunk and push it?",
+    ]);
+    expect(r.out[0]).toContain("git push -u upstream trunk");
+  });
+
+  it("says nothing else changed at a later stop, the first commit being pushed", async () => {
+    const r = unborn({
+      agent: scriptedAgent([], { installed: false }),
+      answers: { confirm: [true] },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out.at(-1)).toBe("Nothing else changed.");
+  });
+
+  it("leaves a remote it cannot list to the fetch, which says why", async () => {
+    const r = quick({
+      git: (args) =>
+        args[0] === "ls-remote" || args[0] === "fetch"
+          ? {
+              status: 128,
+              stderr: "fatal: Could not read from remote repository.\n",
+            }
+          : undefined,
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.asked).toEqual([]);
+    expect(r.out[0]).toBe(
+      "✗ Could not fetch main from acme/site: fatal: Could not read from remote repository.",
+    );
+  });
+});

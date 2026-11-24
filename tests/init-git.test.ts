@@ -20,8 +20,9 @@ import {
   freeBranch,
   initDeps,
   main,
-  openPull,
   addRemote,
+  openPull,
+  startRepository,
   whichRepository,
   type Files,
   type InitDeps,
@@ -500,6 +501,165 @@ describe("the files the sync writes, against the real sync and the real git", ()
     expect(await host.codeHost.get(1)).toMatchObject({
       head: { branch: "set-up-factory" },
       base: { branch: "main" },
+    });
+  });
+});
+
+describe("a repository with no commits yet, against the real git", () => {
+  let bare: string;
+  let fresh: string;
+  let deps: InitDeps;
+  const lines: string[] = [];
+  const NOTHING_YET =
+    "acme/web has no commits yet, so a pull request has nothing to merge into.";
+  const start = (answer: boolean) => {
+    const s = scripted({ confirm: [answer] });
+    return {
+      asked: s.asked,
+      result: startRepository(
+        { git: deps.git, ask: s.ask, out: (l) => void lines.push(l) },
+        { repository: "acme/web", remote: "origin" },
+      ),
+    };
+  };
+  const heads = () => git(bare, "for-each-ref", "--format=%(refname:short)");
+  const unborn = () =>
+    spawnSync("git", ["rev-parse", "--verify", "--quiet", "HEAD"], {
+      cwd: fresh,
+    }).status !== 0;
+  /** Two commits in the checkout, pushed nowhere. */
+  const commitTwice = () => {
+    for (const name of ["one.md", "two.md"]) {
+      writeFileSync(join(fresh, name), `${name}\n`);
+      git(fresh, "add", name);
+      git(fresh, "commit", "--quiet", "--message", `Add ${name}`);
+    }
+  };
+
+  beforeEach(async () => {
+    lines.splice(0);
+    bare = join(world, "empty.git");
+    fresh = join(world, "fresh");
+    git(world, "init", "--quiet", "--bare", "--initial-branch", "trunk", bare);
+    git(world, "clone", "--quiet", bare, fresh);
+    deps = await initDeps(fresh);
+  });
+
+  it("asks nothing of a repository that has a branch", async () => {
+    const s = scripted({});
+    expect(
+      await startRepository(
+        { git: d.git, ask: s.ask, out: (l) => void lines.push(l) },
+        { repository: "acme/web", remote: "origin" },
+      ),
+    ).toBeNull();
+    expect(s.asked).toEqual([]);
+    expect(lines).toEqual([]);
+  });
+
+  it("makes a first commit in a checkout with none, empty whatever is staged, and pushes its branch with the upstream set", async () => {
+    writeFileSync(join(fresh, "staged.md"), "staged\n");
+    git(fresh, "add", "staged.md");
+    writeFileSync(join(fresh, "notes.txt"), "mine\n");
+    const { asked, result } = start(true);
+    expect(await result).toEqual({ branch: "trunk" });
+    expect(asked).toEqual([
+      `confirm: ${NOTHING_YET} Make a first, empty commit on trunk and push it?`,
+    ]);
+    expect(lines).toEqual(["✓ Pushed a first commit to trunk."]);
+
+    expect(heads()).toBe("trunk");
+    expect(git(bare, "rev-parse", "trunk")).toBe(
+      git(fresh, "rev-parse", "HEAD"),
+    );
+    expect(git(fresh, "log", "--format=%s")).toBe("Start the repository");
+    expect(git(fresh, "ls-tree", "-r", "HEAD")).toBe("");
+    expect(git(fresh, "status", "--porcelain")).toBe(
+      "A  staged.md\n?? notes.txt",
+    );
+    expect(git(fresh, "rev-parse", "--abbrev-ref", "trunk@{upstream}")).toBe(
+      "origin/trunk",
+    );
+  });
+
+  it("sets the upstream in a checkout that was not cloned, which has none", async () => {
+    fresh = join(world, "started-here");
+    git(world, "init", "--quiet", "--initial-branch", "trunk", fresh);
+    git(fresh, "remote", "add", "origin", bare);
+    deps = await initDeps(fresh);
+    expect(await start(true).result).toEqual({ branch: "trunk" });
+    expect(git(fresh, "rev-parse", "--abbrev-ref", "trunk@{upstream}")).toBe(
+      "origin/trunk",
+    );
+  });
+
+  it("leaves a checkout the setup's commit can go on: at the default branch it just pushed", async () => {
+    expect(await start(true).result).toEqual({ branch: "trunk" });
+    expect(
+      checkedOut(
+        { git: deps.git, out: (l) => void lines.push(l) },
+        { repository: "acme/web", remote: "origin", base: "trunk" },
+      ),
+    ).toEqual({ sha: git(fresh, "rev-parse", "HEAD") });
+  });
+
+  it("pushes the branch of a checkout with two commits that were pushed nowhere, making no commit of its own", async () => {
+    commitTwice();
+    const before = git(fresh, "rev-parse", "HEAD");
+    const { asked, result } = start(true);
+    expect(await result).toEqual({ branch: "trunk" });
+    expect(asked).toEqual([
+      `confirm: ${NOTHING_YET} Push trunk, which has 2 commits here?`,
+    ]);
+    expect(lines).toEqual(["✓ Pushed trunk."]);
+    expect(git(bare, "rev-parse", "trunk")).toBe(before);
+    expect(git(fresh, "rev-parse", "HEAD")).toBe(before);
+    expect(git(fresh, "rev-parse", "--abbrev-ref", "trunk@{upstream}")).toBe(
+      "origin/trunk",
+    );
+  });
+
+  it("makes no commit and pushes nothing when told no, and says what to run", async () => {
+    expect(await start(false).result).toBe(1);
+    expect(lines).toEqual([
+      'Push a first commit, then run factory init again: git commit --allow-empty -m "Start the repository" && git push -u origin trunk',
+      "Nothing changed.",
+    ]);
+    expect(unborn()).toBe(true);
+    expect(heads()).toBe("");
+  });
+
+  it("pushes nothing of a checkout with commits when told no", async () => {
+    commitTwice();
+    expect(await start(false).result).toBe(1);
+    expect(lines).toEqual([
+      "Push trunk, then run factory init again: git push -u origin trunk",
+      "Nothing changed.",
+    ]);
+    expect(heads()).toBe("");
+  });
+
+  describe("with a remote that refuses the push", () => {
+    // The remote lists its branches, and takes none.
+    beforeEach(() =>
+      git(fresh, "remote", "set-url", "--push", "origin", join(world, "gone")),
+    );
+
+    it("says git's reason, and that the first commit is made here and not pushed", async () => {
+      expect(await start(true).result).toBe(1);
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toMatch(/^✗ Could not push trunk to acme\/web: \S/);
+      expect(lines[1]).toBe("The first commit is made here and not pushed.");
+      expect(git(fresh, "log", "--format=%s")).toBe("Start the repository");
+      expect(heads()).toBe("");
+    });
+
+    it("says nothing changed for a checkout whose own commits it could not push", async () => {
+      commitTwice();
+      expect(await start(true).result).toBe(1);
+      expect(lines[0]).toMatch(/^✗ Could not push trunk to acme\/web: \S/);
+      expect(lines[1]).toBe("Nothing changed.");
+      expect(git(fresh, "rev-list", "--count", "HEAD")).toBe("2");
     });
   });
 });

@@ -190,6 +190,9 @@ export type Setup = {
   /** The repository each fork was made from, by the fork's name; `false`
    * when the code host cannot say. No repository is a fork unless given. */
   forks?: Record<string, string> | false;
+  /** A repository with no branch on the code host yet: the branch the
+   * checkout is on, and how many commits it has. */
+  empty?: { branch: string; commits: number };
   /** What git answers a command, in place of the checkout's own answer:
    * undefined to leave it be. */
   git?: (args: string[]) => Partial<GitResult> | undefined;
@@ -376,13 +379,34 @@ export function init(setup: Setup) {
   const looked: string[] = [];
   /** The checkout as git answers for it: on the default branch with
    * nothing of its own, and every path asked about changed. */
+  const branch = setup.empty?.branch ?? "main";
+  /** Whether the checkout has a commit, and the code host a branch. */
+  let committed = (setup.empty?.commits ?? 1) > 0;
+  let pushed = setup.empty === undefined;
   const answer = (args: string[]): Partial<GitResult> => {
     const [command] = args;
+    if (command === "commit") committed = true;
+    if (command === "push") pushed = true;
+    if (command === "symbolic-ref") return { stdout: `${branch}\n` };
+    if (command === "rev-parse" && args.includes("--verify"))
+      return { status: committed ? 0 : 1 };
     if (command === "rev-parse")
-      return { stdout: args[1] === "FETCH_HEAD" ? "base000\n" : "main\n" };
-    if (command === "rev-list") return { stdout: "0\n" };
+      return {
+        stdout: args[1] === "FETCH_HEAD" ? "base000\n" : `${branch}\n`,
+      };
+    if (command === "rev-list")
+      return {
+        stdout:
+          args.at(-1) === "HEAD" ? `${setup.empty?.commits ?? 1}\n` : "0\n",
+      };
     if (command === "show-ref") return { status: 1 };
-    if (command === "ls-remote") return { status: 2 };
+    // Asked for one branch by name, the remote has none of the setup's;
+    // asked for every branch, it has the default one once anything is
+    // pushed.
+    if (command === "ls-remote")
+      return args.includes("--exit-code")
+        ? { status: 2 }
+        : { stdout: pushed ? `base000\trefs/heads/${branch}\n` : "" };
     if (command === "cat-file")
       return { status: setup.settings === undefined ? 1 : 0 };
     if (command === "status")
