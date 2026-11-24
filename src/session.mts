@@ -158,7 +158,7 @@ export function workOf(
 }
 
 /** `factory session ready KIND ID [REVIEW]`, `factory session
- * repositories`, and `factory session token [--keep]`. */
+ * repositories`, and `factory session token`. */
 export async function run(argv: string[]): Promise<number> {
   const [step, kind, ...rest] = argv;
   const env = process.env;

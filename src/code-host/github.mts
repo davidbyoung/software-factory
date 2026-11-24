@@ -1153,7 +1153,6 @@ export function githubOrganization(o: {
     return {
       id: found.id,
       app: app?.name ?? found.app_slug,
-      slug: found.app_slug,
       all: found.repository_selection === "all",
       page: found.html_url,
     };
@@ -1320,7 +1319,6 @@ export function githubOrganization(o: {
         return null;
       return {
         name: app.name,
-        slug,
         installPage: installPage(slug, app.owner.id),
       };
     },

@@ -1568,7 +1568,6 @@ describe("an organization, on GitHub", () => {
     expect(await o.installation("Iv23client")).toEqual({
       id: 52811,
       app: "Software Factory for acme",
-      slug: "software-factory-for-acme",
       all: false,
       page: "https://github.com/organizations/acme/settings/installations/52811",
     });
@@ -1733,7 +1732,6 @@ describe("an organization, on GitHub", () => {
     it("is found by the name it was registered under, with the page that installs it", async () => {
       expect(await registered(APP)).toEqual({
         name: "Software Factory for acme",
-        slug: "software-factory-for-acme",
         installPage:
           "https://github.com/apps/software-factory-for-acme/installations/new/permissions?suggested_target_id=4242",
       });

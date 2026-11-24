@@ -62,8 +62,9 @@ as a code host's billing or what its workflows can see, are in
   and the coding agent's
   ([The file on your machine](credentials.md#the-file-on-your-machine)).
   Init checks them itself, the next time it would store them.
-- **A session in the cloud can't install from GitHub Packages.** It has no
-  GitHub token, and its commands can't reach GitHub
+- **A session in the cloud can't install from GitHub Packages itself.** Your
+  default branch's packages are installed before it starts, and after that it
+  has no GitHub token and its commands can't reach GitHub
   ([GitHub Packages](github/setup.md#github-packages)).
 - **Dependabot's pull requests do not merge themselves under an
   organization's app, as set up.** The job that turns auto-merge on for
@@ -147,9 +148,9 @@ as a code host's billing or what its workflows can see, are in
   the ticket, the pull request, and its threads to go on. No conversation
   is carried from one run to the next.
 - **A cloud build's pull request gets two rounds of review and four
-  answers,** then waits for a person. Both numbers are fixed there:
-  [`rules.review-rounds`](configuration.md#rules) changes the first only in
-  a session on your machine.
+  answers,** then waits for a person.
+  [`rules.review-rounds`](configuration.md#rules) changes the first. The
+  four is fixed.
 - **A round of review in the cloud is slow.** Each answer is a new run on
   new machines, which installs everything again.
 - **A cloud build runs for up to 230 minutes by default**

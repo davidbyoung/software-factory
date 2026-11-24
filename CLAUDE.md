@@ -194,7 +194,7 @@ The code that decides what runs and who merges, which the trace also
 covers, is everything under `src/` that a workflow, a hook, or a skill's
 gate runs, and the commands a person runs to set a repository or an
 organization up: in particular `merge-policy.mts`, `review-verdict.mts`,
-`review-tools.mts`, `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
+`poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
 `ticket.mts`, which starts the board sync,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
 `workflow-files.mts`, `session.mts` and the `session-*.mts` files,

@@ -169,9 +169,8 @@ short list of them, and only on the run's own ticket and pull request:
 - Add a line to the [follow-ups ticket](workflow.md#follow-ups), and, from
   a Conflict or a Dependency run, open a ticket.
 
-Anything else is refused, and the run's log names it: labels, a merge, and
-the note of what the session cost are among them. A `factory` command that
-reads something Prepare did not hand over says so:
+Anything else, such as a label or a merge, is refused as the session asks for
+it, with the reason. A `factory` command that reads something Prepare did not hand over says so:
 
 ```text
 ✗ Ticket 40 was not handed to this run. Go on without it, or stop with: factory ticket stop 12 "needs ticket 40"
@@ -179,10 +178,11 @@ reads something Prepare did not hand over says so:
 
 **After it pushes, Publish waits for CI,** for up to an hour, and says on
 the pull request when CI has not finished by then. When CI passes, it marks
-a draft ready, which starts the review. When CI fails, or the review asks
+a draft ready, which starts the review, unless the session opened it with
+`factory pr open --draft` for you to mark ready yourself. When CI fails, or the review asks
 for changes, the next answer starts by itself, if a build in the cloud
-opened the pull request. Two reviews that asked for changes are answered,
-and a pull request gets at most four answers started this way. Then Publish
+opened the pull request. Two reviews that asked for changes are answered
+([`rules.review-rounds`](configuration.md#rules)), and a pull request gets at most four answers started this way. Then Publish
 says so on it:
 
 ```text
@@ -193,6 +193,13 @@ An answer to a review you submit counts toward neither limit. On a pull
 request that no build in the cloud opened, the session that opened it
 answers the automated review, or you
 [start an answer by hand](github/reference.md#the-jobs).
+
+A session that ends early pushes nothing, and Publish says so on the ticket
+or the pull request, with the run's address:
+
+```text
+The session did not finish, and nothing of its was pushed. Its run: https://your-code-host/your-name/your-repo/runs/123456789
+```
 
 ### A change to a workflow file
 
@@ -252,8 +259,9 @@ or close another ticket in their message.
 ### What a run costs
 
 - **Your coding agent's use,** which the run's log ends with: its turns,
-  its minutes, and its price at list prices. A cloud run's use is not added
-  to the ticket's Cost.
+  its minutes, and its price at list prices. Publish notes it on the pull
+  request, or on the ticket when there is none, and the board adds it to the
+  ticket's Cost.
 - **The cloud runner's minutes,** on a plan that bills them. GitHub rounds
   each job up to a whole minute, so a run is at least three. Publish's
   minutes include its wait for CI, so a run whose CI takes 20 minutes pays

@@ -319,9 +319,6 @@ export type Installation = {
   id: number;
   /** The app's name. */
   app: string;
-  /** The name the code host knows the app's account by, or null when it
-   * does not say. */
-  slug: string | null;
   /** Whether it is installed on every repository, not a chosen few. */
   all: boolean;
   /** The page that chooses its repositories. */
@@ -403,7 +400,7 @@ export type Organization = {
    * when the code host cannot find it. */
   registeredApp(
     clientId: string,
-  ): Promise<{ name: string; slug: string; installPage: string } | null>;
+  ): Promise<{ name: string; installPage: string } | null>;
   /** The installation of the app with that client ID, or null. */
   installation(clientId: string): Promise<Installation | null>;
   /** The same, looked for until it shows: null when it never does. */

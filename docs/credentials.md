@@ -22,12 +22,10 @@ the GitHub ones.
   joining a repository needs the two logins, and the `factory` command
   [installed](quick-start.md#1-install) once on their machine. The workflows
   make a token for each job that needs one from the organization's GitHub
-  App. An owner stored four things for the organization once, when they [set
+  App. An owner stored three things for the organization once, when they [set
   it up](github/setup.md#set-an-organization-up-once):
   - the App's key, as the secret `FACTORY_APP_PRIVATE_KEY`;
   - its client ID, as the variable `FACTORY_APP_CLIENT_ID`;
-  - its name as GitHub writes it in an address, as the variable
-    `FACTORY_APP_SLUG`;
   - what pays for sessions, as the secret `CLAUDE_CODE_OAUTH_TOKEN`, or
     `ANTHROPIC_API_KEY` for an API key.
 
@@ -64,8 +62,9 @@ in an organization and on your own account alike:
 | Session | Yes, confined to the agent's sandbox | What pays for the session, which is kept from every command it runs, and the repository's own secrets, such as the one your `.npmrc` reads, which its commands can read |
 | Publish | No                                   | The App's key, or your build token. The review's also has the workflow's own token, which posts the threads and the verdict                                             |
 
-The session's job has no permission on GitHub at all: its workflow token
-can do nothing, and no key or token of yours reaches the job. Prepare and
+No key or token of yours for GitHub reaches the session's job. Its workflow
+token can only read packages, and reaches one step, which installs your
+default branch's dependencies before the session starts. Prepare and
 Publish run nothing from the branch the session works on.
 
 The App's key also reaches the jobs that run no session: who merges, the

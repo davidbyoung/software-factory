@@ -333,7 +333,6 @@ the run. In an organization that is set up, nobody stores any of them.
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `FACTORY_APP_PRIVATE_KEY`, a secret | The key of the organization's GitHub App, from which each job that needs a token makes one. [What each job holds](../credentials.md#what-each-job-holds) lists them, and [Replacing the App's key](../credentials.md#replacing-the-apps-key) has the steps |
 | `FACTORY_APP_CLIENT_ID`, a variable | Which App the key belongs to                                                                                                                                                                                                                               |
-| `FACTORY_APP_SLUG`, a variable      | The App's name as GitHub writes it in an address                                                                                                                                                                                                           |
 | `CLAUDE_CODE_OAUTH_TOKEN`, a secret | What pays for sessions, or `ANTHROPIC_API_KEY` for an API key                                                                                                                                                                                              |
 
 What you store on a repository:

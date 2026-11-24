@@ -228,7 +228,7 @@ Registering the GitHub App "Software Factory for acme". Two steps, both in your 
 The coding agent's token: running claude setup-token...
 ? Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):
 Trying the token...
-✓ Stored 2 secrets and 2 variables for acme.
+✓ Stored 2 secrets and 1 variable for acme.
 ✓ Required "Review verdict" where the property software-factory is "on".
 
 ✓ acme is set up.
@@ -268,7 +268,7 @@ browser. What it does not say:
 | What it created                                                                                                    | Where to find it                                            |
 | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
 | The GitHub App "Software Factory for acme", which builds in the cloud act as                                       | The organization's Settings, GitHub Apps                    |
-| Two secrets and two variables, which [Where your tokens are kept](../credentials.md#on-github) names               | The organization's Settings, Secrets and variables, Actions |
+| Two secrets and a variable, which [Where your tokens are kept](../credentials.md#on-github) names                  | The organization's Settings, Secrets and variables, Actions |
 | The repository `acme/factory-config`, with the organization's preset and its one poller                            | Among the organization's repositories                       |
 | The rule "Software factory", which requires "Review verdict" in each repository set up with the factory            | The organization's Settings                                 |
 | A board with the factory's columns and fields, or the board you chose, with its own columns and whatever it lacked | The organization's Projects                                 |
@@ -505,10 +505,11 @@ it: where step 3 would have `init` store one, store that personal access
 token yourself, with `gh secret set PACKAGES_TOKEN --app dependabot`, and in
 step 4 name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
 
-A session in the cloud can't install from GitHub Packages, whatever the
-variable is called: it has no GitHub token, and its commands can't reach
-GitHub. Build that repository's tickets on your machine
-([Limitations](../limitations.md#what-it-does-not-do)).
+In the cloud, your default branch's packages are installed with that token
+before the session starts. The session itself has no GitHub token, and its
+commands can't reach GitHub, so it can't install the packages of the branch
+it works on. When your gate needs them, build that repository's tickets on
+your machine ([Limitations](../limitations.md#what-it-does-not-do)).
 
 ### 2. Make a read-only token
 

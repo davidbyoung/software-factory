@@ -509,7 +509,7 @@ interface does not carry, such as a comment's `html_url`, is not among
 them.
 
 A second implementation exists from the start, `tests/memory-code-host.ts`,
-that the tests of `pr`, `deps`, `build`, and `review cost` run against.
+that the tests of `pr`, `deps`, and `build` run against.
 GitHub's has its own tests against faked replies, which is where a test
 of which call GitHub is sent belongs.
 

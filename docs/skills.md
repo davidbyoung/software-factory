@@ -188,8 +188,7 @@ session when there is not. It pushes once and ends.
 **What it writes.** Commits on the branch, a reply on each thread, and one
 report.
 
-**When it stops.** After two rounds (`rules.review-rounds`, and always two
-in the cloud), whatever is still in dispute goes to you instead of through
+**When it stops.** After two rounds (`rules.review-rounds`), whatever is still in dispute goes to you instead of through
 another round. In the cloud a pull request also gets at most four answers.
 
 **What it never does.** Resolve a thread it neither fixed nor disproved.

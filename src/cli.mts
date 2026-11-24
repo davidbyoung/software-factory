@@ -302,21 +302,6 @@ export const COMMANDS: Command[] = [
     run: async () => (await import("./review-verdict.mts")).run(),
   },
   {
-    words: ["review", "cost"],
-    args: "",
-    run: async () => (await import("./review-cost.mts")).run(),
-  },
-  {
-    words: ["review", "tools"],
-    args: "",
-    run: async () => (await import("./review-tools.mts")).run(),
-  },
-  {
-    words: ["review", "tickets"],
-    args: "N",
-    run: async (argv) => (await import("./review-tickets.mts")).run(argv),
-  },
-  {
     words: ["session", "ready"],
     args: "build|conflicts|deps|review [PR REVIEW]",
     run: async (argv) =>
