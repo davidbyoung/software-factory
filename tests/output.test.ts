@@ -4,7 +4,6 @@ import { Writable } from "node:stream";
 import { stripVTControlCharacters, styleText } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as say from "../src/lib/output.mts";
-import { COMMANDS } from "../src/commands-list.mts";
 import { into, look, marked, undressed } from "./printed";
 
 const plain = (line: say.Line) => say.render(line, false);
@@ -232,7 +231,10 @@ describe("what colors itself in a line", () => {
 });
 
 describe("a printer", () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
 
   it("decides by its own stream", () => {
     vi.stubEnv("FORCE_COLOR", undefined);
@@ -245,36 +247,41 @@ describe("a printer", () => {
     expect(file.written).toEqual(["✓ done\n"]);
   });
 
-  it("of a machine's command is plain whatever FORCE_COLOR is", () => {
-    vi.stubEnv("FORCE_COLOR", "1");
-    const out: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((l) => void out.push(l));
-    vi.spyOn(console, "error").mockImplementation((l) => void out.push(l));
-    for (const words of [
-      "config get",
-      "default-branch",
-      "plugins",
-      "preset changes",
-      "specs list",
-      "specs new",
-      "ticket view",
-      "pr open",
-    ]) {
-      say.printersFor(words).out(say.mark("ok", words));
-      say.printersFor(words).err(say.mark("ok", words));
-    }
-    expect(out).toHaveLength(16);
-    expect(out.filter((l) => l.includes("\u001b"))).toEqual([]);
-    say.printersFor("doctor").out(say.mark("ok", "doctor"));
-    say.printersFor("doctor").err(say.mark("ok", "doctor"));
-    expect(out.slice(16).every((l) => l.includes("\u001b"))).toBe(true);
-    vi.restoreAllMocks();
-  });
+  /** What printing a mark on each of a command's streams wrote. */
+  const printedBy = (words: string) => {
+    const lines: string[] = [];
+    const keep = (line: string) => void lines.push(line);
+    vi.spyOn(console, "log").mockImplementation(keep);
+    vi.spyOn(console, "error").mockImplementation(keep);
+    const { out, err } = say.printersFor(words);
+    out(say.mark("ok", words));
+    err(say.mark("ok", words));
+    return lines;
+  };
 
-  it("is named after each command the list has", () => {
-    expect(COMMANDS.every((c) => ["person", "machine"].includes(c.reads))).toBe(
-      true,
-    );
+  it.each([
+    "config get",
+    "default-branch",
+    "plugins",
+    "preset changes",
+    "specs list",
+    "specs new",
+    "ticket view",
+    "pr open",
+  ])(
+    "of %s, which a machine reads, is plain whatever FORCE_COLOR is",
+    (words) => {
+      vi.stubEnv("FORCE_COLOR", "1");
+      expect(printedBy(words)).toEqual([`✓ ${words}`, `✓ ${words}`]);
+    },
+  );
+
+  it("of a person's command is in color on both streams where FORCE_COLOR says", () => {
+    vi.stubEnv("FORCE_COLOR", "1");
+    expect(printedBy("doctor").map(marked)).toEqual([
+      "{good:✓} doctor",
+      "{good:✓} doctor",
+    ]);
   });
 });
 

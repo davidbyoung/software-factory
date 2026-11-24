@@ -2498,6 +2498,12 @@ describe("factory config explain, in color", () => {
     ]);
   });
 
+  it("leaves a list's item and an address in the settings as they are", () => {
+    const lines = ["  gate:", "    - npm test", "  url: https://a.example"];
+    expect(explainedLines(lines).map(look)).toEqual(lines);
+    expect(explainedLines(["- npm test"]).map(look)).toEqual(["- npm test"]);
+  });
+
   it("leaves a quoted value holding a comment's spacing alone", () => {
     const lines = [
       at("  board: 3", "default"),

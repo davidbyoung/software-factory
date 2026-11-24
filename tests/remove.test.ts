@@ -96,6 +96,7 @@ function remove(o: {
     writeFileSync(join(root, path), text);
   }
   const out: string[] = [];
+  const looks: string[] = [];
   const asked: string[] = [];
   const tickets = memoryTickets([]).tickets;
   const run = () =>
@@ -105,7 +106,7 @@ function remove(o: {
         asked.push(message);
         return o.go ?? true;
       },
-      out: into(out),
+      out: into(out, looks),
       tools: (o.tools ?? ((b) => b))(
         memoryTools({
           codeHost: memoryCodeHost([], {
@@ -122,7 +123,7 @@ function remove(o: {
     });
   const has = (path: string) => existsSync(join(root, path));
   const read = (path: string) => readFileSync(join(root, path), "utf8");
-  return { run, out, asked, has, read };
+  return { run, out, looks, asked, has, read };
 }
 
 const DELETED = [
@@ -258,6 +259,18 @@ describe("factory remove", () => {
       ".gitignore",
     ])
       expect(r.read(path)).toBe(SYNCED[path]);
+  });
+
+  it("has bold labels in its plan, and yellow on what is left by hand", async () => {
+    const r = remove({});
+    await r.run();
+    expect(r.looks[0]).toBe("{heading:This is everything remove will do:}");
+    expect(r.looks[1]).toMatch(/^ {2}\{name:Delete\} {3}\S/);
+    expect(r.looks).toContain(
+      "{yourTurn:Nothing is committed. Left for you to do by hand:}",
+    );
+    expect(r.looks).toContain("  {heading:Then}");
+    expect(r.looks.at(-1)).toMatch(/^ {2}\{yourTurn:\d\.\} Commit this/);
   });
 
   it("prints what is left by hand under the tool it belongs to, numbered straight through", async () => {

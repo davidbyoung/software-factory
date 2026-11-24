@@ -127,7 +127,7 @@ describe("factory init, in an organization's repository that is set up", () => {
     ]);
   });
 
-  it("prints each line in the look the ticket's marked transcript gives it", async () => {
+  it("has bold labels, dim notes, cyan to copy, and yellow on what the person does, from the first line to the last", async () => {
     const r = dev();
     expect(await r.run()).toBe(0);
     expect(r.looks).toEqual([

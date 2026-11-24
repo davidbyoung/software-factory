@@ -582,6 +582,12 @@ describe("factory init, the signing key", () => {
     await r.run();
     expect(r.host.settings.signingKeys).toEqual([]);
     expect(r.out.join("\n")).toContain("ssh-ed25519 PUBLIC");
+    expect(r.looks).toContainEqual(
+      expect.stringMatching(/^\{yourTurn:Add this public key to .*:\}$/),
+    );
+    expect(r.looks).toContainEqual(
+      expect.stringMatching(/^ {2}\{copy:ssh-ed25519 PUBLIC.*\}$/),
+    );
     expect(r.runner.secrets.get("FACTORY_SIGNING_KEY")).toBe(PRIVATE_KEY);
     printsNoSecret(r.out);
   });
@@ -783,6 +789,17 @@ describe("factory init, where the poller runs", () => {
         "       FACTORY_READY_COLUMN=Ready",
       ].join("\n"),
     );
+  });
+
+  it("gives each of the five as one to copy, under the step's number", async () => {
+    const r = chosen("own-server");
+    await r.run();
+    const left = r.looks.find((l) => l.includes("Run the poller's image"));
+    expect(left).toMatch(/^ {2}\{yourTurn:1\.\} Run the poller's image/);
+    expect(left!.split("\n").slice(1, 3)).toEqual([
+      "       {copy:FACTORY_REPOSITORY=acme/site}",
+      expect.stringMatching(/^ {7}\{copy:FACTORY_BOARD_OWNER=.*\}$/),
+    ]);
   });
 
   it.each(["github-action", "own-server"])(
@@ -1779,6 +1796,9 @@ describe("factory init, the column step", () => {
     expect(r.out).toContain(
       "Add any of these fields board 3 lacks, by hand: Session, Runs in, Cost.",
     );
+    expect(r.looks).toContain(
+      "{yourTurn:Add any of these fields board 3 lacks, by hand:} Session, Runs in, Cost.",
+    );
   });
 
   it("names the columns to add by hand on a ticket system that cannot add them", async () => {
@@ -1790,6 +1810,9 @@ describe("factory init, the column step", () => {
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
       "Add these columns to board 3 by hand: In refinement.",
+    );
+    expect(r.looks).toContain(
+      "{yourTurn:Add these columns to board 3 by hand:} In refinement.",
     );
     expect(r.out).toContain("Added to board 3: Session, Runs in, Cost.");
   });
@@ -2800,6 +2823,9 @@ describe("factory init, the field step", () => {
   it("names the text fields and shows the suggestion as a table, before the plan", async () => {
     const r = fielded({ select: ["yes"] });
     expect(await r.run()).toBe(0);
+    expect(r.looks).toContain(
+      "{skip:Asking Claude Code which of them should hold each of the factory's fields...}",
+    );
     expect(step(r.out)).toEqual([
       "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
       "Asking Claude Code which of them should hold each of the factory's fields...",

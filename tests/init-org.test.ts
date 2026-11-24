@@ -854,7 +854,7 @@ describe("factory init --org, a first run", () => {
     printsNoSecret(s.out);
   });
 
-  it("prints each line in the look the ticket's marked transcript gives it", async () => {
+  it("has bold labels, dim notes, cyan to copy, and yellow on what the person does, from the first line to the last", async () => {
     const s = setup({
       answers: FIRST,
       boards: [

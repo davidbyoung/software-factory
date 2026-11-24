@@ -259,16 +259,17 @@ describe("factory specs check", () => {
     expect(out).toEqual(["(ran check)", "✓ The specs check passed."]);
   });
 
-  it("colors a closing line's mark alone, and the command a gate runs", async () => {
-    const passing = deps(GATE);
-    await main(["gate"], passing.d);
-    expect(passing.looks[0]).toBe("$ {copy:npm run lint}");
-    expect(passing.looks.at(-1)).toBe("{good:✓} Every gate command passed.");
-    const failing = deps(GATE, [1]);
-    await main(["gate"], failing.d);
-    expect(failing.looks.at(-1)).toBe(
-      "{bad:✗} The gate failed on: npm run lint",
-    );
+  it("has each command it runs as one to copy, and a green mark when it passes", async () => {
+    const { d, looks } = deps(GATE);
+    await main(["gate"], d);
+    expect(looks[0]).toBe("$ {copy:npm run lint}");
+    expect(looks.at(-1)).toBe("{good:✓} Every gate command passed.");
+  });
+
+  it("has a red mark when it fails, and its words plain", async () => {
+    const { d, looks } = deps(GATE, [1]);
+    await main(["gate"], d);
+    expect(looks.at(-1)).toBe("{bad:✗} The gate failed on: npm run lint");
   });
 
   it("says there is no spec tool and exits 0 when specs.type is none", async () => {

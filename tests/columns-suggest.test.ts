@@ -245,9 +245,11 @@ function asking(answers: string[]) {
     secret: unasked,
     input: unasked,
   };
+  const looks: string[] = [];
   return {
-    d: { ask, out: into(out) },
+    d: { ask, out: into(out, looks) },
     out,
+    looks,
     selects,
   };
 }
@@ -388,6 +390,9 @@ describe("a suggestion that cannot be used", () => {
         BOARD_3,
       );
       expect(got).toBe(1);
+      expect(a.looks).toContain(
+        "{skip:Asking Claude Code which of them shows each of the factory's six states...}",
+      );
       expect(a.out.slice(-3)).toEqual([
         `Claude Code's answer could not be used: ${reason}.`,
         "Run factory init again, or write tickets.columns in .claude/factory.yaml yourself.",

@@ -752,7 +752,11 @@ describe("the boundaries", () => {
   });
 
   it("no test but the stand-in and the printer's own renders a line itself", () => {
-    const own = ["tests/printed.ts", "tests/output.test.ts"];
+    const own = [
+      "tests/printed.ts",
+      "tests/output.test.ts",
+      "tests/boundary.test.ts",
+    ];
     expect(
       filesUnder(join(PACKAGE, "tests"))
         .map((f) => relative(PACKAGE, f))
@@ -764,8 +768,7 @@ describe("the boundaries", () => {
               text,
             ) || /\bsay\.render\(/.test(text)
           );
-        })
-        .filter((f) => f !== "tests/boundary.test.ts"),
+        }),
     ).toEqual([]);
   });
 

@@ -182,6 +182,25 @@ describe("factory init, the gate", () => {
     expect(out[0]).toBe("✗ b fails here, so a build could not finish:");
   });
 
+  it("leaves the command's own output as it is, its marks and addresses too", async () => {
+    const looks: string[] = [];
+    await runGate(
+      {
+        gate: async () => ({
+          status: 1,
+          output: "✗ it broke, see https://a.example\nRun: factory init\n",
+        }),
+        out: into([], looks),
+      },
+      ["a"],
+    );
+    expect(looks.slice(0, 3)).toEqual([
+      "{bad:✗} a fails here, so a build could not finish:",
+      "    ✗ it broke, see https://a.example",
+      "    Run: factory init",
+    ]);
+  });
+
   it("runs none when nothing sets a gate", async () => {
     const r = quick();
     expect(await r.run()).toBe(0);
