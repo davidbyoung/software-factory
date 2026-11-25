@@ -877,6 +877,16 @@ describe("a pull request that waits for another repository's", () => {
     expect(r.states["Review verdict"]).toBe("success");
   });
 
+  it("gets none when it is a fork's, whatever its text says", async () => {
+    const r = await post(
+      WAITS,
+      {},
+      { head: { sha: "head41", branch: "b", repository: "mallory/widgets" } },
+    );
+    expect(r.bodies).toEqual([]);
+    expect(r.states).not.toHaveProperty("Merge order");
+  });
+
   it("posts nothing on one that closed meanwhile", async () => {
     const r = await post(WAITS, {}, { state: "closed" });
     expect(r.states).not.toHaveProperty("Merge order");

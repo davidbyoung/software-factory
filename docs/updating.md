@@ -590,14 +590,16 @@ From this release on, a ticket can name
 to change. Two things can ask something of you:
 
 - **A repository renamed since it was set up** still has its old name in its
-  [`repository`](configuration.md#repository) line, and now fails its next
-  pull request. Change the line, and run `factory sync`.
+  [`repository`](configuration.md#repository) line. Its next pull request
+  fails the check "Factory files in step", with both names. Change the line,
+  run `factory sync`, and commit what it writes.
 - **A heading of your own named Repositories,** under `repositories` in
   [`tickets.fields`](configuration.md#ticketsfields), now holds the
   factory's. Give yours another name.
 
-`factory sync` also adds the folder other repositories are cloned into to
-`.claude/settings.json`, so a session can edit there.
+The pull request that updates to it also adds one folder to
+`.claude/settings.json`: the one other repositories are cloned into, so a
+session can edit there.
 
 ## The commands
 

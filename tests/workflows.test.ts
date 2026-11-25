@@ -308,9 +308,6 @@ function valueOf(expression: string, context: Record<string, unknown>) {
 const evaluate = (expression: string, context: Record<string, unknown>) =>
   truthy(valueOf(expression, context));
 
-/** How often a part of a workflow names the app's key other than to
- * compare it with empty text, wherever in it: an `env`, a `with`, an `if`,
- * or a script. */
 /** The steps of run.yml that read another of a ticket's repositories, with a
  * token the factory makes from the app's key as it runs. */
 const ACROSS = [
@@ -318,6 +315,9 @@ const ACROSS = [
   "Tell the other repositories",
   "Read the repository",
 ];
+/** How often a part of a workflow names the app's key other than to
+ * compare it with empty text, wherever in it: an `env`, a `with`, an `if`,
+ * or a script. */
 const keyUses = (part: unknown) =>
   JSON.stringify(part).match(/secrets\.app-key(?! [!=]= '')/g)?.length ?? 0;
 
@@ -2011,6 +2011,12 @@ describe("the review and its verdict, which stay the workflow's own", () => {
       });
     },
   );
+
+  it("names no other person's token in the verdict's job, and none of an action's", () => {
+    expect(JSON.stringify(run.jobs.verdict)).not.toMatch(
+      /(?:board|automerge)-token|create-github-app-token|steps\.app\./,
+    );
+  });
 
   it("gives the verdict's job one to read with when another repository starts it again", () => {
     const s = step(run.jobs.verdict!, "Post the verdict");

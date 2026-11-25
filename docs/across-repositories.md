@@ -21,8 +21,9 @@ merge its pull requests.
   two organizations.
 - **A board or builds in the cloud, set up in each one**
   ([Setting up on GitHub](github/setup.md)). Either stores an access token,
-  which is how one repository's checks see another's pull requests. You can
-  leave this out. Then nothing holds a merge, and you close the ticket
+  which is how one repository's checks see another's pull requests. Without
+  it you still refine and build this way, and you get every pull request.
+  But nothing [holds a merge](#merge-them), and you close the ticket
   yourself.
 - **Write access to each one,** to make the list, and to build on your
   machine. A build in the
@@ -69,7 +70,9 @@ A repository on a version of the factory too old for this shows its own fix:
 ```
 
 Refinement goes on past a ✗. A build refuses to start until you have done
-what the line says. Run `factory ticket repositories 12` to check again.
+what the line says: run the command it names in that repository, and merge
+the pull request it opens there. Then run `factory ticket repositories 12`
+to check again.
 
 **It worked when** every line shows ✓, and the ticket's description has
 this section:
@@ -83,14 +86,6 @@ this section:
 
 ### Changing the list
 
-Change it with the command, not by hand. The command records that someone
-who can write to every repository on the list made it, and nothing is built
-from a list that has no such record:
-
-```text
-✗ #12's repositories were not confirmed by someone who can write to acme/web: run factory ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api
-```
-
 | What you want to do            | Command                                                                            |
 | ------------------------------ | ---------------------------------------------------------------------------------- |
 | See the list                   | `factory ticket repositories 12`                                                   |
@@ -99,8 +94,18 @@ from a list that has no such record:
 
 `--after acme/web=acme/api` means that `acme/web` merges after `acme/api`.
 Give it once for each pair, or leave it out where the order doesn't matter.
-`--add` keeps the order already there, and `--set` replaces it. When you set
-only the ticket's own repository, the section is taken out of the ticket.
+`--add` keeps the order already there, and `--set` replaces it. The list
+need not hold the ticket's own repository. When it holds only that one, the
+section is taken out of the ticket.
+
+Change the list with these, not by hand. They record that someone who can
+write to every repository on the list made it. A list that was edited in
+the description, or made by someone who can't write to one of them, stops a
+build with this, until someone who can runs the command it names:
+
+```text
+✗ #12's repositories were not confirmed by someone who can write to acme/web: run factory ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api
+```
 
 ## Build it on your machine
 
@@ -129,8 +134,12 @@ repository, and `factory status` lists them all
 ([When it's done](#when-its-done)).
 
 The session deletes the clones once their pull requests merge or close. It
-keeps one with commits that were never pushed, and `factory status` prints
-the folder, so you can push them or delete it.
+keeps one with commits that were never pushed. Once the ticket is closed,
+`factory status` ends with a line for each clone still there:
+
+```text
+? acme/web is still cloned for acme/api#12: /home/dev/.local/share/software-factory/work/acme/api-12/web. Run: factory workspace acme/api#12 --remove
+```
 
 ## Build it in the cloud
 
@@ -143,7 +152,8 @@ factory build 12
 From a checkout of another of its repositories, run
 `factory build acme/api#12`. Where
 [`builds.trigger`](configuration.md#builds) in the ticket's own repository
-starts builds from your board, moving the ticket to Ready does the same.
+is `own-server` or `github-action`, moving the ticket to Ready does the
+same. Where it is `manual`, the default, that starts nothing.
 
 The repositories are built one at a time, in the order they merge. Each is
 an ordinary [build in the cloud](builds.md#what-a-build-in-the-cloud-does)
@@ -163,9 +173,10 @@ Two things end it early:
 
 - **An earlier pull request has to change.** A session in the cloud changes
   only its own repository. It says on the ticket what has to change, and
-  leaves its own pull request a draft. Submit a review on the earlier pull
-  request that says what to change, which starts an answer to it. Then mark
-  the draft ready on your code host.
+  leaves its own pull request a draft. On your code
+  host, submit a review of any kind on the earlier pull request that says
+  what to change, which starts an answer to it. Once that has been pushed,
+  mark the draft ready. Any repository after it is already being built.
 - **Some of the repositories are private, and others public.** A session
   that read private code would write in public. The ticket gets this, and
   you build it on your machine, where you see what is pushed:
@@ -176,19 +187,19 @@ Two things end it early:
 
 ## Merge them
 
-Merge each pull request as you would any other. The checks of one that
-waits for another say so:
+Merge each pull request as you would any other. One that waits for another
+has two checks that say so. "Merge order" is a status only these pull
+requests get, and it says why.
+["Review verdict"](glossary.md#the-words) is the one that stops the merge:
 
 ```text
 Merge order      Waits for acme/api#88 to merge        pending
 Review verdict   Waits for acme/api#88 to merge        pending
 ```
 
-["Review verdict"](glossary.md#the-words) is what stops the merge. "Merge
-order" is a status only these pull requests get, and it says why. Within a
-few minutes of `acme/api#88` merging, both update by themselves, and "Review
-verdict" shows what the review found. A push to `acme/web#41` updates them
-too.
+Within a few minutes of `acme/api#88` merging, both update by themselves,
+and "Review verdict" shows what the review found. A push to `acme/web#41`
+updates them too.
 
 In a repository with [`pr-review`](configuration.md#pr-review) off, "Review
 verdict" isn't required, so your code host lets you merge at any time.

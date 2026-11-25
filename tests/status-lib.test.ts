@@ -777,6 +777,13 @@ describe("a ticket across repositories", () => {
     });
   });
 
+  it("waits on you too when it was refined again, or nothing is recorded", () => {
+    const waits = { status: "In progress", session: "Waiting on you" };
+    const comments = [claim, said(30, "released"), said(40, "refined")];
+    expect(derived({ comments }, both([linked()], []))).toMatchObject(waits);
+    expect(derived({}, both([linked()], []))).toMatchObject(waits);
+  });
+
   it("is Ready again when its card was moved there since", () => {
     const comments = [claim, said(30, "released")];
     const all = both([linked()], []);
@@ -812,6 +819,10 @@ describe("a ticket across repositories", () => {
       kind: "claim",
       since: at(10),
     });
+  });
+
+  it("keeps it once every repository has one", () => {
+    const old = issue({ comments: [claim] });
     expect(
       toClear(old, [], NOW, "follow-up", both([linked()], [linked()])),
     ).toBeNull();

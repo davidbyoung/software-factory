@@ -329,7 +329,7 @@ describe("factory ticket repositories N --set", () => {
     const w = world({ ticket: two() });
     expect(await w.run(...SET)).toBe(0);
     expect(w.comments()).toHaveLength(1);
-    expect(w.out).toHaveLength(3);
+    expect(w.out.at(-1)).toBe("  ✓ acme/web   set up");
   });
 
   it("confirms a list that was not", async () => {

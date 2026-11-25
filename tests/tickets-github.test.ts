@@ -1338,6 +1338,15 @@ describe("GitHub adapter: another repository's ticket", () => {
     ).toEqual({ closes: [], partOf: ["octo/web#4", "12"] });
   });
 
+  it.each([
+    ["in code", "Run `Part of octo/web#4`, or ``Closes #7``."],
+    ["in a code block", "```text\nPart of octo/web#4\nPart of #12\n```"],
+    ["in the middle of a line", "It is Part of octo/web#4 in prose."],
+  ])("is not linked %s", (_, body) => {
+    const { t } = other([]);
+    expect(t.linksIn(body)).toEqual({ closes: [], partOf: [] });
+  });
+
   it("is written as the other repository types it, and its own by number", () => {
     const { t } = other([]);
     expect(t.keyIn("12", "octo/web")).toBe("acme/widgets#12");

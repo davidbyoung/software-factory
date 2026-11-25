@@ -22,6 +22,7 @@ import {
   type Tickets,
   type Write,
 } from "./types.mts";
+import { fencedLines } from "../lib/fences.mts";
 import { writeAccess } from "./github-access.mts";
 import { statusOf, type Transport } from "./transport.mts";
 import { sameName } from "../lib/work-status.mts";
@@ -447,7 +448,8 @@ export const githubLinkText = (key: Key, kind: LinkKind): string =>
   `${kind === "closes" ? "Closes" : "Part of"} ${githubRef(key)}`;
 
 /** The `Closes #N` and `Part of #N` lines in a pull request's body, and
- * those that name the repository, as keys of `own`. `from` is the
+ * those that name the repository and start their line, as keys of `own`.
+ * Text in code links nothing. `from` is the
  * repository the pull request is in, whose a bare number is. */
 export function githubLinksIn(
   body: string,
@@ -455,8 +457,16 @@ export function githubLinksIn(
   from: string | undefined = own,
 ): Links {
   const links: Links = { closes: [], partOf: [] };
+  const fenced = fencedLines(body);
+  const prose = body
+    .split(/\r?\n/)
+    .map((line, i) => (fenced[i] ? "" : line))
+    .join("\n")
+    .replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, " ");
   const link = /\b(closes|part of) (?:([\w.-]+\/[\w.-]+))?#(\d+)(?!\d)/gi;
-  for (const m of body.matchAll(link)) {
+  for (const m of prose.matchAll(link)) {
+    const starts = m.index === 0 || prose[m.index - 1] === "\n";
+    if (m[2] && !starts) continue;
     const home = m[2] ?? from;
     const key =
       home === undefined || (own !== undefined && sameRepo(home, own))

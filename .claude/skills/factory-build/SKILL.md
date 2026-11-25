@@ -129,15 +129,23 @@ factory workspace N
 It prints where each repository is, in the order they merge, or that there
 is nothing to clone, and then everything below is as for any ticket. With
 several, take them in that order, and do steps 1 to 6 whole in each before
-the next, after `cd` to the folder it printed:
+the next, after `cd` to the folder it printed. Before the first, check that
+the settings name a gate in each, as "Right after `claimed`" above says.
 
+- **A line that ends `built in` and a pull request is done:** skip that
+  repository.
+- **A clone is on its branch already,** so step 1's `git switch -c` is done
+  there. When the branch was on `origin` before, which step 1's `ls-remote`
+  shows, step 1's rules for it decide as they stand, and a branch they
+  replace is started again with `git switch -C BRANCH origin/DEFAULT`.
 - **Read its `CLAUDE.md` and what that imports first,** and follow them
   there. This folder's own rules are for this repository alone.
 - **Every `factory` command runs there,** so the settings, the gate, the
   reviewers, the branch, and the pull requests are that repository's. In a
   clone the ticket is written in full, such as `acme/api#12`, and a pull
   request is still its number. Only the Spec lines and the tasks of that
-  repository's capabilities are built there.
+  repository's capabilities are built there, and they alone are the ones
+  steps 2 and 4 map and verify there.
 - **A reviewer or a skill that repository has and this one lacks** is not
   found by its name here. Hand a reviewer's file, from its `.claude/agents/`,
   to a general-purpose agent as its instructions, and read a skill's
@@ -147,7 +155,8 @@ the next, after `cd` to the folder it printed:
   `factory pr closes` prints nothing for it. The ticket closes when the
   last one merges.
 - **Watch each one** with `factory pr watch` in its own folder, and work
-  each review there.
+  each review there. One that waits for another repository's pull request
+  to merge is not waited for: it waits for a person.
 
 When every pull request has merged or closed, run
 `factory workspace N --remove`. It keeps a clone with work to lose, and the

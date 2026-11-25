@@ -105,9 +105,10 @@ function world(
     async ticket(argv, on) {
       const [command, key, why] = argv;
       if (command === "branch") return { code: 0, lines: [`${key}-work`] };
-      if (command === "claim") claims.push(key);
-      if (command === "claim")
+      if (command === "claim") {
+        claims.push(key);
         return { code: 0, lines: o.claim ?? ["claimed"] };
+      }
       if (command === "stop") stops.push(why);
       if (command === "view") await on.tickets.read(key);
       return { code: 0, lines: [] };
@@ -453,7 +454,7 @@ describe("a build of a ticket across repositories", () => {
     expect(w.started).toEqual([]);
   });
 
-  it.each<[string, Parameters<typeof world>[0], string]>([
+  it.each<[string, Parameters<typeof world>[0], string, string?]>([
     [
       "some of its repositories are private and others public",
       { places: { "acme/web": { isPrivate: true } } },
@@ -476,6 +477,7 @@ describe("a build of a ticket across repositories", () => {
         },
       },
       `octo/plan is public and ${REPOSITORY} is private, so no build in the cloud reads both: build it on your computer`,
+      "octo/plan#12",
     ],
     [
       "the build token can't see one",
@@ -495,10 +497,8 @@ describe("a build of a ticket across repositories", () => {
       },
       `#12's repositories were not confirmed by someone who can write to ${REPOSITORY}: run factory ticket repositories 12 --set ${REPOSITORY} acme/web --after acme/web=${REPOSITORY}`,
     ],
-  ])("is stopped when %s", async (_, o, why) => {
+  ])("is stopped when %s", async (_, o, why, key = "12") => {
     const w = world({ tickets: [TICKET], ...o });
-    const key =
-      o!.tickets?.[0] && "key" in o!.tickets[0] ? o!.tickets[0].key! : "12";
     expect(await prepare("build", key, w.d)).toBeNull();
     expect(w.memory.comments(key).at(-1)!.body).toContain(
       `Stopped without a pull request: ${why}.`,
@@ -532,7 +532,7 @@ describe("a build of a ticket across repositories", () => {
     expect(last(w)).toContain("which is not set up");
   });
 
-  it("is handed what the other's pull request has, and can ask about the list", async () => {
+  it("is handed what the other's pull request has", async () => {
     const w = world({
       tickets: [TICKET],
       places: { "acme/web": { pulls: [WEB_PART] } },
@@ -611,6 +611,22 @@ describe("a review of one of a ticket's pull requests", () => {
     expect(run).not.toHaveProperty("others");
     expect(w.archived).toEqual([]);
     expect(JSON.stringify(handedCalls())).not.toContain("The ask.");
+  });
+
+  it("is handed the public ones alone when another is private", async () => {
+    const list = [...LIST, { name: "acme/payroll", after: [] }];
+    const { w, run } = await review({
+      tickets: [
+        {
+          ...TICKET,
+          body: `${TICKET.body}- acme/payroll\n`,
+          comments: [confirming(list)],
+        },
+      ],
+      places: { "acme/api": {}, "acme/payroll": { isPrivate: true } },
+    });
+    expect(run!.others!.map((o) => o.repository)).toEqual(["acme/api"]);
+    expect(w.archived).toEqual(["acme/api default"]);
   });
 
   it("is handed no other repository by a list nobody who may confirmed", async () => {

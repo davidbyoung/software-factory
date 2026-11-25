@@ -1004,7 +1004,7 @@ describe("a build of a ticket across repositories", () => {
     });
   });
 
-  it("starts none when every other repository has a pull request", async () => {
+  it("starts none when there is no next repository", async () => {
     commits();
     asks(opens(PART));
     const w = world(ACROSS, { links: [PART] });

@@ -144,7 +144,8 @@ git log --merge --format='%h %s' -- FILE
 Each `(#N)` in that log names a pull request on the default branch's side. Before
 editing, read it and the ticket it closes, and read the pull request being
 fixed and the ticket it closes, so the resolution keeps what each set out
-to do: `factory pr closes PR` prints each ticket's key,
+to do: `factory pr closes PR` prints each ticket's key, and a pull request
+that closes none names the one it is part of on its first line,
 and `factory ticket view KEY` reads it. Read the rules for the area a conflicted file is in ("Rules by
 area" in `CLAUDE.md`).
 

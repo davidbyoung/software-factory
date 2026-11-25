@@ -16,7 +16,9 @@ report once at the end.
 
 **The merge also needs `Review verdict` on the head commit.** The review's
 run posts it as it ends, by the review's own answer and by no comment:
-success only when the review said ready. A push starts the next commit without one. When
+success only when the review said ready, and, for a ticket across
+repositories, once the pull requests "Merge order" names have merged, which
+is the owner's to do. A push starts the next commit without one. When
 a round ends with rejections only and nothing to push, the verdict stays at
 the last review's failure, so ask for a fresh read of the same commit
 (`factory pr review-again N`); the reviewer
@@ -41,6 +43,10 @@ outside sources and close to always right on scripts. **Take the finding, design
 fix yourself.**
 
 ## The scripts
+
+On a pull request in another of a ticket's repositories, every command in
+this skill runs in that repository's folder, which `factory workspace N`
+prints.
 
 Everything here that reads or changes a pull request goes through
 `factory pr`. It exits nonzero with the error when a read
@@ -254,9 +260,6 @@ check on the head commit has finished, not only the review:
 factory pr state N --wait
 ```
 
-On a pull request in another of a ticket's repositories, every command
-below runs in that repository's folder, which `factory workspace N` prints.
-
 In a local session, `factory pr watch N` (see `.claude/factory/rules.md`) already
 wakes the session on a failure and when every check has finished, so this
 wait is not needed.
@@ -381,7 +384,8 @@ Never accept or reject from reading alone. Each finding gets evidence:
 - **A claim about the codebase** gets a grep or a file read at the cited line.
 - **A finding that would reverse a choice** also gets the recorded reason:
   read the commit message, the pull request's body, and the Decisions of
-  each ticket `factory pr closes PR` prints, with
+  each ticket `factory pr closes PR` prints, or that the pull request's
+  first line says it is part of, with
   `factory ticket view N`, before accepting it. A session without the build context has only these. If
   the finding conflicts with a recorded decision and the evidence does not
   settle it, reply with both and leave the thread open for the owner.

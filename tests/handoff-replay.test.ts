@@ -92,3 +92,18 @@ describe("what a session reads", () => {
     expect(await session.readAll()).toHaveLength(1);
   });
 });
+
+describe("a code host of another repository", () => {
+  it("answers as it was read, and never with this one's answer", async () => {
+    const calls: Call[] = [];
+    const own = memoryCodeHost([], { isPrivate: true }).codeHost;
+    const web = memoryCodeHost([], { isPrivate: false }).codeHost;
+    await recording("codeHost", own, calls).visible();
+    await recording("codeHost", web, calls, "acme/web:").visible();
+    const of = (prefix?: string) =>
+      replaying("codeHost", own, calls, null, prefix).visible();
+    expect(await of()).toEqual({ isPrivate: true });
+    expect(await of("acme/web:")).toEqual({ isPrivate: false });
+    await expect(of("acme/ios:")).rejects.toThrow("was not handed");
+  });
+});

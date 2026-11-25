@@ -145,8 +145,9 @@ assumption, or "n/a", never silently skipped.
   filled in, field by field, with the exact links it carries.
 - **Repositories.** Which repositories the change touches. When only the
   ticket's own does, say the one line `factory ticket repositories N`
-  prints and go on. When the ticket names another, or the code shows that
-  one has to change, it is a question: the repositories you found and why,
+  prints and go on. When the ticket asks for a change in another, or
+  the code shows that one has to change, it is a question, and the first
+  one asked: the repositories you found and why,
   as the default, and whether one has to merge before another. A later
   repository merges after the one whose change it needs, and a first step
   that keeps working without it is better than an order.
@@ -171,18 +172,22 @@ issue is several issues; propose the split as question 1.
 Settle everything below from the code, the existing specs, and the
 repository's rules. Each item ends answered or "n/a".
 
-**More than one repository.** Once the owner has answered which, record
-them, and have the others on this machine to read:
+**More than one repository.** Which they are is settled before the rest of
+this step, since the spec is written from their code: in the conversation
+by asking that question alone, and otherwise by its default, which the
+comment round shows and an approver's reply can change. Record them, and
+have the others on this machine to read:
 
 ```bash
 factory ticket repositories N --set REPO... [--after LATER=EARLIER]...
 factory workspace N
 ```
 
-The first checks each one and records who confirmed the list, so it runs
-with the owner's answer and never before it. It records nothing and exits
-1 where one is not found, or the owner cannot write to it: settle that
-with them. A line that says one is not set up goes in the report under
+The first checks each one and records who confirmed the list. It is run
+again when an answer changes it, which a build that has started refuses.
+It records nothing and exits 1 where one is not found, or the owner cannot write to it: settle that
+with them. The follow-ups ticket is always one repository's, and none of
+this is asked of it. A line that says one is not set up goes in the report under
 "Before building", and refinement goes on. `factory workspace` prints
 where each other repository is, and which `CLAUDE.md` to read first. Each
 part of the spec and the notes is settled from its own repository's code,
@@ -372,7 +377,8 @@ The body is the only copy of the spec. Draft it as one file and write it
 with `factory ticket edit N --body-file body.md`, adding
 `--attach` for each screenshot where `factory ticket supports attachments`
 prints `yes`, which uploads them the same way a comment does. Keep the
-owner's text as §1, untouched, and never edit the rendered body by hand:
+owner's text as §1, untouched, and the Repositories section where
+`factory ticket repositories` put it, and never edit the rendered body by hand:
 change the draft and write it again.
 
 Record each build order from step 2's Dependencies as a blocked-by
@@ -450,7 +456,8 @@ what changed in it, and for the
 follow-ups issue when its lines are each buildable as written or answered
 by a Decision that names the fix.
 
-Otherwise run the `factory-ticket-readiness` agent on the issue. It reads the body cold, as
+Otherwise run the `factory-ticket-readiness` agent on the issue, naming the
+folders `factory workspace N` printed, if any. It reads the body cold, as
 the builder would, and lists every question it would still have to ask.
 Fix each one that the code or the rules can answer, and put any that only
 the owner can answer to them, the same way as step 3.

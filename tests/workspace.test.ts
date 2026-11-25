@@ -16,7 +16,7 @@ import type { Handoff, RunFile } from "../src/handoff/index.mts";
 import { claimPath, readClock, writeClock } from "../src/lib/clock.mts";
 import { clonesIn, main, worth, type Deps } from "../src/workspace.mts";
 import { memoryTickets, type Seed } from "./memory-tickets";
-import { network, SECTION } from "./network";
+import { network, SECTION, type Place } from "./network";
 import { into } from "./printed";
 
 let dir = "";
@@ -67,6 +67,7 @@ function world(
     ticket?: Partial<Seed>;
     handoff?: Handoff;
     branch?: Deps["branch"];
+    places?: Record<string, Place>;
   } = {},
 ) {
   const here = o.here ?? "acme/api";
@@ -87,7 +88,9 @@ function world(
     repository: here,
     root,
     work: join(dir, "work"),
-    reach: network({}).reach,
+    reach: network(
+      o.places ?? { "acme/api": {}, "acme/web": {}, "acme/ios": {} },
+    ).reach,
     remote: (name) => join(dir, "remote", `${name}.git`),
     branch:
       o.branch ?? (async (k) => `dev/${k.replace(/^.*\/([^/#]+)#/, "$1-")}`),
@@ -120,6 +123,21 @@ describe("factory workspace N", () => {
     expect(git(w.web, "rev-parse", "HEAD")).toBe(
       git(w.web, "rev-parse", "origin/trunk"),
     );
+  });
+
+  it("says which repository has its pull request", async () => {
+    remote("acme/web");
+    const w = world({
+      places: {
+        "acme/api": { pulls: [{ number: 88, body: "Part of #12" }] },
+        "acme/web": {},
+      },
+    });
+    await w.run("12");
+    expect(w.lines.slice(1, 3)).toEqual([
+      `  ✓ acme/api   branch dev/12       ${w.root}, this checkout, built in acme/api#88`,
+      `  ✓ acme/web   branch dev/api-12   ${w.web}`,
+    ]);
   });
 
   it("takes up the branch an earlier build pushed", async () => {
@@ -244,6 +262,13 @@ describe("factory workspace N --remove", () => {
     await w.run("12");
     commit(w.web, "one");
     expect(worth(w.web)).toBe(`1 commit is not pushed: ${w.web}`);
+  });
+
+  it("has nothing to lose once that is pushed", async () => {
+    remote("acme/web");
+    const w = world();
+    await w.run("12");
+    commit(w.web, "one");
     git(w.web, "push", "-q", "origin", "HEAD");
     expect(worth(w.web)).toBeNull();
   });

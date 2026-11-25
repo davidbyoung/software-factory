@@ -20,7 +20,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { homeOf, repositoriesOf, type Reach } from "./across.mts";
+import { homeOf, progressOf, repositoriesOf, type Reach } from "./across.mts";
 import { defaultDeps, loadSettings } from "./config.mts";
 import type { Handoff } from "./handoff/index.mts";
 import { SESSION_FILE, sessionFiles } from "./lib/clock.mts";
@@ -152,6 +152,11 @@ async function make(key: Key, d: Deps): Promise<number> {
   const full = d.tickets.keyIn(key, "");
   const folder = folderOf(d.work, full, home);
   const session = sessionFiles(d.gitDir());
+  const all = await progressOf(ticket, list, d.tickets, d.reach);
+  const built = (name: string) => {
+    const pull = all.find((r) => r.name === name)?.pulls.at(-1);
+    return pull ? `, built in ${name}#${pull.number}` : "";
+  };
   const rows: Row[] = [];
   const read: string[] = [];
   for (const { name } of mergeOrder(list)) {
@@ -161,7 +166,7 @@ async function make(key: Key, d: Deps): Promise<number> {
         mark: "ok",
         name,
         what: `branch ${branch ?? current(d.root)}`,
-        where: `${d.root}, this checkout`,
+        where: `${d.root}, this checkout${built(name)}`,
       });
       continue;
     }
@@ -181,7 +186,7 @@ async function make(key: Key, d: Deps): Promise<number> {
       mark: "ok",
       name,
       what: `branch ${made.branch}`,
-      where: there,
+      where: `${there}${built(name)}`,
     });
     if (existsSync(join(there, "CLAUDE.md")))
       read.push(join(there, "CLAUDE.md"));

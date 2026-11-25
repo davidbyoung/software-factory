@@ -558,7 +558,7 @@ function deriveOwn(
   // it stays where it is, waiting on them, until they move it. Their move
   // to Backlog wins once it is later than that marker.
   const newest = marked.at(-1);
-  const waitingOn = (status: Status, since: string): Derived => ({
+  const waitingOn = (status: Status, since: string | null): Derived => ({
     status,
     session: "Waiting on you",
     runsIn: "",
@@ -572,7 +572,10 @@ function deriveOwn(
     since,
     pulls: [],
   });
-  if (!newest) return backlog(card?.updatedAt ?? null);
+  if (!newest)
+    return stands?.partly
+      ? waitingOn("In progress", stands.open[0]?.at ?? null)
+      : backlog(card?.updatedAt ?? null);
   // A card in the backlog column says the owner sent the ticket back only
   // when the ticket's own state shows in another column: where it shows in
   // that one too, the sync put the card there.

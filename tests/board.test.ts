@@ -976,7 +976,8 @@ describe("a ticket across repositories", () => {
       ...(await fakeSettings()),
       repository: "acme/api",
     });
-    r.d.reach = async (name) => network(places).reach(name);
+    const net = network(places);
+    r.d.reach = async (name) => net.reach(name);
     const collect = async (nightly = false) => {
       expect(
         await main(

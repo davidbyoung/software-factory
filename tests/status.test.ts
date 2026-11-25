@@ -45,8 +45,6 @@ const formatRows = (...args: Parameters<typeof formatLines>): string[] =>
     args[3]?.color ? colored(l) : plainOf(l),
   );
 
-/** The sync fixture's tickets and cards in the in-memory adapter, and its
- * open pull requests. `fail` makes the tickets' list fail. */
 /** What a source gives where no ticket names another repository. */
 const ALONE: Pick<Source, "reach" | "inField" | "clones"> = {
   reach: async () => {
@@ -56,6 +54,8 @@ const ALONE: Pick<Source, "reach" | "inField" | "clones"> = {
   clones: () => [],
 };
 
+/** The sync fixture's tickets and cards in the in-memory adapter, and its
+ * open pull requests. `fail` makes the tickets' list fail. */
 function fixtureSource(
   fail?: Error,
   unlabeled: string[] = [],
@@ -1720,7 +1720,8 @@ describe("a ticket across repositories", () => {
       ...BOTH,
       places: { ...BOTH.places, "acme/web": {} },
     });
-    expect(out).not.toContain("In review  1");
+    const at = out.indexOf("In progress  1");
+    expect(out[at + 1]).toContain("#12  Gift cards");
   });
 
   it("reads a list that is kept in a ticket field", async () => {

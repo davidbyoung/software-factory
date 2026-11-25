@@ -9,6 +9,8 @@ type World = {
   here?: string;
   body?: string;
   ticket?: Partial<Seed>;
+  /** Other tickets. */
+  more?: Seed[];
   places?: Record<string, Place>;
   reaches?: boolean;
   read?: Tickets["read"];
@@ -26,16 +28,16 @@ async function order(w: World = {}) {
         ...w.ticket,
       } as Seed,
       { key: "4", labels: ["follow-up"], body: "- [ ] a line" },
+      ...(w.more ?? []),
     ],
     { repository: here },
   );
-  const log: string[] = [];
   const found = await orderOf(w.body ?? "Part of acme/api#12", {
     tickets: { ...memory.tickets, ...(w.read ? { read: w.read } : {}) },
     repository: here,
     reach: network(w.places ?? { "acme/api": {}, "acme/web": {} }).reach,
     reaches: w.reaches ?? true,
-    log: (line) => void log.push(line),
+    log: () => {},
   });
   return found;
 }
@@ -93,38 +95,44 @@ describe("Merge order", () => {
     ).toBeNull();
   });
 
-  it("holds nothing where no token reaches the ticket", async () => {
-    expect(await order({ reaches: false })).toEqual({
-      state: "success",
-      description: "Can't read acme/api#12: no token here reaches it",
-    });
-    expect(
-      await order({ here: "acme/api", body: "Part of #12", reaches: false }),
-    ).toEqual({
-      state: "success",
-      description: "Can't read #12: no token here reaches it",
-    });
-  });
+  it.each([
+    ["acme/web", "Part of acme/api#12", "acme/api#12"],
+    ["acme/api", "Part of #12", "#12"],
+  ])(
+    "holds nothing in %s where no token reaches the others",
+    async (here, body, ref) => {
+      expect(await order({ here, body, reaches: false })).toEqual({
+        state: "success",
+        description: `Can't read ${ref}: no token here reaches it`,
+      });
+    },
+  );
 
-  it("waits when there is a token and a read fails", async () => {
-    const failed = {
-      state: "pending",
-      description: "Could not read acme/api#12",
-    };
-    expect(
-      await order({ read: () => Promise.reject(new Error("HTTP 502")) }),
-    ).toEqual(failed);
-    expect(
-      await order({
+  it.each<[string, World, string]>([
+    [
+      "of the ticket",
+      { read: () => Promise.reject(new Error("HTTP 502")) },
+      "acme/api#12",
+    ],
+    [
+      "of a repository",
+      {
         places: {
           "acme/api": { fail: { recentPulls: new Error("HTTP 502") } },
           "acme/web": {},
         },
-      }),
-    ).toEqual(failed);
-    expect(await order({ body: "Part of acme/api#99" })).toEqual({
+      },
+      "acme/api#12",
+    ],
+    [
+      "of a ticket that is not there",
+      { body: "Part of acme/api#99" },
+      "acme/api#99",
+    ],
+  ])("waits when there is a token and a read %s fails", async (_, w, ref) => {
+    expect(await order(w)).toEqual({
       state: "pending",
-      description: "Could not read acme/api#99",
+      description: `Could not read ${ref}`,
     });
   });
 
@@ -135,15 +143,30 @@ describe("Merge order", () => {
     });
   });
 
-  it("waits by any of two tickets it is part of", async () => {
-    expect(
-      (
-        await order({
-          places: { "acme/api": API_MERGED, "acme/web": {} },
-          body: "Part of acme/api#99\nPart of acme/api#12",
-        })
-      )?.state,
-    ).toBe("pending");
+  it.each([
+    ["first", "Part of acme/ios#7\nPart of acme/api#12"],
+    ["last", "Part of acme/api#12\nPart of acme/ios#7"],
+  ])("waits by the one of two tickets that waits, %s", async (_, body) => {
+    const IOS = { name: "acme/ios", after: [] };
+    const found = await order({
+      body,
+      more: [
+        {
+          key: "acme/ios#7",
+          body: "## Repositories\n\n- acme/ios\n- acme/web, after acme/ios\n",
+          comments: [confirming([IOS, { ...WEB, after: ["acme/ios"] }])],
+        },
+      ],
+      places: {
+        "acme/api": API_MERGED,
+        "acme/ios": { pulls: [{ number: 5, body: "Part of #7" }] },
+        "acme/web": {},
+      },
+    });
+    expect(found).toEqual({
+      state: "pending",
+      description: "Waits for acme/ios#5 to merge",
+    });
   });
 
   it("fits what a status holds", async () => {
