@@ -610,3 +610,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** `factory doctor` or `factory init` runs with `pr-review` set
 - **THEN** With `pr-review` set, `factory doctor` prints `✓ CI's own token can only read, unless a workflow says more`, or `✗ CI's own token can write, so code in a pull request could pass "Review verdict": set it to read, in your repository's Settings, Actions, General, Workflow permissions`, or `? Could not tell what CI's own token may do: ` and the reason, and "Left to do" in `factory init` says the same where it can write.
+
+### Requirement: A secret the plan withholds
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A secret the plan withholds
+
+- **WHEN** `factory doctor` finds a secret stored for the organization that the plan withholds
+- **THEN** The line reads `✗ NAME is stored for ORG, and PLAN does not share it with a private repository: make the repository public, or move ORG to a paid plan`.
