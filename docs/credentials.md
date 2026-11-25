@@ -111,8 +111,10 @@ hijacked session could still:
   that runs a pull request's code should say no more than
   `permissions: contents: read`.
 - **Write text** as the account the run acts as: in the ticket's body, in
-  comments on the ticket and the pull request, in replies, in a follow-up
-  line, and, from a Conflict or a Dependency run, in a new ticket. It
+  comments on the ticket and the pull request, in replies, in a
+  follow-up in the pull request's description, which becomes a ticket only
+  when someone who can write to the repository ticks it, and, from a
+  Conflict or a Dependency run, in a new ticket. It
   could resolve its own pull request's threads.
 - **Pass a review it should not,** when the session is the review's. The
   text it reads is the pull request's, so a clever one could talk it into

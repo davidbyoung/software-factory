@@ -142,9 +142,8 @@ to Ready.
 instructions beside the code it changes.
 
 **What it writes.** A branch, commits, a draft pull request, a claim comment
-on the ticket, a note of what the build cost, and a
-line on the [follow-ups ticket](workflow.md#follow-ups) for anything small
-it noticed and did not fix.
+on the ticket, a note of what the build cost, and, in the pull request, each
+[follow-up](workflow.md#follow-ups): something it noticed and did not fix.
 
 **When it stops.** On a question only you can answer, a step only you can
 do, an open blocker, or a gate that will not pass or is not set. It

@@ -94,9 +94,8 @@ fix. Mark each high (could hide a real bug), medium (maintainability) or low
 file is clean, say so in one line.
 
 A high or medium finding outside the change under review, such as an
-existing test that cannot fail, is also written as one follow-up line, in
-the format under "Follow-ups" in `.claude/factory/rules.md`, led by the test's file, so
-the author can append it as it stands to the follow-ups issue, rather than
-open an issue. Write `TICKET` for the ticket being built; the author fills it in.
+existing test that cannot fail, is also written as a title and a text that
+stand alone, as "Follow-ups" in `.claude/factory/rules.md` says, with the test's file in
+the text, so the author can list it as it stands.
 
 End with exactly one line: `Verdict: pass` when there is no high or medium finding, or `Verdict: fail, N findings to fix` with N the number of high and medium findings ("1 finding" when there is one). A low finding does not count. Nothing after that line.

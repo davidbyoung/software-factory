@@ -112,8 +112,7 @@ owner, and once agreed open it:
 
 - a change a user would see gets its own ticket, with
   `factory ticket open`;
-- a finding gets a line on the follow-ups ticket, with
-  `factory follow-up FILE "..."`, as "Follow-ups" in
+- a finding gets one only when the owner asks for it, as "Follow-ups" in
   `.claude/factory/rules.md` says.
 
 The draft marks that work _Planned_, naming the ticket, as "Writing for

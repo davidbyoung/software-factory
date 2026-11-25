@@ -71,8 +71,8 @@ no UI reviewer: `docs-reader`, the one reviewer plugin, reads the docs.
   it as a build does, when a change that is not small touches them: if
   that description fits, it runs the reader before opening the pull
   request and fixes its findings, and the body says what the read found,
-  or why it was skipped. A small change that touches only the docs, a
-  line of a follow-ups build included, needs no new test: the docs tests
+  or why it was skipped. A small change that touches only the docs
+  needs no new test: the docs tests
   in the gate are its check.
 - **A dependency bump** is made by a session, by hand, since there is no
   Dependabot here yet. `package-lock.json` does not count toward a change's
@@ -132,8 +132,8 @@ factory user meets, as "Spec track: this repository" reads them: the text
 of a skill, agent, rule, or workflow is not one, nor is this repository's
 own `.claude/factory.yaml`, and a docs page is `README.md` or one under
 `docs/` other than `docs/developing.md`. Skip it for a small change
-("Small changes" in `.claude/factory/rules.md`), a bug fix that restores
-intended behavior, and the follow-ups ticket. When `dx-first` posts its
+("Small changes" in `.claude/factory/rules.md`), and a bug fix that restores
+intended behavior. When `dx-first` posts its
 draft as a comment and waits, refinement stops there too.
 
 **Refine from `## Proposed docs`.** Each behavior it shows, in a
@@ -163,8 +163,7 @@ usual.
 that opens issues, by any command, runs the `ticket-order` skill on them
 once before finishing, as `/ticket-order N M ...`, so the links in both
 directions are proposed in one question while the owner is there to
-approve them. The follow-ups issue is not one of them: its lines are
-built as one pull request, not ordered. A run in GitHub Actions skips it,
+approve them. A run in GitHub Actions skips it,
 since nobody can answer its question.
 Refinement's own check of the build order is unchanged. The owner runs
 `/ticket-order` for the order of every open ticket.

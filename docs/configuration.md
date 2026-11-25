@@ -497,14 +497,12 @@ what you set:
 tickets:
   labels:
     spec: needs-spec # refinement adds needs-spec, not spec
-    follow-up: follow-ups # the follow-ups ticket carries follow-ups
 ```
 
-| Key         | Default name | What the label marks                                                                                                  |
-| ----------- | ------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `spec`      | `spec`       | A change your users will see, so [refinement writes a Spec](workflow.md#a-change-your-users-will-see) into the ticket |
-| `follow-up` | `follow-up`  | The one [follow-ups ticket](workflow.md#follow-ups)                                                                   |
-| `factory`   | `factory`    | A ticket the factory works on: [Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)          |
+| Key       | Default name | What the label marks                                                                                                  |
+| --------- | ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `spec`    | `spec`       | A change your users will see, so [refinement writes a Spec](workflow.md#a-change-your-users-will-see) into the ticket |
+| `factory` | `factory`    | A ticket the factory works on: [Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)          |
 
 - **Write only the keys you change.** A key you leave out keeps its
   default name. `factory init` doesn't ask about labels, and doesn't write
@@ -525,9 +523,8 @@ To rename a label:
    name, under Issues, Labels, Edit. That moves every ticket that has
    it. The factory finds tickets only by the name in your settings and
    never renames a label, so until you do, it doesn't see them: a
-   follow-ups ticket still labeled `follow-up` is ignored, and the next
-   follow-up a session records opens a new one. Renaming `factory` hides
-   every ticket that carries the old name until you rename the label on
+   ticket still labeled `spec` is built without its Spec. Renaming `factory`
+   hides every ticket that carries the old name until you rename the label on
    GitHub too. If you
    host the poller, also set `FACTORY_LABEL` to the new name
    ([Builds](builds.md#what-it-reads-from-its-environment)).
@@ -546,7 +543,7 @@ To rename a label:
 
 ```text
 .claude/factory.yaml: tickets.labels.spec: must not be empty
-.claude/factory.yaml: tickets.labels.spec: "follow-up" is already tickets.labels.follow-up. Give each label its own name
+.claude/factory.yaml: tickets.labels.spec: "factory" is already tickets.labels.factory. Give each label its own name
 ```
 
 **It worked when** `factory config explain` shows your names under
@@ -607,9 +604,8 @@ Keep the quotes, as in the examples. YAML reads an unquoted
 `factory config check` stops and says to quote it.
 
 `{ticket}` gives each ticket its own branch, and the same branch every
-time. So a ticket built a second time, such as the
-[follow-ups ticket](workflow.md#follow-ups), a reopened ticket, or one whose first
-build stopped, finds its earlier branch still on GitHub, unless GitHub
+time. So a ticket built a second time, such as a
+reopened ticket, or one whose first build stopped, finds its earlier branch still on GitHub, unless GitHub
 deleted it when its pull request merged. What the build does depends on
 that branch's newest pull request:
 

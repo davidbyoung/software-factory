@@ -93,7 +93,6 @@ as a code host's billing or what its workflows can see, are in
 - **With the automated review off, the order of a ticket's pull requests is
   information only.** Nothing the factory posts is required there, so
   nothing holds the merge.
-- **The follow-ups ticket is always one repository's.**
 - **Review by teams is your code host's to enforce.** A session obeys
   anyone who can write to the repository. Required reviewers for a
   folder, and a number of approvals before a merge, are rules you set on

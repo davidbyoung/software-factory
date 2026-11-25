@@ -171,13 +171,14 @@ ticket fields, `spec: [Acceptance criteria, AC]`, and go in the first
 the ticket can hold, as a state does with columns. A `fields-by-type`
 setting would hold only the exceptions, if one were ever needed.
 
-## Small problems go on one checklist
+## What a session noticed waits in its pull request
 
-A session that notices a small problem adds a line to one follow-ups
-ticket instead of opening a ticket for it. Every ticket costs the same
-steps whatever its size, so twenty small fixes as twenty tickets cost
-twenty approvals and twenty pull requests. On one checklist they cost one
-of each.
+A session lists what else it noticed in its pull request, and opens no
+ticket for it: you [decide there](workflow.md#follow-ups). A ticket for each
+cost a review and a merge for every one-line fix. One ticket for all of them
+became a list of things that had nothing to do with each other. Deciding on
+the pull request takes seconds, with the change in front of you, and three
+at most keeps the list short.
 
 ## Three version numbers
 

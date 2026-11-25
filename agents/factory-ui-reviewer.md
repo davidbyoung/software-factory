@@ -149,11 +149,9 @@ that is narrowed. A rule broken in a
 way only a measurement shows is not a finding on a small change.
 
 A finding the builder will leave for the owner, because it needs a decision or
-is already on the default branch, is also written as one follow-up line, in
-the format under "Follow-ups" in `.claude/factory/rules.md`, led by the page or
-file it is about, so the builder can append it to the follow-ups issue as it
-stands, rather than open an issue. Write `TICKET` for the ticket being built; the
-builder fills it in.
+is already on the default branch, is also written as a title and a text that
+stand alone, as "Follow-ups" in `.claude/factory/rules.md` says, with the page or
+file it is about in the text, so the builder can list it as it stands.
 
 End with exactly one line: `Verdict: pass` when there are no findings, or
 `Verdict: fail, N findings to fix` with N the number of findings ("1 finding"

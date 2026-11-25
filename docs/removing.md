@@ -27,7 +27,7 @@ hook, label, and setting.
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
-  one "Follow-ups" ticket; and, on a public repository on GitHub, the
+  the tickets it opened; and, on a public repository on GitHub, the
   Actions policy named "Software factory", which lets the factory's
   workflow run.
 - **On your code host, once for an organization,** when an owner set it

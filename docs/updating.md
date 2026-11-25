@@ -10,10 +10,11 @@ The others need lines in your settings file that it doesn't have:
 [Moving to settings version 2](#moving-to-settings-version-2) and
 [Naming build branches](#naming-build-branches), for every repository, and
 [Naming every column](#naming-every-column), for a repository whose
-settings have a [`tickets.board`](configuration.md#tickets). Three more,
+settings have a [`tickets.board`](configuration.md#tickets). Four more,
 [Labeling your open tickets](#labeling-your-open-tickets),
-[A spec for every visible change](#a-spec-for-every-visible-change), and
-[Tickets across repositories](#tickets-across-repositories), ask
+[A spec for every visible change](#a-spec-for-every-visible-change),
+[Tickets across repositories](#tickets-across-repositories), and
+[Follow-ups in the pull request](#follow-ups-in-the-pull-request), ask
 nothing of most repositories, but are worth reading. One more,
 [Cloud runs in three jobs](#cloud-runs-in-three-jobs), asks you to pass one
 pull request's verdict by hand.
@@ -607,6 +608,28 @@ to change. Two things can ask something of you:
 The pull request that updates to it also adds one folder to
 `.claude/settings.json`: the one other repositories are cloned into, so a
 session can edit there.
+
+## Follow-ups in the pull request
+
+From this release on, what a session noticed and did not fix is listed in
+its pull request, for you to [decide about](workflow.md#follow-ups). There is
+no follow-ups ticket anymore, and the factory no longer knows its label.
+
+1. Delete the line `follow-up:` under
+   [`tickets.labels`](configuration.md#ticketslabels), if your settings or a
+   [preset](presets.md) of yours has one. Until you do, the update fails:
+
+   ```text
+   .claude/factory.yaml: tickets.labels.follow-up: unknown key
+   ```
+
+2. Close your "Follow-ups" ticket, if one is open, and open a ticket for each
+   line you still want. Left open, it is a ticket like any other, which a
+   build starts only once it is refined.
+3. If you [host the poller](builds.md#hosting-the-poller-own-server), stop
+   setting `FACTORY_FOLLOW_UP_LABEL`, if you set it.
+
+**It worked when** `factory config check` prints `✓ The settings are valid.`
 
 ## The commands
 

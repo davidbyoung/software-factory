@@ -99,11 +99,10 @@ refiner that leaves one out leaves a ticket that cannot be built.
 - **The body,** written with `factory ticket edit`, with your text kept
   first and these sections after it:
 
-  | The ticket            | Its body has                                                                                                                                                                                     |
-  | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-  | Without `spec`        | `## Decisions`, and `## Acceptance criteria` with at least one list item                                                                                                                         |
-  | With `spec`           | `## Decisions`; `## Spec`, with a `### NAME (new)` or `### NAME (modified)` heading for each capability and numbered lines under it; and `## For the builder`, with `### Design` and `### Tasks` |
-  | The follow-ups ticket | Its checklist. The check passes it whatever else its body holds                                                                                                                                  |
+  | The ticket     | Its body has                                                                                                                                                                                     |
+  | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | Without `spec` | `## Decisions`, and `## Acceptance criteria` with at least one list item                                                                                                                         |
+  | With `spec`    | `## Decisions`; `## Spec`, with a `### NAME (new)` or `### NAME (modified)` heading for each capability and numbered lines under it; and `## For the builder`, with `### Design` and `### Tasks` |
 
   On a `spec` ticket the build copies these into an OpenSpec change, so
   they keep its shape: each numbered Spec line is one "When this, then
@@ -377,7 +376,7 @@ plugins:
 reviewer's description, finds it applies, and launches it. The agent
 reports that the live code still selects that column, so the migration
 would break requests during the deploy. The session splits the work: this
-change stops reading the column, and a follow-up drops it.
+change stops reading the column, and a later ticket drops it.
 
 **4. The pull request** says: "`migration-reviewer`: one finding, the
 column is still read by the running code. Split into two changes."
