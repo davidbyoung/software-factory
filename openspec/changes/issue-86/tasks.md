@@ -26,5 +26,5 @@
 ## 5. Finish
 
 - [x] 5.1 Map each Spec line to its test and write any that is missing.
-- [ ] 5.2 Run the `factory-trace` skill: the poller's and the updates' code decide what runs.
-- [ ] 5.3 `factory gate` and `npm run pack-check`.
+- [x] 5.2 Run the `factory-trace` skill: the poller's and the updates' code decide what runs.
+- [x] 5.3 `factory gate` and `npm run pack-check`.
