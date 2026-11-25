@@ -113,3 +113,12 @@ The factory SHALL behave as this line says: When `factory.yml` is run by hand wi
 
 - **WHEN** `factory.yml` is run by hand with the job `order` and a pull request's number as `pr`
 - **THEN** the job "Record the verdict" posts both statuses for it.
+
+### Requirement: The job that opens the ticked tickets
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The job that opens the ticked tickets
+
+- **WHEN** a pull request from this repository merges with a list in its description, whether or not a box is ticked
+- **THEN** `run.yml`'s job "Open the ticked tickets" runs `factory pr follow-ups --event` with the event's file, and the board's sync for that event waits for it. On any other event, and for any other pull request, the job is skipped.

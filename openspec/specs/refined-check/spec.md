@@ -33,15 +33,6 @@ The factory SHALL behave as this line says: A ticket with the `spec` label is so
 - **WHEN** the refined check reads a ticket with the `spec` label
 - **THEN** A ticket with the `spec` label is sound when its body has a `## Decisions` heading; a `## Spec` heading with at least one `### NAME (new)` or `### NAME (modified)` heading and at least one numbered line under it; and a `## For the builder` heading with `### Design` and `### Tasks` under it.
 
-### Requirement: The follow-ups issue is sound
-
-The factory SHALL behave as this line says: A ticket with the `follow-up` label is sound whatever its body holds.
-
-#### Scenario: The follow-ups issue is sound
-
-- **WHEN** the refined check reads a ticket with the `follow-up` label
-- **THEN** A ticket with the `follow-up` label is sound whatever its body holds.
-
 ### Requirement: A ticket that is not sound
 
 The factory SHALL behave as this line says: When `factory ticket refined N --check` runs on a ticket that is not sound, it prints one line on standard error for each part that is missing, such as `missing: ### Tasks under ## For the builder`, posts nothing, and exits 1.
