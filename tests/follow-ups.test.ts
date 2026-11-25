@@ -40,6 +40,7 @@ function world(
   const memory = memoryTickets(o.tickets ?? [{ number: 88 }], {
     repository: REPOSITORY,
   });
+  const log: string[] = [];
   const host = memoryCodeHost(
     [
       {
@@ -49,7 +50,7 @@ function world(
         head: { sha: "a", branch: "88", repository: REPOSITORY },
       },
     ],
-    { fail: o.fail },
+    { fail: o.fail, log },
   );
   const out: string[] = [];
   const colored: string[] = [];
@@ -67,6 +68,7 @@ function world(
   return {
     out,
     colored,
+    log,
     memory,
     host,
     body: async () => (await host.codeHost.get(90)).body,
@@ -117,6 +119,27 @@ describe("factory follow-up", () => {
     expect(await w.body()).toBe(
       `${START}\n\n${HEAD}\n\n1. [ ] **A.** B.\n\n${END}\n`,
     );
+  });
+
+  it("lists in a list a person emptied", async () => {
+    const w = world(LIST() + "\nAfter.");
+    expect(await w.list("A.", "B.")).toBe(0);
+    expect(parse(await w.body())).toMatchObject([
+      { n: 1, item: { title: "A." } },
+    ]);
+    expect((await w.body()).split(START)).toHaveLength(2);
+    expect(await w.body()).toMatch(
+      /B\.\n+<!-- \/factory: follow-ups -->\n\nAfter\.$/,
+    );
+  });
+
+  it("says a checkout on no branch has no pull request, and asks for none", async () => {
+    const w = world("x");
+    expect(await w.list("A.", "B.", "")).toBe(1);
+    expect(w.log).toEqual([]);
+    expect(w.out).toEqual([
+      "✗ Branch HEAD has no open pull request to list it in. Open one first: factory pr open",
+    ]);
   });
 
   it("changes nothing on a branch with no open pull request", async () => {

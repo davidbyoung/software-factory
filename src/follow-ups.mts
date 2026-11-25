@@ -317,10 +317,6 @@ export async function openTicked(event: Event, d: OpenDeps): Promise<number> {
       );
       continue;
     }
-    if (item.opened) {
-      d.out(say.mark("off", `${n} opened ${item.opened} already.`));
-      continue;
-    }
     if (!item.ticked) {
       d.out(
         say.mark("off", `${n} is not ticked, so nothing was opened for it.`),
