@@ -478,6 +478,21 @@ export function githubCodeHost(o: {
       }>("GET", `${API}/actions/policies?per_page=100`)
     ).policies;
 
+  const branchRules = async (branch: string) => {
+    const path = branch.split("/").map(encodeURIComponent).join("%2F");
+    return list<{
+      type: string;
+      parameters?: { required_status_checks?: { context: string }[] };
+    }>(`${API}/rules/branches/${path}?per_page=100`).catch((error) => {
+      // GitHub refuses the read where the plan has no rules to list.
+      if (statusOf(error) === 403 && /upgrade to/i.test(String(error)))
+        throw new NoRulesError(
+          `${PLANS.free} has no branch rules for a private repository`,
+        );
+      throw error;
+    });
+  };
+
   return {
     get: async (n) =>
       pullOf(
@@ -694,6 +709,17 @@ export function githubCodeHost(o: {
         `comment ${id}`,
         t.rest("PATCH", `${API}/issues/comments/${id}`, { fields: { body } }),
       );
+    },
+    async ensureLabel(name, { color, description }) {
+      try {
+        // GitHub ignores capitals here, as it does between two labels.
+        await t.rest("GET", `${API}/labels/${encodeURIComponent(name)}`);
+      } catch (error) {
+        if (statusOf(error) !== 404) throw error;
+        await t.rest("POST", `${API}/labels`, {
+          fields: { name, color, description },
+        });
+      }
     },
     async addLabel(n, label) {
       await found(
@@ -1011,19 +1037,7 @@ export function githubCodeHost(o: {
       );
     },
     async requiresStatus(branch, status) {
-      const path = branch.split("/").map(encodeURIComponent).join("%2F");
-      const rules = await list<{
-        type: string;
-        parameters?: { required_status_checks?: { context: string }[] };
-      }>(`${API}/rules/branches/${path}?per_page=100`).catch((error) => {
-        // GitHub refuses the read where the plan has no rules to list.
-        if (statusOf(error) === 403 && /upgrade to/i.test(String(error)))
-          throw new NoRulesError(
-            `${PLANS.free} has no branch rules for a private repository`,
-          );
-        throw error;
-      });
-      return rules.some(
+      return (await branchRules(branch)).some(
         (r) =>
           r.type === "required_status_checks" &&
           r.parameters?.required_status_checks?.some(
@@ -1033,16 +1047,21 @@ export function githubCodeHost(o: {
     },
     async secretsWithheldBy() {
       try {
-        const { private: isPrivate } = await t.rest<{ private: boolean }>(
-          "GET",
-          API,
-        );
-        if (!isPrivate) return null;
+        const repo = await t.rest<{
+          private: boolean;
+          default_branch: string;
+        }>("GET", API);
+        if (!repo.private) return null;
         const { plan } = await t.rest<{ plan?: { name: string } }>(
           "GET",
           `orgs/${owner}`,
         );
-        return plan?.name === "free" ? PLANS.free! : null;
+        if (plan) return plan.name === "free" ? PLANS.free! : null;
+        // A member who is no owner may be shown no plan.
+        return await branchRules(repo.default_branch).then(
+          () => null,
+          (e) => (e instanceof NoRulesError ? PLANS.free! : null),
+        );
       } catch {
         return null;
       }

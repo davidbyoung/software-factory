@@ -348,6 +348,39 @@ describe("pull request conversation and labels", () => {
     ]);
   });
 
+  describe("ensureLabel", () => {
+    const look = { color: "b60205", description: "Passes it" };
+    const read = /^api repos\/acme\/widgets\/labels\/verdict%3A%20override$/;
+    const create = /-X POST repos\/acme\/widgets\/labels /;
+
+    it("creates a label the repository lacks", async () => {
+      const { p, calls } = pulls([
+        [read, notFound()],
+        [create, {}],
+      ]);
+      await p.ensureLabel("verdict: override", look);
+      expect(calls.at(-1)).toBe(
+        "api -X POST repos/acme/widgets/labels -f name=verdict: override -f color=b60205 -f description=Passes it",
+      );
+    });
+
+    it("leaves a label the repository has as it is", async () => {
+      const { p, calls } = pulls([[read, { name: "Verdict: Override" }]]);
+      await p.ensureLabel("verdict: override", look);
+      expect(calls).toHaveLength(1);
+    });
+
+    it("creates nothing when the label can't be looked up", async () => {
+      const { p, calls } = pulls([
+        [read, new Error("gh api: Forbidden (HTTP 403)")],
+      ]);
+      await expect(p.ensureLabel("verdict: override", look)).rejects.toThrow(
+        "HTTP 403",
+      );
+      expect(calls).toHaveLength(1);
+    });
+  });
+
   it("sets a body and a commit status, and replies to a review comment", async () => {
     const { p, calls } = pulls([
       [/-X PATCH repos\/acme\/widgets\/pulls\/5/, {}],
@@ -1119,9 +1152,17 @@ describe("the rules and properties of a repository", () => {
   });
 
   describe("whether the secrets the owner shares reach the repository", () => {
-    const withheld = (isPrivate: boolean, organization: unknown) =>
+    const withheld = (
+      isPrivate: boolean,
+      organization: unknown,
+      rules: unknown = [],
+    ) =>
       host([
-        [/^api repos\/acme\/widgets$/, { private: isPrivate }],
+        [/rules\/branches\/main/, rules],
+        [
+          /^api repos\/acme\/widgets$/,
+          { private: isPrivate, default_branch: "main" },
+        ],
         [/^api orgs\/acme$/, organization],
       ]).h.secretsWithheldBy();
 
@@ -1139,11 +1180,27 @@ describe("the rules and properties of a repository", () => {
       expect(await withheld(true, { plan: { name: "team" } })).toBeNull();
     });
 
-    it("says they reach it when the plan cannot be read, as by a member who is no owner", async () => {
-      expect(await withheld(true, { login: "acme" })).toBeNull();
-      expect(
-        await withheld(true, new Error("gh: Forbidden (HTTP 403)")),
-      ).toBeNull();
+    it("reads the plan from its missing branch rules where the organization shows none, as to a member who is no owner", async () => {
+      expect(await withheld(true, { login: "acme" }, UPGRADE)).toBe(
+        "GitHub Free",
+      );
+    });
+
+    it.each([
+      ["the rules are listed", { login: "acme" }, []],
+      [
+        "the rules are refused for another reason",
+        { login: "acme" },
+        new Error("gh: Resource not accessible by integration (HTTP 403)"),
+      ],
+      [
+        "the organization does not answer",
+        new Error("gh: Forbidden (HTTP 403)"),
+        UPGRADE,
+      ],
+      ["the plan shown is another", { plan: { name: "team" } }, UPGRADE],
+    ])("says they reach it when %s", async (_, organization, rules) => {
+      expect(await withheld(true, organization, rules)).toBeNull();
     });
   });
 

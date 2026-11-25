@@ -687,6 +687,10 @@ code-host:
   Otherwise no pull request gets either, whatever you name them.
 - **The override matters only with [`pr-review`](#pr-review) on**, since
   that review gives the verdict.
+- **You don't create these labels either.** The factory creates each merge
+  label the first time it adds it, and `verdict-override` the first time
+  it posts "Review verdict" on a pull request. Only a person adds
+  `verdict-override` to one.
 - **Naming a label doesn't turn on `auto-merge` or `pr-review`.**
 - **New names take effect once they are on your default branch**, the
   one pull requests merge into, since the workflows that add and read
@@ -695,8 +699,10 @@ code-host:
 
 The rules under [`tickets.labels`](#ticketslabels) hold here too: write
 only the keys you change, give each label its own name, quote a name
-with `: ` in it, and rename a label already on your pull requests on
-GitHub yourself. Then check the file and sync:
+with `: ` in it, and rename the label you have on GitHub yourself. Do
+that before the new name merges: after it, the factory creates a label of
+that name, and GitHub won't give a second one the same name. Then check
+the file and sync:
 
 ```console
 $ factory config check

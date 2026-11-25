@@ -234,6 +234,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       ? {
           state: "fail",
           text: `${name} is stored for ${ownerOf(s.repository)}, and ${withheldBy} does not share it with a private repository`,
+          fix: `make the repository public, or move ${ownerOf(s.repository)} to a paid plan`,
         }
       : null;
   let own: string[] | null;

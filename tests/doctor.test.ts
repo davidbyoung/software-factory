@@ -901,10 +901,10 @@ describe("factory doctor", () => {
         });
         expect(await run()).toBe(1);
         expect(out).toContain(
-          "✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository",
+          "✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository: make the repository public, or move acme to a paid plan",
         );
         expect(out).toContain(
-          "✗ NPM_TOKEN is stored for acme, and GitHub Free does not share it with a private repository",
+          "✗ NPM_TOKEN is stored for acme, and GitHub Free does not share it with a private repository: make the repository public, or move acme to a paid plan",
         );
         expect(out.join("\n")).not.toMatch(
           /(CLAUDE_CODE_OAUTH_TOKEN|NPM_TOKEN) is set by the organization,/,

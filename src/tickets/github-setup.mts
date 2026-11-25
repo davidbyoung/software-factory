@@ -47,7 +47,7 @@ export const githubTicketsSetup: ToolSetup = {
     const s = c.settings;
     const labels = s?.tickets.labels ?? TICKET_LABELS;
     const lines = [
-      `Delete whichever of the labels ${listed([labels["follow-up"], labels.spec])} exist, if you do not want their history: deleting one takes it off every ticket`,
+      `Delete whichever of the labels ${listed([labels["follow-up"], labels.spec, labels.factory])} exist, if you do not want their history: deleting one takes it off every ticket`,
     ];
     if (s === null || s.tickets.board === null) return lines;
     const fields = Object.values(fieldNamesOf(s)).filter(

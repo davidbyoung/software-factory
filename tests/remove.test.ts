@@ -293,7 +293,7 @@ describe("factory remove", () => {
       "  3. Delete whichever of the labels merge-automatic, merge-manual, and verdict-override exist, if you do not want their history: deleting one takes it off every pull request.",
       "",
       "  GitHub Issues",
-      "  4. Delete whichever of the labels follow-up and spec exist, if you do not want their history: deleting one takes it off every ticket.",
+      "  4. Delete whichever of the labels follow-up, spec, and factory exist, if you do not want their history: deleting one takes it off every ticket.",
       "  5. Delete the Session, Runs in, and Cost fields from board 3, if you do not want them.",
       "",
       "  Claude Code",
@@ -314,7 +314,9 @@ describe("factory remove", () => {
     expect(r.out.join("\n")).toContain(
       "the labels merge-automatic, merge-manual, and owner-pass exist",
     );
-    expect(r.out.join("\n")).toContain("the labels follow-ups and spec exist");
+    expect(r.out.join("\n")).toContain(
+      "the labels follow-ups, spec, and factory exist",
+    );
   });
 
   it("names no board's fields when the settings name no board", async () => {
