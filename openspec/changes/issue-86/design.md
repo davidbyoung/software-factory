@@ -33,3 +33,9 @@ A valid preset refused would stop an organization's builds, through the poller. 
 ## Dependencies
 
 None.
+
+## Where the build departed
+
+- A line of the spec did not say what `factory update --pull-requests` does with the updates after a refused one: it opens them, and exits 1 at the end.
+- `factory sync --check --against` compares a moved pin with its commit by `pinAt` with `valid: false`, so a value the repository replaces does not read as a pin that differs.
+- Two requirements of `presets` said what the shared rules now say, and are modified to match.

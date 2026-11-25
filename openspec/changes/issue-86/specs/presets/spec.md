@@ -143,3 +143,23 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** `.claude/factory.yaml` and a preset are each valid alone and not together, such as a preset that lists `factory-ui-reviewer` in a repository with no `site`
 - **THEN** `factory config check` fails as today.
+
+## MODIFIED Requirements
+
+### Requirement: Preset check names each problem
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Preset check names each problem
+
+- **WHEN** a preset sets what a preset can't set, names another preset, or leaves a plugin out
+- **THEN** `preset check` prints `FILE: KEY: MESSAGE` for each and exits 1. MESSAGE is the one "Settings a preset can't set", "A preset that names a preset", or "Off in a preset" gives, with `. Remove it, and set it in each repository that wants it`, `. Remove it, and list each preset in the repositories that use this one`, or `. Remove it: only a repository can leave a plugin out`. A key the factory doesn't know and a `version` other than 2 are faults of the shared rules, which "Every problem only a preset has, then the first fault" describes.
+
+### Requirement: An unknown key or version in a preset
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: An unknown key or version in a preset
+
+- **WHEN** a preset has a key the factory doesn't know, in effect or as the first fault of the preset by itself
+- **THEN** `factory sync` and `factory config check` print the message `factory config check` prints for the same fault in `.claude/factory.yaml`, prefixed with `NAME: `. A preset with a `version` other than 2 is refused the same way when it is added or updated.
