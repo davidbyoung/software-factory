@@ -105,15 +105,6 @@ The factory SHALL behave as this line says: When the pairs go in a circle, it pr
 - **WHEN** the pairs go in a circle
 - **THEN** it prints `✗ acme/api and acme/web each merge after the other`, or for a longer circle `✗ The order goes in a circle: A, B, C`, records nothing, and exits 1. A pair that names a repository not in the list prints `✗ --after names acme/ios, which is not one of #12's repositories`, records nothing, and exits 1.
 
-### Requirement: The follow-ups ticket's list
-
-The factory SHALL behave as this line says: When the ticket has the `follow-up` label, `--set` and `--add` print `✗ The follow-ups ticket is one repository's`, record nothing, and exit 1.
-
-#### Scenario: The follow-ups ticket's list
-
-- **WHEN** the ticket has the `follow-up` label
-- **THEN** `--set` and `--add` print `✗ The follow-ups ticket is one repository's`, record nothing, and exit 1.
-
 ### Requirement: A section that cannot be read
 
 The factory SHALL behave as this line says: When a line of the section is not `- owner/name` with any `, after owner/name`, every command that reads the section prints `✗ #12's Repositories section: can't read "- acme web"`, with that line, and exits 1.

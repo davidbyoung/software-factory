@@ -191,7 +191,7 @@ request's number.
 ## 7. Read it and merge
 
 Open the pull request. Its description says what changed, how it was
-verified, and anything the session noticed and left alone. Nothing merges
+verified, and what the session [noticed and did not fix](workflow.md#follow-ups). Nothing merges
 without you.
 
 To ask for changes, comment on the pull request, then have a session

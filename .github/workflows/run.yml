@@ -362,7 +362,10 @@ jobs:
     name: Sync the board
     # Dependabot's pull requests close no ticket and are not on the board,
     # and a fork's pull request does not get the board's token.
+    # The tickets a merge opens are on the board once this has run.
+    needs: [follow-ups]
     if: >-
+      !cancelled() &&
       contains(format(' {0} ', inputs.parts), ' board ') &&
       ((github.event_name == 'pull_request_target' &&
         contains(fromJSON('["opened", "closed", "reopened", "ready_for_review", "converted_to_draft"]'), github.event.action) &&
@@ -438,6 +441,45 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || secrets.board-token }}
         run: factory board apply --in "$RUNNER_TEMP/repo.json"
+
+  # Opens a ticket for each follow-up a person ticked in a pull request's
+  # description before it merged. No AI runs here: `factory pr follow-ups`
+  # decides everything, from the event. A fork's author can edit what it
+  # reads, so it runs for this repository's own branches alone.
+  follow-ups:
+    name: Open the ticked tickets
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.body || '', '<!-- factory: follow-ups -->')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: factory-follow-ups-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - *extra
+
+      - name: Open the ticked tickets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory pr follow-ups --event "$GITHUB_EVENT_PATH"
 
   # One pass of the poller, for a repository with no server to host it: it
   # starts a build for each ticket moved to Ready. Any schedule line of

@@ -201,25 +201,20 @@ describe("closedPullComments", () => {
   });
   /** The comments for `ev`, its closing links `closes` as the code host
    * gives them, and its body read for part of a ticket. */
-  const closed = (
-    ev: ReturnType<typeof event>,
-    closes: number[],
-    followUps: number[],
-  ) =>
+  const closed = (ev: ReturnType<typeof event>, closes: number[]) =>
     closedPullComments(
       ev,
       {
         closes: closes.map(String),
         partOf: memoryTickets().tickets.linksIn(ev.pull_request.body).partOf,
       },
-      followUps.map(String),
       DEFAULT_COLUMNS,
       (key) => `#${key}`,
-      [...closes, ...followUps].map(String),
+      closes.map(String),
     );
 
   it("releases each issue a pull request closed without merging would have closed", () => {
-    expect(closed(event(false), [16], [])).toEqual([
+    expect(closed(event(false), [16])).toEqual([
       {
         issue: "16",
         entry: expect.objectContaining({ tellsPerson: true }),
@@ -231,54 +226,16 @@ describe("closedPullComments", () => {
   });
 
   it("posts nothing on an issue a merged pull request closed", () => {
-    expect(closed(event(true), [16], [])).toEqual([]);
+    expect(closed(event(true), [16])).toEqual([]);
   });
 
-  it("releases the follow-ups issue a merged pull request built part of", () => {
-    const [comment] = closed(
-      event(true, "Part of #201: its first line."),
-      [],
-      [201],
-    );
-
-    expect(comment.issue).toBe("201");
-    expect(comment.body).toMatch(
-      /^Pull request #40 merged part of these follow-ups\./,
-    );
-  });
-
-  it("gives the follow-ups issue a pull request built part of the closed-without-merging text", () => {
-    const [comment] = closed(event(false, "Part of #201."), [], [201]);
-
-    expect(comment.body).toMatch(
-      /^Pull request #40 was closed without merging/,
-    );
-  });
-
-  it("leaves a follow-ups issue the pull request closes, and one it only mentions", () => {
-    expect(
-      closed(
-        event(true, "Closes #201. A finding went on #198."),
-        [201],
-        [201, 198],
-      ),
-    ).toEqual([]);
-  });
-
-  it("leaves a follow-ups issue its last batch closes, though the body also says part of it", () => {
-    expect(
-      closed(
-        event(true, "Part of #201, its last lines. Closes #201"),
-        [201],
-        [201],
-      ),
-    ).toEqual([]);
+  it("posts nothing on a ticket a pull request built part of", () => {
+    expect(closed(event(true, "Part of #16: a line."), [])).toEqual([]);
+    expect(closed(event(false, "Part of #16: a line."), [])).toEqual([]);
   });
 
   it("ignores any action but closed", () => {
-    expect(closed({ ...event(false), action: "reopened" }, [16], [])).toEqual(
-      [],
-    );
+    expect(closed({ ...event(false), action: "reopened" }, [16])).toEqual([]);
   });
 });
 
@@ -290,7 +247,6 @@ describe("nightlyComments", () => {
       later,
       DEFAULT_COLUMNS,
       (key) => `#${key}`,
-      "follow-up",
     );
 
     expect(comments.map((c) => [c.issue, c.body.split(":")[0]])).toEqual([
@@ -327,74 +283,6 @@ describe("collect", () => {
       "would comment on #16: Pull request #40 was closed without merging. The card stays In progress, waiting on you. Move it to Ready to rebuild it, or ask a session to refine it first.",
     ]);
     expect(mem.comments(16)).toHaveLength(before);
-  });
-
-  it("tells the follow-ups ticket a merged pull request built part of it", async () => {
-    const mem = seeded();
-    mem.state.get("18")!.labels.push("follow-up");
-    const { d, files } = deps(mem, {}, fakePulls().pulls);
-    files["event.json"] = JSON.stringify({
-      action: "closed",
-      pull_request: { number: 40, merged: true, body: "Part of #18: a line." },
-    });
-
-    expect(
-      await main(
-        [
-          "collect",
-          "--out",
-          "o.json",
-          "--event",
-          "event.json",
-          "--event-name",
-          "pull_request_target",
-        ],
-        d,
-      ),
-    ).toBe(0);
-    expect(mem.comments(18).map((c) => c.body)).toEqual([
-      expect.stringMatching(
-        /^Pull request #40 merged part of these follow-ups\./,
-      ),
-    ]);
-  });
-
-  it("finds the follow-ups ticket by the label name the settings give it", async () => {
-    const mem = seeded();
-    mem.state.get("18")!.labels.push("follow-ups");
-    const { d, files } = deps(mem, {}, fakePulls().pulls);
-    d.settings = async () => {
-      const s = await fakeSettings();
-      return {
-        ...s,
-        tickets: {
-          ...s.tickets,
-          labels: { ...s.tickets.labels, "follow-up": "follow-ups" },
-        },
-      };
-    };
-    files["event.json"] = JSON.stringify({
-      action: "closed",
-      pull_request: { number: 40, merged: true, body: "Part of #18: a line." },
-    });
-
-    await main(
-      [
-        "collect",
-        "--out",
-        "o.json",
-        "--event",
-        "event.json",
-        "--event-name",
-        "pull_request_target",
-      ],
-      d,
-    );
-    expect(mem.comments(18).map((c) => c.body)).toEqual([
-      expect.stringMatching(
-        /^Pull request #40 merged part of these follow-ups\./,
-      ),
-    ]);
   });
 
   it("releases the issues of a pull request closed without merging, then reads again", async () => {
@@ -818,7 +706,6 @@ describe("tickets without the factory label", () => {
           pull_request: { number: 90, merged: false, body: "Closes #15" },
         },
         { closes: ["15"], partOf: [] },
-        [],
         DEFAULT_COLUMNS,
         (k) => `#${k}`,
         [],

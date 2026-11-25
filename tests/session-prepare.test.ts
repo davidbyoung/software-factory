@@ -99,7 +99,6 @@ function world(
     },
     underApp: o.underApp ?? false,
     columns: DEFAULT_COLUMNS,
-    labels: { spec: "spec", "follow-up": "follow-up" },
     ownLinks: true,
     poster: "factory[bot]",
     async ticket(argv, on) {
@@ -197,6 +196,14 @@ describe("a build", () => {
 
   it("is stopped, and starts no session, when its ticket has nothing to build to", async () => {
     const w = world({ tickets: [{ key: "12", body: "An idea." }] });
+    expect(await prepare("build", "12", w.d)).toBeNull();
+    expect(w.stops[0]).toContain("no Spec or Acceptance criteria");
+  });
+
+  it("is stopped the same way whatever its labels are", async () => {
+    const w = world({
+      tickets: [{ key: "12", body: "- [ ] a line", labels: ["follow-up"] }],
+    });
     expect(await prepare("build", "12", w.d)).toBeNull();
     expect(w.stops[0]).toContain("no Spec or Acceptance criteria");
   });
@@ -571,6 +578,26 @@ describe("a build of a ticket across repositories", () => {
     const w = world();
     const run = await prepare("build", "12", w.d);
     expect(run).not.toHaveProperty("others");
+  });
+});
+
+describe("a pull request's description", () => {
+  it("is handed to the session that answers it", async () => {
+    const sha = pushed("topic");
+    const w = world({
+      pulls: [
+        {
+          number: 41,
+          body: "Closes #12\n\nA list.",
+          head: { sha, branch: "topic", repository: REPOSITORY },
+        },
+      ],
+    });
+
+    await prepare("answer", "41", w.d);
+
+    const session = replaying("codeHost", w.d.codeHost, handedCalls());
+    expect((await session.get(41)).body).toBe("Closes #12\n\nA list.");
   });
 });
 

@@ -19,6 +19,7 @@ import {
 } from "./across.mts";
 import type { CodeHost } from "./code-host/index.mts";
 import { nextToBuild, sameRepository } from "./lib/repositories.mts";
+import { list as listFollowUp } from "./follow-ups.mts";
 import { checkBundle, type BundleAnswer } from "./handoff/bundle.mts";
 import type { RunFile } from "./handoff/index.mts";
 import { commitsFault, textFault, type Commit } from "./handoff/links.mts";
@@ -45,6 +46,7 @@ import {
   type Deps as PrDeps,
 } from "./pr.mts";
 import type { Runner } from "./runner/index.mts";
+import * as say from "./lib/output.mts";
 import type { Tickets } from "./tickets/types.mts";
 
 /** Marks a pull request a build in the cloud opened, whose answers start by
@@ -82,8 +84,7 @@ export type PublishDeps = {
   codeHost: CodeHost;
   runner: Runner;
   tickets: Tickets;
-  /** Runs a `factory ticket` or `factory follow-up` command, its files read
-   * through `readFile`. */
+  /** Runs a `factory ticket` command, its files read through `readFile`. */
   ticket(argv: string[], readFile: (path: string) => string): Promise<number>;
   pr: PrDeps;
   /** A bare clone of the repository, made now. */
@@ -445,8 +446,7 @@ export async function publish(d: PublishDeps): Promise<number> {
   const { tip, refused } = await pushed(d, asked, mine);
   // What it says of commits that were not pushed is not true, so only what
   // stands without them is done.
-  if (refused)
-    asked = asked.filter((a) => isStop(a) || a.argv[0] === "follow-up");
+  if (refused) asked = asked.filter(isStop);
   let failed = refused;
   for (const one of asked) {
     const may = allow(one, { ...mine, pull });
@@ -462,6 +462,23 @@ export async function publish(d: PublishDeps): Promise<number> {
         continue;
       }
       const { argv, readFile } = filesOf(may);
+      if (argv[0] === "follow-up") {
+        if (pull === null) {
+          d.out(`Refused: factory follow-up ${argv[1]}: no pull request`);
+          continue;
+        }
+        const listed = await listFollowUp(
+          pull,
+          { title: argv[1]!, text: argv[2]! },
+          {
+            codeHost: d.codeHost,
+            tickets: d.tickets,
+            out: (line) => d.out(`  ${say.render(line, false)}`),
+          },
+        );
+        if (listed !== 0) failed = true;
+        continue;
+      }
       const says = /^(?:(?:pr|ticket) comment|ticket open)$/.test(
         argv.slice(0, 2).join(" "),
       );
@@ -474,7 +491,7 @@ export async function publish(d: PublishDeps): Promise<number> {
               readFile: read,
               out: (line) => d.out(`  ${line}`),
             })
-          : await d.ticket(argv[0] === "ticket" ? argv.slice(1) : argv, read);
+          : await d.ticket(argv.slice(1), read);
       if (code !== 0) throw new Error(`exit ${code}`);
     } catch (error) {
       failed = true;

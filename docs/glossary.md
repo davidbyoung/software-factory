@@ -74,8 +74,8 @@ host, and assumes none.
 **Dependency bot.** A tool that opens pull requests when a dependency has
 a new version.
 
-**Follow-ups ticket.** One ordinary ticket whose body is a checklist of
-small problems sessions noticed while doing other work.
+**Follow-up.** Something a session noticed while doing other work, listed in
+its pull request for you to [decide about](workflow.md#follow-ups).
 
 **Gate.** The commands that must pass before a session calls a task done,
 such as your tests and linter. Yours, listed under

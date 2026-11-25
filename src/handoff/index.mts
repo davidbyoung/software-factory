@@ -138,10 +138,12 @@ const waits = (argv: string[]) =>
     argv[1] === "watch" ||
     (argv[1] === "state" && argv.includes("--wait")));
 
-const POSTED = /^(?:ticket (?:comment|edit|open)|pr (?:comment|open))$/;
+const POSTED =
+  /^(?:follow-up$|ticket (?:comment|edit|open)$|pr (?:comment|open)$)/;
 
 /** Every word a command posts. */
 const wordsOf = ({ argv, files }: Asked) => [
+  ...(argv[0] === "follow-up" ? argv.slice(1) : []),
   ...(argv.includes("--title") ? [argv[argv.indexOf("--title") + 1]] : []),
   ...Object.values(files),
 ];
@@ -153,7 +155,8 @@ function textRefused(
   may: Asked,
   fault: (text: string) => string | undefined,
 ): string | null {
-  const name = asked.argv.slice(0, 2).join(" ");
+  const follows = asked.argv[0] === "follow-up";
+  const name = follows ? "follow-up" : asked.argv.slice(0, 2).join(" ");
   if (!POSTED.test(name)) return null;
   try {
     wordsOf(asked).forEach(refuseBareTags);
@@ -161,8 +164,10 @@ function textRefused(
     return (error as Error).message;
   }
   const found =
-    name === "pr open" ? fault(wordsOf(may).join("\n\n")) : undefined;
-  return found ? `factory pr open: it ${found}` : null;
+    name === "pr open" || follows
+      ? fault(wordsOf(may).join("\n\n"))
+      : undefined;
+  return found ? `factory ${name}: it ${found}` : null;
 }
 
 /** What a session's command does in place of reaching anything: the exit

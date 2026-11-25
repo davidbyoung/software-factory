@@ -27,7 +27,6 @@ async function order(w: World = {}) {
         comments: [confirming([API, WEB])],
         ...w.ticket,
       } as Seed,
-      { key: "4", labels: ["follow-up"], body: "- [ ] a line" },
       ...(w.more ?? []),
     ],
     { repository: here },
@@ -79,7 +78,6 @@ describe("Merge order", () => {
   it.each([
     ["links nothing", "Why."],
     ["closes a ticket", "Closes #12"],
-    ["is part of the follow-ups", "Part of #4"],
     ["is part of a ticket that is not there", "Part of #99"],
   ])("is not posted on one that %s", async (_, body) => {
     expect(await order({ here: "acme/api", body })).toBeNull();

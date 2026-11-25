@@ -170,51 +170,13 @@ this pull request with `factory pr open --draft`.
 
 ## Follow-ups
 
-"Follow-ups" in `.claude/factory/rules.md` says what a follow-up is and what the
-follow-ups issue holds. This skill does two things with them.
-
-**A follow-up noticed during a build** goes on the open follow-ups issue,
-as one line in the format that section gives, before the report. A reviewer
-finding left for the owner, a defect outside the issue's scope, and a
-check deferred to later are each a line. A line that needs a decision
-from the owner says "Needs a decision:" with the question and stays a
-line. A follow-up gets its own issue only when it would need the `spec`
-label or would make a line of a spec `factory specs list` prints false,
-as that section
-says.
+"Follow-ups" in `.claude/factory/rules.md` says what to do with something
+noticed during a build: fix it here, list it, or leave it. What is listed
+goes in once the pull request is open, with one command each:
 
 ```bash
-factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
+factory follow-up "TITLE" "WHAT IS WRONG"
 ```
-
-FILE is the file or page the follow-up is about, and leads its line. The
-script appends the line to the open follow-ups issue, or opens the issue
-when none is open, and prints which.
-
-**The follow-ups issue** is built here like any issue, with these
-differences. Its unchecked lines are the criteria; there is no `spec`
-label, so steps 2 and 4 are skipped. Every unchecked line is built on the
-one branch, in order, one commit per line, and the line is checked off in
-the body (`- [ ]` to `- [x]`) once its commit is in:
-
-```bash
-factory ticket view N --field body > body.md   # check the line, then
-factory ticket edit N --body-file body.md
-```
-
-A line that says "Needs a decision" is built only when the issue's
-Decisions answer it; otherwise it stays unchecked and the pull request
-names it. A line the guides do not determine and that lacks the phrase
-gets it added, and stays unchecked the same way. Step 3's reviewers run
-once, on the whole branch, sized as "Small changes" in
-`.claude/factory/rules.md` sizes
-a follow-ups build. The pull request lists each line with its commit. It
-starts with the line `factory ticket link N` prints only
-when every line is checked; otherwise it starts with the line
-`factory ticket link N --part` prints, and the unchecked
-lines wait there for the next build. The sync reads that line as a
-partial build of the follow-ups, so a pull request that only links a line
-it added there names the issue any other way.
 
 ## 0. Read the issue
 
@@ -228,13 +190,10 @@ and author.
 The owner's approval is moving the card to Ready, telling a local
 session to build the issue, or starting a build of it in GitHub Actions,
 which anyone with write access can do and whose claim names who did. Each
-counts only for an issue that has:
+counts only for an issue that has a "Spec" or "Acceptance criteria" section
+in its body.
 
-- a "Spec" or "Acceptance criteria" section in its body; or
-- the `follow-up` label, since the follow-ups issue's unchecked lines are
-  its criteria.
-
-Without either, run the refiner, the skill
+Without one, run the refiner, the skill
 `factory plugins refiner` prints, and stop: no claim, and
 nothing to release. Do not guess at what content should say or how a page
 should behave.
@@ -493,12 +452,12 @@ section that the images are missing; the build does not stop for them.
 factory pr closes PR
 ```
 
-That has to print N, unless the pull request builds only part of the
-follow-ups ticket, or of a ticket across repositories, which it does not
-close. If it does not, the link did
+That has to print N, unless the pull request builds only part of a
+ticket across repositories, which it does not close. If it does not, the link did
 not register; fix the body.
 
-Then note what the build cost, on the pull request:
+Then list each follow-up ("Follow-ups"), and note what the build cost, on
+the pull request:
 
 ```bash
 factory pr cost PR
@@ -555,8 +514,7 @@ with none listed, no label comes, and say it waits for the owner.
 ## 7. Report
 
 The issue, the PR, what each reviewer found, the review rounds and their
-outcome, any claim or release that failed, and anything left for the
-user: a question, a deferred follow-up, or
-a decision. Anything agreed but not done is recorded as "Follow-ups"
-above says: a line on the follow-ups issue, or its own issue only when it
-would need the `spec` label, either way linked from the PR.
+outcome, any claim or release that failed, each follow-up the pull request
+lists, and anything else left for the user: a question or a decision.
+Anything the owner asked for and agreed to put off gets a ticket of its
+own, linked from the PR.

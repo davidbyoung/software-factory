@@ -34,8 +34,6 @@ export type RepositoriesDeps = {
   repository: string;
   reach: Reach;
   columns: Columns;
-  /** The name of the follow-ups ticket's label. */
-  followUp: string;
   out: (line: string) => void;
   /** Who the code host's CLI is signed in as. */
   signedInAs: () => Promise<string>;
@@ -204,8 +202,6 @@ async function record(
     d.out(`✗ ${why}`);
     return 1;
   };
-  if (ticket.labels.includes(d.followUp))
-    return refuse("The follow-ups ticket is one repository's");
   const had = readList(ticket, d.tickets);
   const list = listAsked(a, had, home, ref);
   if ("fault" in list) return refuse(list.fault);

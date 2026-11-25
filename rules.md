@@ -20,10 +20,8 @@ A change is small when it changes under about 30 lines outside tests,
 specs, and content, and adds no component and no state, whether or not a
 user sees it: a style tweak, a bug fix, a link, or a line of copy. Its
 size decides, not its kind; content the repository reviews by what changed
-instead is named in "Small changes: this repository" in `CLAUDE.md`. A
-follow-ups build is sized by its lines: when every line is small, its one
-review is a small one. The process around a small change has cost far
-more than the change: on one ticket, under 20 changed lines took a 27
+instead is named in "Small changes: this repository" in `CLAUDE.md`. The
+process around a small change has cost far more than the change: on one ticket, under 20 changed lines took a 27
 minute read by the UI reviewer and an 8 minute `factory-ticket-readiness`
 read, and on another one link took an OpenSpec change, eight mutations, and
 two reviewers.
@@ -151,9 +149,7 @@ discovering it at push time.
   starts a build, read it as that.
   The poller starts only a ticket with the factory label, which refinement
   and `factory ticket ready` add. It skips a card whose blocker is open
-  and starts it at its first pass after the blocker closes. A card moves only forward on its own,
-  except the follow-ups issue when a pull request merged part of it,
-  which goes to Backlog: a
+  and starts it at its first pass after the blocker closes. A card moves only forward on its own: a
   build that ends without a merge stays In progress, and a finished
   refinement stays In refinement, both "Waiting on you", and nothing
   retries on its own. The board sync alone writes Status,
@@ -205,8 +201,7 @@ them.
   that brings in the default branch's own change, is refused, with the
   rest of the session's work. A setting whose `factory sync` rewrites one
   needs such a commit too. When a ticket needs one, stop and say it is built
-  on a person's machine; a line of the follow-ups ticket that needs one
-  stays unchecked, and the pull request names it.
+  on a person's machine.
 - **Where a skill waits** for checks or a review, the session ends with its
   report. What comes next starts a run of its own, which remembers nothing
   but the ticket, the pull request, and its threads.
@@ -215,7 +210,8 @@ them.
 - **A picture can't be attached.** The pull request says so in place of a
   screenshot, and one whose look the owner picks is opened with `--draft`.
 - **What comes before "marked ready" comes before `factory pr open`,** the
-  fresh-agent trace included, since nobody marks it ready by hand.
+  fresh-agent trace included, since nobody marks it ready by hand. A
+  follow-up alone comes right after it, since it is listed there.
 - **The report** is asked for with `factory ticket comment N`, or on an
   answer with `factory pr comment N`, and is the final message too.
 
@@ -298,74 +294,52 @@ writes it, and whether it is open. A ticket system without blockers says so: che
 
 ## Follow-ups
 
-A follow-up is something noticed while doing other work: a reviewer finding
-the builder left for the owner, a defect spotted out of scope, a symptom
-from a review session, or a check to run later. One issue per follow-up once
-sent twenty of them through the full refine, label, build, and merge path
-in one day, while one follow-ups build made eight of them one pull request.
+A session building one ticket, or answering a review of it, often notices something else: a reviewer
+finding it left for the owner, a defect out of scope, or a check to run
+later. What it does depends on what it noticed:
 
-So a follow-up is a line on the open follow-ups issue, not an issue of its
-own. There is at most one open follow-ups issue, titled "Follow-ups" and
-labeled `follow-up`, holding a checklist. A line leads with the file or
-page it is about:
+- **Small, and part of what it is building:** it fixes it in the same pull
+  request, and the body says so. What would add or alter behavior a user
+  can see that the ticket does not ask for is not this: it is the next.
+- **Something else that a user or a maintainer would run into:** it lists
+  it in its pull request, as a follow-up.
+- **Anything else,** such as what breaks no rule in the guides, what nobody
+  would notice without measuring, or a Low review finding it left undone:
+  it leaves it alone, and does not list it.
 
-```
-- [ ] <file or page>: <what is wrong, as a user or a maintainer sees it>. Found by <who> while building <ticket>. <The rule it breaks, by its section in the guide that states it (an area's guide under "Rules by area" in CLAUDE.md, CLAUDE.md, or this file), or "Needs a decision: <the question>".>
-```
-
-It is added with the file and the rest of the line as two arguments, and
-the script opens the issue when none is open:
+It opens no ticket for any of them. The owner decides about each follow-up
+on the pull request: one whose box is ticked when the pull request merges
+becomes a ticket, one a review says to fix is fixed there, and any other is
+dropped. A session never ticks a box.
 
 ```bash
-factory follow-up FILE "What is wrong. Found by WHO while building TICKET. The rule it breaks."
+factory follow-up "TITLE" "WHAT IS WRONG"
 ```
 
-TICKET is the ticket as its system writes it, which
-`factory ticket view N --field ref` prints, such as `#12`.
-A reviewer that does not know the ticket writes `TICKET` as it stands, and
-whoever appends the line fills it in.
+It adds the follow-up to the open pull request of the branch, so it runs
+once that is open. TITLE says what is wrong in a few words, and WHAT IS
+WRONG as a user or a maintainer sees it, with the file or page it is in. The
+ticket it may become has nothing else to go by, so together they stand
+without the pull request. A pull request lists three at most: with more
+than three, list the three that matter most. Neither may link a ticket.
+
+- A finding in a review thread is answered there, as
+  `factory-address-review` says, and is not listed too.
+- A build that ends with no pull request lists nothing. A run in the cloud
+  that resolves a conflict or works a dependency lists nothing either.
+- A session with no pull request, such as a refinement, says what it noticed
+  in its report, and opens a ticket only when the owner asks for one.
+- A request from the owner is a ticket of its own.
+- The `factory-resolve-conflicts` conflict stop keeps opening its own
+  ticket: which side wins is the owner's decision, and nothing else records
+  it.
 
 A placeholder or tag name in issue or comment text, such as `<slug>` or
 `<code>`, goes in backticks: GitHub drops an unknown tag and renders a
-real one. `factory ticket edit`, `comment`, and `open`, and
-`factory pr comment`, refuse a body that has one bare, and name it. A
-hook refuses the same in text sent to GitHub directly, as the
-`factory guard ticket-text` command describes.
-
-- A line whose fix the guides determine, such as a target under its floor,
-  a contrast failure, a test that cannot fail, or a stale sentence, needs
-  no refinement: it is buildable as written.
-- A line whose fix the guides do not determine says "Needs a decision:"
-  with the question, and `factory-refine` asks only about those lines. A
-  builder that meets such a line without the phrase adds it and leaves
-  the line unchecked.
-- A follow-up gets its own issue only when it would need the `spec` label,
-  because it adds or alters behavior a user can see, or would make a
-  line of a spec `factory specs list` prints false. A request from the
-  owner is always its own issue.
-- The `factory-resolve-conflicts` conflict stop keeps opening its own issue: which side
-  wins is the owner's decision, and nothing else records it.
-
-The follow-ups issue builds as one branch and one pull request, one commit
-per line, once the owner approves it, by moving its card to Ready or
-telling a session to build it. The pull request closes it with the line
-`factory ticket link N` prints only when every line is
-checked; otherwise it starts with the line
-`factory ticket link N --part` prints, and the unchecked
-lines wait there. The sync reads that line as a partial build, so any
-other link to the follow-ups issue words it differently. It has no spec tool change. `factory-build` appends a line and
-builds the issue; `factory-refine` refines it per line. Its lines can be
-about anything, so the one pull request waits for the owner when any line
-touches a file that does, and gets the fresh-agent trace ("Changing the
-process") when any line edits a rule.
-
-**Not everything noticed is a follow-up.** What breaks no rule in the
-guides, and what a user or a maintainer would not notice without
-measuring, gets no line and no fix. Once, every line left on a follow-ups
-issue came from reviewing the previous batch's fixes, including a 1 px
-jump, and each line's fix was reviewed in turn, so the list kept refilling
-itself. A Low review
-finding the builder left undone is not a follow-up either.
+real one. `factory ticket edit`, `comment`, and `open`,
+`factory pr comment`, and `factory follow-up` refuse a body that has one
+bare, and name it. A hook refuses the same in text sent to GitHub directly,
+as the `factory guard ticket-text` command describes.
 
 ## Changing the process
 

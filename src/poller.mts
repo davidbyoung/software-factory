@@ -79,7 +79,6 @@ export function selectToStart(
   snapshot: RepoSnapshot,
   board: Board,
   columns: Columns = DEFAULT_COLUMNS,
-  followUp: string = TICKET_LABELS["follow-up"],
 ): Key[] {
   return snapshot.issues
     .filter(
@@ -90,7 +89,6 @@ export function selectToStart(
           cardOf(board, issue.key, columns),
           snapshot.pulls,
           columns,
-          followUp,
         ).status === "Ready",
     )
     .map((issue) => issue.key)
@@ -343,12 +341,7 @@ export async function tick(d: Deps, state: State): Promise<void> {
   }
 
   const columns = columnsFrom(d.env);
-  const ready = selectToStart(
-    read.snapshot,
-    read.board,
-    columns,
-    d.env.FACTORY_FOLLOW_UP_LABEL?.trim() || TICKET_LABELS["follow-up"],
-  );
+  const ready = selectToStart(read.snapshot, read.board, columns);
   // This pass's own start comments are not in what it read, so it adds them.
   const fired = recentStarts(read.snapshot.issues, d.now());
   if (d.now() - state.lastHeartbeat >= HOUR) {
@@ -424,8 +417,6 @@ export async function tick(d: Deps, state: State): Promise<void> {
 export type OnceSettings = {
   board: number | null;
   ready: string | null;
-  /** The name of the follow-ups ticket's label. */
-  followUp: string;
   /** The name of the label on every ticket the factory works on. */
   factory: string;
   /** How many builds it starts in any one hour; 20 unless given. */
@@ -438,7 +429,6 @@ export function onceSettings(s: Settings): OnceSettings {
   return {
     board: s.tickets.board,
     ready: columnsOf(s).Ready?.[0] ?? null,
-    followUp: s.tickets.labels["follow-up"],
     factory: s.tickets.labels.factory,
     maxPerHour: s.builds.maxPerHour,
     ticketSystem: {
@@ -479,7 +469,6 @@ function onceEnv(s: OnceSettings, d: Deps, file: string): Deps["env"] | null {
     FACTORY_BOARD_OWNER: d.repository.split("/")[0],
     FACTORY_BOARD_NUMBER: String(s.board),
     FACTORY_READY_COLUMN: s.ready,
-    FACTORY_FOLLOW_UP_LABEL: s.followUp,
     FACTORY_LABEL: s.factory,
     FACTORY_MAX_PER_HOUR: String(s.maxPerHour ?? FIRE_LIMIT),
   };

@@ -51,7 +51,6 @@ export type PrepareDeps = Adapters & {
   repository: string;
   /** Where `in/` goes. */
   dir: string;
-  labels: Readonly<Record<"spec" | "follow-up", string>>;
   /** Whether the code host's own links say which tickets a pull closes. */
   ownLinks: boolean;
   /** The account the review's summaries are posted from. */
@@ -105,7 +104,6 @@ function readsOf(run: RunFile, o: { comments: number[]; reviews: number[] }) {
     pr("conflicts"),
     pr("for-branch", run.branch),
     ticket("list"),
-    ticket("list", "--label", "follow-up"),
   ];
   const { pull, ticket: key } = run;
   if (pull !== null)
@@ -167,11 +165,7 @@ async function build(
     throw new Nothing(why);
   };
   const ticket = await d.tickets.read(key);
-  const labels = d.labels;
-  if (
-    !ticket.labels.includes(labels["follow-up"]) &&
-    !heading.test(ticket.body)
-  )
+  if (!heading.test(ticket.body))
     await stop(
       "it has no Spec or Acceptance criteria section, so there is nothing to build yet: refine it first",
     );

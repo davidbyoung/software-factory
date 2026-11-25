@@ -143,7 +143,6 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
   const run = await prepare(kind as Kind, id, {
     ...w,
     dir: folder(env),
-    labels: w.settings.tickets.labels,
     ownLinks: ownLinks(w.settings),
     poster: w.runner.poster,
     reach: w.reach,

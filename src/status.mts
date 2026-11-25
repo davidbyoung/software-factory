@@ -11,7 +11,6 @@
 // The repository and the board come from the factory's settings, whose
 // loader needs dependencies installed; before npm ci the hook prints
 // nothing.
-import { TICKET_LABELS } from "./labels.mts";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   NO_DEPENDENCIES,
@@ -136,7 +135,7 @@ export function isWatching(body: string, now: Date): boolean {
 }
 
 /** One row per open issue, and one per open pull request that closes no
- * issue and builds no part of the follow-ups, such as Dependabot's. */
+ * issue, such as Dependabot's. */
 export function toRows(
   snapshot: RepoSnapshot,
   board: Board,
@@ -147,8 +146,6 @@ export function toRows(
      * worth flagging; null when builds.trigger is manual. */
     watch?: Watch | null;
     columns?: Columns;
-    /** The name of the follow-ups ticket's label. */
-    followUp?: string;
     /** How the ticket system writes a ticket. */
     ref: (key: Key) => string;
     /** The open pull requests of each ticket that names several
@@ -164,7 +161,6 @@ export function toRows(
   const watch =
     options.watch === undefined ? watchOf("own-server", 5) : options.watch;
   const columns = options.columns ?? DEFAULT_COLUMNS;
-  const followUp = options.followUp ?? TICKET_LABELS["follow-up"];
   const rows: Row[] = [];
   const closed: Row[] = [];
   const claimed = new Set<number>();
@@ -174,7 +170,6 @@ export function toRows(
       cardOf(board, issue.key, columns),
       snapshot.pulls,
       columns,
-      followUp,
       snapshot.across?.get(issue.key),
     );
     const pulls =
@@ -208,10 +203,7 @@ export function toRows(
   }
   for (const pull of snapshot.pulls) {
     if (claimed.has(pull.number)) continue;
-    const followUps = snapshot.issues.filter(
-      (i) => i.labels.includes(followUp) && pull.partOf.includes(i.key),
-    );
-    if (pull.closes.length > 0 || followUps.length > 0) continue;
+    if (pull.closes.length > 0) continue;
     const other = pull.partOf.find((k) => options.elsewhere?.has(k));
     const its = other && options.elsewhere!.get(other);
     rows.push({
@@ -741,7 +733,6 @@ async function snapshotLines(
         cardOf(board, issue.key, target.columns),
         snapshot.pulls,
         target.columns,
-        target.followUp,
         across.get(issue.key),
       ).status !== "Ready"
     )
@@ -763,7 +754,6 @@ async function snapshotLines(
       elsewhere: await titlesElsewhere(linked, source, target.repository),
       watch: target.watch,
       columns: target.columns,
-      followUp: target.followUp,
       ref: (k) => source.tickets.ref(k),
     }),
     now,

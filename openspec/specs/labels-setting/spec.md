@@ -8,12 +8,12 @@ The names of the labels the factory adds to tickets and pull requests, under `ti
 
 ### Requirement: Default label names
 
-The factory SHALL behave as this line says: When `.claude/factory.yaml` has no `tickets.labels` and no `code-host.labels`, the factory uses the names `spec`, `follow-up`, `factory`, `merge-automatic`, `merge-manual`, and `verdict-override`, and `factory config explain` shows each under `tickets.labels` or `code-host.labels` marked `# default`, such as `factory: factory  # default`.
+The factory SHALL behave as this line says: When `.claude/factory.yaml` has no `tickets.labels` and no `code-host.labels`, the factory uses the names `spec`, `factory`, `merge-automatic`, `merge-manual`, and `verdict-override`, and `factory config explain` shows each under `tickets.labels` or `code-host.labels` marked `# default`, such as `factory: factory  # default`.
 
 #### Scenario: Default label names
 
 - **WHEN** `.claude/factory.yaml` has no `tickets.labels` and no `code-host.labels`
-- **THEN** the factory uses the names `spec`, `follow-up`, `factory`, `merge-automatic`, `merge-manual`, and `verdict-override`, and `factory config explain` shows each under `tickets.labels` or `code-host.labels` marked `# default`, such as `factory: factory  # default`.
+- **THEN** the factory uses the names `spec`, `factory`, `merge-automatic`, `merge-manual`, and `verdict-override`, and `factory config explain` shows each under `tickets.labels` or `code-host.labels` marked `# default`, such as `factory: factory  # default`.
 
 ### Requirement: Configured names are used
 
@@ -26,12 +26,12 @@ The factory SHALL behave as this line says: When `tickets.labels` or `code-host.
 
 ### Requirement: Unknown label keys
 
-The factory SHALL behave as this line says: When `tickets.labels` or `code-host.labels` has a key other than its own (`spec`, `follow-up`, and `factory`; `merge-automatic`, `merge-manual`, and `verdict-override`), `factory config check` fails naming the key, as it does for any unknown key.
+The factory SHALL behave as this line says: When `tickets.labels` or `code-host.labels` has a key other than its own (`spec` and `factory`; `merge-automatic`, `merge-manual`, and `verdict-override`), `factory config check` fails naming the key, as it does for any unknown key, such as `.claude/factory.yaml: tickets.labels.follow-up: unknown key`.
 
 #### Scenario: Unknown label keys
 
-- **WHEN** `tickets.labels` or `code-host.labels` has a key other than its own (`spec`, `follow-up`, and `factory`; `merge-automatic`, `merge-manual`, and `verdict-override`)
-- **THEN** `factory config check` fails naming the key, as it does for any unknown key.
+- **WHEN** `tickets.labels` or `code-host.labels` has a key other than its own (`spec` and `factory`; `merge-automatic`, `merge-manual`, and `verdict-override`)
+- **THEN** `factory config check` fails naming the key, as it does for any unknown key, such as `.claude/factory.yaml: tickets.labels.follow-up: unknown key`.
 
 ### Requirement: An empty label name
 
@@ -49,7 +49,7 @@ The factory SHALL refuse two label keys whose names are equal ignoring case, nam
 #### Scenario: Two labels with one name
 
 - **WHEN** two keys give names equal ignoring case
-- **THEN** `factory config check` fails with `.claude/factory.yaml: KEY: "NAME" is already OTHER. Give each label its own name`, such as `code-host.labels.merge-manual: "Spec" is already tickets.labels.spec`. A default name counts. KEY is a key the file sets: of two set keys, the later in the order `spec`, `follow-up`, `factory`, `merge-automatic`, `merge-manual`, `verdict-override`; of a set key and a default, the set one. So `tickets.labels.factory: spec` alone fails as `tickets.labels.factory: "spec" is already tickets.labels.spec`.
+- **THEN** `factory config check` fails with `.claude/factory.yaml: KEY: "NAME" is already OTHER. Give each label its own name`, such as `code-host.labels.merge-manual: "Spec" is already tickets.labels.spec`. A default name counts. KEY is a key the file sets: of two set keys, the later in the order `spec`, `factory`, `merge-automatic`, `merge-manual`, `verdict-override`; of a set key and a default, the set one. So `tickets.labels.factory: spec` alone fails as `tickets.labels.factory: "spec" is already tickets.labels.spec`.
 
 ### Requirement: Separate tools may share a name
 
@@ -89,12 +89,12 @@ The factory SHALL behave as this line says: When a `factory init` run writes `.c
 
 ### Requirement: Ticket commands take a key
 
-The factory SHALL behave as this line says: When `factory ticket label N --add KEY`, `--remove KEY`, or `--was-removed KEY` is given `spec` or `follow-up`, it acts on the name `tickets.labels` gives that key; any other word is a label name, as today. `factory ticket open --label KEY` and `factory ticket list --label KEY` translate the same way.
+The factory SHALL behave as this line says: When `factory ticket label N --add KEY`, `--remove KEY`, or `--was-removed KEY` is given `spec`, it acts on the name `tickets.labels` gives that key; any other word is a label name, `follow-up` included. `factory ticket open --label KEY` and `factory ticket list --label KEY` translate the same way.
 
 #### Scenario: Ticket commands take a key
 
-- **WHEN** `factory ticket label N --add KEY`, `--remove KEY`, or `--was-removed KEY` is given `spec` or `follow-up`
-- **THEN** it acts on the name `tickets.labels` gives that key; any other word is a label name, as today. `factory ticket open --label KEY` and `factory ticket list --label KEY` translate the same way.
+- **WHEN** `factory ticket label N --add KEY`, `--remove KEY`, or `--was-removed KEY` is given `spec`
+- **THEN** it acts on the name `tickets.labels` gives that key; any other word is a label name, `follow-up` included. `factory ticket open --label KEY` and `factory ticket list --label KEY` translate the same way.
 
 ### Requirement: Pull request commands take a key
 
@@ -123,15 +123,6 @@ The factory SHALL behave as this line says: When a ticket carries a label whose 
 - **WHEN** a ticket carries a label whose configured name differs from its key
 - **THEN** `factory ticket view N` prints it on the `labels:` line as `NAME (KEY)`, such as `labels: enhancement, needs-spec (spec)`; `factory ticket view N --field labels` and `factory ticket list` print it the same way. A label whose name equals its key prints as today. `--json` output keeps the raw names, since the factory's own code reads it.
 
-### Requirement: The follow-ups ticket by its configured name
-
-The factory SHALL behave as this line says: When `tickets.labels.follow-up` is set, `factory follow-up` finds the open follow-ups ticket by that name, and opens a new one with that name when none carries it. `factory status`, the board sync, the refined check, and the ticket-fields split find the follow-ups ticket by the same name.
-
-#### Scenario: The follow-ups ticket by its configured name
-
-- **WHEN** `tickets.labels.follow-up` is set
-- **THEN** `factory follow-up` finds the open follow-ups ticket by that name, and opens a new one with that name when none carries it. `factory status`, the board sync, the refined check, and the ticket-fields split find the follow-ups ticket by the same name.
-
 ### Requirement: The spec track by its configured name
 
 The factory SHALL behave as this line says: When `tickets.labels.spec` is set, the refined check, the ticket-fields split, and `factory specs new` read a ticket as on the spec track when it carries that name.
@@ -152,12 +143,12 @@ The factory SHALL say a label value with an unquoted `: ` needs quotes, in place
 
 ### Requirement: The factory label by its configured name
 
-The factory SHALL behave as this line says: When `tickets.labels.factory` is set, every command, workflow, and the scheduled poller use that name; `factory config check` refuses it empty, or equal ignoring case to another label's name, with the messages it gives `spec` and `follow-up`.
+The factory SHALL behave as this line says: When `tickets.labels.factory` is set, every command, workflow, and the scheduled poller use that name; `factory config check` refuses it empty, or equal ignoring case to another label's name, with the messages it gives `spec`.
 
 #### Scenario: The factory label by its configured name
 
 - **WHEN** `tickets.labels.factory` is set
-- **THEN** every command, workflow, and the scheduled poller use that name; `factory config check` refuses it empty, or equal ignoring case to another label's name, with the messages it gives `spec` and `follow-up`.
+- **THEN** every command, workflow, and the scheduled poller use that name; `factory config check` refuses it empty, or equal ignoring case to another label's name, with the messages it gives `spec`.
 
 ### Requirement: Label commands take the factory key
 

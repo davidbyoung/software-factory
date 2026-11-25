@@ -42,15 +42,6 @@ The factory SHALL behave as this line says: Every command that reads one ticket 
 - **WHEN** a command reads one ticket whose factory fields sit in ticket fields
 - **THEN** Every command that reads one ticket reads it as `view` prints it, so `factory ticket refined N` passes a ticket whose Decisions, Spec, or For the builder sit in ticket fields.
 
-### Requirement: The follow-ups ticket stays whole
-
-The factory SHALL behave as this line says: The follow-ups ticket, labeled `follow-up`, is read and written whole in its description, whatever `tickets.fields` names.
-
-#### Scenario: The follow-ups ticket stays whole
-
-- **WHEN** a ticket labeled `follow-up` is read or written while `tickets.fields` names ticket fields
-- **THEN** The follow-ups ticket, labeled `follow-up`, is read and written whole in its description, whatever `tickets.fields` names.
-
 ### Requirement: A named ticket field that doesn't exist
 
 The factory SHALL behave as this line says: When a ticket field that `tickets.fields` names doesn't exist, `factory ticket edit` prints `<repository>'s tickets have no field called <field>, which tickets.fields.<key> names.` and exits 1, writing nothing.

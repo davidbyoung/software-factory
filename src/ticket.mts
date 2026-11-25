@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The steps a session takes on an issue that are the same every time: claim
-// it, check the claim still holds, stop, post a refinement marker, note what
-// the session spent, and add a line to the follow-ups issue.
+// it, check the claim still holds, stop, post a refinement marker, and note
+// what the session spent.
 //
 //   factory ticket claim N
 //   factory ticket still-live N
@@ -9,7 +9,6 @@
 //   factory ticket end N
 //   factory ticket refining|waiting N
 //   factory ticket refined N [--check] [--before-file FILE]
-//   factory follow-up FILE "what is wrong"
 //   factory ticket ready N
 //   factory ticket cost N
 //
@@ -51,8 +50,7 @@
 // `end` is a run's last step: it releases this session's claim when the claim
 // is live and no open pull request links the ticket, and always exits 0.
 //
-// FILE is the file or page a follow-up is about, and leads its line. A
-// failed read exits 1 with the error; every other outcome is the one line
+// A failed read exits 1 with the error; every other outcome is the one line
 // printed.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -155,9 +153,6 @@ export type Deps = {
   env: Record<string, string | undefined>;
   sleep: (ms: number) => Promise<unknown>;
   out: (line: string) => void;
-  /** The follow-ups ticket this clone last opened, which GitHub may not
-   * list for a few seconds after. */
-  followUpStore: { read: () => Key | null; write: (key: Key) => void };
   /** Where this checkout remembers the claim it posted on each issue. */
   claimStore: {
     read: (issue: Key) => string | null;
@@ -407,63 +402,9 @@ async function end(
     d.own,
   );
   const built = await builtHere(ticket, place(d));
-  if (
-    built ??
-    reviewingPulls(ticket, pulls, d.labels.tickets["follow-up"]).length > 0
-  )
-    return "kept";
+  if (built ?? reviewingPulls(ticket, pulls).length > 0) return "kept";
   await post(d, issue, { kind: "ended", issue: named(d, issue) });
   return "released";
-}
-
-export function withLine(body: string, line: string): string {
-  return `${body.trimEnd()}\n${line.trim()}\n`;
-}
-
-/** The follow-ups ticket this clone last opened, when it is still open and
- * still carries the label, read directly: a list made seconds after it was
- * opened can leave it out, and opening a second one breaks the one-ticket
- * rule. */
-async function lastOpened(label: string, d: Ctx) {
-  const key = d.followUpStore.read();
-  if (key === null) return null;
-  try {
-    const t = await d.tickets.read(key);
-    return t.finishedAt === null && t.labels.includes(label) ? t : null;
-  } catch (error) {
-    if (error instanceof NotFoundError) return null;
-    throw error;
-  }
-}
-
-/** Adds a line to the open follow-ups issue, or opens the issue when none
- * is open. The file leads the line, so each one names what it is about. */
-async function followUp(file: string, text: string, d: Ctx) {
-  const line = `- [ ] ${file}: ${text}`;
-  const label = d.labels.tickets["follow-up"];
-  const open = (await d.tickets.listUnfinished()).filter((t) =>
-    t.labels.includes(label),
-  );
-  const [listed] = open.sort((a, b) => compareKeys(a.key, b.key));
-  const first = listed ?? (await lastOpened(label, d));
-  if (first) {
-    const issue = await d.tickets.read(first.key);
-    await d.tickets.writeBody(first.key, withLine(issue.body, line));
-    return `added to ${d.tickets.ref(first.key)}`;
-  }
-  const body = withLine(
-    'Small problems noticed while doing other work, one line each, built together once the owner approves this issue. See "Follow-ups" in `.claude/factory/rules.md`.\n',
-    line,
-  );
-  const factory = d.labels.tickets.factory;
-  for (const l of [label, factory]) await d.tickets.ensureLabel(l);
-  const made = await d.tickets.open({
-    title: "Follow-ups",
-    labels: [label, factory],
-    body,
-  });
-  d.followUpStore.write(made);
-  return `opened ${d.tickets.ref(made)}`;
 }
 
 /** Adds the factory label to the ticket, creating the label first where
@@ -859,7 +800,6 @@ async function ticketCommand(
       return repositories(keyed(), args.slice(1), {
         ...place(d),
         columns: d.config.columns,
-        followUp: names["follow-up"],
         out: d.out,
         signedInAs: () => d.signedInAs(d.repository, d.codeHost),
         startOrder: async (repository, pull) =>
@@ -906,7 +846,7 @@ const STEPS = new Set([
 ]);
 
 const USAGE =
-  "Usage: factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|repositories|blockers|block|unblock|supports|follow-up ...";
+  "Usage: factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|repositories|blockers|block|unblock|supports ...";
 
 /** The commands that record something on a ticket, after each of which
  * the board sync runs, since no ticket system tells the code host. */
@@ -921,7 +861,6 @@ const RECORDING = new Set([
   "cost",
   "adopt",
   "open",
-  "follow-up",
 ]);
 
 export async function main(argv: string[], deps: Deps): Promise<number> {
@@ -955,8 +894,7 @@ function syncedIn(
   repository: string,
 ): string {
   const key = argv[1];
-  if (!key || ["adopt", "open", "follow-up"].includes(argv[0]!))
-    return repository;
+  if (!key || ["adopt", "open"].includes(argv[0]!)) return repository;
   return homeOf(tickets, tickets.key(key), repository);
 }
 
@@ -993,11 +931,6 @@ async function command(argv: string[], deps: Deps): Promise<number> {
     }
     if (command === "adopt")
       return await adopt(first === undefined ? rest : [first, ...rest], d);
-    if (command === "follow-up") {
-      if (!first || !rest[0]) throw new Error(USAGE);
-      d.out(await followUp(first, rest[0], d));
-      return 0;
-    }
     const handled = await ticketCommand(
       command ?? "",
       first === undefined ? rest : [first, ...rest],
@@ -1133,10 +1066,6 @@ async function command(argv: string[], deps: Deps): Promise<number> {
   }
 }
 
-function followUpPath() {
-  return join(commonDir(), "work-follow-up");
-}
-
 /** What the commands run with, outside a test. */
 export function ticketDeps(): Deps {
   return {
@@ -1175,13 +1104,6 @@ export function ticketDeps(): Deps {
     clock: { read: readClock, write: writeClock },
     measure: (session, since) =>
       measureSession(projectsDir(process.env), session, since),
-    followUpStore: {
-      read: () =>
-        existsSync(followUpPath())
-          ? readFileSync(followUpPath(), "utf8").trim() || null
-          : null,
-      write: (key) => writeFileSync(followUpPath(), key),
-    },
     claimStore: {
       read: (issue) => {
         const path = claimPath(issue);
@@ -1192,7 +1114,7 @@ export function ticketDeps(): Deps {
   };
 }
 
-/** `factory ticket ...` and `factory follow-up ...`. */
+/** `factory ticket ...`. */
 export async function run(argv: string[]): Promise<number> {
   return main(argv, ticketDeps());
 }

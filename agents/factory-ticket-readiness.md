@@ -98,13 +98,6 @@ anything?
 Do not flag style, wording you would merely phrase differently, or anything
 the rules already settle.
 
-**The follow-ups issue** (`follow-up` label, see "Follow-ups" in
-`.claude/factory/rules.md`) has no Spec or Acceptance criteria: each unchecked line is a
-criterion. Ask only about a line whose fix the area's rules do not
-determine, or that says "Needs a decision" with no answer under
-Decisions. A line a guide settles is buildable as written, and a missing
-"For the builder" is not a finding.
-
 ## Report
 
 Lead with a verdict: **buildable** or **not yet**. Then one item per

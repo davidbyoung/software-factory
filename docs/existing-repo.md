@@ -423,4 +423,5 @@ and how to undo each. The short version:
   jobs check that the factory's files are in step, run sessions in the
   cloud, open the factory's updates as pull requests, and run each
   optional part you turn on. A job whose part is off is skipped.
-- Comments on tickets it works, and one "Follow-ups" ticket.
+- Comments on tickets it works, and a ticket for each
+  [follow-up](workflow.md#follow-ups) you tick in a pull request.

@@ -218,7 +218,11 @@ to see whether it follows a pushback of yours.
     is, per that reply, and resolve the thread.
   - **You cannot tell which:** ask in one line and leave it open.
 - **A review body.** Handle each point in it the same way, and answer it in
-  the end comment (section 4); there is no thread to resolve.
+  the end comment (section 4); there is no thread to resolve. "Fix 1" is
+  the pull request's first follow-up ("Follow-ups" in
+  `.claude/factory/rules.md`), in the list at the end of the body
+  `factory pr view N --field body` prints. Fix it, say with which commit,
+  and leave the list as it is.
 
 Approver threads are outside section 6's round count and its escalation.
 

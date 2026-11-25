@@ -7,7 +7,6 @@
 /** The labels on tickets, each key with its default name. */
 export const TICKET_LABELS = {
   spec: "spec",
-  "follow-up": "follow-up",
   factory: "factory",
 } as const;
 

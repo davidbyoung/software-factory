@@ -653,7 +653,6 @@ describe("onceSettings", () => {
     expect(read({ tickets: { board: 7, columns: FACTORY_COLUMNS } })).toEqual({
       board: 7,
       ready: "Ready",
-      followUp: "follow-up",
       factory: "factory",
       maxPerHour: 20,
       ticketSystem: { type: "github", options: {}, own: true },
@@ -684,18 +683,6 @@ describe("onceSettings", () => {
     });
   });
 
-  it("takes the follow-ups label the settings rename", () => {
-    expect(
-      read({
-        tickets: {
-          board: 7,
-          columns: FACTORY_COLUMNS,
-          labels: { "follow-up": "follow-ups" },
-        },
-      }).followUp,
-    ).toBe("follow-ups");
-  });
-
   it("takes a Ready column the settings rename", () => {
     expect(
       read({
@@ -707,7 +694,6 @@ describe("onceSettings", () => {
     ).toMatchObject({
       board: 7,
       ready: "Ready for dev",
-      followUp: "follow-up",
     });
   });
 
@@ -808,7 +794,6 @@ describe("once", () => {
   const settings = {
     board: 1,
     ready: "Ready",
-    followUp: "follow-up",
     factory: "factory",
   };
 
@@ -841,25 +826,6 @@ describe("once", () => {
     expect(dispatches()).toEqual([]);
   });
 
-  it("starts no build of the follow-ups ticket, by its configured name, while a pull request builds part of it", async () => {
-    const repo = structuredClone(repoPages[0]);
-    const r = repo.data.repository;
-    r.open.nodes.find((n) => n.number === 12)!.labels.nodes = [
-      { name: "follow-ups" },
-    ] as never;
-    r.pullRequests.nodes.push({
-      ...structuredClone(r.pullRequests.nodes[0]!),
-      number: 42,
-      body: "Part of #12: its first line.",
-      closingIssuesReferences: { nodes: [] },
-    });
-    const { d, dispatches } = setup({ repoPage: repo }, TOKEN);
-
-    await once({ ...settings, followUp: "follow-ups" }, d);
-
-    expect(dispatches()).toEqual([]);
-  });
-
   it("returns 1, saying why, when it cannot read the board", async () => {
     const { d, logs } = setup({ graphql: { status: 502 } }, TOKEN);
 
@@ -888,9 +854,7 @@ describe("once", () => {
     async (given, said) => {
       const { d, calls, logs } = setup({}, TOKEN);
 
-      expect(
-        await once({ ...given, followUp: "follow-up", factory: "factory" }, d),
-      ).toBe(1);
+      expect(await once({ ...given, factory: "factory" }, d)).toBe(1);
       expect(calls).toEqual([]);
       expect(logs).toEqual([said]);
     },
@@ -1050,7 +1014,6 @@ describe("the hourly cap's setting", () => {
       {
         board: 1,
         ready: "Ready",
-        followUp: "follow-up",
         factory: "factory",
         maxPerHour: 3,
       },
@@ -1135,7 +1098,6 @@ describe("an organization's preset, as its one poller reads it", () => {
     expect(await read(PRESET)).toEqual({
       board: 12,
       ready: "Ready",
-      followUp: "follow-up",
       factory: "factory",
       maxPerHour: 20,
       ticketSystem: { type: "github", options: {}, own: true },
@@ -1176,12 +1138,10 @@ describe("an organization's preset, as its one poller reads it", () => {
       lines.indexOf("pr-review:"),
       0,
       "  labels:",
-      "    follow-up: follow-ups",
       "    factory: built-by-factory",
     );
     expect(await read([...lines, "  max-per-hour: 3"])).toMatchObject({
       ready: "Ready for dev",
-      followUp: "follow-ups",
       factory: "built-by-factory",
       maxPerHour: 3,
     });
@@ -1210,7 +1170,6 @@ describe("one pass for every repository on an organization's board", () => {
   const SETTINGS = {
     board: 12,
     ready: "Ready",
-    followUp: "follow-up",
     factory: "factory",
   };
   const answer = (status: number, body: unknown = {}, statusText = "") =>

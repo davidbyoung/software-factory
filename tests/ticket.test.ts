@@ -2,13 +2,7 @@ import { chmodSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  claimOutcome,
-  main,
-  withLine,
-  type Clock,
-  type Deps,
-} from "../src/ticket.mts";
+import { claimOutcome, main, type Clock, type Deps } from "../src/ticket.mts";
 import type { PullRequest } from "../src/lib/work-status.mts";
 import { sessionIdentity } from "../src/lib/gh.mts";
 import { githubActionsRunner } from "../src/runner/github-actions.mts";
@@ -69,7 +63,7 @@ function deps(
     ticketFields?: { fields: TicketField[]; mapping: FieldMapping };
     /** Label names the settings set, beside the defaults. */
     labels?: {
-      tickets?: Partial<Record<"spec" | "follow-up" | "factory", string>>;
+      tickets?: Partial<Record<"spec" | "factory", string>>;
       codeHost?: Partial<
         Record<"merge-automatic" | "merge-manual" | "verdict-override", string>
       >;
@@ -115,7 +109,6 @@ function deps(
               "acme/shop",
               {
                 spec: "spec",
-                "follow-up": "follow-up",
                 factory: "factory",
                 ...options.labels?.tickets,
               },
@@ -174,7 +167,6 @@ function deps(
       if (text === undefined) throw new Error(`ENOENT: ${path}`);
       return text;
     },
-    followUpStore: { read: () => null, write: () => {} },
     claimStore: {
       read: () => (options.stored == null ? null : String(options.stored)),
       write: (issue, id) => written.push([issue, id]),
@@ -393,22 +385,6 @@ describe("end", () => {
     expect(memory.comments(7)).toHaveLength(1);
   });
 
-  it("keeps the claim for a Part of link to the follow-ups issue", async () => {
-    const { d, out } = actions(
-      [
-        {
-          number: 7,
-          labels: ["follow-up"],
-          comments: [marked(50, 1, "claim actions 123")],
-        },
-      ],
-      [{ body: "Part of #7\n\nLines." }],
-    );
-
-    expect(await main(["end", "7"], d)).toBe(0);
-    expect(out).toEqual(["kept"]);
-  });
-
   it("posts nothing for another session's claim", async () => {
     const { d, out, memory } = actions([
       { number: 7, comments: [marked(60, 1, "claim actions 999")] },
@@ -622,6 +598,13 @@ describe("the refined check", () => {
     expect(r.posted).toEqual([]);
   });
 
+  it("checks a ticket labeled follow-up as it checks any other", async () => {
+    const r = await refined("- [ ] docs/cli.md: a stale line.", ["follow-up"]);
+
+    expect(r.code).toBe(1);
+    expect(r.errors).toContain("missing: ## Decisions");
+  });
+
   it("leaves the session's cost clock alone with --check", async () => {
     const r = await refined(PLAIN_BODY, []);
 
@@ -630,7 +613,7 @@ describe("the refined check", () => {
 
   describe("with labels the settings rename", () => {
     const labels = {
-      tickets: { spec: "needs-spec", "follow-up": "follow-ups" },
+      tickets: { spec: "needs-spec" },
     };
     const check = async (body: string, on: string[]) => {
       quiet();
@@ -638,10 +621,6 @@ describe("the refined check", () => {
       const code = await main(["refined", "7", "--check"], d);
       return { code, out, errors };
     };
-
-    it("takes the follow-ups ticket by its configured name as sound", async () => {
-      expect((await check("", ["follow-ups"])).out).toEqual(["sound"]);
-    });
 
     it("holds a ticket with the configured spec name to the spec track", async () => {
       const r = await check(PLAIN_BODY, ["needs-spec"]);
@@ -769,13 +748,6 @@ describe("the refined check", () => {
     });
   });
 
-  it("takes the follow-ups issue as sound whatever its body holds", async () => {
-    const r = await refined("- [ ] docs/cli.md: a stale line.", ["follow-up"]);
-
-    expect(r.code).toBe(0);
-    expect(r.out).toEqual(["sound"]);
-  });
-
   it("prints one line on standard error for each missing part, posts nothing, and exits 1 with --check", async () => {
     const r = await refined(
       without(SPEC_BODY, /^## Decisions$/, /^### Tasks$/),
@@ -806,14 +778,6 @@ describe("the refined check", () => {
     expect(r.out).toEqual([]);
     expect(r.posted).toEqual([]);
     expect(r.clocks.size).toBe(0);
-  });
-
-  it("posts the marker on the follow-ups issue, whatever its body holds", async () => {
-    const r = await refined("", ["follow-up"], []);
-
-    expect(r.code).toBe(0);
-    expect(r.out).toEqual(["posted"]);
-    expect(r.posted.at(-1)?.body).toContain("<!-- work-status: refined -->");
   });
 });
 
@@ -892,111 +856,9 @@ describe("ready", () => {
   });
 });
 
-describe("follow-up", () => {
-  const LINE = "The usage text names a flag that was removed.";
-
-  it("adds to the follow-ups ticket it just opened, though the list does not show it yet", async () => {
-    const { d, out, memory } = deps([]);
-    let opened: string | null = null;
-    d.followUpStore = {
-      read: () => opened,
-      write: (key) => void (opened = key),
-    };
-
-    await main(["follow-up", "a.ts", "First."], d);
-    // GitHub lists a new ticket a few seconds after it is opened.
-    memory.tickets.listUnfinished = async () => [];
-    await main(["follow-up", "b.ts", "Second."], d);
-
-    expect(out).toEqual(["opened #1", "added to #1"]);
-    expect(memory.state.size).toBe(1);
-    expect(memory.state.get("1")?.body).toContain("- [ ] b.ts: Second.");
-  });
-
-  it("appends the line, led by its file, to the open follow-ups issue", async () => {
-    const { d, out, memory } = deps([
-      {
-        number: 201,
-        title: "Follow-ups",
-        labels: ["follow-up"],
-        body: "- [ ] a\n",
-      },
-    ]);
-
-    await main(["follow-up", "src/pr.mts", LINE], d);
-
-    expect(out).toEqual(["added to #201"]);
-    expect(memory.state.get("201")?.body).toBe(
-      `- [ ] a\n- [ ] src/pr.mts: ${LINE}\n`,
-    );
-  });
-
-  it("opens the follow-ups issue when none is open", async () => {
-    const { d, out, memory } = deps([
-      { number: 209, labels: ["follow-up"], state: "closed" },
-    ]);
-
-    await main(["follow-up", "src/pr.mts", LINE], d);
-
-    expect(out).toEqual(["opened #210"]);
-    const opened = memory.state.get("210")!;
-    expect(opened.title).toBe("Follow-ups");
-    expect(opened.labels).toEqual(["follow-up", "factory"]);
-    expect(opened.body).toContain('"Follow-ups" in `.claude/factory/rules.md`');
-    expect(opened.body).toContain(`- [ ] src/pr.mts: ${LINE}`);
-  });
-
-  it("adds to the lowest-numbered issue when more than one is open", async () => {
-    const { d, out, memory } = deps([
-      { number: 230, labels: ["follow-up"] },
-      { number: 201, labels: ["follow-up"] },
-    ]);
-
-    await main(["follow-up", "src/pr.mts", LINE], d);
-
-    expect(out).toEqual(["added to #201"]);
-    expect(memory.state.get("201")?.body).toContain(LINE);
-    expect(memory.state.get("230")?.body).toBe("");
-  });
-
-  it("posts nothing when the file is missing", async () => {
-    quiet();
-    const { d, memory } = deps([]);
-
-    expect(await main(["follow-up", "", LINE], d)).toBe(1);
-    expect(memory.state.size).toBe(0);
-  });
-
-  it("posts nothing when the text is missing", async () => {
-    quiet();
-    const { d, memory } = deps([]);
-
-    expect(await main(["follow-up", "src/pr.mts"], d)).toBe(1);
-    expect(memory.state.size).toBe(0);
-  });
-
-  it("no longer takes the old command, and its usage names the new one", async () => {
-    quiet();
-    const { d, memory } = deps([]);
-
-    expect(await main(["finding", "tooling", "- [ ] b"], d)).toBe(1);
-    expect(memory.state.size).toBe(0);
-    expect(errors.join("\n")).toMatch(/\|follow-up\b/);
-    expect(errors.join("\n")).not.toMatch(/\bfinding\b/);
-  });
-});
-
 describe("claimOutcome", () => {
   it("names unknown when nothing is live", () => {
     expect(claimOutcome([], "5")).toBe("held by unknown");
-  });
-});
-
-describe("withLine", () => {
-  it("adds the line under the last one", () => {
-    expect(withLine("Intro.\n\n- [ ] a\n\n", " - [ ] b ")).toBe(
-      "Intro.\n\n- [ ] a\n- [ ] b\n",
-    );
   });
 });
 
@@ -1485,7 +1347,7 @@ describe("the ticket commands", () => {
 
   describe("with labels the settings rename", () => {
     const renamed = {
-      tickets: { spec: "needs-spec", "follow-up": "follow-ups" },
+      tickets: { spec: "needs-spec" },
       codeHost: { "verdict-override": "owner-pass" },
     };
     const NAMED = { ...SEVEN, labels: ["enhancement", "needs-spec"] };
@@ -1493,8 +1355,10 @@ describe("the ticket commands", () => {
     it("label --add takes a key for its name", async () => {
       const { d, memory } = deps([NAMED], { labels: renamed });
 
+      await main(["label", "7", "--add", "spec"], d);
+      expect(memory.state.get("7")?.labels).toContain("needs-spec");
       await main(["label", "7", "--add", "follow-up"], d);
-      expect(memory.state.get("7")?.labels).toContain("follow-ups");
+      expect(memory.state.get("7")?.labels).toContain("follow-up");
     });
 
     it("label --remove takes a key for its name", async () => {
@@ -1540,12 +1404,12 @@ describe("the ticket commands", () => {
 
     it("list --label takes a key for its name", async () => {
       const { d, out } = deps(
-        [{ number: 3, title: "Follow-ups", labels: ["follow-ups"] }],
+        [{ number: 3, title: "A change", labels: ["needs-spec"] }],
         { labels: renamed },
       );
 
-      await main(["list", "--label", "follow-up"], d);
-      expect(out).toEqual(["3\tFollow-ups\tfollow-ups (follow-up)"]);
+      await main(["list", "--label", "spec"], d);
+      expect(out).toEqual(["3\tA change\tneeds-spec (spec)"]);
     });
 
     it("open --label takes a key for its name", async () => {
@@ -1593,32 +1457,6 @@ describe("the ticket commands", () => {
         "enhancement",
         "needs-spec",
       ]);
-    });
-
-    it("follow-up adds to the ticket with the configured name", async () => {
-      const { d, out, memory } = deps(
-        [
-          { number: 4, labels: ["follow-ups"], body: "- [ ] a: b\n" },
-          { number: 5, labels: ["follow-up"], body: "" },
-        ],
-        { labels: renamed },
-      );
-
-      await main(["follow-up", "x.ts", "Wrong."], d);
-      expect(out).toEqual(["added to #4"]);
-      expect(memory.state.get("4")?.body).toContain("- [ ] x.ts: Wrong.");
-    });
-
-    it("follow-up opens its ticket with the configured name", async () => {
-      const { d, memory } = deps([{ number: 5, labels: ["follow-up"] }], {
-        labels: renamed,
-      });
-
-      await main(["follow-up", "x.ts", "Wrong."], d);
-      const opened = [...memory.state.values()].find(
-        (t) => t.title === "Follow-ups",
-      );
-      expect(opened?.labels).toEqual(["follow-ups", "factory"]);
     });
   });
 
@@ -2014,24 +1852,8 @@ describe("tickets whose factory fields sit in ticket fields", () => {
 
   describe("with labels the settings rename", () => {
     const labels = {
-      tickets: { spec: "needs-spec", "follow-up": "follow-ups" },
+      tickets: { spec: "needs-spec" },
     };
-
-    it("keeps the follow-ups ticket whole by its configured name", async () => {
-      quiet();
-      const { d, memory, files } = deps(
-        [{ number: 4, labels: ["follow-ups"] }],
-        {
-          ticketFields: { fields: FIELDS, mapping: MAPPING },
-          labels,
-        },
-      );
-      files.set("body.md", BODY);
-
-      await main(["edit", "4", "--body-file", "body.md"], d);
-      expect(memory.state.get("4")?.body).toBe(BODY);
-      expect(memory.fieldValues.get("4")).toBeUndefined();
-    });
 
     it("reads a shared field as the Spec on a ticket with the configured spec name", async () => {
       quiet();
@@ -2044,17 +1866,6 @@ describe("tickets whose factory fields sit in ticket fields", () => {
       await main(["view", "7", "--field", "body"], d);
       expect(out.join("\n")).toBe("Ask.\n\n## Spec\n\n1. It works.\n");
     });
-  });
-
-  it("keeps the follow-ups ticket whole in its description", async () => {
-    const { d, memory, files } = withFields([
-      { number: 4, labels: ["follow-up"] },
-    ]);
-    files.set("body.md", BODY);
-
-    expect(await main(["edit", "4", "--body-file", "body.md"], d)).toBe(0);
-    expect(memory.state.get("4")?.body).toBe(BODY);
-    expect(memory.fieldValues.get("4")).toBeUndefined();
   });
 
   it.each([
@@ -2405,16 +2216,6 @@ describe("tickets named by a key", () => {
     expect(await main(["branch", "PROJ-12"], d)).toBe(0);
     expect(out).toEqual(["PROJ-12"]);
   });
-
-  it("claims, and posts the follow-ups line, naming tickets by their written form", async () => {
-    const { d, out, memory } = keyed([
-      { key: "PROJ-4", labels: ["follow-up"], body: "- [ ] a: b\n" },
-    ]);
-
-    expect(await main(["follow-up", "x.ts", "Wrong."], d)).toBe(0);
-    expect(out).toEqual(["added to PROJ-4"]);
-    expect(memory.state.get("PROJ-4")?.body).toContain("- [ ] x.ts: Wrong.");
-  });
 });
 
 describe("a ticket system's credential", () => {
@@ -2662,16 +2463,6 @@ describe("the factory label", () => {
     expect(memory.state.get("PROJ-1")!.labels).toEqual(["spec", "factory"]);
   });
 
-  it("puts the label on the follow-ups ticket it opens", async () => {
-    const { d, memory } = strict([]);
-
-    await main(["follow-up", "a.ts", "Wrong."], d);
-    expect(memory.state.get("PROJ-1")!.labels).toEqual([
-      "follow-up",
-      "factory",
-    ]);
-  });
-
   it("takes the key factory in factory ticket label", async () => {
     const { d, memory } = strict([{ key: "PROJ-7" }], { factory: "built" });
 
@@ -2761,13 +2552,21 @@ describe("starting the board sync", () => {
     [["cost", "7"]],
     [["adopt", "7"]],
     [["open", "--title", "T", "--body-file", "c.md"]],
-    [["follow-up", "a.ts", "Wrong."]],
   ])("%j starts it once, and prints nothing more", async (argv) => {
     const { d, synced, out } = deps();
 
     expect(await main(argv, d)).toBe(0);
     expect(synced).toEqual(["sync"]);
     expect(out.some((l) => l.startsWith("?"))).toBe(false);
+  });
+
+  it("takes no follow-up, whose board sync is the merge's", async () => {
+    quiet();
+    const { d, synced, memory } = deps();
+
+    expect(await main(["follow-up", "A title.", "Text."], d)).toBe(1);
+    expect(synced).toEqual([]);
+    expect(memory.state.size).toBe(deps().memory.state.size);
   });
 
   it("starts nothing for a command that records nothing", async () => {

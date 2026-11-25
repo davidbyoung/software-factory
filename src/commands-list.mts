@@ -119,13 +119,18 @@ export const COMMANDS: Command[] = [
   ...TICKET_STEPS.map((s) => ticket(s, TICKET_ARGS[s] ?? "N")),
   {
     words: ["follow-up"],
-    args: 'FILE "what is wrong"',
+    args: '"TITLE" "WHAT IS WRONG"',
     reads: "machine",
-    run: async (argv) =>
-      (await import("./ticket.mts")).run(["follow-up", ...argv]),
+    run: async (argv) => (await import("./follow-ups.mts")).run(argv),
   },
   ...PR_STEPS.map((s) => pr(s, PR_ARGS[s] ?? "N")),
   pr("wait-checks", "N"),
+  {
+    words: ["pr", "follow-ups"],
+    args: "--event FILE",
+    reads: "machine",
+    run: async (argv) => (await import("./follow-ups.mts")).runOpen(argv),
+  },
   {
     words: ["pr", "watch"],
     args: "N [--release]",

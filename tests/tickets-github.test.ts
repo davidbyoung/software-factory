@@ -392,10 +392,10 @@ describe("GitHub adapter: writes", () => {
   it("opens a ticket with its labels and returns its number", async () => {
     const { t, calls } = tickets([[/-X POST/, { number: 300 }]]);
     expect(
-      await t.open({ title: "Follow-ups", body: "B", labels: ["follow-up"] }),
+      await t.open({ title: "Title", body: "B", labels: ["factory"] }),
     ).toBe("300");
     expect(calls).toEqual([
-      "api -X POST repos/acme/widgets/issues -f title=Follow-ups -f body=B -f labels[]=follow-up",
+      "api -X POST repos/acme/widgets/issues -f title=Title -f body=B -f labels[]=factory",
     ]);
   });
 

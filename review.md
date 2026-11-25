@@ -80,10 +80,12 @@ posted or pushed.
    The ticket's "Spec" and "Acceptance criteria" sections are what the
    change must do, and its "Decisions" are settled. A ticket with neither
    is held only to what it plainly asks for: a fix it suggests is not a
-   criterion. The follow-ups ticket is held to the lines the
-   body says this pull request built, and a ticket that names several
-   repositories to the Spec lines under the capabilities of this one,
-   whose headings say whose each is. A pull request that builds no ticket,
+   criterion. A ticket that names several
+   repositories is held to the Spec lines under the capabilities of this one,
+   whose headings say whose each is. The list under "Noticed, not fixed" at
+   the end of a body is for the owner to decide about: it is not what the
+   pull request was asked to do, and an item in it is no finding unless the
+   change causes it. A pull request that builds no ticket,
    such as a source audit, has only its body to go by.
 
 ## What to look for

@@ -20,4 +20,3 @@ as they stand, so this file never restates them.
 | Docs only                                                                       | the quick start installing the global command                  |
 | Tests only                                                                      | the boundary test reading every file of the package            |
 | A dependency bump                                                               | a new `js-yaml`                                                |
-| A follow-ups build                                                              | the two lines moved from the first repository's follow-ups     |

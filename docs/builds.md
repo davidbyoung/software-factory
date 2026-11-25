@@ -173,8 +173,9 @@ short list of them, and only on the run's own ticket and pull request:
   when the last one merges.
 - Reply to and resolve the pull request's review threads, and ask for its
   review again.
-- Add a line to the [follow-ups ticket](workflow.md#follow-ups), and, from
-  a Conflict or a Dependency run, open a ticket.
+- List a [follow-up](workflow.md#follow-ups) in the pull request, its box
+  empty, from a build or an answer.
+- From a Conflict or a Dependency run, open a ticket.
 
 Anything else, such as a label or a merge, is refused as the session asks for
 it, with the reason. A `factory` command that reads something Prepare did not hand over says so:
@@ -227,7 +228,7 @@ name starts with `out-`. Publish also refuses commits that add a symbolic
 link or a submodule, merge anything but your default branch, are in another
 person's name, or whose message closes another ticket, and a build that asks
 for no pull request. Nothing else the session
-asked for is done then but a stop and a follow-up.
+asked for is done then but a stop.
 
 ### What a session can use
 

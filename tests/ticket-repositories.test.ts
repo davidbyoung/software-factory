@@ -78,7 +78,6 @@ function world(w: World = {}) {
     sleep: async () => {},
     out: (line) => void out.push(line),
     readFile: () => "New text.\n\n## Decisions\n\n- x\n",
-    followUpStore: { read: () => null, write: () => {} },
     claimStore: { read: () => null, write: () => {} },
     now: () => new Date("2026-11-09T13:00:00Z"),
     clock: { read: () => null, write: () => {} },
@@ -280,13 +279,6 @@ describe("factory ticket repositories N --set", () => {
     expect(w.out).toEqual([
       "✗ --after names acme/ios, which is not one of #12's repositories",
     ]);
-  });
-
-  it("refuses the follow-ups ticket", async () => {
-    const w = world({ ticket: { labels: ["factory", "follow-up"] } });
-    expect(await w.run(...SET)).toBe(1);
-    expect(w.out).toEqual(["✗ The follow-ups ticket is one repository's"]);
-    expect(w.comments()).toEqual([]);
   });
 
   it("refuses while a build is live and a repository has no pull request", async () => {

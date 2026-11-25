@@ -33,16 +33,14 @@ function under(
 
 /** Each part a build needs that the ticket's body lacks, as the line
  * `factory ticket refined` prints for it; none when the ticket is sound.
- * The follow-ups issue is sound whatever its body holds. A ticket without
- * the `spec` label needs its decisions and at least one acceptance
+ * A ticket without the `spec` label needs its decisions and at least one acceptance
  * criterion. One with it needs its decisions, a spec with a capability
  * and a numbered line, and the builder's design and tasks. */
 export function missingParts(
   body: string,
   labels: string[],
-  names: Readonly<Record<"spec" | "follow-up", string>>,
+  names: Readonly<Record<"spec", string>>,
 ): string[] {
-  if (labels.includes(names["follow-up"])) return [];
   const lines = proseLines(body);
   const missing: string[] = [];
   const need = (found: boolean, part: string) => {

@@ -36,7 +36,7 @@ name under [`tickets.labels`](configuration.md#ticketslabels).
 A ticket gets the label in one of three ways:
 
 - **The factory opens it.** Every ticket the factory opens carries the
-  label, such as the follow-ups ticket.
+  label, such as one opened from a [follow-up](#follow-ups).
 - **You add it,** in your ticket system as you would any label, or from
   a terminal with `factory ticket adopt 12`.
 - **You name it in a session.** Running `/factory-refine 12` or
@@ -186,42 +186,62 @@ alone, and code that builds what is sent to an outside service.
 
 ## Follow-ups
 
-A session building one ticket often notices something else: a test that
-cannot fail, a stale sentence, a button under its size floor. It does not
-stop to fix it, and it does not open a ticket for it. It adds a line to the
-repository's **follow-ups ticket**, which is an ordinary ticket whose body
-is a checklist:
+While a session builds one ticket, it often notices something else. What it
+does depends on what it noticed:
 
-```text
-Follow-ups
+| What it noticed                                                                                                                   | What it does                              |
+| --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Something small that is part of what it is building, such as a stale sentence on the page it is changing                          | Fixes it in the same pull request         |
+| Something else that a user or a maintainer would run into, such as a search test that cannot fail, or a page that is slow to open | Lists it in its pull request: a follow-up |
+| Anything else, such as what nobody would notice without measuring it                                                              | Leaves it alone, and doesn't mention it   |
 
-- [ ] src/pages/about.tsx: The heading skips from level 1 to level 3.
-- [ ] scripts/release.sh: The usage text still names a flag that was removed.
-- [ ] tests/search.spec.ts: This test passes even when search returns nothing.
+The list is at the end of the pull request's description. It holds three at
+most, so a session that found more lists the three that matter most:
+
+```markdown
+### Noticed, not fixed
+
+Tick a box, and merging opens a ticket for it. To have one fixed here
+instead, say so in a review, such as "fix 1".
+
+1. [ ] **The heading skips a level.** On the About page it goes from level 1
+       to level 3. See `src/pages/about.tsx`.
+2. [ ] **A search test cannot fail.** It passes even when search returns
+       nothing. See `tests/search.spec.ts`.
 ```
 
-There is one per repository, and it needs no setup. Its label is
-`follow-up`, unless you rename it under
-[`tickets.labels`](configuration.md#ticketslabels). When you approve it, a session fixes every unchecked
-line on one branch, one commit per line, in one pull request.
+Your code host shows each `[ ]` as a checkbox you can click, on a draft too.
+Decide about each one while you review the pull request:
 
-**Why a checklist and not a ticket each.** Every ticket costs the same
-steps whatever its size: refining, your approval, a branch, a pull request,
-a review, and a merge. For a one-line fix that is all overhead. Twenty
-small fixes on one checklist cost you one approval and one pull request.
+- **To get a ticket for it,** click its checkbox before you merge. You can
+  edit its words first: the ticket gets them as they read when you merge.
+- **To have it fixed in this pull request,** submit a review, as you would
+  for any change you want, and write "fix 1" in it. Leave its checkbox
+  empty. In the cloud, that starts
+  [an answer](builds.md#what-a-build-in-the-cloud-does). For a pull request
+  built on your computer, the session that built it answers, if it is still
+  open. Otherwise start one with `/factory-address-review 90`, 90 being the
+  pull request's number.
+- **To drop it,** leave its checkbox empty. It stays in the description to
+  read.
 
-**What becomes a line, and what gets its own ticket.**
+**It worked when** the description says, a few minutes after you merge,
+"Opened #101." after each follow-up you ticked. Each new ticket waits in
+your backlog until you refine it, with `/factory-refine 101`. If one is
+missing, open the repository's Actions tab, find the failed run with the job
+"Open the ticked tickets", and re-run it. It never opens a ticket twice.
 
-| What the session noticed                                 | What it becomes                                       |
-| -------------------------------------------------------- | ----------------------------------------------------- |
-| Something small that breaks a rule your guides state     | A line                                                |
-| Something that needs your call before it can be fixed    | A line that says "Needs a decision:" and the question |
-| Something that would change what your users see          | Its own ticket                                        |
-| Something you asked for                                  | Its own ticket                                        |
-| Something that breaks no rule, or needs measuring to see | Nothing                                               |
+No ticket is opened:
 
-Every line names the file it is about, says what is wrong, and says which
-rule it breaks, so it can be fixed as written.
+- for a pull request you close without merging, or one
+  [that merges itself](#who-merges) before anyone ticks a box;
+- for a pull request from a fork, whose author can edit the description;
+- for a box ticked after the merge. Write that ticket yourself.
+
+**Look at the boxes before you merge a pull request built on your
+computer.** A session there uses your own account. It is told never to tick
+one, but nothing stops it, so clear any box you didn't tick. A session in the
+cloud has no account to tick one with.
 
 ## Who merges
 

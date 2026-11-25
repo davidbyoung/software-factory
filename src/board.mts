@@ -93,8 +93,6 @@ export type FieldNames = {
 export type BoardConfig = {
   columns: Columns;
   fields: FieldNames;
-  /** The name of the follow-ups ticket's label. */
-  followUp: string;
   /** The name of the label on every ticket the factory works on. */
   factory: string;
 };
@@ -107,7 +105,6 @@ export const DEFAULT_FIELDS: FieldNames = {
 export const DEFAULT_BOARD: BoardConfig = {
   columns: DEFAULT_COLUMNS,
   fields: DEFAULT_FIELDS,
-  followUp: TICKET_LABELS["follow-up"],
   factory: TICKET_LABELS.factory,
 };
 
@@ -116,7 +113,6 @@ export function boardConfigOf(s: Settings): BoardConfig {
   return {
     columns: columnsOf(s),
     fields: fieldNamesOf(s),
-    followUp: s.tickets.labels["follow-up"],
     factory: s.tickets.labels.factory,
   };
 }
@@ -469,7 +465,6 @@ export function planSync(
       cardOf(board, issue.key, cfg.columns),
       snapshot.pulls,
       cfg.columns,
-      cfg.followUp,
       snapshot.across?.get(issue.key),
     );
     const listPrice = issueCost(issue, everyPull);
@@ -566,12 +561,10 @@ type PullEvent = {
 };
 
 /** The comments a closed pull request calls for: one on each issue it
- * closes when it was not merged, and one on each open follow-ups issue it
- * built part of without closing. */
+ * closes when it was not merged. */
 export function closedPullComments(
   event: PullEvent,
   links: Links,
-  openFollowUps: Key[],
   columns: Columns,
   ref: (key: Key) => string,
   /** The tickets with the factory label: no other gets a comment. */
@@ -589,19 +582,6 @@ export function closedPullComments(
   if (!pull.merged)
     for (const issue of closes)
       comments.push(note(issue, closedKind(issue), columns));
-  for (const followUps of openFollowUps) {
-    if (closes.includes(followUps) || !links.partOf.includes(followUps))
-      continue;
-    comments.push(
-      note(
-        followUps,
-        pull.merged
-          ? { kind: "follow-ups-merged", pull: pull.number }
-          : closedKind(followUps),
-        columns,
-      ),
-    );
-  }
   return comments;
 }
 
@@ -612,7 +592,6 @@ export function nightlyComments(
   now: Date,
   columns: Columns,
   ref: (key: Key) => string,
-  followUp: string,
   unread?: Map<Key, string>,
 ): Comment[] {
   return snapshot.issues.flatMap((issue) => {
@@ -621,7 +600,6 @@ export function nightlyComments(
       issue,
       snapshot.pulls,
       now,
-      followUp,
       snapshot.across?.get(issue.key),
     );
     if (!clear) return [];
@@ -841,11 +819,6 @@ async function collect(
     const event = JSON.parse(d.readFile(opts.event)) as PullEvent;
     if (event.action === "closed") {
       const labeled = snapshot.issues.map((i) => i.key);
-      const followUps = snapshot.issues
-        .filter(
-          (i) => i.finishedAt === null && i.labels.includes(d.config.followUp),
-        )
-        .map((i) => i.key);
       const links = ticketsOf(
         {
           body: event.pull_request.body ?? "",
@@ -857,7 +830,6 @@ async function collect(
       const comments = closedPullComments(
         event,
         links,
-        followUps,
         d.config.columns,
         (k) => d.tickets.ref(k),
         labeled,
@@ -880,7 +852,6 @@ async function collect(
       d.now(),
       d.config.columns,
       (k) => d.tickets.ref(k),
-      d.config.followUp,
       new Map(saved.unread ?? []),
     );
     await postAll(comments, d, opts.dryRun);

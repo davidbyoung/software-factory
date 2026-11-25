@@ -52,13 +52,13 @@ describe("the tickets a pull request builds, when the tickets are not the code h
     expect(issueCost(ticket("PROJ-12"), [linked])).toBe(1.25);
   });
 
-  it("counts the cost of a pull request that builds part of a ticket, and shows the follow-ups In review", () => {
+  it("counts the cost of a pull request that builds part of a ticket, and leaves its status", () => {
     const [linked] = linkPulls([pull("Part of PROJ-4")], KEYED, false);
 
     expect(linked.partOf).toEqual(["PROJ-4"]);
     expect(issueCost(ticket("PROJ-4"), [linked])).toBe(1.25);
     expect(derive(ticket("PROJ-4", ["follow-up"]), null, [linked]).status).toBe(
-      "In review",
+      "Backlog",
     );
   });
 
