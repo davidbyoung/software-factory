@@ -489,8 +489,8 @@ bring the original's later changes into it yourself.
 A preset has no version of its own, and says nowhere which versions of
 the factory it works with. A factory refuses a settings file with a key
 it does not know, and names the key, so a preset written for a newer
-factory stops `factory preset add`, and fails the check on an update's
-pull request, with that key's name.
+factory stops `factory preset add` and `factory update`, with that key's
+name.
 
 ### The ticket system is set through a company preset
 
@@ -536,11 +536,25 @@ node/factory-preset.yaml   no agents or skills
 ```
 
 **It worked when** it lists every preset and nothing else. A problem gets
-a line saying what to change, and the command fails:
+a line saying what to change, and the command fails. One is a setting a
+preset can't set:
 
 ```text
 node/factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it
 ```
+
+Another is a value no repository could use, in the words
+`factory config check` would print there. Each run names the first one in
+each file:
+
+```text
+factory-preset.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"
+```
+
+A setting the preset leaves out is not a problem, even one another
+setting needs: a preset can list `factory-ui-reviewer` with no
+[`site`](configuration.md#site), and each repository that follows it, or
+another preset, writes `site`.
 
 In an organization's `factory-config`, the command also compares the
 schedule of `.github/workflows/factory-poller.yml` with

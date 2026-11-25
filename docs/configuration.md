@@ -796,7 +796,7 @@ one with `https://`, a path, or a port, and on an IP address. It also stops
 on `github.com`, `githubusercontent.com`, any host under either, and `*.com`:
 
 ```text
-builds.hosts can't name GitHub: a build has no GitHub access
+.claude/factory.yaml: builds.hosts can't name GitHub: a build has no GitHub access
 ```
 
 A [preset](presets.md#how-presets-combine)'s hosts and your own add up.
