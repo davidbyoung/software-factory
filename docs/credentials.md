@@ -70,11 +70,16 @@ and reaches one step, which installs your default branch's dependencies
 before the session starts. Prepare and
 Publish run nothing from the branch the session works on.
 
-The App's key also reaches the jobs that run no session: who merges, the
-board sync, the poller, requiring the verdict, finding the conflicts and
+The App's key also reaches the jobs that run no session: the verdict, for a
+pull request that is part of a ticket, telling the other repositories, who
+merges, the board sync, the poller, requiring the verdict, finding the conflicts and
 Dependabot's pull requests, Dependabot's auto-merge, and the updates. Each
 makes a token that lasts an hour, for the run's repository and the
-organization's [preset](presets.md) repositories it follows. The one
+organization's [preset](presets.md) repositories it follows. For a ticket
+that names [other repositories](across-repositories.md), a job also makes one
+for each of them alone, which can read its code and pull requests, write its
+tickets, and start its runs, and can't push to it. The verdict's and the
+board sync's can only read. The one
 exception is the organization's poller, whose token reaches every
 repository the App is installed on, since it starts builds in each.
 `factory-review.yml`, the one workflow file that GitHub runs from a pull
@@ -91,7 +96,8 @@ away, and it can't push, merge, approve, label, or start anything. A
 hijacked session could still:
 
 - **Write bad code,** on its own branch, in a draft pull request that
-  closes its own ticket. Your CI then runs that code, with whatever
+  closes its own ticket. Where the ticket names other repositories, a later
+  one's session reads what an earlier one's wrote. Your CI then runs that code, with whatever
   secrets your own CI gives a branch, so give CI no secret you would not
   give a session.
 - **Close another ticket when you merge its pull request,** if it hides the
@@ -112,7 +118,8 @@ hijacked session could still:
   text it reads is the pull request's, so a clever one could talk it into
   "ready". The verdict is then wrong, and a pull request that touches only
   files you allow to merge themselves would merge.
-- **Give away what it was handed:** the code, the ticket, the
+- **Give away what it was handed:** the code, the ticket, the code of the
+  ticket's other repositories, the
   [presets](presets.md), and the repository's own secrets, such as your
   registry's read-only token. It could send them to the npm registry, to
   a host under [`builds.hosts`](configuration.md#builds), or put them in

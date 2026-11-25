@@ -10,9 +10,10 @@ The others need lines in your settings file that it doesn't have:
 [Moving to settings version 2](#moving-to-settings-version-2) and
 [Naming build branches](#naming-build-branches), for every repository, and
 [Naming every column](#naming-every-column), for a repository whose
-settings have a [`tickets.board`](configuration.md#tickets). Two more,
-[Labeling your open tickets](#labeling-your-open-tickets) and
-[A spec for every visible change](#a-spec-for-every-visible-change), ask
+settings have a [`tickets.board`](configuration.md#tickets). Three more,
+[Labeling your open tickets](#labeling-your-open-tickets),
+[A spec for every visible change](#a-spec-for-every-visible-change), and
+[Tickets across repositories](#tickets-across-repositories), ask
 nothing of most repositories, but are worth reading. One more,
 [Cloud runs in three jobs](#cloud-runs-in-three-jobs), asks you to pass one
 pull request's verdict by hand.
@@ -581,6 +582,22 @@ change. Four things differ:
   ([What a session can use](builds.md#what-a-session-can-use)).
 
 **It worked when** the next pull request you mark ready gets a review.
+
+## Tickets across repositories
+
+From this release on, a ticket can name
+[several repositories](across-repositories.md). Nothing in your settings has
+to change. Two things can ask something of you:
+
+- **A repository renamed since it was set up** still has its old name in its
+  [`repository`](configuration.md#repository) line, and now fails its next
+  pull request. Change the line, and run `factory sync`.
+- **A heading of your own named Repositories,** under `repositories` in
+  [`tickets.fields`](configuration.md#ticketsfields), now holds the
+  factory's. Give yours another name.
+
+`factory sync` also adds the folder other repositories are cloned into to
+`.claude/settings.json`, so a session can edit there.
 
 ## The commands
 

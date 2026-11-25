@@ -143,6 +143,13 @@ assumption, or "n/a", never silently skipped.
     what it is used for.
 - **What the owner receives.** An email, a report, a notification: show it
   filled in, field by field, with the exact links it carries.
+- **Repositories.** Which repositories the change touches. When only the
+  ticket's own does, say the one line `factory ticket repositories N`
+  prints and go on. When the ticket names another, or the code shows that
+  one has to change, it is a question: the repositories you found and why,
+  as the default, and whether one has to merge before another. A later
+  repository merges after the one whose change it needs, and a first step
+  that keeps working without it is better than an order.
 - **Owner-only steps.** Creating an account, a form, or a key. Say plainly
   that the build waits on it, and ask for the value it produces.
 - **Track.** Would a user see new or altered behavior, in a change
@@ -164,6 +171,23 @@ issue is several issues; propose the split as question 1.
 Settle everything below from the code, the existing specs, and the
 repository's rules. Each item ends answered or "n/a".
 
+**More than one repository.** Once the owner has answered which, record
+them, and have the others on this machine to read:
+
+```bash
+factory ticket repositories N --set REPO... [--after LATER=EARLIER]...
+factory workspace N
+```
+
+The first checks each one and records who confirmed the list, so it runs
+with the owner's answer and never before it. It records nothing and exits
+1 where one is not found, or the owner cannot write to it: settle that
+with them. A line that says one is not set up goes in the report under
+"Before building", and refinement goes on. `factory workspace` prints
+where each other repository is, and which `CLAUDE.md` to read first. Each
+part of the spec and the notes is settled from its own repository's code,
+specs, and rules, and changes nothing there.
+
 **Spec.** The behavior, as WHEN/THEN lines grouped by capability. This is
 what the owner approves and what `factory-build` builds to, and, with a
 spec tool, writes into the repository's specs, one requirement per line.
@@ -174,6 +198,8 @@ spec tool, writes into the repository's specs, one requirement per line.
   lowercase words joined by hyphens, such as `feedback-form`, reusing a
   name an earlier ticket gave it, and "(modified)" means it changes
   behavior the project has today.
+- On a ticket that names several repositories, each capability says whose
+  it is: `### checkout-page in acme/web (modified)`.
 - Under a modified capability, list only lines that are new or that change
   what the spec says today, and any requirement that no longer holds as
   "No longer: ...". Read the existing spec first; a line that restates it
@@ -441,6 +467,7 @@ goes out, and one left behind is a defect in the round. Then post the `refined` 
 unless a closing comment already carried it or a comment round now waits
 on the owner.
 
+On a ticket that names several repositories, run `factory workspace N --remove`.
 Say which issue, which defaults the owner changed, what the readiness
 check found, each blocked-by relationship recorded and on which issue, and
 that it now waits on the owner, its card staying In refinement until it

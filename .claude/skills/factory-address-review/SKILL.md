@@ -254,6 +254,9 @@ check on the head commit has finished, not only the review:
 factory pr state N --wait
 ```
 
+On a pull request in another of a ticket's repositories, every command
+below runs in that repository's folder, which `factory workspace N` prints.
+
 In a local session, `factory pr watch N` (see `.claude/factory/rules.md`) already
 wakes the session on a failure and when every check has finished, so this
 wait is not needed.

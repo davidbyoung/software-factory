@@ -118,7 +118,10 @@ discovering it at push time.
 - **A pull request that resolves an issue closes it.** When asked to open
   one, start the body with the line `factory ticket link N`
   prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
-  prints each one.
+  prints each one. For a ticket that names several repositories the line
+  says `Part of`, and what merges first: it closes by itself when the last
+  of their pull requests merges, so `factory pr closes PR` prints nothing
+  for it.
 - **After pushing, check for review automatically.** Where the automated
   review is on, which is where `factory config get pr-review` prints `on`,
   it reviews every push to a PR that is marked
@@ -180,6 +183,9 @@ them.
   in `../work`, already checked out. Every command runs there, after
   `cd ../work`, and every change is made there. A file under `.claude/` is
   written by a command, since the file tools refuse it.
+- **A ticket across repositories is built one repository at a time,** each
+  in a run of its own. `factory workspace N` prints the others, which are
+  in `../others` to read, and nothing there can be changed.
 - **It is claimed and branched already.** A skill's steps that claim a
   ticket, name a branch, look for an earlier one, or check one out are done.
 - **A `factory` command that reads** answers from what was handed over. One

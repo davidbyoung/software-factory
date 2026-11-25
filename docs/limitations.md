@@ -82,8 +82,18 @@ as a code host's billing or what its workflows can see, are in
   request, hooks included. Nothing in the cloud follows the change until it
   merges, and no [`auto-merge`](configuration.md#auto-merge) rule allows it,
   so a person reads it first.
-- **One ticket, one repository.** A change that spans repositories is two
-  tickets.
+- **A ticket's repositories have one owner.** A change that spans two
+  accounts or organizations is two tickets.
+- **In the cloud, one build can't change two repositories.** A ticket that
+  names several is built one repository at a time, and a later one that
+  finds an earlier one wrong waits for you
+  ([Build it in the cloud](across-repositories.md#build-it-in-the-cloud)).
+- **One repository's CI doesn't run against another's unmerged change.**
+  Where it can only pass once the other is deployed, its pull request waits.
+- **With the automated review off, the order of a ticket's pull requests is
+  information only.** Nothing the factory posts is required there, so
+  nothing holds the merge.
+- **The follow-ups ticket is always one repository's.**
 - **Review by teams is your code host's to enforce.** A session obeys
   anyone who can write to the repository. Required reviewers for a
   folder, and a number of approvals before a merge, are rules you set on

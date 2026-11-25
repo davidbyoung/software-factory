@@ -97,6 +97,10 @@ Spec and no Acceptance criteria gets:
 it has no Spec or Acceptance criteria section, so there is nothing to build yet: refine it first
 ```
 
+**When the ticket names several repositories,** each is built by a run in
+its own repository, one at a time. The run that opens a pull request starts
+the next: [Build it in the cloud](across-repositories.md#build-it-in-the-cloud).
+
 ## What a cloud run is
 
 Five kinds of run use your coding agent. Each is three jobs, each on a
@@ -164,7 +168,9 @@ short list of them, and only on the run's own ticket and pull request:
 - Comment on the ticket or the pull request, edit the ticket, and stop or
   end the work on it.
 - Open one draft pull request, from a build. It and the commits may
-  say they close only the run's own ticket.
+  say they close only the run's own ticket. For a ticket that names several
+  repositories, neither may say it closes the ticket, which closes itself
+  when the last one merges.
 - Reply to and resolve the pull request's review threads, and ask for its
   review again.
 - Add a line to the [follow-ups ticket](workflow.md#follow-ups), and, from
