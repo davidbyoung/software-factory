@@ -200,6 +200,15 @@ Your repository, as `owner/name`, such as `harbor-goods/storefront`.
   ✗ repository: .claude/factory.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run factory sync.
   ```
 
+- **In a run in the cloud too, commands take the repository from this
+  line,** and not from the run. After you rename a repository, change the
+  line: the "Factory files in step" check fails on each pull request until
+  you do, with both names:
+
+  ```text
+  ✗ repository: .claude/factory.yaml says acme/web, and this pull request is in acme/website. Change the line and run factory sync.
+  ```
+
 It is written down rather than worked out from your checkout, because the
 [poller](#builds), which watches your board from outside any checkout,
 needs it too.
@@ -442,12 +451,13 @@ field that holds text, which on GitHub is an issue field: see
 [Your tickets already have fields](existing-repo.md#your-tickets-already-have-fields),
 which also says why a board field can't hold one.
 
-| Key                   | What the factory field holds                                           |
-| --------------------- | ---------------------------------------------------------------------- |
-| `decisions`           | Decisions: the questions refinement settled, and what was chosen       |
-| `spec`                | Spec: what a change your users will notice must do, line by line       |
-| `acceptance-criteria` | Acceptance criteria: what must be true for any other ticket to be done |
-| `for-the-builder`     | For the builder: how to build it, as a design and a list of tasks      |
+| Key                   | What the factory field holds                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `decisions`           | Decisions: the questions refinement settled, and what was chosen                                                                          |
+| `spec`                | Spec: what a change your users will notice must do, line by line                                                                          |
+| `acceptance-criteria` | Acceptance criteria: what must be true for any other ticket to be done                                                                    |
+| `for-the-builder`     | For the builder: how to build it, as a design and a list of tasks                                                                         |
+| `repositories`        | Repositories: which repositories a ticket changes, and the order they merge in, when it names [more than its own](across-repositories.md) |
 
 `factory init` asks your coding agent to suggest the ticket fields, and
 you confirm them.

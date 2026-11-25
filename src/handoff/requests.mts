@@ -55,6 +55,8 @@ const FILE_FLAGS = new Set(["--body-file", "--before-file"]);
 const WRITES: Record<string, (rest: string[]) => boolean> = {
   "ticket label": (rest) => !rest.includes("--was-removed"),
   "ticket refined": (rest) => !rest.includes("--check"),
+  "ticket repositories": (rest) =>
+    rest.includes("--set") || rest.includes("--add"),
 };
 for (const c of [
   "ticket claim",

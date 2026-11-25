@@ -34,6 +34,7 @@ const TICKET_STEPS = [
   "label",
   "link",
   "branch",
+  "repositories",
   "blockers",
   "block",
   "unblock",
@@ -89,6 +90,7 @@ const TICKET_ARGS: Record<string, string> = {
   comment: "N --body-file FILE [--attach FILE]",
   open: "--title TITLE --body-file FILE [--label LABEL]",
   label: "N --add LABEL | --remove LABEL | --was-removed LABEL",
+  repositories: "N [--set REPO...|--add REPO...] [--after LATER=EARLIER]",
   block: "N --by M",
   unblock: "N --by M",
   supports: "GROUP",
@@ -135,6 +137,12 @@ export const COMMANDS: Command[] = [
     args: "N",
     reads: "person",
     run: async (argv) => (await import("./build.mts")).run(argv),
+  },
+  {
+    words: ["workspace"],
+    args: "N [--remove]",
+    reads: "machine",
+    run: async (argv) => (await import("./workspace.mts")).run(argv),
   },
   {
     words: ["deps"],
@@ -330,10 +338,16 @@ export const COMMANDS: Command[] = [
     run: async (argv) => (await import("./merge-policy.mts")).run(argv),
   },
   {
-    words: ["review", "verdict"],
-    args: "",
+    words: ["across"],
+    args: "--event FILE",
     reads: "machine",
-    run: async () => (await import("./review-verdict.mts")).run(),
+    run: async (argv) => (await import("./across-run.mts")).run(argv),
+  },
+  {
+    words: ["review", "verdict"],
+    args: "[--pr N]",
+    reads: "machine",
+    run: async (argv) => (await import("./review-verdict.mts")).run(argv),
   },
   {
     words: ["session", "ready"],

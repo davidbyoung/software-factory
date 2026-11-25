@@ -5,15 +5,15 @@ each step, and what the factory will not do on its own.
 
 ## From a ticket to a merge
 
-| Step              | Who                                                    | Where it runs                                      | What comes out                                                                |
-| ----------------- | ------------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Write a ticket    | You                                                    | Your ticket system                                 | A ticket saying what, why, and when it is done                                |
-| Refine it         | A session you start                                    | Your machine, in your coding agent                 | The ticket rewritten into acceptance criteria, after you answer its decisions |
-| Approve it        | **You**                                                | A session, or your board                           | Run `/factory-build N` in a session, or move its card to Ready                |
-| Build it          | A session                                              | Your machine, or the cloud when started from Ready | A tested change in a pull request that closes the ticket                      |
-| Review it         | The automated review, if you set it up                 | The cloud                                          | Comments and a verdict on the pull request                                    |
-| Answer the review | The session that built it, or, in the cloud, a new one | Where it was built                                 | Each comment fixed, or rejected with evidence                                 |
-| Merge it          | **You**, or the merge policy for files you allowed     | Your code host                                     | The change on your default branch, and the ticket closed                      |
+| Step              | Who                                                    | Where it runs                                      | What comes out                                                                                                         |
+| ----------------- | ------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Write a ticket    | You                                                    | Your ticket system                                 | A ticket saying what, why, and when it is done                                                                         |
+| Refine it         | A session you start                                    | Your machine, in your coding agent                 | The ticket rewritten into acceptance criteria, after you answer its decisions                                          |
+| Approve it        | **You**                                                | A session, or your board                           | Run `/factory-build N` in a session, or move its card to Ready                                                         |
+| Build it          | A session                                              | Your machine, or the cloud when started from Ready | A tested change in a pull request that closes the ticket, or one in [each repository it names](across-repositories.md) |
+| Review it         | The automated review, if you set it up                 | The cloud                                          | Comments and a verdict on the pull request                                                                             |
+| Answer the review | The session that built it, or, in the cloud, a new one | Where it was built                                 | Each comment fixed, or rejected with evidence                                                                          |
+| Merge it          | **You**, or the merge policy for files you allowed     | Your code host                                     | The change on your default branch, and the ticket closed                                                               |
 
 Everything a session on your machine does, it does as you: through your
 account on the code host and your coding agent's subscription. A session
@@ -73,14 +73,14 @@ state that has one, and a ticket is shown in the `ready` column only when it
 is approved. A board without a `ready` column approves a build by running
 `/factory-build N` in a session, or by running `factory build N`.
 
-| State    | Board column  | What it means                                                                 |
-| -------- | ------------- | ----------------------------------------------------------------------------- |
-| backlog  | Backlog       | Nothing is happening                                                          |
-| refining | In refinement | A session is turning it into a spec, or the spec is written and waits for you |
-| ready    | Ready         | You approved it for a build from the board                                    |
-| building | In progress   | A session has claimed it, or a build ended without a pull request merging     |
-| review   | In review     | A pull request that closes it is open                                         |
-| done     | Done          | Its pull request merged, you closed it, or it is in a column `done` lists     |
+| State    | Board column  | What it means                                                                                           |
+| -------- | ------------- | ------------------------------------------------------------------------------------------------------- |
+| backlog  | Backlog       | Nothing is happening                                                                                    |
+| refining | In refinement | A session is turning it into a spec, or the spec is written and waits for you                           |
+| ready    | Ready         | You approved it for a build from the board                                                              |
+| building | In progress   | A session has claimed it, or a build ended without a pull request merging                               |
+| review   | In review     | A pull request that closes it is open, or every repository it names has one                             |
+| done     | Done          | Its pull request merged, in every repository it names, you closed it, or it is in a column `done` lists |
 
 ```text
 backlog → refining → ready → building → review → done
@@ -164,6 +164,12 @@ starts at the poller's first pass after the blocker closes if the ticket is in R
 Two tickets touching the same file is not a blocker. That is a merge
 conflict, and the session that owns the pull request resolves it, or a run
 in the cloud.
+
+## Tickets across repositories
+
+A ticket can name several repositories. Each gets its own pull request, and
+the ticket closes when the last one merges:
+[A ticket across repositories](across-repositories.md).
 
 ## Sizing the work to the change
 

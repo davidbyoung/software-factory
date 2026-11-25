@@ -37,6 +37,11 @@ import {
   type RawPull,
 } from "../src/code-host/github.mts";
 
+import {
+  markedList,
+  type LinkedPull,
+  type Progress,
+} from "../src/lib/repositories.mts";
 import { memoryTickets } from "./memory-tickets";
 
 const AGENT = "<!-- agent -->";
@@ -713,6 +718,176 @@ describe("toClear", () => {
     const fresh = { ...said(0, "claim local a"), createdAt: NOW.toISOString() };
 
     expect(toClear(issue({ comments: [fresh] }), [], NOW)).toBeNull();
+  });
+});
+
+describe("a ticket across repositories", () => {
+  const linked = (over: Partial<LinkedPull> = {}): LinkedPull => ({
+    number: 88,
+    state: "open",
+    createdAt: at(20),
+    mergedAt: null,
+    branch: "7",
+    isDraft: false,
+    body: "",
+    ...over,
+  });
+  const API = { name: "acme/api", after: [] };
+  const WEB = { name: "acme/web", after: ["acme/api"] };
+  const both = (api: LinkedPull[], web: LinkedPull[]): Progress[] => [
+    { ...API, pulls: api },
+    { ...WEB, pulls: web },
+  ];
+  const derived = (
+    over: Partial<GithubIssue>,
+    all: Progress[],
+    card: { status: string; updatedAt: string } | null = null,
+  ) => derive(issue(over), card, [], DEFAULT_COLUMNS, "follow-up", all);
+  const claim = said(10, "claim local s1");
+
+  it("is in review while every repository has a pull request and one is open", () => {
+    const merged = linked({ state: "merged", mergedAt: at(40) });
+    expect(
+      derived(
+        { comments: [claim] },
+        both([merged], [linked({ number: 41, createdAt: at(30) })]),
+      ),
+    ).toMatchObject({
+      status: "In review",
+      session: "s1",
+      since: at(30),
+      across: [{ repository: "acme/web", number: 41 }],
+    });
+  });
+
+  it("is in progress while a repository has none, whatever the others have", () => {
+    expect(derived({ comments: [claim] }, both([linked()], []))).toMatchObject({
+      status: "In progress",
+      session: "s1",
+      across: [{ repository: "acme/api", number: 88 }],
+    });
+  });
+
+  it("waits on you once the claim ended with one repository still unbuilt", () => {
+    const comments = [claim, said(30, "released")];
+    expect(derived({ comments }, both([linked()], []))).toMatchObject({
+      status: "In progress",
+      session: "Waiting on you",
+      since: at(30),
+    });
+  });
+
+  it("waits on you too when it was refined again, or nothing is recorded", () => {
+    const waits = { status: "In progress", session: "Waiting on you" };
+    const comments = [claim, said(30, "released"), said(40, "refined")];
+    expect(derived({ comments }, both([linked()], []))).toMatchObject(waits);
+    expect(derived({}, both([linked()], []))).toMatchObject(waits);
+  });
+
+  it("is Ready again when its card was moved there since", () => {
+    const comments = [claim, said(30, "released")];
+    const all = both([linked()], []);
+    expect(derived({ comments }, all, ready(40)).status).toBe("Ready");
+    expect(derived({ comments }, all, ready(20)).status).toBe("In progress");
+  });
+
+  it("goes back to Backlog when its card was moved there since", () => {
+    const comments = [claim, said(30, "released")];
+    const all = both([linked()], []);
+    const card = { status: "Backlog", updatedAt: at(40) };
+    expect(derived({ comments }, all, card).status).toBe("Backlog");
+  });
+
+  it("is not in review for a pull request of its own repository alone", () => {
+    const own = pull({ body: "Closes #7", closes: ["7"] });
+    expect(
+      derive(issue(), null, [own], DEFAULT_COLUMNS, "follow-up", both([], []))
+        .status,
+    ).toBe("Backlog");
+  });
+
+  it("goes to the backlog when it is reopened after every one merged", () => {
+    const comments = [claim, said(40, "finished")];
+    expect(derived({ comments }, both([], []))).toMatchObject({
+      status: "Backlog",
+    });
+  });
+
+  it("clears a claim over a day old while a repository has no pull request", () => {
+    const old = issue({ comments: [claim] });
+    expect(toClear(old, [], NOW, "follow-up", both([linked()], []))).toEqual({
+      kind: "claim",
+      since: at(10),
+    });
+  });
+
+  it("keeps it once every repository has one", () => {
+    const old = issue({ comments: [claim] });
+    expect(
+      toClear(old, [], NOW, "follow-up", both([linked()], [linked()])),
+    ).toBeNull();
+  });
+
+  const entry = (kind: CommentKind) =>
+    commentBody(kind).replace(`\n${AGENT}`, "");
+
+  it("says which pull request closed, and ends the claim", () => {
+    const body = entry({
+      kind: "pull-closed",
+      issue: SEVEN,
+      pull: 41,
+      repository: "acme/web",
+    });
+    expect(body.startsWith("acme/web#41 was closed without merging.")).toBe(
+      true,
+    );
+    expect(bodyMarkers(`${body}\n${AGENT}`)).toEqual([{ kind: "released" }]);
+  });
+
+  it("says what was built and starts the next, ending this claim", () => {
+    const body = commentBody({
+      kind: "built-next",
+      built: { repository: "acme/api", pull: 88 },
+      next: "acme/web",
+      marker: "st_1",
+    });
+    expect(body.split("\n")[0]).toBe(
+      "Built in acme/api: acme/api#88. Starting the build in acme/web.",
+    );
+    const comments = [claim, { ...claim, id: "x", createdAt: at(20), body }];
+    expect(derived({ comments }, both([linked()], []))).toMatchObject({
+      status: "In progress",
+      session: "actions, starting",
+    });
+  });
+
+  it("says which repository was added, and waits on you", () => {
+    expect(entry({ kind: "repository-added", added: ["acme/mobile"] })).toBe(
+      "acme/mobile was added. The card stays In progress, waiting on you.\n\n<!-- work-status: released -->",
+    );
+  });
+
+  it("names every pull request that merged", () => {
+    expect(
+      entry({
+        kind: "all-merged",
+        pulls: [
+          { repository: "acme/api", number: 88 },
+          { repository: "acme/web", number: 41 },
+        ],
+      }),
+    ).toBe(
+      "Every repository merged: acme/api#88, acme/web#41.\n\n<!-- work-status: finished -->",
+    );
+  });
+
+  it("records the list in a note GitHub's record reads back", () => {
+    const body = commentBody({ kind: "repositories", list: [API, WEB] });
+    expect(body.split("\n")[0]).toBe(
+      "Repositories: acme/api, acme/web (after acme/api).",
+    );
+    const read = entryOf({ id: "1", createdAt: at(0), author: "dev", body });
+    expect(markedList(read!.markers)).toEqual([API, WEB]);
   });
 });
 

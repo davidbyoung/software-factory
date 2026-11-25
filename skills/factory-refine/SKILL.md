@@ -143,6 +143,14 @@ assumption, or "n/a", never silently skipped.
     what it is used for.
 - **What the owner receives.** An email, a report, a notification: show it
   filled in, field by field, with the exact links it carries.
+- **Repositories.** Which repositories the change touches. When only the
+  ticket's own does, say the one line `factory ticket repositories N`
+  prints and go on. When the ticket asks for a change in another, or
+  the code shows that one has to change, it is a question, and the first
+  one asked: the repositories you found and why,
+  as the default, and whether one has to merge before another. A later
+  repository merges after the one whose change it needs, and a first step
+  that keeps working without it is better than an order.
 - **Owner-only steps.** Creating an account, a form, or a key. Say plainly
   that the build waits on it, and ask for the value it produces.
 - **Track.** Would a user see new or altered behavior, in a change
@@ -164,6 +172,27 @@ issue is several issues; propose the split as question 1.
 Settle everything below from the code, the existing specs, and the
 repository's rules. Each item ends answered or "n/a".
 
+**More than one repository.** Which they are is settled before the rest of
+this step, since the spec is written from their code: in the conversation
+by asking that question alone, and otherwise by its default, which the
+comment round shows and an approver's reply can change. Record them, and
+have the others on this machine to read:
+
+```bash
+factory ticket repositories N --set REPO... [--after LATER=EARLIER]...
+factory workspace N
+```
+
+The first checks each one and records who confirmed the list. It is run
+again when an answer changes it, which a build that has started refuses.
+It records nothing and exits 1 where one is not found, or the owner cannot write to it: settle that
+with them. The follow-ups ticket is always one repository's, and none of
+this is asked of it. A line that says one is not set up goes in the report under
+"Before building", and refinement goes on. `factory workspace` prints
+where each other repository is, and which `CLAUDE.md` to read first. Each
+part of the spec and the notes is settled from its own repository's code,
+specs, and rules, and changes nothing there.
+
 **Spec.** The behavior, as WHEN/THEN lines grouped by capability. This is
 what the owner approves and what `factory-build` builds to, and, with a
 spec tool, writes into the repository's specs, one requirement per line.
@@ -174,6 +203,8 @@ spec tool, writes into the repository's specs, one requirement per line.
   lowercase words joined by hyphens, such as `feedback-form`, reusing a
   name an earlier ticket gave it, and "(modified)" means it changes
   behavior the project has today.
+- On a ticket that names several repositories, each capability says whose
+  it is: `### checkout-page in acme/web (modified)`.
 - Under a modified capability, list only lines that are new or that change
   what the spec says today, and any requirement that no longer holds as
   "No longer: ...". Read the existing spec first; a line that restates it
@@ -346,7 +377,8 @@ The body is the only copy of the spec. Draft it as one file and write it
 with `factory ticket edit N --body-file body.md`, adding
 `--attach` for each screenshot where `factory ticket supports attachments`
 prints `yes`, which uploads them the same way a comment does. Keep the
-owner's text as §1, untouched, and never edit the rendered body by hand:
+owner's text as §1, untouched, and the Repositories section where
+`factory ticket repositories` put it, and never edit the rendered body by hand:
 change the draft and write it again.
 
 Record each build order from step 2's Dependencies as a blocked-by
@@ -424,7 +456,8 @@ what changed in it, and for the
 follow-ups issue when its lines are each buildable as written or answered
 by a Decision that names the fix.
 
-Otherwise run the `factory-ticket-readiness` agent on the issue. It reads the body cold, as
+Otherwise run the `factory-ticket-readiness` agent on the issue, naming the
+folders `factory workspace N` printed, if any. It reads the body cold, as
 the builder would, and lists every question it would still have to ask.
 Fix each one that the code or the rules can answer, and put any that only
 the owner can answer to them, the same way as step 3.
@@ -441,6 +474,7 @@ goes out, and one left behind is a defect in the round. Then post the `refined` 
 unless a closing comment already carried it or a comment round now waits
 on the owner.
 
+On a ticket that names several repositories, run `factory workspace N --remove`.
 Say which issue, which defaults the owner changed, what the readiness
 check found, each blocked-by relationship recorded and on which issue, and
 that it now waits on the owner, its card staying In refinement until it

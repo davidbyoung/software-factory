@@ -462,16 +462,16 @@ describe("GitHub adapter: writes", () => {
     expect(t.ref("octo/web#4")).toBe("octo/web#4");
   });
 
-  it("takes a number as a key, and refuses another system's key or another repository's ticket", () => {
+  it("takes a number or another repository's ticket as a key, and refuses another system's key", () => {
     const { t } = tickets([]);
     expect(t.key("12")).toBe("12");
     expect(() => t.key("PROJ-12")).toThrow(
       "PROJ-12 is not a ticket here: a GitHub ticket is its number, such as 12",
     );
     expect(() => t.key("#12")).toThrow("#12 is not a ticket here");
-    expect(() => t.key("octo/web#4")).toThrow(
-      "octo/web#4 is in another repository: the factory reads only its state as a blocker",
-    );
+    expect(t.key("octo/web#4")).toBe("octo/web#4");
+    expect(t.key("Acme/Widgets#4")).toBe("4");
+    expect(() => t.key("octo/web#0")).toThrow("octo/web#0 is not a ticket");
   });
 
   it("refuses to write to a pull request's number, which GitHub's issues API would accept", async () => {
@@ -1261,5 +1261,112 @@ describe("GitHub adapter: what ticket 61 added", () => {
     expect((await t.readAll({ label: "factory" })).map((x) => x.key)).toEqual([
       "2",
     ]);
+  });
+});
+
+describe("GitHub adapter: another repository's ticket", () => {
+  const ISSUE: [RegExp, unknown] = [
+    /^api repos\/octo\/web\/issues\/4$/,
+    restIssue(4),
+  ];
+  const other = (routes: Parameters<typeof fakeGh>[0]) => {
+    const own = fakeGh([]);
+    const gh = fakeGh(routes);
+    const reached: string[] = [];
+    const t = githubTickets({
+      transport: ghTransport(own.run),
+      repository: REPO,
+      board: 1,
+      reach: async (repository) => {
+        reached.push(repository);
+        return ghTransport(gh.run);
+      },
+    });
+    return { t, gh, own, reached };
+  };
+
+  it("is read there, through what reaches that repository", async () => {
+    const { t, own, reached } = other([
+      ISSUE,
+      [/octo\/web\/issues\/4\/comments/, [[restComment(7)]]],
+    ]);
+    const read = await t.read("octo/web#4");
+    expect(read).toMatchObject({ key: "octo/web#4", title: "Ticket 4" });
+    expect(read.comments.map((c) => c.id)).toEqual(["octo/web:7"]);
+    expect(own.calls).toEqual([]);
+    expect(new Set(reached)).toEqual(new Set(["octo/web"]));
+  });
+
+  it("is written there, and its comment edited and deleted there", async () => {
+    const { t, gh, own } = other([
+      ISSUE,
+      [/POST repos\/octo\/web\/issues\/4\/comments/, { id: 9 }],
+      [/repos\/octo\/web\/issues\/comments\/9/, {}],
+      [/POST repos\/octo\/web\/issues\/4\/labels/, {}],
+      [/PATCH repos\/octo\/web\/issues\/4/, {}],
+    ]);
+    const id = await t.comment("octo/web#4", "x");
+    expect(id).toBe("octo/web:9");
+    await t.editComment(id, "y");
+    await t.deleteComment(id);
+    await t.addLabel("octo/web#4", "spec");
+    await t.writeBody("octo/web#4", "z");
+    await t.finish("octo/web#4");
+    expect(own.calls).toEqual([]);
+    expect(gh.calls).toContain(
+      "api -X PATCH repos/octo/web/issues/4 -f state=closed -f state_reason=completed",
+    );
+  });
+
+  it("is decided on by those who can write to its repository", async () => {
+    const { t, own } = other([
+      [/octo\/web\/collaborators\/ann\/permission/, { permission: "write" }],
+      [/octo\/web\/collaborators\/bob\/permission/, { permission: "read" }],
+    ]);
+    expect(await t.mayDecide("ann", "octo/web#4")).toBe(true);
+    expect(await t.mayDecide("bob", "octo/web#4")).toBe(false);
+    expect(own.calls).toEqual([]);
+  });
+
+  it("is linked in full, and the repository's own in full is its number", () => {
+    const { t } = other([]);
+    expect(
+      t.linksIn("Part of octo/web#4\nPart of acme/widgets#12\nCloses #7"),
+    ).toEqual({ closes: ["7"], partOf: ["octo/web#4", "12"] });
+    expect(
+      t.linksIn("Part of #4\nPart of acme/widgets#12", "octo/web"),
+    ).toEqual({ closes: [], partOf: ["octo/web#4", "12"] });
+  });
+
+  it.each([
+    ["in code", "Run `Part of octo/web#4`, or ``Closes #7``."],
+    ["in a code block", "```text\nPart of octo/web#4\nPart of #12\n```"],
+    ["in the middle of a line", "It is Part of octo/web#4 in prose."],
+  ])("is not linked %s", (_, body) => {
+    const { t } = other([]);
+    expect(t.linksIn(body)).toEqual({ closes: [], partOf: [] });
+  });
+
+  it("is written as the other repository types it, and its own by number", () => {
+    const { t } = other([]);
+    expect(t.keyIn("12", "octo/web")).toBe("acme/widgets#12");
+    expect(t.keyIn("12", "acme/widgets")).toBe("12");
+    expect(t.keyIn("octo/web#4", "octo/web")).toBe("4");
+    expect(t.home("octo/web#4")).toBe("octo/web");
+    expect(t.home("12")).toBe("acme/widgets");
+    expect(t.address("octo/web#4")).toBe(
+      "https://github.com/octo/web/issues/4",
+    );
+  });
+
+  it("is said to be reopened when GitHub says so", async () => {
+    const { t } = other([
+      [
+        /^api repos\/octo\/web\/issues\/4$/,
+        restIssue(4, { state_reason: "reopened" }),
+      ],
+      [/comments/, [[]]],
+    ]);
+    expect((await t.read("octo/web#4")).reopened).toBe(true);
   });
 });

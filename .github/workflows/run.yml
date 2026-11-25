@@ -133,7 +133,11 @@ jobs:
   # Posts the "Review verdict" commit status, which records what the
   # automated review concluded about one commit: success only when its
   # summary for that commit says ready, an approver overrode it, or the
-  # review is off. `factory review verdict` holds every rule.
+  # review is off. `factory review verdict` holds every rule. On a pull
+  # request of a ticket that names other repositories it also posts "Merge
+  # order", from what those repositories say, which only a token of their own
+  # can read in a private one. Another repository's run starts it again, by
+  # hand, when what this one waits for changed.
   verdict:
     name: Record the verdict
     # Label events matter only for the override; the labels the merge policy
@@ -142,7 +146,8 @@ jobs:
       github.event_name == 'pull_request_target' &&
       (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) ||
        ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
-        github.event.label.name == inputs.override-label))
+        github.event.label.name == inputs.override-label)) ||
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'order')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -165,7 +170,47 @@ jobs:
       - name: Post the verdict
         env:
           GH_TOKEN: ${{ github.token }}
-        run: factory review verdict
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ (inputs.job == 'order' || contains(github.event.pull_request.body || '', 'Part of ')) && secrets.app-key || '' }}
+          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          FACTORY_ACROSS: read
+          PR: ${{ github.event_name == 'workflow_dispatch' && inputs.pr || '' }}
+        run: factory review verdict ${PR:+--pr "$PR"}
+
+  # Tells the other repositories of a pull request's ticket that it opened,
+  # merged, or closed: theirs wait for it, and the last to merge finishes the
+  # ticket. `factory across` holds every rule.
+  across:
+    name: Tell the other repositories
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      contains(fromJSON('["opened", "reopened", "closed"]'), github.event.action) &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.body || '', 'Part of ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Tell the other repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+        run: factory across --event "$GITHUB_EVENT_PATH"
 
   # Labels each pull request merge-automatic or merge-manual, by the names
   # code-host.labels gives them, from the files it changes, posts the reason
@@ -379,6 +424,10 @@ jobs:
       - name: Read the repository
         env:
           GH_TOKEN: ${{ github.token }}
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          FACTORY_ACROSS: read
         run: >-
           factory board collect
           --out "$RUNNER_TEMP/repo.json"
@@ -848,7 +897,7 @@ jobs:
     name: Unknown job
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.job != '' &&
-      !contains(fromJSON('["build", "review", "answer", "conflicts", "conflict", "dependencies", "dependency", "updates", "board", "poller"]'), inputs.job)
+      !contains(fromJSON('["build", "review", "answer", "conflicts", "conflict", "dependencies", "dependency", "updates", "board", "poller", "order"]'), inputs.job)
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -856,5 +905,5 @@ jobs:
         env:
           JOB: ${{ inputs.job }}
         run: |
-          echo "::error::Unknown job $JOB. It is one of build, review, answer, conflicts, conflict, dependencies, dependency, updates, board, or poller."
+          echo "::error::Unknown job $JOB. It is one of build, review, answer, conflicts, conflict, dependencies, dependency, updates, board, poller, or order."
           exit 1

@@ -6,6 +6,7 @@ import type { CodeHost } from "./code-host/index.mts";
 import type { RunFile } from "./handoff/index.mts";
 import { withoutMarkers } from "./handoff/requests.mts";
 import { fencedLines } from "./lib/fences.mts";
+import type { Order } from "./merge-order.mts";
 import { apply, REVIEW } from "./review-verdict.mts";
 
 const SEVERITIES = ["High", "Medium", "Low"] as const;
@@ -168,6 +169,8 @@ export type RecordDeps = {
   override?: string;
   /** False where the settings turn the automated review off. */
   reviewOn?: boolean;
+  /** What the pull request waits for, by its body. */
+  order?: (body: string) => Promise<Order | null>;
   out(line: string): void;
 };
 
@@ -292,6 +295,7 @@ export async function recordReview(d: RecordDeps): Promise<number> {
     ...(d.link === undefined ? {} : { link: d.link }),
     ...(d.override === undefined ? {} : { override: d.override }),
     ...(d.reviewOn === undefined ? {} : { reviewOn: d.reviewOn }),
+    ...(d.order === undefined ? {} : { order: d.order }),
   });
   return code;
 }

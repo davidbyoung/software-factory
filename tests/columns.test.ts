@@ -319,6 +319,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       spec: "Acceptance criteria",
       "acceptance-criteria": "Acceptance criteria",
       "for-the-builder": null,
+      repositories: null,
       "proposed-docs": "Docs draft",
     });
   });
@@ -844,6 +845,10 @@ describe("factory ticket ready", () => {
       open: async () => ({ tickets: memory.tickets }),
       openPulls: async () => [],
       signedInAs: async () => "dave",
+      reach: async () => {
+        throw new Error("unexpected reach");
+      },
+      startOrder: async () => {},
       runner: () => ({ thisRun: () => null }),
       startSync: async () => {},
       settings: async () => settings,
@@ -952,6 +957,9 @@ describe("factory board check", () => {
         },
       }),
       runner: () => ({ runPage: RUN_PAGE }),
+      reach: async () => {
+        throw new Error("unexpected reach");
+      },
       env: {},
       now: () => new Date(at(30)),
       out: into(out),

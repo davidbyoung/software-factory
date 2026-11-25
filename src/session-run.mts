@@ -42,6 +42,7 @@ export type SessionDeps = {
   minutes: number;
   schema?: object;
   git(cwd: string, args: string[]): void;
+  untar(file: string, to: string): void;
   /** The factory's own install, which the session's commands run. */
   install: string[];
   settings(s: CloudSession): object;
@@ -118,6 +119,17 @@ export function collect(
   return dropped;
 }
 
+/** Lays out the other repositories the session may read, as plain files
+ * with no history, from archives git made of them. */
+function layOthers(run: RunFile, d: SessionDeps): void {
+  for (const { folder } of run.others ?? []) {
+    if (folder === null) continue;
+    const to = join(d.dir, "others", folder);
+    mkdirSync(to, { recursive: true });
+    d.untar(join(d.dir, "in/others", `${folder}.tar`), to);
+  }
+}
+
 export async function runSession(d: SessionDeps): Promise<number> {
   const at = (...path: string[]) => join(d.dir, ...path);
   const run = JSON.parse(readFileSync(at("in/run.json"), "utf8")) as RunFile;
@@ -170,12 +182,14 @@ export async function runSession(d: SessionDeps): Promise<number> {
       verbatimSymlinks: true,
     });
 
+  layOthers(run, d);
+
   const s: CloudSession = {
     prompt: d.prompt,
     work: at("work"),
     out: at("out"),
     cache: at("cache"),
-    readOnly: [at("in"), at("home"), ...d.install],
+    readOnly: [at("in"), at("home"), at("others"), ...d.install],
     hosts: d.hosts,
     maxTurns: MAX_TURNS,
     ...(d.model ? { model: d.model } : {}),

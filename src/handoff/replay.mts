@@ -45,6 +45,8 @@ const LABEL: Record<On, string> = {
 const PURE: { [K in On]: ReadonlySet<string> } = {
   tickets: new Set<keyof Tickets>([
     "key",
+    "keyIn",
+    "home",
     "ref",
     "linkText",
     "linksIn",
@@ -105,13 +107,16 @@ function wrapped<T extends object>(
   });
 }
 
-/** The adapter, with each answer it gives added to `calls`. */
+/** The adapter, with each answer it gives added to `calls`. `prefix` is
+ * `owner/name:` for a code host that is not the run's own repository's. */
 export function recording<K extends On>(
   on: K,
   real: Adapters[K],
   calls: Call[],
+  prefix = "",
 ): Adapters[K] {
-  return wrapped(real, (call, method) => (...args: never[]) => {
+  return wrapped(real, (path, method) => (...args: never[]) => {
+    const call = `${prefix}${path}`;
     const answer = method(...args);
     if (!(answer instanceof Promise)) return answer;
     const base = { on, call, args: given(args) };
@@ -137,13 +142,15 @@ export function replaying<K extends On>(
   real: Adapters[K],
   calls: Call[],
   ticket: string | null = null,
+  prefix = "",
 ): Adapters[K] {
   const found = new Map<string, Call>();
   for (const c of calls)
     if (c.on === on) found.set(keyOf(on, c.call, c.args), c);
-  return wrapped(real, (call, method) => {
-    if (PURE[on].has(call)) return method;
-    if (on === "codeHost" && call === "gitToken") return () => null;
+  return wrapped(real, (path, method) => {
+    if (PURE[on].has(path)) return method;
+    if (on === "codeHost" && path === "gitToken") return () => null;
+    const call = `${prefix}${path}`;
     return async (...args: unknown[]) => {
       const known = given(args);
       const hit = found.get(keyOf(on, call, known));

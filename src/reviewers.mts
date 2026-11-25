@@ -35,7 +35,8 @@ import {
   type Tickets,
 } from "./tickets/types.mts";
 import { renderEntry } from "./tickets/record-comments.mts";
-import { commonDir, readClock, type Clock } from "./lib/clock.mts";
+import { keyThere, readClock, sessionFiles, type Clock } from "./lib/clock.mts";
+import { fullWordOf } from "./lib/repositories.mts";
 import { subscriptionDollars } from "./lib/pricing.mts";
 import { dollars, spendIn } from "./lib/usage.mts";
 import {
@@ -342,12 +343,15 @@ export function parseState(text: string | null): State {
 }
 
 const statePath = (session: string, issue: Key) =>
-  join(commonDir(), `reviewer-runs-${session}-${issue}.json`);
+  join(
+    sessionFiles().dir,
+    `reviewer-runs-${session}-${fullWordOf(keyThere(sessionFiles(), issue))}.json`,
+  );
 
 /** A lock directory beside the state, since reviewers run in parallel. One
  * older than a minute was left by a hook that died, and is taken over. */
 async function locked<T>(session: string, work: () => Promise<T>) {
-  const lock = join(commonDir(), `reviewer-runs-${session}.lock`);
+  const lock = join(sessionFiles().dir, `reviewer-runs-${session}.lock`);
   for (let tries = 0; ; tries++) {
     try {
       mkdirSync(lock);

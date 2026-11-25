@@ -55,6 +55,7 @@ describe("parseSettings", () => {
           spec: null,
           "acceptance-criteria": null,
           "for-the-builder": null,
+          repositories: null,
         },
         labels: { spec: "spec", "follow-up": "follow-up", factory: "factory" },
       },
@@ -1437,6 +1438,7 @@ describe("factory config explain", () => {
           spec: none                                                               # default
           acceptance-criteria: none                                                # default
           for-the-builder: none                                                    # default
+          repositories: none                                                       # default
         labels:
           spec: spec                                                               # default
           follow-up: follow-up                                                     # default

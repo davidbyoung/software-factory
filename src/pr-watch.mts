@@ -25,6 +25,8 @@ import {
   type CodeHost,
   type CommitStatus,
 } from "./code-host/index.mts";
+import { ORDER } from "./merge-order.mts";
+import { CONTEXT } from "./review-verdict.mts";
 import * as say from "./lib/output.mts";
 
 export type Check = {
@@ -118,6 +120,18 @@ function reviewIsOver(snapshot: Snapshot): boolean {
   );
 }
 
+/** The checks still to finish, less those that wait for a person to merge
+ * another repository's pull request, which nothing here can hurry. */
+export function unfinished<C extends { name: string; state: string }>(
+  checks: C[],
+): C[] {
+  const pending = checks.filter((check) => check.state === "pending");
+  const waits = pending.some((check) => check.name === ORDER);
+  return pending.filter(
+    (check) => !(waits && [ORDER, CONTEXT].includes(check.name)),
+  );
+}
+
 /** What needs the session now and has not been reported. A closed pull
  * request ends the watch, so nothing else about it is news. `branch` is the
  * default branch, which a conflict's line names. */
@@ -176,7 +190,7 @@ export function newEvents(
   }
   const finished =
     snapshot.checks.length > 0 &&
-    snapshot.checks.every((check) => check.state !== "pending") &&
+    unfinished(snapshot.checks).length === 0 &&
     reviewIsOver(snapshot);
   if (finished) {
     found.push({

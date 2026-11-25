@@ -12,7 +12,8 @@ import {
   githubServes,
 } from "./github.mts";
 import type { CodeHost, OrganizationHost } from "./types.mts";
-import { handed } from "../handoff/index.mts";
+import { handed, handoffIn } from "../handoff/index.mts";
+import { acrossCodeHost, type Access } from "./across.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
@@ -55,7 +56,25 @@ export function openCodeHost(
       cli: run,
       token: ghToken,
     }),
+    process.env,
+    repository,
   );
+}
+
+/** The code host of any of a ticket's repositories: in a run, `own` by its
+ * sign-in and any other by a token made for it, and on a machine by the
+ * sign-in. */
+export async function reachCodeHost(
+  repository: string,
+  type: string,
+  own: string,
+  access: Access = "write",
+): Promise<CodeHost> {
+  const across =
+    repository === own || handoffIn()
+      ? null
+      : await acrossCodeHost(repository, access);
+  return across ?? openCodeHost(repository, type);
 }
 
 /** Each code host an organization can be set up on, by the name

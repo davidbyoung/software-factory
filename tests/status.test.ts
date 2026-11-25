@@ -11,6 +11,7 @@ import {
   styleFor,
   toRows,
   type Deps,
+  type Source,
   type Style,
 } from "../src/status.mts";
 import type {
@@ -27,6 +28,7 @@ import {
 import { watchOf } from "../src/lib/work-status.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryTickets } from "./memory-tickets";
+import { network, SECTION, type Place } from "./network";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import { CredentialError, type Ticket } from "../src/tickets/types.mts";
 import saved from "./fixtures/sync/repo.json";
@@ -42,6 +44,15 @@ const formatRows = (...args: Parameters<typeof formatLines>): string[] =>
   formatLines(...args).map((l: Line) =>
     args[3]?.color ? colored(l) : plainOf(l),
   );
+
+/** What a source gives where no ticket names another repository. */
+const ALONE: Pick<Source, "reach" | "inField" | "clones"> = {
+  reach: async () => {
+    throw new Error("unexpected reach");
+  },
+  inField: false,
+  clones: () => [],
+};
 
 /** The sync fixture's tickets and cards in the in-memory adapter, and its
  * open pull requests. `fail` makes the tickets' list fail. */
@@ -72,6 +83,7 @@ function fixtureSource(
       pulls: { open, address: LINKS.pull },
       runner: { runPage: LINKS.run },
       own: true,
+      ...ALONE,
     }),
     open,
   };
@@ -985,6 +997,7 @@ describe("main in a terminal", () => {
         },
         runner: { runPage: (id) => `https://runs.example/${id}` },
         own: true,
+        ...ALONE,
       }),
       settings: fakeSettings,
       env: {},
@@ -1016,6 +1029,7 @@ describe("main, for a Ready card", () => {
         pulls: { open: async () => [], address: (n) => `${n}` },
         runner: { runPage: (id) => id },
         own: true,
+        ...ALONE,
       }),
       settings: fakeSettings,
       env: {},
@@ -1593,5 +1607,158 @@ describe("tickets without the factory label", () => {
     const without = await run(["15"]);
     expect(without).not.toMatch(/#15\b/);
     expect(without).not.toMatch(/label/i);
+  });
+});
+
+describe("a ticket across repositories", () => {
+  const PULL = (
+    number: number,
+    body: string,
+    over: Partial<PullRequest> = {},
+  ): PullRequest => ({
+    number,
+    createdAt: "2026-11-09T11:00:00Z",
+    body,
+    closes: [],
+    partOf: [],
+    isDraft: false,
+    checks: "SUCCESS",
+    openThreads: 0,
+    author: "dev",
+    ...over,
+  });
+  type World = {
+    here?: string;
+    pulls?: PullRequest[];
+    body?: string;
+    places?: Record<string, Place>;
+    finishedAt?: string;
+    clones?: ReturnType<Source["clones"]>;
+    inField?: boolean;
+    argv?: string[];
+  };
+
+  async function status(w: World) {
+    const here = w.here ?? "acme/api";
+    const key = here === "acme/api" ? "12" : "acme/api#12";
+    const mem = memoryTickets(
+      [
+        {
+          key,
+          title: "Gift cards",
+          labels: ["factory"],
+          body: w.body ?? `The ask.\n\n${SECTION}`,
+          ...(w.finishedAt ? { finishedAt: w.finishedAt } : {}),
+        },
+      ],
+      { repository: here },
+    );
+    const net = network(w.places ?? { "acme/api": {}, "acme/web": {} });
+    const out: string[] = [];
+    await main(w.argv ?? [], {
+      source: async () => ({
+        tickets: {
+          ...mem.tickets,
+          // Reading every ticket at once reads this repository's alone.
+          readAll: async () =>
+            here === "acme/api"
+              ? (await mem.tickets.readAll({})).map((t) =>
+                  w.inField ? { ...t, body: "The ask." } : t,
+                )
+              : [],
+        },
+        pulls: { open: async () => w.pulls ?? [], address: LINKS.pull },
+        runner: { runPage: LINKS.run },
+        own: true,
+        reach: net.reach,
+        inField: w.inField ?? false,
+        clones: () => w.clones ?? [],
+      }),
+      settings: async () =>
+        parseSettings(
+          {
+            version: 2,
+            repository: here,
+            "code-host": CODE_HOST,
+            tickets: { board: 1, columns: FACTORY_COLUMNS },
+          },
+          () => true,
+        ),
+      env: {},
+      now: () => NOW,
+      out: into(out),
+      sleep: () => new Promise(() => {}),
+      write: () => {},
+      onInterrupt: () => {},
+    });
+    return out;
+  }
+  const BOTH: World = {
+    pulls: [PULL(88, "Part of #12")],
+    places: {
+      "acme/api": { pulls: [{ number: 88, body: "Part of #12" }] },
+      "acme/web": {
+        pulls: [{ number: 41, body: "Part of acme/api#12", checks: "PENDING" }],
+      },
+    },
+  };
+
+  it("lists each of its pull requests, with what one waits for", async () => {
+    const out = await status(BOTH);
+    const at = out.findIndex((l) => l.startsWith("In review"));
+    expect(out[at]).toBe("In review  1");
+    expect(out[at + 1]).toContain("#12  Gift cards");
+    expect(out.slice(at + 2, at + 4).map((l) => l.trim())).toEqual([
+      "↳ Pull request acme/api#88 · ready for review · checks passing · no open threads",
+      "↳ Pull request acme/web#41 · ready for review · checks pending · no open threads · waits for acme/api#88",
+    ]);
+    expect(out.join("\n")).not.toContain("Pull requests that close no issue");
+  });
+
+  it("is in progress while one repository has no pull request", async () => {
+    const out = await status({
+      ...BOTH,
+      places: { ...BOTH.places, "acme/web": {} },
+    });
+    const at = out.indexOf("In progress  1");
+    expect(out[at + 1]).toContain("#12  Gift cards");
+  });
+
+  it("reads a list that is kept in a ticket field", async () => {
+    const out = await status({ ...BOTH, inField: true });
+    expect(out).toContain("In review  1");
+  });
+
+  it("says why its repositories could not be read, and lists the rest", async () => {
+    const out = await status({
+      body: "## Repositories\n\n- acme web\n",
+    });
+    expect(out.join("\n")).toContain("Gift cards");
+    expect(out.join("\n")).toContain(
+      `could not read its repositories: #12's Repositories section: can't read "- acme web"`,
+    );
+  });
+
+  it("names the ticket elsewhere that a pull request here is part of", async () => {
+    const out = await status({
+      here: "acme/web",
+      pulls: [PULL(41, "Part of acme/api#12")],
+    });
+    expect(out.join("\n")).toContain("#41  part of acme/api#12: Gift cards");
+  });
+
+  const left = {
+    clones: [{ key: "12", name: "acme/web", folder: "/work/acme/api-12/web" }],
+  };
+
+  it("says a clone is left for a finished ticket, and how to remove it", async () => {
+    const out = await status({ ...left, finishedAt: "2026-11-09T10:00:00Z" });
+    expect(out.at(-1)).toBe(
+      "? acme/web is still cloned for acme/api#12: /work/acme/api-12/web. Run: factory workspace acme/api#12 --remove",
+    );
+  });
+
+  it("says nothing of a clone for one that is not", async () => {
+    expect((await status(left)).join("\n")).not.toContain("still cloned");
   });
 });

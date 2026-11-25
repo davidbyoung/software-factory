@@ -16,7 +16,22 @@ import type { RunFile } from "./handoff/index.mts";
 import { recording, type Call } from "./handoff/replay.mts";
 import type { Kind } from "./handoff/requests.mts";
 import { ticketsOf } from "./lib/pull-tickets.mts";
-import { AGENT_MARK } from "./lib/work-status.mts";
+import {
+  confirmedList,
+  homeOf,
+  progressOf,
+  repositoriesOf,
+  type Reach,
+} from "./across.mts";
+import {
+  lastPart,
+  nextToBuild,
+  sameRepository,
+  type Listed,
+  type Progress,
+} from "./lib/repositories.mts";
+import { AGENT_MARK, entryFor, type Columns } from "./lib/work-status.mts";
+import { notBuildable } from "./ticket-repositories.mts";
 import type { Runner } from "./runner/index.mts";
 import { recordedTicket } from "./session-publish.mts";
 import type { Tickets } from "./tickets/types.mts";
@@ -24,7 +39,13 @@ import type { Tickets } from "./tickets/types.mts";
 /** The marker a review's summary carries. */
 const REVIEW_MARK = /<!--\s*claude-review\b/;
 
-type Adapters = { tickets: Tickets; codeHost: CodeHost; runner: Runner };
+type Adapters = {
+  tickets: Tickets;
+  codeHost: CodeHost;
+  runner: Runner;
+  /** The code host of any of the ticket's repositories. */
+  reach: Reach;
+};
 
 export type PrepareDeps = Adapters & {
   repository: string;
@@ -48,9 +69,22 @@ export type PrepareDeps = Adapters & {
    * default branch's: a lock that was written by hand, or by a session. */
   pinFaults(commit: string): string[];
   git(args: string[]): string;
+  /** Starts a build of the ticket in another of its repositories, where it
+   * is typed as `key`. */
+  startBuild(repository: string, key: string): Promise<void>;
+  /** Puts another repository's files, as a branch or the default branch has
+   * them, in an archive at `path`, or answers false when it is too large. */
+  archive(
+    repository: string,
+    branch: string | null,
+    path: string,
+  ): Promise<boolean>;
+  /** Whose words say why a repository can't be seen. */
+  underApp: boolean;
   /** The claim this checkout made on the ticket. */
   claimOf(ticket: string): string | null;
   committer: RunFile["committer"];
+  columns: Columns;
   out(line: string): void;
 };
 
@@ -91,6 +125,7 @@ function readsOf(run: RunFile, o: { comments: number[]; reviews: number[] }) {
   if (key !== null)
     of.push(
       ticket("view", key),
+      ticket("repositories", key),
       ticket("answers", key),
       ticket("blockers", key),
       ticket("branch", key),
@@ -122,6 +157,8 @@ async function build(
   d: PrepareDeps,
 ): Promise<RunFile> {
   const on: Adapters = d;
+  const spans = await others(key, d);
+  if (spans) await ours(key, spans, d);
   const branch = (await d.ticket(["branch", key], on)).lines[0];
   const claim = (await d.ticket(["claim", key], on)).lines;
   if (!claim.includes("claimed")) throw new Nothing(claim.join("\n"));
@@ -152,6 +189,7 @@ async function build(
     pull: null,
     round: 0,
     claim: d.claimOf(key),
+    ...(spans ? { others: spans.others } : {}),
     committer: d.committer,
   };
 }
@@ -187,6 +225,126 @@ async function freeBranch(
   );
 }
 
+type Spans = {
+  list: Listed[];
+  progress: Progress[];
+  others: NonNullable<RunFile["others"]>;
+};
+
+/** A repository's privacy, or null when it can't be seen. */
+const isPrivate = async (name: string, d: PrepareDeps) =>
+  (await (await d.reach(name)).visible())?.isPrivate ?? null;
+
+/** Whether this run may read the ticket: one of a public repository reads
+ * nothing of a private one's, since what its session reads could end up in
+ * a public pull request. */
+async function mayRead(key: string, d: PrepareDeps): Promise<boolean> {
+  const home = homeOf(d.tickets, key, d.repository);
+  if (sameRepository(home, d.repository)) return true;
+  if ((await isPrivate(d.repository, d)) !== false) return true;
+  return (await isPrivate(home, d)) === false;
+}
+
+/** The ticket's other repositories, for one that names any and whose list
+ * was confirmed. Their folders are filled in once they are copied. */
+async function others(key: string, d: PrepareDeps): Promise<Spans | null> {
+  const ticket = await d.tickets.read(key);
+  const home = homeOf(d.tickets, key, d.repository);
+  const list = repositoriesOf(ticket, d.tickets, home);
+  if (!list) return null;
+  if (!(await confirmedList(ticket, list, d.reach)).counts)
+    return { list, progress: [], others: [] };
+  const progress = await progressOf(ticket, list, d.tickets, d.reach);
+  return {
+    list,
+    progress,
+    others: progress
+      .filter((r) => !sameRepository(r.name, d.repository))
+      .map((r) => ({
+        repository: r.name,
+        pull: r.pulls.find((p) => p.state === "open")?.number ?? null,
+        folder: null,
+      })),
+  };
+}
+
+/** Goes on only when this repository is the one to build: it starts the
+ * build of any other that is, and stops a ticket that can't be built. */
+async function ours(key: string, spans: Spans, d: PrepareDeps): Promise<void> {
+  const ticket = await d.tickets.read(key);
+  const ref = d.tickets.ref(key);
+  const home = homeOf(d.tickets, key, d.repository);
+  let fault: string | null = null;
+  try {
+    const seen: [string, boolean][] = [];
+    for (const name of new Set([...spans.list.map((r) => r.name), home])) {
+      const found = await isPrivate(name, d);
+      if (found === null)
+        fault ??= d.underApp
+          ? `${ref} names ${name}, which was not found`
+          : `The build token can't see ${name}`;
+      else seen.push([name, found]);
+    }
+    const hidden = seen.find(([, hides]) => hides);
+    const open = seen.find(([, hides]) => !hides);
+    if (hidden && open)
+      fault ??= `${open[0]} is public and ${hidden[0]} is private, so no build in the cloud reads both: build it on your computer`;
+    fault ??= await notBuildable(ticket, d);
+  } catch (error) {
+    fault = error instanceof Error ? error.message : String(error);
+  }
+  if (fault !== null) {
+    await d.tickets.record.add(
+      key,
+      entryFor(
+        {
+          kind: "stopped",
+          where: "actions",
+          issue: { key, ref },
+          reason: fault,
+        },
+        d.columns,
+      ),
+    );
+    throw new Nothing(fault);
+  }
+  const next = nextToBuild(spans.progress);
+  if (!next)
+    throw new Nothing(`Every repository of ${ref} has a pull request.`);
+  if (sameRepository(next.name, d.repository)) return;
+  await d.startBuild(next.name, d.tickets.keyIn(key, next.name));
+  throw new Nothing(`Started the build in ${next.name}.`);
+}
+
+/** Copies each other repository the session may read, as its pull request
+ * has it, or its default branch. */
+async function copies(run: RunFile, dir: string, d: PrepareDeps) {
+  if (!run.others?.length || run.ticket === null) return;
+  const spans = await others(run.ticket, d);
+  const open = (await isPrivate(d.repository, d)) === false;
+  const kept: NonNullable<RunFile["others"]> = [];
+  for (const other of run.others) {
+    // Nothing of a private repository reaches a public one's session.
+    if (open && (await isPrivate(other.repository, d)) !== false) continue;
+    const folder = lastPart(other.repository);
+    const pull = spans?.progress
+      .find((r) => r.name === other.repository)
+      ?.pulls.find((p) => p.state === "open");
+    mkdirSync(join(dir, "others"), { recursive: true });
+    const whole = await d.archive(
+      other.repository,
+      pull?.branch ?? null,
+      join(dir, "others", `${folder}.tar`),
+    );
+    if (!whole)
+      d.out(
+        `${other.repository} is too large to hand over, so it is not read.`,
+      );
+    kept.push({ ...other, folder: whole ? folder : null });
+  }
+  run.others = kept;
+}
+
 async function ofPull(
   kind: Kind,
   pull: Pull,
@@ -207,7 +365,12 @@ async function ofPull(
     d.tickets,
     d.ownLinks,
   );
-  const key = recordedTicket(pull.body) ?? closes[0] ?? partOf[0] ?? null;
+  const found = recordedTicket(pull.body) ?? closes[0] ?? partOf[0] ?? null;
+  const key = found !== null && (await mayRead(found, d)) ? found : null;
+  const spans =
+    key !== null && (kind === "review" || kind === "answer")
+      ? await others(key, d)
+      : null;
   return {
     version: 1,
     kind,
@@ -224,6 +387,7 @@ async function ofPull(
         ? await d.runner.answersTo(pull.number, pull.createdAt ?? "")
         : 0,
     claim: null,
+    ...(spans ? { others: spans.others } : {}),
     committer: d.committer,
   };
 }
@@ -281,6 +445,7 @@ async function handOver(
         ? await build(d.tickets.key(id), base, d)
         : await ofPull(kind, await d.codeHost.get(Number(id)), d);
     bundles(run, dir, d.git);
+    await copies(run, dir, d);
     if (kind === "review") {
       const faults = d.pinFaults(run.base);
       if (faults.length > 0)
@@ -299,6 +464,12 @@ async function handOver(
     tickets: recording("tickets", d.tickets, calls),
     codeHost: recording("codeHost", trusted(d.codeHost, d.poster), calls),
     runner: recording("runner", d.runner, calls),
+    reach: async (name) => {
+      const host = await d.reach(name);
+      return sameRepository(name, d.repository)
+        ? recording("codeHost", host, calls)
+        : recording("codeHost", host, calls, `${name}:`);
+    },
   };
   const comments = run.pull === null ? [] : await d.codeHost.comments(run.pull);
   const reviews = run.pull === null ? [] : await d.codeHost.reviews(run.pull);

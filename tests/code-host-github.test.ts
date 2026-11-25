@@ -1877,3 +1877,75 @@ describe("the tickets a text closes when it is merged, on GitHub", () => {
     ]);
   });
 });
+
+describe("another repository, as a ticket across repositories reads it", () => {
+  const file = (text: string) => ({
+    content: Buffer.from(text).toString("base64"),
+  });
+
+  it("is seen, with its privacy, or not at all", async () => {
+    const seen = pulls([[/^api repos\/acme\/widgets$/, { private: true }]]);
+    expect(await seen.p.visible()).toEqual({ isPrivate: true });
+    const hidden = pulls([[/^api repos\/acme\/widgets$/, notFound()]]);
+    expect(await hidden.p.visible()).toBeNull();
+    const failed = pulls([
+      [/^api repos\/acme\/widgets$/, new Error("gh api: HTTP 502")],
+    ]);
+    await expect(failed.p.visible()).rejects.toThrow("502");
+  });
+
+  it("gives a file of its default branch, or none", async () => {
+    const { p } = pulls([
+      [/contents\/a\.yaml$/, file("a: 1\n")],
+      [/contents\/b\.yaml$/, notFound()],
+      [/contents\/c\.yaml$/, new Error("gh api: HTTP 502")],
+    ]);
+    expect(await p.file("a.yaml")).toBe("a: 1\n");
+    expect(await p.file("b.yaml")).toBeNull();
+    await expect(p.file("c.yaml")).rejects.toThrow("502");
+  });
+
+  const since = "2026-11-10T00:00:00Z";
+  const rest = (number: number, over: Record<string, unknown> = {}) => ({
+    number,
+    state: "closed",
+    updated_at: "2026-11-12T00:00:00Z",
+    merged_at: null,
+    ...over,
+  });
+  const merged = (number: number, at: string) =>
+    rest(number, { merged_at: at, updated_at: at });
+
+  it("lists the open pull requests and those merged since, and no other", async () => {
+    const { p } = pulls([
+      [/state=open/, [[rest(1, { state: "open" })]]],
+      [
+        /state=closed.*&page=1$/,
+        [
+          merged(2, "2026-11-11T00:00:00Z"),
+          rest(3),
+          // Merged before, and commented on since.
+          rest(4, { merged_at: "2026-11-09T00:00:00Z" }),
+        ],
+      ],
+    ]);
+    const found = await p.recentPulls(since);
+    expect(found.map((x) => [x.number, x.state, x.merged])).toEqual([
+      [1, "open", false],
+      [2, "closed", true],
+    ]);
+    expect(found[1].mergedAt).toBe("2026-11-11T00:00:00Z");
+  });
+
+  it("reads on while a full page changed since, and stops after it", async () => {
+    const page = (at: string, from: number) =>
+      Array.from({ length: 100 }, (_, i) => merged(from + i, at));
+    const { p, calls } = pulls([
+      [/state=open/, [[]]],
+      [/&page=1$/, page("2026-11-12T00:00:00Z", 100)],
+      [/&page=2$/, page("2026-11-09T00:00:00Z", 300)],
+    ]);
+    expect(await p.recentPulls(since)).toHaveLength(100);
+    expect(calls.filter((c) => c.includes("state=closed"))).toHaveLength(2);
+  });
+});

@@ -27,7 +27,7 @@ export type Deps = {
   /** The runner of that name. */
   runner: (repository: string, name: string) => Runner;
   /** How the settings' ticket system reads a key and writes a ticket. */
-  keyOf: (type: string) => (typed: string) => Key;
+  keyOf: (type: string) => (typed: string, repository?: string) => Key;
   refOf: (type: string) => (key: Key) => string;
   now: () => Date;
   sleep: (ms: number) => Promise<unknown>;
@@ -42,10 +42,10 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
   try {
     const settings = await d.settings();
-    const ticket = d.keyOf(settings.tickets.type)(argv[0]);
+    const { repository } = targetOf(settings, d.env);
+    const ticket = d.keyOf(settings.tickets.type)(argv[0], repository);
     const ref = d.refOf(settings.tickets.type)(ticket);
     const runName = `Build ${ref}`;
-    const { repository } = targetOf(settings, d.env);
     const runner = d.runner(repository, settings.builds.runner);
     const branch = await d
       .codeHost(repository, settings.codeHost.type)

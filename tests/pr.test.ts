@@ -502,6 +502,22 @@ describe("waiting for the review", () => {
     ).toBe(false);
   });
 
+  it("settles while it waits only for another repository's pull request", () => {
+    const pending = (name: string) => ({
+      id: 1,
+      name,
+      state: "pending" as const,
+    });
+    const waits = [pending("Merge order"), pending("Review verdict")];
+    expect(isSettled(report({ checks: waits }))).toBe(true);
+    expect(isSettled(report({ checks: [...waits, pending("E2E")] }))).toBe(
+      false,
+    );
+    expect(isSettled(report({ checks: [pending("Review verdict")] }))).toBe(
+      false,
+    );
+  });
+
   it("settles once the head's summary is in and every check has finished", () => {
     expect(isSettled(report())).toBe(true);
     expect(isSettled(report({ summary: null, reviewRun: null }))).toBe(false);

@@ -53,7 +53,20 @@ import {
 } from "./tickets/types.mts";
 import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 import { openTickets } from "./tickets/index.mts";
-import { openCodeHost, type CodeHost } from "./code-host/index.mts";
+import {
+  openCodeHost,
+  reachCodeHost,
+  type CodeHost,
+} from "./code-host/index.mts";
+import { acrossOf, type Reach } from "./across.mts";
+import {
+  mergeOrder,
+  ownerOf,
+  sameRepository,
+  waitsFor,
+  type Progress,
+} from "./lib/repositories.mts";
+import { clonesIn, ticketOfWord, workFolder } from "./workspace.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
 import { subscriptionDollars } from "./lib/pricing.mts";
 import { dollars } from "./lib/usage.mts";
@@ -138,6 +151,14 @@ export function toRows(
     followUp?: string;
     /** How the ticket system writes a ticket. */
     ref: (key: Key) => string;
+    /** The open pull requests of each ticket that names several
+     * repositories, in every one. */
+    across?: Map<Key, PullRequest[]>;
+    /** The tickets whose repositories could not be read. */
+    unread?: Map<Key, string>;
+    /** The title of each ticket of another repository's that a pull request
+     * here is part of, or null when it could not be read. */
+    elsewhere?: Map<Key, string | null>;
   },
 ): { rows: Row[]; closed: Row[] } {
   const watch =
@@ -154,12 +175,18 @@ export function toRows(
       snapshot.pulls,
       columns,
       followUp,
+      snapshot.across?.get(issue.key),
     );
-    const pulls = snapshot.pulls.filter((p) =>
-      derived.pulls.includes(p.number),
-    );
-    pulls.forEach((p) => claimed.add(p.number));
+    const pulls =
+      options.across?.get(issue.key) ??
+      snapshot.pulls.filter((p) => derived.pulls.includes(p.number));
+    pulls.forEach((p) => {
+      if (!p.across || snapshot.pulls.some((x) => x === p))
+        claimed.add(p.number);
+    });
     const flags: string[] = [];
+    const unread = options.unread?.get(issue.key);
+    if (unread) flags.push(`could not read its repositories: ${unread}`);
     if (isStale(derived, now)) flags.push("stale");
     if (
       watch &&
@@ -185,11 +212,15 @@ export function toRows(
       (i) => i.labels.includes(followUp) && pull.partOf.includes(i.key),
     );
     if (pull.closes.length > 0 || followUps.length > 0) continue;
+    const other = pull.partOf.find((k) => options.elsewhere?.has(k));
+    const its = other && options.elsewhere!.get(other);
     rows.push({
       key: String(pull.number),
       name: `#${pull.number}`,
       kind: "pull",
-      title: `pull request by ${pull.author}`,
+      title: other
+        ? `part of ${options.ref(other)}${its ? `: ${its}` : ""}`
+        : `pull request by ${pull.author}`,
       derived: null,
       pulls: [pull],
       runs: [],
@@ -295,13 +326,16 @@ function pullLine(
       : `${pull.openThreads} open thread${pull.openThreads === 1 ? "" : "s"}`,
   ];
   if (isWatching(pull.body, now)) parts.push("a session is watching it");
+  if (pull.across?.waits) parts.push(`waits for ${pull.across.waits}`);
   const rest = parts.join(" · ");
   return named
     ? [
         { text: "↳ Pull request " },
         {
-          text: `#${pull.number}`,
-          url: linkTo({ kind: "pull", key: String(pull.number) }, style),
+          text: pull.across?.ref ?? `#${pull.number}`,
+          url:
+            pull.across?.url ??
+            linkTo({ kind: "pull", key: String(pull.number) }, style),
         },
         { text: ` · ${rest}` },
       ]
@@ -581,7 +615,93 @@ export type Source = {
   runner: Pick<Runner, "runPage">;
   /** Whether the code host's own links count (`lib/pull-tickets.mts`). */
   own: boolean;
+  /** Any repository's code host, for a ticket that names several. */
+  reach: Reach;
+  /** Whether a ticket's repositories are kept in a ticket field. */
+  inField: boolean;
+  /** The clones `factory workspace` left on this machine. */
+  clones: () => { key: Key; name: string; folder: string }[];
 };
+
+/** The open pull requests of each ticket that names several repositories,
+ * as the view shows them. */
+async function pullsAcross(
+  across: Map<Key, Progress[]>,
+  own: { repository: string; pulls: PullRequest[] },
+  reach: Reach,
+): Promise<Map<Key, PullRequest[]>> {
+  const read = new Map<string, Promise<PullRequest[]>>();
+  const openIn = (name: string) => {
+    if (sameRepository(name, own.repository)) return Promise.resolve(own.pulls);
+    if (!read.has(name))
+      read.set(
+        name,
+        reach(name).then((host) => host.open({ checks: true })),
+      );
+    return read.get(name)!;
+  };
+  const out = new Map<Key, PullRequest[]>();
+  for (const [key, all] of across) {
+    const pulls: PullRequest[] = [];
+    for (const r of mergeOrder(all)) {
+      const waits = waitsFor(all, r.name);
+      const host = r.pulls.length ? await reach(r.name) : null;
+      for (const p of await openIn(r.name)) {
+        if (!r.pulls.some((x) => x.number === p.number)) continue;
+        p.across = {
+          ref: `${r.name}#${p.number}`,
+          url: host!.address(p.number),
+          waits:
+            waits && (waits.pull ? `${waits.name}#${waits.pull}` : waits.name),
+        };
+        pulls.push(p);
+      }
+    }
+    out.set(key, pulls);
+  }
+  return out;
+}
+
+/** The title of each ticket elsewhere that a pull request here is part
+ * of. */
+async function titlesElsewhere(
+  pulls: PullRequest[],
+  source: Source,
+  repository: string,
+): Promise<Map<Key, string | null>> {
+  const out = new Map<Key, string | null>();
+  for (const key of new Set(pulls.flatMap((p) => p.partOf))) {
+    const home = source.tickets.home(key);
+    if (home === null || sameRepository(home, repository)) continue;
+    const title = await source.tickets.read(key).then(
+      (t) => t.title,
+      () => null,
+    );
+    out.set(key, title);
+  }
+  return out;
+}
+
+/** A line for each clone left for a ticket that is finished. */
+async function clonesLeft(source: Source): Promise<say.Line[]> {
+  const lines: say.Line[] = [];
+  for (const { key, name, folder } of source.clones()) {
+    const finished = await source.tickets.read(key).then(
+      (t) => t.finishedAt !== null,
+      () => false,
+    );
+    // In full, so it can be run from a checkout of any of them.
+    const full = source.tickets.keyIn(key, "");
+    if (finished)
+      lines.push(
+        say.mark("look", [
+          `${name} is still cloned for ${full}: ${folder}. `,
+          `Run: factory workspace ${full} --remove`,
+        ]),
+      );
+  }
+  return lines;
+}
 
 async function snapshotLines(
   source: Source,
@@ -602,13 +722,15 @@ async function snapshotLines(
     }),
     source.pulls.open({ checks: true }),
   ]);
-  const snapshot = toSnapshot(
-    tickets,
-    linkPulls(pulls, source.tickets, source.own),
+  const linked = linkPulls(pulls, source.tickets, source.own);
+  const { across, unread } = await acrossOf(tickets, {
+    tickets: source.tickets,
+    repository: target.repository,
+    reach: source.reach,
+    inField: source.inField,
     now,
-    [],
-    target.columns,
-  );
+  });
+  const snapshot = toSnapshot(tickets, linked, now, [], target.columns, across);
   const board = boardOf(tickets);
   const blockers = new Map<Key, Key[]>();
   for (const issue of snapshot.issues) {
@@ -620,6 +742,7 @@ async function snapshotLines(
         snapshot.pulls,
         target.columns,
         target.followUp,
+        across.get(issue.key),
       ).status !== "Ready"
     )
       continue;
@@ -629,8 +752,15 @@ async function snapshotLines(
       list.filter((b) => b.state === "open").map((b) => b.key),
     );
   }
-  return formatRows(
+  const rows = formatRows(
     toRows(snapshot, board, blockers, now, {
+      across: await pullsAcross(
+        across,
+        { repository: target.repository, pulls: linked },
+        source.reach,
+      ),
+      unread,
+      elsewhere: await titlesElsewhere(linked, source, target.repository),
       watch: target.watch,
       columns: target.columns,
       followUp: target.followUp,
@@ -640,6 +770,8 @@ async function snapshotLines(
     !hook,
     { ...style, links, columns: target.columns },
   );
+  const left = hook ? [] : await clonesLeft(source);
+  return left.length ? [...rows, say.BLANK, ...left] : rows;
 }
 
 export type Deps = {
@@ -746,6 +878,16 @@ export async function run(argv: string[]): Promise<number> {
         pulls: openCodeHost(target.repository, settings.codeHost.type),
         runner: openRunner(target.repository, settings.builds.runner),
         own: ownLinks(settings),
+        reach: (name) =>
+          reachCodeHost(name, settings.codeHost.type, target.repository),
+        inField: settings.tickets.ticketFields.repositories !== null,
+        clones: () => {
+          const owner = ownerOf(target.repository);
+          return clonesIn(workFolder(), owner).map((c) => ({
+            ...c,
+            key: tickets.key(ticketOfWord(c.word, owner)),
+          }));
+        },
       };
     },
     now: () => new Date(),

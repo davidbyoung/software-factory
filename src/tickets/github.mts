@@ -22,6 +22,7 @@ import {
   type Tickets,
   type Write,
 } from "./types.mts";
+import { fencedLines } from "../lib/fences.mts";
 import { writeAccess } from "./github-access.mts";
 import { statusOf, type Transport } from "./transport.mts";
 import { sameName } from "../lib/work-status.mts";
@@ -38,6 +39,9 @@ export type GithubOptions = {
   /** The GitHub CLI, for attachments, which have no API. Without it, the
    * adapter has no attachments group. */
   cli?: Gh;
+  /** How a ticket in another repository is reached; through `transport`
+   * unless given. */
+  reach?: (repository: string) => Promise<Transport>;
   /** The board's own names for the fields the sync reads, null for one it
    * never writes. The factory's own names where not given. */
   fieldNames?: {
@@ -53,6 +57,7 @@ type RestIssue = {
   id: number;
   title: string;
   state: string;
+  state_reason?: string | null;
   closed_at: string | null;
   body: string | null;
   labels: ({ name: string } | string)[];
@@ -102,7 +107,7 @@ query Tickets($owner: String!, $name: String!, $after: String) {
   }
 }
 fragment issue on Issue {
-  number title state closedAt body
+  number title state stateReason closedAt body
   labels(first: 30) { nodes { name } }
   comments(last: 100) {
     nodes { databaseId createdAt body author { login } }
@@ -122,6 +127,7 @@ export type RawIssue = {
   number: number;
   title: string;
   state: "OPEN" | "CLOSED";
+  stateReason?: string | null;
   closedAt: string | null;
   body?: string | null;
   labels: { nodes: { name: string }[] };
@@ -161,6 +167,9 @@ export function fromRawIssue(raw: RawIssue): Ticket {
     key: String(raw.number),
     title: raw.title,
     finishedAt: raw.state === "OPEN" ? null : raw.closedAt,
+    ...(raw.state === "OPEN" && raw.stateReason === "REOPENED"
+      ? { reopened: true }
+      : {}),
     labels: raw.labels.nodes.map((l) => l.name),
     body: raw.body ?? "",
     ...withRecord(toComments(raw.comments)),
@@ -411,13 +420,20 @@ export function commentIdFromUrl(url: string): string {
   return match[1];
 }
 
-/** A key typed for GitHub: an issue's number. */
-export function githubKey(typed: string): Key {
+/** Another repository's issue, as a key writes it. */
+const FOREIGN = /^([\w.-]+\/[\w.-]+)#([1-9]\d*)$/;
+
+const sameRepo = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** A key typed for GitHub: an issue's number, or `owner/name#N` for one in
+ * another repository than `repository`. */
+export function githubKey(typed: string, repository?: string): Key {
   if (/^[1-9]\d*$/.test(typed)) return typed;
-  if (/^[\w.-]+\/[\w.-]+#\d+$/.test(typed))
-    throw new KeyError(
-      `${typed} is in another repository: the factory reads only its state as a blocker`,
-    );
+  const foreign = FOREIGN.exec(typed);
+  if (foreign)
+    return repository !== undefined && sameRepo(foreign[1], repository)
+      ? foreign[2]
+      : typed;
   throw new KeyError(
     `${typed} is not a ticket here: a GitHub ticket is its number, such as 12`,
   );
@@ -431,12 +447,33 @@ export const githubRef = (key: Key): string =>
 export const githubLinkText = (key: Key, kind: LinkKind): string =>
   `${kind === "closes" ? "Closes" : "Part of"} ${githubRef(key)}`;
 
-/** The `Closes #N` and `Part of #N` lines in a pull request's body. */
-export function githubLinksIn(body: string): Links {
+/** The `Closes #N` and `Part of #N` lines in a pull request's body, and
+ * those that name the repository and start their line, as keys of `own`.
+ * Text in code links nothing. `from` is the
+ * repository the pull request is in, whose a bare number is. */
+export function githubLinksIn(
+  body: string,
+  own?: string,
+  from: string | undefined = own,
+): Links {
   const links: Links = { closes: [], partOf: [] };
-  for (const m of body.matchAll(/\b(closes|part of) #(\d+)(?!\d)/gi)) {
+  const fenced = fencedLines(body);
+  const prose = body
+    .split(/\r?\n/)
+    .map((line, i) => (fenced[i] ? "" : line))
+    .join("\n")
+    .replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, " ");
+  const link = /\b(closes|part of) (?:([\w.-]+\/[\w.-]+))?#(\d+)(?!\d)/gi;
+  for (const m of prose.matchAll(link)) {
+    const starts = m.index === 0 || prose[m.index - 1] === "\n";
+    if (m[2] && !starts) continue;
+    const home = m[2] ?? from;
+    const key =
+      home === undefined || (own !== undefined && sameRepo(home, own))
+        ? m[3]
+        : `${home}#${m[3]}`;
     const list = m[1].toLowerCase() === "closes" ? links.closes : links.partOf;
-    if (!list.includes(m[2])) list.push(m[2]);
+    if (!list.includes(key)) list.push(key);
   }
   return links;
 }
@@ -479,8 +516,28 @@ export function githubTickets(o: GithubOptions): Tickets {
   const t = o.transport;
   let lastBoard: Board | null = null;
 
-  const issue = (n: Key) =>
-    found(`#${n}`, t.rest<RestIssue>("GET", `${API}/issues/${n}`));
+  /** Where a ticket is: its repository, its number, and how it is reached. */
+  const at = async (key: Key) => {
+    const foreign = FOREIGN.exec(key);
+    if (!foreign || sameRepo(foreign[1], o.repository))
+      return {
+        repository: o.repository,
+        number: foreign ? foreign[2] : key,
+        t,
+      };
+    return {
+      repository: foreign[1],
+      number: foreign[2],
+      t: o.reach ? await o.reach(foreign[1]) : t,
+    };
+  };
+  type Place = Awaited<ReturnType<typeof at>>;
+  const pathOf = (p: Place) => `repos/${p.repository}/issues/${p.number}`;
+
+  const issue = async (key: Key) => {
+    const p = await at(key);
+    return found(githubRef(key), p.t.rest<RestIssue>("GET", pathOf(p)));
+  };
 
   // GitHub numbers issues and pull requests from one sequence, and its
   // issues API writes to either, so a write first checks that the number
@@ -489,9 +546,21 @@ export function githubTickets(o: GithubOptions): Tickets {
   const anIssue = async (n: Key) => {
     if (issues.has(n)) return;
     const raw = await issue(n);
-    if (raw.pull_request) throw new NotFoundError(`#${n}`);
+    if (raw.pull_request) throw new NotFoundError(githubRef(n));
     issues.add(n);
   };
+
+  /** A comment in another repository is named with it. */
+  const commentAt = async (id: string) => {
+    const foreign = /^(.+\/.+):(\d+)$/.exec(id);
+    const p = foreign ? await at(`${foreign[1]}#1`) : await at("1");
+    return {
+      t: p.t,
+      path: `repos/${p.repository}/issues/comments/${foreign ? foreign[2] : id}`,
+    };
+  };
+  const commentId = (p: Place, id: number) =>
+    p.repository === o.repository ? String(id) : `${p.repository}:${id}`;
 
   /** Board `number`'s own ID and its fields' names. */
   async function boardFields(number: number) {
@@ -575,24 +644,37 @@ export function githubTickets(o: GithubOptions): Tickets {
   };
 
   const tickets: Tickets = {
-    key: githubKey,
+    key: (typed) => githubKey(typed, o.repository),
+    keyIn(key, repository) {
+      const foreign = FOREIGN.exec(key);
+      const home = foreign ? foreign[1] : o.repository;
+      const number = foreign ? foreign[2] : key;
+      return sameRepo(home, repository) ? number : `${home}#${number}`;
+    },
+    home: (key) => FOREIGN.exec(key)?.[1] ?? o.repository,
     ref: githubRef,
     async read(n) {
       const raw = await issue(n);
-      if (raw.pull_request) throw new NotFoundError(`#${n}`);
+      if (raw.pull_request) throw new NotFoundError(githubRef(n));
       issues.add(n);
-      const comments = await t.rest<RestComment[]>(
+      const p = await at(n);
+      const comments = await p.t.rest<RestComment[]>(
         "GET",
-        `${API}/issues/${n}/comments?per_page=100`,
+        `${pathOf(p)}/comments?per_page=100`,
         { paginate: true },
       );
       return {
-        key: String(raw.number),
+        key: n,
         title: raw.title,
         finishedAt: raw.state === "closed" ? raw.closed_at : null,
+        ...(raw.state !== "closed" && raw.state_reason === "reopened"
+          ? { reopened: true }
+          : {}),
         labels: raw.labels.map(labelName),
         body: raw.body ?? "",
-        ...withRecord(comments.map(toComment)),
+        ...withRecord(
+          comments.map((c) => ({ ...toComment(c), id: commentId(p, c.id) })),
+        ),
       };
     },
     readAll: (options) => readAllTickets(options),
@@ -612,39 +694,41 @@ export function githubTickets(o: GithubOptions): Tickets {
     },
     async writeBody(n, body) {
       await anIssue(n);
+      const p = await at(n);
       await found(
-        `#${n}`,
-        t.rest("PATCH", `${API}/issues/${n}`, { fields: { body } }),
+        githubRef(n),
+        p.t.rest("PATCH", pathOf(p), { fields: { body } }),
       );
     },
     async writeTitle(n, title) {
       await anIssue(n);
+      const p = await at(n);
       await found(
-        `#${n}`,
-        t.rest("PATCH", `${API}/issues/${n}`, { fields: { title } }),
+        githubRef(n),
+        p.t.rest("PATCH", pathOf(p), { fields: { title } }),
       );
     },
     async comment(n, body) {
       await anIssue(n);
+      const p = await at(n);
       const made = await found(
-        `#${n}`,
-        t.rest<{ id: number }>("POST", `${API}/issues/${n}/comments`, {
+        githubRef(n),
+        p.t.rest<{ id: number }>("POST", `${pathOf(p)}/comments`, {
           fields: { body },
         }),
       );
-      return String(made.id);
+      return commentId(p, made.id);
     },
     async editComment(id, body) {
+      const c = await commentAt(id);
       await found(
         `comment ${id}`,
-        t.rest("PATCH", `${API}/issues/comments/${id}`, { fields: { body } }),
+        c.t.rest("PATCH", c.path, { fields: { body } }),
       );
     },
     async deleteComment(id) {
-      await found(
-        `comment ${id}`,
-        t.rest("DELETE", `${API}/issues/comments/${id}`),
-      );
+      const c = await commentAt(id);
+      await found(`comment ${id}`, c.t.rest("DELETE", c.path));
     },
     async open({ title, body, labels }) {
       const fields: Record<string, string | string[]> = { title, body };
@@ -658,9 +742,10 @@ export function githubTickets(o: GithubOptions): Tickets {
     async ensureLabel() {},
     async finish(n) {
       const raw = await issue(n);
-      if (raw.pull_request) throw new NotFoundError(`#${n}`);
+      if (raw.pull_request) throw new NotFoundError(githubRef(n));
       if (raw.state === "closed") return;
-      await t.rest("PATCH", `${API}/issues/${n}`, {
+      const p = await at(n);
+      await p.t.rest("PATCH", pathOf(p), {
         fields: { state: "closed", state_reason: "completed" },
       });
     },
@@ -677,19 +762,21 @@ export function githubTickets(o: GithubOptions): Tickets {
     },
     async addLabel(n, label) {
       await anIssue(n);
+      const p = await at(n);
       await found(
-        `#${n}`,
-        t.rest("POST", `${API}/issues/${n}/labels`, {
+        githubRef(n),
+        p.t.rest("POST", `${pathOf(p)}/labels`, {
           fields: { labels: [label] },
         }),
       );
     },
     async removeLabel(n, label) {
       await anIssue(n);
+      const p = await at(n);
       try {
-        await t.rest(
+        await p.t.rest(
           "DELETE",
-          `${API}/issues/${n}/labels/${encodeURIComponent(label)}`,
+          `${pathOf(p)}/labels/${encodeURIComponent(label)}`,
         );
       } catch (error) {
         // GitHub answers 404 for a label the issue does not have; removing
@@ -698,10 +785,17 @@ export function githubTickets(o: GithubOptions): Tickets {
         await issue(n);
       }
     },
-    mayDecide: (author) => writeAccess(t, o.repository, author),
+    async mayDecide(author, key) {
+      const p = await at(key);
+      return writeAccess(p.t, p.repository, author);
+    },
     linkText: githubLinkText,
-    linksIn: githubLinksIn,
-    address: (n) => `https://github.com/${o.repository}/issues/${n}`,
+    linksIn: (body, repository) =>
+      githubLinksIn(body, o.repository, repository ?? o.repository),
+    address: (key) => {
+      const foreign = FOREIGN.exec(key);
+      return `https://github.com/${foreign ? foreign[1] : o.repository}/issues/${foreign ? foreign[2] : key}`;
+    },
 
     board: {
       read: readBoard,
@@ -858,7 +952,8 @@ export function githubTickets(o: GithubOptions): Tickets {
         return { max: null };
       },
       async read(n) {
-        const answer = await t.graphql<{
+        const p = await at(n);
+        const answer = await p.t.graphql<{
           data: {
             repository: {
               issue: {
@@ -871,22 +966,27 @@ export function githubTickets(o: GithubOptions): Tickets {
               } | null;
             };
           };
-        }>(FIELD_VALUES, { owner: repoOwner, name: repoName, number: n });
+        }>(FIELD_VALUES, {
+          owner: p.repository.split("/")[0]!,
+          name: p.repository.split("/")[1]!,
+          number: p.number,
+        });
         const found = answer.data.repository.issue;
-        if (!found) throw new NotFoundError(`#${n}`);
+        if (!found) throw new NotFoundError(githubRef(n));
         const values: Record<string, string> = {};
         for (const v of found.issueFieldValues.nodes)
           if (v?.field?.name) values[v.field.name] = v.value ?? "";
         return values;
       },
       async write(n, values) {
+        const p = await at(n);
         const fields = await issueFields();
         await anIssue(n);
         const { node_id } = await issue(n);
         for (const [name, value] of Object.entries(values)) {
           const field = fields.find((f) => f.name === name);
           if (!field) throw new Error(`No issue field called ${name}.`);
-          await t.graphql(
+          await p.t.graphql(
             value === null ? CLEAR_ISSUE_FIELD : SET_ISSUE_FIELD,
             value === null
               ? { issue: node_id, field: field.id }
@@ -898,41 +998,43 @@ export function githubTickets(o: GithubOptions): Tickets {
 
     blockers: {
       async list(n) {
+        const p = await at(n);
         const list = await found(
-          `#${n}`,
-          t.rest<{ number: number; state: string; repository_url?: string }[]>(
-            "GET",
-            `${API}/issues/${n}/dependencies/blocked_by`,
-            { paginate: true },
-          ),
+          githubRef(n),
+          p.t.rest<
+            { number: number; state: string; repository_url?: string }[]
+          >("GET", `${pathOf(p)}/dependencies/blocked_by`, { paginate: true }),
         );
         return list.map((b) => {
-          const repo = b.repository_url?.replace(/^.*\/repos\//, "");
-          const elsewhere =
-            repo && repo.toLowerCase() !== o.repository.toLowerCase();
+          const repo =
+            b.repository_url?.replace(/^.*\/repos\//, "") ?? p.repository;
           return {
-            key: elsewhere ? `${repo}#${b.number}` : String(b.number),
+            key: sameRepo(repo, o.repository)
+              ? String(b.number)
+              : `${repo}#${b.number}`,
             state: b.state === "open" ? "open" : "closed",
           };
         });
       },
       async add(n, by) {
         await anIssue(n);
+        const p = await at(n);
         const blocker = await issue(by);
         await found(
-          `#${n}`,
-          t.rest("POST", `${API}/issues/${n}/dependencies/blocked_by`, {
+          githubRef(n),
+          p.t.rest("POST", `${pathOf(p)}/dependencies/blocked_by`, {
             fields: { issue_id: blocker.id },
           }),
         );
       },
       async remove(n, by) {
+        const p = await at(n);
         const blocker = await issue(by);
         await found(
-          `#${n} waiting on #${by}`,
-          t.rest(
+          `${githubRef(n)} waiting on ${githubRef(by)}`,
+          p.t.rest(
             "DELETE",
-            `${API}/issues/${n}/dependencies/blocked_by/${blocker.id}`,
+            `${pathOf(p)}/dependencies/blocked_by/${blocker.id}`,
           ),
         );
       },
@@ -940,11 +1042,12 @@ export function githubTickets(o: GithubOptions): Tickets {
 
     labelHistory: {
       async wasRemoved(n, label) {
+        const p = await at(n);
         const events = await found(
-          `#${n}`,
-          t.rest<{ event: string; label?: { name: string } }[]>(
+          githubRef(n),
+          p.t.rest<{ event: string; label?: { name: string } }[]>(
             "GET",
-            `${API}/issues/${n}/events?per_page=100`,
+            `${pathOf(p)}/events?per_page=100`,
             { paginate: true },
           ),
         );
@@ -1012,9 +1115,9 @@ export function githubTickets(o: GithubOptions): Tickets {
             await cli([
               "issue",
               "comment",
-              String(n),
+              (await at(n)).number,
               "--repo",
-              o.repository,
+              (await at(n)).repository,
               "--body-file",
               file,
               ...attach(files),
@@ -1026,9 +1129,9 @@ export function githubTickets(o: GithubOptions): Tickets {
           await cli([
             "issue",
             "edit",
-            String(n),
+            (await at(n)).number,
             "--repo",
-            o.repository,
+            (await at(n)).repository,
             "--body-file",
             file,
             ...attach(files),

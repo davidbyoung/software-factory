@@ -15,7 +15,7 @@ export const CI_BOT = "github-actions[bot]";
 export const MERGED_MARKER = "<!-- work-status: merged -->";
 
 const MARKER =
-  /^<!-- (?:work-status: |cost: |cost-total: |reviewer-run: |reviewer-runs session=)/;
+  /^<!-- (?:work-status: |repositories: |cost: |cost-total: |reviewer-run: |reviewer-runs session=)/;
 
 /** A comment's lines outside fenced code blocks, trimmed. */
 export function linesOutsideFences(body: string): string[] {

@@ -718,6 +718,9 @@ describe("a repository whose preset's repository runs the organization's poller"
   it("reads that repository from the lock, and flags an unstarted ticket by asking after its poller", async () => {
     const { settings } = await following(true);
     expect(settings.builds.pollerIn).toBe(REPO);
+    expect(
+      targetOf(settings, { GITHUB_REPOSITORY: "acme/elsewhere" }).repository,
+    ).toBe(settings.repository);
     expect(targetOf(settings, {}).watch).toEqual({
       minutes: 45,
       flag: "not started, is the poller in acme/factory-config running?",

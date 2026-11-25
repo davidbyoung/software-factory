@@ -99,6 +99,7 @@ function world(
     prompt: "Answer it.",
     minutes: 10,
     git: (cwd, args) => void git(cwd, ...args),
+    untar: (file, to) => void execFileSync("tar", ["-xf", file, "-C", to]),
     install: ["/opt/factory"],
     settings: sandboxSettings,
     command(s, file) {
@@ -145,6 +146,7 @@ describe("a session in the cloud", () => {
     expect(w.started[0].readOnly).toEqual([
       join(dir, "in"),
       join(dir, "home"),
+      join(dir, "others"),
       "/opt/factory",
     ]);
   });
@@ -361,5 +363,42 @@ describe("how Claude Code is confined", () => {
         "project",
       ]),
     );
+  });
+});
+
+describe("a session of a ticket across repositories", () => {
+  it("has the others beside it to read, with no history, and may not write them", async () => {
+    const other = join(dir, "other");
+    mkdirSync(other);
+    git(other, "init", "-q");
+    writeFileSync(join(other, "api.txt"), "the endpoint\n");
+    git(other, "add", "-A");
+    git(other, "commit", "-q", "-m", "x");
+    mkdirSync(join(dir, "in/others"));
+    git(
+      other,
+      "archive",
+      "--format=tar",
+      "-o",
+      join(dir, "in/others/api.tar"),
+      "HEAD",
+    );
+    const file = join(dir, "in/run.json");
+    const run = JSON.parse(readFileSync(file, "utf8")) as RunFile;
+    run.others = [
+      { repository: "acme/api", pull: 88, folder: "api" },
+      { repository: "acme/big", pull: null, folder: null },
+    ];
+    writeFileSync(file, JSON.stringify(run));
+    let read = "";
+    const w = world(() => {
+      read = readFileSync(join(dir, "others/api/api.txt"), "utf8");
+    });
+
+    await runSession(w.d);
+
+    expect(read).toBe("the endpoint\n");
+    expect(existsSync(join(dir, "others/api/.git"))).toBe(false);
+    expect(w.started[0].readOnly).toContain(join(dir, "others"));
   });
 });

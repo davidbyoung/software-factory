@@ -95,10 +95,11 @@ discovering it at push time.
   every CI run on it has passed or been skipped
   (`factory pr wait-checks N`, then
   `factory pr ready N`).
-  It stays a draft for the owner to mark ready in two cases: a small change
+  It stays a draft for the owner to mark ready in three cases: a small change
   whose build made a layout or style choice, with the UI reviewer's
-  screenshots in the body ("Small changes" above), and a pull request the
-  owner has said they want to see first. A skill that runs as parallel
+  screenshots in the body ("Small changes" above), a pull request the
+  owner has said they want to see first, and, in the cloud, one that needs
+  an earlier repository's pull request of the same ticket changed. A skill that runs as parallel
   slices, which cannot stay to work a review, leaves its own a draft too.
   CI runs the full suite on a draft for free, so a session runs only the
   end-to-end specs it added or changed.
@@ -118,7 +119,11 @@ discovering it at push time.
 - **A pull request that resolves an issue closes it.** When asked to open
   one, start the body with the line `factory ticket link N`
   prints for each issue the branch resolves, so the merge closes them. Check that `factory pr closes PR`
-  prints each one.
+  prints each one. For a ticket that names several repositories the line
+  says `Part of`, and what merges first: it closes by itself when the last
+  of their pull requests merges, where each has a board or builds in the
+  cloud set up, so `factory pr closes PR` prints nothing
+  for it.
 - **After pushing, check for review automatically.** Where the automated
   review is on, which is where `factory config get pr-review` prints `on`,
   it reviews every push to a PR that is marked
@@ -180,6 +185,9 @@ them.
   in `../work`, already checked out. Every command runs there, after
   `cd ../work`, and every change is made there. A file under `.claude/` is
   written by a command, since the file tools refuse it.
+- **A ticket across repositories is built one repository at a time,** each
+  in a run of its own. `factory workspace N` prints the others, which are
+  in `../others` to read, and nothing there can be changed.
 - **It is claimed and branched already.** A skill's steps that claim a
   ticket, name a branch, look for an earlier one, or check one out are done.
 - **A `factory` command that reads** answers from what was handed over. One
@@ -223,7 +231,8 @@ status, and every one waits for the owner, so wherever these rules or a
 skill name them, read it as "waits for the owner".
 
 Agents never merge, enable auto-merge, or add the `verdict-override`
-label, an approver's pass of the verdict for one commit; `factory pr label`
+label, an approver's pass of the verdict for one commit, which does not
+pass what it waits for in another repository; `factory pr label`
 and `factory ticket label` refuse it, and the guard hook stops the ordinary
 ways of adding it around them. The merge policy and the verdict run from
 the default branch's copy, so a pull request cannot change how it is judged,

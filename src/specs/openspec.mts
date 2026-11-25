@@ -2,6 +2,7 @@
 // change under openspec/changes/, archived into openspec/specs/.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fullWordOf } from "../lib/repositories.mts";
 import { BUILT } from "../tool-names.mts";
 import type { Run, SpecTool } from "./types.mts";
 
@@ -12,7 +13,7 @@ const ENV = { DO_NOT_TRACK: "1" };
 const OPENSPEC = ["npx", "--no-install", "openspec"];
 
 /** A change's name, from the ticket as the ticket system writes it. */
-const changeOf = (id: string) => `issue-${id.toLowerCase()}`;
+const changeOf = (id: string) => `issue-${fullWordOf(id).toLowerCase()}`;
 
 function listsPackage(root: string): boolean {
   try {

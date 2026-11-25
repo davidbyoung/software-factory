@@ -3,6 +3,7 @@ import { main, type Deps } from "../src/build.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
+import { keyOf } from "../src/tickets/index.mts";
 import { memoryTickets } from "./memory-tickets";
 import { into } from "./printed";
 
@@ -35,7 +36,8 @@ function build(options: MemoryRunnerOptions & { strict?: boolean } = {}) {
       slept.push(ms);
       clock += ms;
     },
-    keyOf: () => (typed) => tickets.key(typed),
+    keyOf: () => (typed, repository) =>
+      options.strict ? tickets.key(typed) : keyOf("github")(typed, repository),
     refOf: () => (key) => tickets.ref(key),
     out: into(out),
     err: into(err),
@@ -66,6 +68,22 @@ describe("factory build", () => {
       ["code host", "acme/widgets", "github"],
       ["runner", "acme/widgets", "github-actions"],
     ]);
+  });
+
+  it("starts another repository's ticket here, by its full name", async () => {
+    const { d, out, runner } = build();
+
+    expect(await main(["acme/api#12"], d)).toBe(0);
+    expect(out[0]).toBe("Started a build of acme/api#12 in GitHub Actions:");
+    expect(runner.log).toContain("startBuild acme/api#12 trunk");
+    expect(runner.log).toContain("findBuild Build acme/api#12");
+  });
+
+  it("takes its own ticket's full name as its number", async () => {
+    const { d, runner } = build();
+
+    await main(["acme/widgets#12"], d);
+    expect(runner.log).toContain("startBuild 12 trunk");
   });
 
   it("keeps looking until the run appears", async () => {

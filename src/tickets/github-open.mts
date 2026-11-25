@@ -3,6 +3,7 @@
 import { gh, type Gh } from "../lib/gh.mts";
 import { githubTickets } from "./github.mts";
 import { ghTransport, type Transport } from "./transport.mts";
+import { acrossTransport } from "../code-host/across.mts";
 import type { Tickets } from "./types.mts";
 
 export type OpenTarget = {
@@ -31,12 +32,15 @@ export function openGithubTickets(
   opts: OpenOptions = {},
 ): Tickets {
   const run = opts.gh ?? gh;
+  const transport = opts.transport ?? ghTransport(run);
   return githubTickets({
-    transport: opts.transport ?? ghTransport(run),
+    transport,
     repository: target.repository,
     board: target.board,
     ...(target.boardOwner ? { boardOwner: target.boardOwner } : {}),
     ...(opts.transport ? {} : { cli: run }),
     ...(opts.fieldNames ? { fieldNames: opts.fieldNames } : {}),
+    reach: async (repository) =>
+      (await acrossTransport(repository, "write")) ?? transport,
   });
 }

@@ -7,6 +7,7 @@ import { ghTransport } from "../tickets/transport.mts";
 import { githubActionsRunner } from "./github-actions.mts";
 import type { Runner } from "./types.mts";
 import { handed } from "../handoff/index.mts";
+import { acrossTransport } from "../code-host/across.mts";
 import { BUILT, unsupported } from "../tool-names.mts";
 
 export * from "./types.mts";
@@ -36,4 +37,16 @@ export function openRunner(
       cli: runIn,
     }),
   );
+}
+
+/** The runner of any of a ticket's repositories: by a token made for it
+ * where a run has one to make, and otherwise by the sign-in. */
+export async function reachRunner(
+  repository: string,
+  name: string = DEFAULT_RUNNER,
+): Promise<Runner> {
+  const transport = await acrossTransport(repository, "write");
+  if (!transport) return openRunner(repository, name);
+  if (name !== "github-actions") throw new Error(unsupportedRunner(name));
+  return githubActionsRunner({ transport, repository });
 }

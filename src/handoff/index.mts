@@ -41,6 +41,14 @@ export type RunFile = {
   round: number;
   /** The claim a build's Prepare made, by its record's ID. */
   claim: string | null;
+  /** The ticket's other repositories, for a ticket that names any. */
+  others?: {
+    repository: string;
+    /** The pull request that builds the ticket there, when one does. */
+    pull: number | null;
+    /** Its folder under `others/`, or null when it was too large. */
+    folder: string | null;
+  }[];
   /** Who a session's commits are committed by. */
   committer: { name: string; email: string };
 };
@@ -107,16 +115,18 @@ function withEdits(calls: Call[], asked: Asked[]): Call[] {
 }
 
 /** The adapter, reading what was read ahead for this session when there is
- * a folder to read it from. */
+ * a folder to read it from. `of` is the repository a code host is of. */
 export function handed<K extends On>(
   on: K,
   real: Parameters<typeof replaying<K>>[1],
   env: Env = process.env,
+  of?: string,
 ): ReturnType<typeof replaying<K>> {
   const h = handoffIn(env);
   if (!h) return real;
-  const { ticket } = h.run();
-  return replaying(on, real, withEdits(h.calls(), h.asked()), ticket);
+  const { ticket, repository } = h.run();
+  const prefix = of === undefined || of === repository ? "" : `${of}:`;
+  return replaying(on, real, withEdits(h.calls(), h.asked()), ticket, prefix);
 }
 
 export const ENDS_HERE =

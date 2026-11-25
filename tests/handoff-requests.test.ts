@@ -375,3 +375,34 @@ describe("the file a session hands over", () => {
     expect(() => readRequests(text)).toThrow();
   });
 });
+
+describe("a ticket's repositories", () => {
+  it.each([
+    [["ticket", "repositories", "12"], false],
+    [["ticket", "repositories", "12", "--set", "acme/api"], true],
+    [["ticket", "repositories", "12", "--add", "acme/api"], true],
+  ])("%s writes: %s", (argv, writes) => {
+    expect(isWrite(argv)).toBe(writes);
+  });
+
+  it("are never changed by a session in the cloud", () => {
+    const found = allow(
+      {
+        argv: ["ticket", "repositories", "12", "--set", "acme/payroll"],
+        files: {},
+      },
+      {
+        kind: "build",
+        ticket: "12",
+        pull: null,
+        comments: null,
+        branch: "12",
+        base: "b",
+        opened: [],
+      },
+    );
+    expect(found).toEqual({
+      refused: "factory ticket repositories 12: a session can't ask for this",
+    });
+  });
+});

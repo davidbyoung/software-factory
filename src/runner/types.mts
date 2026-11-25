@@ -42,9 +42,10 @@ export type Runner = {
   /** Starts a session that answers what a pull request's checks or review
    * found, with the jobs the branch has. */
   startAnswer(pull: number, branch: string): Promise<void>;
-  /** Starts a session of another kind on a pull request. */
+  /** Starts a session of another kind on a pull request, or, for `order`,
+   * has the statuses that say what it waits for posted again. */
   startOn(
-    kind: "conflict" | "dependency",
+    kind: "conflict" | "dependency" | "order",
     pull: number,
     branch: string,
   ): Promise<void>;

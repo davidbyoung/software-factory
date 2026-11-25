@@ -313,6 +313,27 @@ export const SESSION_PERMISSIONS = {
   checks: "read",
 } as const;
 
+/** The app's installation on a repository, or an error that says who adds
+ * one. */
+async function installationOf(
+  fetcher: typeof fetch,
+  bearer: string,
+  repository: string,
+): Promise<{ id: number }> {
+  const owner = repository.slice(0, repository.lastIndexOf("/"));
+  return call<{ id: number }>(fetcher, {
+    method: "GET",
+    path: `repos/${repository}/installation`,
+    bearer,
+    what: "GitHub did not say where the app is installed",
+  }).catch((e) => {
+    if (!(e instanceof HttpError) || e.status !== 404) throw e;
+    throw new Error(
+      `The software factory's app for ${owner} is not installed on ${repository}. An owner of ${owner} adds it: ${SITE}/organizations/${owner}/settings/installations`,
+    );
+  });
+}
+
 /** The app's slug, and a session's token of its installation on the owner
  * of `repository`, an owner/name, for the repositories named, each of
  * that owner. GitHub takes the token for an hour. */
@@ -324,18 +345,7 @@ export async function runToken(o: {
   repositories: string[];
 }): Promise<{ token: string; slug: string }> {
   const bearer = appJwt(o.app.clientId, o.app.key, o.now());
-  const owner = o.repository.slice(0, o.repository.lastIndexOf("/"));
-  const installation = await call<{ id: number }>(o.fetch, {
-    method: "GET",
-    path: `repos/${o.repository}/installation`,
-    bearer,
-    what: "GitHub did not say where the app is installed",
-  }).catch((e) => {
-    if (!(e instanceof HttpError) || e.status !== 404) throw e;
-    throw new Error(
-      `The software factory's app for ${owner} is not installed on ${o.repository}. An owner of ${owner} adds it: ${SITE}/organizations/${owner}/settings/installations`,
-    );
-  });
+  const installation = await installationOf(o.fetch, bearer, o.repository);
   const { slug } = await call<{ slug: string }>(o.fetch, {
     method: "GET",
     path: "app",
@@ -350,6 +360,40 @@ export async function runToken(o: {
     what: "GitHub gave the app no token",
   });
   return { token, slug };
+}
+
+/** What a token may do in a repository that is not the run's own. */
+export const ACROSS_PERMISSIONS = {
+  read: { contents: "read", pull_requests: "read", issues: "read" },
+  write: {
+    contents: "read",
+    pull_requests: "read",
+    issues: "write",
+    actions: "write",
+  },
+} as const;
+
+/** A token of the app's for one other repository, and nothing else. */
+export async function acrossToken(o: {
+  fetch: typeof fetch;
+  now: () => number;
+  app: { clientId: string; key: string };
+  repository: string;
+  access: keyof typeof ACROSS_PERMISSIONS;
+}): Promise<string> {
+  const bearer = appJwt(o.app.clientId, o.app.key, o.now());
+  const installation = await installationOf(o.fetch, bearer, o.repository);
+  const { token } = await call<{ token: string }>(o.fetch, {
+    method: "POST",
+    path: `app/installations/${installation.id}/access_tokens`,
+    bearer,
+    body: {
+      repositories: [o.repository.slice(o.repository.lastIndexOf("/") + 1)],
+      permissions: ACROSS_PERMISSIONS[o.access],
+    },
+    what: "GitHub gave the app no token",
+  });
+  return token;
 }
 
 /** Signs the GitHub CLI in with a token, given on standard input so that

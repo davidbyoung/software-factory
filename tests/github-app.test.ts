@@ -17,6 +17,11 @@ import {
   waitFor,
   type Reply,
 } from "../src/code-host/github-app.mts";
+import {
+  acrossGitEnv,
+  acrossTransport,
+  reachesOthers,
+} from "../src/code-host/across.mts";
 import type { NewApp } from "../src/code-host/types.mts";
 
 const STATE = "state-1";
@@ -725,5 +730,132 @@ describe("the listener", () => {
       await server.close();
     }
     await expect(fetch(`${server.origin}/`)).rejects.toThrow();
+  });
+});
+
+describe("a token for another of a ticket's repositories", () => {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const pem = privateKey.export({ type: "pkcs1", format: "pem" }) as string;
+  const APP = { FACTORY_APP_CLIENT_ID: "Iv23x", FACTORY_APP_PRIVATE_KEY: pem };
+  const routes: Parameters<typeof github>[0] = [
+    [/GET .*\/repos\/acme\/\w+\/installation$/, { id: 7 }],
+    [/POST .*\/access_tokens$/, { token: "ghs_x" }],
+    [/GET .*\/repos\/acme\//, { private: true }],
+  ];
+  const now = () => Date.parse("2026-11-25T12:00:00Z");
+  const asked = (calls: Call[]) =>
+    calls
+      .filter((c) => c.url.endsWith("/access_tokens"))
+      .map((c) => JSON.parse(c.body!));
+
+  it("is for that repository alone, and may write its tickets and start its runs", async () => {
+    const g = github(routes);
+    await acrossTransport("acme/one", "write", APP, { fetch: g.fetch, now });
+    expect(asked(g.calls)).toEqual([
+      {
+        repositories: ["one"],
+        permissions: {
+          contents: "read",
+          pull_requests: "read",
+          issues: "write",
+          actions: "write",
+        },
+      },
+    ]);
+  });
+
+  it("only reads in a step that only reads, whatever its code asks for", async () => {
+    const g = github(routes);
+    await acrossTransport(
+      "acme/two",
+      "write",
+      { ...APP, FACTORY_ACROSS: "read" },
+      { fetch: g.fetch, now },
+    );
+    expect(asked(g.calls)[0].permissions).toEqual({
+      contents: "read",
+      pull_requests: "read",
+      issues: "read",
+    });
+  });
+
+  it("is made once, and again before it runs out", async () => {
+    const g = github(routes);
+    const at = (minutes: number) =>
+      acrossTransport("acme/three", "write", APP, {
+        fetch: g.fetch,
+        now: () => now() + minutes * 60_000,
+      });
+    await at(0);
+    await at(40);
+    expect(asked(g.calls)).toHaveLength(1);
+    await at(46);
+    expect(asked(g.calls)).toHaveLength(2);
+  });
+
+  it("is what the repository is reached with", async () => {
+    const g = github(routes);
+    const t = await acrossTransport("acme/four", "read", APP, {
+      fetch: g.fetch,
+      now,
+    });
+    await t!.rest("GET", "repos/acme/four");
+    expect(g.calls.at(-1)!.auth).toBe("Bearer ghs_x");
+  });
+
+  it("says where the app is not installed", async () => {
+    const g = github([[/installation$/, {}, 404]]);
+    await expect(
+      acrossTransport("acme/five", "read", APP, { fetch: g.fetch, now }),
+    ).rejects.toThrow(
+      "The software factory's app for acme is not installed on acme/five",
+    );
+  });
+
+  it("is the build token where no app's key reaches the run, and none with neither", async () => {
+    const g = github(routes);
+    const env = { FACTORY_BUILD_TOKEN: "ghp_b" };
+    const t = await acrossTransport("acme/six", "write", env, {
+      fetch: g.fetch,
+      now,
+    });
+    await t!.rest("GET", "repos/acme/six");
+    expect(g.calls.map((c) => c.auth)).toEqual(["Bearer ghp_b"]);
+    expect(await acrossTransport("acme/six", "write", {})).toBeNull();
+    expect(reachesOthers({})).toBe(false);
+    expect(reachesOthers(env)).toBe(true);
+    expect(reachesOthers(APP)).toBe(true);
+    expect(reachesOthers({ FACTORY_APP_CLIENT_ID: "x" })).toBe(false);
+  });
+});
+
+describe("git's sign-in to another repository", () => {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const pem = privateKey.export({ type: "pkcs1", format: "pem" }) as string;
+
+  it("is the token in a header, and no helper that could answer instead", async () => {
+    const g = github([
+      [/installation$/, { id: 7 }],
+      [/access_tokens$/, { token: "ghs_git" }],
+    ]);
+    const env = await acrossGitEnv(
+      "acme/git",
+      { FACTORY_APP_CLIENT_ID: "I", FACTORY_APP_PRIVATE_KEY: pem },
+      { fetch: g.fetch, now: () => 0 },
+    );
+    expect(env).toEqual({
+      GIT_CONFIG_COUNT: "2",
+      GIT_CONFIG_KEY_0: "credential.helper",
+      GIT_CONFIG_VALUE_0: "",
+      GIT_CONFIG_KEY_1: "http.https://github.com/.extraheader",
+      GIT_CONFIG_VALUE_1: `AUTHORIZATION: basic ${Buffer.from("x-access-token:ghs_git").toString("base64")}`,
+    });
+    expect(
+      Object.values(JSON.parse(g.calls.at(-1)!.body!).permissions),
+    ).not.toContain("write");
+  });
+
+  it("is the machine's or the job's own where no token is made", async () => {
+    expect(await acrossGitEnv("acme/git", {})).toEqual({});
   });
 });

@@ -2,6 +2,7 @@
 // Post the "Review verdict" commit status.
 //
 //   factory review verdict    # reads GITHUB_EVENT_NAME and _PATH
+//   factory review verdict --pr N   # again, for a pull request
 //
 // It is posted on two occasions: a review ending, by the review's own run
 // (`review-record.mts`), and an event of the pull request itself
@@ -18,6 +19,7 @@ import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost, CommitStatus } from "./code-host/types.mts";
 import { CI_BOT } from "./lib/work-status.mts";
 import { openRunner } from "./runner/index.mts";
+import { liveOrder, ORDER, type Order } from "./merge-order.mts";
 import * as say from "./lib/output.mts";
 
 // The status's name, which the main ruleset requires by exactly this text.
@@ -206,6 +208,8 @@ async function onlyDependabot(
 export type VerdictEvent =
   /** The event as GitHub sends it. */
   | { eventName: "pull_request_target"; event: any }
+  /** Another repository's pull request changed what this one waits for. */
+  | { eventName: "order"; event: { pull: number } }
   /** A review of the commit `sha` ended. */
   | {
       eventName: "review";
@@ -233,20 +237,38 @@ export async function apply(
     override?: string;
     /** False where the settings turn the automated review off. */
     reviewOn?: boolean;
+    /** What a pull request with this body waits for, or null when it is
+     * part of no ticket across repositories. */
+    order?: (body: string) => Promise<Order | null>;
   },
 ): Promise<void> {
   const { pulls, log } = o;
   const override = o.override ?? OVERRIDE;
   const review = o.eventName === "review" ? o.event : null;
-  const event = o.eventName === "review" ? {} : o.event;
+  const event = o.eventName === "pull_request_target" ? o.event : {};
 
   // Read the pull request as it is now. The event's copy can be stale: a
   // "marked ready" event sent just after a push carries the previous commit.
-  const pr = await pulls.get(review ? review.pull : event.pull_request.number);
+  const pr = await pulls.get(
+    o.eventName === "pull_request_target"
+      ? event.pull_request.number
+      : o.event.pull,
+  );
   const sha: string = pr.head.sha;
   if (review && pr.state !== "open") return log(`#${pr.number} is not open.`);
   if (review && review.sha !== sha)
     return log(`${sha} is waiting for its own review.`);
+
+  if (o.eventName === "order" && pr.state !== "open")
+    return log(`#${pr.number} is not open.`);
+
+  // One from a fork is part of no ticket's order, whatever it says.
+  const own = pr.head.repository === pr.base.repository;
+  const order = o.order && own ? await o.order(pr.body) : null;
+  if (order) {
+    await pulls.setStatus(sha, { ...order, name: ORDER, link: o.link });
+    log(`${ORDER} on ${sha}: ${order.state}, ${order.description}`);
+  }
 
   const { labels } = pr;
   const reviewOff = o.reviewOn === false;
@@ -271,8 +293,8 @@ export async function apply(
     } catch (error) {
       lookupFailure = error ?? new Error("The access lookup failed.");
     }
-  const decision = decide({
-    event: o.eventName,
+  const decided = decide({
+    event: review ? "review" : "pull_request_target",
     action: event.action,
     label: event.label?.name,
     override,
@@ -285,7 +307,12 @@ export async function apply(
     reviewOff,
     verdict: review ? review.verdict : verdictIn(await pulls.statuses(sha)),
   });
-  if (!decision) return log("Nothing to post.");
+  if (!decided) return log("Nothing to post.");
+  // Whatever passes it, an earlier pull request merges first.
+  const decision: Decision =
+    decided.state === "success" && order?.state === "pending"
+      ? { ...decided, ...order }
+      : decided;
 
   await pulls.setStatus(sha, {
     state: decision.state,
@@ -332,18 +359,28 @@ export async function apply(
 
 // Only run as a CLI. Importing this module for tests must not call GitHub.
 /** `factory review verdict`. */
-export async function run(): Promise<number> {
+export async function run(argv: string[] = []): Promise<number> {
   const repo = process.env.GITHUB_REPOSITORY!;
   try {
     const eventName = process.env.GITHUB_EVENT_NAME;
-    if (eventName !== "pull_request_target")
+    const again = argv[0] === "--pr" ? Number(argv[1]) : null;
+    if (again !== null && !(Number.isInteger(again) && again > 0))
+      throw new Error("Usage: factory review verdict [--pr N]");
+    if (again === null && eventName !== "pull_request_target")
       throw new Error(
         `factory review verdict reads pull_request_target, not ${eventName}: a review's run posts its own verdict.`,
       );
     const settings = await loadSettings();
     await apply({
-      eventName,
-      event: JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH!, "utf8")),
+      ...(again === null
+        ? {
+            eventName: "pull_request_target" as const,
+            event: JSON.parse(
+              readFileSync(process.env.GITHUB_EVENT_PATH!, "utf8"),
+            ),
+          }
+        : { eventName: "order" as const, event: { pull: again } }),
+      order: (body) => liveOrder(body, (line) => say.plain(line)),
       pulls: openCodeHost(repo),
       link: openRunner(repo).thisRun(process.env)?.page,
       log: say.plainPrinter(),

@@ -62,6 +62,8 @@ type RestPull = {
   base?: RestEnd;
   created_at?: string;
   auto_merge?: unknown;
+  merged_at?: string | null;
+  updated_at?: string;
 };
 
 type RestComment = {
@@ -585,6 +587,55 @@ export function githubCodeHost(o: {
     async isPrivate() {
       const repo = await t.rest<{ private: boolean }>("GET", API);
       return repo.private;
+    },
+    async visible() {
+      try {
+        const repo = await t.rest<{ private: boolean }>("GET", API);
+        return { isPrivate: repo.private };
+      } catch (error) {
+        if (statusOf(error) === 404) return null;
+        throw error;
+      }
+    },
+    async file(path) {
+      try {
+        const found = await t.rest<{ content: string }>(
+          "GET",
+          `${API}/contents/${path}`,
+        );
+        return Buffer.from(found.content, "base64").toString("utf8");
+      } catch (error) {
+        if (statusOf(error) === 404) return null;
+        throw error;
+      }
+    },
+    async recentPulls(since) {
+      const open = await list<RestPull>(`${API}/pulls?state=open&per_page=100`);
+      const merged: RestPull[] = [];
+      // Newest change first, so the first page that ends before `since`
+      // ends the read.
+      for (let page = 1; ; page++) {
+        const closed = await t.rest<RestPull[]>(
+          "GET",
+          `${API}/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=${page}`,
+        );
+        merged.push(
+          ...closed.filter(
+            (p) => p.merged_at && Date.parse(p.merged_at) >= Date.parse(since),
+          ),
+        );
+        const last = closed.at(-1)?.updated_at;
+        if (
+          closed.length < 100 ||
+          (last && Date.parse(last) < Date.parse(since))
+        )
+          break;
+      }
+      return [...open, ...merged].map((p) => ({
+        ...pullOf(p),
+        merged: Boolean(p.merged_at),
+        mergedAt: p.merged_at ?? null,
+      }));
     },
     async ownerIsOrganization() {
       const repo = await t.rest<{ owner: { type: string } }>("GET", API);

@@ -73,5 +73,8 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "additionalDirectories": ["~/.local/share/software-factory/work"]
   }
 }

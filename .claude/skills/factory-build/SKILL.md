@@ -72,6 +72,11 @@ changes nothing here. The outcome is one of:
   > issue's sidebar, then move its card to Ready again or ask a session to
   > work it.
 
+- **`✗` and a reason** (exit 1): the ticket's repositories keep a build from
+  starting here, such as one that is not set up, a list nobody who may
+  confirmed, or a checkout the ticket does not name. Nothing was claimed:
+  stop, with the line in the report, which says what to run.
+
 - **`could not read`** (exit 1, with the error): stop. In a run in GitHub Actions
   the script has tried to post the stopped comment; if that failed too,
   the nightly sync clears the start. Say so in the report, with the error.
@@ -111,6 +116,57 @@ say so in the report.
 
 A build that opened its pull request leaves the claim in place through
 the review and the merge: the pull request puts the card In review.
+
+## A ticket across repositories
+
+A ticket can name several repositories, in its Repositories section. On a
+person's machine one session builds them all. Right after the claim:
+
+```bash
+factory workspace N
+```
+
+It prints where each repository is, in the order they merge, or that there
+is nothing to clone, and then everything below is as for any ticket. With
+several, take them in that order, and do steps 1 to 6 whole in each before
+the next, after `cd` to the folder it printed. Before the first, check that
+the settings name a gate in each, as "Right after `claimed`" above says.
+
+- **A line that ends `built in` and a pull request is done:** skip that
+  repository.
+- **A clone is on its branch already,** so step 1's `git switch -c` is done
+  there. When the branch was on `origin` before, which step 1's `ls-remote`
+  shows, step 1's rules for it decide as they stand, and a branch they
+  replace is started again with `git switch -C BRANCH origin/DEFAULT`.
+- **Read its `CLAUDE.md` and what that imports first,** and follow them
+  there. This folder's own rules are for this repository alone.
+- **Every `factory` command runs there,** so the settings, the gate, the
+  reviewers, the branch, and the pull requests are that repository's. In a
+  clone the ticket is written in full, such as `acme/api#12`, and a pull
+  request is still its number. Only the Spec lines and the tasks of that
+  repository's capabilities are built there, and they alone are the ones
+  steps 2 and 4 map and verify there.
+- **A reviewer or a skill that repository has and this one lacks** is not
+  found by its name here. Hand a reviewer's file, from its `.claude/agents/`,
+  to a general-purpose agent as its instructions, and read a skill's
+  `SKILL.md` and follow it.
+- **A pull request starts with what `factory ticket link N` prints there,**
+  which says `Part of`, and what it merges after. It closes nothing, so
+  `factory pr closes` prints nothing for it. The ticket closes when the
+  last one merges.
+- **Watch each one** with `factory pr watch` in its own folder, and work
+  each review there. One that waits for another repository's pull request
+  to merge is not waited for: it waits for a person.
+
+When every pull request has merged or closed, run
+`factory workspace N --remove`. It keeps a clone with work to lose, and the
+report names it.
+
+In the cloud a run builds one repository, and the next one's starts by
+itself. `factory workspace N` prints what else the session may read, and
+it can change only its own. When an earlier pull request has to change for
+this one to work, ask for a comment on the ticket that says what, and open
+this pull request with `factory pr open --draft`.
 
 ## Follow-ups
 
@@ -438,7 +494,8 @@ factory pr closes PR
 ```
 
 That has to print N, unless the pull request builds only part of the
-follow-ups ticket, which it does not close. If it does not, the link did
+follow-ups ticket, or of a ticket across repositories, which it does not
+close. If it does not, the link did
 not register; fix the body.
 
 Then note what the build cost, on the pull request:

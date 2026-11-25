@@ -35,7 +35,7 @@ import { readClock, writeClock } from "./lib/clock.mts";
 import { measureSession, projectsDir } from "./lib/usage.mts";
 import { AGENT_MARK, commentBody } from "./lib/work-status.mts";
 import { changedLines, parseLcov, uncovered } from "./patch-coverage.mts";
-import { toChecks, type Check } from "./pr-watch.mts";
+import { unfinished, toChecks, type Check } from "./pr-watch.mts";
 import {
   openCodeHost,
   type CodeHost,
@@ -156,11 +156,7 @@ export function isSettled(r: Report): boolean {
     r.summary !== null ||
     (r.reviewRun?.status === "completed" &&
       r.reviewRun.conclusion !== "success");
-  return (
-    reviewDone &&
-    r.checks.length > 0 &&
-    r.checks.every((check) => check.state !== "pending")
-  );
+  return reviewDone && r.checks.length > 0 && unfinished(r.checks).length === 0;
 }
 
 const firstLine = (body: string) =>

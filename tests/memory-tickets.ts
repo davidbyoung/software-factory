@@ -100,6 +100,8 @@ export type MemoryOptions = {
   /** When a comment is posted, for its createdAt. */
   now?: () => string;
   owner?: string;
+  /** The repository its tickets live in, when not strict. */
+  repository?: string;
   /** The accounts whose comments may decide on a ticket, in any case; only
    * the owner unless given. */
   deciders?: string[];
@@ -151,6 +153,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
   const groups = new Set(options.groups ?? GROUPS);
   const fail = options.fail ?? {};
   const strict = options.strict ?? false;
+  const repository = options.repository ?? "acme/widgets";
   const owner = options.owner ?? (strict ? "557058:9a1b-acme" : "acme");
   const now = options.now ?? (() => "2026-11-09T12:59:00Z");
   let nextComment = options.firstCommentId ?? 1000;
@@ -189,7 +192,7 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
   const keyPattern = strict ? /^[A-Z][A-Z0-9]*-[1-9]\d*$/ : /^[1-9]\d*$/;
   const linkPattern = strict
     ? /\b(closes|part of) ([A-Z][A-Z0-9]*-[1-9]\d*)(?![\d])/gi
-    : /\b(closes|part of) #(\d+)(?!\d)/gi;
+    : /\b(closes|part of) ((?:[\w.-]+\/[\w.-]+)?#\d+)(?!\d)/gi;
   const writes: { itemId: string; writes: Write[] }[] = [];
   const boards = (options.boards ?? []).map((b) => ({
     ...b,
@@ -241,16 +244,24 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
   const adapter: Tickets = {
     key(typed) {
       if (keyPattern.test(typed)) return typed;
-      if (!strict && /^[\w.-]+\/[\w.-]+#\d+$/.test(typed))
-        throw new KeyError(
-          `${typed} is in another repository: the factory reads only its state as a blocker`,
-        );
+      const foreign = /^([\w.-]+\/[\w.-]+)#(\d+)$/.exec(typed);
+      if (!strict && foreign)
+        return foreign[1] === repository ? foreign[2]! : typed;
       throw new KeyError(
         strict
           ? `${typed} is not a ticket here: a key is a project and a number, such as PROJ-12`
           : `${typed} is not a ticket here: a GitHub ticket is its number, such as 12`,
       );
     },
+    keyIn(key, where) {
+      if (strict) return key;
+      const [home, number] = key.includes("#")
+        ? (key.split("#") as [string, string])
+        : [repository, key];
+      return home === where ? number : `${home}#${number}`;
+    },
+    home: (key) =>
+      strict ? null : key.includes("#") ? key.split("#")[0]! : repository,
     ref,
     async read(n) {
       check("read");
@@ -390,12 +401,15 @@ export function memoryTickets(seed: Seed[] = [], options: MemoryOptions = {}) {
     },
     linkText: (n, kind) =>
       `${kind === "closes" ? "Closes" : "Part of"} ${ref(n)}`,
-    linksIn(body) {
+    linksIn(body, from = repository) {
       const links: Links = { closes: [], partOf: [] };
       for (const m of body.matchAll(linkPattern)) {
         const list =
           m[1].toLowerCase() === "closes" ? links.closes : links.partOf;
-        if (!list.includes(m[2])) list.push(m[2]);
+        const key = strict
+          ? m[2]
+          : adapter.key(m[2].startsWith("#") ? `${from}${m[2]}` : m[2]);
+        if (!list.includes(key)) list.push(key);
       }
       return links;
     },

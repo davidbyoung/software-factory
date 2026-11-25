@@ -10,7 +10,15 @@
 //   FACTORY_PUBLISH/out/request.json  the commands it asked for
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import {
+  confirmedList,
+  homeOf,
+  progressOf,
+  repositoriesOf,
+  type Reach,
+} from "./across.mts";
 import type { CodeHost } from "./code-host/index.mts";
+import { nextToBuild, sameRepository } from "./lib/repositories.mts";
 import { checkBundle, type BundleAnswer } from "./handoff/bundle.mts";
 import type { RunFile } from "./handoff/index.mts";
 import { commitsFault, textFault, type Commit } from "./handoff/links.mts";
@@ -22,7 +30,13 @@ import {
   type ThisRun,
 } from "./handoff/requests.mts";
 import { costNote } from "./lib/usage.mts";
-import { AGENT_MARK, commentBody } from "./lib/work-status.mts";
+import {
+  AGENT_MARK,
+  commentBody,
+  entryFor,
+  type Columns,
+} from "./lib/work-status.mts";
+import { dispatchFailure } from "./poller.mts";
 import {
   main as prMain,
   newestRuns,
@@ -83,6 +97,17 @@ export type PublishDeps = {
   claimed(): Promise<boolean>;
   /** The commits the bundle adds, from the clone. */
   commits(clone: string, tip: string): Commit[];
+  /** The lines a pull request here starts with, for a ticket that names
+   * other repositories, or null for any other. */
+  linkLines(): Promise<string[] | null>;
+  /** The next repository of the ticket's to build, once this one's pull
+   * request is open, or null. */
+  next(): Promise<string | null>;
+  /** Starts a build in another of the ticket's repositories. */
+  startBuild(repository: string): Promise<void>;
+  /** A new start's own word. */
+  marker(): string;
+  columns: Columns;
   /** The reviews that ask for changes a pull request is answered after. */
   reviewRounds: number;
   now(): number;
@@ -227,10 +252,72 @@ async function openedBefore(d: PublishDeps): Promise<string[]> {
     .map((t) => t.key);
 }
 
+/** The body with the line that links the run's ticket, for one that names
+ * other repositories, whether or not the session wrote it. */
+async function withLinks(body: string, d: PublishDeps): Promise<string> {
+  const lines = await d.linkLines();
+  const { ticket } = d.run;
+  if (!lines || ticket === null) return body;
+  if (d.tickets.linksIn(body).partOf.includes(ticket)) return body;
+  return `${lines.join("\n")}\n\n${body}`;
+}
+
+/** The next of the ticket's repositories to build, once this one's pull
+ * request is open, or null: none where the list is not confirmed. */
+export async function nextRepository(
+  key: string,
+  d: { tickets: Tickets; repository: string; reach: Reach },
+): Promise<string | null> {
+  const ticket = await d.tickets.read(key);
+  const home = homeOf(d.tickets, key, d.repository);
+  const list = repositoriesOf(ticket, d.tickets, home);
+  if (!list || !(await confirmedList(ticket, list, d.reach)).counts)
+    return null;
+  const all = await progressOf(ticket, list, d.tickets, d.reach);
+  // Its own was opened a moment ago, which a list can still lack.
+  const others = all.filter((r) => !sameRepository(r.name, d.repository));
+  return nextToBuild(others)?.name ?? null;
+}
+
+/** Starts the build in the ticket's next repository, which ends this run's
+ * claim on it, or says why it did not start. */
+async function buildNext(d: PublishDeps, pull: number): Promise<void> {
+  const { ticket, ref, repository } = d.run;
+  if (ticket === null || ref === null || !d.run.others) return;
+  const next = await d.next();
+  if (next === null) return;
+  await d.tickets.record.add(
+    ticket,
+    entryFor(
+      {
+        kind: "built-next",
+        built: { repository, pull },
+        next,
+        marker: d.marker(),
+      },
+      d.columns,
+    ),
+  );
+  try {
+    await d.startBuild(next);
+    d.out(`Started the build in ${next}.`);
+  } catch (error) {
+    const why = dispatchFailure(error);
+    d.out(`The build in ${next} did not start: ${why.status} (${why.reason})`);
+    await d.tickets.record.add(
+      ticket,
+      entryFor(
+        { kind: "dispatch-failed", issue: { key: ticket, ref }, ...why },
+        d.columns,
+      ),
+    );
+  }
+}
+
 /** Opens the run's pull request from what the session asked for. */
 async function open(d: PublishDeps, asked: Asked): Promise<number> {
   const at = (flag: string) => asked.argv[asked.argv.indexOf(flag) + 1];
-  const body = asked.files[at("--body-file")];
+  const body = await withLinks(asked.files[at("--body-file")]!, d);
   return d.codeHost.create({
     title: withoutMarkers(at("--title")),
     body: [
@@ -396,6 +483,7 @@ export async function publish(d: PublishDeps): Promise<number> {
       );
     }
   }
+  if (run.kind === "build" && pull !== null) await buildNext(d, pull);
   await postCost(d, pull);
   if (d.session !== "success" && tip === null && !refused) {
     d.out("The session did not finish.");
@@ -500,12 +588,17 @@ async function closesOther(d: PublishDeps, pull: number): Promise<boolean> {
   const { body } = await d.codeHost.get(pull);
   if (!body.includes(CLOUD_MARK)) return false;
   const own = recordedTicket(body) ?? d.run.ticket;
-  const other = (await d.codeHost.closes(pull)).find((key) => key !== own);
+  const closes = await d.codeHost.closes(pull);
+  const other = closes.find((key) => key !== own || d.run.others);
   if (other === undefined) return false;
+  const why =
+    other === own
+      ? "before its other repositories have"
+      : "which is not its ticket";
   await d.codeHost.comment(
     pull,
     withAgentMark(
-      `This would close ${d.tickets.ref(other)} when it merges, which is not its ticket, so nothing more is done with it until a person looks.`,
+      `This would close ${d.tickets.ref(other)} when it merges, ${why}, so nothing more is done with it until a person looks.`,
     ),
   );
   return true;

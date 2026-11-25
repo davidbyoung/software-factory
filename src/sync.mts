@@ -50,6 +50,7 @@ import {
   PresetsError,
   type Resolved,
   type Settings,
+  SETTINGS_FILE,
 } from "./config.mts";
 import {
   CHOICES_FILE,
@@ -71,6 +72,7 @@ import {
   shippedText,
   type FetchDeps,
 } from "./preset-fetch.mts";
+import { sameRepository, WORK } from "./lib/repositories.mts";
 import {
   branchDeps,
   needDefaultBranch,
@@ -252,10 +254,10 @@ type HookEntry = {
   statusMessage?: string;
 };
 type HookGroup = { matcher?: string; hooks: HookEntry[] };
-type ClaudeSettings = { hooks?: Record<string, HookGroup[]> } & Record<
-  string,
-  unknown
->;
+type ClaudeSettings = {
+  hooks?: Record<string, HookGroup[]>;
+  permissions?: { additionalDirectories?: unknown } & Record<string, unknown>;
+} & Record<string, unknown>;
 
 /** What a hook prints where the factory is not installed on the machine. */
 export const notInstalled = (name: string) =>
@@ -392,7 +394,51 @@ export function withHooks(
   for (const [event, group] of factoryHooks(launcher, name))
     (hooks[event] ??= []).push(group);
   const attribution = settings.attribution ?? NO_ATTRIBUTION;
-  return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
+  return written({
+    ...settings,
+    permissions: withWork(settings),
+    attribution,
+    hooks,
+  });
+}
+
+/** The file's text, with the list of folders on one line where it fits, as
+ * a formatter writes it. */
+function written(settings: ClaudeSettings): string {
+  const text = JSON.stringify(settings, null, 2).replace(
+    /^( *"additionalDirectories": )\[\n([^\]]*)\n *\]/m,
+    (whole, head: string, items: string) => {
+      const line = `${head}[${items
+        .split("\n")
+        .map((item) => item.trim())
+        .join(" ")}]`;
+      return line.length <= 79 ? line : whole;
+    },
+  );
+  return `${text}\n`;
+}
+
+/** The folders a session may also edit, the one the clones of a ticket's
+ * other repositories go in apart. */
+const otherFolders = (settings: ClaudeSettings): unknown[] => {
+  const listed = settings.permissions?.additionalDirectories;
+  return Array.isArray(listed) ? listed.filter((d) => d !== WORK) : [];
+};
+
+const withWork = (settings: ClaudeSettings) => ({
+  ...settings.permissions,
+  additionalDirectories: [...otherFolders(settings), WORK],
+});
+
+/** The permissions without that folder, or undefined when none are left. */
+function withoutWork(settings: ClaudeSettings) {
+  if (!settings.permissions) return undefined;
+  const { additionalDirectories: _, ...rest } = settings.permissions;
+  const others = otherFolders(settings);
+  const left = others.length
+    ? { ...rest, additionalDirectories: others }
+    : rest;
+  return Object.keys(left).length ? left : undefined;
 }
 
 /** Every hook entry that is not the factory's, by event. */
@@ -428,12 +474,16 @@ export function hasAnyFactoryHook(text: string | null): boolean {
 /** `.claude/settings.json` with the factory's entries taken out and an
  * emptied `hooks` dropped, or null when nothing is left. */
 export function withoutHooks(text: string): string | null {
-  const { hooks: _, ...rest } = JSON.parse(text) as ClaudeSettings;
+  const {
+    hooks: _,
+    permissions: __,
+    ...others
+  } = JSON.parse(text) as ClaudeSettings;
+  const permissions = withoutWork(JSON.parse(text) as ClaudeSettings);
+  const rest = permissions ? { ...others, permissions } : others;
   const hooks = othersHooks(JSON.parse(text) as ClaudeSettings);
   const after = Object.keys(hooks).length ? { ...rest, hooks } : rest;
-  return Object.keys(after).length
-    ? `${JSON.stringify(after, null, 2)}\n`
-    : null;
+  return Object.keys(after).length ? written(after) : null;
 }
 
 export const hasImport = (text: string | null): boolean =>
@@ -704,6 +754,9 @@ export async function main(
     fetch?: (s: Settings) => FetchDeps;
     /** A file's text at a git revision, or null when it has none there. */
     show?: (ref: string, path: string) => string | null;
+    /** The repository the pull request being checked is in, or null when
+     * none is. */
+    pullIn?: string | null;
   },
 ): Promise<number> {
   const check = argv.includes("--check");
@@ -734,6 +787,16 @@ export async function main(
     const message = e instanceof Error ? e.message : String(e);
     d.err(
       e instanceof PresetsError ? say.mark("fail", message) : say.text(message),
+    );
+    return 1;
+  }
+  const { repository } = r.settings;
+  if (check && d.pullIn && !sameRepository(d.pullIn, repository)) {
+    d.err(
+      say.mark(
+        "fail",
+        `repository: ${SETTINGS_FILE} says ${repository}, and this pull request is in ${d.pullIn}. Change the line and run factory sync.`,
+      ),
     );
     return 1;
   }
@@ -840,10 +903,23 @@ export const syncDeps = (root: string) => ({
   show: (ref: string, path: string) => fileAt(root, ref, path),
 });
 
+/** The repository whose pull request a run checks, or null where `root` is
+ * not that run's checkout: a repository's own tests can run the factory in
+ * another. */
+export const pullIn = (
+  env: Record<string, string | undefined>,
+  root: string,
+): string | null =>
+  env.GITHUB_EVENT_NAME === "pull_request" && env.GITHUB_WORKSPACE === root
+    ? (env.GITHUB_REPOSITORY ?? null)
+    : null;
+
+/** `factory sync`. */
 /** `announce` is false when `init` runs the sync inside its own output. */
 export async function run(argv: string[], announce = true): Promise<number> {
   return main(argv, {
     ...syncDeps(repoRoot()),
+    pullIn: pullIn(process.env, repoRoot()),
     announce,
   });
 }

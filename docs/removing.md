@@ -12,11 +12,14 @@ hook, label, and setting.
   lock file beside it; its own skills, agents, and rules, all named
   `factory-...`; two CI workflow files, `factory.yml` and
   `factory-review.yml`; one line in your agent's instructions file that
-  imports its rules; and a few hooks in your agent's settings that guard
-  every session. Nothing is installed there: no `package.json` entry and
+  imports its rules; and, in your agent's settings, a few hooks that guard
+  every session and the folder a ticket's other repositories are cloned
+  into. Nothing is installed there: no `package.json` entry and
   no `node_modules/`.
 - **On your machine:** the `factory` command, installed once, and the
   versions of the factory it downloads, in `~/.cache/software-factory/`.
+  In `~/.local/share/software-factory/work/`, the clones of a ticket's other
+  repositories, until `factory workspace N --remove` removes them.
   In `~/.config/software-factory/`, on your own account, the access
   token and the coding agent's token that `factory init` also stored in
   your repository's secrets, and, for any account, the presets you last

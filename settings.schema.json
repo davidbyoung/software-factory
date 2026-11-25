@@ -236,7 +236,7 @@
     },
     "tickets.fields": {
       "type": "object",
-      "description": "Which of your fields holds each of the factory's fields: on the board, session, runs-in, and cost, which need a board; on the ticket, decisions, spec, acceptance-criteria, for-the-builder, and any heading of your own.",
+      "description": "Which of your fields holds each of the factory's fields: on the board, session, runs-in, and cost, which need a board; on the ticket, decisions, spec, acceptance-criteria, for-the-builder, repositories, and any heading of your own.",
       "additionalProperties": false,
       "properties": {
         "session": {
@@ -273,6 +273,11 @@
           "type": "string",
           "minLength": 1,
           "description": "The ticket field that holds For the builder. Default: none, the description. Spec and acceptance-criteria may name the same field."
+        },
+        "repositories": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ticket field that holds Repositories: which repositories a ticket changes, when it names more than its own. Default: none, the description."
         }
       },
       "patternProperties": {

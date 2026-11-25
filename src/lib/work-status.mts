@@ -21,6 +21,9 @@ import type {
   Ticket,
   TicketComment,
 } from "../tickets/types.mts";
+import { listed } from "./listed.mts";
+import { listMarker, listText, standing } from "./repositories.mts";
+import type { Listed, Progress } from "./repositories.mts";
 import type { CostNote } from "./usage.mts";
 
 export type { Board, BoardField, BoardItem } from "../tickets/types.mts";
@@ -116,7 +119,8 @@ export type Marker =
   | { kind: "released" }
   | { kind: "cleared" }
   | { kind: "partial" }
-  | { kind: "merged" };
+  | { kind: "merged" }
+  | { kind: "finished" };
 
 export type IssueComment = TicketComment;
 
@@ -124,7 +128,7 @@ export type IssueComment = TicketComment;
 export type Marked = Entry & { marker: Marker };
 
 const MARKER_LINE =
-  /^<!-- work-status: (?:(refining|claim) (local|cloud|actions) (\S+)|started (cloud|actions) (\S+)|(waiting|refined|released|cleared|partial|merged)) -->$/;
+  /^<!-- work-status: (?:(refining|claim) (local|cloud|actions) (\S+)|started (cloud|actions) (\S+)|(waiting|refined|released|cleared|partial|merged|finished)) -->$/;
 
 /** The work-status markers among an entry's marker lines. */
 export function parseMarkers(markers: string[]): Marker[] {
@@ -144,7 +148,13 @@ export function parseMarkers(markers: string[]): Marker[] {
     } else {
       found.push({
         kind: bare as
-          "waiting" | "refined" | "released" | "cleared" | "partial" | "merged",
+          | "waiting"
+          | "refined"
+          | "released"
+          | "cleared"
+          | "partial"
+          | "merged"
+          | "finished",
       });
     }
   }
@@ -304,6 +314,7 @@ export function workState(comments: Entry[]): WorkState {
       case "released":
       case "cleared":
       case "partial":
+      case "finished":
         live = null;
         start = null;
         break;
@@ -342,6 +353,9 @@ export type PullRequest = {
   author: string;
   /** Read for the cost markers on it. */
   comments?: IssueComment[];
+  /** How it is written where it may be in another repository, its page,
+   * and what it waits for, for a ticket that names several. */
+  across?: { ref: string; url: string; waits: string | null };
 };
 
 /** A ticket as the rules read it: its body is not needed. */
@@ -358,6 +372,9 @@ export type Derived = {
   since: string | null;
   /** Open pull requests that put the issue In review. */
   pulls: number[];
+  /** The open pull requests of a ticket that names other repositories, in
+   * every one of them. */
+  across?: { repository: string; number: number }[];
 };
 
 /** The pull requests that put this issue In review: those that close it,
@@ -382,6 +399,7 @@ const READY_RESETS = new Set([
   "refined",
   "refining",
   "waiting",
+  "finished",
 ]);
 
 // An old `cloud` marker leaves "Runs in" empty: nothing writes it any more.
@@ -444,6 +462,28 @@ export function derive(
   pulls: PullRequest[],
   columns: Columns = DEFAULT_COLUMNS,
   followUp: string = TICKET_LABELS["follow-up"],
+  /** Each of the ticket's repositories with its pull requests, when it
+   * names others than its own. */
+  repositories?: Progress[],
+): Derived {
+  const found = deriveOwn(issue, card, pulls, columns, followUp, repositories);
+  if (!repositories) return found;
+  return {
+    ...found,
+    across: standing(repositories).open.map(({ repository, number }) => ({
+      repository,
+      number,
+    })),
+  };
+}
+
+function deriveOwn(
+  issue: Issue,
+  card: BoardCard | null,
+  pulls: PullRequest[],
+  columns: Columns,
+  followUp: string,
+  repositories: Progress[] | undefined,
 ): Derived {
   const work = workState(issue.record);
   const marked = markedComments(issue.record);
@@ -458,7 +498,16 @@ export function derive(
     };
   }
 
-  const reviewing = reviewingPulls(issue, pulls, followUp);
+  const stands = repositories ? standing(repositories) : null;
+  if (stands?.reviewing)
+    return {
+      status: "In review",
+      ...claimSession(work.lastLive),
+      since: stands.open.map((p) => p.at).sort()[0] ?? null,
+      pulls: [],
+    };
+
+  const reviewing = stands ? [] : reviewingPulls(issue, pulls, followUp);
   if (reviewing.length > 0) {
     const first = [...reviewing].sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt),
@@ -509,7 +558,7 @@ export function derive(
   // it stays where it is, waiting on them, until they move it. Their move
   // to Backlog wins once it is later than that marker.
   const newest = marked.at(-1);
-  const waitingOn = (status: Status, since: string): Derived => ({
+  const waitingOn = (status: Status, since: string | null): Derived => ({
     status,
     session: "Waiting on you",
     runsIn: "",
@@ -523,7 +572,10 @@ export function derive(
     since,
     pulls: [],
   });
-  if (!newest) return backlog(card?.updatedAt ?? null);
+  if (!newest)
+    return stands?.partly
+      ? waitingOn("In progress", stands.open[0]?.at ?? null)
+      : backlog(card?.updatedAt ?? null);
   // A card in the backlog column says the owner sent the ticket back only
   // when the ticket's own state shows in another column: where it shows in
   // that one too, the sync put the card there.
@@ -544,6 +596,11 @@ export function derive(
         : false)
       ? card.updatedAt
       : null;
+
+  if (stands?.partly)
+    return ownerBacklog
+      ? backlog(ownerBacklog)
+      : waitingOn("In progress", newest.at);
 
   switch (newest.marker.kind) {
     case "refining":
@@ -630,15 +687,15 @@ export function toClear(
   pulls: PullRequest[],
   now: Date,
   followUp: string = TICKET_LABELS["follow-up"],
+  repositories?: Progress[],
 ): {
   kind: "claim" | "start";
   since: string;
 } | null {
-  if (
-    issue.finishedAt !== null ||
-    reviewingPulls(issue, pulls, followUp).length > 0
-  )
-    return null;
+  const built = repositories
+    ? !standing(repositories).unbuilt
+    : reviewingPulls(issue, pulls, followUp).length > 0;
+  if (issue.finishedAt !== null || built) return null;
   const work = workState(issue.record);
   const old = (m: Marked | null) =>
     m !== null && now.getTime() - Date.parse(m.at) > 24 * HOUR;
@@ -697,7 +754,16 @@ export type CommentKind =
   | { kind: "cleared-claim"; issue: Named; since: string }
   | { kind: "cleared-start"; issue: Named; since: string }
   | { kind: "follow-ups-merged"; pull: number }
-  | { kind: "pull-closed"; issue: Named; pull: number }
+  | { kind: "pull-closed"; issue: Named; pull: number; repository?: string }
+  | {
+      kind: "built-next";
+      built: { repository: string; pull: number };
+      next: string;
+      marker: string;
+    }
+  | { kind: "repository-added"; added: string[] }
+  | { kind: "repositories"; list: Listed[] }
+  | { kind: "all-merged"; pulls: { repository: string; number: number }[] }
   | { kind: "merged"; pull: number; link: string };
 
 function sessionPhrase(who: Identity): string {
@@ -838,12 +904,44 @@ export function entryFor(
         `Pull request #${c.pull} merged part of these follow-ups. The unchecked lines wait for the next build; the card is back in ${columnFor("Backlog", columns)}.`,
         false,
       );
-    case "pull-closed":
+    case "pull-closed": {
+      const closed =
+        c.repository === undefined
+          ? `Pull request #${c.pull}`
+          : `${c.repository}#${c.pull}`;
       return entry(
         "released",
         ready === null
-          ? `Pull request #${c.pull} was closed without merging. ${WAITING} Tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`, to rebuild it, or ask a session to refine it first.`
-          : `Pull request #${c.pull} was closed without merging. ${WAITING} Move it to ${ready} to rebuild it, or ask a session to refine it first.`,
+          ? `${closed} was closed without merging. ${WAITING} Tell a session to build ${c.issue.ref}, or run \`factory build ${c.issue.key}\`, to rebuild it, or ask a session to refine it first.`
+          : `${closed} was closed without merging. ${WAITING} Move it to ${ready} to rebuild it, or ask a session to refine it first.`,
+        true,
+      );
+    }
+    case "built-next":
+      return {
+        text: `Built in ${c.built.repository}: ${c.built.repository}#${c.built.pull}. Starting the build in ${c.next}.`,
+        markers: [
+          "<!-- work-status: released -->",
+          `<!-- work-status: started actions ${c.marker} -->`,
+        ],
+        tellsPerson: false,
+      };
+    case "repository-added":
+      return entry(
+        "released",
+        `${listed(c.added)} ${c.added.length === 1 ? "was" : "were"} added. ${WAITING}`,
+        true,
+      );
+    case "repositories":
+      return {
+        text: `Repositories: ${listText(c.list)}.`,
+        markers: [listMarker(c.list)],
+        tellsPerson: false,
+      };
+    case "all-merged":
+      return entry(
+        "finished",
+        `Every repository merged: ${c.pulls.map((p) => `${p.repository}#${p.number}`).join(", ")}.`,
         true,
       );
     case "merged":
@@ -868,6 +966,9 @@ export type RepoSnapshot = {
   /** Closed and merged pull requests that mentioned an issue, read only
    * for their cost markers. */
   donePulls?: PullRequest[];
+  /** How far each repository is, for a ticket that names others than its
+   * own. */
+  across?: Map<Key, Progress[]>;
 };
 
 /** What the views and the sync work from: the open tickets and those
@@ -879,6 +980,7 @@ export function toSnapshot(
   now: Date,
   donePulls: PullRequest[] = [],
   columns: Columns = DEFAULT_COLUMNS,
+  across?: Map<Key, Progress[]>,
 ): RepoSnapshot {
   const day = 24 * HOUR;
   const issues = tickets.filter((t) => {
@@ -901,6 +1003,7 @@ export function toSnapshot(
   return {
     issues,
     pulls,
+    ...(across ? { across } : {}),
     donePulls: donePulls.filter(
       (d) => !pulls.some((p) => p.number === d.number),
     ),

@@ -24,15 +24,6 @@ The factory SHALL behave as this line says: When a command is given a key its ti
 - **WHEN** a command is given a key its ticket system does not use
 - **THEN** such as `PROJ-12` on GitHub, it prints `PROJ-12 is not a ticket here: a GitHub ticket is its number, such as 12`, reads and writes nothing, and exits 1.
 
-### Requirement: Another repository's ticket as input
-
-The factory SHALL behave as this line says: When a command on GitHub is given another repository's ticket, such as `octo/web#4`, it prints `octo/web#4 is in another repository: the factory reads only its state as a blocker`, reads and writes nothing, and exits 1.
-
-#### Scenario: Another repository's ticket as input
-
-- **WHEN** a command on GitHub is given another repository's ticket
-- **THEN** such as `octo/web#4`, it prints `octo/web#4 is in another repository: the factory reads only its state as a blocker`, reads and writes nothing, and exits 1.
-
 ### Requirement: A pull request given as a ticket
 
 The factory SHALL behave as this line says: When any `factory ticket` command is given a pull request's number on GitHub, `comment`, `label`, and `cost` among them, it prints `#64 was not found`, writes nothing, and exits 1.
@@ -221,3 +212,57 @@ The factory SHALL behave as this line says: When a skill, an agent, a rule, or t
 
 - **WHEN** a skill
 - **THEN** an agent, a rule, or the review instructions write `Closes #`, `Part of #`, or "GitHub issue", a test fails.
+
+### Requirement: Another repository's ticket
+
+The factory SHALL behave as this line says: When a command on GitHub is given another repository's ticket, such as `octo/web#4`, it reads and writes that ticket in `octo/web`. One given the checkout's own, such as `acme/api#12` in `acme/api`, means ticket 12.
+
+#### Scenario: Another repository's ticket
+
+- **WHEN** a command on GitHub is given another repository's ticket, such as `octo/web#4`
+- **THEN** it reads and writes that ticket in `octo/web`. One given the checkout's own, such as `acme/api#12` in `acme/api`, means ticket 12.
+
+### Requirement: A link to another repository's ticket
+
+The factory SHALL behave as this line says: When a pull request's body on GitHub has `Part of octo/web#4`, it builds part of that ticket, and `Part of acme/api#12` in `acme/api` builds part of ticket 12.
+
+#### Scenario: A link to another repository's ticket
+
+- **WHEN** a pull request's body on GitHub has `Part of octo/web#4`
+- **THEN** it builds part of that ticket, and `Part of acme/api#12` in `acme/api` builds part of ticket 12.
+
+### Requirement: A branch for another repository's ticket
+
+The factory SHALL behave as this line says: When `factory ticket branch N` runs for another repository's ticket, `{ticket}` is the last part of that repository's name and the number, so `dev/api-12`.
+
+#### Scenario: A branch for another repository's ticket
+
+- **WHEN** `factory ticket branch N` runs for another repository's ticket
+- **THEN** `{ticket}` is the last part of that repository's name and the number, so `dev/api-12`.
+
+### Requirement: A spec change for another repository's ticket
+
+The factory SHALL behave as this line says: When `factory specs new N` runs for another repository's ticket with OpenSpec, the change is `openspec/changes/issue-acme-api-12/`.
+
+#### Scenario: A spec change for another repository's ticket
+
+- **WHEN** `factory specs new N` runs for another repository's ticket with OpenSpec
+- **THEN** the change is `openspec/changes/issue-acme-api-12/`.
+
+### Requirement: A build of another repository's ticket
+
+The factory SHALL behave as this line says: When `factory build acme/api#12` runs in a checkout of `acme/web`, it starts the build in `acme/web`, whose Prepare goes by lines 38 to 41, and the run is named `Build acme/api#12`.
+
+#### Scenario: A build of another repository's ticket
+
+- **WHEN** `factory build acme/api#12` runs in a checkout of `acme/web`
+- **THEN** it starts the build in `acme/web`, whose Prepare goes by lines 38 to 41, and the run is named `Build acme/api#12`.
+
+### Requirement: Who decides on another repository's ticket
+
+The factory SHALL behave as this line says: When whoever wrote a comment on another repository's ticket is asked about, it is an instruction when that account can write to that repository.
+
+#### Scenario: Who decides on another repository's ticket
+
+- **WHEN** whoever wrote a comment on another repository's ticket is asked about
+- **THEN** it is an instruction when that account can write to that repository.
