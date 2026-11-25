@@ -61,3 +61,11 @@ A ticket with the section, first match: finished in its system, Done. Every repo
 ## Checked while refining
 
 Claude Code 2.1.310: a folder in `permissions.additionalDirectories`, with `~`, can be read, edited, and stayed in by `cd`, once the workspace is trusted. Its `CLAUDE.md` does not load by itself, and its agents are not found by name: hand an agent's file to a general-purpose one. A hook's `cwd` follows `cd`, so the guards judge the checkout a command runs in.
+
+## Where the build departed
+
+- A run makes one token for each other repository, never one for several, so each is narrower than the second token Contracts describes.
+- A link to another repository's ticket counts only at the start of its line, and no link counts in code, so a pull request that writes about one is not part of it.
+- Another repository's files are handed over as an archive git makes, not a bundle of one shallow commit, which git refuses to read without the commit before it.
+- `factory workspace` ends a line with `built in acme/api#88` for a repository that has its pull request, so a build goes on from there.
+- `factory pr state --wait` and the watch count a check that waits only for another repository's pull request as finished, since nothing the session does can end it.

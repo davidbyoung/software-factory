@@ -36,7 +36,8 @@ function build(options: MemoryRunnerOptions & { strict?: boolean } = {}) {
       slept.push(ms);
       clock += ms;
     },
-    keyOf: () => keyOf("github"),
+    keyOf: () => (typed, repository) =>
+      options.strict ? tickets.key(typed) : keyOf("github")(typed, repository),
     refOf: () => (key) => tickets.ref(key),
     out: into(out),
     err: into(err),
