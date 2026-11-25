@@ -4,7 +4,6 @@
 // poller (`factory poller`) all decide from this one module, so they
 // cannot disagree. It reads tickets as the ticket interface returns them
 // (`tickets/types.mts`) and never calls a ticket system itself.
-import { TICKET_LABELS } from "../labels.mts";
 import {
   AGENT_MARK,
   CI_BOT,
@@ -377,19 +376,9 @@ export type Derived = {
   across?: { repository: string; number: number }[];
 };
 
-/** The pull requests that put this issue In review: those that close it,
- * and on the follow-ups ticket, labeled `followUp`, those that build part
- * of it. */
-export function reviewingPulls(
-  issue: Issue,
-  pulls: PullRequest[],
-  followUp: string = TICKET_LABELS["follow-up"],
-) {
-  return pulls.filter(
-    (pull) =>
-      pull.closes.includes(issue.key) ||
-      (issue.labels.includes(followUp) && pull.partOf.includes(issue.key)),
-  );
+/** The pull requests that put this issue In review: those that close it. */
+export function reviewingPulls(issue: Issue, pulls: PullRequest[]) {
+  return pulls.filter((pull) => pull.closes.includes(issue.key));
 }
 
 const READY_RESETS = new Set([
@@ -461,12 +450,11 @@ export function derive(
   card: BoardCard | null,
   pulls: PullRequest[],
   columns: Columns = DEFAULT_COLUMNS,
-  followUp: string = TICKET_LABELS["follow-up"],
   /** Each of the ticket's repositories with its pull requests, when it
    * names others than its own. */
   repositories?: Progress[],
 ): Derived {
-  const found = deriveOwn(issue, card, pulls, columns, followUp, repositories);
+  const found = deriveOwn(issue, card, pulls, columns, repositories);
   if (!repositories) return found;
   return {
     ...found,
@@ -482,7 +470,6 @@ function deriveOwn(
   card: BoardCard | null,
   pulls: PullRequest[],
   columns: Columns,
-  followUp: string,
   repositories: Progress[] | undefined,
 ): Derived {
   const work = workState(issue.record);
@@ -507,7 +494,7 @@ function deriveOwn(
       pulls: [],
     };
 
-  const reviewing = stands ? [] : reviewingPulls(issue, pulls, followUp);
+  const reviewing = stands ? [] : reviewingPulls(issue, pulls);
   if (reviewing.length > 0) {
     const first = [...reviewing].sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt),
@@ -686,7 +673,6 @@ export function toClear(
   issue: Issue,
   pulls: PullRequest[],
   now: Date,
-  followUp: string = TICKET_LABELS["follow-up"],
   repositories?: Progress[],
 ): {
   kind: "claim" | "start";
@@ -694,7 +680,7 @@ export function toClear(
 } | null {
   const built = repositories
     ? !standing(repositories).unbuilt
-    : reviewingPulls(issue, pulls, followUp).length > 0;
+    : reviewingPulls(issue, pulls).length > 0;
   if (issue.finishedAt !== null || built) return null;
   const work = workState(issue.record);
   const old = (m: Marked | null) =>
@@ -753,7 +739,6 @@ export type CommentKind =
   | { kind: "ended"; issue: Named }
   | { kind: "cleared-claim"; issue: Named; since: string }
   | { kind: "cleared-start"; issue: Named; since: string }
-  | { kind: "follow-ups-merged"; pull: number }
   | { kind: "pull-closed"; issue: Named; pull: number; repository?: string }
   | {
       kind: "built-next";
@@ -897,12 +882,6 @@ export function entryFor(
         "cleared",
         `Cleared the build started ${utc(c.since)}: no claim or pull request after 24 hours. ${WAITING} ${again(c.issue, columns)}`,
         true,
-      );
-    case "follow-ups-merged":
-      return entry(
-        "partial",
-        `Pull request #${c.pull} merged part of these follow-ups. The unchecked lines wait for the next build; the card is back in ${columnFor("Backlog", columns)}.`,
-        false,
       );
     case "pull-closed": {
       const closed =

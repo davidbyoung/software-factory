@@ -125,11 +125,6 @@
           "minLength": 1,
           "description": "The label on a change your users will see, which refinement writes a Spec into. Default: spec."
         },
-        "follow-up": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The label on the one follow-ups ticket. Default: follow-up."
-        },
         "factory": {
           "type": "string",
           "minLength": 1,

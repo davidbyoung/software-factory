@@ -293,7 +293,7 @@ describe("factory remove", () => {
       "  3. Delete whichever of the labels merge-automatic, merge-manual, and verdict-override exist, if you do not want their history: deleting one takes it off every pull request.",
       "",
       "  GitHub Issues",
-      "  4. Delete whichever of the labels follow-up, spec, and factory exist, if you do not want their history: deleting one takes it off every ticket.",
+      "  4. Delete whichever of the labels spec and factory exist, if you do not want their history: deleting one takes it off every ticket.",
       "  5. Delete the Session, Runs in, and Cost fields from board 3, if you do not want them.",
       "",
       "  Claude Code",
@@ -307,7 +307,7 @@ describe("factory remove", () => {
   it("names each label by the name the settings give it", async () => {
     const r = remove({
       files: {
-        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner-pass\ntickets:\n  labels:\n    follow-up: follow-ups\n`,
+        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner-pass\ntickets:\n  labels:\n    spec: needs-spec\n`,
       },
     });
     expect(await r.run()).toBe(0);
@@ -315,7 +315,7 @@ describe("factory remove", () => {
       "the labels merge-automatic, merge-manual, and owner-pass exist",
     );
     expect(r.out.join("\n")).toContain(
-      "the labels follow-ups, spec, and factory exist",
+      "the labels needs-spec and factory exist",
     );
   });
 

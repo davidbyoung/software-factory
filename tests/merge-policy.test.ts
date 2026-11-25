@@ -286,13 +286,9 @@ describe("run.yml's merge-policy job", () => {
 
 describe("a pull request that is part of a ticket across repositories", () => {
   const held = (body: string, ticketBody = `The ask.\n\n${SECTION}`) => {
-    const { tickets } = memoryTickets(
-      [
-        { key: "12", body: ticketBody },
-        { key: "4", labels: ["follow-up"], body: "- [ ] a line" },
-      ],
-      { repository: "acme/api" },
-    );
+    const { tickets } = memoryTickets([{ key: "12", body: ticketBody }], {
+      repository: "acme/api",
+    });
     return acrossReasons(body, { tickets, repository: "acme/api" });
   };
 
@@ -313,9 +309,8 @@ describe("a pull request that is part of a ticket across repositories", () => {
     ).toEqual(["part of acme/web#7, which spans repositories"]);
   });
 
-  it("merges by its files when its ticket names one repository, or is the follow-ups", async () => {
+  it("merges by its files when its ticket names one repository", async () => {
     expect(await held("Part of #12", "The ask.")).toEqual([]);
-    expect(await held("Part of #4")).toEqual([]);
     expect(await held("Part of #99")).toEqual([]);
   });
 

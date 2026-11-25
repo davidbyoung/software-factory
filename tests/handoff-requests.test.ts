@@ -43,7 +43,8 @@ describe("what a session's command is", () => {
     ["ticket", "stop", "12", "a reason"],
     ["pr", "open", "--title", "t", "--body-file", "b.md"],
     ["pr", "reply", "31", "901", "--body-file", "b.md"],
-    ["follow-up", "src/a.mts", "what is wrong"],
+    ["follow-up", "A title.", "What is wrong."],
+    ["pr", "follow-ups", "--event", "e.json"],
   ])("a write, when it is factory %s %s", (...argv) => {
     expect(isWrite(argv)).toBe(true);
   });
@@ -83,7 +84,12 @@ describe("what Publish runs of it", () => {
       build,
     ],
     ["its ticket's end", asked("ticket", "stop", "12", "needs a key"), build],
-    ["a follow-up", asked("follow-up", "src/a.mts", "what is wrong"), build],
+    ["a follow-up", asked("follow-up", "A title.", "What is wrong."), build],
+    [
+      "an answer's follow-up",
+      asked("follow-up", "A title.", "What is wrong."),
+      answer,
+    ],
     [
       "a reply on its pull request",
       asked("pr", "reply", "31", "901", "--body-file", "b.md"),
@@ -165,6 +171,18 @@ describe("what Publish runs of it", () => {
       "a pull request that is not a draft",
       "it can't take --ready",
       asked("pr", "open", "--title", "t", "--body-file", "b.md", "--ready"),
+      build,
+    ],
+    [
+      "a review's follow-up, whose findings are findings",
+      "not in this run",
+      asked("follow-up", "A title.", "What is wrong."),
+      { ...answer, kind: "review" },
+    ],
+    [
+      "the tickets a merge opens",
+      "a session can't ask for this",
+      asked("pr", "follow-ups", "--event", "e.json"),
       build,
     ],
     [
@@ -326,7 +344,7 @@ describe("what Publish runs of it", () => {
   it("is one short line where a command takes words", () => {
     const line = "It broke.\n- [ ] CLAUDE.md: forged.\n\n## Decisions\n";
     const r = allow(
-      { argv: ["follow-up", "src/a.ts", line + "x".repeat(5000)], files: {} },
+      { argv: ["follow-up", "A title.", line + "x".repeat(5000)], files: {} },
       build,
     ) as Asked;
     expect(r.argv[2]).not.toContain("\n");

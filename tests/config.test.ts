@@ -57,7 +57,7 @@ describe("parseSettings", () => {
           "for-the-builder": null,
           repositories: null,
         },
-        labels: { spec: "spec", "follow-up": "follow-up", factory: "factory" },
+        labels: { spec: "spec", factory: "factory" },
       },
       codeHost: {
         type: "github",
@@ -665,7 +665,6 @@ describe("parseSettings", () => {
       const s = parse(MINIMAL);
       expect(s.tickets.labels).toEqual({
         spec: "spec",
-        "follow-up": "follow-up",
         factory: "factory",
       });
       expect(s.codeHost.labels).toEqual({
@@ -681,7 +680,6 @@ describe("parseSettings", () => {
       );
       expect(s.tickets.labels).toEqual({
         spec: "needs-spec",
-        "follow-up": "follow-up",
         factory: "factory",
       });
       expect(s.codeHost.labels["merge-manual"]).toBe("needs owner");
@@ -689,6 +687,10 @@ describe("parseSettings", () => {
     });
 
     it.each([
+      [
+        labeled({ "follow-up": "x" }),
+        ".claude/factory.yaml: tickets.labels.follow-up: unknown key",
+      ],
       [
         labeled({ "merge-manual": "x" }),
         ".claude/factory.yaml: tickets.labels.merge-manual: unknown key",
@@ -702,8 +704,8 @@ describe("parseSettings", () => {
     });
 
     it.each(["", "   "])("refuses an empty name, %j", (name) => {
-      expect(() => parse(labeled({ "follow-up": name }))).toThrow(
-        ".claude/factory.yaml: tickets.labels.follow-up: must not be empty",
+      expect(() => parse(labeled({ spec: name }))).toThrow(
+        ".claude/factory.yaml: tickets.labels.spec: must not be empty",
       );
     });
 
@@ -716,8 +718,8 @@ describe("parseSettings", () => {
     });
 
     it("counts a default name, and names the key the file sets", () => {
-      expect(() => parse(labeled({ spec: "follow-up" }))).toThrow(
-        '.claude/factory.yaml: tickets.labels.spec: "follow-up" is already tickets.labels.follow-up. Give each label its own name',
+      expect(() => parse(labeled({ spec: "factory" }))).toThrow(
+        '.claude/factory.yaml: tickets.labels.spec: "factory" is already tickets.labels.factory. Give each label its own name',
       );
     });
 
@@ -727,23 +729,18 @@ describe("parseSettings", () => {
       ).toBe("built-by-factory");
     });
 
-    it("puts the factory label after follow-up in the order a clash names", () => {
+    it("puts the factory label after spec, and before a pull request's, in the order a clash names", () => {
       expect(() => parse(labeled({ factory: "spec" }))).toThrow(
         '.claude/factory.yaml: tickets.labels.factory: "spec" is already tickets.labels.spec. Give each label its own name',
       );
       expect(() =>
-        parse(labeled({ "follow-up": "x" }, { "merge-manual": "X" })),
+        parse(labeled({ factory: "x" }, { "merge-manual": "X" })),
       ).toThrow("code-host.labels.merge-manual");
-      expect(() => parse(labeled({ "follow-up": "x", factory: "X" }))).toThrow(
-        '.claude/factory.yaml: tickets.labels.factory: "X" is already tickets.labels.follow-up. Give each label its own name',
-      );
     });
 
     it("names the later of two keys the file sets", () => {
-      expect(() =>
-        parse(labeled({ spec: "kind", "follow-up": "Kind" })),
-      ).toThrow(
-        '.claude/factory.yaml: tickets.labels.follow-up: "Kind" is already tickets.labels.spec. Give each label its own name',
+      expect(() => parse(labeled({ spec: "kind", factory: "Kind" }))).toThrow(
+        '.claude/factory.yaml: tickets.labels.factory: "Kind" is already tickets.labels.spec. Give each label its own name',
       );
     });
 
@@ -777,8 +774,8 @@ describe("parseSettings", () => {
       });
 
       it("still refuses two ticket labels with one name", () => {
-        expect(() => parseWith(fake({ spec: "x", "follow-up": "x" }))).toThrow(
-          'tickets.labels.follow-up: "x" is already tickets.labels.spec',
+        expect(() => parseWith(fake({ spec: "x", factory: "x" }))).toThrow(
+          'tickets.labels.factory: "x" is already tickets.labels.spec',
         );
       });
 
@@ -1441,7 +1438,6 @@ describe("factory config explain", () => {
           repositories: none                                                       # default
         labels:
           spec: spec                                                               # default
-          follow-up: follow-up                                                     # default
           factory: factory                                                         # default
       code-host:
         type: github

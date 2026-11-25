@@ -186,9 +186,8 @@ export async function openTickets(
 
 /** The adapter with each ticket read as one document and written back
  * split: the description, and each ticket field `tickets.fields` names.
- * The follow-ups ticket stays whole. `readAll` is the adapter's, since its
- * callers read comments, labels, and cards, never a refined ticket's
- * sections. */
+ * `readAll` is the adapter's, since its callers read comments, labels, and
+ * cards, never a refined ticket's sections. */
 export function withTicketFields(
   inner: Tickets,
   mapping: FieldMapping,
@@ -196,14 +195,10 @@ export function withTicketFields(
   names: Labels["tickets"] = TICKET_LABELS,
 ): Tickets {
   const fields = () => need(inner, "fields");
-  const whole = (labels: readonly string[]) =>
-    labels.includes(names["follow-up"]);
 
   /** The description to write, once every named field is checked and
    * written. */
   const written = async (n: Key, body: string) => {
-    const { labels } = await inner.read(n);
-    if (whole(labels)) return body;
     const ops = fields();
     const known = await ops.list();
     for (const [key, name] of Object.entries(mapping)) {
@@ -228,7 +223,6 @@ export function withTicketFields(
     ...inner,
     async read(n) {
       const ticket = await inner.read(n);
-      if (whole(ticket.labels)) return ticket;
       const values = await fields().read(n);
       return {
         ...ticket,

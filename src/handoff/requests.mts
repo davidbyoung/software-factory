@@ -78,6 +78,7 @@ for (const c of [
   "pr cost",
   "pr adopt",
   "pr comment",
+  "pr follow-ups",
   "pr label",
   "pr open",
   "pr review-again",
@@ -150,7 +151,8 @@ const RULES: Record<string, Rule> = {
     needs: TITLED,
     when: (run) => run.kind === "conflict" || run.kind === "dependency",
   },
-  "follow-up": { words: [any, any] },
+  // What a review finds is a finding.
+  "follow-up": { words: [any, any], when: (run) => run.kind !== "review" },
   "pr open": {
     words: [],
     flags: { "--title": "title", ...BODY_FILE, "--draft": "alone" },

@@ -1759,8 +1759,6 @@ export type Target = {
   watch: Watch | null;
   /** The column each state shows in on the board. */
   columns: Columns;
-  /** The name of the follow-ups ticket's label. */
-  followUp: string;
   /** The name of the label on every ticket the factory works on. */
   factory: string;
 };
@@ -1779,7 +1777,6 @@ export function targetOf(
       : s.tickets.board,
     watch: watchOf(s.builds.trigger, s.builds.pollMinutes, s.builds.pollerIn),
     columns: columnsOf(s),
-    followUp: s.tickets.labels["follow-up"],
     factory: s.tickets.labels.factory,
   };
 }

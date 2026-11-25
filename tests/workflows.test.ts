@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { START } from "../src/follow-ups.mts";
 import { manifestOf } from "../src/code-host/github-app.mts";
 import { SESSION_MINUTES } from "../src/config.mts";
 import { answerName, REVIEW_JOBS } from "../src/runner/github-actions.mts";
@@ -327,12 +328,22 @@ const inside = (value: unknown) =>
 
 describe("which job an event starts", () => {
   const EVERY_PART = "review board auto-merge poller dependabot";
+  /** A description with a list of follow-ups. */
+  const LISTS = `Why.\n\n${START}\n\n1. [ ] **A.** B.\n`;
   type Pull = ReturnType<typeof pull>;
   const pull = (
-    o: { login?: string; from?: string; draft?: boolean } = {},
+    o: {
+      login?: string;
+      from?: string;
+      draft?: boolean;
+      merged?: boolean;
+      body?: string | null;
+    } = {},
   ) => ({
     number: 7,
     draft: o.draft ?? false,
+    merged: o.merged ?? false,
+    body: o.body === undefined ? LISTS : o.body,
     user: { login: o.login ?? "dana" },
     head: { repo: { full_name: o.from ?? "acme/site" } },
   });
@@ -427,6 +438,32 @@ describe("which job an event starts", () => {
     ],
     ["a pull request made a draft", target("converted_to_draft"), ["board"]],
     ["a pull request closed", target("closed"), ["board"]],
+    [
+      "a pull request merged, whose description lists follow-ups",
+      { ...target("closed"), pull_request: pull({ merged: true }) },
+      ["board", "follow-ups"],
+    ],
+    [
+      "a pull request merged, whose description lists none",
+      {
+        ...target("closed"),
+        pull_request: pull({ merged: true, body: "Why." }),
+      },
+      ["board"],
+    ],
+    [
+      "a pull request merged with no description",
+      { ...target("closed"), pull_request: pull({ merged: true, body: null }) },
+      ["board"],
+    ],
+    [
+      "a fork's pull request merged, whose description lists follow-ups",
+      {
+        ...target("closed"),
+        pull_request: pull({ merged: true, from: "mallory/site" }),
+      },
+      [],
+    ],
     [
       "the override label added",
       target("labeled", { label: { name: "verdict-override" } }),
@@ -554,6 +591,7 @@ describe("the jobs that run no session", () => {
     "verdict",
     "merge-policy",
     "board",
+    "follow-ups",
     "poller",
     "enroll",
     "conflicts",
@@ -609,6 +647,31 @@ describe("the jobs that run no session", () => {
       group: "factory-board-sync",
       "cancel-in-progress": false,
     });
+  });
+
+  it("opens the ticked tickets from the event, with the workflow's own token, and no more than it needs", () => {
+    const job = jobs["follow-ups"]!;
+    expect(step(job, "Open the ticked tickets")).toEqual({
+      name: "Open the ticked tickets",
+      env: { GH_TOKEN: "${{ github.token }}" },
+      run: 'factory pr follow-ups --event "$GITHUB_EVENT_PATH"',
+    });
+    expect(job.permissions).toEqual({
+      contents: "read",
+      issues: "write",
+      "pull-requests": "write",
+    });
+    expect(job.concurrency).toEqual({
+      group: "factory-follow-ups-${{ github.event.pull_request.number }}",
+      "cancel-in-progress": false,
+    });
+  });
+
+  it("syncs the board once those tickets are open, and whether or not that job ran or passed", () => {
+    const job = jobs.board!;
+    expect(job.needs).toEqual(["follow-ups"]);
+    // Without a status function in it, GitHub skips a job whose `needs` did.
+    expect(job.if).toMatch(/^!cancelled\(\) && /);
   });
 
   it("runs one pass of the poller at a time, with the board's token", () => {
@@ -781,8 +844,12 @@ describe("the repository's own secrets", () => {
     expect(existsSync(join(dir, "env"))).toBe(false);
   });
 
-  it("is the same script in the board sync and the poller", () => {
-    for (const job of [run.jobs.board!, run.jobs.poller!])
+  it("is the same script in the board sync, the job that opens the ticked tickets, and the poller", () => {
+    for (const job of [
+      run.jobs.board!,
+      run.jobs["follow-ups"]!,
+      run.jobs.poller!,
+    ])
       expect(step(job, "Take the repository's own secrets").run).toBe(take.run);
   });
 });
@@ -2285,6 +2352,7 @@ describe("a pull request's own code, in run.yml", () => {
       "across",
       "merge-policy",
       "board",
+      "follow-ups",
       "review",
       "dependabot",
     ]);

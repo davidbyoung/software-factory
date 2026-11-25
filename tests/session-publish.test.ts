@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, expect, describe, it } from "vitest";
+import { END, parse, START } from "../src/follow-ups.mts";
 import type { RunFile } from "../src/handoff/index.mts";
 import { COMMITS, commitsIn } from "../src/handoff/links.mts";
 import type { Asked } from "../src/handoff/requests.mts";
@@ -375,6 +376,80 @@ describe("what a session asks for", () => {
     await publish(w.d);
 
     expect(w.out.join("\n")).toContain("Refused every request");
+  });
+});
+
+describe("a follow-up a session asked for", () => {
+  const NOTED: Asked = {
+    argv: ["follow-up", "A title.", "It broke. <!-- factory: cloud-build -->"],
+    files: {},
+  };
+
+  it("is listed in the pull request the build opened, its box empty", async () => {
+    commits();
+    asks(OPEN, NOTED);
+    const w = world();
+
+    expect(await publish(w.d)).toBe(0);
+    const [{ number, body }] = await w.host.codeHost.listOpen();
+    expect(parse(body)).toMatchObject([
+      { item: { ticked: false, title: "A title.", text: "It broke." } },
+    ]);
+    expect(body.split(CLOUD_MARK)).toHaveLength(2);
+    expect(w.out).toContain(`  ✓ Listed in #${number}, as 1.`);
+    expect(w.asked).toEqual([]);
+  });
+
+  it("is listed in the pull request an answer works", async () => {
+    asks(NOTED);
+    const w = world(
+      { kind: "answer", pull: 31 },
+      {
+        pulls: [
+          {
+            number: 31,
+            body: "Why.",
+            head: { sha: base, branch: "12-add", repository: REPOSITORY },
+          },
+        ],
+      },
+    );
+
+    expect(await publish(w.d)).toBe(0);
+    expect((await w.host.codeHost.get(31)).body).toContain(
+      "1. [ ] **A title.** It broke.",
+    );
+  });
+
+  it("is the only way to a list: one in the description a session wrote is not read", async () => {
+    commits();
+    asks({
+      ...OPEN,
+      files: {
+        "p.md": `Closes #12\n\n${START}\n1. [x] **Mine.** Text.\n${END}`,
+      },
+    });
+    const w = world();
+
+    await publish(w.d);
+    const [{ body }] = await w.host.codeHost.listOpen();
+    expect(body).toContain("**Mine.**");
+    expect(parse(body)).toEqual([]);
+  });
+
+  it("fails the run where it can't be listed, and the rest is done", async () => {
+    commits();
+    asks(
+      OPEN,
+      { argv: ["follow-up", "A title.", "Fixes #13."], files: {} },
+      NOTED,
+    );
+    const w = world();
+
+    expect(await publish(w.d)).toBe(1);
+    const [{ body }] = await w.host.codeHost.listOpen();
+    expect(body).not.toContain("#13");
+    expect(body).toContain("1. [ ] **A title.** It broke.");
   });
 });
 
@@ -807,13 +882,16 @@ describe("what is not pushed", () => {
     );
   });
 
-  it("is told of when a build only asked to open a ticket", async () => {
-    asks({ argv: ["follow-up", "a.ts", "It broke."], files: {} });
+  it("is told of when a build only asked to list a follow-up, which is refused", async () => {
+    asks({ argv: ["follow-up", "A title.", "It broke."], files: {} });
     const w = world();
 
     await publish(w.d);
 
     expect(await told(w, "ticket")).toContain("nothing to push");
+    expect(w.out).toContain(
+      "Refused: factory follow-up A title.: no pull request",
+    );
   });
 
   it.each([
@@ -830,7 +908,7 @@ describe("what is not pushed", () => {
     async (_, over, why) => {
       commits();
       asks(say(["pr", "comment", "31"], "Fixed."), {
-        argv: ["follow-up", "a.ts", "It broke."],
+        argv: ["follow-up", "A title.", "It broke."],
         files: {},
       });
       const w = world({ kind: "answer", pull: 31 }, { pulls: at(over) });
@@ -838,7 +916,8 @@ describe("what is not pushed", () => {
       expect(await publish(w.d)).toBe(1);
       expect(w.pushed).toEqual([]);
       expect(await told(w, "pull")).toContain(`Not pushed: ${why}.`);
-      expect(w.asked.map((a) => a.argv[0])).toEqual(["follow-up"]);
+      expect(w.asked).toEqual([]);
+      expect((await w.host.codeHost.get(31)).body).not.toContain("A title.");
     },
   );
 

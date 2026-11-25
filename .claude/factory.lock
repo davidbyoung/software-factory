@@ -28,7 +28,6 @@ settings:
       repositories: none                                                       # default
     labels:
       spec: spec                                                               # default
-      follow-up: follow-up                                                     # default
       factory: factory                                                         # default
   code-host:
     type: github

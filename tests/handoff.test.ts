@@ -126,6 +126,28 @@ describe("a factory command in a session in the cloud", () => {
     ]);
   });
 
+  it("is told at once when its follow-up would link a ticket, or has a bare tag", () => {
+    const out: string[] = [];
+    const ask = (title: string, text: string) =>
+      intercept(
+        ["follow-up", title, text],
+        handoffIn({ [HANDOFF]: build() })!,
+        (line) => out.push(line),
+        () => "",
+        (text) => (text.includes("#13") ? "links #13" : undefined),
+      );
+    expect(ask("A title.", "Fixes #13.")).toBe(1);
+    expect(ask("A <slug>.", "Text.")).toBe(1);
+    expect(ask("A title.", "Text.")).toBe(0);
+    expect(out[0]).toBe(
+      "✗ Can't ask for this. factory follow-up: it links #13",
+    );
+    expect(out[1]).toContain("<slug>");
+    expect(asked()).toEqual([
+      { argv: ["follow-up", "A title.", "Text."], files: {} },
+    ]);
+  });
+
   it.each([
     ["ticket", "cost", "12"],
     ["pr", "cost", "31"],

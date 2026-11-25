@@ -617,7 +617,6 @@ describe("the sentences that name a column", () => {
     { kind: "ended", issue: { key: "7", ref: "#7" } },
     { kind: "cleared-claim", issue: { key: "7", ref: "#7" }, since: at(0) },
     { kind: "cleared-start", issue: { key: "7", ref: "#7" }, since: at(0) },
-    { kind: "follow-ups-merged", pull: 9 },
     { kind: "pull-closed", issue: { key: "7", ref: "#7" }, pull: 9 },
   ];
   const sentence = (body: string) => body.split("\n\n<!--")[0];
@@ -741,7 +740,6 @@ describe("the sentences that name a column", () => {
         pull_request: { number: 9, merged: false, body: null },
       },
       { closes: ["7"], partOf: [] },
-      [],
       STOCK_COLUMNS,
       REF,
       ["7"],
@@ -760,50 +758,10 @@ describe("the sentences that name a column", () => {
       new Date("2026-11-09T00:00:00Z"),
       STOCK_COLUMNS,
       REF,
-      "follow-up",
     );
     expect(nightly.body).toContain(
       "The card stays In Progress, waiting on you. To try again, tell a session to build #7",
     );
-  });
-});
-
-describe("the nightly clear, with the follow-ups label renamed", () => {
-  const claimed = issue(
-    7,
-    [
-      {
-        id: "1",
-        author: "acme",
-        createdAt: "2026-11-01T00:00:00Z",
-        body: `<!-- work-status: claim actions 1 -->\n${AGENT}`,
-      },
-    ],
-    { labels: ["follow-ups"] },
-  );
-  const partial = {
-    number: 9,
-    createdAt: "2026-11-01T00:00:00Z",
-    body: "Part of #7: a line.",
-    closes: [],
-    partOf: ["7"],
-    isDraft: false,
-    checks: null,
-    openThreads: 0,
-    author: "acme",
-  };
-  const nightly = (followUp: string) =>
-    nightlyComments(
-      toSnapshot([claimed], [partial], new Date("2026-11-09T00:00:00Z")),
-      new Date("2026-11-09T00:00:00Z"),
-      STOCK_COLUMNS,
-      REF,
-      followUp,
-    );
-
-  it("keeps the claim of the follow-ups ticket a pull request builds part of", () => {
-    expect(nightly("follow-ups")).toEqual([]);
-    expect(nightly("follow-up")).toHaveLength(1);
   });
 });
 
@@ -855,7 +813,6 @@ describe("factory ticket ready", () => {
       env: { CLAUDE_CODE_SESSION_ID: "s" },
       sleep: async () => {},
       out: (l) => void out.push(l),
-      followUpStore: { read: () => null, write: () => {} },
       claimStore: { read: () => null, write: () => {} },
       readFile: () => "",
       now: () => new Date(at(0)),

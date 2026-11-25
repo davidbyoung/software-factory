@@ -534,7 +534,7 @@ describe("this repository's workflows", () => {
     ).toEqual(Array(5).fill(`${DIR}/session.yml`));
   });
 
-  it("starts only the verdict, what tells the other repositories, the merge policy, the board sync, the review, and Dependabot's auto-merge on an event that has the secrets", () => {
+  it("starts only the verdict, what tells the other repositories, the merge policy, the board sync, the ticked tickets, the review, and Dependabot's auto-merge on an event that has the secrets", () => {
     expect(factoryEvents).toContain("pull_request_target");
     expect(factoryEvents).not.toContain("workflow_run");
     expect(
@@ -546,6 +546,7 @@ describe("this repository's workflows", () => {
       "across",
       "merge-policy",
       "board",
+      "follow-ups",
       "review",
       "dependabot",
     ]);

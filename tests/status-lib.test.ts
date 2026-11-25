@@ -275,49 +275,10 @@ describe("derive", () => {
     });
   });
 
-  it("puts the follow-ups issue In review on a pull request that builds part of it", () => {
-    const followUps = issue({ labels: ["follow-up"] });
+  it("puts no ticket In review on a pull request that builds part of it", () => {
     const partial = pull({ closes: [], body: "Part of #7: its first line." });
 
-    expect(derive(followUps, null, [partial]).status).toBe("In review");
     expect(derive(issue(), null, [partial]).status).toBe("Backlog");
-  });
-
-  it("finds the follow-ups issue by the label name the settings give it", () => {
-    const followUps = issue({ labels: ["follow-ups"] });
-    const partial = pull({ closes: [], body: "Part of #7: its first line." });
-
-    expect(
-      derive(followUps, null, [partial], DEFAULT_COLUMNS, "follow-ups").status,
-    ).toBe("In review");
-    expect(
-      derive(
-        issue({ labels: ["follow-up"] }),
-        null,
-        [partial],
-        DEFAULT_COLUMNS,
-        "follow-ups",
-      ).status,
-    ).toBe("Backlog");
-  });
-
-  it("leaves the follow-ups issue alone when a pull request only links a line to it", () => {
-    const followUps = issue({ labels: ["follow-up"] });
-    const linking = pull({
-      closes: ["3"],
-      body: "Closes #3. A finding is on #7.",
-    });
-
-    expect(derive(followUps, null, [linking]).status).toBe("Backlog");
-  });
-
-  it("does not read part of #70 as part of #7", () => {
-    const followUps = issue({ labels: ["follow-up"] });
-
-    expect(
-      derive(followUps, null, [pull({ closes: [], body: "Part of #70." })])
-        .status,
-    ).toBe("Backlog");
   });
 
   it("names the rebuild's session In review, not the first build's", () => {
@@ -538,19 +499,6 @@ describe("derive: a card moves only forward on its own", () => {
     },
   );
 
-  it("goes to Backlog after part of the follow-ups merged, ending its claim", () => {
-    const comments = [
-      said(1, "claim actions 123"),
-      posted(2, { kind: "follow-ups-merged", pull: 9 }),
-    ];
-    const followUps = issue({ labels: ["follow-up"], comments });
-
-    expect(stateOf(comments).live).toBeNull();
-    expect(
-      derive(followUps, { status: "In review", updatedAt: at(1) }, []),
-    ).toMatchObject({ status: "Backlog", session: "", since: at(2) });
-  });
-
   it("ends a start on a partial merge", () => {
     expect(
       stateOf([said(1, "started actions st_1"), said(2, "partial")]).start,
@@ -742,7 +690,7 @@ describe("a ticket across repositories", () => {
     over: Partial<GithubIssue>,
     all: Progress[],
     card: { status: string; updatedAt: string } | null = null,
-  ) => derive(issue(over), card, [], DEFAULT_COLUMNS, "follow-up", all);
+  ) => derive(issue(over), card, [], DEFAULT_COLUMNS, all);
   const claim = said(10, "claim local s1");
 
   it("is in review while every repository has a pull request and one is open", () => {
@@ -801,8 +749,7 @@ describe("a ticket across repositories", () => {
   it("is not in review for a pull request of its own repository alone", () => {
     const own = pull({ body: "Closes #7", closes: ["7"] });
     expect(
-      derive(issue(), null, [own], DEFAULT_COLUMNS, "follow-up", both([], []))
-        .status,
+      derive(issue(), null, [own], DEFAULT_COLUMNS, both([], [])).status,
     ).toBe("Backlog");
   });
 
@@ -815,7 +762,7 @@ describe("a ticket across repositories", () => {
 
   it("clears a claim over a day old while a repository has no pull request", () => {
     const old = issue({ comments: [claim] });
-    expect(toClear(old, [], NOW, "follow-up", both([linked()], []))).toEqual({
+    expect(toClear(old, [], NOW, both([linked()], []))).toEqual({
       kind: "claim",
       since: at(10),
     });
@@ -823,9 +770,7 @@ describe("a ticket across repositories", () => {
 
   it("keeps it once every repository has one", () => {
     const old = issue({ comments: [claim] });
-    expect(
-      toClear(old, [], NOW, "follow-up", both([linked()], [linked()])),
-    ).toBeNull();
+    expect(toClear(old, [], NOW, both([linked()], [linked()]))).toBeNull();
   });
 
   const entry = (kind: CommentKind) =>
@@ -979,11 +924,6 @@ describe("commentBody", () => {
       "cleared",
     ],
     [
-      { kind: "follow-ups-merged", pull: 9 },
-      "Pull request #9 merged part of these follow-ups. The unchecked lines wait for the next build; the card is back in Backlog.",
-      "partial",
-    ],
-    [
       { kind: "pull-closed", issue: SEVEN, pull: 9 },
       "Pull request #9 was closed without merging. The card stays In progress, waiting on you. Move it to Ready to rebuild it, or ask a session to refine it first.",
       "released",
@@ -1027,7 +967,7 @@ describe("commentBody", () => {
     ).toMatch(/^Nothing to decide\.\n\nRefinement is done\./);
   });
 
-  it("names Backlog in no comment but a partial follow-ups merge's", () => {
+  it("names Backlog in no comment", () => {
     const kinds: CommentKind[] = [
       { kind: "refining", who: local },
       { kind: "waiting" },
@@ -1050,7 +990,6 @@ describe("commentBody", () => {
       { kind: "stopped", where: "local", issue: SEVEN, reason: "r" },
       { kind: "cleared-claim", issue: SEVEN, since: at(5) },
       { kind: "cleared-start", issue: SEVEN, since: at(5) },
-      { kind: "follow-ups-merged", pull: 9 },
       { kind: "pull-closed", issue: SEVEN, pull: 9 },
     ];
 
@@ -1058,7 +997,7 @@ describe("commentBody", () => {
       kinds
         .filter((kind) => /Backlog/.test(commentBody(kind)))
         .map((kind) => kind.kind),
-    ).toEqual(["follow-ups-merged"]);
+    ).toEqual([]);
   });
 
   it("writes a marker its own parser reads", () => {
