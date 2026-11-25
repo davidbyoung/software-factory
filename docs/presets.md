@@ -543,18 +543,19 @@ preset can't set:
 node/factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it
 ```
 
-Another is a value no repository could use, in the words
-`factory config check` would print there. Each run names the first one in
-each file:
+Another is a value no repository could use, such as a pattern written
+without its quotes, as `branch-name: {ticket}`. The check prints the first
+of these in each file, so run it again after you fix one:
 
 ```text
 factory-preset.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"
 ```
 
-A setting the preset leaves out is not a problem, even one another
-setting needs: a preset can list `factory-ui-reviewer` with no
-[`site`](configuration.md#site), and each repository that follows it, or
-another preset, writes `site`.
+A setting the preset leaves out is not a problem, even when a setting it
+does write needs it. A preset can list the reviewer
+`factory-ui-reviewer`, which needs to know how to start your website, and
+leave [`site`](configuration.md#site) to each repository that follows it
+or to another preset.
 
 In an organization's `factory-config`, the command also compares the
 schedule of `.github/workflows/factory-poller.yml` with
