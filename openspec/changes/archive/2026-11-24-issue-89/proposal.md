@@ -16,7 +16,7 @@ The docs say otherwise:
 Decisions:
 
 - **When the label is created:** by the job that posts "Review verdict", on the first pull request event after the review is on. Not by `factory init`. That job already has the permission, reads the settings from the default branch, and runs in every repository with the review on, so a preset, a rename, and a repository set up earlier need nothing more, and `init`, `doctor`, and `sync` do not change.
-- **Its look:** red (`b60205`), with the description "Passes Review verdict for the current commit; a push removes it", as `davidbyoung/cfi` has it.
+- **Its look:** red (`b60205`), with the description "Passes Review verdict for the current commit; a push removes it".
 - **A failure to create it** never changes the verdict. The run's log says why.
 - **`factory remove` and the docs also name `factory`,** which both leave out today.
 - **Track:** small: no `spec` label, and each behavior gets one test. The Spec section below is only the line of the `remove` spec this makes false. Nothing here changes what triggers a step, who runs, or when.
