@@ -33,7 +33,6 @@ import {
 import { NeedsScopeError, NoRulesError } from "./code-host/types.mts";
 import { organizationHosts } from "./code-host/index.mts";
 import {
-  branchPatternFault,
   columnsOf,
   filesDeps,
   parseSettings,
@@ -137,6 +136,7 @@ import {
 import { FACTORY_FIELDS, suggestFields } from "./ticket-fields.mts";
 import type { TicketField } from "./tickets/types.mts";
 import {
+  askBranchName,
   askCredential as readStepCredential,
   askSecret,
   boardShape,
@@ -308,22 +308,8 @@ export const presetSpecsAt =
 
 const NO_SPEC_TOOL = "None: each ticket holds its own spec";
 
-const BRANCH_QUESTION =
-  "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
-
 const GATE_QUESTION =
   "Which command checks a change here, such as npm test? (leave empty to add it later)";
-
-/** The pattern a build names its branch by, asked until the answer is one
- * the settings check takes. */
-async function askBranchName(d: InitDeps): Promise<string> {
-  for (;;) {
-    const answer = (await d.ask.input(BRANCH_QUESTION, "{ticket}")).trim();
-    const fault = branchPatternFault(answer);
-    if (!fault) return answer;
-    d.out(say.text(fault));
-  }
-}
 
 /** The repository and code host a remote's address names, or null for one
  * on a code host the factory does not support. */

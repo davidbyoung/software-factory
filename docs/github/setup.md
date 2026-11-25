@@ -195,6 +195,12 @@ shows for a repository. You confirm or change the answer, and the
 command adds only the columns and fields still missing, which its plan
 names on the `board` row.
 
+It asks how a build names its branch, with `{ticket}` offered, so ticket
+12 is built on a branch named `12`. Press Enter for that, or type the
+pattern your teams use. The answer goes in the preset, as
+[`code-host.branch-name`](../configuration.md#code-host), so a developer
+setting up a repository is not asked.
+
 It then asks what pays for
 [builds in the cloud](../builds.md): a Claude subscription, for which it
 runs `claude setup-token` and you paste the token it prints, or an API
@@ -274,6 +280,8 @@ browser. What it does not say:
 | A board with the factory's columns and fields, or the board you chose, with its own columns and whatever it lacked | The organization's Projects                                 |
 
 The preset, `factory-preset.yaml`, is yours to edit. Under
+[`code-host`](../configuration.md#code-host) it holds the pattern builds
+name their branches by. Under
 [`tickets.columns`](../configuration.md#ticketscolumns) it names the
 board's column for each state: the factory's own names on a new board,
 and the columns you confirmed on a board you already had. Edit them
