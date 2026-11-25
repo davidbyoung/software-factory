@@ -562,7 +562,9 @@ code-host:
 - **`branch-name`** is the pattern for the branch's name. It has no
   default: [`factory init`](github/setup.md) asks for it and offers
   `{ticket}`, so ticket 12 is built on a branch named `12`. A
-  [preset](#presets) can set it for every repository that follows it.
+  [preset](#presets) can set it for every repository that follows it,
+  and in an organization `factory init --org` asks for it once and
+  writes it in the preset.
 - **`labels`** renames the labels on pull requests: see
   [`code-host.labels`](#code-hostlabels). Most repositories leave it out.
 

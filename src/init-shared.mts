@@ -5,7 +5,12 @@ import { spawn, spawnSync } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { organizationHosts } from "./code-host/index.mts";
-import { columnsOf, fieldNamesOf, type Settings } from "./config.mts";
+import {
+  branchPatternFault,
+  columnsOf,
+  fieldNamesOf,
+  type Settings,
+} from "./config.mts";
 import { refusalReason } from "./lib/credentials.mts";
 import type { Ask } from "./lib/prompts.mts";
 import { DEFAULT_COLUMNS } from "./lib/work-status.mts";
@@ -50,6 +55,22 @@ function introLine(line: string, get: CredentialStep["get"]): say.Line {
 /** A line a check prints as it runs: that it has started, or a result. */
 const progress = (line: string): say.Line =>
   line.endsWith("...") ? say.note(line) : say.text(line);
+
+const BRANCH_QUESTION =
+  "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
+
+/** The pattern a build names its branch by, asked until the answer is one
+ * the settings check takes. */
+export async function askBranchName(
+  d: Pick<Terminal, "ask" | "out">,
+): Promise<string> {
+  for (;;) {
+    const answer = (await d.ask.input(BRANCH_QUESTION, "{ticket}")).trim();
+    const fault = branchPatternFault(answer);
+    if (!fault) return answer;
+    d.out(say.text(fault));
+  }
+}
 
 /** A credential asked for part by part and checked together; asked again
  * from its first masked part when refused. Null when a part is left

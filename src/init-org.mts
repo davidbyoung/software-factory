@@ -24,6 +24,7 @@ import {
 } from "./columns-suggest.mts";
 import { POLL_MINUTES } from "./config.mts";
 import {
+  askBranchName,
   askSecret,
   boardShape,
   docsPage,
@@ -106,9 +107,9 @@ const readme = (org: string) =>
     `The software factory's settings for every ${org} repository, written by`,
     "`factory init --org`. Both files are yours to edit.",
     "",
-    `- \`${PRESET_FILE}\` is ${org}'s preset: the ticket system, the board, and`,
-    "  its columns. A repository follows it once a developer runs",
-    "  `factory init` there.",
+    `- \`${PRESET_FILE}\` is ${org}'s preset: the ticket system, the board, its`,
+    "  columns, and how builds name their branches. A repository follows it once",
+    "  a developer runs `factory init` there.",
     `- \`${POLLER_FILE}\` is the one poller for ${org}'s`,
     "  board. It starts a build in each repository with a ticket in the ready",
     "  column.",
@@ -121,6 +122,8 @@ const presetText = (o: {
   board: number;
   /** Each state's column, as `tickets.columns` writes it. */
   columns: [StateKey, string][];
+  codeHost: string;
+  branchName: string;
   pollMinutes: number;
 }) =>
   `${[
@@ -134,6 +137,11 @@ const presetText = (o: {
     ...o.columns.map(
       ([key, name]) => `    ${stringify({ [key]: name }).trimEnd()}`,
     ),
+    "code-host:",
+    `  type: ${o.codeHost}`,
+    // Quoted, as JSON quotes it: YAML reads a pattern that starts with `{`
+    // as a map.
+    `  branch-name: ${JSON.stringify(o.branchName)}`,
     "pr-review:",
     "  commands: []",
     "builds:",
@@ -422,6 +430,21 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     ];
   }
 
+  let branchName = "";
+  if (needsPreset) {
+    d.out(
+      say.text(
+        "Every repository that follows the preset names its branches this way, unless its own settings say otherwise.",
+      ),
+    );
+    d.out(
+      say.text(
+        "{user} is the developer's account in a build on their machine, and the app's name in a build in the cloud.",
+      ),
+    );
+    branchName = await askBranchName(d);
+  }
+
   // Which secret the coding agent's credential is stored as this run, or
   // null to store none.
   let storeAs: string | null = null;
@@ -589,6 +612,8 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
             tickets: ticketsName,
             board: board as number,
             columns: columnLines,
+            codeHost: chosen.codeHost,
+            branchName,
             pollMinutes,
           }),
         [POLLER_FILE]: () =>
