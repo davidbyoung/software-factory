@@ -1191,7 +1191,12 @@ describe("factory init --org, with a board the organization already has", () => 
     const s = existing({ columns: SIX, fields: FIELDS }, [], []);
     expect(await s.run()).toBe(0);
     const from = s.transcript.indexOf("? select: Which board?");
-    expect(s.transcript.slice(from, from + 15)).toEqual([
+    expect(
+      s.transcript.slice(
+        from,
+        s.transcript.indexOf("? select: What pays for sessions in the cloud?"),
+      ),
+    ).toEqual([
       "? select: Which board?",
       "",
       "Board 7 has a column for each of the factory's six states:",
@@ -1205,7 +1210,6 @@ describe("factory init --org, with a board the organization already has", () => 
       "  done       Done",
       ...BRANCH_LINES,
       `? input: ${BRANCH_QUESTION}`,
-      "? select: What pays for sessions in the cloud?",
     ]);
     expect(s.out).toContain("  board     Use board 7 as it is");
     expect(s.out.some((l) => l.startsWith("Added to board"))).toBe(false);
