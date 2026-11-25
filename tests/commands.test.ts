@@ -573,6 +573,9 @@ describe("the OpenSpec change's folder", () => {
     const tool = openspec(() => 0);
     expect(tool.folder("12")).toBe("openspec/changes/issue-12/");
     expect(tool.folder("PROJ-12")).toBe("openspec/changes/issue-proj-12/");
+    expect(tool.folder("acme/api#12")).toBe(
+      "openspec/changes/issue-acme-api-12/",
+    );
   });
 });
 
