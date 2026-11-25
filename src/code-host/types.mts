@@ -436,6 +436,10 @@ export type Organization = {
   ): Promise<{ count: number; covered: boolean }>;
   /** The page that lists the organization's apps. */
   appsPage(): string;
+  /** The page where an owner sets which repositories get each secret. */
+  secretsPage(): string;
+  /** The same page, for the variables. */
+  variablesPage(): string;
   /** The page of a file on the default branch of one of the
    * organization's repositories. */
   filePage(repository: string, path: string): string;

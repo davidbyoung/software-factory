@@ -380,6 +380,10 @@ function memoryOrganization(
       return seed.on;
     },
     appsPage: () => `https://github.com/organizations/${name}/settings/apps`,
+    secretsPage: () =>
+      `https://github.com/organizations/${name}/settings/secrets/actions`,
+    variablesPage: () =>
+      `https://github.com/organizations/${name}/settings/variables/actions`,
     filePage: (repo, path) =>
       `https://github.com/${name}/${repo}/blob/HEAD/${path}`,
   };
