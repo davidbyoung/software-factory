@@ -12,7 +12,7 @@
 - The two lines, each one `say.text`, plain, as the line before the poller's interval is:
   - `Every repository that follows the preset names its branches this way, unless its own settings say otherwise.`
   - `{user} is the developer's account in a build on their machine, and the app's name in a build in the cloud.`
-- The preset's `type` is `chosen.codeHost`, which `init-org.mts` already has. `branch-name` is a `Scalar` of type `QUOTE_DOUBLE` put through `stringify` from `yaml`, as `src/init.mts` writes it, so a `"` or a `\` in an answer is escaped. A pattern with a `\` is refused, and one with a `"` is not.
+- The preset's `type` is `chosen.codeHost`, which `init-org.mts` already has. `branch-name` is written with `JSON.stringify`, whose result YAML reads as a double-quoted string on one line: `stringify` from `yaml` folds a long one at 80 columns. A `"` in an answer is escaped, and a pattern with a `\` is refused.
 - `{ticket}` is the `fallback` given to `ask.input`, which shows `Press Enter for {ticket}`.
 
 ## States
