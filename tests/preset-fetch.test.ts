@@ -542,6 +542,21 @@ describe("what is wrong with a lock's pins beside the base lock's", () => {
     return pinsOf(read(root, LOCK), load);
   };
 
+  it("is nothing for a moved pin that holds what its commit holds, though a value there is not valid", () => {
+    const pins = setUp();
+    const commit = publish(REPO, {
+      "": { settings: "version: 2\nrules:\n  review-rounds: zero\n" },
+    });
+    const moved = {
+      name: ACME,
+      commit,
+      poller: false,
+      settings: { rules: { "review-rounds": "zero" } },
+      files: {},
+    };
+    expect(pinFaults(fetching(), [moved], pins, load)).toEqual([]);
+  });
+
   it("is nothing for a pin the base has as it is, and reads no repository for it", () => {
     const pins = setUp();
     const { d, calls } = recording();

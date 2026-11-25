@@ -251,19 +251,21 @@ export function commitDate(d: FetchDeps, repo: string, commit: string): Date {
 
 /** The preset NAME as one commit of its repository holds it, downloading
  * the commit when the cache lacks it. Throws a FetchError when it cannot
- * be read, and a PresetError when the commit holds no such preset. */
+ * be read, and a PresetError when the commit holds no such preset, as
+ * `readPreset` does. */
 export function pinAt(
   d: FetchDeps,
   name: string,
   commit: string,
   load: (text: string) => unknown,
+  o: { valid?: boolean } = {},
 ): Pinned {
   const dir = fetchCommit(d, parseName(name).repo, commit);
   return {
     name,
     commit,
     poller: existsSync(join(dir, POLLER_FILE)),
-    ...readPreset(dir, name, load),
+    ...readPreset(dir, name, load, o),
   };
 }
 
@@ -330,7 +332,8 @@ export function pinFaults(
           ];
     const differs = `${LOCK_FILE}: ${pin.name} at ${short(pin.commit)} does not match what that commit holds. Run: factory update`;
     try {
-      return same(pinAt(d, pin.name, pin.commit, load), pin) ? [] : [differs];
+      const held = pinAt(d, pin.name, pin.commit, load, { valid: false });
+      return same(held, pin) ? [] : [differs];
     } catch (e) {
       if (e instanceof PresetError) return [differs];
       if (e instanceof FetchError && unread) {

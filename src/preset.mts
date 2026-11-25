@@ -116,11 +116,13 @@ export const isShippedPath = (path: string) =>
 
 /** The preset NAME as a checkout of its repository holds it: its settings
  * and the hashes of what it ships. Throws a PresetError when the checkout
- * has no preset file for it, or the file is not one a preset can be. */
+ * has no preset file for it, or the file is not one a preset can be, which
+ * `valid: false` leaves to whoever reads the settings. */
 export function readPreset(
   checkout: string,
   name: string,
   load: (text: string) => unknown,
+  { valid = true }: { valid?: boolean } = {},
 ): Pick<Pinned, "settings" | "files"> {
   const { repo, folder } = parseName(name);
   const dir = folder ? join(checkout, folder) : checkout;
@@ -128,14 +130,17 @@ export function readPreset(
     throw new PresetError(
       `${name}: no ${folder ? `${folder}/` : ""}${PRESET_FILE} in ${repo}`,
     );
+  const text = readFileSync(join(dir, PRESET_FILE), "utf8");
   let raw: Obj;
   try {
-    raw = parsePreset(readFileSync(join(dir, PRESET_FILE), "utf8"), name, load);
+    raw = valid
+      ? parsePreset(text, name, load)
+      : (readYaml(text, name, load) as Obj);
   } catch (e) {
     throw e instanceof SettingsError ? new PresetError(e.message) : e;
   }
   // The version is the preset file's own, and never the repository's.
-  const { version: _, ...settings } = raw;
+  const { version: _, ...settings } = raw ?? {};
   return {
     settings,
     files: Object.fromEntries(
