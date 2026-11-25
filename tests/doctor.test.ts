@@ -482,7 +482,7 @@ describe("factory doctor", () => {
     ]);
   });
 
-  it("cannot tell whether factory.yml is enabled when GitHub does not answer, failing nothing and printing every other check", async () => {
+  it("cannot tell whether factory.yml is enabled when GitHub does not answer, failing nothing and printing the checks after it", async () => {
     const { run, printed } = doctor({
       runnerFails: {
         workflowState: new Error(
@@ -494,9 +494,8 @@ describe("factory doctor", () => {
     expect(section(printed, "GitHub Actions")).toEqual([
       "? Could not tell whether factory.yml is enabled: Bad Gateway (HTTP 502)",
     ]);
-    expect(section(printed, "Claude Code")).toContain(
-      "✓ The claude command is installed",
-    );
+    expect(section(printed, "Claude Code")).toHaveLength(3);
+    expect(section(printed, "Parts that are off")).toHaveLength(6);
   });
 
   describe("the gate", () => {

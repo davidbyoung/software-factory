@@ -1,10 +1,12 @@
 # What has to read a pull request's own code: the check that the factory's
-# files match the settings, and that factory.yml, which judges the pull
-# request, is enabled. A repository's own
+# files match the settings. A repository's own
 # .github/workflows/factory-review.yml, which `factory sync` writes, calls
 # this file on `pull_request`, at the version its lock names. GitHub runs it
 # from the pull request's copy, so it is given no secret and may only read:
 # everything that decides or posts is run.yml's, from the default branch's.
+# It also checks that factory.yml is enabled: GitHub switches a workflow with
+# a schedule off in a public repository that goes quiet, and this one's
+# caller has none.
 name: Factory review run
 
 on:
@@ -51,7 +53,8 @@ jobs:
           fi
 
       # The base commit's lock is what a preset's pin is compared with. This
-      # job has no sign-in, so a private preset is compared after the merge.
+      # job has no sign-in but the workflow's own token, so a private preset is
+      # compared after the merge.
       - name: Compare the copies with their source
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -64,8 +67,6 @@ jobs:
       - name: Check the settings
         run: factory config check
 
-      # GitHub switches a workflow with a schedule off in a public repository
-      # that goes quiet. This file's caller has none, so it still runs.
       - name: Check that factory.yml is enabled
         if: ${{ !cancelled() }}
         env:

@@ -2542,7 +2542,7 @@ describe("review.yml", () => {
       expect([r.status, r.printed]).toEqual([status, `${printed}\n`]);
     });
 
-    it("runs after a step that failed, and not in a run that was canceled", () => {
+    it("runs whatever the steps before it did, unless the run was canceled", () => {
       expect(check().if).toBe("${{ !cancelled() }}");
     });
 
