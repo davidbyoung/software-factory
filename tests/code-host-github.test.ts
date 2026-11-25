@@ -1119,9 +1119,17 @@ describe("the rules and properties of a repository", () => {
   });
 
   describe("whether the secrets the owner shares reach the repository", () => {
-    const withheld = (isPrivate: boolean, organization: unknown) =>
+    const withheld = (
+      isPrivate: boolean,
+      organization: unknown,
+      rules: unknown = [],
+    ) =>
       host([
-        [/^api repos\/acme\/widgets$/, { private: isPrivate }],
+        [/rules\/branches\/main/, rules],
+        [
+          /^api repos\/acme\/widgets$/,
+          { private: isPrivate, default_branch: "main" },
+        ],
         [/^api orgs\/acme$/, organization],
       ]).h.secretsWithheldBy();
 
@@ -1139,11 +1147,27 @@ describe("the rules and properties of a repository", () => {
       expect(await withheld(true, { plan: { name: "team" } })).toBeNull();
     });
 
-    it("says they reach it when the plan cannot be read, as by a member who is no owner", async () => {
-      expect(await withheld(true, { login: "acme" })).toBeNull();
-      expect(
-        await withheld(true, new Error("gh: Forbidden (HTTP 403)")),
-      ).toBeNull();
+    it("reads the plan from its missing branch rules where the organization shows none, as to a member who is no owner", async () => {
+      expect(await withheld(true, { login: "acme" }, UPGRADE)).toBe(
+        "GitHub Free",
+      );
+    });
+
+    it.each([
+      ["the rules are listed", { login: "acme" }, []],
+      [
+        "the rules are refused for another reason",
+        { login: "acme" },
+        new Error("gh: Resource not accessible by integration (HTTP 403)"),
+      ],
+      [
+        "the organization does not answer",
+        new Error("gh: Forbidden (HTTP 403)"),
+        UPGRADE,
+      ],
+      ["the plan shown is another", { plan: { name: "team" } }, UPGRADE],
+    ])("says they reach it when %s", async (_, organization, rules) => {
+      expect(await withheld(true, organization, rules)).toBeNull();
     });
   });
 

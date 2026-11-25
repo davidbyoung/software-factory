@@ -142,11 +142,12 @@ It belongs to sam. Stored for sam/api, and on this machine for your next reposit
 
 The [steps above](#run-factory-init) ask you for no token. In the list
 init prints first, headed `Found`, the `Organization` row reads one of
-three ways:
+four ways:
 
 ```text
   Organization     acme, set up: its app's key and its Claude token are stored
   Organization     acme, not set up: an owner runs factory init --org https://github.com/acme
+  Organization     acme, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories
   Organization     acme, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories, or an owner narrowed them
 ```
 
@@ -154,13 +155,21 @@ three ways:
   `factory-config`, and you check the ones this repository follows. It
   offers "Pull requests that merge themselves", and any other part the
   presets leave open.
-- **With the second or the third,** init leaves the review and builds in
-  the cloud off, and builds on your machine work. For the second, ask an
-  owner of the organization to
-  [set it up](#set-an-organization-up-once). For the third, ask an owner
-  of the organization, or store a GitHub token and a Claude token in the
+- **With the second,** init leaves the review and builds in the cloud off,
+  and builds on your machine work. Ask an owner of the organization to
+  [set it up](#set-an-organization-up-once).
+- **With the third,** which ends at "public repositories", yours is a
+  private repository on GitHub's Free plan. Init stops and changes nothing
+  if a preset you chose needs those secrets, and otherwise goes on with the
+  review and builds in the cloud off.
+  [On GitHub's Free plan](#on-githubs-free-plan) says what to do.
+- **With the fourth,** which ends "or an owner narrowed them", init could
+  not tell which of the two it is. It leaves the review and builds in the
+  cloud off, and builds on your machine work. Ask an owner of the
+  organization, or store a GitHub token and a Claude token in the
   repository's secrets by hand, as [Secrets](by-hand.md#secrets) says.
-  Then run `factory init` again.
+
+Once that is done, run `factory init` again.
 
 **It worked when** the row is the first, and, once the setup's pull
 request has merged, `factory doctor` shows ✓ on every line, or `-` for a
@@ -325,16 +334,26 @@ repositories:
        again, to require "Review verdict". GitHub Free has no organization-wide rules.
   ```
 
-- **A private repository** gets no review and no builds in the cloud,
-  since the plan does not share the organization's secrets with it.
-  `factory init` there shows the third `Organization` row under
-  [In an organization](#in-an-organization), and turns on nothing that
-  reads a secret. The plan has no branch rules for a private repository
-  either, so "Review verdict" cannot be required there, by a workflow
-  run or by an admin. `factory doctor` says both:
+- **A private repository** can't use a [preset](../presets.md) that turns
+  on a board, the review, or builds that start from the board, since the
+  plan does not share the organization's secrets with it. `factory init`
+  there stops, changes nothing, and names them:
 
   ```text
-  ✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository
+  ✗ The presets turn on a board, the review, and builds that start from the board. They need acme's secrets, and GitHub Free does not share them with a private repository.
+  ```
+
+  Make the repository public, or move the organization to a paid plan, and
+  run `factory init` again. To build only on your machine, run it and leave
+  that preset unchecked. The preset `factory init --org` writes turns on
+  all three.
+
+  The plan has no branch rules for a private repository either, so "Review
+  verdict" cannot be required there. Where such a preset was already
+  followed, `factory doctor` shows a line for each:
+
+  ```text
+  ✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository: make the repository public, or move acme to a paid plan
   - "Review verdict" cannot be required here: GitHub Free has no branch rules for a private repository
   ```
 

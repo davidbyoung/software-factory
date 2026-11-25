@@ -670,6 +670,29 @@ const PRESET_PARTS: [Part, string][] = [
   ["from-board", "builds that start from the board"],
 ];
 
+/** A secret a person keeps on their machine too, which an organization
+ * stores once for all its repositories. */
+const isKept = (s: { step: SecretStep | CredentialStep }) =>
+  s.step.kind === "secret" && s.step.machine !== undefined;
+
+/** Which parts can read what they need where `names` are the secrets that
+ * reach the repository. */
+function secretsReach(
+  tools: Registry,
+  context: (parts: Iterable<Part>) => SetupContext,
+  names: string[],
+): (part: Part) => boolean {
+  const met = (part: Part) =>
+    secretSteps(tools, context([part]))
+      .filter(isKept)
+      .flatMap((s) => s.step.needs.filter((n) => n.part === part))
+      .every((n) => n.anyOf.some((name) => names.includes(name)));
+  return (part) =>
+    met(part) &&
+    (part !== "from-board" || (met("cloud") && met("board"))) &&
+    (part !== "signing" || met("cloud"));
+}
+
 /** The rows under "From the presets, so not asked": each answer the
  * presets give to a question setup would ask. */
 export function presetRows(
@@ -1182,13 +1205,17 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   let organization = { setUp: false, stored: [] as string[] };
   /** Whether the organization is set up, though not for this repository. */
   let elsewhere = false;
+  /** The repository's own secrets, or null when they cannot be listed. */
+  let ownNames: string[] | null = null;
   if (isOrganization && runnerName) {
     const early = d.tools.runner[runnerName]!.open(repository);
-    const [shared, variables, own] = await Promise.all([
+    const [shared, variables, names] = await Promise.all([
       early.organizationSecretNames().catch(() => []),
       early.organizationVariableNames().catch(() => []),
-      early.secretNames().catch(() => []),
+      early.secretNames().catch(() => null),
     ]);
+    ownNames = names;
+    const own = names ?? [];
     const state = (secrets: string[]) =>
       organizationState({
         variables,
@@ -1262,7 +1289,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     row(
       "Organization",
       held || elsewhere
-        ? `${owner}, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories, or an owner narrowed them`
+        ? `${owner}, set up, but its secrets do not reach this repository: ${withheld ? `${withheld} shares them only with public repositories` : "GitHub Free shares them only with public repositories, or an owner narrowed them"}`
         : `${owner}, not set up: an owner runs factory init --org ${organizationHosts()[where.codeHost]?.addressOf(owner) ?? owner}`,
     );
   if (looks && held) row("Presets", `${config} holds ${held.length}`);
@@ -1307,14 +1334,20 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     );
   }
   d.out(say.BLANK);
-  if (isOrganization && !organization.setUp) {
+  /** The plan that keeps the secrets of an organization that is set up
+   * from this repository, or null. */
+  const keepsBack =
+    !organization.setUp && (held || elsewhere) ? withheld : null;
+  const staysOff = (until: string) => {
     d.out(
       say.text(
-        `Builds on your machine work now. The review and builds in the cloud stay off until ${owner} is set up.`,
+        `Builds on your machine work now. The review and builds in the cloud stay off until ${until}.`,
       ),
     );
     d.out(say.BLANK);
-  }
+  };
+  if (isOrganization && !organization.setUp && !keepsBack)
+    staysOff(`${owner} is set up`);
   if (machine?.state === "unreadable") {
     d.out(say.text(machine.line));
     return 1;
@@ -1424,6 +1457,66 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         : part === "from-board"
           ? from.gives("builds.trigger") && settings.builds.trigger !== "manual"
           : false);
+  /** The tools a setup uses, opened, and what their steps are asked with. */
+  const openTools = async (chosen: Chosen) => {
+    const runner = d.tools.runner[chosen.runner]!.open(repository);
+    const tickets = await d.tools.tickets[chosen.tickets]!.open(
+      { repository, board: null },
+      settings,
+      fromMachine ? { credential: fromMachine.values } : {},
+    );
+    const context = (parts: Iterable<Part>): SetupContext => ({
+      repository,
+      root: d.root,
+      parts: new Set(parts),
+      chosen,
+      settings,
+      hasCommand: d.hasCommand,
+      opened: { codeHost, runner, tickets },
+    });
+    return { runner, tickets, context };
+  };
+  // A part the presets turn on here would read secrets the plan keeps back.
+  if (keepsBack) {
+    const on = PRESET_PARTS.filter(([part]) => presetOn(part));
+    if (on.length && settings && ownNames) {
+      const { context } = await openTools({
+        codeHost: where.codeHost,
+        tickets: settings.tickets.type,
+        runner: settings.builds.runner,
+        agent: agentName,
+      });
+      const reachable = secretsReach(d.tools, context, ownNames);
+      const unmet = on.filter(([part]) => !reachable(part));
+      if (unmet.length) {
+        gap();
+        d.out(
+          say.mark(
+            "fail",
+            `The presets turn on ${listed(unmet.map(([, name]) => name))}. They need ${owner}'s secrets, and ${keepsBack} does not share them with a private repository.`,
+          ),
+        );
+        d.out(
+          say.text(
+            `Make ${repository} public, or move ${owner} to a paid plan. Then run factory init again.`,
+          ),
+        );
+        d.out(say.text(`What ${keepsBack} leaves out:`));
+        d.out(
+          say.text(
+            `     ${docsPage(d.packageVersion, "github/setup.md#on-githubs-free-plan")}`,
+          ),
+        );
+        d.out(say.text(NOTHING));
+        return 1;
+      }
+    }
+    const agents = agent.setup.kept?.secrets ?? [];
+    if (!ownNames?.some((n) => agents.includes(n))) {
+      gap();
+      staysOff(`${repository} is public or ${owner} is on a paid plan`);
+    }
+  }
   const notAsked: say.Line[] = [];
   if (from) {
     const rows = presetRows(from, { tools: d.tools, parts: presetOn });
@@ -1515,21 +1608,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const withNpm = installing?.install.via.startsWith("npm ") ?? false;
   const ignored = /^\/?node_modules\/?$/m.test(read(".gitignore") ?? "");
 
-  const runner = d.tools.runner[chosen.runner]!.open(repository);
-  const tickets = await d.tools.tickets[chosen.tickets]!.open(
-    { repository, board: null },
-    settings,
-    fromMachine ? { credential: fromMachine.values } : {},
-  );
-  const context = (parts: Iterable<Part>): SetupContext => ({
-    repository,
-    root: d.root,
-    parts: new Set(parts),
-    chosen,
-    settings,
-    hasCommand: d.hasCommand,
-    opened: { codeHost, runner, tickets },
-  });
+  const { runner, tickets, context } = await openTools(chosen);
   let own: string[];
   let npm: NpmSecrets;
   // A secret the organization shares with the repository counts as set.
@@ -1545,10 +1624,6 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   }
   const secrets = [...own, ...shared];
   const isSet = (n: string) => secrets.includes(n);
-  /** A secret a person keeps on their machine too, which an organization
-   * stores once for all its repositories. */
-  const isKept = (s: { step: SecretStep | CredentialStep }) =>
-    s.step.kind === "secret" && s.step.machine !== undefined;
 
   const cloudNeeds = secretSteps(d.tools, context(["cloud"])).flatMap((s) =>
     s.step.needs.filter((n) => n.part === "cloud"),
@@ -1557,15 +1632,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const first = settingsText === null;
   // In an organization's repository no token of a person's is asked for,
   // so a part is offered only when the secrets it reads are there.
-  const met = (part: Part) =>
-    secretSteps(d.tools, context([part]))
-      .filter(isKept)
-      .flatMap((s) => s.step.needs.filter((n) => n.part === part))
-      .every((n) => n.anyOf.some(isSet));
-  const reachable = (part: Part) =>
-    met(part) &&
-    (part !== "from-board" || (met("cloud") && met("board"))) &&
-    (part !== "signing" || met("cloud"));
+  const reachable = secretsReach(d.tools, context, secrets);
   const offered = PARTS.filter(
     (part) =>
       !presetOn(part) &&
