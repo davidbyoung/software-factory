@@ -1299,12 +1299,15 @@ describe("factory sync --check: the repository line", () => {
     expect(r.code).toBe(0);
   });
 
-  it("reads the repository of a pull request's run, and of no other", () => {
-    const GITHUB_REPOSITORY = "o/renamed";
-    expect(
-      pullIn({ GITHUB_EVENT_NAME: "pull_request", GITHUB_REPOSITORY }),
-    ).toBe("o/renamed");
-    expect(pullIn({ GITHUB_EVENT_NAME: "push", GITHUB_REPOSITORY })).toBeNull();
-    expect(pullIn({})).toBeNull();
+  it("reads the repository of a pull request's run, in that run's checkout and no other", () => {
+    const run = {
+      GITHUB_EVENT_NAME: "pull_request",
+      GITHUB_REPOSITORY: "o/renamed",
+      GITHUB_WORKSPACE: "/work/r",
+    };
+    expect(pullIn(run, "/work/r")).toBe("o/renamed");
+    expect(pullIn(run, "/tmp/elsewhere")).toBeNull();
+    expect(pullIn({ ...run, GITHUB_EVENT_NAME: "push" }, "/work/r")).toBeNull();
+    expect(pullIn({}, "/work/r")).toBeNull();
   });
 });

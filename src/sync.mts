@@ -903,9 +903,14 @@ export const syncDeps = (root: string) => ({
   show: (ref: string, path: string) => fileAt(root, ref, path),
 });
 
-/** `announce` is false when `init` runs the sync inside its own output. */
-export const pullIn = (env: Record<string, string | undefined>) =>
-  env.GITHUB_EVENT_NAME === "pull_request"
+/** The repository whose pull request a run checks, or null where `root` is
+ * not that run's checkout: a repository's own tests can run the factory in
+ * another. */
+export const pullIn = (
+  env: Record<string, string | undefined>,
+  root: string,
+): string | null =>
+  env.GITHUB_EVENT_NAME === "pull_request" && env.GITHUB_WORKSPACE === root
     ? (env.GITHUB_REPOSITORY ?? null)
     : null;
 
@@ -913,7 +918,7 @@ export const pullIn = (env: Record<string, string | undefined>) =>
 export async function run(argv: string[], announce = true): Promise<number> {
   return main(argv, {
     ...syncDeps(repoRoot()),
-    pullIn: pullIn(process.env),
+    pullIn: pullIn(process.env, repoRoot()),
     announce,
   });
 }
