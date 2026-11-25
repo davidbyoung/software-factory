@@ -16,6 +16,7 @@ import {
   type PresetPin,
   type UpdateDeps,
 } from "../src/update.mts";
+import { PresetError } from "../src/preset.mts";
 import { NoRemote } from "../src/lib/default-branch.mts";
 import { TOOLS } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
@@ -43,6 +44,8 @@ type Setup = {
   changed?: string[];
   /** The presets whose two commits cannot be compared, and why. */
   uncompared?: Record<string, Error>;
+  /** A preset whose newest commit is not one a preset can be, and why. */
+  refused?: { name: string; said: string };
   /** What the sync prints, by the version it runs at. */
   synced?: string[];
   /** The last pull request of a branch. */
@@ -88,8 +91,12 @@ function update(o: Setup = {}) {
         if (why) throw why;
         return (o.changed ?? []).includes(p.name);
       },
-      move: async (names, commit) => {
-        calls.push(`move ${names.join(",")} ${commit.slice(0, 7)}`);
+      move: async (moves) => {
+        if (moves.some((m) => m.name === o.refused?.name))
+          throw new PresetError(o.refused!.said);
+        calls.push(
+          `move ${moves.map((m) => m.name).join(",")} ${moves[0]!.commit.slice(0, 7)}`,
+        );
       },
       changes: async (ref) => {
         compared.push(ref);
@@ -181,6 +188,25 @@ describe("factory update, by hand", () => {
       "The factory {skip:0.2.0} → {name:0.3.0}",
       "acme/factory-config {skip:3f2a91c} → {name:8d04e7b}",
     ]);
+  });
+
+  it("says why a preset's newest commit is refused, and moves and syncs nothing", async () => {
+    const u = update({
+      pins: [pin("acme/factory-config", OLD), pin("foo/presets//bar", OLD)],
+      changed: ["acme/factory-config", "foo/presets//bar"],
+      refused: {
+        name: "foo/presets//bar",
+        said: "foo/presets//bar: rules.review-rounds: must be a whole number above zero",
+      },
+    });
+    expect(await u.run()).toBe(1);
+    expect(u.out).toEqual([
+      "The factory 0.2.0 → 0.3.0",
+      "acme/factory-config 3f2a91c → 8d04e7b",
+      "foo/presets//bar 3f2a91c → 8d04e7b",
+      "foo/presets//bar: rules.review-rounds: must be a whole number above zero",
+    ]);
+    expect(u.calls).toEqual([]);
   });
 
   it("counts one file as one, and names no deletion when there was none", async () => {
@@ -348,6 +374,29 @@ describe("factory update --pull-requests", () => {
       "git push -u origin factory-update/foo-presets-8d04e7b",
       "open factory-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
       "git switch --detach origin/main",
+    ]);
+  });
+
+  it("opens no pull request for a preset whose newest commit is refused, opens the others, and exits 1", async () => {
+    const said =
+      "acme/factory-config: rules.review-rounds: must be a whole number above zero";
+    const u = update({
+      pins: [TWO[0]!, pin("foo/presets//bar", OLD), pin("acme/gone", OLD)],
+      changed: ["acme/factory-config", "foo/presets//bar"],
+      refused: { name: "acme/factory-config", said },
+      heads: { "acme/gone": new Error("not found") },
+    });
+    expect(await u.run(PR)).toBe(1);
+    expect(u.out).toEqual([
+      "✓ Opened #41, Update the factory to 0.3.0",
+      said,
+      "✓ Opened #42, Update foo/presets to 8d04e7b",
+      "? acme/gone could not be read: not found. To stop following it: factory preset remove acme/gone",
+    ]);
+    expect(u.calls.filter((c) => /^(open|close|move)/.test(c))).toEqual([
+      "open factory-update/factory-0.3.0: Update the factory to 0.3.0",
+      "move foo/presets//bar 8d04e7b",
+      "open factory-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
     ]);
   });
 

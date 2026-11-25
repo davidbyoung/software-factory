@@ -1437,6 +1437,31 @@ describe("factory init --org, what it creates in factory-config", () => {
     },
   );
 
+  it("asks and changes nothing where the preset is there and not valid", async () => {
+    const s = setup({
+      answers: {},
+      org: {
+        ...DONE,
+        repositories: {
+          "factory-config": {
+            isPrivate: true,
+            files: {
+              "factory-preset.yaml": "version: 2\nrepository: acme/web\n",
+            },
+          },
+        },
+      },
+    });
+    expect(await s.run()).toBe(1);
+    expect(s.transcript).toEqual([
+      "Setting up the software factory for the organization acme",
+      "",
+      "factory-preset.yaml: repository: a preset can't set this",
+      "Fix it, then run init again.",
+    ]);
+    expect(s.changes()).toEqual([]);
+  });
+
   it("writes a README that says what the two files are", async () => {
     const s = setup({ answers: FIRST });
     await s.run();

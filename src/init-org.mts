@@ -31,6 +31,7 @@ import {
   giveBoard,
   interactive,
   message,
+  notValid,
   openPage,
   type Terminal,
 } from "./init-shared.mts";
@@ -39,7 +40,7 @@ import { listed } from "./lib/listed.mts";
 import { terminalAsk } from "./lib/prompts.mts";
 import { sameName, STATE_KEYS, type StateKey } from "./lib/work-status.mts";
 import { APP_KEY } from "./parts.mts";
-import { PRESET_FILE } from "./preset.mts";
+import { parsePreset, PRESET_FILE } from "./preset.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { RULE, type SecretStep } from "./setup.mts";
 import { PACKAGE } from "./sync.mts";
@@ -328,6 +329,13 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     return stop(`Could not reach the code host: ${message(e)}`);
   }
   const needsPreset = files[PRESET_FILE] === null;
+  if (!needsPreset) {
+    try {
+      parsePreset(files[PRESET_FILE]!, PRESET_FILE, load);
+    } catch (e) {
+      return notValid(d, message(e));
+    }
+  }
   const missing = FILES.filter((path) => files[path] === null);
   const isPrivate = config ? config.isPrivate : plan.privateSecrets;
   const agentStored = meets.filter((n) => secrets.includes(n));

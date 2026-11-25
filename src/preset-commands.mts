@@ -21,7 +21,9 @@ import { dirname, join, relative, sep } from "node:path";
 import {
   filesDeps,
   parseChoices,
+  POLL_MINUTES,
   PresetsError,
+  readYaml,
   repoRoot,
   resolveFiles,
   SETTINGS_FILE,
@@ -965,6 +967,7 @@ const ADVICE: Record<string, string> = {
     ". Remove it, and list each preset in the repositories that use this one",
   off: ". Remove it: only a repository can leave a plugin out",
   unknown: "",
+  value: "",
 };
 
 /** What is wrong with the schedule of an organization's poller beside the
@@ -974,7 +977,8 @@ const ADVICE: Record<string, string> = {
 function scheduleFault(dir: string, raw: unknown): string | null {
   if (!existsSync(join(dir, POLLER_FILE))) return null;
   const minutes = getPath(raw, ["builds", "poll-minutes"]) ?? 5;
-  if (typeof minutes !== "number") return null;
+  if (typeof minutes !== "number" || !POLL_MINUTES.some((m) => m === minutes))
+    return null;
   const cron = /^\s*-\s*cron:\s*(["']?)(.*?)\1\s*(?:#.*)?$/m.exec(
     readFileSync(join(dir, POLLER_FILE), "utf8"),
   )?.[2];
@@ -1024,15 +1028,14 @@ export async function check(_argv: string[], d: PresetDeps): Promise<number> {
     const file = names[i]!;
     let raw: unknown;
     try {
-      raw = load(readFileSync(join(d.cwd, file), "utf8"));
+      raw = readYaml(readFileSync(join(d.cwd, file), "utf8"), file, load);
     } catch (e) {
-      problems.push(`${file}: ${(e as Error).message.split("\n")[0]}`);
+      if (!(e instanceof SettingsError)) throw e;
+      problems.push(e.message);
       return;
     }
     for (const fault of presetFaults(raw))
-      problems.push(
-        `${file}: ${fault.key}: ${fault.message}${ADVICE[fault.kind]}`,
-      );
+      problems.push(`${file}: ${fault.text}${ADVICE[fault.kind]}`);
     const schedule = f === "" ? scheduleFault(d.cwd, raw) : null;
     if (schedule) problems.push(`✗ ${schedule}`);
     const plugins = isObj(raw) ? raw.plugins : undefined;

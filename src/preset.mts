@@ -10,11 +10,15 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { DEFAULT_CODE_HOST } from "./code-host/index.mts";
 import {
-  OWN_HEADING,
+  parseSettings,
+  readYaml,
   ROLE_SHAPE,
   ROLES,
   SETTINGS_FILE,
   SETTINGS_KEYS,
+  SettingsError,
+  UnknownKeyError,
+  wordsOf,
 } from "./config.mts";
 import { BUILT } from "./tool-names.mts";
 import { NPMRC, refusal } from "./npmrc.mts";
@@ -112,11 +116,13 @@ export const isShippedPath = (path: string) =>
 
 /** The preset NAME as a checkout of its repository holds it: its settings
  * and the hashes of what it ships. Throws a PresetError when the checkout
- * has no preset file for it, or the file is not one a preset can be. */
+ * has no preset file for it, or the file is not one a preset can be, which
+ * `valid: false` leaves to whoever reads the settings. */
 export function readPreset(
   checkout: string,
   name: string,
   load: (text: string) => unknown,
+  { valid = true }: { valid?: boolean } = {},
 ): Pick<Pinned, "settings" | "files"> {
   const { repo, folder } = parseName(name);
   const dir = folder ? join(checkout, folder) : checkout;
@@ -124,16 +130,17 @@ export function readPreset(
     throw new PresetError(
       `${name}: no ${folder ? `${folder}/` : ""}${PRESET_FILE} in ${repo}`,
     );
-  let raw: unknown;
+  const text = readFileSync(join(dir, PRESET_FILE), "utf8");
+  let raw: Obj;
   try {
-    raw = load(readFileSync(join(dir, PRESET_FILE), "utf8"));
+    raw = valid
+      ? parsePreset(text, name, load)
+      : (readYaml(text, name, load) as Obj);
   } catch (e) {
-    throw new PresetError(`${name}: ${(e as Error).message}`);
+    throw e instanceof SettingsError ? new PresetError(e.message) : e;
   }
-  const fault = presetFaults(raw)[0];
-  if (fault) throw new PresetError(`${name}: ${fault.key}: ${fault.message}`);
   // The version is the preset file's own, and never the repository's.
-  const { version: _, ...settings } = raw as Obj;
+  const { version: _, ...settings } = raw ?? {};
   return {
     settings,
     files: Object.fromEntries(
@@ -219,92 +226,87 @@ export const PLUGIN_LISTS = ROLES.filter((r) => ROLE_SHAPE[r].list).map(
   (r) => `plugins.${ROLE_SHAPE[r].phase}.${ROLE_SHAPE[r].key}`,
 );
 
-/** The first key a block has that the settings do not know, as `factory
- * config check` words it: `KEY: unknown key`. */
-export function unknownKey(raw: unknown): string | null {
-  const visit = (v: unknown, path: string, shown: string): string | null => {
-    const allowed = SETTINGS_KEYS[path];
-    if (!allowed || !isObj(v)) return null;
-    const extra =
-      path === "tickets" && typeof v.type === "string"
-        ? (BUILT.tickets[v.type] ?? [])
-        : [];
-    for (const [k, value] of Object.entries(v)) {
-      const at = path ? `${path}.${k}` : k;
-      const show = shown ? `${shown}.${k}` : k;
-      const own = path === "tickets.fields" && OWN_HEADING.test(k);
-      if (!allowed.includes(k) && !extra.includes(k) && !own)
-        return `${show}: unknown key`;
-      const inner =
-        SETTINGS_KEYS[`${at}[]`] && Array.isArray(value)
-          ? value
-              .map((item, i) => visit(item, `${at}[]`, `${show}[${i}]`))
-              .find(Boolean)
-          : visit(value, at, show);
-      if (inner) return inner;
-    }
-    return null;
-  };
-  return visit(raw, "", "");
-}
+/** One thing wrong with a preset: what is said of it after the preset's
+ * name, and which of the refusals it is, for `preset check`'s advice. */
+export type PresetFault = {
+  text: string;
+  kind: "own-only" | "presets" | "off" | "unknown" | "value";
+};
 
-/** What is wrong with a preset's own settings, each as `KEY: MESSAGE`,
- * before it is combined with any other layer. */
-export function presetFaults(raw: unknown): {
-  key: string;
-  message: string;
-  /** Which of the refusals it is, for `preset check`'s advice. */
-  kind: "own-only" | "presets" | "off" | "unknown";
-}[] {
-  const faults: ReturnType<typeof presetFaults> = [];
-  if (!isObj(raw)) {
-    faults.push({
-      key: "version",
-      message: "must be 2",
-      kind: "unknown",
-    });
-    return faults;
-  }
-  if (raw.version !== 2)
-    faults.push({ key: "version", message: "must be 2", kind: "unknown" });
-  for (const key of OWN_ONLY) {
-    const [a, b] = key.split(".") as [string, string?];
-    const at = b ? (isObj(raw[a]) ? (raw[a] as Obj)[b] : undefined) : raw[a];
-    if (at !== undefined)
+/** Everything wrong with a preset's settings by themselves: what only a
+ * preset is refused for, then the first fault of the rules it shares with
+ * `.claude/factory.yaml`. */
+export function presetFaults(raw: unknown): PresetFault[] {
+  const faults: PresetFault[] = [];
+  if (!isObj(raw)) return sharedFault(raw);
+  for (const key of OWN_ONLY)
+    if (get(raw, key) !== undefined)
       faults.push({
-        key,
-        message: "a preset can't set this",
+        text: `${key}: a preset can't set this`,
         kind: "own-only",
       });
-  }
   if (raw.presets !== undefined)
     faults.push({
-      key: "presets",
-      message: "a preset can't name another preset",
+      text: "presets: a preset can't name another preset",
       kind: "presets",
     });
+  // What has just been refused is left out of what the shared rules read,
+  // so nothing is refused twice.
+  const rest = structuredClone(raw);
+  delete rest.repository;
+  delete rest.presets;
+  if (isObj(rest["auto-merge"])) {
+    delete rest["auto-merge"].allow;
+    delete rest["auto-merge"].commands;
+  }
   for (const path of PLUGIN_LISTS) {
-    const list = get(raw, path);
+    const list = get(rest, path);
     if (Array.isArray(list))
       list.forEach((item, i) => {
-        if (isObj(item) && "off" in item)
-          faults.push({
-            key: `${path}[${i}]`,
-            message: "off: only .claude/factory.yaml can leave a plugin out",
-            kind: "off",
-          });
+        if (!isObj(item) || !("off" in item)) return;
+        faults.push({
+          text: `${path}[${i}]: off: only .claude/factory.yaml can leave a plugin out`,
+          kind: "off",
+        });
+        item.off = true;
       });
   }
-  const unknown = unknownKey(raw);
-  if (unknown) {
-    const at = unknown.indexOf(": ");
-    faults.push({
-      key: unknown.slice(0, at),
-      message: unknown.slice(at + 2),
-      kind: "unknown",
-    });
+  return [...faults, ...sharedFault(rest)];
+}
+
+/** A preset's settings from its file's text. Throws a SettingsError with
+ * the first thing wrong with them, after `name`. */
+export function parsePreset(
+  text: string,
+  name: string,
+  load: (text: string) => unknown,
+): Obj {
+  const raw = readYaml(text, name, load);
+  const fault = presetFaults(raw)[0];
+  if (fault) throw new SettingsError(`${name}: ${fault.text}`);
+  return raw as Obj;
+}
+
+/** The faults of a preset as the lock pins it, which leaves its version
+ * out. */
+export const pinnedFaults = (pin: Pick<Pinned, "settings">) =>
+  presetFaults({ version: 2, ...pin.settings });
+
+/** The first fault of the rules a preset shares with the repository's own
+ * file, or none. The agents and skills it names may be a repository's. */
+function sharedFault(raw: unknown): PresetFault[] {
+  try {
+    parseSettings(raw, () => true, BUILT, { preset: true });
+    return [];
+  } catch (e) {
+    if (!(e instanceof SettingsError)) throw e;
+    return [
+      {
+        text: wordsOf(e),
+        kind: e instanceof UnknownKeyError ? "unknown" : "value",
+      },
+    ];
   }
-  return faults;
 }
 
 function get(raw: unknown, path: string): unknown {

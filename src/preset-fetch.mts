@@ -251,19 +251,21 @@ export function commitDate(d: FetchDeps, repo: string, commit: string): Date {
 
 /** The preset NAME as one commit of its repository holds it, downloading
  * the commit when the cache lacks it. Throws a FetchError when it cannot
- * be read, and a PresetError when the commit holds no such preset. */
+ * be read, and a PresetError when the commit holds no such preset, as
+ * `readPreset` does. */
 export function pinAt(
   d: FetchDeps,
   name: string,
   commit: string,
   load: (text: string) => unknown,
+  o: { valid?: boolean } = {},
 ): Pinned {
   const dir = fetchCommit(d, parseName(name).repo, commit);
   return {
     name,
     commit,
     poller: existsSync(join(dir, POLLER_FILE)),
-    ...readPreset(dir, name, load),
+    ...readPreset(dir, name, load, o),
   };
 }
 
@@ -330,7 +332,8 @@ export function pinFaults(
           ];
     const differs = `${LOCK_FILE}: ${pin.name} at ${short(pin.commit)} does not match what that commit holds. Run: factory update`;
     try {
-      return same(pinAt(d, pin.name, pin.commit, load), pin) ? [] : [differs];
+      const held = pinAt(d, pin.name, pin.commit, load, { valid: false });
+      return same(held, pin) ? [] : [differs];
     } catch (e) {
       if (e instanceof PresetError) return [differs];
       if (e instanceof FetchError && unread) {
@@ -360,25 +363,29 @@ export function fileAt(root: string, ref: string, path: string) {
   }
 }
 
-/** Moves the pin of the preset NAME in the lock of the repository at
- * `root` to `commit`, with its settings and hashes as that commit holds
- * them, adding the pin when the lock has none for it. The lock's other
- * parts stay as they were until the next `factory sync`. */
-export async function movePin(
+/** Moves the pin of each of these presets in the lock of the repository at
+ * `root` to its commit, with its settings and hashes as that commit holds
+ * them, adding the pin when the lock has none for it. Nothing is written
+ * when one of them can't be pinned. The lock's other parts stay as they
+ * were until the next `factory sync`. */
+export async function movePins(
   root: string,
-  name: string,
-  commit: string,
+  moves: PinMove[],
   d: FetchDeps,
-): Promise<Pinned> {
+): Promise<Pinned[]> {
   const { load, dump } = await import("js-yaml");
   const at = join(root, LOCK_FILE);
   const text = existsSync(at) ? readFileSync(at, "utf8") : null;
-  const pin = pinAt(d, name, commit, load);
+  const moved = moves.map(({ name, commit }) => pinAt(d, name, commit, load));
   const pins = pinsOf(text, load);
-  const next = pins.some((p) => p.name === name)
-    ? pins.map((p) => (p.name === name ? pin : p))
-    : [...pins, pin];
+  const next = [
+    ...pins.map((p) => moved.find((m) => m.name === p.name) ?? p),
+    ...moved.filter((m) => !pins.some((p) => p.name === m.name)),
+  ];
   mkdirSync(dirname(at), { recursive: true });
   writeFileSync(at, withPins(text, next, yamlDump(dump)));
-  return pin;
+  return moved;
 }
+
+/** A preset, and the commit its pin moves to. */
+export type PinMove = { name: string; commit: string };

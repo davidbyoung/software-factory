@@ -367,6 +367,37 @@ describe("what a preset can't do", () => {
     );
   });
 
+  it("refuses a key the factory doesn't know in a plugin the repository's own file replaces", async () => {
+    root = repo(
+      own(
+        [ACME],
+        [
+          "plugins:",
+          "  build:",
+          "    reviewers:",
+          "      - agent: x",
+          "        files: [src/**]",
+        ],
+      ),
+    );
+    lockPin(root, {
+      name: ACME,
+      commit: "1".repeat(40),
+      poller: false,
+      settings: {
+        plugins: {
+          build: { reviewers: [{ agent: "x", files: ["a"], nope: 1 }] },
+        },
+      },
+      files: {},
+    });
+    const r = deps(root, { exists: () => true });
+    expect(await config(["check"], r.d)).toBe(1);
+    expect(r.err).toEqual([
+      `${ACME}: plugins.build.reviewers[0].nope: unknown key`,
+    ]);
+  });
+
   it("refuses a preset with a key the factory doesn't know, as config check words it", async () => {
     await refused(
       { rules: { "small-change-lnes": 3 } },
@@ -426,6 +457,130 @@ describe("what a preset can't do", () => {
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([
       "plugins.build.reviewers: nobodys-reviewer: off, but no preset names it",
+    ]);
+  });
+});
+
+describe("a pinned preset's values", () => {
+  /** What config check says with these settings pinned, as no command
+   * pins them, and `body` in the repository's own file. */
+  const checked = async (
+    settings: Record<string, unknown>,
+    body: string[] = [],
+  ) => {
+    root = repo(own([ACME], body));
+    lockPin(root, {
+      name: ACME,
+      commit: "1".repeat(40),
+      poller: false,
+      settings,
+      files: {},
+    });
+    const r = deps(root, { exists: () => true });
+    return { code: await config(["check"], r.d), err: r.err };
+  };
+  const reviewer = { agent: "x", files: "src" };
+
+  it.each<[string, Record<string, unknown>, string[]]>([
+    [
+      "rules.review-rounds: must be a whole number above zero",
+      { rules: { "review-rounds": "zero" } },
+      [],
+    ],
+    [
+      "builds.hosts can't name GitHub: a build has no GitHub access",
+      { builds: { hosts: ["github.com"] } },
+      ["builds:", "  hosts: [example.com]"],
+    ],
+    [
+      'tickets.type "linear" is not supported. "github" is the only ticket system built.',
+      { tickets: { type: "linear" } },
+      [],
+    ],
+    [
+      "builds.poll-minutes needs builds.trigger: github-action",
+      { builds: { trigger: "manual", "poll-minutes": 10 } },
+      [],
+    ],
+    [
+      "plugins.build.reviewers[0].files: must be a list",
+      { plugins: { build: { reviewers: [reviewer] } } },
+      [],
+    ],
+  ])(
+    "are named by the preset when in effect: %s",
+    async (said, settings, body) => {
+      const r = await checked(settings, body);
+      expect(r.err).toEqual([`${ACME}: ${said}`]);
+      expect(r.code).toBe(1);
+    },
+  );
+
+  it("stop nothing when the repository's own file replaces them", async () => {
+    const r = await checked({ rules: { "review-rounds": "zero" } }, [
+      "rules:",
+      "  review-rounds: 3",
+    ]);
+    expect(r.err).toEqual([]);
+    expect(r.code).toBe(0);
+  });
+
+  it("stop nothing when a later preset replaces them", async () => {
+    root = repo(own([ACME, NODE]));
+    const at = { commit: "1".repeat(40), poller: false, files: {} };
+    lockPin(root, {
+      ...at,
+      name: ACME,
+      settings: { rules: { "review-rounds": "zero" } },
+    });
+    lockPin(root, {
+      ...at,
+      name: NODE,
+      settings: { rules: { "review-rounds": 3 } },
+    });
+    const r = deps(root);
+    expect(await config(["check"], r.d)).toBe(0);
+    expect(r.err).toEqual([]);
+  });
+
+  it("are the repository's to complete when a setting they need is missing", async () => {
+    const r = await checked({
+      plugins: {
+        build: {
+          reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+        },
+      },
+    });
+    expect(r.err).toEqual([
+      ".claude/factory.yaml: site: is required to list factory-ui-reviewer",
+    ]);
+    expect(r.code).toBe(1);
+  });
+
+  it("are not blamed for a fault that is another's, though one that is replaced is not valid", async () => {
+    const r = await checked(
+      {
+        rules: { "review-rounds": "zero" },
+        plugins: {
+          build: {
+            reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+          },
+        },
+      },
+      ["rules:", "  review-rounds: 3"],
+    );
+    expect(r.err).toEqual([
+      ".claude/factory.yaml: site: is required to list factory-ui-reviewer",
+    ]);
+  });
+
+  it("are not blamed for the repository's own value that is not valid", async () => {
+    const r = await checked({ rules: { "review-rounds": "zero" } }, [
+      "rules:",
+      "  review-rounds: none",
+    ]);
+    expect(r.err).toEqual([
+      ".claude/factory.yaml: rules.review-rounds: must be a whole number above zero",
     ]);
   });
 });

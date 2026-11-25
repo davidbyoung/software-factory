@@ -42,6 +42,9 @@ import * as say from "./lib/output.mts";
 
 export class SettingsError extends Error {}
 
+/** A key the settings do not have. */
+export class UnknownKeyError extends SettingsError {}
+
 /** A name under `presets` that is no preset's, or is not pinned yet:
  * `factory sync` and the preset commands print it with their mark. */
 export class PresetsError extends SettingsError {}
@@ -368,10 +371,15 @@ function wholeNumber(v: unknown, key: string, fallback: number): number {
     : fail(key, "must be a whole number above zero");
 }
 
-function parseSite(v: unknown, exists: (p: string) => boolean): Site | null {
+function parseSite(
+  v: unknown,
+  exists: (p: string) => boolean,
+  preset: boolean,
+): Site | null {
   if (v === undefined) return null;
   const o = object(v, "site");
   for (const k of ["start", "url"] as const) {
+    if (preset && o[k] === undefined) continue;
     if (typeof o[k] !== "string" || !o[k])
       fail(`site.${k}`, "is required when site is written");
   }
@@ -440,9 +448,19 @@ export const SETTINGS_FILE = ".claude/factory.yaml";
 
 type Obj = Record<string, unknown>;
 
+/** A fault as every reader of the settings words it, after the file's name. */
+const worded = (key: string, message: string) =>
+  `${SETTINGS_FILE}: ${key ? `${key}: ` : ""}${message}`;
+
 const fail = (key: string, message: string): never => {
-  throw new SettingsError(`${SETTINGS_FILE}: ${key}: ${message}`);
+  throw new SettingsError(worded(key, message));
 };
+
+/** What a fault says after the file's name. */
+export const wordsOf = (e: SettingsError) =>
+  e.message.startsWith(`${SETTINGS_FILE}: `)
+    ? e.message.slice(SETTINGS_FILE.length + 2)
+    : e.message;
 
 const isObj = (v: unknown): v is Obj =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -459,7 +477,8 @@ function object(
   if (!isObj(v)) return fail(key, "must be a block of settings");
   const allowed = [...SETTINGS_KEYS[path]!, ...extra];
   for (const k of Object.keys(v)) {
-    if (!allowed.includes(k)) fail(key ? `${key}.${k}` : k, "unknown key");
+    if (!allowed.includes(k))
+      throw new UnknownKeyError(worded(key ? `${key}.${k}` : k, "unknown key"));
   }
   return v;
 }
@@ -502,7 +521,7 @@ function buildHosts(v: unknown): string[] {
     if (!HOST.test(host)) fail(`${key}[${i}]`, "must be a host name");
     if (namesGitHub(host))
       throw new SettingsError(
-        `${key} can't name GitHub: a build has no GitHub access`,
+        `${SETTINGS_FILE}: ${key} can't name GitHub: a build has no GitHub access`,
       );
     return host;
   });
@@ -635,7 +654,7 @@ function ticketFieldsOf(o: Obj): FieldMapping {
  * approved ticket goes to ready, so it takes one name. */
 function columnNames(
   v: unknown,
-  board: number | null,
+  board: number | "to come" | null,
   partial: boolean,
   /** The ticket system, when it has statuses of its own. */
   statusesOf: string | null = null,
@@ -836,13 +855,16 @@ function command(v: unknown, key: string): string | null {
   return typeof v === "string" && v ? v : fail(key, "must be text");
 }
 
-function commandsOf(v: unknown): Settings["commands"] {
+function commandsOf(v: unknown, preset: boolean): Settings["commands"] {
   const o = object(v ?? {}, "commands");
   let coverage: Settings["commands"]["coverage"] = null;
   if (o.coverage !== undefined) {
     const c = object(o.coverage ?? {}, "commands.coverage");
     for (const k of ["run", "report"] as const)
-      if (typeof c[k] !== "string" || !c[k])
+      if (
+        !(preset && c[k] === undefined) &&
+        (typeof c[k] !== "string" || !c[k])
+      )
         fail(
           `commands.coverage.${k}`,
           "is required when commands.coverage is written",
@@ -862,12 +884,17 @@ function commandsOf(v: unknown): Settings["commands"] {
 
 /** The settings with every default filled in. Throws a SettingsError naming
  * the key on anything unsound. `exists` says whether a path from the root
- * exists, for the plugins' files. */
+ * exists, for the plugins' files. `preset` reads one preset's settings by
+ * themselves: a setting left out, whole or in part, is another layer's to
+ * supply, so nothing is refused for needing it. */
 export function parseSettings(
   raw: unknown,
   exists: (path: string) => boolean,
   built: Built = BUILT,
-  { partial = false }: { partial?: boolean } = {},
+  {
+    preset = false,
+    partial = preset,
+  }: { partial?: boolean; preset?: boolean } = {},
 ): Settings {
   const written = raw ?? {};
   // The version comes before any other key, so a file in the older shape is
@@ -885,8 +912,9 @@ export function parseSettings(
   const top = object(written, "");
   strings(top.presets, "presets");
   if (
-    typeof top.repository !== "string" ||
-    !/^[\w.-]+\/[\w.-]+$/.test(top.repository)
+    !(preset && top.repository === undefined) &&
+    (typeof top.repository !== "string" ||
+      !/^[\w.-]+\/[\w.-]+$/.test(top.repository))
   )
     fail("repository", "must be owner/name");
 
@@ -950,7 +978,11 @@ export function parseSettings(
   const builds = object(top.builds, "builds");
   const trigger = oneOf(builds.trigger, "builds.trigger", TRIGGERS, "manual");
   const minutes = builds["poll-minutes"];
-  if (minutes !== undefined && trigger !== "github-action")
+  if (
+    minutes !== undefined &&
+    trigger !== "github-action" &&
+    !(preset && builds.trigger === undefined)
+  )
     throw new SettingsError(
       `${SETTINGS_FILE}: builds.poll-minutes needs builds.trigger: github-action`,
     );
@@ -977,18 +1009,23 @@ export function parseSettings(
       `${SETTINGS_FILE}: ${unsupportedRunner(String(runner), built.runner)}`,
     );
   const hasBoard = typeof board === "number";
+  const boardToCome = preset && board === undefined;
   const statuses = built.statuses.includes(ticketType);
-  if (tickets.columns !== undefined && !hasBoard && !statuses)
+  if (tickets.columns !== undefined && !hasBoard && !boardToCome && !statuses)
     fail("tickets.columns", "needs tickets.board");
   const rawFields = isObj(tickets.fields) ? tickets.fields : {};
   const boardFields = Object.fromEntries(
     Object.entries(rawFields).filter(([k]) => k in FIELD_DEFAULTS),
   );
-  if (Object.keys(boardFields).length && !hasBoard)
+  if (Object.keys(boardFields).length && !hasBoard && !boardToCome)
     fail("tickets.fields", "needs tickets.board");
   const { columns, missing } = columnNames(
     tickets.columns,
-    hasBoard ? (board as number) : null,
+    hasBoard
+      ? (board as number)
+      : boardToCome && tickets.columns !== undefined
+        ? "to come"
+        : null,
     partial,
     statuses ? ticketType : null,
   );
@@ -1032,30 +1069,33 @@ export function parseSettings(
     ["none", ...Object.keys(built.specs)],
     "none",
   );
-  if (specsBlock.check !== undefined && specs === "none")
+  const specCheckText = command(specsBlock.check, "specs.check");
+  if (
+    specCheckText !== null &&
+    specs === "none" &&
+    !(preset && specsBlock.type === undefined)
+  )
     throw new SettingsError(
       `${SETTINGS_FILE}: specs.check needs specs.type: openspec`,
     );
   const specCheck =
-    specs === "none"
-      ? null
-      : (command(specsBlock.check, "specs.check") ?? built.specs[specs]!);
+    specs === "none" ? null : (specCheckText ?? built.specs[specs]!);
   const autoMerge = object(top["auto-merge"], "auto-merge");
   const prReview =
     top["pr-review"] === undefined
       ? null
       : object(top["pr-review"] ?? {}, "pr-review");
 
-  const site = parseSite(top.site, exists);
-  const commands = commandsOf(top.commands);
+  const site = parseSite(top.site, exists, preset);
+  const commands = commandsOf(top.commands, preset);
   const { plugins, testReviewersWritten } = pluginsWritten(top.plugins);
   // What an agent of the factory's needs comes before its file: the sync
   // writes the file only once the setting is there.
   const lists = (agent: string) =>
     plugins.some((p) => p.kind === "agent" && p.name === agent);
-  if (!site && lists(SITE_AGENT))
+  if (!site && !preset && lists(SITE_AGENT))
     fail("site", `is required to list ${SITE_AGENT}`);
-  if (commands.endToEnd === null && lists(E2E_AGENT))
+  if (commands.endToEnd === null && !preset && lists(E2E_AGENT))
     fail("commands.end-to-end", `is required to list ${E2E_AGENT}`);
   pluginPaths(plugins).forEach((key, i) => {
     const p = plugins[i]!;
@@ -1240,6 +1280,18 @@ function needsQuotes(e: unknown, text: string): string | null {
   return `line ${mark.line + 1}: ${key}: ${value} needs quotes around the name, such as ${key}: "${value}"`;
 }
 
+/** A settings file's or a preset's text as parsed YAML. Throws a
+ * SettingsError that starts with `name` on text that is not YAML. */
+export function readYaml(text: string, name: string, load: YamlLoad): unknown {
+  try {
+    return load(text);
+  } catch (e) {
+    throw new SettingsError(
+      `${name}: ${needsQuotes(e, text) ?? (e as Error).message}`,
+    );
+  }
+}
+
 /** The settings combined from the factory's defaults, each preset in
  * `presets` as the lock pins it, and `.claude/factory.yaml`, as
  * `factory sync` combines them into the lock. No preset's repository is
@@ -1259,15 +1311,12 @@ export async function resolveFiles(
 ): Promise<Resolved> {
   const load = await yamlOf(d);
   let ownText: string;
-  let own: unknown;
   try {
     ownText = d.readFile();
-    own = load(ownText);
   } catch (e) {
-    throw new SettingsError(
-      `${SETTINGS_FILE}: ${needsQuotes(e, ownText!) ?? (e as Error).message}`,
-    );
+    throw new SettingsError(`${SETTINGS_FILE}: ${(e as Error).message}`);
   }
+  const own = readYaml(ownText, SETTINGS_FILE, load);
   const P = await import("./preset.mts");
   const top = isObj(own) ? own : {};
   const names = isObj(own) ? strings(top.presets, "presets") : [];
@@ -1296,9 +1345,8 @@ export async function resolveFiles(
       throw new PresetsError(
         `presets: ${name} is not pinned yet. Run: factory preset add ${name}`,
       );
-    const fault = P.presetFaults({ version: 2, ...pin.settings })[0];
-    if (fault)
-      throw new SettingsError(`${name}: ${fault.key}: ${fault.message}`);
+    const fault = P.pinnedFaults(pin).find((f) => f.kind !== "value");
+    if (fault) throw new SettingsError(`${name}: ${fault.text}`);
     const odd = Object.keys(pin.files).find((f) => !P.isShippedPath(f));
     if (odd)
       throw new SettingsError(
@@ -1328,7 +1376,16 @@ export async function resolveFiles(
       P.pollerOf(presets),
     );
   } catch (e) {
-    throw e instanceof SettingsError ? fromPreset(e, resolution) : e;
+    throw e instanceof SettingsError
+      ? fromPreset(e, resolution, (words) => {
+          const same = (a: string) => a.replace(/\[\d+\]/g, "[]");
+          for (const pin of presets)
+            for (const fault of P.pinnedFaults(pin))
+              if (same(fault.text) === same(words))
+                return `${pin.name}: ${fault.text}`;
+          return null;
+        })
+      : e;
   }
   return {
     settings,
@@ -1351,16 +1408,16 @@ function withPoller(s: Settings, pollerIn: string | undefined): Settings {
 }
 
 /** A fault the settings' check found in a value a preset gave, named by
- * that preset rather than by `.claude/factory.yaml`. */
+ * that preset rather than by `.claude/factory.yaml`. Where the value's
+ * source does not say whose it is, as in a list, `alone` gives the fault
+ * as the preset that has it by itself would be told it. */
 function fromPreset(
   e: SettingsError,
   r: import("./preset.mts").Resolution,
+  alone: (words: string) => string | null,
 ): SettingsError {
-  const m = new RegExp(
-    `^${SETTINGS_FILE.replace(/\./g, "\\.")}: ([^:]+): `,
-  ).exec(e.message);
-  if (!m) return e;
-  const key = m[1]!.replace(/\[\d+\]/g, "");
+  const words = wordsOf(e);
+  const key = (/^([^:]+): /.exec(words)?.[1] ?? "").replace(/\[\d+\]/g, "");
   for (
     let at = key;
     at;
@@ -1368,12 +1425,12 @@ function fromPreset(
   ) {
     const from = r.sources.get(at)?.from;
     if (from === undefined) continue;
-    if (!from || from === SETTINGS_FILE) return e;
-    return new SettingsError(
-      `${from}: ${e.message.slice(SETTINGS_FILE.length + 2)}`,
-    );
+    if (from === SETTINGS_FILE) return e;
+    if (!from) break;
+    return new SettingsError(`${from}: ${words}`);
   }
-  return e;
+  const said = alone(words);
+  return said === null ? e : new SettingsError(said);
 }
 
 /** Why the lock `d` reads is stale, or null when it is current or `d`

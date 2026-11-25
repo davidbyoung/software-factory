@@ -259,6 +259,11 @@ a pull request, the way a new version of the factory does
    itself, whatever your [`auto-merge`](configuration.md#auto-merge)
    settings allow.
 
+A commit with a [problem in its preset](#checking-and-releasing) opens no
+pull request: the update job fails with the line that says what is wrong,
+and `factory update` prints it and changes nothing. Whoever maintains the
+preset fixes it, or you stop following it with `factory preset remove`.
+
 The diff of `.claude/factory.lock` in that pull request is the whole
 change to this repository, setting by setting. Until you merge it, your
 repository keeps the preset as it was, and keeps working. To stay on the
@@ -489,8 +494,8 @@ bring the original's later changes into it yourself.
 A preset has no version of its own, and says nowhere which versions of
 the factory it works with. A factory refuses a settings file with a key
 it does not know, and names the key, so a preset written for a newer
-factory stops `factory preset add`, and fails the check on an update's
-pull request, with that key's name.
+factory stops `factory preset add` and `factory update`, with that key's
+name.
 
 ### The ticket system is set through a company preset
 
@@ -536,11 +541,26 @@ node/factory-preset.yaml   no agents or skills
 ```
 
 **It worked when** it lists every preset and nothing else. A problem gets
-a line saying what to change, and the command fails:
+a line saying what to change, and the command fails. One is a setting a
+preset can't set:
 
 ```text
 node/factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it
 ```
+
+Another is a value no repository could use, such as a pattern written
+without its quotes, as `branch-name: {ticket}`. The check prints the first
+of these in each file, so run it again after you fix one:
+
+```text
+factory-preset.yaml: code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"
+```
+
+A setting the preset leaves out is not a problem, even when a setting it
+does write needs it. A preset can list the reviewer
+`factory-ui-reviewer`, which needs to know how to start your website, and
+leave [`site`](configuration.md#site) to each repository that follows it
+or to another preset.
 
 In an organization's `factory-config`, the command also compares the
 schedule of `.github/workflows/factory-poller.yml` with
