@@ -111,6 +111,8 @@ function world(
       }
       if (command === "stop") stops.push(why);
       if (command === "view") await on.tickets.read(key);
+      if (command === "repositories")
+        await (await on.reach("acme/web")).visible();
       return { code: 0, lines: [] };
     },
     async pr(argv, on) {
@@ -542,6 +544,14 @@ describe("a build of a ticket across repositories", () => {
     expect(run!.others).toEqual([
       { repository: "acme/web", pull: 41, folder: "web" },
     ]);
+  });
+
+  it("is handed what the other's code host said, under its name", async () => {
+    const w = world({ tickets: [TICKET], places: { "acme/web": {} } });
+    await prepare("build", "12", w.d);
+    expect(
+      handedCalls().find((c) => c.call === "acme/web:visible")?.value,
+    ).toEqual({ isPrivate: false });
   });
 
   it("goes on without one too large to hand over, and says so", async () => {

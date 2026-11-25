@@ -17,7 +17,11 @@ import {
   waitFor,
   type Reply,
 } from "../src/code-host/github-app.mts";
-import { acrossTransport, reachesOthers } from "../src/code-host/across.mts";
+import {
+  acrossGitEnv,
+  acrossTransport,
+  reachesOthers,
+} from "../src/code-host/across.mts";
 import type { NewApp } from "../src/code-host/types.mts";
 
 const STATE = "state-1";
@@ -822,5 +826,36 @@ describe("a token for another of a ticket's repositories", () => {
     expect(reachesOthers(env)).toBe(true);
     expect(reachesOthers(APP)).toBe(true);
     expect(reachesOthers({ FACTORY_APP_CLIENT_ID: "x" })).toBe(false);
+  });
+});
+
+describe("git's sign-in to another repository", () => {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const pem = privateKey.export({ type: "pkcs1", format: "pem" }) as string;
+
+  it("is the token in a header, and no helper that could answer instead", async () => {
+    const g = github([
+      [/installation$/, { id: 7 }],
+      [/access_tokens$/, { token: "ghs_git" }],
+    ]);
+    const env = await acrossGitEnv(
+      "acme/git",
+      { FACTORY_APP_CLIENT_ID: "I", FACTORY_APP_PRIVATE_KEY: pem },
+      { fetch: g.fetch, now: () => 0 },
+    );
+    expect(env).toEqual({
+      GIT_CONFIG_COUNT: "2",
+      GIT_CONFIG_KEY_0: "credential.helper",
+      GIT_CONFIG_VALUE_0: "",
+      GIT_CONFIG_KEY_1: "http.https://github.com/.extraheader",
+      GIT_CONFIG_VALUE_1: `AUTHORIZATION: basic ${Buffer.from("x-access-token:ghs_git").toString("base64")}`,
+    });
+    expect(
+      Object.values(JSON.parse(g.calls.at(-1)!.body!).permissions),
+    ).not.toContain("write");
+  });
+
+  it("is the machine's or the job's own where no token is made", async () => {
+    expect(await acrossGitEnv("acme/git", {})).toEqual({});
   });
 });

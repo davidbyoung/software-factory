@@ -14,7 +14,14 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Handoff, RunFile } from "../src/handoff/index.mts";
 import { claimPath, readClock, writeClock } from "../src/lib/clock.mts";
-import { clonesIn, main, worth, type Deps } from "../src/workspace.mts";
+import {
+  clonesIn,
+  main,
+  ticketOfWord,
+  workFolder,
+  worth,
+  type Deps,
+} from "../src/workspace.mts";
 import { memoryTickets, type Seed } from "./memory-tickets";
 import { network, SECTION, type Place } from "./network";
 import { into } from "./printed";
@@ -291,6 +298,24 @@ describe("factory workspace N --remove", () => {
   });
 });
 
+describe("factory workspace --remove with nothing cloned", () => {
+  it("says so", async () => {
+    const w = world();
+    expect(await w.run("12", "--remove")).toBe(0);
+    expect(w.lines).toEqual(["#12 has no clone here."]);
+  });
+});
+
+describe("the ticket a folder of clones is for", () => {
+  it.each([
+    ["api-12", "acme/api#12"],
+    ["my-api-12", "acme/my-api#12"],
+    ["PROJ-12", "PROJ-12"],
+  ])("%s is %s", (word, key) => {
+    expect(ticketOfWord(word, "acme")).toBe(key);
+  });
+});
+
 describe("the clones left", () => {
   it("are listed with the ticket each is for", async () => {
     remote("acme/web");
@@ -326,6 +351,22 @@ describe("factory workspace in the cloud", () => {
       "  - acme/big   no pull request yet   too large to hand over",
     ]);
     expect(existsSync(join(dir, "work"))).toBe(false);
+  });
+
+  it("has nothing to say of a ticket that names no other", async () => {
+    const w = world({
+      handoff: { dir: "/run", run: () => ({}) } as unknown as Handoff,
+    });
+    expect(await w.run("12")).toBe(0);
+    expect(w.lines).toEqual(["#12 has one repository: nothing to clone."]);
+  });
+});
+
+describe("where the clones go", () => {
+  it("is under the home folder, as .claude/settings.json names it", () => {
+    expect(workFolder("/home/dev")).toBe(
+      "/home/dev/.local/share/software-factory/work",
+    );
   });
 });
 

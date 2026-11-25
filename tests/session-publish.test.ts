@@ -11,6 +11,7 @@ import {
   ANSWERS,
   CLOUD_MARK,
   nextAnswer,
+  nextRepository,
   OWNER_MARK,
   publish,
   ticketMark,
@@ -19,6 +20,7 @@ import {
 import { memoryCodeHost, REPOSITORY, type PullSeed } from "./memory-code-host";
 import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
+import { confirming, network, type Place } from "./network";
 import { workState } from "../src/lib/work-status.mts";
 import { recordOf } from "../src/tickets/record-comments.mts";
 import { HttpError } from "../src/tickets/transport.mts";
@@ -1088,5 +1090,48 @@ describe("a build of a ticket across repositories", () => {
     ).toContain(
       "This would close #12 when it merges, before its other repositories have",
     );
+  });
+});
+
+describe("the next repository to build", () => {
+  const LIST = [
+    { name: REPOSITORY, after: [] },
+    { name: "acme/web", after: [REPOSITORY] },
+  ];
+  const next = (
+    places: Record<string, Place>,
+    o: { by?: string; body?: string } = {},
+  ) => {
+    const { tickets } = memoryTickets([
+      {
+        key: "12",
+        body:
+          o.body ??
+          `## Repositories\n\n- ${REPOSITORY}\n- acme/web, after ${REPOSITORY}\n`,
+        comments: [confirming(LIST, o.by)],
+      },
+    ]);
+    return nextRepository("12", {
+      tickets,
+      repository: REPOSITORY,
+      reach: network({ [REPOSITORY]: {}, ...places }).reach,
+    });
+  };
+
+  it("is another one with no pull request, though a list lacks its own new one", async () => {
+    expect(await next({ "acme/web": {} })).toBe("acme/web");
+  });
+
+  it("is none once every other has one", async () => {
+    const pulls = [{ number: 41, body: `Part of ${REPOSITORY}#12` }];
+    expect(await next({ "acme/web": { pulls } })).toBeNull();
+  });
+
+  it("is none by a list nobody who may confirmed", async () => {
+    expect(await next({ "acme/web": {} }, { by: "mallory" })).toBeNull();
+  });
+
+  it("is none for a ticket that names only its own", async () => {
+    expect(await next({}, { body: "The ask." })).toBeNull();
   });
 });

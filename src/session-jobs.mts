@@ -28,15 +28,8 @@ import {
   sandboxSettings,
   sessionCommand,
 } from "./agent/claude-code-session.mts";
-import {
-  confirmedList,
-  homeOf,
-  progressOf,
-  repositoriesOf,
-} from "./across.mts";
 import { acrossGitEnv } from "./code-host/across.mts";
 import { openCodeHost, reachCodeHost } from "./code-host/index.mts";
-import { nextToBuild, sameRepository } from "./lib/repositories.mts";
 import { startMarker } from "./poller.mts";
 import { linkLines } from "./ticket-repositories.mts";
 import { columnsOf, loadSettings, reachOf, repoRoot } from "./config.mts";
@@ -52,6 +45,7 @@ import { openRunner, reachRunner } from "./runner/index.mts";
 import { prepare } from "./session-prepare.mts";
 import {
   nextAnswer,
+  nextRepository,
   postCost,
   publish,
   type PublishDeps,
@@ -412,20 +406,8 @@ async function publishDeps(env: Env): Promise<PublishDeps> {
       if (run.ticket === null) return null;
       return linkLines(await w.tickets.read(run.ticket), w);
     },
-    async next() {
-      if (run.ticket === null) return null;
-      const ticket = await w.tickets.read(run.ticket);
-      const home = homeOf(w.tickets, run.ticket, w.repository);
-      const list = repositoriesOf(ticket, w.tickets, home);
-      if (!list || !(await confirmedList(ticket, list, w.reach)).counts)
-        return null;
-      const all = await progressOf(ticket, list, w.tickets, w.reach);
-      // Its own was opened a moment ago, which a list can still lack.
-      return (
-        nextToBuild(all.filter((r) => !sameRepository(r.name, w.repository)))
-          ?.name ?? null
-      );
-    },
+    next: async () =>
+      run.ticket === null ? null : nextRepository(run.ticket, w),
     startBuild: (other) =>
       w.startBuild(other, w.tickets.keyIn(run.ticket!, other)),
     marker: startMarker,

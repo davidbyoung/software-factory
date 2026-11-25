@@ -162,6 +162,22 @@ export async function acrossReasons(
   return reasons;
 }
 
+/** Who merges a pull request: by its files, the ticket it is part of, and
+ * each command's answer. */
+export async function judge(d: {
+  files: ChangedFile[];
+  body: string;
+  policy: Policy;
+  across: Parameters<typeof acrossReasons>[1];
+  /** What the commands said, for a pull request with files. */
+  held: () => string[];
+}): Promise<Risk> {
+  const paths = classify(d.files, d.policy);
+  const spans = await acrossReasons(d.body, d.across);
+  // A pull request with no files waits for the owner whatever a command says.
+  return decide(paths, [...spans, ...(d.files.length ? d.held() : [])]);
+}
+
 /** The path decision, then each command's, as one. */
 export function decide(paths: Risk, commandHolds: string[]): Risk {
   const reasons = [...paths.reasons, ...commandHolds];
@@ -214,10 +230,17 @@ async function main(argv: string[]) {
   const pull = await pulls.get(Number(pr));
   const mergeBase = await pulls.mergeBase(pull.base.sha, pull.head.sha);
   const files = inGithubNames(await pulls.files(Number(pr)));
-  const paths = classify(files, autoMerge);
-  // A pull request with no files waits for the owner whatever a command says.
-  const holds = files.length
-    ? commandReasons(
+  const { tickets } = await openTickets(settings, {
+    repository: repo,
+    board: settings.tickets.board,
+  });
+  const risk = await judge({
+    files,
+    body: pull.body,
+    policy: autoMerge,
+    across: { tickets, repository: repo },
+    held: () =>
+      commandReasons(
         autoMerge.commands.map((command) =>
           runCommand(command, {
             repository: repo,
@@ -227,21 +250,13 @@ async function main(argv: string[]) {
             files,
           }),
         ),
-      )
-    : [];
-  const { tickets } = await openTickets(settings, {
-    repository: repo,
-    board: settings.tickets.board,
+      ),
   });
-  const spans = await acrossReasons(pull.body, { tickets, repository: repo });
   // The pull request as it is now, not as the event described it: an event
   // sent just after a push can carry the previous commit and draft state.
   say.plain(
     JSON.stringify({
-      ...workflowOutput(
-        decide(paths, [...spans, ...holds]),
-        settings.codeHost.labels,
-      ),
+      ...workflowOutput(risk, settings.codeHost.labels),
       sha: pull.head.sha,
       draft: pull.isDraft,
     }),

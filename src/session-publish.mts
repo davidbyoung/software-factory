@@ -10,7 +10,15 @@
 //   FACTORY_PUBLISH/out/request.json  the commands it asked for
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import {
+  confirmedList,
+  homeOf,
+  progressOf,
+  repositoriesOf,
+  type Reach,
+} from "./across.mts";
 import type { CodeHost } from "./code-host/index.mts";
+import { nextToBuild, sameRepository } from "./lib/repositories.mts";
 import { checkBundle, type BundleAnswer } from "./handoff/bundle.mts";
 import type { RunFile } from "./handoff/index.mts";
 import { commitsFault, textFault, type Commit } from "./handoff/links.mts";
@@ -252,6 +260,23 @@ async function withLinks(body: string, d: PublishDeps): Promise<string> {
   if (!lines || ticket === null) return body;
   if (d.tickets.linksIn(body).partOf.includes(ticket)) return body;
   return `${lines.join("\n")}\n\n${body}`;
+}
+
+/** The next of the ticket's repositories to build, once this one's pull
+ * request is open, or null: none where the list is not confirmed. */
+export async function nextRepository(
+  key: string,
+  d: { tickets: Tickets; repository: string; reach: Reach },
+): Promise<string | null> {
+  const ticket = await d.tickets.read(key);
+  const home = homeOf(d.tickets, key, d.repository);
+  const list = repositoriesOf(ticket, d.tickets, home);
+  if (!list || !(await confirmedList(ticket, list, d.reach)).counts)
+    return null;
+  const all = await progressOf(ticket, list, d.tickets, d.reach);
+  // Its own was opened a moment ago, which a list can still lack.
+  const others = all.filter((r) => !sameRepository(r.name, d.repository));
+  return nextToBuild(others)?.name ?? null;
 }
 
 /** Starts the build in the ticket's next repository, which ends this run's

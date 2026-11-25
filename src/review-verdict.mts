@@ -208,9 +208,9 @@ async function onlyDependabot(
 export type VerdictEvent =
   /** The event as GitHub sends it. */
   | { eventName: "pull_request_target"; event: any }
-  /** A review of the commit `sha` ended. */
   /** Another repository's pull request changed what this one waits for. */
   | { eventName: "order"; event: { pull: number } }
+  /** A review of the commit `sha` ended. */
   | {
       eventName: "review";
       event: {

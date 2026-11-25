@@ -1056,6 +1056,21 @@ describe("a ticket across repositories", () => {
     expect(w.mem.comments(12)).toHaveLength(2);
   });
 
+  it("leaves the card alone when what a pull request cost cannot be read", async () => {
+    const w = world({
+      ...OPEN,
+      "acme/web": {
+        ...OPEN["acme/web"],
+        fail: { comments: new Error("HTTP 502") },
+      },
+    });
+    await w.collect();
+    await w.apply();
+    expect(w.out).toContain(
+      "#12 repositories could not be read: HTTP 502 (left alone)",
+    );
+  });
+
   it("keeps an old claim at night while every repository has a pull request", async () => {
     const w = world(OPEN, {
       comments: [confirming([API, WEB]), claim("2026-11-01T10:00:00Z")],

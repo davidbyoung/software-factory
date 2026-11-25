@@ -8,6 +8,7 @@ import {
   commandReasons,
   decide,
   inGithubNames,
+  judge,
   runCommand,
   statusLine,
   workflowOutput,
@@ -322,5 +323,45 @@ describe("a pull request that is part of a ticket across repositories", () => {
     expect(
       await held("Part of #12", "## Repositories\n\n- acme web\n"),
     ).toEqual(["part of #12, which could not be read"]);
+  });
+});
+
+describe("judge", () => {
+  const { tickets } = memoryTickets(
+    [{ key: "12", body: `The ask.\n\n${SECTION}` }],
+    { repository: "acme/api" },
+  );
+  const judged = (
+    body: string,
+    files = [{ filename: "docs/a.md" }],
+    held: () => string[] = () => [],
+  ) =>
+    judge({
+      files,
+      body,
+      policy: POLICY,
+      across: { tickets, repository: "acme/api" },
+      held,
+    });
+
+  it("holds a pull request of a ticket across repositories whose every file is allowed", async () => {
+    expect(await judged("Part of #12")).toEqual({
+      risk: "merge-manual",
+      reasons: ["part of #12, which spans repositories"],
+    });
+    expect((await judged("Closes #7")).risk).toBe("merge-automatic");
+  });
+
+  it("holds one a command holds", async () => {
+    expect(
+      (await judged("", undefined, () => ["held by a command"])).reasons,
+    ).toEqual(["held by a command"]);
+  });
+
+  it("asks no command about one with no files", async () => {
+    const found = await judged("", [], () => {
+      throw new Error("asked");
+    });
+    expect(found.reasons).toEqual(["no changed files"]);
   });
 });

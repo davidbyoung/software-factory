@@ -339,6 +339,29 @@ describe("factory ticket repositories N --set", () => {
   });
 });
 
+describe("what factory ticket repositories refuses to read", () => {
+  it.each([
+    ["--set"],
+    ["--set", "acme/api", "--add", "acme/web"],
+    ["--after", "acme/web=acme/api"],
+    ["--set", "acme/api", "--after", "acme/web"],
+    ["--set", "acme/api", "--drop"],
+    ["acme/web", "--set", "acme/api"],
+    ["acme/web"],
+  ])("%s %s %s %s", async (...argv) => {
+    const w = world();
+    expect(await w.run("repositories", "12", ...argv)).toBe(1);
+    expect(errors[0]).toMatch(/^Usage: factory ticket repositories N/);
+    expect(w.comments()).toEqual([]);
+  });
+
+  it("is a name that is not a repository's", async () => {
+    const w = world();
+    expect(await w.run("repositories", "12", "--set", "web")).toBe(1);
+    expect(errors).toEqual(["web is not a repository: write it as owner/name"]);
+  });
+});
+
 describe("factory ticket repositories N --add", () => {
   const MOBILE: Place = {};
 
@@ -413,6 +436,16 @@ describe("factory ticket claim", () => {
       "one's factory is too old",
       { places: { "acme/api": {}, "acme/web": { lock: OLD_LOCK } } },
       "#12 names acme/web, whose factory is too old: run factory update in acme/web",
+    ],
+    [
+      "one cannot be seen",
+      {
+        places: {
+          "acme/api": {},
+          "acme/web": { unseen: true, writers: ["dev"] },
+        },
+      },
+      "#12 names acme/web, which was not found, or you can't see it",
     ],
     [
       "the list was changed by hand",
