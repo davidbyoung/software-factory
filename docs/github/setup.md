@@ -427,7 +427,8 @@ runs the checks again at any time: the settings, the factory's files, the
 version your repository names and whether a newer one is released, each
 [preset](../presets.md)'s pin, who the GitHub CLI is signed in as, that
 each secret your parts read is set, those for
-[private npm packages](#private-npm-packages), the board's columns, and,
+[private npm packages](#private-npm-packages), the board's columns, that
+`factory.yml` is enabled, and,
 with the review on, that CI's own token can only read, and whether "Review
 verdict" is required before a merge to your default branch, here `main`:
 

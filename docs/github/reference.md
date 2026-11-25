@@ -147,7 +147,15 @@ What the less obvious ones do:
   ([What a cloud run is](../builds.md#what-a-cloud-run-is)).
 - **Factory files in step** fails when the factory's files differ from
   what your settings and the version your repository names would write,
-  or when `factory config check` fails. It has no sign-in, so it can't
+  or when `factory config check` fails. On a pull request it also fails
+  while `factory.yml` is disabled, since nothing then posts "Review
+  verdict":
+
+  ```text
+  GitHub switched factory.yml off after 60 days with no activity, so nothing posts "Review verdict" here. Enable it on the Actions tab, or run: gh workflow enable factory.yml. Then push a commit to this pull request.
+  ```
+
+  It has no sign-in of yours, so it can't
   read a private [preset](../presets.md) whose pin a pull request moves,
   and passes it. The review's Prepare checks that pin, and fails before
   any session starts when it is wrong:
@@ -297,7 +305,7 @@ it too.
 | Prepare                                                             | The App's key, or the build token                                                                                                | Read the code, Actions, issues, pull requests, and statuses                                                   |
 | Session                                                             | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, and your own secrets                                                           | Read packages                                                                                                 |
 | Publish                                                             | The App's key, or the build token                                                                                                | Read the code, Actions, and checks; write issues, pull requests, and statuses, which is how it posts a review |
-| Factory files in step, on a pull request                            | None                                                                                                                             | Read the code                                                                                                 |
+| Factory files in step, on a pull request                            | None                                                                                                                             | Read the code and Actions                                                                                     |
 | The review's verdict                                                | The App's key, or the build token, to read with, when the pull request is part of a ticket                                       | Read the code and Actions; write issues, pull requests, and statuses                                          |
 | Telling the other repositories                                      | The App's key, or the build token                                                                                                | Read the code and pull requests, and write issues                                                             |
 | Updates                                                             | The App's key, or the build token and `FACTORY_SIGNING_KEY`                                                                      | Read the code                                                                                                 |
@@ -519,8 +527,10 @@ factory.
 - **GitHub switches off a workflow with a schedule in a public
   repository with no activity for 60 days.** `factory.yml` has
   schedules, so every job it starts stops with it, the review's verdict
-  among them, until you enable it again: on the Actions tab, or with
-  `gh workflow enable factory.yml`.
+  among them. "Factory files in step" still runs on a pull request, and
+  fails, saying how to enable the file. `factory doctor` fails too. GitHub
+  does not run what it missed, so after you enable the file, push a commit
+  to each pull request that has no verdict.
 - GitHub limits how many jobs an account runs at the same time.
 - **A workflow's trigger cannot ask for the default branch's name,** so
   `factory sync` writes the name into the push trigger of `factory.yml`.
