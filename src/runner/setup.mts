@@ -1,30 +1,40 @@
-// GitHub Actions' part of setting up and checking the factory: the
-// workflow the scheduled poller is a job of, which GitHub switches off in
-// a public repository after 60 days with no activity, and a poller hosted
-// elsewhere, which `remove` cannot reach. An organization's poller, in
-// another repository, is `doctor`'s own check.
+// GitHub Actions' part of setting up and checking the factory: whether
+// factory.yml is enabled, since GitHub switches a workflow with a schedule
+// off in a public repository after 60 days with no activity, and a poller
+// hosted elsewhere, which `remove` cannot reach. An organization's poller,
+// in another repository, is `doctor`'s own check.
+import { reasonOf } from "../lib/reason.mts";
 import type { ToolSetup } from "../setup.mts";
-import { FACTORY_WORKFLOW as POLLER } from "./github-actions.mts";
+import { FACTORY_WORKFLOW } from "./github-actions.mts";
+import type { Runner } from "./types.mts";
 
 export const githubActionsSetup: ToolSetup = {
   checks: async (c) => {
-    if (
-      c.settings?.builds.trigger !== "github-action" ||
-      c.settings.builds.pollerIn
-    )
-      return [];
-    const state = await c.opened.runner.workflowState(POLLER);
+    let state: Awaited<ReturnType<Runner["workflowState"]>>;
+    try {
+      state = await c.opened.runner.workflowState(FACTORY_WORKFLOW);
+    } catch (e) {
+      return [
+        {
+          state: "unknown",
+          text: `Could not tell whether ${FACTORY_WORKFLOW} is enabled: ${reasonOf(e)}`,
+        },
+      ];
+    }
     if (state === "active")
-      return [{ state: "pass", text: `${POLLER} is enabled` }];
+      return [{ state: "pass", text: `${FACTORY_WORKFLOW} is enabled` }];
     if (state === "missing")
       return [
-        { state: "off", text: `${POLLER} is not on the default branch yet` },
+        {
+          state: "off",
+          text: `${FACTORY_WORKFLOW} is not on the default branch yet`,
+        },
       ];
     return [
       {
         state: "fail",
-        text: `${POLLER} is disabled`,
-        fix: `Enable it on the Actions tab, or run: gh workflow enable ${POLLER}`,
+        text: `${FACTORY_WORKFLOW} is disabled`,
+        fix: `Enable it on the Actions tab, or run: gh workflow enable ${FACTORY_WORKFLOW}`,
       },
     ];
   },

@@ -8,12 +8,12 @@ The credential a run in GitHub Actions works with: the App's key `factory.yml` p
 
 ### Requirement: What each workflow file passes
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+The factory SHALL behave as this line says: When `factory sync` writes the two workflow files, `factory.yml` passes `app-key` and the other secrets to `run.yml`, and `factory-review.yml` passes none and has only `actions: read` and `contents: read`.
 
 #### Scenario: What each workflow file passes
 
 - **WHEN** `factory sync` writes the two workflow files
-- **THEN** When `factory sync` writes the two workflow files, `factory.yml` passes `app-key` and the other secrets to `run.yml`, and `factory-review.yml` passes none and has only `contents: read`.
+- **THEN** `factory.yml` passes `app-key` and the other secrets to `run.yml`, and `factory-review.yml` passes none and has only `actions: read` and `contents: read`.
 
 ### Requirement: A token of the App's for the run
 
