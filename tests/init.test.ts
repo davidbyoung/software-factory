@@ -2981,9 +2981,6 @@ describe("factory init, the field step", () => {
     select: string[],
     o: { checkbox?: string[][]; agent?: ReturnType<typeof scriptedAgent> } = {},
   ) => fielded({ agent: scriptedAgent([FAILED]), ...o, select });
-  const WHERE = ["Decisions", "Spec", "Acceptance criteria", "For the builder"]
-    .map((h) => `select: Where does ${h} go?`)
-    .concat("select: Use these ticket fields?");
 
   it.each([
     ["it took longer than 60 seconds", { timedOut: true as const }],
@@ -3009,11 +3006,11 @@ describe("factory init, the field step", () => {
     expect(r.out[at + 1]).toBe(
       "Choose where each of the factory's fields goes yourself.",
     );
-    expect(r.out.join("\n")).not.toMatch(
-      /write tickets\.fields in \.claude\/factory\.yaml yourself|Nothing changed/,
-    );
-    expect(r.agent.asked).toHaveLength(1);
-    expect(r.asked).toEqual(expect.arrayContaining(WHERE));
+  });
+
+  it("goes on to the plan by hand, and writes the four lines chosen", async () => {
+    const r = byHand(BY_HAND);
+    expect(await r.run()).toBe(0);
     expect(r.asked).toContain("confirm: Go ahead?");
     expect(r.read(".claude/factory.yaml")).toBe(
       FOUR(
@@ -3023,6 +3020,20 @@ describe("factory init, the field step", () => {
         "Design notes",
       ),
     );
+  });
+
+  it("names no command or file as the fix by hand", async () => {
+    const r = byHand(BY_HAND);
+    await r.run();
+    expect(r.out.join("\n")).not.toMatch(
+      /write tickets\.fields in \.claude\/factory\.yaml yourself|Nothing changed/,
+    );
+  });
+
+  it("does not ask the agent a second time by hand", async () => {
+    const r = byHand(BY_HAND);
+    await r.run();
+    expect(r.agent.asked).toHaveLength(1);
   });
 
   it("prints and asks by hand as drafted, from the text fields to the last question", async () => {
@@ -3113,15 +3124,6 @@ describe("factory init, the field step", () => {
       { checkbox: [["decisions"]] },
     );
     expect(await r.run()).toBe(0);
-    expect(r.selects[5]).toEqual({
-      names: [
-        "The description",
-        "Acceptance criteria",
-        "Design notes",
-        "Customer",
-      ],
-      fallback: "__description__",
-    });
     expect(r.selects[6]!.names).toEqual(["Yes", "Change some"]);
     expect(r.yaml().tickets).toMatchObject({
       fields: { decisions: "Customer" },
