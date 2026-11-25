@@ -35,6 +35,8 @@ type World = {
   me?: string;
   actions?: boolean;
   cloud?: boolean;
+  /** Why no "Merge order" can be worked out again. */
+  refused?: string;
 };
 
 function world(w: World = {}) {
@@ -53,8 +55,10 @@ function world(w: World = {}) {
     open: async () => ({ tickets: memory.tickets }),
     openPulls: async () => [] as PullRequest[],
     reach: async (name) => net.reach(name),
-    startOrder: async (repository, pull) =>
-      void started.push(`${repository}#${pull}`),
+    startOrder: async (repository, pull) => {
+      if (w.refused) throw new Error(w.refused);
+      started.push(`${repository}#${pull}`);
+    },
     runner: () => ({
       thisRun: () =>
         w.actions ? { id: "555", page: "https://runs.example/555" } : null,
@@ -325,6 +329,22 @@ describe("factory ticket repositories N --set", () => {
     expect(w.started).toEqual(["acme/api#88", "acme/web#41"]);
   });
 
+  it("says what to do where one can't be worked out again", async () => {
+    const w = world({
+      ticket: two(),
+      places: {
+        "acme/api": {},
+        "acme/web": { pulls: [WEB_PART] },
+      },
+      refused: "HTTP 403",
+    });
+    const set = ["--set", "acme/api", "acme/web"];
+    expect(await w.run("repositories", "12", ...set)).toBe(0);
+    expect(w.out.at(-1)).toBe(
+      `? couldn't have acme/web#41's "Merge order" worked out again: push to it, or mark it ready, to do it (HTTP 403)`,
+    );
+  });
+
   it("writes nothing when the list is confirmed as it stands", async () => {
     const w = world({ ticket: two() });
     expect(await w.run(...SET)).toBe(0);
@@ -514,6 +534,19 @@ describe("factory ticket link", () => {
     const w = world({ ticket: two() });
     await w.run("link", "12");
     expect(w.out).toEqual(["Part of #12"]);
+  });
+
+  it("names the newest of two that a reopened ticket has there", async () => {
+    const w = world({
+      here: "acme/web",
+      ticket: two(),
+      places: {
+        "acme/api": { pulls: [part(88), part(90)] },
+        "acme/web": {},
+      },
+    });
+    await w.run("link", "acme/api#12");
+    expect(w.out).toEqual(["Part of acme/api#12", "Depends-On: acme/api#90"]);
   });
 
   it("names what it merges after, once that has a pull request", async () => {

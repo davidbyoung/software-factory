@@ -329,13 +329,6 @@ export function waitsFor(
 
 export const allMerged = (all: Progress[]) => all.every(isMerged);
 
-/** The newest merge among them, or null. */
-export const newestMerge = (all: Progress[]): string | null =>
-  all
-    .flatMap((r) => r.pulls.flatMap((p) => p.mergedAt ?? []))
-    .sort()
-    .at(-1) ?? null;
-
 /** What the ticket's state is worked out from. */
 export function standing(all: Progress[]) {
   const open = all.flatMap((r) => {
