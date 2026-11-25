@@ -3,6 +3,7 @@
 // in-memory organization and ticket system with scripted answers. No test
 // reaches GitHub, opens a browser, or listens on a port.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { parse } from "yaml";
 import type { Answer } from "../src/agent/types.mts";
 import { ADD, NONE } from "../src/columns-suggest.mts";
 import type {
@@ -177,6 +178,9 @@ tickets:
     building: In progress
     review: In review
     done: Done
+code-host:
+  type: github
+  branch-name: "{ticket}"
 pr-review:
   commands: []
 builds:
@@ -386,6 +390,8 @@ type Answers = {
   select?: string[];
   confirm?: boolean[];
   secret?: string[];
+  /** Each answer typed to a question, then Enter. */
+  input?: string[];
   /** Each line typed where the command reads an address. */
   typed?: string[];
 };
@@ -444,10 +450,12 @@ function setup(o: Setup = {}) {
   const ran: string[][] = [];
   const selects: { message: string; names: string[]; fallback?: string }[] = [];
   const confirms: { message: string; fallback: boolean }[] = [];
+  const inputs: { message: string; fallback: string }[] = [];
   const queue = {
     select: [...(o.answers?.select ?? [])],
     confirm: [...(o.answers?.confirm ?? [])],
     secret: [...(o.answers?.secret ?? [])],
+    input: [...(o.answers?.input ?? [])],
     typed: [...(o.answers?.typed ?? [])],
   };
   const next = <K extends keyof typeof queue>(kind: K, message: string) => {
@@ -471,8 +479,10 @@ function setup(o: Setup = {}) {
       return next("confirm", message) as boolean;
     },
     secret: async (message) => next("secret", message) as string,
-    input: async (message) => {
-      throw new Error(`no input is asked: ${message}`);
+    input: async (message, fallback) => {
+      inputs.push({ message, fallback });
+      transcript.push(`? input: ${message}`);
+      return queue.input.shift() ?? fallback;
     },
   };
   const tickets = memoryTickets([], {
@@ -574,6 +584,7 @@ function setup(o: Setup = {}) {
     tried: trying.envs,
     selects,
     confirms,
+    inputs,
     queue,
     tickets,
     /** The in-memory organization, once the command has asked for it. */
@@ -593,6 +604,14 @@ function printsNoSecret(out: string[]) {
   const text = out.join("\n");
   for (const v of VALUES) expect(text).not.toContain(v);
 }
+
+/** What is printed before the branch question, and the question. */
+const BRANCH_LINES = [
+  "Every repository that follows the preset names its branches this way, unless its own settings say otherwise.",
+  "{user} is the developer's account in a build on their machine, and the app's name in a build in the cloud.",
+];
+const BRANCH_QUESTION =
+  "How should a build name its branch? Use {ticket}, and {user} for the GitHub account:";
 
 /** A first run's answers: a new board, a subscription, every 30 minutes,
  * go ahead, and the token. */
@@ -824,6 +843,8 @@ describe("factory init --org, a first run", () => {
       "  Preset           none yet",
       "",
       "? select: Which board?",
+      ...BRANCH_LINES,
+      `? input: ${BRANCH_QUESTION}`,
       "? select: What pays for sessions in the cloud?",
       "Each run of the poller bills at least one Actions minute in a private repository.",
       "? select: How often does the poller read the board?",
@@ -873,6 +894,7 @@ describe("factory init --org, a first run", () => {
       "  {name:Coding agent}     Claude Code (on this machine)",
       "  {name:Preset}           {skip:none yet}",
       "",
+      ...BRANCH_LINES,
       "Each run of the poller bills at least one Actions minute in a private repository.",
       "",
       "{heading:This is everything setup will do:}",
@@ -1087,6 +1109,8 @@ describe("factory init --org, with a board the organization already has", () => 
       "  done       Done",
       "",
       "? select: Use these columns?",
+      ...BRANCH_LINES,
+      `? input: ${BRANCH_QUESTION}`,
     ]);
     expect(s.out).toContain(
       "  board     Add In refinement, Ready, Session, Runs in, and Cost to board 7",
@@ -1167,7 +1191,7 @@ describe("factory init --org, with a board the organization already has", () => 
     const s = existing({ columns: SIX, fields: FIELDS }, [], []);
     expect(await s.run()).toBe(0);
     const from = s.transcript.indexOf("? select: Which board?");
-    expect(s.transcript.slice(from, from + 12)).toEqual([
+    expect(s.transcript.slice(from, from + 15)).toEqual([
       "? select: Which board?",
       "",
       "Board 7 has a column for each of the factory's six states:",
@@ -1179,6 +1203,8 @@ describe("factory init --org, with a board the organization already has", () => 
       "  building   In progress",
       "  review     In review",
       "  done       Done",
+      ...BRANCH_LINES,
+      `? input: ${BRANCH_QUESTION}`,
       "? select: What pays for sessions in the cloud?",
     ]);
     expect(s.out).toContain("  board     Use board 7 as it is");
@@ -1226,10 +1252,7 @@ describe("factory init --org, with a board the organization already has", () => 
     expect(await s.run()).toBe(0);
     const from = s.transcript.indexOf("? select: Which board?");
     expect(
-      s.transcript.slice(
-        from,
-        s.transcript.indexOf("? select: What pays for sessions in the cloud?"),
-      ),
+      s.transcript.slice(from, s.transcript.indexOf(BRANCH_LINES[0]!)),
     ).toEqual([
       "? select: Which board?",
       "",
@@ -1337,11 +1360,86 @@ describe("factory init --org, what it creates in factory-config", () => {
     expect(text).toContain("poller.yml@v0.4.0");
   });
 
+  it("offers {ticket} for the branch name, which Enter takes", async () => {
+    const s = setup({ answers: FIRST });
+    await s.run();
+    expect(s.inputs).toEqual([
+      { message: BRANCH_QUESTION, fallback: "{ticket}" },
+    ]);
+  });
+
+  it("says why a branch name cannot be used, asks again, and writes the one that can", async () => {
+    const s = setup({
+      answers: { ...FIRST, input: ["feature/{user}", "{user}/{ticket}"] },
+    });
+    expect(await s.run()).toBe(0);
+    const from = s.transcript.indexOf(`? input: ${BRANCH_QUESTION}`);
+    expect(s.transcript.slice(from, from + 4)).toEqual([
+      `? input: ${BRANCH_QUESTION}`,
+      "needs {ticket}, or every build gets the same branch",
+      `? input: ${BRANCH_QUESTION}`,
+      "? select: What pays for sessions in the cloud?",
+    ]);
+    expect(
+      s.seed.repositories["factory-config"]!.files["factory-preset.yaml"],
+    ).toContain('branch-name: "{user}/{ticket}"\n');
+  });
+
+  it("writes a branch name with a quote in it so that YAML reads it back whole", async () => {
+    const s = setup({ answers: { ...FIRST, input: ['a"b/{ticket}'] } });
+    await s.run();
+    const preset = parse(
+      s.seed.repositories["factory-config"]!.files["factory-preset.yaml"]!,
+    );
+    expect(preset["code-host"]).toEqual({
+      type: "github",
+      "branch-name": 'a"b/{ticket}',
+    });
+  });
+
+  it.each([
+    ["with a file beside it to write", [false, true], {}],
+    ["with nothing to do", [false], { [POLLER]: CONFIG.files[POLLER]! }],
+  ])(
+    "asks nothing about branches where the preset is there, and leaves it as it is, %s",
+    async (_, confirm, poller) => {
+      const mine = PRESET.replace(/code-host:\n(  .*\n)+/, "");
+      const s = setup({
+        answers: { confirm },
+        org: {
+          ...DONE,
+          repositories: {
+            "factory-config": {
+              isPrivate: true,
+              files: {
+                "README.md": "mine",
+                "factory-preset.yaml": mine,
+                ...poller,
+              },
+            },
+          },
+        },
+      });
+      expect(await s.run()).toBe(0);
+      expect(s.inputs).toEqual([]);
+      for (const line of BRANCH_LINES) expect(s.out).not.toContain(line);
+      expect(
+        s.seed.repositories["factory-config"]!.files["factory-preset.yaml"],
+      ).toBe(mine);
+    },
+  );
+
   it("writes a README that says what the two files are", async () => {
     const s = setup({ answers: FIRST });
     await s.run();
     const readme = s.seed.repositories["factory-config"]!.files["README.md"]!;
-    expect(readme).toContain("factory-preset.yaml");
+    expect(readme).toContain(
+      [
+        "- `factory-preset.yaml` is acme's preset: the ticket system, the board, its",
+        "  columns, and how builds name their branches. A repository follows it once",
+        "  a developer runs `factory init` there.",
+      ].join("\n"),
+    );
     expect(readme).toContain(POLLER);
     expect(readme).toContain("acme");
   });
