@@ -915,6 +915,7 @@ export const pullIn = (
     : null;
 
 /** `factory sync`. */
+/** `announce` is false when `init` runs the sync inside its own output. */
 export async function run(argv: string[], announce = true): Promise<number> {
   return main(argv, {
     ...syncDeps(repoRoot()),
