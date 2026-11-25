@@ -3,6 +3,7 @@ import { PR_LABELS } from "../src/labels.mts";
 import { load } from "js-yaml";
 import { readFileSync } from "node:fs";
 import {
+  acrossReasons,
   classify,
   commandReasons,
   decide,
@@ -11,6 +12,8 @@ import {
   statusLine,
   workflowOutput,
 } from "../src/merge-policy.mts";
+import { memoryTickets } from "./memory-tickets";
+import { SECTION } from "./network";
 
 describe("inGithubNames", () => {
   it("hands a command each changed file as filename, previous_filename, and status", () => {
@@ -277,5 +280,47 @@ describe("run.yml's merge-policy job", () => {
 
     expect((output as Record<string, unknown>)[field!]).toBe("needs owner");
     expect((output as Record<string, unknown>)[other!]).toBe("merge-automatic");
+  });
+});
+
+describe("a pull request that is part of a ticket across repositories", () => {
+  const held = (body: string, ticketBody = `The ask.\n\n${SECTION}`) => {
+    const { tickets } = memoryTickets(
+      [
+        { key: "12", body: ticketBody },
+        { key: "4", labels: ["follow-up"], body: "- [ ] a line" },
+      ],
+      { repository: "acme/api" },
+    );
+    return acrossReasons(body, { tickets, repository: "acme/api" });
+  };
+
+  it("waits for a person, in the ticket's repository and in any other", async () => {
+    expect(await held("Part of #12")).toEqual([
+      "part of #12, which spans repositories",
+    ]);
+    expect(await held("Part of acme/web#7")).toEqual([
+      "part of acme/web#7, which spans repositories",
+    ]);
+  });
+
+  it("is told by the ticket a cloud build recorded, whatever its link says", async () => {
+    expect(
+      await held(
+        "Words.\n\n<!-- factory: cloud-build -->\n<!-- factory: ticket acme/web#7 -->",
+      ),
+    ).toEqual(["part of acme/web#7, which spans repositories"]);
+  });
+
+  it("merges by its files when its ticket names one repository, or is the follow-ups", async () => {
+    expect(await held("Part of #12", "The ask.")).toEqual([]);
+    expect(await held("Part of #4")).toEqual([]);
+    expect(await held("Part of #99")).toEqual([]);
+  });
+
+  it("waits when its ticket cannot be read", async () => {
+    expect(
+      await held("Part of #12", "## Repositories\n\n- acme web\n"),
+    ).toEqual(["part of #12, which could not be read"]);
   });
 });

@@ -338,10 +338,16 @@ export const COMMANDS: Command[] = [
     run: async (argv) => (await import("./merge-policy.mts")).run(argv),
   },
   {
-    words: ["review", "verdict"],
-    args: "",
+    words: ["across"],
+    args: "--event FILE",
     reads: "machine",
-    run: async () => (await import("./review-verdict.mts")).run(),
+    run: async (argv) => (await import("./across-run.mts")).run(argv),
+  },
+  {
+    words: ["review", "verdict"],
+    args: "[--pr N]",
+    reads: "machine",
+    run: async (argv) => (await import("./review-verdict.mts")).run(argv),
   },
   {
     words: ["session", "ready"],

@@ -957,6 +957,9 @@ describe("factory board check", () => {
         },
       }),
       runner: () => ({ runPage: RUN_PAGE }),
+      reach: async () => {
+        throw new Error("unexpected reach");
+      },
       env: {},
       now: () => new Date(at(30)),
       out: into(out),

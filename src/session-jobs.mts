@@ -35,6 +35,7 @@ import { ownLinks } from "./lib/pull-tickets.mts";
 import { LOCK_FILE, pinsOf } from "./preset.mts";
 import { fetchDeps, fileAt, pinFaults } from "./preset-fetch.mts";
 import { conflicting, main as prMain, prDeps } from "./pr.mts";
+import { liveOrder } from "./merge-order.mts";
 import { openRunner } from "./runner/index.mts";
 import { prepare } from "./session-prepare.mts";
 import {
@@ -380,6 +381,7 @@ async function record(d: PublishDeps, env: Env): Promise<number> {
     conclusion: env.CONCLUSION ?? "failure",
     override: settings.codeHost.labels["verdict-override"],
     reviewOn: settings.prReview !== null,
+    order: (body) => liveOrder(body, out),
     ...(link ? { link } : {}),
     out,
   });

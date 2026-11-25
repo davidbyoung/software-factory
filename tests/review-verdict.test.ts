@@ -771,3 +771,115 @@ describe("factory review verdict", () => {
     );
   });
 });
+
+describe("a pull request that waits for another repository's", () => {
+  const WAITS = {
+    state: "pending" as const,
+    description: "Waits for acme/api#88 to merge",
+  };
+  const post = async (
+    order: typeof WAITS | { state: "success"; description: string } | null,
+    over: Partial<Parameters<typeof apply>[0]> = {},
+    seed: Partial<PullSeed> = {},
+  ) => {
+    const host = memoryCodeHost(
+      [{ number: 41, body: "Part of acme/api#12", ...seed }],
+      {
+        writers: ["alice"],
+        commits: {
+          head41: {
+            statuses: [
+              {
+                id: 1,
+                name: REVIEW,
+                state: "success",
+                author: "github-actions[bot]",
+              },
+            ],
+          },
+        },
+      },
+    );
+    const log: string[] = [];
+    const bodies: string[] = [];
+    await apply({
+      eventName: "order",
+      event: { pull: 41 },
+      pulls: host.codeHost,
+      log: (line) => void log.push(line),
+      order: async (body) => {
+        bodies.push(body);
+        return order;
+      },
+      ...over,
+    } as Parameters<typeof apply>[0]);
+    const states = Object.fromEntries(
+      host.commit("head41").statuses.map((s) => [s.name, s.state]),
+    );
+    return { log, states, bodies, host };
+  };
+
+  it("shows what it waits for, and the verdict waits with it", async () => {
+    const r = await post(WAITS);
+    expect(r.bodies).toEqual(["Part of acme/api#12"]);
+    expect(r.log).toEqual([
+      "Merge order on head41: pending, Waits for acme/api#88 to merge",
+      "Review verdict on head41: pending, Waits for acme/api#88 to merge",
+    ]);
+    expect(r.states).toMatchObject({
+      "Merge order": "pending",
+      "Review verdict": "pending",
+    });
+  });
+
+  it("shows what the review found once there is nothing to wait for", async () => {
+    const r = await post({
+      state: "success",
+      description: "Nothing to wait for",
+    });
+    expect(r.states).toMatchObject({
+      "Merge order": "success",
+      "Review verdict": "success",
+    });
+  });
+
+  it.each<[string, Partial<Parameters<typeof apply>[0]>, Partial<PullSeed>]>([
+    ["with the automated review off", { reviewOn: false }, {}],
+    [
+      "overridden by an approver",
+      {},
+      {
+        labels: ["verdict-override"],
+        labeledBy: { "verdict-override": "alice" },
+      },
+    ],
+  ])("waits %s too", async (_, over, seed) => {
+    const r = await post(WAITS, over, seed);
+    expect(r.states["Review verdict"]).toBe("pending");
+  });
+
+  it("keeps a verdict that asks for changes", async () => {
+    const r = await post(WAITS, {
+      eventName: "review",
+      event: {
+        pull: 41,
+        sha: "head41",
+        conclusion: "success",
+        verdict: "changes",
+      },
+    } as Partial<Parameters<typeof apply>[0]>);
+    expect(r.states["Review verdict"]).toBe("failure");
+  });
+
+  it("gets no Merge order when it is part of no such ticket", async () => {
+    const r = await post(null);
+    expect(r.states).not.toHaveProperty("Merge order");
+    expect(r.states["Review verdict"]).toBe("success");
+  });
+
+  it("posts nothing on one that closed meanwhile", async () => {
+    const r = await post(WAITS, {}, { state: "closed" });
+    expect(r.states).not.toHaveProperty("Merge order");
+    expect(r.log).toEqual(["#41 is not open."]);
+  });
+});

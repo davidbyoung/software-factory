@@ -54,7 +54,14 @@ import {
   type RepoSnapshot,
 } from "./lib/work-status.mts";
 import { subscriptionDollars } from "./lib/pricing.mts";
-import { openCodeHost } from "./code-host/index.mts";
+import {
+  openCodeHost,
+  reachCodeHost,
+  type CodeHost,
+} from "./code-host/index.mts";
+import { acrossOf, confirmedList, type Reach } from "./across.mts";
+import { finishIfMerged } from "./across-run.mts";
+import { sameRepository, type Progress } from "./lib/repositories.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
 import { fixtureBoard, openTickets, refOf } from "./tickets/index.mts";
 import { linkPulls, ownLinks, ticketsOf } from "./lib/pull-tickets.mts";
@@ -436,6 +443,9 @@ export type Plan = {
   column: string | null;
   /** The factory's own fields to write. */
   writes: Write[];
+  /** Why the repositories of a ticket that names several could not be
+   * read: the sync leaves such a card alone. */
+  unread?: string;
   /** The column the card sits in when no state names it: the sync leaves
    * such a card alone. */
   unmapped?: string;
@@ -449,6 +459,7 @@ export function planSync(
   board: Board,
   runPage: (id: string) => string,
   cfg: BoardConfig = DEFAULT_BOARD,
+  unread?: Map<Key, string>,
 ): Plan[] {
   const everyPull = [...snapshot.pulls, ...(snapshot.donePulls ?? [])];
   const fields = checkFields(board.fields, cfg, board.columnField);
@@ -459,6 +470,7 @@ export function planSync(
       snapshot.pulls,
       cfg.columns,
       cfg.followUp,
+      snapshot.across?.get(issue.key),
     );
     const listPrice = issueCost(issue, everyPull);
     const cost =
@@ -472,6 +484,9 @@ export function planSync(
       derived,
       cost,
     };
+    const why = unread?.get(issue.key);
+    if (why !== undefined)
+      return { ...base, column: null, writes: [], unread: why };
     if (
       item?.status != null &&
       statusOfColumn(item.status, cfg.columns) === null
@@ -523,6 +538,8 @@ export function logLine(plan: Plan, ref: (key: Key) => string): string {
   const name = ref(plan.key);
   if (plan.unmapped !== undefined)
     return `${name} card is in "${plan.unmapped}", which no state names (left alone)`;
+  if (plan.unread !== undefined)
+    return `${name} repositories could not be read: ${plan.unread} (left alone)`;
   const cost = plan.cost === null ? "(empty)" : plan.cost.toFixed(2);
   const values = `Status=${d.status}, Session=${d.session || "(empty)"}, Runs in=${d.runsIn || "(empty)"}, Cost=${cost}`;
   if (plan.writes.length === 0 && plan.column === null)
@@ -596,9 +613,17 @@ export function nightlyComments(
   columns: Columns,
   ref: (key: Key) => string,
   followUp: string,
+  unread?: Map<Key, string>,
 ): Comment[] {
   return snapshot.issues.flatMap((issue) => {
-    const clear = toClear(issue, snapshot.pulls, now, followUp);
+    if (unread?.has(issue.key)) return [];
+    const clear = toClear(
+      issue,
+      snapshot.pulls,
+      now,
+      followUp,
+      snapshot.across?.get(issue.key),
+    );
     if (!clear) return [];
     const named = { key: issue.key, ref: ref(issue.key) };
     return [
@@ -618,6 +643,10 @@ export type Saved = {
   tickets: Ticket[];
   pulls: PullRequest[];
   donePulls: PullRequest[];
+  /** How far each repository is, for a ticket that names others than its
+   * own, and why a ticket's could not be read. */
+  across?: [Key, Progress[]][];
+  unread?: [Key, string][];
 };
 
 /** The pull requests the sync reads: the open ones with their comments, for
@@ -649,6 +678,12 @@ export type Deps = {
    * and the repository where FACTORY_BOARD_NUMBER and GITHUB_REPOSITORY do
    * not name them. */
   settings: () => Promise<Settings>;
+  /** Any repository's code host, for a ticket that names several. */
+  reach: (
+    repository: string,
+    codeHost: string,
+    own: string,
+  ) => Promise<CodeHost>;
 };
 
 /** The dependencies, with the repository the command works on and its
@@ -661,6 +696,9 @@ type Ctx = Deps & {
   pulls: PullSource;
   /** Whether the code host's own links count (`lib/pull-tickets.mts`). */
   own: boolean;
+  hostOf: Reach;
+  /** Whether a ticket's repositories are kept in a ticket field. */
+  inField: boolean;
 };
 
 async function postAll(comments: Comment[], d: Ctx, dryRun: boolean) {
@@ -710,7 +748,58 @@ async function read(d: Ctx): Promise<Saved> {
         d.own,
       )
     : [];
-  return { tickets, pulls, donePulls };
+  const { across, unread } = await acrossOf(tickets, {
+    tickets: d.tickets,
+    repository: d.repository,
+    reach: d.hostOf,
+    inField: d.inField,
+    now: d.now(),
+  });
+  return {
+    tickets,
+    pulls,
+    donePulls: [...donePulls, ...(await costsAcross(across, unread, d))],
+    across: [...across],
+    unread: [...unread],
+  };
+}
+
+/** The pull requests in other repositories that build a ticket, for the
+ * costs noted on them, each with a number no other has. A ticket with one
+ * that can't be read moves to `unread`. */
+async function costsAcross(
+  across: Map<Key, Progress[]>,
+  unread: Map<Key, string>,
+  d: Ctx,
+): Promise<PullRequest[]> {
+  const out: PullRequest[] = [];
+  for (const [key, all] of across)
+    try {
+      for (const r of all) {
+        if (sameRepository(r.name, d.repository)) continue;
+        const host = await d.hostOf(r.name);
+        for (const p of r.pulls)
+          out.push({
+            number: -1 - out.length,
+            createdAt: p.createdAt,
+            body: "",
+            closes: [],
+            partOf: [key],
+            isDraft: p.isDraft,
+            checks: null,
+            openThreads: 0,
+            author: "",
+            comments: (await host.comments(p.number)).map((c) => ({
+              ...c,
+              id: String(c.id),
+            })),
+          });
+      }
+    } catch (error) {
+      across.delete(key);
+      unread.set(key, error instanceof Error ? error.message : String(error));
+    }
+  return out;
 }
 
 /** What the sync works from: the saved tickets with the factory label,
@@ -726,7 +815,15 @@ const snapshotOf = (
     now,
     saved.donePulls,
     cfg.columns,
+    new Map(saved.across ?? []),
   );
+
+const listedOf = ({ name, after }: Progress) => ({ name, after });
+const finishing = (d: Ctx) => ({
+  tickets: d.tickets,
+  columns: d.config.columns,
+  out: d.out,
+});
 
 async function collect(
   d: Ctx,
@@ -784,9 +881,17 @@ async function collect(
       d.config.columns,
       (k) => d.tickets.ref(k),
       d.config.followUp,
+      new Map(saved.unread ?? []),
     );
     await postAll(comments, d, opts.dryRun);
-    if (comments.length && !opts.dryRun) saved = await read(d);
+    let finished = false;
+    if (!opts.dryRun)
+      for (const [key, all] of saved.across ?? []) {
+        const ticket = await d.tickets.read(key);
+        if ((await confirmedList(ticket, all.map(listedOf), d.hostOf)).counts)
+          finished = (await finishIfMerged(key, all, finishing(d))) || finished;
+      }
+    if ((comments.length || finished) && !opts.dryRun) saved = await read(d);
   }
   return saved;
 }
@@ -815,6 +920,7 @@ async function apply(
     board,
     d.runPage,
     d.config,
+    new Map(saved.unread ?? []),
   );
   for (const plan of plans) {
     d.out(say.text(logLine(plan, d.ref)));
@@ -849,7 +955,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
   try {
     const settings = await deps.settings();
     const config = boardConfigOf(settings);
-    const repository = deps.env.GITHUB_REPOSITORY || settings.repository;
+    const { repository } = settings;
     const runner = deps.runner(repository, settings.builds.runner);
     const runPage = (id: string) => runner.runPage(id);
     const ref = refOf(settings.tickets.type);
@@ -885,6 +991,8 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
       runPage,
       ...opened,
       own: ownLinks(settings),
+      hostOf: (name) => deps.reach(name, settings.codeHost.type, repository),
+      inField: settings.tickets.ticketFields.repositories !== null,
     };
     if (argv[0] === "collect") {
       const out = option(argv, "--out");
@@ -942,6 +1050,7 @@ export function boardDeps(argv: string[]): Deps {
       };
     },
     runner: (repository, name) => openRunner(repository, name),
+    reach: reachCodeHost,
     env: process.env,
     now: () => (nowArg ? new Date(nowArg) : new Date()),
     ...say.printersFor(argv[0] === "check" ? "board check" : "board"),

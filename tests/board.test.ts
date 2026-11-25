@@ -25,7 +25,8 @@ import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import savedJson from "./fixtures/sync/repo.json";
 import boardPages from "./fixtures/sync/board.json";
 import { fakeSettings } from "./fake-gh";
-import { memoryTickets, type MemoryOptions } from "./memory-tickets";
+import { memoryTickets, type MemoryOptions, type Seed } from "./memory-tickets";
+import { API, confirming, network, SECTION, WEB, type Place } from "./network";
 import { into, plainOf } from "./printed";
 
 const FIXTURE = "tests/fixtures/sync";
@@ -78,6 +79,9 @@ function deps(
       { tickets: mem.tickets, pulls }
     ),
     runner: () => ({ runPage: RUN_PAGE }),
+    reach: async () => {
+      throw new Error("unexpected reach");
+    },
     env,
     now: () => NOW,
     out: into(out),
@@ -942,5 +946,157 @@ describe("the sync's own notes", () => {
     expect(mem.state.get("PROJ-1")!.record.at(-1)!.markers).toEqual([
       "<!-- work-status: cleared -->",
     ]);
+  });
+});
+
+describe("a ticket across repositories", () => {
+  const PART = { body: "Part of #12", state: "closed", merged: true };
+  const world = (
+    places: Record<string, Place>,
+    over: { comments?: Seed["comments"]; body?: string } = {},
+  ) => {
+    const mem = memoryTickets(
+      [
+        {
+          key: "12",
+          labels: ["factory"],
+          body: over.body ?? `The ask.\n\n${SECTION}`,
+          comments: over.comments ?? [confirming([API, WEB])],
+        },
+      ],
+      { repository: "acme/api" },
+    );
+    const pulls: PullSource = {
+      open: async () => [],
+      linking: async () => [],
+      closes: async () => [],
+    };
+    const r = deps(mem, {}, pulls);
+    r.d.settings = async () => ({
+      ...(await fakeSettings()),
+      repository: "acme/api",
+    });
+    r.d.reach = async (name) => network(places).reach(name);
+    const collect = async (nightly = false) => {
+      expect(
+        await main(
+          [
+            "collect",
+            "--out",
+            "o.json",
+            ...(nightly ? ["--event-name", "schedule"] : []),
+          ],
+          r.d,
+        ),
+      ).toBe(0);
+      const saved = JSON.parse(r.written["o.json"]) as Saved;
+      r.files["o.json"] = r.written["o.json"];
+      return saved;
+    };
+    const apply = async () => {
+      r.d.env = { GH_TOKEN: "t" };
+      expect(await main(["apply", "--in", "o.json"], r.d)).toBe(0);
+    };
+    return { ...r, collect, apply };
+  };
+  const OPEN: Record<string, Place> = {
+    "acme/api": { pulls: [{ number: 88, body: "Part of #12" }] },
+    "acme/web": { pulls: [{ number: 41, body: "Part of acme/api#12" }] },
+  };
+  const claim = (createdAt: string) => ({
+    id: "c1",
+    author: "dev",
+    createdAt,
+    body: "Building.\n\n<!-- work-status: claim local s1 -->\n<!-- agent -->",
+  });
+
+  it("is in review on the board once every repository has a pull request", async () => {
+    const w = world(OPEN);
+    await w.collect();
+    await w.apply();
+    expect(w.mem.board.get("12")!.status).toBe("In review");
+  });
+
+  it("adds what each pull request cost, wherever it is", async () => {
+    const cost = (number: number, dollars: string) => ({
+      id: number,
+      author: "dev",
+      createdAt: "2026-11-09T12:30:00Z",
+      body: `<!-- cost: ${dollars} session=a -->\n<!-- agent -->`,
+    });
+    const w = world({
+      ...OPEN,
+      "acme/web": {
+        pulls: [
+          {
+            number: 41,
+            body: "Part of acme/api#12",
+            comments: [cost(1, "33.00")],
+          },
+        ],
+      },
+    });
+    await w.collect();
+    await w.apply();
+    expect(w.mem.board.get("12")!.cost).toBeGreaterThan(0);
+  });
+
+  it("leaves the card alone, and its claim, when a repository cannot be read", async () => {
+    const w = world(
+      { ...OPEN, "acme/web": { fail: { recentPulls: new Error("HTTP 502") } } },
+      { comments: [confirming([API, WEB]), claim("2026-11-01T10:00:00Z")] },
+    );
+    await w.collect(true);
+    await w.apply();
+    expect(w.out).toContain(
+      "#12 repositories could not be read: HTTP 502 (left alone)",
+    );
+    expect(w.mem.board.has("12")).toBe(false);
+    expect(w.mem.comments(12)).toHaveLength(2);
+  });
+
+  it("keeps an old claim at night while every repository has a pull request", async () => {
+    const w = world(OPEN, {
+      comments: [confirming([API, WEB]), claim("2026-11-01T10:00:00Z")],
+    });
+    await w.collect(true);
+    expect(w.mem.comments(12)).toHaveLength(2);
+  });
+
+  it("clears an old claim at night while one has none", async () => {
+    const w = world(
+      { ...OPEN, "acme/web": {} },
+      { comments: [confirming([API, WEB]), claim("2026-11-01T10:00:00Z")] },
+    );
+    await w.collect(true);
+    expect(w.mem.comments(12).at(-1)!.body).toContain("Cleared the claim");
+  });
+
+  const MERGED: Record<string, Place> = {
+    "acme/api": { pulls: [{ number: 88, ...PART }] },
+    "acme/web": {
+      pulls: [{ number: 41, ...PART, body: "Part of acme/api#12" }],
+    },
+  };
+
+  it("is finished at night when every one merged and its run said nothing", async () => {
+    const w = world(MERGED);
+    await w.collect(true);
+    expect(w.mem.state.get("12")!.finishedAt).not.toBeNull();
+    expect(w.mem.comments(12).at(-1)!.body).toContain(
+      "Every repository merged: acme/api#88, acme/web#41.",
+    );
+  });
+
+  it("is not finished at night by a list nobody who may confirmed", async () => {
+    const w = world(MERGED, { comments: [confirming([API, WEB], "mallory")] });
+    await w.collect(true);
+    expect(w.mem.state.get("12")!.finishedAt).toBeNull();
+  });
+
+  it("is not finished by a sync that is not the nightly one", async () => {
+    const w = world(MERGED);
+    await w.collect();
+    expect(w.mem.state.get("12")!.finishedAt).toBeNull();
   });
 });

@@ -10,7 +10,12 @@
 // with main's settings, so a pull request cannot change how it is judged.
 import { spawnSync } from "node:child_process";
 import { loadSettings } from "./config.mts";
+import { homeOf, repositoriesOf } from "./across.mts";
 import { openCodeHost } from "./code-host/index.mts";
+import { sameRepository } from "./lib/repositories.mts";
+import { recordedTicket } from "./session-publish.mts";
+import { openTickets } from "./tickets/index.mts";
+import { NotFoundError, type Tickets } from "./tickets/types.mts";
 
 import { matchesAny } from "./lib/glob.mts";
 import { processFiles } from "./specs/index.mts";
@@ -124,6 +129,39 @@ export function commandReasons(results: CommandResult[]): string[] {
   });
 }
 
+/** Why a pull request with that body is held for the ticket it is part of:
+ * one in another repository, or that names others than its own. Whoever
+ * approved it may not be able to write to this one. */
+export async function acrossReasons(
+  body: string,
+  d: {
+    tickets: Pick<Tickets, "linksIn" | "read" | "ref" | "home">;
+    repository: string;
+  },
+): Promise<string[]> {
+  const recorded = recordedTicket(body);
+  const keys = new Set([
+    ...d.tickets.linksIn(body, d.repository).partOf,
+    ...(recorded === null ? [] : [recorded]),
+  ]);
+  const reasons: string[] = [];
+  for (const key of keys) {
+    const ref = d.tickets.ref(key);
+    const home = homeOf(d.tickets, key, d.repository);
+    const spans = `part of ${ref}, which spans repositories`;
+    if (!sameRepository(home, d.repository)) reasons.push(spans);
+    else
+      try {
+        const ticket = await d.tickets.read(key);
+        if (repositoriesOf(ticket, d.tickets, home)) reasons.push(spans);
+      } catch (error) {
+        if (!(error instanceof NotFoundError))
+          reasons.push(`part of ${ref}, which could not be read`);
+      }
+  }
+  return reasons;
+}
+
 /** The path decision, then each command's, as one. */
 export function decide(paths: Risk, commandHolds: string[]): Risk {
   const reasons = [...paths.reasons, ...commandHolds];
@@ -170,7 +208,7 @@ async function main(argv: string[]) {
     process.exit(2);
   }
   const settings = await loadSettings();
-  const repo = process.env.GITHUB_REPOSITORY || settings.repository;
+  const { repository: repo } = settings;
   const { autoMerge } = settings;
   const pulls = openCodeHost(repo, settings.codeHost.type);
   const pull = await pulls.get(Number(pr));
@@ -191,11 +229,19 @@ async function main(argv: string[]) {
         ),
       )
     : [];
+  const { tickets } = await openTickets(settings, {
+    repository: repo,
+    board: settings.tickets.board,
+  });
+  const spans = await acrossReasons(pull.body, { tickets, repository: repo });
   // The pull request as it is now, not as the event described it: an event
   // sent just after a push can carry the previous commit and draft state.
   say.plain(
     JSON.stringify({
-      ...workflowOutput(decide(paths, holds), settings.codeHost.labels),
+      ...workflowOutput(
+        decide(paths, [...spans, ...holds]),
+        settings.codeHost.labels,
+      ),
       sha: pull.head.sha,
       draft: pull.isDraft,
     }),

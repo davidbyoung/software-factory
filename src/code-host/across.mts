@@ -33,18 +33,20 @@ export async function acrossTransport(
   env: Env = process.env,
   o: { fetch: typeof fetch; now: () => number } = { fetch, now: Date.now },
 ): Promise<Transport | null> {
+  // A step that only reads says so, whatever its code asks for.
+  const may = env.FACTORY_ACROSS === "read" ? "read" : access;
   const over = (token: string) => fetchTransport({ token, fetch: o.fetch });
   const clientId = env.FACTORY_APP_CLIENT_ID;
   const key = env.FACTORY_APP_PRIVATE_KEY;
   if (clientId && key) {
-    const name = `${access} ${repository}`;
+    const name = `${may} ${repository}`;
     const had = kept.get(name);
     if (had && o.now() - had.at < KEPT_MS) return had.transport;
     const token = await acrossToken({
       ...o,
       app: { clientId, key },
       repository,
-      access,
+      access: may,
     });
     const transport = over(token);
     kept.set(name, { at: o.now(), transport });

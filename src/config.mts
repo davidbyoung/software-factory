@@ -1765,14 +1765,15 @@ export type Target = {
   factory: string;
 };
 
-/** The settings' answer, with GITHUB_REPOSITORY and FACTORY_BOARD_NUMBER
- * winning where they are set. */
+/** The settings' answer, with FACTORY_BOARD_NUMBER winning where it is
+ * set. A run's own name for the repository does not: the command acts on
+ * the repository of the checkout it runs in. */
 export function targetOf(
   s: Settings,
   env: Record<string, string | undefined>,
 ): Target {
   return {
-    repository: env.GITHUB_REPOSITORY || s.repository,
+    repository: s.repository,
     board: env.FACTORY_BOARD_NUMBER
       ? Number(env.FACTORY_BOARD_NUMBER)
       : s.tickets.board,
