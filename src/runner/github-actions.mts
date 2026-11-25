@@ -270,14 +270,16 @@ export function githubActionsRunner(o: {
         (x) => x.name,
       ),
     async organizationVariableNames() {
+      // GitHub gives at most 30 variables a page, whatever it is asked for.
+      const most = 30;
       const names: string[] = [];
       for (let page = 1; ; page++) {
         const listed = await t.rest<{ variables: { name: string }[] }>(
           "GET",
-          `${API}/actions/organization-variables?per_page=100&page=${page}`,
+          `${API}/actions/organization-variables?per_page=${most}&page=${page}`,
         );
         names.push(...listed.variables.map((x) => x.name));
-        if (listed.variables.length < 100) return names;
+        if (listed.variables.length < most) return names;
       }
     },
     async organizationDependabotSecretNames(isPrivate) {
