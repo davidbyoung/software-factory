@@ -142,34 +142,46 @@ It belongs to sam. Stored for sam/api, and on this machine for your next reposit
 
 The [steps above](#run-factory-init) ask you for no token. In the list
 init prints first, headed `Found`, the `Organization` row reads one of
-four ways:
+five ways:
 
 ```text
   Organization     acme, set up: its app's key and its Claude token are stored
   Organization     acme, not set up: an owner runs factory init --org https://github.com/acme
   Organization     acme, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories
   Organization     acme, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories, or an owner narrowed them
+  Organization     acme: its secrets could not be listed (gh api repos/acme/web/actions/organization-secrets?per_page=100&page=1: gh: You must have repository read permissions or have the repository secrets fine-grained permission. (HTTP 403))
 ```
 
 - **With the first,** init lists the presets in the organization's
   `factory-config`, and you check the ones this repository follows. It
   offers "Pull requests that merge themselves", and any other part the
   presets leave open.
-- **With the second,** init leaves the review and builds in the cloud off,
-  and builds on your machine work. Ask an owner of the organization to
-  [set it up](#set-an-organization-up-once).
+- **With the second,** ask an owner to
+  [set the organization up](#set-an-organization-up-once). If they say it
+  is set up already, its secrets are not shared with your repository:
+  [When the organization's secrets do not reach you](#when-the-organizations-secrets-do-not-reach-you).
 - **With the third,** which ends at "public repositories", yours is a
-  private repository on GitHub's Free plan. Init stops and changes nothing
-  if a preset you chose needs those secrets, and otherwise goes on with the
-  review and builds in the cloud off.
+  private repository on GitHub's Free plan.
   [On GitHub's Free plan](#on-githubs-free-plan) says what to do.
 - **With the fourth,** which ends "or an owner narrowed them", init could
-  not tell which of the two it is. It leaves the review and builds in the
-  cloud off, and builds on your machine work. Ask an owner of the
-  organization, or store a GitHub token and a Claude token in the
-  repository's secrets by hand, as [Secrets](by-hand.md#secrets) says.
+  not tell which of the two it is.
+  [When the organization's secrets do not reach you](#when-the-organizations-secrets-do-not-reach-you)
+  says what to ask an owner for. If yours is a private repository, ask them
+  first whether the organization is on GitHub's Free plan: if it is, sharing
+  the secrets does not help, and
+  [On GitHub's Free plan](#on-githubs-free-plan) says what does.
+- **With the fifth,** init could not look, and the parentheses hold
+  GitHub's reason. If it is that you lack access, ask an admin of the
+  repository for write access, which setting it up needs anyway, and run
+  `factory init` again. For any other reason, run it again later.
 
-Once that is done, run `factory init` again.
+With the second, the third, or the fourth, init stops and changes nothing
+if one of the repository's [presets](../presets.md) turns on a board, the
+review, or builds that start from the board, as the one
+`factory init --org` writes does. Its line that starts ✗ names which.
+Otherwise it goes on, the review and builds in the cloud stay off, and
+builds on your machine work. Once the owner has made the change, run
+`factory init` again.
 
 **It worked when** the row is the first, and, once the setup's pull
 request has merged, `factory doctor` shows ✓ on every line, or `-` for a
@@ -181,6 +193,49 @@ owner of the organization adds it:
 ```text
 The software factory's app for acme is not installed on acme/web. An owner of acme adds it: https://github.com/organizations/acme/settings/installations
 ```
+
+#### When the organization's secrets do not reach you
+
+You need an owner of the organization for this. If init stopped, send them
+what it printed, which lists only what your repository lacks:
+
+```text
+✗ The presets turn on a board, the review, and builds that start from the board. They need acme's secrets, and those do not reach acme/web.
+An owner of acme gives acme/web access to each of these, under "Repository access". Then run factory init again.
+  Secrets: FACTORY_APP_PRIVATE_KEY, and CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+     https://github.com/organizations/acme/settings/secrets/actions
+  Variable: FACTORY_APP_CLIENT_ID
+     https://github.com/organizations/acme/settings/variables/actions
+```
+
+If it went on instead, it listed nothing, and said that the review and
+builds in the cloud stay off until the organization's secrets reach your
+repository. Send the owner the lines above from "Secrets" on, with your
+organization's name in place of `acme` in the two addresses, and your
+repository's name.
+
+On those two pages the owner opens each secret and the variable, and under
+"Repository access" picks a choice that includes your repository, such as
+all repositories. Of the two names for what pays for Claude, only the one
+the organization stored is there. If one is missing from the page, the
+owner first [sets the organization up](#set-an-organization-up-once).
+
+**It worked when** the `Organization` row says the app's key and the
+Claude token are stored, once you run `factory init` again.
+
+If the owner keeps the secrets from your repository on purpose, you have
+two choices:
+
+- **Build only on your machine.** Run `factory init` and leave the presets
+  that turn those parts on unchecked. If `.claude/factory.yaml` lists one
+  under [`presets`](../configuration.md#presets), take its line out first.
+  It worked when init asks "Go ahead?".
+- **Store tokens on the repository in place of the organization's
+  secrets.** You need two, a GitHub token as `FACTORY_BOARD_TOKEN` and a
+  Claude token as `CLAUDE_CODE_OAUTH_TOKEN`, and neither of the App's
+  values. [Secrets](by-hand.md#secrets) says how to make each, and the
+  command that stores it. It worked when `factory init` asks "Go ahead?"
+  with the presets checked.
 
 ## Set an organization up, once
 
