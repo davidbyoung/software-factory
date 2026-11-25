@@ -1039,3 +1039,34 @@ describe("the docs on spec tools", () => {
     );
   });
 });
+
+describe("the docs on an organization's branch names", () => {
+  const flatly = (page: string, heading: string) =>
+    flat(sectionOf(read(page), heading));
+
+  it("say that init --org asks for the pattern, where it is kept, and that a repository's setup does not ask", () => {
+    const setup = flatly(
+      "docs/github/setup.md",
+      "## Set an organization up, once",
+    );
+    expect(setup).toContain(
+      "The answer goes in the preset, as [`code-host.branch-name`](../configuration.md#code-host), so a developer setting up a repository is not asked.",
+    );
+    expect(setup).toContain(
+      "Under [`code-host`](../configuration.md#code-host) it holds the pattern builds name their branches by.",
+    );
+    expect(flatly("docs/configuration.md", "### `code-host`")).toContain(
+      "in an organization `factory init --org` asks for it once and writes it in the preset.",
+    );
+  });
+
+  it("say what an organization set up earlier adds to its preset, and that a repository's own pattern wins", () => {
+    const updating = flatly("docs/updating.md", "## Naming build branches");
+    expect(updating).toContain(
+      "add the lines above to `factory-preset.yaml` in your `factory-config`",
+    );
+    expect(updating).toContain(
+      "A repository that has its own `branch-name` keeps it",
+    );
+  });
+});

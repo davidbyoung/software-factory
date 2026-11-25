@@ -510,6 +510,13 @@ open a pull request.
 `✓ The settings are valid.`, and `factory ticket branch 12` prints the
 branch a build of ticket 12 would push.
 
+**In an organization,** `factory init --org` now asks for the pattern
+and writes it in the preset. If yours was set up before that, add the
+lines above to `factory-preset.yaml` in your `factory-config`. The next
+`factory init` in a new repository then lists the pattern as
+`Branch names`, and does not ask. A repository that has its own
+`branch-name` keeps it: delete that line to follow the preset's.
+
 ## Labeling your open tickets
 
 From this release the factory works only on tickets with its label
