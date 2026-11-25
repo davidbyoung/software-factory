@@ -46,5 +46,5 @@
 ## 8. Verify
 
 - [x] 8.1 Map every Spec line to its test in the pull request; write any that is missing.
-- [ ] 8.2 Live, in scratch repositories, the riskiest first: the second token reading a private ticket, asking who can write (`collaborators/LOGIN/permission`), and starting a build in the other repository; "Merge order" clearing after a merge; the close at the last merge; then a whole build in the cloud, and one on a machine.
+- [x] 8.2 Live, in scratch repositories, the riskiest first: the second token reading a private ticket, asking who can write (`collaborators/LOGIN/permission`), and starting a build in the other repository; "Merge order" clearing after a merge; the close at the last merge; then a whole build in the cloud, and one on a machine.
 - [x] 8.3 The gate, `factory gate`, with the coverage floors, and `npm run pack-check`.
