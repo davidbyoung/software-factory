@@ -51,6 +51,11 @@ export type MemoryCodeHostOptions = {
   isPrivate?: boolean;
   /** Whether an organization owns the repository; a person unless given. */
   ownerIsOrganization?: boolean;
+  /** Whether the sign-in cannot see the repository, as for one that does
+   * not exist. */
+  unseen?: boolean;
+  /** The default branch's files, by path. */
+  contents?: Record<string, string>;
   /** The check runs and statuses on each commit. */
   commits?: Record<
     string,
@@ -139,6 +144,7 @@ export function memoryCodeHost(
       mergeableState: "clean",
       author: owner,
       createdAt: "2026-11-09T12:00:00Z",
+      mergedAt: p.merged ? "2026-11-09T12:30:00Z" : null,
       autoMerge: false,
       files: [],
       unverified: [],
@@ -199,6 +205,7 @@ export function memoryCodeHost(
     head: { ...p.head },
     base: { ...p.base },
     createdAt: p.createdAt,
+    mergedAt: p.mergedAt,
     autoMerge: p.autoMerge,
   });
   const findComment = (id: number): PullComment => {
@@ -307,6 +314,25 @@ export function memoryCodeHost(
     async isPrivate() {
       called("isPrivate");
       return options.isPrivate ?? false;
+    },
+    async visible() {
+      called("visible");
+      return options.unseen ? null : { isPrivate: options.isPrivate ?? false };
+    },
+    async file(path) {
+      called("file", path);
+      return options.contents?.[path] ?? null;
+    },
+    async recentPulls(since) {
+      called("recentPulls", since);
+      return [...pulls.values()]
+        .filter((p) => p.state === "open" || p.merged)
+        .map((p) => ({ ...toPull(p), mergedAt: p.mergedAt }))
+        .filter(
+          (p) =>
+            p.state === "open" ||
+            Date.parse(p.mergedAt ?? "") >= Date.parse(since),
+        );
     },
     async ownerIsOrganization() {
       called("ownerIsOrganization");
@@ -440,6 +466,7 @@ export function memoryCodeHost(
         title: pull.title,
         state: "open",
         merged: false,
+        mergedAt: null,
         isDraft: pull.draft,
         body: pull.body,
         mergeableState: "clean",

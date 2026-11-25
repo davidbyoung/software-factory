@@ -28,6 +28,8 @@ export type Pull = {
   head: Omit<PullEnd, "repository"> & { repository: string | null };
   base: PullEnd;
   createdAt?: string;
+  /** When it merged, where `recentPulls` read it. */
+  mergedAt?: string | null;
   /** Whether it is set to merge itself once its gates pass. */
   autoMerge?: boolean;
 };
@@ -151,6 +153,13 @@ export type CodeHost = {
   defaultBranch(): Promise<string>;
   /** Whether only people given access can see the repository. */
   isPrivate(): Promise<boolean>;
+  /** The repository as the sign-in sees it, or null when there is none of
+   * that name or it cannot be seen. */
+  visible(): Promise<{ isPrivate: boolean } | null>;
+  /** A file's text on the default branch, or null when it has none. */
+  file(path: string): Promise<string | null>;
+  /** The pull requests that are open, and those merged since. */
+  recentPulls(since: string): Promise<Pull[]>;
   /** Whether an organization owns the repository, rather than a person. */
   ownerIsOrganization(): Promise<boolean>;
   /** Whether the account can write to the repository: an approver, whose

@@ -107,16 +107,18 @@ function withEdits(calls: Call[], asked: Asked[]): Call[] {
 }
 
 /** The adapter, reading what was read ahead for this session when there is
- * a folder to read it from. */
+ * a folder to read it from. `of` is the repository a code host is of. */
 export function handed<K extends On>(
   on: K,
   real: Parameters<typeof replaying<K>>[1],
   env: Env = process.env,
+  of?: string,
 ): ReturnType<typeof replaying<K>> {
   const h = handoffIn(env);
   if (!h) return real;
-  const { ticket } = h.run();
-  return replaying(on, real, withEdits(h.calls(), h.asked()), ticket);
+  const { ticket, repository } = h.run();
+  const prefix = of === undefined || of === repository ? "" : `${of}:`;
+  return replaying(on, real, withEdits(h.calls(), h.asked()), ticket, prefix);
 }
 
 export const ENDS_HERE =

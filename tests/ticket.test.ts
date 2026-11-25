@@ -26,6 +26,7 @@ import { builtOf, TOOLS, type Registry } from "../src/tools.mts";
 import { FAKE_EMAIL, FAKE_TOKEN, REFUSED, withFakeTickets } from "./fake-tools";
 import type { FieldMapping } from "../src/ticket-fields.mts";
 import { fakeSettings } from "./fake-gh";
+import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets, type MemoryOptions, type Seed } from "./memory-tickets";
 import { CODE_HOST } from "./settings-fixture";
@@ -135,6 +136,8 @@ function deps(
         author: "acme",
         ...p,
       })),
+    reach: async () => memoryCodeHost().codeHost,
+    startOrder: async () => {},
     runner: () => RUNNER,
     settings: async () => {
       const s = await fakeSettings();
@@ -223,8 +226,9 @@ describe("claim", () => {
 
     await main(["claim", "7"], d);
 
-    // The last read is the claim's check for the factory label.
-    expect(log).toEqual(["post", "sleep", "read", "read"]);
+    // The first read is the check of its repositories, and the last that
+    // of the factory label.
+    expect(log).toEqual(["read", "post", "sleep", "read", "read"]);
   });
 
   it("claims when its own comment is the live one, and remembers it", async () => {
@@ -336,7 +340,10 @@ describe("claim", () => {
   it("posts the stopped comment when an Actions claim cannot be read back", async () => {
     quiet();
     const { d, memory } = deps([{ number: 7 }], { actions: true });
-    memory.tickets.read = async () => {
+    const read = memory.tickets.read;
+    let reads = 0;
+    memory.tickets.read = async (n) => {
+      if (reads++ === 0) return read(n);
       throw new Error("HTTP 502");
     };
 
@@ -2232,7 +2239,10 @@ describe("answers", () => {
     const r = deps([TWENTY_EIGHT], { deciders: ["alice"] });
     const asked: string[] = [];
     const mayDecide = r.memory.tickets.mayDecide;
-    r.memory.tickets.mayDecide = async (a) => (asked.push(a), mayDecide(a));
+    r.memory.tickets.mayDecide = async (a, n) => (
+      asked.push(a),
+      mayDecide(a, n)
+    );
 
     await main(["answers", "28"], r.d);
     expect(asked.sort()).toEqual(["alice", "mallory"]);
@@ -2320,17 +2330,14 @@ describe("tickets named by a key", () => {
     },
   );
 
-  it("refuses another repository's ticket, reading and writing nothing", async () => {
-    quiet();
-    const { d, memory } = deps([{ number: 4 }]);
-    const log: string[] = [];
-    logged(memory.tickets, log);
-
-    expect(await main(["view", "octo/web#4"], d)).toBe(1);
-    expect(errors).toEqual([
-      "octo/web#4 is in another repository: the factory reads only its state as a blocker",
+  it("reads another repository's ticket by its full key", async () => {
+    const { d, out } = deps([
+      { number: 4, title: "Own" },
+      { key: "octo/web#4", title: "Elsewhere" },
     ]);
-    expect(log).toEqual([]);
+
+    expect(await main(["view", "octo/web#4", "--field", "title"], d)).toBe(0);
+    expect(out).toEqual(["Elsewhere"]);
   });
 
   it("lists tickets by key, letters first and then the number as a number", async () => {

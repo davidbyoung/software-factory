@@ -49,7 +49,9 @@ export function refOf(type: string): (key: Key) => string {
 
 /** How a ticket system of this type reads a typed key, as `Tickets.key`
  * does, without opening its adapter. */
-export function keyOf(type: string): (typed: string) => Key {
+export function keyOf(
+  type: string,
+): (typed: string, repository?: string) => Key {
   if (type !== "github") throw new Error(unsupportedType(type));
   return githubKey;
 }

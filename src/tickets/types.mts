@@ -72,6 +72,9 @@ export type Ticket = {
   /** When the ticket system marked it finished, such as GitHub closing it,
    * or null while it has not. */
   finishedAt: string | null;
+  /** Whether it was finished before and is not now, where the ticket
+   * system says. */
+  reopened?: boolean;
   labels: string[];
   body: string;
   /** Oldest first, in the order the ticket system keeps them. */
@@ -214,6 +217,12 @@ export type Tickets = {
    * this system. It checks only typed input: keys the adapter returned, such
    * as a blocker's, are used as they are. */
   key(typed: string): Key;
+  /** The ticket as a checkout of `repository` types it: `12` in the
+   * repository a GitHub issue lives in, and `acme/api#12` in any other. */
+  keyIn(ticket: Key, repository: string): Key;
+  /** The repository the ticket lives in, or null in a system whose tickets
+   * live in none. */
+  home(ticket: Key): string | null;
   /** How the ticket is written in prose and output, such as `#12`. */
   ref(ticket: Key): string;
   /** The ticket, or NotFoundError when there is none. */
@@ -239,16 +248,17 @@ export type Tickets = {
   ensureLabel(label: string): Promise<void>;
   addLabel(ticket: Key, label: string): Promise<void>;
   removeLabel(ticket: Key, label: string): Promise<void>;
-  /** Whether a comment by `author` may decide on a ticket: an answer to a
+  /** Whether a comment by `author` may decide on the ticket: an answer to a
    * question, taken as an instruction. Rejects when the system cannot
    * say. */
-  mayDecide(author: string): Promise<boolean>;
+  mayDecide(author: string, ticket: Key): Promise<boolean>;
   /** The line in a pull request's body that closes the ticket when it
    * merges, or that says it builds part of it. */
   linkText(ticket: Key, kind: LinkKind): string;
-  /** The tickets a pull request's body closes and builds part of, each in
-   * the order the body links them, once. */
-  linksIn(body: string): Links;
+  /** The tickets the body of a pull request in `repository`, this
+   * adapter's own unless given, closes and builds part of, each in the
+   * order the body links them, once. */
+  linksIn(body: string, repository?: string): Links;
   /** The address of the ticket's page. */
   address(ticket: Key): string;
   /** Marks the ticket finished in the ticket system, once the pull request

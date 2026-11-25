@@ -59,7 +59,7 @@ import { join } from "node:path";
 import { load as parseYaml } from "js-yaml";
 import { setTimeout as sleep } from "node:timers/promises";
 import { sessionIdentity } from "./lib/gh.mts";
-import { openCodeHost } from "./code-host/index.mts";
+import { openCodeHost, reachCodeHost } from "./code-host/index.mts";
 import { openRunner } from "./runner/index.mts";
 import type { Runner } from "./runner/types.mts";
 import { loadSettings, targetOf, type Settings } from "./config.mts";
@@ -77,7 +77,23 @@ import {
 } from "./lib/work-status.mts";
 import { missingParts } from "./lib/refined-check.mts";
 import { labelOf, shownLabels, type Labels } from "./labels.mts";
-import { commonDir, readClock, writeClock, type Clock } from "./lib/clock.mts";
+import {
+  claimPath,
+  commonDir,
+  readClock,
+  writeClock,
+  type Clock,
+} from "./lib/clock.mts";
+import type { Reach } from "./across.mts";
+import { homeOf, readList } from "./across.mts";
+import {
+  builtHere,
+  linkLines,
+  notBuildable,
+  repositories,
+} from "./ticket-repositories.mts";
+import { sectionOf, withSection, wordOf } from "./lib/repositories.mts";
+import type { CodeHost } from "./code-host/index.mts";
 import { costNote, measureSession, projectsDir } from "./lib/usage.mts";
 import type { CostNote, Measured } from "./lib/usage.mts";
 import { boardConfigOf, checkFields, type BoardConfig } from "./board.mts";
@@ -115,6 +131,23 @@ export type Deps = {
   /** The runner the settings name, which says whether this session is in
    * one of its runs. */
   runner: (repository: string, name: string) => Pick<Runner, "thisRun">;
+  /** The code host of any of a ticket's repositories. `own` is the
+   * checkout's. */
+  reach: (
+    repository: string,
+    codeHost: string,
+    own: string,
+  ) => Promise<CodeHost>;
+  /** Has a pull request's "Merge order" worked out again, by a run in its
+   * own repository. */
+  startOrder: (
+    repository: string,
+    pull: number,
+    settings: Settings,
+  ) => Promise<void>;
+  /** Whether what is run was asked for by a session in the cloud, which may
+   * not change which repositories a ticket names. */
+  fromCloudSession?: boolean;
   /** Starts the board sync on the default branch, through the runner. */
   startSync: (repository: string, settings: Settings) => Promise<void>;
   /** The factory's settings, read once when the command starts. */
@@ -154,6 +187,8 @@ type Ctx = Deps & {
   repository: string;
   board: number | null;
   tickets: Tickets;
+  /** The code host of any of a ticket's repositories. */
+  hostOf: Reach;
   /** Whether the code host's own links say which tickets a pull request
    * closes (`lib/pull-tickets.mts`). */
   own: boolean;
@@ -272,6 +307,16 @@ export function claimOutcome(
   return `held by ${holder}`;
 }
 
+/** A ticket's repositories keep a build of it from starting here. */
+class NotBuildable extends Error {}
+
+/** What the ticket's repositories ask of this checkout. */
+const place = (d: Ctx) => ({
+  tickets: d.tickets,
+  repository: d.repository,
+  reach: d.hostOf,
+});
+
 async function claim(issue: Key, who: Identity, d: Ctx) {
   // A run nobody is watching posts the stopped comment, so the card does not
   // sit as "starting"; a session with a person at it just reports.
@@ -298,6 +343,20 @@ async function claim(issue: Key, who: Identity, d: Ctx) {
     const list = blockers.map((k) => d.tickets.ref(k)).join(", ");
     await stopUnattended(`it waits on ${list}, which has to merge first`);
     return `blocked by: ${list}`;
+  }
+
+  let fault: string | null;
+  try {
+    fault = await notBuildable(await d.tickets.read(issue), place(d));
+  } catch (error) {
+    await stopUnattended("I could not read which repositories it names").catch(
+      () => {},
+    );
+    throw error;
+  }
+  if (fault !== null) {
+    await stopUnattended(fault);
+    throw new NotBuildable(fault);
   }
 
   const mine = await post(d, issue, { kind: "claim", who });
@@ -347,7 +406,11 @@ async function end(
     d.tickets,
     d.own,
   );
-  if (reviewingPulls(ticket, pulls, d.labels.tickets["follow-up"]).length > 0)
+  const built = await builtHere(ticket, place(d));
+  if (
+    built ??
+    reviewingPulls(ticket, pulls, d.labels.tickets["follow-up"]).length > 0
+  )
     return "kept";
   await post(d, issue, { kind: "ended", issue: named(d, issue) });
   return "released";
@@ -566,7 +629,7 @@ export function formatComment(c: TicketComment): string[] {
 async function answersOf(t: Tickets, ticket: Ticket): Promise<TicketComment[]> {
   const unmarked = ticket.comments.filter((c) => !c.body.includes(AGENT_MARK));
   const authors = [...new Set(unmarked.map((c) => c.author))];
-  const may = await Promise.all(authors.map((a) => t.mayDecide(a)));
+  const may = await Promise.all(authors.map((a) => t.mayDecide(a, ticket.key)));
   const deciders = new Set(authors.filter((_, i) => may[i]));
   return unmarked
     .filter((c) => deciders.has(c.author))
@@ -591,6 +654,7 @@ const READS_AND_WRITES = new Set([
   "label",
   "link",
   "branch",
+  "repositories",
   "blockers",
   "block",
   "unblock",
@@ -613,7 +677,9 @@ async function branchOf(ticket: Key, d: Ctx): Promise<string> {
         { cause: e },
       );
     }
-  return d.branchName.replaceAll("{ticket}", ticket).replaceAll("{user}", user);
+  return d.branchName
+    .replaceAll("{ticket}", wordOf(ticket))
+    .replaceAll("{user}", user);
 }
 
 /** The commands that read or write a ticket for a skill. Null when
@@ -701,8 +767,15 @@ async function ticketCommand(
         return 0;
       }
       const attach = options(args, "--attach");
-      const body = d.readFile(file);
+      let body = d.readFile(file);
       refuseBareTags(body);
+      if (command === "edit") {
+        const section = sectionOf((await t.read(ticket)).body);
+        if (
+          section ? d.fromCloudSession || !sectionOf(body) : d.fromCloudSession
+        )
+          body = withSection(body, section);
+      }
       const files = attach.length ? need(t, "attachments") : null;
       if (command === "edit") {
         // The body first: a body refused, as by a missing ticket field,
@@ -759,9 +832,26 @@ async function ticketCommand(
       }
       return 0;
     }
-    case "link":
-      d.out(t.linkText(keyed(), args.includes("--part") ? "part" : "closes"));
+    case "link": {
+      const key = keyed();
+      const lines = args.includes("--part")
+        ? null
+        : await linkLines(await t.read(key), place(d));
+      (
+        lines ?? [t.linkText(key, args.includes("--part") ? "part" : "closes")]
+      ).forEach(d.out);
       return 0;
+    }
+    case "repositories":
+      return repositories(keyed(), args.slice(1), {
+        ...place(d),
+        columns: d.config.columns,
+        followUp: names["follow-up"],
+        out: d.out,
+        signedInAs: () => d.signedInAs(d.repository, d.codeHost),
+        startOrder: async (repository, pull) =>
+          d.startOrder(repository, pull, await d.settings()),
+      });
     case "branch": {
       const ticket = await t.read(keyed());
       d.out(await branchOf(ticket.key, d));
@@ -803,7 +893,7 @@ const STEPS = new Set([
 ]);
 
 const USAGE =
-  "Usage: factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|blockers|block|unblock|supports|follow-up ...";
+  "Usage: factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|repositories|blockers|block|unblock|supports|follow-up ...";
 
 /** The commands that record something on a ticket, after each of which
  * the board sync runs, since no ticket system tells the code host. */
@@ -823,13 +913,18 @@ const RECORDING = new Set([
 
 export async function main(argv: string[], deps: Deps): Promise<number> {
   const code = await command(argv, deps);
-  if (code !== 0 || !RECORDING.has(argv[0] ?? "")) return code;
+  const recorded =
+    RECORDING.has(argv[0] ?? "") ||
+    (argv[0] === "repositories" && argv.length > 2);
+  if (code !== 0 || !recorded) return code;
   try {
     const settings = await deps.settings();
     // The sync's workflow is written only where there is a board to sync.
     if (settings.tickets.board === null && !settings.tickets.statuses)
       return code;
-    await deps.startSync(targetOf(settings, deps.env).repository, settings);
+    const { repository, board } = targetOf(settings, deps.env);
+    const { tickets } = await deps.open(settings, { repository, board });
+    await deps.startSync(syncedIn(argv, tickets, repository), settings);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     deps.out(
@@ -837,6 +932,19 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
     );
   }
   return code;
+}
+
+/** The repository whose sync keeps the ticket a command recorded on: the
+ * ticket's own. */
+function syncedIn(
+  argv: string[],
+  tickets: Tickets,
+  repository: string,
+): string {
+  const key = argv[1];
+  if (!key || ["adopt", "open", "follow-up"].includes(argv[0]!))
+    return repository;
+  return homeOf(tickets, tickets.key(key), repository);
 }
 
 async function command(argv: string[], deps: Deps): Promise<number> {
@@ -855,6 +963,7 @@ async function command(argv: string[], deps: Deps): Promise<number> {
       repository,
       board,
       ...opened,
+      hostOf: (other) => deps.reach(other, settings.codeHost.type, repository),
       own: ownLinks(settings),
       labels: {
         tickets: settings.tickets.labels,
@@ -962,6 +1071,14 @@ async function command(argv: string[], deps: Deps): Promise<number> {
           ticket.labels,
           d.labels.tickets,
         );
+        try {
+          readList(ticket, d.tickets);
+        } catch (error) {
+          const line = (error as { cause?: { line?: string } }).cause?.line;
+          missing.push(
+            `missing: a Repositories section that can be read: ${JSON.stringify(line)}`,
+          );
+        }
         if (missing.length > 0) {
           for (const line of missing) say.plainError(line);
           return 1;
@@ -990,6 +1107,10 @@ async function command(argv: string[], deps: Deps): Promise<number> {
     d.out("posted");
     return 0;
   } catch (error) {
+    if (error instanceof NotBuildable) {
+      deps.out(`✗ ${error.message}`);
+      return 1;
+    }
     // The steps print one line whatever happens; a read or write for a
     // skill prints nothing on stdout, so nothing there reads as an answer.
     if (!READS_AND_WRITES.has(command ?? ""))
@@ -1003,10 +1124,6 @@ function followUpPath() {
   return join(commonDir(), "work-follow-up");
 }
 
-function claimPath(issue: Key) {
-  return join(commonDir(), `work-claim-${issue}`);
-}
-
 /** What the commands run with, outside a test. */
 export function ticketDeps(): Deps {
   return {
@@ -1015,6 +1132,19 @@ export function ticketDeps(): Deps {
       openCodeHost(repository, codeHost).open(),
     signedInAs: (repository, codeHost) =>
       openCodeHost(repository, codeHost).signedInAs(),
+    reach: (repository, codeHost, own) =>
+      reachCodeHost(repository, codeHost, own),
+    startOrder: async (repository, pull, settings) => {
+      const branch = await openCodeHost(
+        repository,
+        settings.codeHost.type,
+      ).defaultBranch();
+      await openRunner(repository, settings.builds.runner).startOn(
+        "order",
+        pull,
+        branch,
+      );
+    },
     runner: (repository, name) => openRunner(repository, name),
     startSync: async (repository, settings) => {
       const branch = await openCodeHost(
