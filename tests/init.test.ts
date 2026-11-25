@@ -2967,36 +2967,181 @@ describe("factory init, the field step", () => {
     expect(r.out.join("\n")).not.toContain("already holds");
   });
 
-  it.each([
-    [{ timedOut: true }, "it took longer than 60 seconds"],
-    [
-      { failed: { code: 1, error: "Invalid API key" } },
-      "it failed: Invalid API key",
-    ],
-    [{ failed: { code: 2, error: null } }, "it failed with exit code 2"],
-  ] as const)(
-    "words a failed or slow agent as the column step does",
-    async (got, reason) => {
-      const r = fielded({ agent: scriptedAgent([got]) });
-      expect(await r.run()).toBe(1);
-      expect(r.out).toContain(
-        `Claude Code's answer could not be used: ${reason}.`,
-      );
-    },
-  );
+  /** The four asked by hand, then yes to the table: Spec and Acceptance
+   * criteria share one, and For the builder has its own. */
+  const BY_HAND = [
+    "__description__",
+    "field:Acceptance criteria",
+    "field:Acceptance criteria",
+    "field:Design notes",
+    "yes",
+  ];
+  const FAILED = { failed: { code: 1, error: "Invalid API key" } };
+  const byHand = (
+    select: string[],
+    o: { checkbox?: string[][]; agent?: ReturnType<typeof scriptedAgent> } = {},
+  ) => fielded({ agent: scriptedAgent([FAILED]), ...o, select });
+  const WHERE = ["Decisions", "Spec", "Acceptance criteria", "For the builder"]
+    .map((h) => `select: Where does ${h} go?`)
+    .concat("select: Use these ticket fields?");
 
-  it("stops before the plan, changing nothing, when the answer can't be used", async () => {
-    const r = fielded({
-      answer: { ...SUGGESTION, decisions: "Design notes" },
-    });
-    expect(await r.run()).toBe(1);
-    expect(r.out.slice(-3)).toEqual([
-      "Claude Code's answer could not be used: it put Design notes in both Decisions and For the builder.",
-      "Run factory init again, or write tickets.fields in .claude/factory.yaml yourself.",
-      "Nothing changed.",
+  it.each([
+    ["it took longer than 60 seconds", { timedOut: true as const }],
+    ["it failed: Invalid API key", FAILED],
+    ["it failed with exit code 2", { failed: { code: 2, error: null } }],
+    [
+      "it named Notes, which acme/site's tickets don't have",
+      { answer: { ...SUGGESTION, decisions: "Notes" } },
+    ],
+    [
+      "it put Design notes in both Decisions and For the builder",
+      { answer: { ...SUGGESTION, decisions: "Design notes" } },
+    ],
+    ["it left out Spec", { answer: { ...SUGGESTION, spec: undefined } }],
+    ["it did not answer in the form asked for", { answer: "Customer" }],
+  ])("asks by hand, in place of stopping, when %s", async (reason, got) => {
+    const r = byHand(BY_HAND, { agent: scriptedAgent([got]) });
+    expect(await r.run()).toBe(0);
+    const at = r.out.indexOf(
+      `Claude Code's answer could not be used: ${reason}.`,
+    );
+    expect(at).toBeGreaterThan(-1);
+    expect(r.out[at + 1]).toBe(
+      "Choose where each of the factory's fields goes yourself.",
+    );
+    expect(r.out.join("\n")).not.toMatch(
+      /write tickets\.fields in \.claude\/factory\.yaml yourself|Nothing changed/,
+    );
+    expect(r.agent.asked).toHaveLength(1);
+    expect(r.asked).toEqual(expect.arrayContaining(WHERE));
+    expect(r.asked).toContain("confirm: Go ahead?");
+    expect(r.read(".claude/factory.yaml")).toBe(
+      FOUR(
+        "none",
+        "Acceptance criteria",
+        "Acceptance criteria",
+        "Design notes",
+      ),
+    );
+  });
+
+  it("prints and asks by hand as drafted, from the text fields to the last question", async () => {
+    const r = byHand(BY_HAND);
+    expect(await r.run()).toBe(0);
+    const from = r.transcript.findIndex((l) => l.includes("text fields"));
+    const to = r.transcript.indexOf("? select: Use these ticket fields?");
+    expect(r.transcript.slice(from, to + 1)).toEqual([
+      "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
+      "Asking Claude Code which of them should hold each of the factory's fields...",
+      "Claude Code's answer could not be used: it failed: Invalid API key.",
+      "Choose where each of the factory's fields goes yourself.",
+      "",
+      "  Factory field         What it holds",
+      "  Decisions             the questions refinement settled, and what was chosen",
+      "  Spec                  what a change users will notice must do, line by line",
+      "  Acceptance criteria   what must be true for any other ticket to be done",
+      "  For the builder       how to build it, as a design and a list of tasks",
+      "",
+      "A ticket has a Spec or Acceptance criteria, never both, so the two can share a ticket field.",
+      "",
+      "? select: Where does Decisions go?",
+      "? select: Where does Spec go?",
+      "? select: Where does Acceptance criteria go?",
+      "? select: Where does For the builder go?",
+      "",
+      "  Factory field         Ticket field",
+      "  Decisions             the description",
+      "  Spec                  Acceptance criteria",
+      "  Acceptance criteria   Acceptance criteria",
+      "  For the builder       Design notes",
+      "",
+      "Your own text stays in the description.",
+      "GitHub Issues shows a field's text as typed, without Markdown formatting.",
+      "",
+      "? select: Use these ticket fields?",
     ]);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
-    expect(r.asked).not.toContain("confirm: Go ahead?");
+  });
+
+  it("starts each question by hand on the description, and the last one on Yes, with no No", async () => {
+    const r = byHand(BY_HAND);
+    await r.run();
+    const each = {
+      names: [
+        "The description",
+        "Acceptance criteria",
+        "Design notes",
+        "Customer",
+      ],
+      fallback: "__description__",
+    };
+    expect(r.selects.slice(0, 5)).toEqual([
+      each,
+      each,
+      each,
+      each,
+      { names: ["Yes", "Change some"], fallback: "yes" },
+    ]);
+  });
+
+  it("asks the same question again for a ticket field chosen before by hand", async () => {
+    const r = byHand([
+      "field:Design notes",
+      "__description__",
+      "__description__",
+      "field:Design notes",
+      "field:Customer",
+      "yes",
+    ]);
+    expect(await r.run()).toBe(0);
+    const at = r.transcript.indexOf(
+      "Design notes already holds Decisions. Pick another ticket field for For the builder.",
+    );
+    expect(r.transcript.slice(at - 1, at + 2)).toEqual([
+      "? select: Where does For the builder go?",
+      "Design notes already holds Decisions. Pick another ticket field for For the builder.",
+      "? select: Where does For the builder go?",
+    ]);
+    expect(r.selects[4]!.fallback).toBe("__description__");
+    expect(r.read(".claude/factory.yaml")).toBe(
+      FOUR("Design notes", "none", "none", "Customer"),
+    );
+  });
+
+  it("goes back to Yes and Change some after a change to fields chosen by hand", async () => {
+    const r = byHand(
+      [...BY_HAND.slice(0, 4), "change", "field:Customer", "yes"],
+      { checkbox: [["decisions"]] },
+    );
+    expect(await r.run()).toBe(0);
+    expect(r.selects[5]).toEqual({
+      names: [
+        "The description",
+        "Acceptance criteria",
+        "Design notes",
+        "Customer",
+      ],
+      fallback: "__description__",
+    });
+    expect(r.selects[6]!.names).toEqual(["Yes", "Change some"]);
+    expect(r.yaml().tickets).toMatchObject({
+      fields: { decisions: "Customer" },
+    });
+  });
+
+  it("underlines the column names and bolds the factory fields in what each holds", async () => {
+    const r = byHand(BY_HAND);
+    await r.run();
+    const at = r.looks.findIndex((l) => l.includes("What it holds"));
+    expect(r.looks.slice(at, at + 2)).toEqual([
+      "  {heading:Factory field}         {heading:What it holds}",
+      "  {name:Decisions}             the questions refinement settled, and what was chosen",
+    ]);
+    expect(r.looks).toContain(
+      "Choose where each of the factory's fields goes yourself.",
+    );
+    expect(r.looks).toContain(
+      "A ticket has a Spec or Acceptance criteria, never both, so the two can share a ticket field.",
+    );
   });
 
   it.each([
@@ -3055,6 +3200,23 @@ describe("factory init, the field step", () => {
     );
     expect(lines).toContain(
       "Fake Tickets shows a field's text as typed, without Markdown formatting.",
+    );
+    expect(lines).not.toMatch(/Claude Code|GitHub/);
+  });
+
+  it("names them by their registered labels by hand too", async () => {
+    const agent = scriptedAgent([FAILED]);
+    const r = fielded({
+      agent,
+      select: BY_HAND,
+      input: ["https://tickets.example"],
+      secret: [""],
+      tools: (b, t) => withFakeTickets(withFakeAgent(b, agent), t, true),
+    });
+    expect(await r.run()).toBe(0);
+    const lines = step(r.out).join("\n");
+    expect(lines).toContain(
+      "Fake Agent's answer could not be used: it failed: Invalid API key.",
     );
     expect(lines).not.toMatch(/Claude Code|GitHub/);
   });

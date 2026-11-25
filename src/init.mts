@@ -1828,7 +1828,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       return 1;
     }
     if (text.length) {
-      const got = await suggestFields(
+      fieldLines = await suggestFields(
         { ask: d.ask, out: d.out, agent: agent.agent, label: agent.label },
         {
           repository,
@@ -1838,8 +1838,6 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
             : null,
         },
       );
-      if (got === 1) return 1;
-      fieldLines = got;
     }
   }
 
