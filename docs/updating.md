@@ -627,7 +627,11 @@ no follow-ups ticket anymore, and the factory no longer knows its label.
 2. After it, if a "Follow-ups" ticket is open, write a ticket in your ticket
    system for each line you still want, and close it. Nothing builds it
    anymore, since it has no criteria.
-3. If you [host the poller](builds.md#hosting-the-poller-own-server), take
+3. Take any step about the follow-ups ticket out of your own instructions for
+   the coding agent, such as `CLAUDE.md`, which win over the factory's rules,
+   and out of a [plugin](plugins.md) of your own. `factory follow-up` takes a
+   title and a text now, not a file and a line.
+4. If you [host the poller](builds.md#hosting-the-poller-own-server), take
    `FACTORY_FOLLOW_UP_LABEL` out of its environment, if you set it there.
 
 **It worked when** `factory config check` prints `✓ The settings are valid.`

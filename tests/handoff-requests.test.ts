@@ -173,12 +173,14 @@ describe("what Publish runs of it", () => {
       asked("pr", "open", "--title", "t", "--body-file", "b.md", "--ready"),
       build,
     ],
-    [
-      "a review's follow-up, whose findings are findings",
-      "not in this run",
-      asked("follow-up", "A title.", "What is wrong."),
-      { ...answer, kind: "review" },
-    ],
+    ...(["review", "conflict", "dependency"] as const).map(
+      (kind): [string, string, Asked, ThisRun] => [
+        `a ${kind}'s follow-up`,
+        "not in this run",
+        asked("follow-up", "A title.", "What is wrong."),
+        { ...answer, kind },
+      ],
+    ),
     [
       "the tickets a merge opens",
       "a session can't ask for this",

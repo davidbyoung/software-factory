@@ -210,7 +210,8 @@ them.
 - **A picture can't be attached.** The pull request says so in place of a
   screenshot, and one whose look the owner picks is opened with `--draft`.
 - **What comes before "marked ready" comes before `factory pr open`,** the
-  fresh-agent trace included, since nobody marks it ready by hand.
+  fresh-agent trace included, since nobody marks it ready by hand. A
+  follow-up alone comes right after it, since it is listed there.
 - **The report** is asked for with `factory ticket comment N`, or on an
   answer with `factory pr comment N`, and is the final message too.
 
@@ -293,17 +294,18 @@ writes it, and whether it is open. A ticket system without blockers says so: che
 
 ## Follow-ups
 
-A session building one ticket often notices something else: a reviewer
+A session building one ticket, or answering a review of it, often notices something else: a reviewer
 finding it left for the owner, a defect out of scope, or a check to run
 later. What it does depends on what it noticed:
 
 - **Small, and part of what it is building:** it fixes it in the same pull
-  request.
+  request, and the body says so. What would add or alter behavior a user
+  can see that the ticket does not ask for is not this: it is the next.
 - **Something else that a user or a maintainer would run into:** it lists
   it in its pull request, as a follow-up.
 - **Anything else,** such as what breaks no rule in the guides, what nobody
   would notice without measuring, or a Low review finding it left undone:
-  it leaves it alone, and does not mention it.
+  it leaves it alone, and does not list it.
 
 It opens no ticket for any of them. The owner decides about each follow-up
 on the pull request: one whose box is ticked when the pull request merges
@@ -321,10 +323,12 @@ ticket it may become has nothing else to go by, so together they stand
 without the pull request. A pull request lists three at most: with more
 than three, list the three that matter most. Neither may link a ticket.
 
-- A build that ends with no pull request lists nothing.
-- A session with no pull request that the owner is in, such as a
-  refinement, says what it noticed, and opens a ticket only when the owner
-  asks for one.
+- A finding in a review thread is answered there, as
+  `factory-address-review` says, and is not listed too.
+- A build that ends with no pull request lists nothing. A run in the cloud
+  that resolves a conflict or works a dependency lists nothing either.
+- A session with no pull request, such as a refinement, says what it noticed
+  in its report, and opens a ticket only when the owner asks for one.
 - A request from the owner is a ticket of its own.
 - The `factory-resolve-conflicts` conflict stop keeps opening its own
   ticket: which side wins is the owner's decision, and nothing else records

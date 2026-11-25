@@ -151,8 +151,12 @@ const RULES: Record<string, Rule> = {
     needs: TITLED,
     when: (run) => run.kind === "conflict" || run.kind === "dependency",
   },
-  // What a review finds is a finding.
-  "follow-up": { words: [any, any], when: (run) => run.kind !== "review" },
+  // What a review finds is a finding, and a dependency's pull request is its
+  // bot's to describe.
+  "follow-up": {
+    words: [any, any],
+    when: (run) => run.kind === "build" || run.kind === "answer",
+  },
   "pr open": {
     words: [],
     flags: { "--title": "title", ...BODY_FILE, "--draft": "alone" },

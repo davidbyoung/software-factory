@@ -199,7 +199,7 @@ organization up: in particular `merge-policy.mts`, `review-verdict.mts`,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts`,
 `workflow-files.mts`, `session.mts` and the `session-*.mts` files,
 `handoff/`, `agent/claude-code-session.mts`, `review-record.mts`,
-`enroll.mts`,
+`enroll.mts`, `follow-ups.mts`,
 `init.mts`, `init-org.mts`, `setup.mts`, `code-host/github-app.mts`,
 which holds the App's permissions, `update.mts`,
 `lib/default-branch.mts`, `lib/refined-check.mts`, `specs/`, whose

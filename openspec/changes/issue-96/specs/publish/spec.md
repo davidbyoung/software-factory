@@ -7,7 +7,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: What it may be asked
 
 - **WHEN** a session asked for writes
-- **THEN** It replies to and resolves only threads of this run's pull request, and comments on, edits, stops, or ends only this run's ticket and pull request. It also lists a follow-up in the pull request this run opened or answers, as `factory follow-up` does, every box unticked, and refuses one from a build that opened none, or from a review, naming it in the run's log. It opens a ticket from a Conflict or a Dependency run, and asks for the review again. When what the session left did not arrive, when a build left nothing, or when the session did not finish and left no commits, it says so there, with the run's address.
+- **THEN** It replies to and resolves only threads of this run's pull request, and comments on, edits, stops, or ends only this run's ticket and pull request. It also lists a follow-up in the pull request this run opened or answers, as `factory follow-up` does, every box unticked, and refuses one from a build that opened none, or from any other run, naming it in the run's log. It opens a ticket from a Conflict or a Dependency run, and asks for the review again. When what the session left did not arrive, when a build left nothing, or when the session did not finish and left no commits, it says so there, with the run's address.
 
 ### Requirement: A bundle it refuses
 

@@ -174,7 +174,7 @@ short list of them, and only on the run's own ticket and pull request:
 - Reply to and resolve the pull request's review threads, and ask for its
   review again.
 - List a [follow-up](workflow.md#follow-ups) in the pull request, its box
-  empty, from any run but a review's.
+  empty, from a build or an answer.
 - From a Conflict or a Dependency run, open a ticket.
 
 Anything else, such as a label or a merge, is refused as the session asks for
