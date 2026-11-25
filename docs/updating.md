@@ -615,21 +615,23 @@ From this release on, what a session noticed and did not fix is listed in
 its pull request, for you to [decide about](workflow.md#follow-ups). There is
 no follow-ups ticket anymore, and the factory no longer knows its label.
 
-1. Delete the line `follow-up:` under
+1. Before the update, delete the line `follow-up:` under
    [`tickets.labels`](configuration.md#ticketslabels), if your settings or a
-   [preset](presets.md) of yours has one. Until you do, the update fails:
+   [preset](presets.md) of yours has one. Until you do, no pull request opens
+   for the release, and the job "Open the updates' pull requests" fails with:
 
    ```text
    .claude/factory.yaml: tickets.labels.follow-up: unknown key
    ```
 
-2. Close your "Follow-ups" ticket, if one is open, and open a ticket for each
-   line you still want. Left open, it is a ticket like any other, which a
-   build starts only once it is refined.
-3. If you [host the poller](builds.md#hosting-the-poller-own-server), stop
-   setting `FACTORY_FOLLOW_UP_LABEL`, if you set it.
+2. After it, if a "Follow-ups" ticket is open, write a ticket in your ticket
+   system for each line you still want, and close it. Nothing builds it
+   anymore, since it has no criteria.
+3. If you [host the poller](builds.md#hosting-the-poller-own-server), take
+   `FACTORY_FOLLOW_UP_LABEL` out of its environment, if you set it there.
 
 **It worked when** `factory config check` prints `✓ The settings are valid.`
+after the update, and no open ticket is titled "Follow-ups".
 
 ## The commands
 
