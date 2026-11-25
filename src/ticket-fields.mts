@@ -329,11 +329,75 @@ export type FieldStepDeps = {
 function holding(
   field: string,
   key: FactoryKey,
-  s: Suggestion,
+  s: Partial<Suggestion>,
 ): FactoryKey | null {
   return (
     KEYS.find((k) => k !== key && s[k] === field && !mayShare(k, key)) ?? null
   );
+}
+
+/** Asks where `key` goes, with `current` selected. A ticket field that
+ * already holds another factory field in `s` is a clash, which it says. */
+async function pickField(
+  d: Pick<FieldStepDeps, "ask" | "out">,
+  key: FactoryKey,
+  fields: readonly TicketFieldInfo[],
+  current: string | null,
+  s: Partial<Suggestion>,
+): Promise<{ field: string | null } | "clash"> {
+  const v = await d.ask.select(
+    `Where does ${HEADING[key]} go?`,
+    [
+      { name: "The description", value: DESCRIPTION },
+      ...fields.map((f) => ({ name: f.name, value: `field:${f.name}` })),
+    ],
+    current === null ? DESCRIPTION : `field:${current}`,
+  );
+  const field = v === DESCRIPTION ? null : v.slice(6);
+  const other = field === null ? null : holding(field, key, s);
+  if (!other) return { field };
+  d.out(
+    say.text(
+      `${field} already holds ${HEADING[other]}. Pick another ticket field for ${HEADING[key]}.`,
+    ),
+  );
+  return "clash";
+}
+
+/** The field step by hand: what each factory field holds, then where each
+ * goes, in turn. */
+async function chooseFields(
+  d: Pick<FieldStepDeps, "ask" | "out">,
+  fields: readonly TicketFieldInfo[],
+): Promise<Suggestion> {
+  d.out(say.BLANK);
+  d.out(
+    say.heads(
+      [
+        ["Factory field", 22],
+        ["What it holds", 0],
+      ],
+      { indent: 2 },
+    ),
+  );
+  for (const f of FACTORY_FIELDS)
+    d.out(say.row(f.heading, f.holds, { width: 22, gap: 0 }));
+  d.out(say.BLANK);
+  d.out(
+    say.text(
+      "A ticket has a Spec or Acceptance criteria, never both, so the two can share a ticket field.",
+    ),
+  );
+  d.out(say.BLANK);
+  const s: Partial<Suggestion> = {};
+  for (const key of KEYS)
+    for (;;) {
+      const got = await pickField(d, key, fields, null, s);
+      if (got === "clash") continue;
+      s[key] = got.field;
+      break;
+    }
+  return s as Suggestion;
 }
 
 /** "Change some": the factory fields you pick, then a ticket field for
@@ -356,33 +420,20 @@ async function changeSome(
     );
     let clash = false;
     for (const key of KEYS.filter((k) => picked.includes(k))) {
-      const v = await d.ask.select(
-        `Where does ${HEADING[key]} go?`,
-        [
-          { name: "The description", value: DESCRIPTION },
-          ...fields.map((f) => ({ name: f.name, value: `field:${f.name}` })),
-        ],
-        s[key] === null ? DESCRIPTION : `field:${s[key]}`,
-      );
-      const field = v === DESCRIPTION ? null : v.slice(6);
-      const other = field === null ? null : holding(field, key, s);
-      if (other) {
-        d.out(
-          say.text(
-            `${field} already holds ${HEADING[other]}. Pick another ticket field for ${HEADING[key]}.`,
-          ),
-        );
+      const got = await pickField(d, key, fields, s[key], s);
+      if (got === "clash") {
         clash = true;
         break;
       }
-      s[key] = field;
+      s[key] = got.field;
     }
     if (!clash) return s;
   }
 }
 
 /** The field step: the four factory fields' lines to write under
- * `tickets.fields`, or 1 when init stops. */
+ * `tickets.fields`. An answer that can't be used leaves each factory
+ * field's place to be chosen by hand. */
 export async function suggestFields(
   d: FieldStepDeps,
   o: {
@@ -391,7 +442,7 @@ export async function suggestFields(
     /** The ticket system's label, when its fields show text as typed. */
     plainText: string | null;
   },
-): Promise<[FactoryKey, string][] | 1> {
+): Promise<[FactoryKey, string][]> {
   d.out(say.BLANK);
   d.out(
     say.text(
@@ -419,19 +470,15 @@ export async function suggestFields(
                 : `it failed: ${got.failed.error}`,
           }
         : check(got.answer, o.fields, o.repository);
+  const byHand = "reason" in checked;
+  let suggestion: Suggestion;
   if ("reason" in checked) {
     d.out(
       say.text(`${d.label}'s answer could not be used: ${checked.reason}.`),
     );
-    d.out(
-      say.text(
-        "Run factory init again, or write tickets.fields in .claude/factory.yaml yourself.",
-      ),
-    );
-    d.out(say.text("Nothing changed."));
-    return 1;
-  }
-  let suggestion = checked.suggestion;
+    d.out(say.text("Choose where each of the factory's fields goes yourself."));
+    suggestion = await chooseFields(d, o.fields);
+  } else suggestion = checked.suggestion;
   for (;;) {
     d.out(say.BLANK);
     for (const line of table(suggestion)) d.out(line);
@@ -449,7 +496,9 @@ export async function suggestFields(
       [
         { name: "Yes", value: "yes" },
         { name: "Change some", value: "change" },
-        { name: "No: keep everything in the description", value: "no" },
+        ...(byHand
+          ? []
+          : [{ name: "No: keep everything in the description", value: "no" }]),
       ],
       "yes",
     );

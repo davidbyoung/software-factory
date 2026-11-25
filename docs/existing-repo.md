@@ -311,16 +311,23 @@ text as typed, so a list reads as written, with its numbers and dashes,
 and a table shows its `|` marks. You and your coding agent see no other
 difference: the agent still reads the whole ticket, fields included.
 
-**Init stops, and changes nothing, when it can't use the answer,** such
-as when Claude Code isn't signed in, or names a ticket field your tickets
-don't have. It prints why. Then do one of these, and run `factory init`
-again:
+**When init can't get an answer, it asks you instead.** That happens
+when Claude Code isn't signed in, or when its answer can't be used, such
+as a ticket field your tickets don't have. Init prints Claude Code's own
+reason and what each factory field holds, then asks where each one goes,
+offering the description, which is selected, and your ticket fields. It
+shows you the table to confirm as above:
 
-- if it says Claude Code isn't signed in, sign in by running `claude`
-  once;
-- otherwise, write the four lines above yourself, as
-  [`tickets.fields`](configuration.md#ticketsfields) describes: init
-  then doesn't ask.
+```text
+Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth session expired and could not be refreshed.
+Choose where each of the factory's fields goes yourself.
+```
+
+To have Claude Code suggest them instead, press Ctrl-C, sign in by
+running `claude` once, and run `factory init` again. To be asked nothing,
+write the four lines above in `.claude/factory.yaml` yourself before you
+run `factory init`, as
+[`tickets.fields`](configuration.md#ticketsfields) describes.
 
 **Running init again** keeps what the four lines say, and doesn't ask
 again. To be asked again, for example after creating another ticket
