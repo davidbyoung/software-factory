@@ -38,8 +38,10 @@ import { CODE_HOST_YAML } from "./settings-fixture";
 const OWN = ".claude/factory.yaml";
 const PRESET = "factory-preset.yaml";
 
-let root: string;
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+let root = "";
+afterEach(() => {
+  if (root) rmSync(root, { recursive: true, force: true });
+});
 
 type Reader = {
   /** The name it puts before the words. */
@@ -298,6 +300,7 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
       } catch (e) {
         said = (e as Error).message;
       }
+      expect(said).not.toBe("");
       const r = await reader.read(text);
       // What follows the first line is an excerpt of the file itself.
       const first = `${reader.named}: ${said.split("\n")[0]}`;

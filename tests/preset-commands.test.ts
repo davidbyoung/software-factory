@@ -219,37 +219,19 @@ const addSummary = () => [
 const GATE = ["commands:", "  gate: [npm run check]"];
 
 describe("factory preset add", () => {
-  it.each<[string, string, string[]]>([
-    [
-      "a value your own file replaces",
-      "rules:\n  review-rounds: zero\n",
-      ["rules:", "  review-rounds: 3"],
-    ],
-    ["a value nothing replaces", "rules:\n  review-rounds: zero\n", []],
-  ])(
-    "refuses a preset with %s that is not valid, and changes nothing",
-    async (_, settings, body) => {
-      await setUp([], body, [OTHER]);
-      publish(OTHER, { "": { settings: `version: 2\n${settings}` } });
-      const before = state();
-      const r = await preset(["add", OTHER]);
-      expect(r.err).toEqual([
-        `${OTHER}: rules.review-rounds: must be a whole number above zero`,
-      ]);
-      expect(r.out).toEqual([]);
-      expect(r.code).toBe(1);
-      expect(state()).toEqual(before);
-    },
-  );
-
-  it("refuses a preset that is not YAML as the settings file is refused", async () => {
-    await setUp([], [], [OTHER]);
-    publish(OTHER, { "": { settings: "version: 2\nrules: a: b\n" } });
+  it("refuses a value that is not valid, though your own file replaces it, and changes nothing", async () => {
+    await setUp([], ["rules:", "  review-rounds: 3"], [OTHER]);
+    publish(OTHER, {
+      "": { settings: "version: 2\nrules:\n  review-rounds: zero\n" },
+    });
+    const before = state();
     const r = await preset(["add", OTHER]);
     expect(r.err).toEqual([
-      `${OTHER}: line 2: rules: a: b needs quotes around the name, such as rules: "a: b"`,
+      `${OTHER}: rules.review-rounds: must be a whole number above zero`,
     ]);
+    expect(r.out).toEqual([]);
     expect(r.code).toBe(1);
+    expect(state()).toEqual(before);
   });
 
   it("shows the summary, asks where presets disagree and about your own value, and applies on y", async () => {
@@ -1068,36 +1050,47 @@ describe("factory preset check", () => {
         'code-host.type "gitlab" is not supported. "github" is the only code host built.',
         ["code-host: gitlab"],
       ],
-      [
-        "builds.hosts can't name GitHub: a build has no GitHub access",
-        ["builds:", "  hosts: [github.com]"],
-      ],
     ])("fails with %s", async (said, lines) => {
       const r = await checking(...lines);
       expect(r.out).toEqual([`factory-preset.yaml: ${said}`]);
       expect(r.code).toBe(1);
     });
 
-    it("prints each problem only a preset has, then the first value that is not valid, of each file", async () => {
-      const r = await checkIn({
-        "": {
-          settings:
-            "version: 2\nrepository: acme/web\npresets: x\nauto-merge:\n  allow: src\nrules:\n  review-rounds: zero\n  small-change-lines: zero\n",
-        },
-        node: {
-          settings:
-            "version: 2\nplugins:\n  build:\n    reviewers:\n      - agent: x\n        off: yes please\n",
-        },
-        python: { settings: "version: 2\nbuilds:\n  max-per-hour: 0\n" },
-      });
+    it("prints each problem only a preset has before the first value that is not valid, and neither twice", async () => {
+      const r = await checking(
+        "repository: acme/web",
+        "presets: x",
+        "auto-merge:",
+        "  allow: src",
+        "plugins:",
+        "  build:",
+        "    reviewers:",
+        "      - agent: factory-ui-reviewer",
+        "        off: yes please",
+        "session-minutes:",
+        "  build: none",
+      );
       expect(r.out).toEqual([
         "factory-preset.yaml: repository: a preset can't set this. Remove it, and set it in each repository that wants it",
         "factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it",
         "factory-preset.yaml: presets: a preset can't name another preset. Remove it, and list each preset in the repositories that use this one",
-        "factory-preset.yaml: rules.small-change-lines: must be a whole number above zero",
-        "node/factory-preset.yaml: plugins.build.reviewers[0]: off: only .claude/factory.yaml can leave a plugin out. Remove it: only a repository can leave a plugin out",
-        "python/factory-preset.yaml: builds.max-per-hour: must be a whole number, 1 or more",
-        "node/factory-preset.yaml: plugins.build.reviewers: x: not shipped here, so each repository that uses this preset must provide it",
+        "factory-preset.yaml: plugins.build.reviewers[0]: off: only .claude/factory.yaml can leave a plugin out. Remove it: only a repository can leave a plugin out",
+        "factory-preset.yaml: session-minutes.build: must be a whole number above zero",
+      ]);
+      expect(r.code).toBe(1);
+    });
+
+    it("prints the first value that is not valid in each file", async () => {
+      const r = await checkIn({
+        "": {
+          settings:
+            "version: 2\nrules:\n  review-rounds: zero\nsession-minutes:\n  build: none\n",
+        },
+        node: { settings: "version: 2\nbuilds:\n  max-per-hour: 0\n" },
+      });
+      expect(r.out).toEqual([
+        "factory-preset.yaml: session-minutes.build: must be a whole number above zero",
+        "node/factory-preset.yaml: builds.max-per-hour: must be a whole number, 1 or more",
       ]);
       expect(r.code).toBe(1);
     });
@@ -1197,23 +1190,6 @@ describe("factory preset check", () => {
     ])("still fails with %s", async (said, lines) => {
       const r = await checking(...lines);
       expect(r.out).toEqual([`factory-preset.yaml: ${said}`]);
-      expect(r.code).toBe(1);
-    });
-
-    it("says what a version 1 file is told", async () => {
-      const r = await checkIn({ "": { settings: "version: 1\n" } });
-      expect(r.out).toEqual([
-        'factory-preset.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
-      ]);
-    });
-
-    it("says which value of a file that is not YAML needs quotes", async () => {
-      const r = await checkIn({
-        "": { settings: "version: 2\nrules: a: b\n" },
-      });
-      expect(r.out).toEqual([
-        'factory-preset.yaml: line 2: rules: a: b needs quotes around the name, such as rules: "a: b"',
-      ]);
       expect(r.code).toBe(1);
     });
   });

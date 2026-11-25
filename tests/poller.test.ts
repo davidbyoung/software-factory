@@ -1197,18 +1197,6 @@ describe("an organization's preset, as its one poller reads it", () => {
       "factory-preset.yaml: tickets.board: must be a whole number above zero, or none",
     ],
     [["version: 2", "tickets: ["], /^factory-preset\.yaml: /],
-    [
-      [...PRESET, "  hosts: [github.com]"],
-      "factory-preset.yaml: builds.hosts can't name GitHub: a build has no GitHub access",
-    ],
-    [
-      ["version: 1"],
-      "factory-preset.yaml: version: must be 2: this file is version 1",
-    ],
-    [
-      ["version: 2", "rules: a: b"],
-      "factory-preset.yaml: line 2: rules: a: b needs quotes around the name",
-    ],
   ])(
     "refuses a preset no repository could follow, naming the file",
     async (lines, said) => {

@@ -2536,6 +2536,7 @@ describe("a re-run where the settings are not valid", () => {
       "Fix it, then run init again.",
     ]);
     expect(r.code).toBe(1);
+    expect(r.asked).toEqual([]);
   });
 });
 
