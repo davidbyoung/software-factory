@@ -319,6 +319,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
       spec: "Acceptance criteria",
       "acceptance-criteria": "Acceptance criteria",
       "for-the-builder": null,
+      repositories: null,
       "proposed-docs": "Docs draft",
     });
   });

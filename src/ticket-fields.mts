@@ -34,6 +34,14 @@ export const FACTORY_FIELDS = [
   },
 ] as const;
 
+/** Every key under `tickets.fields` that holds part of a ticket. init asks
+ * the coding agent about the factory fields alone: few tickets have
+ * repositories to hold. */
+export const TICKET_KEYS: readonly string[] = [
+  ...FACTORY_FIELDS.map((f) => f.key),
+  "repositories",
+];
+
 export type FactoryKey = (typeof FACTORY_FIELDS)[number]["key"];
 
 /** Each ticket-side key under `tickets.fields`, in settings order, with
@@ -112,11 +120,7 @@ export function split(
   const lines = body.split(/\r?\n/);
   const keys = headings(lines);
   const fieldOf = new Map(named(mapping));
-  const enders = new Set([
-    ...FACTORY_FIELDS.map((f) => f.key as string),
-    MOCKUPS,
-    ...Object.keys(mapping),
-  ]);
+  const enders = new Set([...TICKET_KEYS, MOCKUPS, ...Object.keys(mapping)]);
 
   const kept: string[][] = [[]];
   const sections = new Map<string, string[]>();

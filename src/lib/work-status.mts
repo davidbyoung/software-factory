@@ -353,6 +353,9 @@ export type PullRequest = {
   author: string;
   /** Read for the cost markers on it. */
   comments?: IssueComment[];
+  /** How it is written where it may be in another repository, its page,
+   * and what it waits for, for a ticket that names several. */
+  across?: { ref: string; url: string; waits: string | null };
 };
 
 /** A ticket as the rules read it: its body is not needed. */

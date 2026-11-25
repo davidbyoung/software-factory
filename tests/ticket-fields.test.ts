@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { check, join, split, table } from "../src/ticket-fields.mts";
+import { listIn } from "../src/lib/repositories.mts";
+import { API, SECTION, WEB } from "./network";
 import { plainOf } from "./printed";
 
 const MAPPING = {
@@ -33,6 +35,20 @@ const DOC = `Let a customer save a cart.
 
 </details>
 `;
+
+describe("the repositories field", () => {
+  const mapping = { ...MAPPING, repositories: "Repos" };
+  const body = `The ask.\n\n${SECTION}\n## Decisions\n\n- x\n`;
+
+  it("holds the section's text, and gives it back where it was", () => {
+    const parts = split(body, mapping);
+    if ("error" in parts) throw new Error(parts.error);
+    expect(parts.values.Repos).toBe("- acme/api\n- acme/web, after acme/api");
+    expect(parts.description).not.toContain("acme/web");
+    const joined = join(parts.description, parts.values as never, mapping, []);
+    expect(listIn(joined)).toEqual([API, WEB]);
+  });
+});
 
 describe("split", () => {
   it("puts each named section in its field, without its heading, and keeps the rest", () => {

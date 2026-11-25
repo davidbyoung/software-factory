@@ -147,3 +147,41 @@ export const homeOf = (
   ticket: Key,
   repository: string,
 ): string => tickets.home(ticket) ?? repository;
+
+/** How far each repository is, for each ticket not finished that names
+ * others than its own. A ticket whose repositories could not be read is in
+ * `unread`, with why, so one of them keeps nothing else from being shown.
+ * `inField` says the list is kept in a ticket field, which reading every
+ * ticket at once leaves out. */
+export async function acrossOf(
+  all: Ticket[],
+  o: {
+    tickets: Pick<Tickets, "ref" | "home" | "linksIn" | "read">;
+    repository: string;
+    reach: Reach;
+    inField: boolean;
+    now?: Date;
+  },
+): Promise<{ across: Map<Key, Progress[]>; unread: Map<Key, string> }> {
+  const across = new Map<Key, Progress[]>();
+  const unread = new Map<Key, string>();
+  for (const seen of all) {
+    if (seen.finishedAt !== null) continue;
+    try {
+      const ticket = o.inField ? await o.tickets.read(seen.key) : seen;
+      const home = homeOf(o.tickets, ticket.key, o.repository);
+      const list = repositoriesOf(ticket, o.tickets, home);
+      if (list)
+        across.set(
+          ticket.key,
+          await progressOf(ticket, list, o.tickets, o.reach, o.now),
+        );
+    } catch (error) {
+      unread.set(
+        seen.key,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+  return { across, unread };
+}

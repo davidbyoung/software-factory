@@ -20,7 +20,7 @@ import {
 import { matchesAny } from "./lib/glob.mts";
 import { listed } from "./lib/listed.mts";
 import { DEFAULT_RUNNER, unsupportedRunner } from "./runner/index.mts";
-import { FACTORY_FIELDS, type FieldMapping } from "./ticket-fields.mts";
+import { TICKET_KEYS, type FieldMapping } from "./ticket-fields.mts";
 import { PR_LABELS, sameLabel, TICKET_LABELS, type Labels } from "./labels.mts";
 import {
   BUILT,
@@ -317,10 +317,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   tickets: ["type", "board", "columns", "fields", "labels"],
   "tickets.labels": Object.keys(TICKET_LABELS),
   "tickets.columns": Object.keys(STATE_KEYS),
-  "tickets.fields": [
-    ...Object.keys(FIELD_DEFAULTS),
-    ...FACTORY_FIELDS.map((f) => f.key),
-  ],
+  "tickets.fields": [...Object.keys(FIELD_DEFAULTS), ...TICKET_KEYS],
   "code-host": ["type", "branch-name", "labels"],
   "code-host.labels": Object.keys(PR_LABELS),
   builds: ["trigger", "runner", "poll-minutes", "max-per-hour", "hosts"],
@@ -597,18 +594,18 @@ function sameNames(
 /** A key under `tickets.fields` naming a heading of the repository's own. */
 export const OWN_HEADING = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-/** The ticket-side keys under `tickets.fields`: the four factory fields,
- * each a ticket field's name or none, and any other key a heading of the
+/** The ticket-side keys under `tickets.fields`: the factory fields and the
+ * repositories, each a ticket field's name or none, and any other key a heading of the
  * repository's own. Spec and Acceptance criteria may share a field. */
 function ticketFieldsOf(o: Obj): FieldMapping {
   const out: FieldMapping = Object.fromEntries(
-    FACTORY_FIELDS.map((f) => [f.key, null]),
+    TICKET_KEYS.map((key) => [key, null]),
   );
   const seen: [string, string][] = [];
   for (const [k, value] of Object.entries(o)) {
     if (k in FIELD_DEFAULTS) continue;
     const key = `tickets.fields.${k}`;
-    if (!FACTORY_FIELDS.some((f) => f.key === k) && !OWN_HEADING.test(k))
+    if (!TICKET_KEYS.includes(k) && !OWN_HEADING.test(k))
       fail(key, "must be a heading in lowercase, with hyphens for spaces");
     if (value === "none") {
       out[k] = null;

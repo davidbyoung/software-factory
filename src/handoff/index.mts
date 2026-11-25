@@ -41,6 +41,14 @@ export type RunFile = {
   round: number;
   /** The claim a build's Prepare made, by its record's ID. */
   claim: string | null;
+  /** The ticket's other repositories, for a ticket that names any. */
+  others?: {
+    repository: string;
+    /** The pull request that builds the ticket there, when one does. */
+    pull: number | null;
+    /** Its folder under `others/`, or null when it was too large. */
+    folder: string | null;
+  }[];
   /** Who a session's commits are committed by. */
   committer: { name: string; email: string };
 };

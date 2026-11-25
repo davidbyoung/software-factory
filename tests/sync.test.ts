@@ -1111,6 +1111,36 @@ describe("factoryHooks", () => {
     expect(withHooks(once, null, "@o/factory")).toBe(once);
   });
 
+  describe("the folder other repositories are cloned into", () => {
+    const WORK = "~/.local/share/software-factory/work";
+    const permissions = (text: string) => JSON.parse(text).permissions;
+
+    it("may be edited by a session, beside any other folder, listed once", () => {
+      const own = JSON.stringify({
+        permissions: { allow: ["Bash"], additionalDirectories: ["../docs"] },
+      });
+      const once = withHooks(own, null, "@o/factory");
+      expect(permissions(once)).toEqual({
+        allow: ["Bash"],
+        additionalDirectories: ["../docs", WORK],
+      });
+      expect(withHooks(once, null, "@o/factory")).toBe(once);
+      expect(permissions(withHooks(null, null, "@o/factory"))).toEqual({
+        additionalDirectories: [WORK],
+      });
+    });
+
+    it("is taken out again, and nothing else with it", () => {
+      const own = {
+        permissions: { allow: ["Bash"], additionalDirectories: ["../docs"] },
+      };
+      const text = withHooks(JSON.stringify(own), null, "@o/factory");
+      expect(permissions(withoutHooks(text)!)).toEqual(own.permissions);
+      const alone = withHooks(null, null, "@o/factory");
+      expect(permissions(withoutHooks(alone)!)).toBeUndefined();
+    });
+  });
+
   it("leaves a hook of the repository's own that only mentions a factory", () => {
     const own = { type: "command", command: "my-factory guard --all" };
     const text = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [own] }] } });

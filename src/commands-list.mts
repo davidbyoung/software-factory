@@ -139,6 +139,12 @@ export const COMMANDS: Command[] = [
     run: async (argv) => (await import("./build.mts")).run(argv),
   },
   {
+    words: ["workspace"],
+    args: "N [--remove]",
+    reads: "machine",
+    run: async (argv) => (await import("./workspace.mts")).run(argv),
+  },
+  {
     words: ["deps"],
     args: "[--any]",
     reads: "machine",

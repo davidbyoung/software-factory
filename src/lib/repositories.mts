@@ -5,6 +5,10 @@
 import type { Entry } from "../tickets/types.mts";
 import { fencedLines } from "./fences.mts";
 
+/** Where the clones of a ticket's other repositories go on a machine, as
+ * `.claude/settings.json` names it. */
+export const WORK = "~/.local/share/software-factory/work";
+
 /** One repository of a ticket's, and those it merges after. */
 export type Listed = { name: string; after: string[] };
 

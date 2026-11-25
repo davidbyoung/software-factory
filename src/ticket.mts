@@ -665,11 +665,16 @@ const READS_AND_WRITES = new Set([
  * In a run under an organization's app the user is the app, by the slug
  * FACTORY_APP_SLUG holds: the code host tells an app's token nothing of
  * who is signed in. */
-async function branchOf(ticket: Key, d: Ctx): Promise<string> {
-  let user = d.env.FACTORY_APP_SLUG ?? "";
-  if (!user && d.branchName.includes("{user}"))
+export async function branchName(
+  ticket: Key,
+  pattern: string,
+  signedInAs: () => Promise<string>,
+  env: Record<string, string | undefined> = process.env,
+): Promise<string> {
+  let user = env.FACTORY_APP_SLUG ?? "";
+  if (!user && pattern.includes("{user}"))
     try {
-      user = await d.signedInAs(d.repository, d.codeHost);
+      user = await signedInAs();
     } catch (e) {
       if (!(e instanceof NotSignedInError)) throw e;
       throw new Error(
@@ -677,10 +682,18 @@ async function branchOf(ticket: Key, d: Ctx): Promise<string> {
         { cause: e },
       );
     }
-  return d.branchName
+  return pattern
     .replaceAll("{ticket}", wordOf(ticket))
     .replaceAll("{user}", user);
 }
+
+const branchOf = (ticket: Key, d: Ctx) =>
+  branchName(
+    ticket,
+    d.branchName,
+    () => d.signedInAs(d.repository, d.codeHost),
+    d.env,
+  );
 
 /** The commands that read or write a ticket for a skill. Null when
  * `command` is not one of them. */

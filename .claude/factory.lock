@@ -25,6 +25,7 @@ settings:
       spec: none                                                               # default
       acceptance-criteria: none                                                # default
       for-the-builder: none                                                    # default
+      repositories: none                                                       # default
     labels:
       spec: spec                                                               # default
       follow-up: follow-up                                                     # default

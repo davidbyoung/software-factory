@@ -71,6 +71,7 @@ import {
   shippedText,
   type FetchDeps,
 } from "./preset-fetch.mts";
+import { WORK } from "./lib/repositories.mts";
 import {
   branchDeps,
   needDefaultBranch,
@@ -252,10 +253,10 @@ type HookEntry = {
   statusMessage?: string;
 };
 type HookGroup = { matcher?: string; hooks: HookEntry[] };
-type ClaudeSettings = { hooks?: Record<string, HookGroup[]> } & Record<
-  string,
-  unknown
->;
+type ClaudeSettings = {
+  hooks?: Record<string, HookGroup[]>;
+  permissions?: { additionalDirectories?: unknown } & Record<string, unknown>;
+} & Record<string, unknown>;
 
 /** What a hook prints where the factory is not installed on the machine. */
 export const notInstalled = (name: string) =>
@@ -392,7 +393,30 @@ export function withHooks(
   for (const [event, group] of factoryHooks(launcher, name))
     (hooks[event] ??= []).push(group);
   const attribution = settings.attribution ?? NO_ATTRIBUTION;
-  return `${JSON.stringify({ ...settings, attribution, hooks }, null, 2)}\n`;
+  return `${JSON.stringify({ ...settings, permissions: withWork(settings), attribution, hooks }, null, 2)}\n`;
+}
+
+/** The folders a session may also edit, the one the clones of a ticket's
+ * other repositories go in apart. */
+const otherFolders = (settings: ClaudeSettings): unknown[] => {
+  const listed = settings.permissions?.additionalDirectories;
+  return Array.isArray(listed) ? listed.filter((d) => d !== WORK) : [];
+};
+
+const withWork = (settings: ClaudeSettings) => ({
+  ...settings.permissions,
+  additionalDirectories: [...otherFolders(settings), WORK],
+});
+
+/** The permissions without that folder, or undefined when none are left. */
+function withoutWork(settings: ClaudeSettings) {
+  if (!settings.permissions) return undefined;
+  const { additionalDirectories: _, ...rest } = settings.permissions;
+  const others = otherFolders(settings);
+  const left = others.length
+    ? { ...rest, additionalDirectories: others }
+    : rest;
+  return Object.keys(left).length ? left : undefined;
 }
 
 /** Every hook entry that is not the factory's, by event. */
@@ -428,7 +452,13 @@ export function hasAnyFactoryHook(text: string | null): boolean {
 /** `.claude/settings.json` with the factory's entries taken out and an
  * emptied `hooks` dropped, or null when nothing is left. */
 export function withoutHooks(text: string): string | null {
-  const { hooks: _, ...rest } = JSON.parse(text) as ClaudeSettings;
+  const {
+    hooks: _,
+    permissions: __,
+    ...others
+  } = JSON.parse(text) as ClaudeSettings;
+  const permissions = withoutWork(JSON.parse(text) as ClaudeSettings);
+  const rest = permissions ? { ...others, permissions } : others;
   const hooks = othersHooks(JSON.parse(text) as ClaudeSettings);
   const after = Object.keys(hooks).length ? { ...rest, hooks } : rest;
   return Object.keys(after).length
