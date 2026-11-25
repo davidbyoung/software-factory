@@ -259,6 +259,11 @@ a pull request, the way a new version of the factory does
    itself, whatever your [`auto-merge`](configuration.md#auto-merge)
    settings allow.
 
+A commit with a [problem in its preset](#checking-and-releasing) opens no
+pull request: the update job fails with the line that says what is wrong,
+and `factory update` prints it and changes nothing. Whoever maintains the
+preset fixes it, or you stop following it with `factory preset remove`.
+
 The diff of `.claude/factory.lock` in that pull request is the whole
 change to this repository, setting by setting. Until you merge it, your
 repository keeps the preset as it was, and keeps working. To stay on the

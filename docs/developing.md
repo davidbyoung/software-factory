@@ -144,7 +144,9 @@ one. That costs nothing, and it keeps the plugin's own tooling usable on the
 folder. The settings are validated in code, and `settings.schema.json` is the
 editor's copy of their keys. A new key goes in `SETTINGS_KEYS` in
 `src/config.mts`, in the schema, in `src/explain.mts`, which prints it, and
-in `docs/configuration.md`, and a test fails when the first two differ.
+in `docs/configuration.md`, and a test fails when the first two differ. A
+rule that one setting needs another lets a preset leave the other out,
+through `preset` in `parseSettings`.
 
 - **A command a session runs** goes under
   [`commands`](configuration.md#commands), with a `factory`
