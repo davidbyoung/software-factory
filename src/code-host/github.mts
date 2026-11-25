@@ -1454,6 +1454,10 @@ export function githubOrganization(o: {
         repository,
       }),
     appsPage: () => `${SITE}/organizations/${o.name}/settings/apps`,
+    secretsPage: () =>
+      `${SITE}/organizations/${o.name}/settings/secrets/actions`,
+    variablesPage: () =>
+      `${SITE}/organizations/${o.name}/settings/variables/actions`,
     filePage: (repository, path) =>
       `${SITE}/${o.name}/${repository}/blob/HEAD/${path}`,
   };

@@ -181,7 +181,7 @@ describe("factory-review.yml", () => {
   });
 
   // GitHub runs this file from the pull request's copy.
-  it("may only read the code, and passes nothing to the job it calls, whatever the settings turn on", () => {
+  it("may only read the code and Actions, and passes nothing to the job it calls, whatever the settings turn on", () => {
     const text = reviewWorkflow(
       options({
         parts: ["review", "board", "auto-merge", "poller", "dependabot"],
@@ -189,7 +189,7 @@ describe("factory-review.yml", () => {
       }),
     );
     const file = parse(text);
-    expect(file.permissions).toEqual({ contents: "read" });
+    expect(file.permissions).toEqual({ actions: "read", contents: "read" });
     expect(Object.keys(file.jobs.review)).toEqual(["uses"]);
     expect(text).not.toMatch(/secrets\.|secrets:/);
   });

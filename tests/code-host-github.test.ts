@@ -1821,6 +1821,14 @@ describe("an organization, on GitHub", () => {
       "https://github.com/organizations/acme/settings/apps",
     );
   });
+
+  it("gives the pages that list the secrets and the variables its jobs read", () => {
+    const { o } = org([]);
+    expect([o.secretsPage(), o.variablesPage()]).toEqual([
+      "https://github.com/organizations/acme/settings/secrets/actions",
+      "https://github.com/organizations/acme/settings/variables/actions",
+    ]);
+  });
 });
 
 describe("the tickets a text closes when it is merged, on GitHub", () => {

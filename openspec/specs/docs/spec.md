@@ -347,3 +347,12 @@ The factory SHALL behave as this line says: When the docs are read, they say wha
 
 - **WHEN** the docs are read
 - **THEN** they say what "Proposed docs" holds: the page `docs/across-repositories.md`, and each other page as its lines there say.
+
+### Requirement: The existing-repo page's ticket fields
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The existing-repo page's ticket fields
+
+- **WHEN** a reader opens "Your tickets already have fields" in `docs/existing-repo.md`
+- **THEN** The passage that starts "Init stops, and changes nothing, when it can't use the answer" is replaced by the one under "6. The docs" in Proposed docs, and no other page says init stops there.

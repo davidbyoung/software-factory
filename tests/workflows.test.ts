@@ -177,7 +177,6 @@ describe("what the three files are called with", () => {
 
   it("gives the workflow's own token only reading the code unless a job asks for more", () => {
     expect(run.permissions).toEqual({ contents: "read" });
-    expect(review.permissions).toEqual({ contents: "read" });
     expect(session.permissions).toEqual({ contents: "read" });
   });
 });
@@ -2383,16 +2382,19 @@ describe("the files GitHub runs from a pull request's copy", () => {
       "factory-review.yml, whatever the settings turn on",
       factoryReviewYml({ secrets: ["NPM_TOKEN", "GITHUB_TOKEN"] }),
     ],
-  ])("%s names no secret, and may only read the code", (_, file) => {
-    expect(secretsIn(file)).toEqual([]);
-    expect(JSON.stringify(file)).not.toMatch(/inherit/);
-    expect(file.permissions).toEqual({ contents: "read" });
-    for (const job of Object.values(file.jobs))
-      expect(job).not.toHaveProperty("permissions");
-  });
+  ])(
+    "%s names no secret, and may only read the code and Actions",
+    (_, file) => {
+      expect(secretsIn(file)).toEqual([]);
+      expect(JSON.stringify(file)).not.toMatch(/inherit/);
+      expect(file.permissions).toEqual({ actions: "read", contents: "read" });
+      for (const job of Object.values(file.jobs))
+        expect(job).not.toHaveProperty("permissions");
+    },
+  );
 });
 
-describe("what factory.yml grants the jobs it calls, which can have no more", () => {
+describe("what the two files grant the jobs they call, which can have no more", () => {
   type Permissions = Record<string, string>;
   const RANK = ["none", "read", "write"];
   /** The most each of some jobs asks for. */
@@ -2419,6 +2421,10 @@ describe("what factory.yml grants the jobs it calls, which can have no more", ()
       expect(grants).toEqual(most([...asked(run), ...asked(session)]));
     },
   );
+
+  it("is what review.yml asks for, and no more, from factory-review.yml", () => {
+    expect(factoryReviewYml().permissions).toEqual(most(asked(review)));
+  });
 
   it.each(calling)(
     "is what a job of session.yml asks for, and no more, from %s",
@@ -2537,6 +2543,88 @@ describe("review.yml", () => {
       "factory sync --check --against abc123 --public",
       "token none",
     ]);
+  });
+
+  describe("the step that checks factory.yml", () => {
+    const check = () => step(jobs.check!, "Check that factory.yml is enabled");
+    /** The step, with GitHub's answer as the GitHub CLI gives it. */
+    const answered = (gh: string) => {
+      const { dir, calls } = sandbox({ gh });
+      const r = runScript(check().run!, dir, {
+        GH_TOKEN: "t0ken",
+        GITHUB_REPOSITORY: "acme/web",
+      });
+      return { status: r.status, printed: r.stdout + r.stderr, calls };
+    };
+    const refused = (said: string) =>
+      `echo '{"message":"as GitHub gives it"}'; printf '%s\\n' ${said} >&2; exit 1`;
+    const FIX =
+      "Enable it on the Actions tab, or run: gh workflow enable factory.yml. Then push a commit to this pull request.";
+
+    it("asks for the state of the repository's own factory.yml", () => {
+      expect(answered("echo active").calls()).toEqual([
+        "gh api repos/acme/web/actions/workflows/factory.yml --jq .state",
+      ]);
+    });
+
+    it.each<[string, string, number, string]>([
+      [
+        "fails, saying GitHub did it, when GitHub switched it off",
+        "echo disabled_inactivity",
+        1,
+        `::error::GitHub switched factory.yml off after 60 days with no activity, so nothing posts "Review verdict" here. ${FIX}`,
+      ],
+      [
+        "fails, not saying GitHub did it, when a person disabled it",
+        "echo disabled_manually",
+        1,
+        `::error::factory.yml is disabled, so nothing posts "Review verdict" here. ${FIX}`,
+      ],
+      [
+        "passes in a fork where GitHub has it off",
+        "echo disabled_fork",
+        0,
+        "factory.yml is off in this fork",
+      ],
+      ["passes when it is enabled", "echo active", 0, "factory.yml is enabled"],
+      [
+        "passes when the default branch does not have it yet",
+        refused("'gh: Not Found (HTTP 404)'"),
+        0,
+        "factory.yml is not on the default branch yet",
+      ],
+      [
+        "passes with a warning that gives the last line of the error when GitHub does not answer",
+        refused("'a notice' 'gh: Bad Gateway (HTTP 502)'"),
+        0,
+        "::warning::Could not tell whether factory.yml is enabled: Bad Gateway (HTTP 502)",
+      ],
+      [
+        "passes with a warning that names a state it does not know",
+        "echo deleted",
+        0,
+        "::warning::Could not tell whether factory.yml is enabled: its state is deleted",
+      ],
+    ])("%s", (_, gh, status, printed) => {
+      const r = answered(gh);
+      expect([r.status, r.printed]).toEqual([status, `${printed}\n`]);
+    });
+
+    it("runs whatever the steps before it did, unless the run was canceled", () => {
+      expect(check().if).toBe("${{ !cancelled() }}");
+    });
+
+    it("is the one step that holds GitHub's token for the GitHub CLI", () => {
+      const holders = jobs.check!.steps!.filter(
+        (s) => s.env && "GH_TOKEN" in s.env,
+      );
+      expect(holders.map((s) => [s.name, s.env])).toEqual([
+        [
+          "Check that factory.yml is enabled",
+          { GH_TOKEN: "${{ github.token }}" },
+        ],
+      ]);
+    });
   });
 });
 

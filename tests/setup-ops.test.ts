@@ -126,19 +126,19 @@ describe("the runner's Dependabot and organization secrets, on GitHub Actions", 
   });
 
   it("lists every page of the organization's variables shared with the repository", async () => {
-    const first = Array.from({ length: 100 }, (_, i) => ({ name: `V${i}` }));
+    const first = Array.from({ length: 30 }, (_, i) => ({ name: `V${i}` }));
     const g = gh([
       [
-        /repos\/acme\/site\/actions\/organization-variables\?per_page=100&page=1$/,
+        /repos\/acme\/site\/actions\/organization-variables\?per_page=30&page=1$/,
         { variables: first },
       ],
       [
-        /repos\/acme\/site\/actions\/organization-variables\?per_page=100&page=2$/,
+        /repos\/acme\/site\/actions\/organization-variables\?per_page=30&page=2$/,
         { variables: [{ name: "FACTORY_APP_CLIENT_ID" }] },
       ],
     ]);
     const names = await runner(g).organizationVariableNames();
-    expect(names).toHaveLength(101);
+    expect(names).toHaveLength(31);
     expect(names.at(-1)).toBe("FACTORY_APP_CLIENT_ID");
   });
 

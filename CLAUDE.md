@@ -44,7 +44,7 @@ CI runs the same checks on every pull request, in `ci.yml` (format, types,
 specs, unit tests under the same coverage floors, `pack-check`, and
 `site-check`, and uploads the coverage to Codecov) and the "Factory files
 in step" job of the synced `factory-review.yml` (the factory's files and
-settings). There is no end-to-end suite.
+settings, and that `factory.yml` is enabled). There is no end-to-end suite.
 
 ## Rules by area
 

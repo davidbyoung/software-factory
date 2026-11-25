@@ -291,6 +291,9 @@ treatment as a review finding, with evidence:
   for a flake with a repeated run, find the race and fix it on its own
   branch, so the fix lands on the base branch and not only here. Say so in
   the report.
+- **A workflow of the factory's that is disabled**, which "Factory files in
+  step" names: enabling it is the owner's. Escalate with the check's line,
+  and change nothing.
 - **Not reproducible and not understood**: escalate. Do not guess.
 
 **Never re-run a failed check to get it green** without a diagnosed cause,

@@ -154,7 +154,12 @@ three ways to limit that, each by hand:
   page, under repository access.
 - **Narrow each secret to chosen repositories,** in the organization's
   Settings, under Secrets and variables, Actions. In a repository the
-  secrets no longer reach, the review and builds in the cloud are off.
+  secrets no longer reach, the review and builds in the cloud do not work,
+  and people still build on their own machines. `factory init` stops there
+  if a [preset](presets.md) turns on a board, the review, or builds that
+  start from the board. The preset `factory init --org` writes turns on
+  all three. To give a repository access again, pick a choice that
+  includes it under "Repository access".
 - **Replace the key,** as [Replacing the App's key](#replacing-the-apps-key)
   shows. A key does not expire by itself.
 

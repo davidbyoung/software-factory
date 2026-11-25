@@ -1,5 +1,5 @@
 // What GitHub Actions, as the runner, has doctor check and remove name:
-// the scheduled poller's workflow, and a poller hosted elsewhere.
+// whether factory.yml is enabled, and a poller hosted elsewhere.
 import { describe, expect, it } from "vitest";
 import { parseSettings } from "../src/config.mts";
 import { TOOLS } from "../src/tools.mts";
@@ -32,44 +32,60 @@ const withTrigger = (
   };
 };
 
-describe("the scheduled poller's workflow, in doctor", () => {
-  it("fails when GitHub has switched it off, saying how to switch it on", async () => {
-    const c = withTrigger("github-action", {
-      "factory.yml": "disabled",
+describe.each(["github-action", "own-server", "manual"])(
+  "factory.yml, in doctor, with the %s trigger",
+  (trigger) => {
+    it("fails when it is disabled, saying how to enable it", async () => {
+      const c = withTrigger(trigger, { "factory.yml": "disabled" });
+
+      expect(await setup.checks!(c)).toEqual([
+        {
+          state: "fail",
+          text: "factory.yml is disabled",
+          fix: "Enable it on the Actions tab, or run: gh workflow enable factory.yml",
+        },
+      ]);
     });
 
-    expect(await setup.checks!(c)).toEqual([
+    it("is off, not failed, before it reaches the default branch", async () => {
+      expect(await setup.checks!(withTrigger(trigger))).toEqual([
+        {
+          state: "off",
+          text: "factory.yml is not on the default branch yet",
+        },
+      ]);
+    });
+
+    it("passes while it is enabled", async () => {
+      const c = withTrigger(trigger, { "factory.yml": "active" });
+
+      expect(await setup.checks!(c)).toEqual([
+        { state: "pass", text: "factory.yml is enabled" },
+      ]);
+    });
+  },
+);
+
+describe("factory.yml, in doctor, when its state cannot be read", () => {
+  it("is not known, with the reason in GitHub's words", async () => {
+    const c = withTrigger("manual");
+    const { runner } = memoryRunner({
+      fail: {
+        workflowState: new Error(
+          "gh api repos/acme/site/actions/workflows/factory.yml: gh: Bad Gateway (HTTP 502)",
+        ),
+      },
+    });
+
+    expect(
+      await setup.checks!({ ...c, opened: { ...c.opened, runner } }),
+    ).toEqual([
       {
-        state: "fail",
-        text: "factory.yml is disabled",
-        fix: "Enable it on the Actions tab, or run: gh workflow enable factory.yml",
+        state: "unknown",
+        text: "Could not tell whether factory.yml is enabled: Bad Gateway (HTTP 502)",
       },
     ]);
   });
-
-  it("is off, not failed, before the workflow reaches the default branch", async () => {
-    expect(await setup.checks!(withTrigger("github-action"))).toEqual([
-      {
-        state: "off",
-        text: "factory.yml is not on the default branch yet",
-      },
-    ]);
-  });
-
-  it("passes while it runs", async () => {
-    const c = withTrigger("github-action", { "factory.yml": "active" });
-
-    expect(await setup.checks!(c)).toEqual([
-      { state: "pass", text: "factory.yml is enabled" },
-    ]);
-  });
-
-  it.each(["own-server", "manual"])(
-    "is not checked with the %s trigger",
-    async (trigger) => {
-      expect(await setup.checks!(withTrigger(trigger))).toEqual([]);
-    },
-  );
 });
 
 describe("a hosted poller, in remove", () => {

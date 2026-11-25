@@ -501,9 +501,10 @@ is depends on who runs the poller:
   beside it, and acts with a token made from the organization's app. A
   repository that follows a preset from that repository gets no schedule
   in its own `factory.yml`, and its `factory doctor` checks the
-  organization's file instead:
+  organization's file too:
 
   ```text
+  ✓ factory.yml is enabled
   ✓ factory-poller.yml is enabled in acme/factory-config
   ```
 
