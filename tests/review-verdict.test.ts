@@ -343,6 +343,7 @@ describe("apply", () => {
     options: MemoryCodeHostOptions = {},
     labels = ["verdict-override"],
     override?: string,
+    reviewOn = true,
   ) => {
     const host = memoryCodeHost(
       [
@@ -380,6 +381,7 @@ describe("apply", () => {
         pulls: host.codeHost,
         log: (line) => void log.push(line),
         override,
+        reviewOn,
       });
     };
     return { host, log, go };
@@ -526,6 +528,53 @@ describe("apply", () => {
     expect(comments(host)).toEqual([
       "Removed `verdict-override`: could not check whether @bob can write to this repository. Add the label again to retry.",
     ]);
+  });
+
+  describe("the override label in the repository", () => {
+    const LOOK = {
+      color: "b60205",
+      description:
+        "Passes Review verdict for the current commit; a push removes it",
+    };
+
+    it("is created once the status is posted, under the name the settings give", async () => {
+      const { host, go } = setUp({}, [], "owner-pass");
+
+      await go("opened", "alice");
+      expect(host.settings.labels).toEqual({ "owner-pass": LOOK });
+      const calls = host.log.map((l) => l.split(" ")[0]);
+      expect(calls.indexOf("ensureLabel")).toBeGreaterThan(
+        calls.indexOf("setStatus"),
+      );
+    });
+
+    it("is not looked for where the automated review is off", async () => {
+      const { host, go } = setUp({}, [], undefined, false);
+
+      await go("opened", "alice");
+      expect(host.log.join("\n")).toContain("setStatus");
+      expect(host.log.join("\n")).not.toContain("ensureLabel");
+    });
+
+    it("is left to the pull request's own event when a review ends", async () => {
+      const { host, go } = finished();
+
+      await go();
+      expect(host.log.join("\n")).not.toContain("ensureLabel");
+    });
+
+    it("stops nothing when it can't be created: the log says why", async () => {
+      const { host, log, go } = setUp({
+        fail: { ensureLabel: new Error("HTTP 403") },
+      });
+
+      await go("synchronize", "alice");
+      expect(log).toEqual([
+        `Review verdict on ${HEAD}: pending, Waiting for the review of this commit`,
+        "Could not create the label verdict-override: HTTP 403",
+      ]);
+      expect(host.pull(31).labels).toEqual([]);
+    });
   });
 
   describe("with the override renamed by the settings", () => {

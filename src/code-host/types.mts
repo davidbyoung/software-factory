@@ -172,6 +172,12 @@ export type CodeHost = {
   comment(pull: number, body: string): Promise<number>;
   /** NotFoundError when the comment is gone. */
   editComment(id: number, body: string): Promise<void>;
+  /** Creates the label where the repository has none of that name, in any
+   * capitals. One it has keeps its look. */
+  ensureLabel(
+    label: string,
+    look: { color: string; description: string },
+  ): Promise<void>;
   addLabel(pull: number, label: string): Promise<void>;
   /** NotFoundError when the pull request does not carry the label. */
   removeLabel(pull: number, label: string): Promise<void>;

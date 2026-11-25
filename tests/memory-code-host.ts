@@ -72,6 +72,8 @@ export type MemoryCodeHostOptions = {
   /** Whether adding a signing key first needs the sign-in's permission,
    * which `grantScope` then gives. */
   signingNeedsScope?: boolean;
+  /** The repository's labels, each with its color and description. */
+  labels?: Record<string, { color: string; description: string }>;
   /** Why requiring a check fails, as for a plan without rulesets. */
   rulesRefused?: string;
   /** The repository's value for each property its owner defines. */
@@ -127,6 +129,7 @@ export function memoryCodeHost(
     events: [] as { rule: string; file: string; events: string[] }[],
     signingKeys: [] as { title: string; key: string }[],
     signingNeedsScope: options.signingNeedsScope ?? false,
+    labels: { ...options.labels },
   };
   const pulls = new Map<number, Stored>();
   for (const p of seed)
@@ -356,6 +359,13 @@ export function memoryCodeHost(
     async editComment(id, body) {
       called("editComment", id);
       findComment(id).body = body;
+    },
+    async ensureLabel(label, look) {
+      called("ensureLabel", label);
+      const has = Object.keys(settings.labels).some(
+        (l) => l.toLowerCase() === label.toLowerCase(),
+      );
+      if (!has) settings.labels[label] = { ...look };
     },
     async addLabel(n, label) {
       called("addLabel", n, label);

@@ -348,6 +348,39 @@ describe("pull request conversation and labels", () => {
     ]);
   });
 
+  describe("ensureLabel", () => {
+    const look = { color: "b60205", description: "Passes it" };
+    const read = /^api repos\/acme\/widgets\/labels\/verdict%3A%20override$/;
+    const create = /-X POST repos\/acme\/widgets\/labels /;
+
+    it("creates a label the repository lacks", async () => {
+      const { p, calls } = pulls([
+        [read, notFound()],
+        [create, {}],
+      ]);
+      await p.ensureLabel("verdict: override", look);
+      expect(calls.at(-1)).toBe(
+        "api -X POST repos/acme/widgets/labels -f name=verdict: override -f color=b60205 -f description=Passes it",
+      );
+    });
+
+    it("leaves a label the repository has as it is", async () => {
+      const { p, calls } = pulls([[read, { name: "Verdict: Override" }]]);
+      await p.ensureLabel("verdict: override", look);
+      expect(calls).toHaveLength(1);
+    });
+
+    it("creates nothing when the label can't be looked up", async () => {
+      const { p, calls } = pulls([
+        [read, new Error("gh api: Forbidden (HTTP 403)")],
+      ]);
+      await expect(p.ensureLabel("verdict: override", look)).rejects.toThrow(
+        "HTTP 403",
+      );
+      expect(calls).toHaveLength(1);
+    });
+  });
+
   it("sets a body and a commit status, and replies to a review comment", async () => {
     const { p, calls } = pulls([
       [/-X PATCH repos\/acme\/widgets\/pulls\/5/, {}],

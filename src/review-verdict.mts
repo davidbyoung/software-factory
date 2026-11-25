@@ -26,6 +26,12 @@ export const CONTEXT = "Review verdict";
 export const REVIEW = "Automated review";
 /** The override's name when the settings give it no other. */
 export const OVERRIDE = PR_LABELS["verdict-override"];
+/** How the override looks where the factory creates it. */
+const OVERRIDE_LOOK = {
+  color: "b60205",
+  description:
+    "Passes Review verdict for the current commit; a push removes it",
+};
 
 export type Verdict = "ready" | "changes" | null;
 
@@ -288,6 +294,15 @@ export async function apply(
     link: o.link,
   });
   log(`${CONTEXT} on ${sha}: ${decision.state}, ${decision.description}`);
+
+  // Only a person adds the override, so no adding of it creates the label.
+  if (!review && !reviewOff)
+    try {
+      await pulls.ensureLabel(override, OVERRIDE_LOOK);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      log(`Could not create the label ${override}: ${reason}`);
+    }
 
   if (decision.removeOverride) await pulls.removeLabel(pr.number, override);
   if (decision.explainRemoval === "not an approver")
