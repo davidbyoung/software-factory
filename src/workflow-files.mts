@@ -217,6 +217,7 @@ export function reviewWorkflow(o: WorkflowOptions): string {
     "    types: [opened, reopened, synchronize, ready_for_review]",
     "",
     "permissions:",
+    "  actions: read",
     "  contents: read",
     "",
     "jobs:",
