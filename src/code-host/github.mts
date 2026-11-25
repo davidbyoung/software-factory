@@ -659,6 +659,17 @@ export function githubCodeHost(o: {
         t.rest("PATCH", `${API}/issues/comments/${id}`, { fields: { body } }),
       );
     },
+    async ensureLabel(name, { color, description }) {
+      try {
+        // GitHub ignores capitals here, as it does between two labels.
+        await t.rest("GET", `${API}/labels/${encodeURIComponent(name)}`);
+      } catch (error) {
+        if (statusOf(error) !== 404) throw error;
+        await t.rest("POST", `${API}/labels`, {
+          fields: { name, color, description },
+        });
+      }
+    },
     async addLabel(n, label) {
       await found(
         `pull request #${n}`,
