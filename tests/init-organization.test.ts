@@ -499,7 +499,7 @@ describe("factory init, in a private repository of an organization whose plan ke
     expect(r.asked).toContain("confirm: Go ahead?");
   });
 
-  it("does not stop when the repository's own secrets cannot be listed", async () => {
+  it("ends as it does today, with no stop for the presets, when the repository's own secrets cannot be listed", async () => {
     const r = free({ runnerFails: { secretNames: new Error("HTTP 502") } });
     expect(await r.run()).toBe(1);
     expect(stopped(r.out)).toBeUndefined();
@@ -546,7 +546,7 @@ describe("factory init, in a private repository of an organization whose plan ke
       answers: { checkbox: [[], []], confirm: [false] },
     });
     await r.run();
-    expect(r.asked.length).toBeGreaterThan(1);
+    expect(r.asked).toContain("confirm: Go ahead?");
     expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
   });
 
