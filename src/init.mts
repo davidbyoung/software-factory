@@ -30,7 +30,11 @@ import {
   TOOLS,
   type Registry,
 } from "./tools.mts";
-import { NeedsScopeError, NoRulesError } from "./code-host/types.mts";
+import {
+  NeedsScopeError,
+  NoRulesError,
+  type Organization,
+} from "./code-host/types.mts";
 import { organizationHosts } from "./code-host/index.mts";
 import {
   columnsOf,
@@ -675,22 +679,119 @@ const PRESET_PARTS: [Part, string][] = [
 const isKept = (s: { step: SecretStep | CredentialStep }) =>
   s.step.kind === "secret" && s.step.machine !== undefined;
 
-/** Which parts can read what they need where `names` are the secrets that
- * reach the repository. */
-function secretsReach(
+/** What each part reads that is not there where `names` are the secrets
+ * that reach the repository: for each, the names that would meet it. */
+function secretsLacked(
   tools: Registry,
   context: (parts: Iterable<Part>) => SetupContext,
   names: string[],
-): (part: Part) => boolean {
-  const met = (part: Part) =>
+): (part: Part) => string[][] {
+  const lacked = (part: Part) =>
     secretSteps(tools, context([part]))
       .filter(isKept)
       .flatMap((s) => s.step.needs.filter((n) => n.part === part))
-      .every((n) => n.anyOf.some((name) => names.includes(name)));
-  return (part) =>
-    met(part) &&
-    (part !== "from-board" || (met("cloud") && met("board"))) &&
-    (part !== "signing" || met("cloud"));
+      .map((n) => n.anyOf)
+      .filter((anyOf) => !anyOf.some((name) => names.includes(name)));
+  return (part) => [
+    ...lacked(part),
+    ...(part === "from-board" ? [...lacked("board"), ...lacked("cloud")] : []),
+    ...(part === "signing" ? lacked("cloud") : []),
+  ];
+}
+
+/** Why an organization's secrets do not reach its repository: its plan
+ * keeps them back, an owner shared them only elsewhere, nobody has set the
+ * organization up, or they cannot be listed, so it is not known. */
+type Lacks = "plan" | "narrowed" | "not set up" | "unlisted";
+
+/** What stops setup where the presets turn on parts that read secrets that
+ * do not reach the repository, and who can fix it. */
+function presetStop(o: {
+  lacks: Exclude<Lacks, "unlisted">;
+  /** The parts, as a sentence lists them. */
+  parts: string;
+  /** What those parts read that does not reach, each as the names that
+   * would meet it. */
+  needs: string[][];
+  owner: string;
+  repository: string;
+  /** The plan that keeps the organization's secrets back, or null. */
+  plan: string | null;
+  /** The secrets and variables the organization does share. */
+  shared: string[];
+  address: string;
+  pages: Pick<Organization, "secretsPage" | "variablesPage"> | null;
+  version: string;
+}): say.Line[] {
+  const { owner, repository, plan } = o;
+  const fails = (why: string) =>
+    say.mark(
+      "fail",
+      `The presets turn on ${o.parts}. They need ${owner}'s secrets, and ${why}`,
+    );
+  const under = (text: string) => say.text(`     ${text}`);
+  const command = under(`factory init --org ${o.address}`);
+  const steps = (section: string) =>
+    under(docsPage(o.version, `github/setup.md#${section}`));
+  if (o.lacks === "plan")
+    return [
+      fails(`${plan} does not share them with a private repository.`),
+      say.text(
+        `Make ${repository} public, or move ${owner} to a paid plan. Then run factory init again.`,
+      ),
+      say.text(`What ${plan} leaves out:`),
+      steps("on-githubs-free-plan"),
+    ];
+  if (o.lacks === "not set up")
+    return [
+      fails(`${owner} is not set up.`),
+      say.text(
+        `An owner of ${owner} runs this once, from any folder. Then run factory init again.`,
+      ),
+      command,
+      ...(plan
+        ? [
+            say.text(
+              `${plan} shares those secrets only with public repositories, so also make ${repository} public, or move ${owner} to a paid plan.`,
+            ),
+          ]
+        : []),
+      say.text(
+        `If ${owner} is set up already, its secrets are not shared with ${repository}. How an owner shares them:`,
+      ),
+      steps("when-the-organizations-secrets-do-not-reach-you"),
+    ];
+  const byKey = o.needs.some((anyOf) => anyOf.includes(APP_KEY));
+  const secrets = [
+    ...(byKey && !o.shared.includes(APP_KEY) ? [APP_KEY] : []),
+    ...new Set(
+      o.needs
+        .filter((anyOf) => !anyOf.includes(APP_KEY))
+        .map((anyOf) => listed(anyOf, "or")),
+    ),
+  ];
+  return [
+    fails(`those do not reach ${repository}.`),
+    say.text(
+      `An owner of ${owner} gives ${repository} access to each of these, under "Repository access". Then run factory init again.`,
+    ),
+    ...(secrets.length
+      ? [
+          say.text(`  Secrets: ${secrets.join(", and ")}`),
+          ...(o.pages ? [under(o.pages.secretsPage())] : []),
+        ]
+      : []),
+    ...(byKey && !o.shared.includes(APP_CLIENT_ID)
+      ? [
+          say.text(`  Variable: ${APP_CLIENT_ID}`),
+          ...(o.pages ? [under(o.pages.variablesPage())] : []),
+        ]
+      : []),
+    say.text("If one is not listed there, the owner runs this first:"),
+    command,
+    say.text("The steps in full:"),
+    steps("when-the-organizations-secrets-do-not-reach-you"),
+  ];
 }
 
 /** The rows under "From the presets, so not asked": each answer the
@@ -1207,14 +1308,28 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   let elsewhere = false;
   /** The repository's own secrets, or null when they cannot be listed. */
   let ownNames: string[] | null = null;
+  /** What the organization shares with the repository, by name. */
+  let sharedNames: string[] = [];
+  let sharedVariables: string[] = [];
+  /** Why what the organization shares cannot be listed, or null. */
+  let unlisted: string | null = null;
   if (isOrganization && runnerName) {
     const early = d.tools.runner[runnerName]!.open(repository);
-    const [shared, variables, names] = await Promise.all([
-      early.organizationSecretNames().catch(() => []),
-      early.organizationVariableNames().catch(() => []),
+    const tried = (listing: Promise<string[]>) =>
+      listing.then(
+        (names) => ({ names, failed: null }),
+        (e) => ({ names: [], failed: message(e) }),
+      );
+    const [secrets, vars, names] = await Promise.all([
+      tried(early.organizationSecretNames()),
+      tried(early.organizationVariableNames()),
       early.secretNames().catch(() => null),
     ]);
+    const [shared, variables] = [secrets.names, vars.names];
     ownNames = names;
+    sharedNames = shared;
+    sharedVariables = variables;
+    unlisted = secrets.failed ?? vars.failed;
     const own = names ?? [];
     const state = (secrets: string[]) =>
       organizationState({
@@ -1271,6 +1386,24 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     d.out(say.text(NOTHING));
     return 1;
   }
+  const hosted = organizationHosts()[where.codeHost];
+  const address = hosted?.addressOf(owner) ?? owner;
+  /** The plan that keeps the secrets of an organization that is set up
+   * from this repository, or null. */
+  const keepsBack =
+    !organization.setUp && (held || elsewhere) ? withheld : null;
+  /** Why the organization's secrets do not reach here, as far as can be
+   * told, or null when they do. */
+  const lacks: Lacks | null =
+    !isOrganization || organization.setUp
+      ? null
+      : keepsBack
+        ? "plan"
+        : unlisted !== null
+          ? "unlisted"
+          : held
+            ? "narrowed"
+            : "not set up";
   d.out(say.heading("Found"));
   const width = isOrganization ? 16 : 14;
   const row = (label: string, text: string) =>
@@ -1288,9 +1421,11 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   else
     row(
       "Organization",
-      held || elsewhere
-        ? `${owner}, set up, but its secrets do not reach this repository: ${withheld ? `${withheld} shares them only with public repositories` : "GitHub Free shares them only with public repositories, or an owner narrowed them"}`
-        : `${owner}, not set up: an owner runs factory init --org ${organizationHosts()[where.codeHost]?.addressOf(owner) ?? owner}`,
+      lacks === "unlisted"
+        ? `${owner}: its secrets could not be listed (${unlisted})`
+        : lacks === "not set up"
+          ? `${owner}, not set up: an owner runs factory init --org ${address}`
+          : `${owner}, set up, but its secrets do not reach this repository: ${keepsBack ? `${keepsBack} shares them only with public repositories` : "GitHub Free shares them only with public repositories, or an owner narrowed them"}`,
     );
   if (looks && held) row("Presets", `${config} holds ${held.length}`);
   // The presets chosen below say which ticket system and board.
@@ -1334,20 +1469,6 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     );
   }
   d.out(say.BLANK);
-  /** The plan that keeps the secrets of an organization that is set up
-   * from this repository, or null. */
-  const keepsBack =
-    !organization.setUp && (held || elsewhere) ? withheld : null;
-  const staysOff = (until: string) => {
-    d.out(
-      say.text(
-        `Builds on your machine work now. The review and builds in the cloud stay off until ${until}.`,
-      ),
-    );
-    d.out(say.BLANK);
-  };
-  if (isOrganization && !organization.setUp && !keepsBack)
-    staysOff(`${owner} is set up`);
   if (machine?.state === "unreadable") {
     d.out(say.text(machine.line));
     return 1;
@@ -1476,8 +1597,17 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     });
     return { runner, tickets, context };
   };
-  // A part the presets turn on here would read secrets the plan keeps back.
-  if (keepsBack) {
+  // A part the presets turn on here would read secrets that do not reach.
+  if (lacks !== null && lacks !== "unlisted") {
+    // An app's key is no use without the client ID it belongs to.
+    const reach = [
+      ...(ownNames ?? []),
+      ...(withheld
+        ? []
+        : sharedNames.filter(
+            (n) => n !== APP_KEY || sharedVariables.includes(APP_CLIENT_ID),
+          )),
+    ];
     const on = PRESET_PARTS.filter(([part]) => presetOn(part));
     if (on.length && settings && ownNames) {
       const { context } = await openTools({
@@ -1486,35 +1616,49 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         runner: settings.builds.runner,
         agent: agentName,
       });
-      const reachable = secretsReach(d.tools, context, ownNames);
-      const unmet = on.filter(([part]) => !reachable(part));
+      const lacking = secretsLacked(d.tools, context, reach);
+      const unmet = on.filter(([part]) => lacking(part).length);
       if (unmet.length) {
         gap();
-        d.out(
-          say.mark(
-            "fail",
-            `The presets turn on ${listed(unmet.map(([, name]) => name))}. They need ${owner}'s secrets, and ${keepsBack} does not share them with a private repository.`,
-          ),
-        );
-        d.out(
-          say.text(
-            `Make ${repository} public, or move ${owner} to a paid plan. Then run factory init again.`,
-          ),
-        );
-        d.out(say.text(`What ${keepsBack} leaves out:`));
-        d.out(
-          say.text(
-            `     ${docsPage(d.packageVersion, "github/setup.md#on-githubs-free-plan")}`,
-          ),
-        );
+        for (const line of presetStop({
+          lacks,
+          parts: listed(unmet.map(([, name]) => name)),
+          needs: unmet.flatMap(([part]) => lacking(part)),
+          owner,
+          repository,
+          plan: withheld,
+          shared: [...sharedNames, ...sharedVariables],
+          address,
+          pages: hosted?.organization(owner) ?? null,
+          version: d.packageVersion,
+        }))
+          d.out(line);
         d.out(say.text(NOTHING));
         return 1;
       }
     }
     const agents = agent.setup.kept?.secrets ?? [];
-    if (!ownNames?.some((n) => agents.includes(n))) {
+    const settled = partsOn(settings, [], []);
+    if (
+      ownNames &&
+      !settled.has("review") &&
+      !settled.has("from-board") &&
+      !reach.some((n) => agents.includes(n))
+    ) {
+      const opened = `${repository} is public or ${owner} is on a paid plan`;
+      const until =
+        lacks === "plan"
+          ? opened
+          : lacks === "narrowed"
+            ? `${owner}'s secrets reach ${repository}`
+            : `${owner} is set up${withheld ? `, and ${opened}` : ""}`;
       gap();
-      staysOff(`${repository} is public or ${owner} is on a paid plan`);
+      d.out(
+        say.text(
+          `Builds on your machine work now. The review and builds in the cloud stay off until ${until}.`,
+        ),
+      );
+      d.out(say.BLANK);
     }
   }
   const notAsked: say.Line[] = [];
@@ -1632,14 +1776,16 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const first = settingsText === null;
   // In an organization's repository no token of a person's is asked for,
   // so a part is offered only when the secrets it reads are there.
-  const reachable = secretsReach(d.tools, context, secrets);
+  const lacking = secretsLacked(d.tools, context, secrets);
   const offered = PARTS.filter(
     (part) =>
       !presetOn(part) &&
       (!isOrganization ||
         (organization.setUp
           ? part !== "cloud" && part !== "signing"
-          : reachable(part))),
+          : lacking(part).length === 0 &&
+            // A preset's builds from the board keep them on.
+            !(part === "cloud" && presetOn("from-board")))),
   );
   const chosenParts = offered.length
     ? await d.ask.checkbox(

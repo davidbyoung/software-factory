@@ -489,6 +489,17 @@ describe("factory init, in a private repository of an organization whose plan ke
     expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
   });
 
+  it("stops all the same when what the organization shares cannot be listed", async () => {
+    const r = free({
+      runnerFails: { organizationSecretNames: new Error("HTTP 502") },
+    });
+    expect(await r.run()).toBe(1);
+    expect(r.out[4]).toBe(ROW);
+    expect(stopped(r.out)).toBe(
+      "a board, the review, and builds that start from the board",
+    );
+  });
+
   it("leaves alone a part the repository's own settings turn on", async () => {
     const r = free({
       settings: `version: 2\nrepository: acme/web\npresets:\n  - ${NODE}\n${CODE_HOST_YAML}\nspecs: none\npr-review: {}\n`,
@@ -496,32 +507,16 @@ describe("factory init, in a private repository of an organization whose plan ke
     });
     await r.run();
     expect(stopped(r.out)).toBeUndefined();
+    expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
     expect(r.asked).toContain("confirm: Go ahead?");
   });
 
-  it("ends as it does today, with no stop for the presets, when the repository's own secrets cannot be listed", async () => {
+  it("ends as it does today, with no stop for the presets and nothing said to stay off, when the repository's own secrets cannot be listed", async () => {
     const r = free({ runnerFails: { secretNames: new Error("HTTP 502") } });
     expect(await r.run()).toBe(1);
     expect(stopped(r.out)).toBeUndefined();
-    expect(r.out.join("\n")).toMatch(STAYS_OFF);
+    expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
     expect(r.out.at(-1)).toBe("Could not reach the code host: HTTP 502");
-  });
-
-  it("does not stop in an organization that is not set up", async () => {
-    const r = init({
-      remote: "git@github.com:acme/web.git",
-      organization: true,
-      private: true,
-      secretsWithheldBy: "GitHub Free",
-      presets: PRESETS,
-      argv: ["--preset", ROOT, "--preset", NODE],
-      answers: { confirm: [false] },
-    });
-    await r.run();
-    expect(stopped(r.out)).toBeUndefined();
-    expect(r.out).toContain(
-      "Builds on your machine work now. The review and builds in the cloud stay off until acme is set up.",
-    );
   });
 
   it("goes on with no preset that turns a part on, and says what stays off until when", async () => {
@@ -583,6 +578,33 @@ describe("factory init, in an organization's repository its secrets do not reach
       answers: { checkbox: [[]], confirm: [true] },
       ...over,
     });
+  /** An owner shared the secrets only with other repositories. */
+  const narrowed = (over: Partial<Setup> = {}) =>
+    bare({
+      config: [ROOT],
+      presets: PRESETS,
+      answers: { checkbox: [[ROOT]], confirm: [true] },
+      ...over,
+    });
+  /** Nobody ran `factory init --org`, and a preset is named by hand. */
+  const notSetUp = (over: Partial<Setup> = {}) =>
+    bare({
+      argv: ["--preset", ROOT],
+      presets: PRESETS,
+      answers: { confirm: [false] },
+      ...over,
+    });
+  const ASKED =
+    "? checkbox: Which of acme's presets does this repository follow?";
+  const STAYS_OFF = /stay off/;
+  const STOP = /^✗ The presets turn on (.+)\. They need acme's secrets,/;
+  const stopped = (out: string[]) =>
+    out.map((l) => STOP.exec(l)?.[1]).find((parts) => parts !== undefined);
+  const ALL = "a board, the review, and builds that start from the board";
+  /** Every secret each part the presets turn on reads, by hand. */
+  const OWN = { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" };
+  const DOCS =
+    "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/github/setup.md#when-the-organizations-secrets-do-not-reach-you";
   const found = (out: string[]) =>
     out.slice(out.indexOf("Found") + 1, out.indexOf(LINE) + 2);
 
@@ -614,7 +636,306 @@ describe("factory init, in an organization's repository its secrets do not reach
     expect(r.out[4]).toBe(
       "  Organization     acme, set up, but its secrets do not reach this repository: GitHub Free shares them only with public repositories, or an owner narrowed them",
     );
-    expect(r.out).toContain(LINE);
+  });
+
+  it("says after the question about presets that the rest stays off until the secrets reach it", async () => {
+    const r = narrowed({ answers: { checkbox: [[]], confirm: [false] } });
+    await r.run();
+    const asked = r.transcript.indexOf(ASKED);
+    expect(r.transcript.slice(asked, asked + 4)).toEqual([
+      ASKED,
+      "",
+      "Builds on your machine work now. The review and builds in the cloud stay off until acme's secrets reach acme/web.",
+      "",
+    ]);
+    expect(r.out.filter((l) => STAYS_OFF.test(l))).toHaveLength(1);
+  });
+
+  it("says both that an owner sets it up and what the plan needs, for a private repository the plan keeps its secrets from", async () => {
+    const r = bare({
+      private: true,
+      secretsWithheldBy: "GitHub Free",
+      answers: { confirm: [false] },
+    });
+    await r.run();
+    expect(r.out.filter((l) => STAYS_OFF.test(l))).toEqual([
+      "Builds on your machine work now. The review and builds in the cloud stay off until acme is set up, and acme/web is public or acme is on a paid plan.",
+    ]);
+  });
+
+  it.each<[string, Partial<Setup>]>([
+    [
+      "the repository's own settings turn the review on",
+      {
+        settings: `version: 2\nrepository: acme/web\n${CODE_HOST_YAML}\nspecs: none\npr-review: {}\n`,
+      },
+    ],
+    [
+      "the repository's own settings start builds from the board",
+      {
+        settings: `version: 2\nrepository: acme/web\n${CODE_HOST_YAML}\nspecs: none\ntickets:\n  board: 12\nbuilds:\n  trigger: github-action\n`,
+      },
+    ],
+    [
+      "the repository stores the coding agent's credential",
+      { secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" } },
+    ],
+    [
+      "the organization shares the coding agent's credential",
+      { organizationSecrets: ["ANTHROPIC_API_KEY"] },
+    ],
+    [
+      "the repository's own secrets cannot be listed",
+      { runnerFails: { secretNames: new Error("HTTP 502") } },
+    ],
+  ])("says nothing stays off where %s", async (_, over) => {
+    const r = bare({ answers: { checkbox: [[]], confirm: [false] }, ...over });
+    await r.run();
+    expect(r.out.join("\n")).toContain("acme, not set up");
+    expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
+  });
+
+  describe("with a preset that turns on a part they do not meet", () => {
+    it("stops and lists what an owner shares, and where, when the secrets go only to other repositories", async () => {
+      const r = narrowed();
+      expect(await r.run()).toBe(1);
+      expect(r.transcript.slice(r.transcript.indexOf(ASKED))).toEqual([
+        ASKED,
+        "",
+        `✗ The presets turn on ${ALL}. They need acme's secrets, and those do not reach acme/web.`,
+        'An owner of acme gives acme/web access to each of these, under "Repository access". Then run factory init again.',
+        "  Secrets: FACTORY_APP_PRIVATE_KEY, and CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY",
+        "     https://github.com/organizations/acme/settings/secrets/actions",
+        "  Variable: FACTORY_APP_CLIENT_ID",
+        "     https://github.com/organizations/acme/settings/variables/actions",
+        "If one is not listed there, the owner runs this first:",
+        "     factory init --org https://github.com/acme",
+        "The steps in full:",
+        DOCS,
+        "Nothing changed.",
+      ]);
+    });
+
+    it("stops with the command an owner runs when the organization is not set up", async () => {
+      const r = notSetUp();
+      expect(await r.run()).toBe(1);
+      const at = r.transcript.findIndex((l) => l.startsWith("✗"));
+      expect(r.transcript.slice(at - 1)).toEqual([
+        "",
+        `✗ The presets turn on ${ALL}. They need acme's secrets, and acme is not set up.`,
+        "An owner of acme runs this once, from any folder. Then run factory init again.",
+        "     factory init --org https://github.com/acme",
+        "If acme is set up already, its secrets are not shared with acme/web. How an owner shares them:",
+        DOCS,
+        "Nothing changed.",
+      ]);
+    });
+
+    it("says the plan keeps the secrets back too, when the organization is not set up", async () => {
+      const r = notSetUp({ private: true, secretsWithheldBy: "GitHub Free" });
+      expect(await r.run()).toBe(1);
+      const at = r.out.indexOf(
+        "     factory init --org https://github.com/acme",
+      );
+      expect(r.out[at + 1]).toBe(
+        "GitHub Free shares those secrets only with public repositories, so also make acme/web public, or move acme to a paid plan.",
+      );
+    });
+
+    /** The lines between the one on "Repository access" and the one on a
+     * secret that is not listed. */
+    const lists = (out: string[]) =>
+      out.slice(
+        out.findIndex((l) => l.includes('"Repository access"')) + 1,
+        out.indexOf("If one is not listed there, the owner runs this first:"),
+      );
+    const SECRETS =
+      "     https://github.com/organizations/acme/settings/secrets/actions";
+    const VARIABLES =
+      "     https://github.com/organizations/acme/settings/variables/actions";
+    it.each<[string, Partial<Setup>, string, string[]]>([
+      [
+        "the app's key",
+        {
+          organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+          organizationVariables: ["FACTORY_APP_CLIENT_ID"],
+        },
+        "a board and builds that start from the board",
+        ["  Secrets: FACTORY_APP_PRIVATE_KEY", SECRETS],
+      ],
+      [
+        "the app's client ID",
+        {
+          organizationSecrets: [
+            "CLAUDE_CODE_OAUTH_TOKEN",
+            "FACTORY_APP_PRIVATE_KEY",
+          ],
+        },
+        "a board and builds that start from the board",
+        ["  Variable: FACTORY_APP_CLIENT_ID", VARIABLES],
+      ],
+      [
+        "the coding agent's credential",
+        {
+          organizationSecrets: ["FACTORY_APP_PRIVATE_KEY"],
+          organizationVariables: ["FACTORY_APP_CLIENT_ID"],
+        },
+        "the review and builds that start from the board",
+        ["  Secrets: CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY", SECRETS],
+      ],
+      [
+        "the app's key and client ID, with the repository's own credential",
+        { secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" } },
+        "a board and builds that start from the board",
+        [
+          "  Secrets: FACTORY_APP_PRIVATE_KEY",
+          SECRETS,
+          "  Variable: FACTORY_APP_CLIENT_ID",
+          VARIABLES,
+        ],
+      ],
+    ])(
+      "lists only %s when only that is kept back",
+      async (_, over, parts, lines) => {
+        const r = narrowed(over);
+        expect(await r.run()).toBe(1);
+        expect(stopped(r.out)).toBe(parts);
+        expect(lists(r.out)).toEqual(lines);
+      },
+    );
+
+    describe.each([
+      ["whose secrets go only to other repositories", narrowed, [[ROOT]]],
+      ["that is not set up", notSetUp, []],
+    ])("in an organization %s", (_, at, presets) => {
+      it("changes nothing", async () => {
+        const r = at();
+        await r.run();
+        expect(r.asked.filter((q) => !q.includes("presets does"))).toEqual([]);
+        expect(r.read(".claude/factory.yaml")).toBeNull();
+        expect(
+          r.git.filter(([c]) =>
+            ["add", "commit", "push", "switch"].includes(c!),
+          ),
+        ).toEqual([]);
+        expect(r.runner.secrets.size).toBe(0);
+        expect(r.synced()).toBe(0);
+      });
+
+      it("says neither that the parts stay off nor that the presets turn them on", async () => {
+        const r = at();
+        await r.run();
+        expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
+        expect(r.out.join("\n")).not.toContain("From the presets");
+      });
+
+      it("stops for the presets the settings list", async () => {
+        const r = at({
+          argv: [],
+          settings: `version: 2\nrepository: acme/web\npresets:\n  - ${ROOT}\n`,
+          answers: {},
+        });
+        expect(await r.run()).toBe(1);
+        expect(stopped(r.out)).toBe(ALL);
+        expect(r.asked).toEqual([]);
+      });
+
+      it("does not count a part the repository's own settings turn on", async () => {
+        const r = at({
+          argv: [],
+          settings: `version: 2\nrepository: acme/web\npresets:\n  - ${NODE}\n${CODE_HOST_YAML}\nspecs: none\npr-review: {}\n`,
+          answers: { confirm: [false] },
+        });
+        await r.run();
+        expect(stopped(r.out)).toBeUndefined();
+        expect(r.asked).toContain("confirm: Go ahead?");
+      });
+
+      it("goes on when the repository's own secrets meet every part", async () => {
+        const r = at({
+          secrets: OWN,
+          answers: { checkbox: [...presets, []], confirm: [false] },
+        });
+        await r.run();
+        expect(stopped(r.out)).toBeUndefined();
+        expect(r.out).toContain(`  Parts            ${ALL}`);
+        expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
+      });
+
+      it("does not stop when the repository's own secrets cannot be listed", async () => {
+        const r = at({ runnerFails: { secretNames: new Error("HTTP 502") } });
+        await r.run();
+        expect(stopped(r.out)).toBeUndefined();
+        expect(r.out.at(-1)).toBe("Could not reach the code host: HTTP 502");
+      });
+    });
+
+    it("stops for the presets --preset names where a factory-config is found", async () => {
+      const r = narrowed({ argv: ["--preset", ROOT], answers: {} });
+      expect(await r.run()).toBe(1);
+      expect(stopped(r.out)).toBe(ALL);
+      expect(r.asked).toEqual([]);
+    });
+  });
+
+  describe.each([
+    ["with a factory-config", narrowed],
+    ["without one", notSetUp],
+  ])("when what the organization shares cannot be listed, %s", (_, at) => {
+    it.each<[string, Setup["runnerFails"], string]>([
+      [
+        "its secrets",
+        { organizationSecretNames: new Error("HTTP 403") },
+        "HTTP 403",
+      ],
+      [
+        "its variables",
+        { organizationVariableNames: new Error("HTTP 404") },
+        "HTTP 404",
+      ],
+      [
+        "both",
+        {
+          organizationSecretNames: new Error("HTTP 403"),
+          organizationVariableNames: new Error("HTTP 404"),
+        },
+        "HTTP 403",
+      ],
+    ])(
+      "says so and why, and does not stop, for %s",
+      async (_, runnerFails, why) => {
+        const r = at({ runnerFails });
+        await r.run();
+        expect(r.out).toContain(
+          `  Organization     acme: its secrets could not be listed (${why})`,
+        );
+        expect(stopped(r.out)).toBeUndefined();
+        expect(r.out.join("\n")).not.toMatch(STAYS_OFF);
+        expect(r.asked).toContain("confirm: Go ahead?");
+      },
+    );
+  });
+
+  describe("builds in the cloud, with the repository's own secrets meeting the parts", () => {
+    it("are not offered when a preset's builds from the board need them", async () => {
+      const r = narrowed({
+        secrets: OWN,
+        answers: { checkbox: [[ROOT], []], confirm: [false] },
+      });
+      await r.run();
+      const offered = r.checkboxes.slice(1).flatMap((c) => c.names);
+      expect(offered).not.toContain("Builds in the cloud");
+      expect(r.out.join("\n")).not.toMatch(/turn off|so they are off too/);
+    });
+
+    it("are still offered when no preset's builds start from the board", async () => {
+      const r = narrowed({
+        secrets: OWN,
+        answers: { checkbox: [[], []], confirm: [false] },
+      });
+      await r.run();
+      expect(r.checkboxes[1]!.names).toContain("Builds in the cloud");
+    });
   });
 
   describe("with no question left to ask", () => {
@@ -646,15 +967,24 @@ describe("factory init, in an organization's repository its secrets do not reach
 
     it("leaves one blank line before the plan when the presets answer everything", async () => {
       const r = bare({
-        argv: ["--preset", ROOT, "--preset", NODE],
-        presets: PRESETS,
+        argv: ["--preset", GO, "--preset", NODE],
+        presets: {
+          ...PRESETS,
+          [GO]: {
+            about: "The preset for acme's Go repositories.",
+            settings: {
+              "code-host": { "branch-name": "{ticket}" },
+              specs: "none",
+            },
+          },
+        },
         answers: { confirm: [false] },
       });
       await r.run();
       expect(r.asked).toEqual(["confirm: Go ahead?"]);
       const at = r.transcript.indexOf(HEADING);
       expect(r.transcript.slice(at - 2, at + 1)).toEqual([
-        "  Parts            a board, the review, and builds that start from the board",
+        "  Gate             npm run check",
         "",
         HEADING,
       ]);
@@ -673,19 +1003,6 @@ describe("factory init, in an organization's repository its secrets do not reach
     ]);
     expect(r.opened).toEqual([]);
     expect(r.runner.secrets.size).toBe(0);
-  });
-
-  it("leaves the parts a preset turns on without asking for the tokens they read", async () => {
-    const r = bare({
-      config: [ROOT],
-      presets: PRESETS,
-      answers: { checkbox: [[ROOT]], confirm: [true] },
-    });
-    expect(await r.run()).toBe(0);
-    expect(r.asked.filter((q) => /secret|Also turn on/.test(q))).toEqual([]);
-    expect(r.out.join("\n")).not.toContain("Stored for acme, so not asked");
-    // Builds in the cloud stay off, as the line under Found says.
-    expect(r.out.join("\n")).not.toContain("so that is on too");
   });
 
   it("still offers a part whose secrets someone stored on the repository by hand", async () => {
