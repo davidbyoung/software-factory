@@ -1142,6 +1142,32 @@ describe("an organization's preset, as its one poller reads it", () => {
     });
   });
 
+  it("reads a preset that leaves settings to its repositories", async () => {
+    const left = PRESET.filter((l) => !/trigger|poll-minutes/.test(l));
+    expect(
+      await read([
+        ...left,
+        "  poll-minutes: 30",
+        "plugins:",
+        "  build:",
+        "    reviewers:",
+        "      - agent: factory-ui-reviewer",
+        "        files: [src/**]",
+        "  test:",
+        "    reviewers:",
+        "      - agent: factory-e2e-reviewer",
+        "        files: [e2e/**]",
+        "site:",
+        "  accessibility: wcag22aa",
+        "specs:",
+        "  check: npm run specs",
+        "commands:",
+        "  coverage:",
+        "    run: npm run coverage",
+      ]),
+    ).toMatchObject({ board: 12, ready: "Ready" });
+  });
+
   it("takes the names and the cap the preset changes", async () => {
     const lines = PRESET.map((l) =>
       l === "    ready: Ready" ? "    ready: Ready for dev" : l,
@@ -1171,6 +1197,18 @@ describe("an organization's preset, as its one poller reads it", () => {
       "factory-preset.yaml: tickets.board: must be a whole number above zero, or none",
     ],
     [["version: 2", "tickets: ["], /^factory-preset\.yaml: /],
+    [
+      [...PRESET, "  hosts: [github.com]"],
+      "factory-preset.yaml: builds.hosts can't name GitHub: a build has no GitHub access",
+    ],
+    [
+      ["version: 1"],
+      "factory-preset.yaml: version: must be 2: this file is version 1",
+    ],
+    [
+      ["version: 2", "rules: a: b"],
+      "factory-preset.yaml: line 2: rules: a: b needs quotes around the name",
+    ],
   ])(
     "refuses a preset no repository could follow, naming the file",
     async (lines, said) => {
@@ -1584,7 +1622,7 @@ describe("one pass for every repository on an organization's board", () => {
         }),
       ).toBe(1);
       expect(o.logs).toEqual([
-        "factory-preset.yaml: version: must be 2",
+        'factory-preset.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
         "factory-preset.yaml could not be read: ENOENT: no such file or directory",
       ]);
       expect(o.calls).toEqual([]);

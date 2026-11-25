@@ -22,6 +22,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { load } from "js-yaml";
 import { isMap, parseDocument, Scalar, type Document } from "yaml";
 import {
   builtOf,
@@ -40,6 +41,8 @@ import {
   columnsOf,
   filesDeps,
   parseSettings,
+  PresetsError,
+  readYaml,
   resolveFiles,
   POLL_MINUTES,
   repoRoot,
@@ -147,6 +150,7 @@ import {
   giveBoard,
   interactive,
   message,
+  notValid,
   openPage,
   pasted,
   docsPage,
@@ -194,7 +198,8 @@ export type Presets = {
     io: Pick<InitDeps, "ask" | "out">,
   ) => Promise<Files | null>;
   /** What the presets the files list give, or null when they list none,
-   * or cannot be combined. */
+   * or one the lock does not pin. Rejects with a SettingsError when one of
+   * them, or what they combine to, is not valid. */
   combined: (files: Files) => Promise<FromPresets | null>;
 };
 
@@ -1150,6 +1155,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     return 2;
   }
   const settingsText = read(SETTINGS_FILE);
+  if (settingsText !== null) {
+    try {
+      readYaml(settingsText, SETTINGS_FILE, load);
+    } catch (e) {
+      return notValid(d, message(e));
+    }
+  }
   let doc = parseDocument(settingsText ?? "");
 
   // The repository: the settings' line, or the one the remotes name.
@@ -1186,7 +1198,12 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     lock: read(LOCK_FILE),
   };
   /** What the presets give, as the files stand. */
-  let from: FromPresets | null = await d.presets.combined(files);
+  let from: FromPresets | null;
+  try {
+    from = await d.presets.combined(files);
+  } catch (e) {
+    return notValid(d, message(e));
+  }
   /** The settings in effect: the presets', under the repository's own. */
   let settings: Settings | null = null;
   const parse = () =>
@@ -1202,9 +1219,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     try {
       settings = parse();
     } catch (e) {
-      d.out(say.text(`${SETTINGS_FILE}: ${message(e)}`));
-      d.out(say.text("Fix it, then run init again."));
-      return 1;
+      return notValid(d, message(e));
     }
   }
   /** Whether the repository's own settings or a preset give a value. */
@@ -1558,8 +1573,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   if (followed.added.length) {
     files = followed.files;
     doc = parseDocument(files.settings);
-    from = await d.presets.combined(files);
     try {
+      from = await d.presets.combined(files);
       settings = parse();
     } catch (e) {
       d.out(say.text(`The settings would not be valid: ${message(e)}`));
@@ -2827,6 +2842,7 @@ export function presetSource(
     },
 
     combined: async (files) => {
+      if (!parseDocument(files.settings).has("presets")) return null;
       try {
         const r = await resolve(files, true);
         if (!r.presets.length) return null;
@@ -2843,7 +2859,8 @@ export function presetSource(
             ),
           ships: [...r.resolution.files.keys()],
         };
-      } catch {
+      } catch (e) {
+        if (e instanceof SettingsError && !(e instanceof PresetsError)) throw e;
         return null;
       }
     },

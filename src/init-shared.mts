@@ -33,6 +33,14 @@ export type Terminal = {
  * no space or line break, and one copied from a wrapped line does. */
 export const pasted = (value: string) => value.replace(/\s+/g, "");
 
+/** Says what is wrong with a settings file or a preset that setup reads,
+ * and ends it. */
+export function notValid(d: Pick<Terminal, "out">, said: string): number {
+  d.out(say.text(said));
+  d.out(say.text("Fix it, then run init again."));
+  return 1;
+}
+
 export const message = (e: unknown) =>
   e instanceof Error ? e.message : String(e);
 

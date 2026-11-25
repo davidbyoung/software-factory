@@ -360,25 +360,29 @@ export function fileAt(root: string, ref: string, path: string) {
   }
 }
 
-/** Moves the pin of the preset NAME in the lock of the repository at
- * `root` to `commit`, with its settings and hashes as that commit holds
- * them, adding the pin when the lock has none for it. The lock's other
- * parts stay as they were until the next `factory sync`. */
-export async function movePin(
+/** Moves the pin of each of these presets in the lock of the repository at
+ * `root` to its commit, with its settings and hashes as that commit holds
+ * them, adding the pin when the lock has none for it. Nothing is written
+ * when one of them can't be pinned. The lock's other parts stay as they
+ * were until the next `factory sync`. */
+export async function movePins(
   root: string,
-  name: string,
-  commit: string,
+  moves: PinMove[],
   d: FetchDeps,
-): Promise<Pinned> {
+): Promise<Pinned[]> {
   const { load, dump } = await import("js-yaml");
   const at = join(root, LOCK_FILE);
   const text = existsSync(at) ? readFileSync(at, "utf8") : null;
-  const pin = pinAt(d, name, commit, load);
+  const moved = moves.map(({ name, commit }) => pinAt(d, name, commit, load));
   const pins = pinsOf(text, load);
-  const next = pins.some((p) => p.name === name)
-    ? pins.map((p) => (p.name === name ? pin : p))
-    : [...pins, pin];
+  const next = [
+    ...pins.map((p) => moved.find((m) => m.name === p.name) ?? p),
+    ...moved.filter((m) => !pins.some((p) => p.name === m.name)),
+  ];
   mkdirSync(dirname(at), { recursive: true });
   writeFileSync(at, withPins(text, next, yamlDump(dump)));
-  return pin;
+  return moved;
 }
+
+/** A preset, and the commit its pin moves to. */
+export type PinMove = { name: string; commit: string };

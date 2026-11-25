@@ -62,6 +62,8 @@ const ACME_BASE = [
 
 const REPO = "acme/factory-config";
 const BAR = "foo/presets//bar";
+/** A preset a test commits its own settings to. */
+const OTHER = "acme/web";
 const LOCK = ".claude/factory.lock";
 const DEPS = ".claude/agents/node-deps-reviewer.md";
 
@@ -217,6 +219,39 @@ const addSummary = () => [
 const GATE = ["commands:", "  gate: [npm run check]"];
 
 describe("factory preset add", () => {
+  it.each<[string, string, string[]]>([
+    [
+      "a value your own file replaces",
+      "rules:\n  review-rounds: zero\n",
+      ["rules:", "  review-rounds: 3"],
+    ],
+    ["a value nothing replaces", "rules:\n  review-rounds: zero\n", []],
+  ])(
+    "refuses a preset with %s that is not valid, and changes nothing",
+    async (_, settings, body) => {
+      await setUp([], body, [OTHER]);
+      publish(OTHER, { "": { settings: `version: 2\n${settings}` } });
+      const before = state();
+      const r = await preset(["add", OTHER]);
+      expect(r.err).toEqual([
+        `${OTHER}: rules.review-rounds: must be a whole number above zero`,
+      ]);
+      expect(r.out).toEqual([]);
+      expect(r.code).toBe(1);
+      expect(state()).toEqual(before);
+    },
+  );
+
+  it("refuses a preset that is not YAML as the settings file is refused", async () => {
+    await setUp([], [], [OTHER]);
+    publish(OTHER, { "": { settings: "version: 2\nrules: a: b\n" } });
+    const r = await preset(["add", OTHER]);
+    expect(r.err).toEqual([
+      `${OTHER}: line 2: rules: a: b needs quotes around the name, such as rules: "a: b"`,
+    ]);
+    expect(r.code).toBe(1);
+  });
+
   it("shows the summary, asks where presets disagree and about your own value, and applies on y", async () => {
     await setUp([ACME], GATE);
     const r = await preset(["add", NODE], ["30", "keep", "y"]);
@@ -1010,6 +1045,179 @@ describe("factory preset check", () => {
     expect(r.out.join("\n")).not.toContain("factory-test-reviewer");
   });
 
+  describe("the values", () => {
+    const checking = async (...lines: string[]) =>
+      checkIn({ "": { settings: ["version: 2", ...lines, ""].join("\n") } });
+    const FINE = "factory-preset.yaml   no agents or skills";
+
+    it.each<[string, string[]]>([
+      [
+        'code-host.branch-name: is a map, not a pattern. Quote it: branch-name: "{ticket}"',
+        ["code-host:", "  branch-name: {ticket}"],
+      ],
+      [
+        "code-host.branch-name: needs {ticket}, or every build gets the same branch",
+        ["code-host:", '  branch-name: "feature"'],
+      ],
+      [
+        "code-host.branch-name: {nope} is not a placeholder. The placeholders are {ticket} and {user}",
+        ["code-host:", '  branch-name: "{nope}/{ticket}"'],
+      ],
+      ["commands.gate: must be a list", ["commands:", "  gate: npm test"]],
+      [
+        'code-host.type "gitlab" is not supported. "github" is the only code host built.',
+        ["code-host: gitlab"],
+      ],
+      [
+        "builds.hosts can't name GitHub: a build has no GitHub access",
+        ["builds:", "  hosts: [github.com]"],
+      ],
+    ])("fails with %s", async (said, lines) => {
+      const r = await checking(...lines);
+      expect(r.out).toEqual([`factory-preset.yaml: ${said}`]);
+      expect(r.code).toBe(1);
+    });
+
+    it("prints each problem only a preset has, then the first value that is not valid, of each file", async () => {
+      const r = await checkIn({
+        "": {
+          settings:
+            "version: 2\nrepository: acme/web\npresets: x\nauto-merge:\n  allow: src\nrules:\n  review-rounds: zero\n  small-change-lines: zero\n",
+        },
+        node: {
+          settings:
+            "version: 2\nplugins:\n  build:\n    reviewers:\n      - agent: x\n        off: yes please\n",
+        },
+        python: { settings: "version: 2\nbuilds:\n  max-per-hour: 0\n" },
+      });
+      expect(r.out).toEqual([
+        "factory-preset.yaml: repository: a preset can't set this. Remove it, and set it in each repository that wants it",
+        "factory-preset.yaml: auto-merge.allow: a preset can't set this. Remove it, and set it in each repository that wants it",
+        "factory-preset.yaml: presets: a preset can't name another preset. Remove it, and list each preset in the repositories that use this one",
+        "factory-preset.yaml: rules.small-change-lines: must be a whole number above zero",
+        "node/factory-preset.yaml: plugins.build.reviewers[0]: off: only .claude/factory.yaml can leave a plugin out. Remove it: only a repository can leave a plugin out",
+        "python/factory-preset.yaml: builds.max-per-hour: must be a whole number, 1 or more",
+        "node/factory-preset.yaml: plugins.build.reviewers: x: not shipped here, so each repository that uses this preset must provide it",
+      ]);
+      expect(r.code).toBe(1);
+    });
+
+    it.each<[string, string[]]>([
+      ["nothing", []],
+      ["tickets.columns", ["tickets:", "  columns:", "    ready: To do"]],
+      [
+        "a board's field",
+        ["tickets:", "  fields:", "    session: Working on it"],
+      ],
+      ["a board alone", ["tickets:", "  board: 4"]],
+      [
+        "a board and part of its columns",
+        ["tickets:", "  board: 4", "  columns:", "    ready: To do"],
+      ],
+      ["a branch name left empty", ["code-host:", "  branch-name:"]],
+      ["builds.poll-minutes", ["builds:", "  poll-minutes: 10"]],
+      ["specs.check", ["specs:", "  check: npm run specs"]],
+      [
+        "the site's reviewer",
+        [
+          "plugins:",
+          "  build:",
+          "    reviewers:",
+          "      - agent: factory-ui-reviewer",
+          "        files: [src/**]",
+        ],
+      ],
+      [
+        "the end-to-end reviewer",
+        [
+          "plugins:",
+          "  test:",
+          "    reviewers:",
+          "      - agent: factory-e2e-reviewer",
+          "        files: [e2e/**]",
+        ],
+      ],
+      ["part of site", ["site:", "  accessibility: wcag22aa"]],
+      ["site.start alone", ["site:", "  start: npm start"]],
+      [
+        "commands.coverage.run alone",
+        ["commands:", "  coverage:", "    run: npm run coverage"],
+      ],
+      [
+        "commands.coverage.report alone",
+        ["commands:", "  coverage:", "    report: lcov.info"],
+      ],
+    ])(
+      "passes a preset that writes %s and leaves the rest to another layer",
+      async (_, lines) => {
+        const r = await checking(...lines);
+        expect(r.out).toEqual([FINE]);
+        expect(r.code).toBe(0);
+      },
+    );
+
+    it.each<[string, string[]]>([
+      [
+        "tickets.columns.ready: must be one column, or none: only a ticket you approved goes there",
+        ["tickets:", "  columns:", "    ready: []"],
+      ],
+      [
+        "tickets.columns.backlog: cannot be none: every ticket starts there",
+        ["tickets:", "  columns:", "    backlog: none"],
+      ],
+      [
+        "tickets.fields.session: must be a name, or none",
+        ["tickets:", "  fields:", "    session: 4"],
+      ],
+      [
+        "builds.poll-minutes: must be one of 5, 10, 15, 30, 60",
+        ["builds:", "  poll-minutes: 7"],
+      ],
+      ["specs.check: must be text", ["specs:", "  check: 4"]],
+      [
+        "site.start: is required when site is written",
+        ["site:", '  start: ""'],
+      ],
+      [
+        "commands.coverage.run: is required when commands.coverage is written",
+        ["commands:", "  coverage:", "    run: 4"],
+      ],
+      [
+        "builds.poll-minutes needs builds.trigger: github-action",
+        ["builds:", "  trigger: manual", "  poll-minutes: 10"],
+      ],
+      [
+        "tickets.columns: needs tickets.board",
+        ["tickets:", "  board: none", "  columns:", "    ready: To do"],
+      ],
+      [
+        "specs.check needs specs.type: openspec",
+        ["specs:", "  type: none", "  check: npm run specs"],
+      ],
+    ])("still fails with %s", async (said, lines) => {
+      const r = await checking(...lines);
+      expect(r.out).toEqual([`factory-preset.yaml: ${said}`]);
+      expect(r.code).toBe(1);
+    });
+
+    it("says what a version 1 file is told", async () => {
+      const r = await checkIn({ "": { settings: "version: 1\n" } });
+      expect(r.out).toEqual([
+        'factory-preset.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+      ]);
+    });
+
+    it("says which value of a file that is not YAML needs quotes", async () => {
+      const r = await checkIn({
+        "": { settings: "version: 2\nrules: a: b\n" },
+      });
+      expect(r.out).toEqual([
+        'factory-preset.yaml: line 2: rules: a: b needs quotes around the name, such as rules: "a: b"',
+      ]);
+      expect(r.code).toBe(1);
+    });
+  });
+
   describe("beside an organization's poller", () => {
     const withPoller = (builds: string[], pollMinutes: number) =>
       checkIn({
@@ -1062,6 +1270,17 @@ describe("factory preset check", () => {
         expect(r.code).toBe(0);
       },
     );
+
+    it("says nothing of the schedule when the interval is not one the poller can run on", async () => {
+      const r = await withPoller(
+        ["builds:", "  trigger: github-action", "  poll-minutes: 7"],
+        5,
+      );
+      expect(r.out).toEqual([
+        "factory-preset.yaml: builds.poll-minutes: must be one of 5, 10, 15, 30, 60",
+      ]);
+      expect(r.code).toBe(1);
+    });
 
     it("fails for a file with no cron line", async () => {
       const r = await checkIn({

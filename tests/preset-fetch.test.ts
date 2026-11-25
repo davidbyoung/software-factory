@@ -16,7 +16,7 @@ import {
   fileAt,
   gitEnv,
   lastGitLine,
-  movePin,
+  movePins,
   newestCommit,
   pinAt,
   pinFaults,
@@ -478,7 +478,11 @@ describe("moving a preset's pin in the lock", () => {
       },
       node: { settings: "version: 2\n" },
     });
-    const moved = await movePin(root, ACME, next, fetching());
+    const [moved] = await movePins(
+      root,
+      [{ name: ACME, commit: next }],
+      fetching(),
+    );
     expect(moved).toEqual({
       name: ACME,
       commit: next,
@@ -498,10 +502,35 @@ describe("moving a preset's pin in the lock", () => {
   it("adds the pin to a lock that has none for the preset, and to no lock at all", async () => {
     root = repo(own([ACME]));
     const commit = publish(REPO, BASE);
-    await movePin(root, ACME, commit, fetching());
+    await movePins(root, [{ name: ACME, commit }], fetching());
     expect(pinsOf(read(root, ".claude/factory.lock"), load)).toEqual([
       pinAt(fetching(), ACME, commit, load),
     ]);
+  });
+
+  it("leaves the lock as it was when one of several is not valid", async () => {
+    root = repo(own([ACME, NODE]));
+    install(root, REPO, { ...BASE, node: { settings: "version: 2\n" } });
+    const before = read(root, ".claude/factory.lock");
+    const commit = publish(REPO, {
+      "": { settings: "version: 2\nrules:\n  review-rounds: 4\n" },
+      node: { settings: "version: 2\nrules:\n  review-rounds: zero\n" },
+    });
+    await expect(
+      movePins(
+        root,
+        [
+          { name: ACME, commit },
+          { name: NODE, commit },
+        ],
+        fetching(),
+      ),
+    ).rejects.toThrow(
+      new PresetError(
+        `${NODE}: rules.review-rounds: must be a whole number above zero`,
+      ),
+    );
+    expect(read(root, ".claude/factory.lock")).toBe(before);
   });
 });
 

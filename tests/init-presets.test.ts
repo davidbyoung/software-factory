@@ -27,7 +27,7 @@ import {
   type FakePreset,
   type Setup,
 } from "./init-harness";
-import { fetching, publish } from "./preset-fixture";
+import { fetching, lockPin, publish, read } from "./preset-fixture";
 import { into } from "./printed";
 
 const ROOT = "acme/factory-config";
@@ -562,6 +562,59 @@ describe("the presets as init reads and pins them", () => {
     expect(from.gives("specs")).toBe(false);
     expect(from.gives("pr-review")).toBe(false);
     expect(from.ships).toEqual([".claude/agents/acme-reviewer.md"]);
+  });
+
+  describe("a re-run where a pinned preset is not valid", () => {
+    /** init, reading the presets as the lock at `root` pins them. */
+    const rerun = async (settings: Record<string, unknown>, body = "") => {
+      const root = mkdtempSync(join(tmpdir(), "init-presets-"));
+      lockPin(root, {
+        name: ROOT,
+        commit: "1".repeat(40),
+        poller: false,
+        settings,
+        files: {},
+      });
+      const r = web({
+        settings: `version: 2\nrepository: acme/web\npresets:\n  - ${ROOT}\n${CODE_HOST_YAML}\n${body}`,
+      });
+      r.d.presets = {
+        ...source(root),
+        combined: (files) =>
+          source(root).combined({
+            ...files,
+            lock: read(root, ".claude/factory.lock"),
+          }),
+      };
+      return { code: await r.run(), out: r.out, asked: r.asked };
+    };
+
+    it.each<[string, Record<string, unknown>, string]>([
+      [
+        `${ROOT}: rules.review-rounds: must be a whole number above zero`,
+        { rules: { "review-rounds": "zero" } },
+        "",
+      ],
+      [
+        ".claude/factory.yaml: site: is required to list factory-ui-reviewer",
+        {
+          plugins: {
+            build: {
+              reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+            },
+          },
+        },
+        "",
+      ],
+    ])(
+      "prints the line config check prints: %s",
+      async (said, settings, body) => {
+        const r = await rerun(settings, body);
+        expect(r.out).toEqual([said, "Fix it, then run init again."]);
+        expect(r.code).toBe(1);
+        expect(r.asked).toEqual([]);
+      },
+    );
   });
 
   it("gives nothing for files that list no preset, or whose presets are not pinned", async () => {

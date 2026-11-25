@@ -494,25 +494,13 @@ export async function presetSettings(
   repository: string,
 ): Promise<OnceSettings> {
   const { load } = await import("js-yaml");
-  const { presetFaults } = await import("./preset.mts");
-  let raw: unknown;
-  try {
-    raw = load(text);
-  } catch (e) {
-    throw new SettingsError(`${file}: ${(e as Error).message.split("\n")[0]}`);
-  }
-  const fault = presetFaults(raw)[0];
-  if (fault) throw new SettingsError(`${file}: ${fault.key}: ${fault.message}`);
-  try {
-    return onceSettings(
-      parseSettings({ ...(raw as object), repository }, () => true, undefined, {
-        partial: true,
-      }),
-    );
-  } catch (e) {
-    if (!(e instanceof SettingsError)) throw e;
-    throw new SettingsError(`${file}${e.message.slice(SETTINGS_FILE.length)}`);
-  }
+  const { parsePreset } = await import("./preset.mts");
+  const raw = parsePreset(text, file, load);
+  return onceSettings(
+    parseSettings({ ...raw, repository }, () => true, undefined, {
+      preset: true,
+    }),
+  );
 }
 
 /** One pass for an organization: the board `file`'s preset names is read

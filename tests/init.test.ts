@@ -2508,6 +2508,37 @@ describe("factory init, a block that leaves states out", () => {
   });
 });
 
+describe("a re-run where the settings are not valid", () => {
+  const rerun = async (...lines: string[]) => {
+    const r = init({
+      settings: ["version: 2", "repository: acme/site", ...lines, ""].join(
+        "\n",
+      ),
+      answers: {},
+    });
+    return { code: await r.run(), out: r.out, asked: r.asked };
+  };
+
+  it("prints the line config check prints, naming the file once", async () => {
+    const r = await rerun("rules:", "  review-rounds: zero");
+    expect(r.out).toEqual([
+      ".claude/factory.yaml: rules.review-rounds: must be a whole number above zero",
+      "Fix it, then run init again.",
+    ]);
+    expect(r.code).toBe(1);
+    expect(r.asked).toEqual([]);
+  });
+
+  it("says so of a file that is not YAML before it looks at anything else", async () => {
+    const r = await rerun("repository: acme/other: x");
+    expect(r.out).toEqual([
+      '.claude/factory.yaml: line 3: repository: acme/other: x needs quotes around the name, such as repository: "acme/other: x"',
+      "Fix it, then run init again.",
+    ]);
+    expect(r.code).toBe(1);
+  });
+});
+
 describe("the tokens .npmrc reads", () => {
   const TOKEN = "npm_read_only";
   const JFROG = "https://acme.jfrog.io/artifactory/api/npm/npm/";

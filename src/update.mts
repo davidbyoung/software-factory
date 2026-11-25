@@ -25,6 +25,8 @@ import {
   NoDefaultBranch,
   repositoryRemote,
 } from "./lib/default-branch.mts";
+import { PresetError } from "./preset.mts";
+import type { PinMove } from "./preset-fetch.mts";
 import { POLLER_FILE } from "./workflow-files.mts";
 import * as say from "./lib/output.mts";
 
@@ -53,8 +55,9 @@ export type UpdateDeps = {
     newest: (repo: string) => Promise<string>;
     /** Whether a preset's own files differ at `commit` from its pin. */
     differs: (pin: PresetPin, commit: string) => Promise<boolean>;
-    /** Moves the lock's entries for these presets to `commit`. */
-    move: (names: string[], commit: string) => Promise<void>;
+    /** Moves the lock's entries for these presets, or none of them, with
+     * a PresetError, when one is not a preset at its commit. */
+    move: (moves: PinMove[]) => Promise<void>;
     /** What `factory preset changes REF` prints. */
     changes: (ref: string) => Promise<string[]>;
   };
@@ -100,7 +103,7 @@ type Unit = {
   source: string;
   /** The version the sync runs at, or null for the one the lock names. */
   version: string | null;
-  move: { names: string[]; commit: string } | null;
+  moves: PinMove[];
   /** What it prints when it is applied by hand. */
   lines: string[];
 };
@@ -114,7 +117,7 @@ const factoryUnit = (version: string, newest: string): Unit => ({
   branch: `${BRANCHES}factory-${newest}`,
   source: `${BRANCHES}factory`,
   version: newest,
-  move: null,
+  moves: [],
   lines: [`The factory ${version} → ${newest}`],
 });
 
@@ -161,7 +164,7 @@ async function survey(d: UpdateDeps) {
       branch: `${slug}-${short(head)}`,
       source: slug,
       version: null,
-      move: { names: moved.map((p) => p.name), commit: head },
+      moves: moved.map(({ name }) => ({ name, commit: head })),
       lines: moved.map((p) => `${p.name} ${short(p.commit)} → ${short(head)}`),
     });
   }
@@ -219,8 +222,8 @@ async function byHand(d: UpdateDeps): Promise<number> {
     const pin = pins.find((p) => p.name === name)!;
     d.out(say.text(`${name} is at its newest commit, ${short(pin.commit)}.`));
   }
-  for (const { move } of units)
-    if (move) await d.presets.move(move.names, move.commit);
+  const moves = units.flatMap((u) => u.moves);
+  if (moves.length) await d.presets.move(moves);
   const synced = await d.sync(units.find((u) => u.version)?.version ?? null);
   if (synced.code !== 0) return synced.code;
   const wrote = synced.lines.filter((l) => l.startsWith("wrote ")).length;
@@ -312,10 +315,10 @@ async function asPullRequests(d: UpdateDeps): Promise<number> {
     fetched = true;
     // Each from the default branch, so no update rides on another.
     d.git(["switch", "-C", unit.branch, ref]);
-    if (unit.move) await d.presets.move(unit.move.names, unit.move.commit);
+    if (unit.moves.length) await d.presets.move(unit.moves);
     const synced = await d.sync(unit.version);
     if (synced.code !== 0) return synced.code;
-    const body = unit.move
+    const body = unit.moves.length
       ? (await d.presets.changes(ref)).join("\n")
       : factoryBody(d, unit);
     await open(d, unit, base, body);
@@ -338,7 +341,7 @@ export async function main(argv: string[], d: UpdateDeps): Promise<number> {
       d.out(say.text(`✗ The newest release could not be read: ${e.message}`));
       return 1;
     }
-    if (e instanceof NoDefaultBranch) {
+    if (e instanceof NoDefaultBranch || e instanceof PresetError) {
       d.out(say.text(e.message));
       return 1;
     }
@@ -514,7 +517,7 @@ export async function run(argv: string[]): Promise<number> {
   const { load } = await import("js-yaml");
   const { lockedVersion, parseName, pinsOf } = await import("./preset.mts");
   const lockVersion = () => lockedVersion(lockText()) ?? manifest.version;
-  const { fetchDeps, movePin, newestCommit, presetDiffers, whyUnread } =
+  const { fetchDeps, movePins, newestCommit, presetDiffers, whyUnread } =
     await import("./preset-fetch.mts");
   const { changes, presetDeps } = await import("./preset-commands.mts");
   const fetch = fetchDeps(settings.repository, settings.codeHost.type);
@@ -539,8 +542,8 @@ export async function run(argv: string[]): Promise<number> {
       },
       differs: async (pin, commit) =>
         presetDiffers(fetch, pin.name, pin.commit, commit),
-      move: async (names, commit) => {
-        for (const name of names) await movePin(root, name, commit, fetch);
+      move: async (moves) => {
+        await movePins(root, moves, fetch);
       },
       changes: async (ref) => {
         const lines: string[] = [];

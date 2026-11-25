@@ -585,7 +585,7 @@ describe("parseSettings", () => {
     ])("fails on %s, which is GitHub", (host) => {
       expect(() => hosts(["repo.packagist.org", host])).toThrow(
         new SettingsError(
-          "builds.hosts can't name GitHub: a build has no GitHub access",
+          ".claude/factory.yaml: builds.hosts can't name GitHub: a build has no GitHub access",
         ),
       );
     });
