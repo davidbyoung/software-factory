@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, describe, it } from "vitest";
 import type { RunFile } from "../src/handoff/index.mts";
 import { COMMITS, commitsIn } from "../src/handoff/links.mts";
 import type { Asked } from "../src/handoff/requests.mts";
-import { AGENT_MARK } from "../src/lib/work-status.mts";
+import { AGENT_MARK, DEFAULT_COLUMNS } from "../src/lib/work-status.mts";
 import {
   ANSWERS,
   CLOUD_MARK,
@@ -19,6 +19,9 @@ import {
 import { memoryCodeHost, REPOSITORY, type PullSeed } from "./memory-code-host";
 import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
+import { workState } from "../src/lib/work-status.mts";
+import { recordOf } from "../src/tickets/record-comments.mts";
+import { HttpError } from "../src/tickets/transport.mts";
 
 const COMMITTER = {
   name: "factory[bot]",
@@ -102,6 +105,11 @@ function world(
     runner?: MemoryRunnerOptions;
     claimed?: boolean;
     ci?: string;
+    /** The lines a pull request starts with, and the next repository to
+     * build, for a ticket that names several. */
+    links?: string[];
+    next?: string;
+    startFails?: Error;
   } = {},
 ) {
   const run: RunFile = {
@@ -126,6 +134,7 @@ function world(
   let at = 0;
   const out: string[] = [];
   const pushed: string[] = [];
+  const builds: string[] = [];
   const asked: { argv: string[]; text?: string }[] = [];
   const d: PublishDeps = {
     run,
@@ -133,6 +142,14 @@ function world(
     codeHost: host.codeHost,
     runner: runner.runner,
     tickets: tickets.tickets,
+    linkLines: async () => o.links ?? null,
+    next: async () => o.next ?? null,
+    async startBuild(name) {
+      if (o.startFails) throw o.startFails;
+      builds.push(name);
+    },
+    marker: () => "st_1",
+    columns: DEFAULT_COLUMNS,
     async ticket(argv, readFile) {
       const file = argv[argv.indexOf("--body-file") + 1];
       asked.push({
@@ -170,7 +187,7 @@ function world(
     signIn: async () => {},
     out: (line) => out.push(line),
   };
-  return { d, out, pushed, asked, host, runner, tickets };
+  return { d, out, pushed, builds, asked, host, runner, tickets };
 }
 
 describe("a build", () => {
@@ -955,5 +972,121 @@ describe("the pull request a build opens", () => {
       CLOUD_MARK,
       ticketMark("12"),
     ]);
+  });
+});
+
+describe("a build of a ticket across repositories", () => {
+  const ACROSS: Partial<RunFile> = {
+    others: [{ repository: "acme/web", pull: null, folder: "web" }],
+  };
+  const PART = "Part of #12";
+  const opens = (body: string): Asked => ({
+    argv: OPEN.argv,
+    files: { "p.md": body },
+  });
+  const notes = (w: ReturnType<typeof world>) =>
+    w.tickets.comments("12").map((c) => c.body);
+
+  it("starts the next repository's build once its pull request is open", async () => {
+    commits();
+    asks(opens(PART));
+    const w = world(ACROSS, { links: [PART], next: "acme/web" });
+
+    expect(await publish(w.d)).toBe(0);
+    const [pull] = await w.host.codeHost.listOpen();
+    expect(w.builds).toEqual(["acme/web"]);
+    expect(notes(w)[0]).toContain(
+      `Built in ${REPOSITORY}: ${REPOSITORY}#${pull!.number}. Starting the build in acme/web.`,
+    );
+    expect(workState(recordOf(w.tickets.comments("12")))).toMatchObject({
+      live: null,
+      start: { marker: { kind: "started", marker: "st_1" } },
+    });
+  });
+
+  it("starts none when every other repository has a pull request", async () => {
+    commits();
+    asks(opens(PART));
+    const w = world(ACROSS, { links: [PART] });
+    await publish(w.d);
+    expect(w.builds).toEqual([]);
+    expect(notes(w)).toEqual([]);
+  });
+
+  it("starts none when what it built was refused", async () => {
+    commits(".github/workflows/evil.yml");
+    asks(opens(PART));
+    const w = world(ACROSS, { links: [PART], next: "acme/web" });
+    await publish(w.d);
+    expect(w.builds).toEqual([]);
+  });
+
+  it("records a start that is refused as the poller does", async () => {
+    commits();
+    asks(opens(PART));
+    const w = world(ACROSS, {
+      links: [PART],
+      next: "acme/web",
+      startFails: new HttpError(403, "no", "Resource not accessible"),
+    });
+    await publish(w.d);
+    expect(notes(w).at(-1)).toContain(
+      "Could not start a build in GitHub Actions: GitHub answered 403 (Resource not accessible).",
+    );
+  });
+
+  it("links its ticket whether or not the session did", async () => {
+    commits();
+    asks(opens("What changed."));
+    const w = world(ACROSS, { links: [PART, "Depends-On: acme/api#88"] });
+    await publish(w.d);
+    const [pull] = await w.host.codeHost.listOpen();
+    expect(pull!.body).toMatch(
+      /^Part of #12\nDepends-On: acme\/api#88\n\nWhat changed\./,
+    );
+  });
+
+  it("links it once when the session did", async () => {
+    commits();
+    asks(opens(`${PART}\n\nWhat changed.`));
+    const w = world(ACROSS, { links: [PART] });
+    await publish(w.d);
+    const [pull] = await w.host.codeHost.listOpen();
+    expect(pull!.body.match(/Part of #12/g)).toHaveLength(1);
+  });
+
+  it.each([
+    ["its pull request", () => opens("Closes #12"), "Add a file"],
+    ["a commit", () => opens(PART), "Add a file\n\nFixes #12"],
+  ])(
+    "is not pushed when %s says it closes the ticket",
+    async (_, ask, message) => {
+      commits("a.txt", message);
+      asks(ask());
+      const w = world(ACROSS, { links: [PART] });
+      expect(await publish(w.d)).toBe(1);
+      expect(w.pushed).toEqual([]);
+      expect(w.out.join("\n")).toContain(
+        "closes #12, which closes itself once every repository of its own has merged",
+      );
+    },
+  );
+
+  it("is not marked ready when the code host would close the ticket with it", async () => {
+    commits();
+    asks(opens(PART));
+    const w = world(ACROSS, { links: [PART] });
+    w.host.codeHost.closes = async () => ["12"];
+    await publish(w.d);
+    const [pull] = await w.host.codeHost.listOpen();
+    expect(pull!.isDraft).toBe(true);
+    expect(
+      w.host
+        .pull(pull!.number)
+        .comments.map((c) => c.body)
+        .join("\n"),
+    ).toContain(
+      "This would close #12 when it merges, before its other repositories have",
+    );
   });
 });

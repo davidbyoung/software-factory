@@ -20,7 +20,7 @@ const options = (over: Partial<WorkflowOptions> = {}): WorkflowOptions => ({
   branch: "main",
   parts: [],
   pollMinutes: null,
-  ref: (key) => `#${key}`,
+  ref: (key) => (key.includes("/") ? key : `#${key}`),
   minutes: { ...SESSION_MINUTES },
   overrideLabel: "verdict-override",
   secrets: [],
@@ -91,7 +91,7 @@ describe("factory.yml", () => {
 
   it("names a build's run by the ticket as its system writes it, an answer's by its pull request, a pull request's by its commit, and no other run", () => {
     expect(factory()["run-name"]).toBe(
-      "${{ inputs.ticket && format('Build #{0}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}",
+      "${{ inputs.ticket && format(contains(inputs.ticket, '/') && 'Build {0}' || 'Build #{0}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}",
     );
     expect(factory({ ref: (key) => `it's ${key}` })["run-name"]).toBe(
       "${{ inputs.ticket && format('Build it''s {0}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}",

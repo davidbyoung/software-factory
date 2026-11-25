@@ -256,7 +256,9 @@ export async function apply(
   if (o.eventName === "order" && pr.state !== "open")
     return log(`#${pr.number} is not open.`);
 
-  const order = o.order ? await o.order(pr.body) : null;
+  // One from a fork is part of no ticket's order, whatever it says.
+  const own = pr.head.repository === pr.base.repository;
+  const order = o.order && own ? await o.order(pr.body) : null;
   if (order) {
     await pulls.setStatus(sha, { ...order, name: ORDER, link: o.link });
     log(`${ORDER} on ${sha}: ${order.state}, ${order.description}`);

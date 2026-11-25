@@ -164,6 +164,8 @@ jobs:
           GH_TOKEN: *person
           FACTORY_RUN: ${{ runner.temp }}/factory
           FACTORY_APP_SLUG: ${{ steps.app.outputs.slug }}
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           KIND: ${{ inputs.kind }}
           ID: ${{ inputs.id }}
         run: |
@@ -184,6 +186,8 @@ jobs:
       - name: Release the ticket
         if: (failure() || cancelled()) && inputs.kind == 'build' && steps.gate.outputs.ran == 'true'
         env:
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           GH_TOKEN: *person
           ID: ${{ inputs.id }}
         run: factory ticket end "$ID"
@@ -414,12 +418,18 @@ jobs:
           path: ${{ runner.temp }}/factory/out
 
       # The review is recorded with the workflow's own token, which the rule
-      # that requires "Review verdict" names.
+      # that requires "Review verdict" names. One of a pull request that is
+      # part of a ticket may have to read another repository's, for what it
+      # waits for, and posts nothing there.
       - name: Record the review
         id: record
         if: inputs.kind == 'review'
         env:
           GH_TOKEN: ${{ github.token }}
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ contains(github.event.pull_request.body || '', 'Part of ') && secrets.app-key || '' }}
+          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          FACTORY_ACROSS: read
           CONCLUSION: ${{ needs.session.result }}
         run: factory session publish
 
@@ -466,6 +476,8 @@ jobs:
       - name: Release the ticket
         if: always() && inputs.kind == 'build' && steps.app.outputs.signed == 'true'
         env:
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           GH_TOKEN: *publisher
           ID: ${{ inputs.id }}
         run: factory ticket end "$ID"

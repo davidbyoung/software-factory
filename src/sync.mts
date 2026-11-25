@@ -50,6 +50,7 @@ import {
   PresetsError,
   type Resolved,
   type Settings,
+  SETTINGS_FILE,
 } from "./config.mts";
 import {
   CHOICES_FILE,
@@ -71,7 +72,7 @@ import {
   shippedText,
   type FetchDeps,
 } from "./preset-fetch.mts";
-import { WORK } from "./lib/repositories.mts";
+import { sameRepository, WORK } from "./lib/repositories.mts";
 import {
   branchDeps,
   needDefaultBranch,
@@ -393,7 +394,28 @@ export function withHooks(
   for (const [event, group] of factoryHooks(launcher, name))
     (hooks[event] ??= []).push(group);
   const attribution = settings.attribution ?? NO_ATTRIBUTION;
-  return `${JSON.stringify({ ...settings, permissions: withWork(settings), attribution, hooks }, null, 2)}\n`;
+  return written({
+    ...settings,
+    permissions: withWork(settings),
+    attribution,
+    hooks,
+  });
+}
+
+/** The file's text, with the list of folders on one line where it fits, as
+ * a formatter writes it. */
+function written(settings: ClaudeSettings): string {
+  const text = JSON.stringify(settings, null, 2).replace(
+    /^( *"additionalDirectories": )\[\n([^\]]*)\n *\]/m,
+    (whole, head: string, items: string) => {
+      const line = `${head}[${items
+        .split("\n")
+        .map((item) => item.trim())
+        .join(" ")}]`;
+      return line.length <= 79 ? line : whole;
+    },
+  );
+  return `${text}\n`;
 }
 
 /** The folders a session may also edit, the one the clones of a ticket's
@@ -461,9 +483,7 @@ export function withoutHooks(text: string): string | null {
   const rest = permissions ? { ...others, permissions } : others;
   const hooks = othersHooks(JSON.parse(text) as ClaudeSettings);
   const after = Object.keys(hooks).length ? { ...rest, hooks } : rest;
-  return Object.keys(after).length
-    ? `${JSON.stringify(after, null, 2)}\n`
-    : null;
+  return Object.keys(after).length ? written(after) : null;
 }
 
 export const hasImport = (text: string | null): boolean =>
@@ -734,6 +754,9 @@ export async function main(
     fetch?: (s: Settings) => FetchDeps;
     /** A file's text at a git revision, or null when it has none there. */
     show?: (ref: string, path: string) => string | null;
+    /** The repository the pull request being checked is in, or null when
+     * none is. */
+    pullIn?: string | null;
   },
 ): Promise<number> {
   const check = argv.includes("--check");
@@ -764,6 +787,16 @@ export async function main(
     const message = e instanceof Error ? e.message : String(e);
     d.err(
       e instanceof PresetsError ? say.mark("fail", message) : say.text(message),
+    );
+    return 1;
+  }
+  const { repository } = r.settings;
+  if (check && d.pullIn && !sameRepository(d.pullIn, repository)) {
+    d.err(
+      say.mark(
+        "fail",
+        `repository: ${SETTINGS_FILE} says ${repository}, and this pull request is in ${d.pullIn}. Change the line and run factory sync.`,
+      ),
     );
     return 1;
   }
@@ -871,9 +904,16 @@ export const syncDeps = (root: string) => ({
 });
 
 /** `announce` is false when `init` runs the sync inside its own output. */
+export const pullIn = (env: Record<string, string | undefined>) =>
+  env.GITHUB_EVENT_NAME === "pull_request"
+    ? (env.GITHUB_REPOSITORY ?? null)
+    : null;
+
+/** `factory sync`. */
 export async function run(argv: string[], announce = true): Promise<number> {
   return main(argv, {
     ...syncDeps(repoRoot()),
+    pullIn: pullIn(process.env),
     announce,
   });
 }

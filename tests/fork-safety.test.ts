@@ -534,14 +534,21 @@ describe("this repository's workflows", () => {
     ).toEqual(Array(5).fill(`${DIR}/session.yml`));
   });
 
-  it("starts only the verdict, the merge policy, the board sync, the review, and Dependabot's auto-merge on an event that has the secrets", () => {
+  it("starts only the verdict, what tells the other repositories, the merge policy, the board sync, the review, and Dependabot's auto-merge on an event that has the secrets", () => {
     expect(factoryEvents).toContain("pull_request_target");
     expect(factoryEvents).not.toContain("workflow_run");
     expect(
       jobsWithSecrets(open(`${DIR}/run.yml`), factoryEvents).map(
         ([name]) => name,
       ),
-    ).toEqual(["verdict", "merge-policy", "board", "review", "dependabot"]);
+    ).toEqual([
+      "verdict",
+      "across",
+      "merge-policy",
+      "board",
+      "review",
+      "dependabot",
+    ]);
   });
 
   it("starts one session, the review, with them, and only for a pull request from the repository itself, and nothing of review.yml", () => {

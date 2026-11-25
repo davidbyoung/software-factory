@@ -110,7 +110,12 @@ const HEADER = [
 
 /** `.github/workflows/factory.yml`. */
 export function factoryWorkflow(o: WorkflowOptions): string {
-  const name = `Build ${o.ref("{0}")}`.replaceAll("'", "''");
+  const quoted = (text: string) => `'${text.replaceAll("'", "''")}'`;
+  const own = quoted(`Build ${o.ref("{0}")}`);
+  // Another repository's ticket is written as its key is.
+  const other = quoted(`Build ${o.ref("/{0}").replace("/{0}", "{0}")}`);
+  const name =
+    own === other ? own : `contains(inputs.ticket, '/') && ${other} || ${own}`;
   const schedules = [
     ...SCHEDULES.map(([cron, what]) => `    - cron: "${cron}" # ${what}`),
     ...(o.pollMinutes === null
@@ -135,7 +140,7 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     "# updates. The jobs are in the factory's own repository, at the version",
     "# below. A job whose part is off in the settings is skipped.",
     "name: Factory",
-    `run-name: ${JSON.stringify(`\${{ inputs.ticket && format('${name}', inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}`)}`,
+    `run-name: ${JSON.stringify(`\${{ inputs.ticket && format(${name}, inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}`)}`,
     "",
     "on:",
     "  pull_request_target:",

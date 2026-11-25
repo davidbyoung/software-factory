@@ -8,17 +8,23 @@ import { AUTHOR, type RunFile } from "./index.mts";
 type On = {
   codeHost: Pick<CodeHost, "closesIn">;
   tickets: Pick<Tickets, "linksIn" | "ref">;
-  run: Pick<RunFile, "ref" | "committer">;
+  run: Pick<RunFile, "ref" | "committer" | "others">;
 };
 
 /** What is wrong with the text, if anything. */
 export function textFault(on: On, text: string): string | undefined {
   const { closes, partOf } = on.tickets.linksIn(text);
-  const other = [
-    ...[...closes, ...partOf].map((key) => on.tickets.ref(key)),
+  const closed = [
+    ...closes.map((key) => on.tickets.ref(key)),
     ...on.codeHost.closesIn(text),
-  ].find((ref) => ref !== on.run.ref);
-  return other && `links ${other}, which is not this run's`;
+  ];
+  const all = [...closed, ...partOf.map((key) => on.tickets.ref(key))];
+  const other = all.find((ref) => ref !== on.run.ref);
+  if (other) return `links ${other}, which is not this run's`;
+  // One of several repositories' merges closes nothing by itself.
+  return on.run.others && closed.length > 0
+    ? `closes ${on.run.ref}, which closes itself once every repository of its own has merged`
+    : undefined;
 }
 
 export type Commit = {

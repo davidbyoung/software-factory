@@ -311,6 +311,13 @@ const evaluate = (expression: string, context: Record<string, unknown>) =>
 /** How often a part of a workflow names the app's key other than to
  * compare it with empty text, wherever in it: an `env`, a `with`, an `if`,
  * or a script. */
+/** The steps of run.yml that read another of a ticket's repositories, with a
+ * token the factory makes from the app's key as it runs. */
+const ACROSS = [
+  "Post the verdict",
+  "Tell the other repositories",
+  "Read the repository",
+];
 const keyUses = (part: unknown) =>
   JSON.stringify(part).match(/secrets\.app-key(?! [!=]= '')/g)?.length ?? 0;
 
@@ -572,8 +579,8 @@ describe("the jobs that run no session", () => {
       statuses: "write",
     });
     const post = step(job, "Post the verdict");
-    expect(post.run).toBe("factory review verdict");
-    expect(post.env).toEqual({ GH_TOKEN: "${{ github.token }}" });
+    expect(post.run).toBe('factory review verdict ${PR:+--pr "$PR"}');
+    expect(post.env!.GH_TOKEN).toBe("${{ github.token }}");
   });
 
   it("classifies with the workflow's token, and turns auto-merge on only with the app's or the owner's", () => {
@@ -592,9 +599,9 @@ describe("the jobs that run no session", () => {
 
   it("gives the board's token only to the step that writes the board, and never cancels a sync", () => {
     const job = jobs.board!;
-    expect(step(job, "Read the repository").env).toEqual({
-      GH_TOKEN: "${{ github.token }}",
-    });
+    const collect = step(job, "Read the repository").env!;
+    expect(collect.GH_TOKEN).toBe("${{ github.token }}");
+    expect(JSON.stringify(collect)).not.toContain("board-token");
     expect(step(job, "Write the board").env).toEqual({
       GH_TOKEN: "${{ steps.app.outputs.token || secrets.board-token }}",
     });
@@ -1399,7 +1406,10 @@ describe("a token of the organization's app, where its key reaches the run", () 
 
       expect(given.length).toBeGreaterThan(0);
       for (const value of given) expect(value).toBe("${{ secrets.app-key }}");
-      expect(keyUses(file)).toBe(given.length);
+      const across = Object.values(file.jobs).flatMap((job) =>
+        (job.steps ?? []).filter((s) => ACROSS.includes(s.name!)),
+      );
+      expect(keyUses(file)).toBe(given.length + across.length);
     },
   );
 
@@ -1892,9 +1902,11 @@ describe("the sign-in of the two jobs around a session", () => {
           ),
         )
         .map((s) => s.name);
-      expect(holding).toEqual(
-        REACHING.filter(([, j]) => j === job).map(([, , name]) => name),
-      );
+      expect(holding).toEqual([
+        // To read another repository with, where no app's key is set.
+        ...(job === publishJob ? ["Record the review"] : []),
+        ...REACHING.filter(([, j]) => j === job).map(([, , name]) => name),
+      ]);
       expect(job).not.toHaveProperty("env");
     }
   });
@@ -1926,9 +1938,15 @@ describe("the sign-in of the two jobs around a session", () => {
       step(prepareJob, "Sign in"),
       step(publishJob, "Sign in"),
       step(publishJob, "Publish what the session left"),
+      // These reach another of a ticket's repositories, or may.
+      step(prepareJob, "Hand over what the session works from"),
+      step(prepareJob, "Release the ticket"),
+      step(publishJob, "Release the ticket"),
     ];
     for (const s of given) expect(s.env).toMatchObject(KEY);
-    expect(keyUses(session)).toBe(given.length);
+    const record = step(publishJob, "Record the review");
+    expect(keyUses(record)).toBe(1);
+    expect(keyUses(session)).toBe(given.length + 1);
   });
 
   it("makes no token of its own in a step, and renews none behind the others", () => {
@@ -1951,17 +1969,58 @@ describe("the review and its verdict, which stay the workflow's own", () => {
   const OTHER =
     /steps\.app\.|app-key|(?:build|board|automerge)-token|create-github-app-token/;
 
-  it("posts the verdict's status with the workflow's own token, and reads no other", () => {
-    const job = run.jobs.verdict!;
-    expect(JSON.stringify(job)).not.toMatch(OTHER);
-    expect(step(job, "Post the verdict").env).toEqual({
-      GH_TOKEN: "${{ github.token }}",
-    });
+  /** What a step is given to read another repository with, by the pull
+   * request's body and the job a run by hand asks for. */
+  const reading = (
+    s: Step,
+    o: { body?: string | null; job?: string; id?: string; key?: string },
+  ) => {
+    const scope = {
+      secrets: { "app-key": o.key ?? "K", "build-token": "a person's" },
+      vars: { FACTORY_APP_CLIENT_ID: o.id ?? "I" },
+      inputs: { job: o.job ?? "", pr: "" },
+      github: {
+        event_name: o.job ? "workflow_dispatch" : "pull_request_target",
+        event: { pull_request: { body: o.body ?? null } },
+      },
+    };
+    return {
+      key: valueOf(inside(s.env!.FACTORY_APP_PRIVATE_KEY), scope),
+      person: valueOf(inside(s.env!.FACTORY_BUILD_TOKEN), scope),
+    };
+  };
+  const READERS: [string, Step][] = [
+    ["the verdict", step(run.jobs.verdict!, "Post the verdict")],
+    ["a review", step(publishJob, "Record the review")],
+  ];
+
+  it.each(READERS)(
+    "posts %s with the workflow's own token, and is given another to read with only for a pull request that is part of a ticket",
+    (_, s) => {
+      expect(s.env!.GH_TOKEN).toBe("${{ github.token }}");
+      expect(s.env!.FACTORY_ACROSS).toBe("read");
+      expect(reading(s, { body: "Closes #12" }).key).toBe("");
+      expect(reading(s, { body: null }).key).toBe("");
+      expect(reading(s, { body: "Part of acme/api#12" })).toEqual({
+        key: "K",
+        person: "",
+      });
+      expect(reading(s, { body: "Part of #12", key: "", id: "" })).toEqual({
+        key: "",
+        person: "a person's",
+      });
+    },
+  );
+
+  it("gives the verdict's job one to read with when another repository starts it again", () => {
+    const s = step(run.jobs.verdict!, "Post the verdict");
+    expect(reading(s, { job: "order" }).key).toBe("K");
+    expect(reading(s, { job: "build" }).key).toBe("");
   });
 
   it("records a review with the workflow's own token, and no other, before the job signs in", () => {
     const record = step(publishJob, "Record the review");
-    expect(record.env).toEqual({
+    expect(record.env).toMatchObject({
       GH_TOKEN: "${{ github.token }}",
       CONCLUSION: "${{ needs.session.result }}",
     });
@@ -2217,6 +2276,7 @@ describe("a pull request's own code, in run.yml", () => {
   it("is judged in these jobs, which start on pull_request_target", () => {
     expect(target.map(([id]) => id)).toEqual([
       "verdict",
+      "across",
       "merge-policy",
       "board",
       "review",

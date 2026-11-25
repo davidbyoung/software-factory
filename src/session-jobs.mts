@@ -17,6 +17,8 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
+  statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,17 +28,27 @@ import {
   sandboxSettings,
   sessionCommand,
 } from "./agent/claude-code-session.mts";
-import { openCodeHost } from "./code-host/index.mts";
-import { loadSettings, reachOf, repoRoot } from "./config.mts";
+import {
+  confirmedList,
+  homeOf,
+  progressOf,
+  repositoriesOf,
+} from "./across.mts";
+import { acrossGitEnv } from "./code-host/across.mts";
+import { openCodeHost, reachCodeHost } from "./code-host/index.mts";
+import { nextToBuild, sameRepository } from "./lib/repositories.mts";
+import { startMarker } from "./poller.mts";
+import { linkLines } from "./ticket-repositories.mts";
+import { columnsOf, loadSettings, reachOf, repoRoot } from "./config.mts";
 import { main as depsMain } from "./deps.mts";
-import type { RunFile } from "./handoff/index.mts";
+import { BUNDLE_LIMIT, type RunFile } from "./handoff/index.mts";
 import type { Kind } from "./handoff/requests.mts";
 import { ownLinks } from "./lib/pull-tickets.mts";
 import { LOCK_FILE, pinsOf } from "./preset.mts";
 import { fetchDeps, fileAt, pinFaults } from "./preset-fetch.mts";
 import { conflicting, main as prMain, prDeps } from "./pr.mts";
 import { liveOrder } from "./merge-order.mts";
-import { openRunner } from "./runner/index.mts";
+import { openRunner, reachRunner } from "./runner/index.mts";
 import { prepare } from "./session-prepare.mts";
 import {
   nextAnswer,
@@ -76,12 +88,16 @@ const need = (env: Env, name: string): string => {
 };
 
 /** Git, with its own words when it fails and no sign-in in them. */
-function git(cwd: string, args: string[]): string {
+function git(
+  cwd: string,
+  args: string[],
+  extra: Record<string, string> = {},
+): string {
   const r = spawnSync("git", args, {
     cwd,
     encoding: "utf8",
     maxBuffer: 256 << 20,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...extra },
   });
   if (r.status !== 0) {
     const said = (r.stderr || r.error?.message || "").trim().split("\n").at(-1);
@@ -105,6 +121,14 @@ async function world(env: Env) {
     repository,
     codeHost: openCodeHost(repository, type),
     runner: openRunner(repository, name),
+    reach: (other: string) => reachCodeHost(other, type, repository),
+    /** Starts a build of a ticket in another repository. */
+    startBuild: async (other: string, key: string) => {
+      const branch = await (
+        await reachCodeHost(other, type, repository)
+      ).defaultBranch();
+      await (await reachRunner(other, name)).startBuild(key, branch);
+    },
     tickets,
     prDeps: prDeps(repository, type, name),
   };
@@ -128,11 +152,17 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
     labels: w.settings.tickets.labels,
     ownLinks: ownLinks(w.settings),
     poster: w.runner.poster,
+    reach: w.reach,
+    startBuild: w.startBuild,
+    archive,
+    underApp: Boolean(env.FACTORY_APP_PRIVATE_KEY),
+    columns: columnsOf(w.settings),
     ticket: (args, on) =>
       lines((say) =>
         ticketMain(args, {
           ...ticketDeps(),
           open: async () => ({ tickets: on.tickets }),
+          reach: on.reach,
           out: say,
         }),
       ),
@@ -247,6 +277,10 @@ async function runTheSession(env: Env): Promise<number> {
     minutes: Number(need(env, "MINUTES")),
     ...(schema ? { schema } : {}),
     git: (cwd, args) => void git(cwd, args),
+    untar(file, to) {
+      const r = spawnSync("tar", ["-xf", file, "-C", to], { encoding: "utf8" });
+      if (r.status !== 0) throw new Error(`tar: ${r.stderr.trim()}`);
+    },
     install: (env.FACTORY_INSTALL ?? "").split(":").filter(Boolean),
     settings: sandboxSettings,
     command: sessionCommand,
@@ -272,6 +306,36 @@ async function runTheSession(env: Env): Promise<number> {
   });
 }
 
+async function archive(
+  repository: string,
+  branch: string | null,
+  path: string,
+): Promise<boolean> {
+  const { repository: own, codeHost: type } = await reachOf(process.env);
+  const { url } = openCodeHost(own, type).remote(repository);
+  return archiveOf(url, branch, path, await acrossGitEnv(repository));
+}
+
+/** A repository's files as plain files with no history, in a tar archive,
+ * or false when it is larger than a session may be handed. */
+export function archiveOf(
+  url: string,
+  branch: string | null,
+  path: string,
+  extra: Record<string, string> = {},
+  most = BUNDLE_LIMIT,
+): boolean {
+  const dir = mkdtempSync(join(tmpdir(), "other-"));
+  const run = (...args: string[]) => git(dir, args, extra);
+  run("init", "-q", "--bare");
+  run("fetch", "-q", "--depth", "1", url, branch ?? "HEAD");
+  run("archive", "--format=tar", "-o", path, "FETCH_HEAD");
+  rmSync(dir, { recursive: true, force: true });
+  if (statSync(path).size <= most) return true;
+  rmSync(path);
+  return false;
+}
+
 /** What a ticket command Publish runs needs, with the claim Prepare made on
  * another machine, which a stop goes by. */
 export function publishTicketDeps(
@@ -279,6 +343,7 @@ export function publishTicketDeps(
 ): TicketDeps {
   return {
     ...ticketDeps(),
+    fromCloudSession: true,
     claimStore: {
       read: (key) => (key === run.ticket ? run.claim : null),
       write: () => {},
@@ -342,6 +407,28 @@ async function publishDeps(env: Env): Promise<PublishDeps> {
           `refs/heads/${run.defaultBranch}`,
         ]),
       ),
+    columns: columnsOf(w.settings),
+    async linkLines() {
+      if (run.ticket === null) return null;
+      return linkLines(await w.tickets.read(run.ticket), w);
+    },
+    async next() {
+      if (run.ticket === null) return null;
+      const ticket = await w.tickets.read(run.ticket);
+      const home = homeOf(w.tickets, run.ticket, w.repository);
+      const list = repositoriesOf(ticket, w.tickets, home);
+      if (!list || !(await confirmedList(ticket, list, w.reach)).counts)
+        return null;
+      const all = await progressOf(ticket, list, w.tickets, w.reach);
+      // Its own was opened a moment ago, which a list can still lack.
+      return (
+        nextToBuild(all.filter((r) => !sameRepository(r.name, w.repository)))
+          ?.name ?? null
+      );
+    },
+    startBuild: (other) =>
+      w.startBuild(other, w.tickets.keyIn(run.ticket!, other)),
+    marker: startMarker,
     session: env.CONCLUSION ?? "failure",
     reviewRounds: w.settings.rules.reviewRounds,
     now: Date.now,

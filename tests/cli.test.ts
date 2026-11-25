@@ -52,7 +52,7 @@ describe("the commands the router knows", () => {
           .map((command) => ({ file, command: command.trim() })),
       );
 
-    expect(run.map(({ command }) => command)).toContain("review verdict");
+    expect(run.map(({ command }) => command)).toContain('merge-policy "$PR"');
     expect(
       run
         .filter(({ command }) => !resolveCommand(command.split(/\s+/)))

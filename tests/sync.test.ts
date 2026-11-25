@@ -20,6 +20,7 @@ import {
   factoryHooks,
   hasAnyFactoryHook,
   hasFactoryHooks,
+  pullIn,
   launcherPath,
   withHooks,
   withoutHooks,
@@ -81,7 +82,7 @@ async function sync(
   argv: string[] = [],
   s = settings(FULL),
   branch: string | null = "main",
-  extra: { announce?: boolean } = {},
+  extra: { announce?: boolean; pullIn?: string | null } = {},
 ) {
   const out: string[] = [];
   const err: string[] = [];
@@ -1130,6 +1131,18 @@ describe("factoryHooks", () => {
       });
     });
 
+    it("is written as a formatter writes it, on one line where it fits", () => {
+      expect(withHooks(null, null, "@o/factory")).toContain(
+        `    "additionalDirectories": ["${WORK}"]\n`,
+      );
+      const long = JSON.stringify({
+        permissions: { additionalDirectories: ["../a-longer-folder"] },
+      });
+      expect(withHooks(long, null, "@o/factory")).toContain(
+        `    "additionalDirectories": [\n      "../a-longer-folder",\n      "${WORK}"\n    ]\n`,
+      );
+    });
+
     it("is taken out again, and nothing else with it", () => {
       const own = {
         permissions: { allow: ["Bash"], additionalDirectories: ["../docs"] },
@@ -1178,7 +1191,7 @@ describe("factory sync: the ticket system in the workflow files", () => {
     await sync();
 
     expect(factoryFile()["run-name"]).toContain(
-      "inputs.ticket && format('Build #{0}', inputs.ticket) ||",
+      "inputs.ticket && format(contains(inputs.ticket, '/') && 'Build {0}' || 'Build #{0}', inputs.ticket) ||",
     );
   });
 
@@ -1261,5 +1274,37 @@ describe("the board part", () => {
     expect(partsOn(with_(1, false), () => false)).toEqual(["board"]);
     expect(partsOn(with_(null, true), () => false)).toEqual(["board"]);
     expect(partsOn(with_(null, false), () => false)).toEqual([]);
+  });
+});
+
+describe("factory sync --check: the repository line", () => {
+  const STALE =
+    "✗ repository: .claude/factory.yaml says o/r, and this pull request is in o/renamed. Change the line and run factory sync.";
+
+  it("fails on a pull request in a repository of another name, before anything else is asked", async () => {
+    const r = await sync(["--check"], settings(FULL), null, {
+      pullIn: "o/renamed",
+    });
+    expect(r).toEqual({ code: 1, out: [], err: [STALE] });
+  });
+
+  it.each([["O/R"], [null]])("says nothing of %s", async (pullIn) => {
+    await sync();
+    const r = await sync(["--check"], settings(FULL), "main", { pullIn });
+    expect(r.code).toBe(0);
+  });
+
+  it("says nothing of a sync that writes", async () => {
+    const r = await sync([], settings(FULL), "main", { pullIn: "o/renamed" });
+    expect(r.code).toBe(0);
+  });
+
+  it("reads the repository of a pull request's run, and of no other", () => {
+    const GITHUB_REPOSITORY = "o/renamed";
+    expect(
+      pullIn({ GITHUB_EVENT_NAME: "pull_request", GITHUB_REPOSITORY }),
+    ).toBe("o/renamed");
+    expect(pullIn({ GITHUB_EVENT_NAME: "push", GITHUB_REPOSITORY })).toBeNull();
+    expect(pullIn({})).toBeNull();
   });
 });

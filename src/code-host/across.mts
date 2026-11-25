@@ -17,7 +17,7 @@ type Env = Record<string, string | undefined>;
 /** A token of the app's lasts an hour. */
 const KEPT_MS = 45 * 60 * 1000;
 
-const kept = new Map<string, { at: number; transport: Transport }>();
+const kept = new Map<string, { at: number; token: string }>();
 
 /** Whether a run has anything to reach another repository with. */
 export const reachesOthers = (env: Env): boolean =>
@@ -26,33 +26,62 @@ export const reachesOthers = (env: Env): boolean =>
     env.FACTORY_BUILD_TOKEN,
   );
 
+type Clock = { fetch: typeof fetch; now: () => number };
+const LIVE: Clock = { fetch: (...a) => fetch(...a), now: Date.now };
+
+/** A token for `repository`, or null with nothing to make one from. */
+async function tokenFor(
+  repository: string,
+  access: Access,
+  env: Env,
+  o: Clock,
+): Promise<string | null> {
+  // A step that only reads says so, whatever its code asks for.
+  const may = env.FACTORY_ACROSS === "read" ? "read" : access;
+  const clientId = env.FACTORY_APP_CLIENT_ID;
+  const key = env.FACTORY_APP_PRIVATE_KEY;
+  if (!clientId || !key) return env.FACTORY_BUILD_TOKEN ?? null;
+  const name = `${may} ${repository}`;
+  const had = kept.get(name);
+  if (had && o.now() - had.at < KEPT_MS) return had.token;
+  const token = await acrossToken({
+    ...o,
+    app: { clientId, key },
+    repository,
+    access: may,
+  });
+  kept.set(name, { at: o.now(), token });
+  return token;
+}
+
 /** How `repository` is reached, or null with nothing to reach it with. */
 export async function acrossTransport(
   repository: string,
   access: Access,
   env: Env = process.env,
-  o: { fetch: typeof fetch; now: () => number } = { fetch, now: Date.now },
+  o: Clock = LIVE,
 ): Promise<Transport | null> {
-  // A step that only reads says so, whatever its code asks for.
-  const may = env.FACTORY_ACROSS === "read" ? "read" : access;
-  const over = (token: string) => fetchTransport({ token, fetch: o.fetch });
-  const clientId = env.FACTORY_APP_CLIENT_ID;
-  const key = env.FACTORY_APP_PRIVATE_KEY;
-  if (clientId && key) {
-    const name = `${may} ${repository}`;
-    const had = kept.get(name);
-    if (had && o.now() - had.at < KEPT_MS) return had.transport;
-    const token = await acrossToken({
-      ...o,
-      app: { clientId, key },
-      repository,
-      access: may,
-    });
-    const transport = over(token);
-    kept.set(name, { at: o.now(), transport });
-    return transport;
-  }
-  return env.FACTORY_BUILD_TOKEN ? over(env.FACTORY_BUILD_TOKEN) : null;
+  const token = await tokenFor(repository, access, env, o);
+  return token ? fetchTransport({ token, fetch: o.fetch }) : null;
+}
+
+/** What git's environment takes to read `repository`: nothing where the
+ * sign-in of the machine or the job does. */
+export async function acrossGitEnv(
+  repository: string,
+  env: Env = process.env,
+  o: Clock = LIVE,
+): Promise<Record<string, string>> {
+  const token = await tokenFor(repository, "read", env, o);
+  if (!token) return {};
+  const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
+  return {
+    GIT_CONFIG_COUNT: "2",
+    GIT_CONFIG_KEY_0: "credential.helper",
+    GIT_CONFIG_VALUE_0: "",
+    GIT_CONFIG_KEY_1: "http.https://github.com/.extraheader",
+    GIT_CONFIG_VALUE_1: `AUTHORIZATION: basic ${basic}`,
+  };
 }
 
 /** The code host there, or null with nothing to reach it with. */

@@ -7,6 +7,8 @@ import { replaying, type Call } from "../src/handoff/replay.mts";
 import { main as prMain } from "../src/pr.mts";
 import { prepare, type PrepareDeps } from "../src/session-prepare.mts";
 import { CLOUD_MARK, ticketMark } from "../src/session-publish.mts";
+import { DEFAULT_COLUMNS } from "../src/lib/work-status.mts";
+import { confirming, LOCK, LOCK_FILE, network, type Place } from "./network";
 import { memoryCodeHost, REPOSITORY, type PullSeed } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets, type Seed } from "./memory-tickets";
@@ -52,11 +54,30 @@ const READY =
   "The ask.\n\n## Decisions\n\n- One.\n\n## Acceptance criteria\n\n1. It works.\n";
 
 function world(
-  o: { tickets?: Seed[]; pulls?: PullSeed[]; claim?: string[] } = {},
+  o: {
+    tickets?: Seed[];
+    pulls?: PullSeed[];
+    claim?: string[];
+    /** The ticket's other repositories, and this one's privacy. */
+    places?: Record<string, Place>;
+    isPrivate?: boolean;
+    underApp?: boolean;
+    tooLarge?: boolean;
+  } = {},
 ) {
-  const host = memoryCodeHost(o.pulls ?? [], { defaultBranch: "trunk" });
+  const host = memoryCodeHost(o.pulls ?? [], {
+    defaultBranch: "trunk",
+    isPrivate: o.isPrivate ?? false,
+    writers: ["dev"],
+    contents: { [LOCK_FILE]: LOCK },
+  });
+  const net = network(o.places ?? {});
+  const started: string[] = [];
+  const archived: string[] = [];
+  const claims: string[] = [];
   const { runner } = memoryRunner();
-  const { tickets } = memoryTickets(o.tickets ?? [{ key: "12", body: READY }]);
+  const memory = memoryTickets(o.tickets ?? [{ key: "12", body: READY }]);
+  const { tickets } = memory;
   const out: string[] = [];
   const stops: string[] = [];
   const d: PrepareDeps = {
@@ -65,12 +86,26 @@ function world(
     codeHost: host.codeHost,
     runner,
     tickets,
+    reach: async (name) =>
+      name === REPOSITORY ? host.codeHost : net.reach(name),
+    async startBuild(name, key) {
+      started.push(`${name} ${key}`);
+    },
+    async archive(name, branch, path) {
+      archived.push(`${name} ${branch ?? "default"}`);
+      if (o.tooLarge) return false;
+      writeFileSync(path, "tar");
+      return true;
+    },
+    underApp: o.underApp ?? false,
+    columns: DEFAULT_COLUMNS,
     labels: { spec: "spec", "follow-up": "follow-up" },
     ownLinks: true,
     poster: "factory[bot]",
     async ticket(argv, on) {
       const [command, key, why] = argv;
       if (command === "branch") return { code: 0, lines: [`${key}-work`] };
+      if (command === "claim") claims.push(key);
       if (command === "claim")
         return { code: 0, lines: o.claim ?? ["claimed"] };
       if (command === "stop") stops.push(why);
@@ -99,7 +134,7 @@ function world(
     committer: { name: "factory[bot]", email: "1+factory[bot]@example.com" },
     out: (line) => out.push(line),
   };
-  return { d, out, stops, host };
+  return { d, out, stops, host, started, archived, claims, memory };
 }
 
 const handedCalls = () =>
@@ -363,5 +398,227 @@ describe("a run on a pull request", () => {
     expect(forged.body).not.toContain("<!--");
     expect((await session.commentView(5)).body).not.toContain("<!--");
     expect(own.body).toContain("<!-- claude-review sha=abc -->");
+  });
+});
+
+describe("a build of a ticket across repositories", () => {
+  const LIST = [
+    { name: REPOSITORY, after: [] },
+    { name: "acme/web", after: [REPOSITORY] },
+  ];
+  const SECTION = `## Repositories\n\n- ${REPOSITORY}\n- acme/web, after ${REPOSITORY}\n`;
+  const TICKET: Seed = {
+    key: "12",
+    body: `${READY}\n${SECTION}`,
+    comments: [confirming(LIST)],
+  };
+  const OWN_PART = { number: 88, body: "Part of #12" };
+  const WEB_PART = { number: 41, body: `Part of ${REPOSITORY}#12` };
+  const last = (w: ReturnType<typeof world>) =>
+    w.memory.comments("12").at(-1)!.body;
+
+  it("builds here when this repository is the next in merge order", async () => {
+    const w = world({ tickets: [TICKET], places: { "acme/web": {} } });
+    const run = await prepare("build", "12", w.d);
+    expect(w.claims).toEqual(["12"]);
+    expect(run).toMatchObject({
+      ticket: "12",
+      others: [{ repository: "acme/web", pull: null, folder: "web" }],
+    });
+    expect(w.archived).toEqual(["acme/web default"]);
+    expect(w.started).toEqual([]);
+  });
+
+  it("starts the next one's build, and claims nothing, when it is another", async () => {
+    const w = world({
+      tickets: [TICKET],
+      pulls: [OWN_PART],
+      places: { "acme/web": {} },
+    });
+    expect(await prepare("build", "12", w.d)).toBeNull();
+    expect(w.started).toEqual([`acme/web ${REPOSITORY}#12`]);
+    expect(w.out).toContain("Started the build in acme/web.");
+    expect(w.claims).toEqual([]);
+    expect(w.memory.comments("12")).toHaveLength(1);
+  });
+
+  it("has nothing to do once every repository has a pull request", async () => {
+    const w = world({
+      tickets: [TICKET],
+      pulls: [OWN_PART],
+      places: { "acme/web": { pulls: [WEB_PART] } },
+    });
+    expect(await prepare("build", "12", w.d)).toBeNull();
+    expect(w.out).toContain("Every repository of #12 has a pull request.");
+    expect(w.started).toEqual([]);
+  });
+
+  it.each<[string, Parameters<typeof world>[0], string]>([
+    [
+      "some of its repositories are private and others public",
+      { places: { "acme/web": { isPrivate: true } } },
+      `${REPOSITORY} is public and acme/web is private, so no build in the cloud reads both: build it on your computer`,
+    ],
+    [
+      "its own is the public one, and it is not on the list",
+      {
+        isPrivate: true,
+        tickets: [
+          {
+            key: "octo/plan#12",
+            body: `${READY}\n${SECTION}`,
+            comments: [confirming(LIST)],
+          },
+        ],
+        places: {
+          "acme/web": { isPrivate: true },
+          "octo/plan": { isPrivate: false },
+        },
+      },
+      `octo/plan is public and ${REPOSITORY} is private, so no build in the cloud reads both: build it on your computer`,
+    ],
+    [
+      "the build token can't see one",
+      { places: { "acme/web": { unseen: true } } },
+      "The build token can't see acme/web",
+    ],
+    [
+      "one is not set up",
+      { places: { "acme/web": { lock: null } } },
+      "#12 names acme/web, which is not set up: run factory init in acme/web",
+    ],
+    [
+      "nobody who may confirmed the list",
+      {
+        tickets: [{ ...TICKET, comments: [confirming(LIST, "mallory")] }],
+        places: { "acme/web": {} },
+      },
+      `#12's repositories were not confirmed by someone who can write to ${REPOSITORY}: run factory ticket repositories 12 --set ${REPOSITORY} acme/web --after acme/web=${REPOSITORY}`,
+    ],
+  ])("is stopped when %s", async (_, o, why) => {
+    const w = world({ tickets: [TICKET], ...o });
+    const key =
+      o!.tickets?.[0] && "key" in o!.tickets[0] ? o!.tickets[0].key! : "12";
+    expect(await prepare("build", key, w.d)).toBeNull();
+    expect(w.memory.comments(key).at(-1)!.body).toContain(
+      `Stopped without a pull request: ${why}.`,
+    );
+    expect(w.claims).toEqual([]);
+    expect(w.archived).toEqual([]);
+  });
+
+  it("is stopped with who adds the app where it is not installed", async () => {
+    const w = world({ tickets: [TICKET], underApp: true });
+    w.d.reach = async (name) => {
+      if (name === REPOSITORY) return w.host.codeHost;
+      throw new Error(
+        "The software factory's app for acme is not installed on acme/web. An owner of acme adds it: PAGE",
+      );
+    };
+    expect(await prepare("build", "12", w.d)).toBeNull();
+    expect(last(w)).toContain(
+      "Stopped without a pull request: The software factory's app for acme is not installed on acme/web.",
+    );
+  });
+
+  it("makes the same checks before it starts another's build", async () => {
+    const w = world({
+      tickets: [TICKET],
+      pulls: [OWN_PART],
+      places: { "acme/web": { lock: null } },
+    });
+    expect(await prepare("build", "12", w.d)).toBeNull();
+    expect(w.started).toEqual([]);
+    expect(last(w)).toContain("which is not set up");
+  });
+
+  it("is handed what the other's pull request has, and can ask about the list", async () => {
+    const w = world({
+      tickets: [TICKET],
+      places: { "acme/web": { pulls: [WEB_PART] } },
+    });
+    const run = await prepare("build", "12", w.d);
+    expect(w.archived).toEqual(["acme/web branch-41"]);
+    expect(run!.others).toEqual([
+      { repository: "acme/web", pull: 41, folder: "web" },
+    ]);
+  });
+
+  it("goes on without one too large to hand over, and says so", async () => {
+    const w = world({
+      tickets: [TICKET],
+      places: { "acme/web": {} },
+      tooLarge: true,
+    });
+    const run = await prepare("build", "12", w.d);
+    expect(run!.others![0].folder).toBeNull();
+    expect(w.out).toContain(
+      "acme/web is too large to hand over, so it is not read.",
+    );
+  });
+
+  it("is as today for a ticket that names only its own repository", async () => {
+    const w = world();
+    const run = await prepare("build", "12", w.d);
+    expect(run).not.toHaveProperty("others");
+  });
+});
+
+describe("a review of one of a ticket's pull requests", () => {
+  const KEY = "acme/api#12";
+  const LIST = [
+    { name: "acme/api", after: [] },
+    { name: REPOSITORY, after: ["acme/api"] },
+  ];
+  const TICKET: Seed = {
+    key: KEY,
+    body: `${READY}\n## Repositories\n\n- acme/api\n- ${REPOSITORY}, after acme/api\n`,
+    comments: [confirming(LIST)],
+  };
+  const review = async (o: Parameters<typeof world>[0]) => {
+    const sha = pushed("topic");
+    const w = world({
+      tickets: [TICKET],
+      pulls: [
+        {
+          number: 41,
+          body: `Part of ${KEY}`,
+          head: { sha, branch: "topic", repository: REPOSITORY },
+        },
+      ],
+      ...o,
+    });
+    return { w, run: await prepare("review", "41", w.d) };
+  };
+
+  it("is handed the ticket and the other repositories", async () => {
+    const { run } = await review({
+      isPrivate: true,
+      places: { "acme/api": { isPrivate: true } },
+    });
+    expect(run).toMatchObject({
+      ticket: KEY,
+      ref: KEY,
+      others: [{ repository: "acme/api", folder: "api" }],
+    });
+  });
+
+  it("is handed nothing of a private repository's in a public one", async () => {
+    const { w, run } = await review({
+      places: { "acme/api": { isPrivate: true } },
+    });
+    expect(run).toMatchObject({ ticket: null, ref: null });
+    expect(run).not.toHaveProperty("others");
+    expect(w.archived).toEqual([]);
+    expect(JSON.stringify(handedCalls())).not.toContain("The ask.");
+  });
+
+  it("is handed no other repository by a list nobody who may confirmed", async () => {
+    const { w, run } = await review({
+      tickets: [{ ...TICKET, comments: [confirming(LIST, "mallory")] }],
+      places: { "acme/api": {} },
+    });
+    expect(run!.others).toEqual([]);
+    expect(w.archived).toEqual([]);
   });
 });

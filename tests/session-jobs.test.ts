@@ -1,7 +1,24 @@
 // What a cloud session's log shows of the agent: one line for each thing it
 // says and each tool it runs, then how it ended.
-import { describe, expect, it } from "vitest";
-import { isJob, publishTicketDeps, shown } from "../src/session-jobs.mts";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  archiveOf,
+  isJob,
+  publishTicketDeps,
+  shown,
+} from "../src/session-jobs.mts";
 import { main as ticketMain, ticketDeps } from "../src/ticket.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryRunner } from "./memory-runner";
@@ -142,5 +159,57 @@ describe("the jobs of a cloud run", () => {
     ).toBe(true);
     for (const step of ["ready", "toString", "constructor", "", undefined])
       expect(isJob(step), String(step)).toBe(false);
+  });
+});
+
+describe("another repository's files, to hand to a session", () => {
+  let dir = "";
+  const git = (cwd: string, ...args: string[]) =>
+    execFileSync(
+      "git",
+      ["-c", "user.name=a", "-c", "user.email=a@example.com", ...args],
+      { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "archive-"));
+    const work = join(dir, "work");
+    mkdirSync(work);
+    git(work, "init", "-q", "-b", "trunk");
+    writeFileSync(join(work, "a.txt"), "trunk\n");
+    git(work, "add", "-A");
+    git(work, "commit", "-qm", "one");
+    git(work, "switch", "-qc", "12");
+    writeFileSync(join(work, "a.txt"), "branch\n");
+    git(work, "commit", "-qam", "two");
+    git(work, "switch", "-q", "trunk");
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  const read = (branch: string | null) => {
+    const tar = join(dir, "o.tar");
+    const made = archiveOf(join(dir, "work"), branch, tar);
+    const to = join(dir, "to");
+    mkdirSync(to);
+    execFileSync("tar", ["-xf", tar, "-C", to]);
+    return {
+      made,
+      names: readdirSync(to),
+      text: readFileSync(join(to, "a.txt"), "utf8"),
+    };
+  };
+
+  it("are its branch's, or its default branch's, with no history", () => {
+    expect(read(null)).toEqual({
+      made: true,
+      names: ["a.txt"],
+      text: "trunk\n",
+    });
+    rmSync(join(dir, "to"), { recursive: true });
+    expect(read("12").text).toBe("branch\n");
+  });
+
+  it("are left out when they are too large", () => {
+    const tar = join(dir, "o.tar");
+    expect(archiveOf(join(dir, "work"), null, tar, {}, 100)).toBe(false);
+    expect(existsSync(tar)).toBe(false);
   });
 });
