@@ -338,3 +338,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** this ships
 - **THEN** `docs/github/setup.md` says that `factory init --org` asks how a build names its branch and that the preset holds the answer, the `branch-name` entry in `docs/configuration.md` says the same beside `factory init`, and "Naming build branches" in `docs/updating.md` says how an organization set up earlier adds the lines to its preset. The rest of `code-host` in `docs/configuration.md` reads as before.
+
+### Requirement: The docs on tickets across repositories
+
+The factory SHALL behave as this line says: When the docs are read, they say what "Proposed docs" holds: the page `docs/across-repositories.md`, and each other page as its lines there say.
+
+#### Scenario: The docs on tickets across repositories
+
+- **WHEN** the docs are read
+- **THEN** they say what "Proposed docs" holds: the page `docs/across-repositories.md`, and each other page as its lines there say.

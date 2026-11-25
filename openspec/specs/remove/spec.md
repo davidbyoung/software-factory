@@ -155,3 +155,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** `factory remove` runs in an organization's repository that is set up
 - **THEN** `factory remove`, in an organization's repository that is set up, lists `Ask an owner of ORG to set the software-factory property to "off" for REPOSITORY: until then every pull request waits on its "Review verdict" check`.
+
+### Requirement: Remove takes the folder's entry out
+
+The factory SHALL behave as this line says: When `factory remove` takes the factory's entries out of `.claude/settings.json`, that of line 35 goes too.
+
+#### Scenario: Remove takes the folder's entry out
+
+- **WHEN** `factory remove` takes the factory's entries out of `.claude/settings.json`
+- **THEN** that of line 35 goes too.

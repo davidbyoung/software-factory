@@ -41,3 +41,12 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** Dependabot opened the pull request
 - **THEN** Dependabot's pass is given only when the code host verifies every commit of the pull request as Dependabot's. A pull request of Dependabot's that someone else has pushed to is reviewed.
+
+### Requirement: Waiting on merge order
+
+The factory SHALL behave as this line says: When "Review verdict" would be a success, with an override or with the review off too, and "Merge order" is pending, it is pending with "Merge order"'s words.
+
+#### Scenario: Waiting on merge order
+
+- **WHEN** "Review verdict" would be a success, with an override or with the review off too, and "Merge order" is pending
+- **THEN** it is pending with "Merge order"'s words.
