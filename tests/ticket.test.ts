@@ -2560,6 +2560,15 @@ describe("starting the board sync", () => {
     expect(out.some((l) => l.startsWith("?"))).toBe(false);
   });
 
+  it("takes no follow-up, whose board sync is the merge's", async () => {
+    quiet();
+    const { d, synced, memory } = deps();
+
+    expect(await main(["follow-up", "A title.", "Text."], d)).toBe(1);
+    expect(synced).toEqual([]);
+    expect(memory.state.size).toBe(deps().memory.state.size);
+  });
+
   it("starts nothing for a command that records nothing", async () => {
     const { d, synced } = deps();
 
