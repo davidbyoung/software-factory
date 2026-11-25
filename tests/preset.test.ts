@@ -557,6 +557,23 @@ describe("a pinned preset's values", () => {
     expect(r.code).toBe(1);
   });
 
+  it("are not blamed for a fault that is another's, though one that is replaced is not valid", async () => {
+    const r = await checked(
+      {
+        rules: { "review-rounds": "zero" },
+        plugins: {
+          build: {
+            reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+          },
+        },
+      },
+      ["rules:", "  review-rounds: 3"],
+    );
+    expect(r.err).toEqual([
+      ".claude/factory.yaml: site: is required to list factory-ui-reviewer",
+    ]);
+  });
+
   it("are not blamed for the repository's own value that is not valid", async () => {
     const r = await checked({ rules: { "review-rounds": "zero" } }, [
       "rules:",

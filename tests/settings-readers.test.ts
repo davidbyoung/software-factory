@@ -286,6 +286,9 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
       readIt(file(lines), words),
     );
 
+    it("refuses a file that is a list in the shared words", () =>
+      readIt("- version: 2\n", "must be a block of settings"));
+
     it("refuses an older version in the shared words", () =>
       readIt(
         file([]).replace("version: 2", "version: 1"),
@@ -309,3 +312,13 @@ describe.each(Object.entries({ ...OWN_READERS, ...PRESET_READERS }))(
     });
   },
 );
+
+it("factory config check names the settings file when there is none to read", async () => {
+  root = repo(own([]));
+  rmSync(`${root}/${OWN}`);
+  const r = deps(root);
+  expect(await config(["check"], r.d)).toBe(1);
+  expect(r.err).toEqual([
+    expect.stringMatching(/^\.claude\/factory\.yaml: ENOENT: /),
+  ]);
+});
