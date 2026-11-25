@@ -8,7 +8,6 @@ import { join } from "node:path";
 import { chmodSync, statSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { initDeps, parseRemote } from "../src/init.mts";
-import { painter, type Paint } from "../src/lib/color.mts";
 import { credentialsPath, readCredential } from "../src/lib/credentials.mts";
 import { pagesSpecTool } from "./memory-tools";
 import {
@@ -42,6 +41,7 @@ import {
   SPEC_QUESTION,
   type Setup,
 } from "./init-harness";
+import * as say from "../src/lib/output.mts";
 
 describe("factory init, a first run with every part", () => {
   const firstSetup = (): Setup => ({
@@ -54,7 +54,7 @@ describe("factory init, a first run with every part", () => {
       secret: [AGENT, GOOD],
     },
   });
-  const first = (paint?: Paint) => init({ ...firstSetup(), paint });
+  const first = () => init(firstSetup());
 
   it("prints what it found before asking anything", async () => {
     const r = first();
@@ -179,15 +179,13 @@ describe("factory init, a first run with every part", () => {
     ]);
   });
 
-  it("colors its closing checks as doctor does, and nothing before them", async () => {
-    const paint = painter(true);
-    const r = first(paint);
+  it("colors its closing checks as doctor does, under a heading", async () => {
+    const r = first();
     await r.run();
-    const at = r.out.indexOf("Checks");
-    expect(r.out.slice(at + 1)).toEqual([
-      `  ${paint("green", "✓")} Every check passed`,
+    expect(r.looks.slice(r.out.indexOf("Checks"))).toEqual([
+      "{heading:Checks}",
+      "  {good:✓} Every check passed",
     ]);
-    expect(r.out.slice(0, at).join("\n")).not.toContain("\x1B");
   });
 
   it("prints its closing checks under doctor's headings, indented beneath Checks", async () => {
@@ -584,6 +582,12 @@ describe("factory init, the signing key", () => {
     await r.run();
     expect(r.host.settings.signingKeys).toEqual([]);
     expect(r.out.join("\n")).toContain("ssh-ed25519 PUBLIC");
+    expect(r.looks).toContainEqual(
+      expect.stringMatching(/^\{yourTurn:Add this public key to .*:\}$/),
+    );
+    expect(r.looks).toContainEqual(
+      expect.stringMatching(/^ {2}\{copy:ssh-ed25519 PUBLIC.*\}$/),
+    );
     expect(r.runner.secrets.get("FACTORY_SIGNING_KEY")).toBe(PRIVATE_KEY);
     printsNoSecret(r.out);
   });
@@ -785,6 +789,17 @@ describe("factory init, where the poller runs", () => {
         "       FACTORY_READY_COLUMN=Ready",
       ].join("\n"),
     );
+  });
+
+  it("gives each of the five as one to copy, under the step's number", async () => {
+    const r = chosen("own-server");
+    await r.run();
+    const left = r.looks.find((l) => l.includes("Run the poller's image"));
+    expect(left).toMatch(/^ {2}\{yourTurn:1\.\} Run the poller's image/);
+    expect(left!.split("\n").slice(1, 3)).toEqual([
+      "       {copy:FACTORY_REPOSITORY=acme/site}",
+      expect.stringMatching(/^ {7}\{copy:FACTORY_BOARD_OWNER=.*\}$/),
+    ]);
   });
 
   it.each(["github-action", "own-server"])(
@@ -1781,6 +1796,9 @@ describe("factory init, the column step", () => {
     expect(r.out).toContain(
       "Add any of these fields board 3 lacks, by hand: Session, Runs in, Cost.",
     );
+    expect(r.looks).toContain(
+      "{yourTurn:Add any of these fields board 3 lacks, by hand:} Session, Runs in, Cost.",
+    );
   });
 
   it("names the columns to add by hand on a ticket system that cannot add them", async () => {
@@ -1792,6 +1810,9 @@ describe("factory init, the column step", () => {
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
       "Add these columns to board 3 by hand: In refinement.",
+    );
+    expect(r.looks).toContain(
+      "{yourTurn:Add these columns to board 3 by hand:} In refinement.",
     );
     expect(r.out).toContain("Added to board 3: Session, Runs in, Cost.");
   });
@@ -2802,6 +2823,9 @@ describe("factory init, the field step", () => {
   it("names the text fields and shows the suggestion as a table, before the plan", async () => {
     const r = fielded({ select: ["yes"] });
     expect(await r.run()).toBe(0);
+    expect(r.looks).toContain(
+      "{skip:Asking Claude Code which of them should hold each of the factory's fields...}",
+    );
     expect(step(r.out)).toEqual([
       "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
       "Asking Claude Code which of them should hold each of the factory's fields...",
@@ -3338,21 +3362,31 @@ describe("factory init, a credential kept on the machine", () => {
 });
 
 describe("init's own dependencies", () => {
-  const stream = (tty: boolean) =>
-    Object.assign(new Writable({ write: (_c, _e, done) => done() }), {
+  const stream = (tty: boolean) => {
+    const written: string[] = [];
+    const write = (chunk: unknown, _e: unknown, done: () => void) => {
+      written.push(String(chunk));
+      done();
+    };
+    return Object.assign(new Writable({ write }), {
+      written,
       isTTY: tty,
       getColorDepth: () => (tty ? 8 : 1),
       hasColors: () => tty,
     });
+  };
 
-  it("paints its closing checks in a terminal that shows color, and not when piped", async () => {
+  it("prints in color in a terminal that shows it, and not when piped", async () => {
     vi.stubEnv("NO_COLOR", undefined);
     vi.stubEnv("FORCE_COLOR", undefined);
     const root = mkdtempSync(join(tmpdir(), "init-deps-"));
-    const shown = await initDeps(root, stream(true));
-    const piped = await initDeps(root, stream(false));
+    const printed = async (tty: boolean) => {
+      const to = stream(tty);
+      (await initDeps(root, to)).out(say.mark("ok", "done"));
+      return to.written.join("");
+    };
 
-    expect(shown.paint!("green", "✓")).not.toBe("✓");
-    expect(piped.paint!("green", "✓")).toBe("✓");
+    expect(await printed(true)).toContain("\x1B[32m✓");
+    expect(await printed(false)).toBe("✓ done\n");
   });
 });

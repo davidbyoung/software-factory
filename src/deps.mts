@@ -9,6 +9,7 @@
 import { reachOf, repoRoot } from "./config.mts";
 import { branchDeps, needDefaultBranch } from "./lib/default-branch.mts";
 import { openCodeHost, type CodeHost } from "./code-host/index.mts";
+import * as say from "./lib/output.mts";
 
 const SHEPHERD_MARK = "<!-- factory-deps -->";
 const PASSED = ["success", "skipped", "neutral"];
@@ -158,7 +159,7 @@ export async function main(
     }
     return 0;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    say.plainError(error instanceof Error ? error.message : String(error));
     return argv.includes("--any") ? 2 : 1;
   }
 }
@@ -182,7 +183,7 @@ export async function run(argv: string[] = []): Promise<number> {
   // checkout does not say.
   return main(
     p,
-    (line) => console.log(line),
+    say.plainPrinter(),
     argv,
     () =>
       needDefaultBranch({

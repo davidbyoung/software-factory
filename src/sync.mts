@@ -18,7 +18,6 @@
 // file the lock lists that this version no longer writes is deleted.
 // Nothing else is.
 import type { Registry } from "./tools.mts";
-import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   existsSync,
   mkdirSync,
@@ -77,6 +76,7 @@ import {
   needDefaultBranch,
   NoDefaultBranch,
 } from "./lib/default-branch.mts";
+import * as say from "./lib/output.mts";
 
 /** The package's own folder: the parent of `src/`, or of `dist/` once
  * compiled. */
@@ -694,9 +694,8 @@ export async function main(
     /** The repository's default branch. It rejects with NoDefaultBranch
      * when it cannot be told. */
     defaultBranch: (s: Settings) => Promise<string>;
-    out: (line: string) => void;
-    err: (line: string) => void;
-    paint?: Paint;
+    out: say.Out;
+    err: say.Out;
     /** Whether a person ran it, so a sync that changes nothing says so;
      * `init` and the preset commands run it inside their own output. */
     announce?: boolean;
@@ -708,12 +707,12 @@ export async function main(
   },
 ): Promise<number> {
   const check = argv.includes("--check");
-  const paint = d.paint ?? plain;
-  const fail = paint("red", "✗");
   const againstAt = argv.indexOf("--against");
   const against = againstAt < 0 ? null : argv[againstAt + 1];
   if (againstAt >= 0 && (!check || !against)) {
-    d.err("Usage: factory sync [--check [--against COMMIT [--public]]]");
+    d.err(
+      say.text("Usage: factory sync [--check [--against COMMIT [--public]]]"),
+    );
     return 2;
   }
   let r: Resolved;
@@ -721,19 +720,21 @@ export async function main(
     if (check) {
       const reason = await d.stale();
       if (reason) {
-        d.err(reason);
+        d.err(say.text(reason));
         return 1;
       }
     }
     r = await d.settings();
     const refused = firstRefusal(npmrcAt(d.root));
     if (refused) {
-      d.err(refused);
+      d.err(say.text(refused));
       return 1;
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    d.err(e instanceof PresetsError ? `${fail} ${message}` : message);
+    d.err(
+      e instanceof PresetsError ? say.mark("fail", message) : say.text(message),
+    );
     return 1;
   }
   // Nothing is written with a guessed name: a push trigger that names the
@@ -743,7 +744,7 @@ export async function main(
     branch = await d.defaultBranch(r.settings);
   } catch (e) {
     if (!(e instanceof NoDefaultBranch)) throw e;
-    d.err(e.message);
+    d.err(say.text(e.message));
     return 1;
   }
   const fetch = d.fetch?.(r.settings);
@@ -758,11 +759,13 @@ export async function main(
       argv.includes("--public")
         ? (pin) =>
             d.out(
-              `- ${pin.name} can't be read here without a sign-in: the review's run checks it.`,
+              say.text(
+                `- ${pin.name} can't be read here without a sign-in: the review's run checks it.`,
+              ),
             )
         : undefined,
     );
-    for (const fault of faults) d.err(`${fail} ${fault}`);
+    for (const fault of faults) d.err(say.mark("fail", fault));
     if (faults.length) return 1;
   }
   // The check reads no network: a copy that is not what the lock records
@@ -778,39 +781,49 @@ export async function main(
   const differ = differences(d.root, p);
   if (check) {
     if (differ.length === 0) {
-      d.out(`${paint("green", "✓")} The factory's files match the settings.`);
+      d.out(say.mark("ok", "The factory's files match the settings."));
       return 0;
     }
     const n = differ.length;
     d.err(
-      `${paint("red", "✗")} ${n} of the factory's files ${n === 1 ? "doesn't" : "don't"} match the settings:`,
+      say.mark(
+        "fail",
+        `${n} of the factory's files ${n === 1 ? "doesn't" : "don't"} match the settings:`,
+      ),
     );
-    for (const path of differ) d.err(`  ${path}`);
-    d.err("Run factory sync and commit what it writes.");
+    for (const path of differ) d.err(say.text(`  ${path}`));
+    d.err(say.text("Run factory sync and commit what it writes."));
     return 1;
   }
   if (p.unrestored.length) {
     for (const { path, preset } of p.unrestored)
       d.err(
-        `${fail} ${path} was edited or deleted, and ${preset} could not be read to restore it. Restore it with: git checkout -- ${path}`,
+        say.mark(
+          "fail",
+          `${path} was edited or deleted, and ${preset} could not be read to restore it. Restore it with: git checkout -- ${path}`,
+        ),
       );
     return 1;
   }
-  for (const line of [...p.kept, ...p.dropped]) d.out(line);
+  for (const line of [...p.kept, ...p.dropped]) d.out(say.text(line));
   for (const path of differ) {
     const at = join(d.root, path);
     const text = p.write.get(path);
     if (text === undefined) {
       rmSync(at, { force: true });
-      d.out(`deleted ${path}`);
+      d.out(say.text(`deleted ${path}`));
     } else {
       mkdirSync(dirname(at), { recursive: true });
       writeFileSync(at, text);
-      d.out(`wrote ${path}`);
+      d.out(say.text(`wrote ${path}`));
     }
   }
   if (differ.length === 0 && d.announce)
-    d.out("The factory's files already match the settings. Nothing changed.");
+    d.out(
+      say.text(
+        "The factory's files already match the settings. Nothing changed.",
+      ),
+    );
   return 0;
 }
 
@@ -822,8 +835,7 @@ export const syncDeps = (root: string) => ({
   stale: () => staleOf(defaultDeps(root)),
   defaultBranch: (s: Settings) =>
     needDefaultBranch(branchDeps(root, process.env, async () => s)),
-  out: (line: string) => console.log(line),
-  err: (line: string) => console.error(line),
+  ...say.printersFor("sync"),
   fetch: (s: Settings) => fetchDeps(s.repository, s.codeHost.type),
   show: (ref: string, path: string) => fileAt(root, ref, path),
 });
@@ -832,7 +844,6 @@ export const syncDeps = (root: string) => ({
 export async function run(argv: string[], announce = true): Promise<number> {
   return main(argv, {
     ...syncDeps(repoRoot()),
-    paint: painter(colorOn()),
     announce,
   });
 }

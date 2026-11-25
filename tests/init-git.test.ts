@@ -35,6 +35,7 @@ import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
 import { CODE_HOST_YAML } from "./settings-fixture";
+import { into } from "./printed";
 
 let world: string;
 let remote: string;
@@ -105,7 +106,7 @@ describe("init's own git", () => {
 describe("the checkout, against the default branch as fetched", () => {
   const at = () => ({ repository: "acme/web", remote: "origin", base: "main" });
   const lines: string[] = [];
-  const io = () => ({ git: d.git, out: (l: string) => lines.push(l) });
+  const io = () => ({ git: d.git, out: into(lines) });
   beforeEach(() => lines.splice(0));
 
   it("goes on at the default branch's commit, giving it", () => {
@@ -161,7 +162,7 @@ describe("the checkout, against the default branch as fetched", () => {
 
 describe("a fork's parent chosen, which is no remote yet", () => {
   const lines: string[] = [];
-  const out = (l: string) => void lines.push(l);
+  const out = into(lines);
   const choose = () =>
     whichRepository({
       remotes: d.remotes,
@@ -246,7 +247,7 @@ describe("the setup's commit, against the real git", () => {
   const lines: string[] = [];
   const pull = (over: Partial<Parameters<typeof openPull>[1]> = {}) =>
     openPull(
-      { git: d.git, out: (l) => lines.push(l) },
+      { git: d.git, out: into(lines) },
       {
         codeHost: { create: async () => 41 },
         repository: "acme/web",
@@ -460,7 +461,7 @@ describe("the files the sync writes, against the real sync and the real git", ()
     const code = await main([], {
       ...d,
       ask: scripted({ checkbox: [[]], confirm: [true] }).ask,
-      out: (l) => out.push(l),
+      out: into(out),
       tools: memoryTools({
         codeHost: host.codeHost,
         runner: memoryRunner().runner,
@@ -516,7 +517,7 @@ describe("a repository with no commits yet, against the real git", () => {
     return {
       asked: s.asked,
       result: startRepository(
-        { git: deps.git, ask: s.ask, out: (l) => void lines.push(l) },
+        { git: deps.git, ask: s.ask, out: into(lines) },
         { repository: "acme/web", remote: "origin" },
       ),
     };
@@ -548,7 +549,7 @@ describe("a repository with no commits yet, against the real git", () => {
     const s = scripted({});
     expect(
       await startRepository(
-        { git: d.git, ask: s.ask, out: (l) => void lines.push(l) },
+        { git: d.git, ask: s.ask, out: into(lines) },
         { repository: "acme/web", remote: "origin" },
       ),
     ).toBeNull();
@@ -596,7 +597,7 @@ describe("a repository with no commits yet, against the real git", () => {
     expect(await start(true).result).toEqual({ branch: "trunk" });
     expect(
       checkedOut(
-        { git: deps.git, out: (l) => void lines.push(l) },
+        { git: deps.git, out: into(lines) },
         { repository: "acme/web", remote: "origin", base: "trunk" },
       ),
     ).toEqual({ sha: git(fresh, "rev-parse", "HEAD") });

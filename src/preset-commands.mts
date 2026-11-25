@@ -8,7 +8,6 @@
 //   factory preset choose KEY PRESET
 //   factory preset check
 //   factory preset changes REF
-import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import {
   existsSync,
   mkdirSync,
@@ -66,6 +65,8 @@ import {
 } from "./preset-fetch.mts";
 import type { Check } from "./setup.mts";
 import { POLLER_FILE, pollerCron } from "./workflow-files.mts";
+import * as say from "./lib/output.mts";
+import { askTyped } from "./lib/prompts.mts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
@@ -75,14 +76,14 @@ export type PresetDeps = {
   root: string;
   /** Where `preset check` looks for presets, the folder it runs in. */
   cwd: string;
-  out: (line: string) => void;
-  err: (line: string) => void;
+  out: say.Out;
+  err: say.Out;
   /** Whether the questions can be asked. */
   terminal: boolean;
   /** Asks one question and gives the answer typed. */
   ask: (question: string) => Promise<string>;
   /** Runs `factory sync`, giving each line it prints to `out`. */
-  sync: (out: (line: string) => void) => Promise<number>;
+  sync: (out: say.Out) => Promise<number>;
   /** A file's text at a git revision, or null when it has none there. */
   show: (ref: string, path: string) => string | null;
   /** The settings resolved from the files, as `factory sync` resolves them,
@@ -100,17 +101,14 @@ export type PresetDeps = {
   fetch: (repository: string, codeHost: string) => FetchDeps;
   /** The time now, for telling whether a commit is this year's. */
   now: () => Date;
-  paint?: Paint;
 };
 
 /** An error as a command prints it: a name under `presets` that is no
  * preset's, or is not pinned, with its mark. */
-const said = (e: unknown, paint: Paint) =>
+const said = (e: unknown): say.Line =>
   e instanceof PresetsError || e instanceof PresetNameError
-    ? `${paint("red", "✗")} ${e.message}`
-    : e instanceof Error
-      ? e.message
-      : String(e);
+    ? say.mark("fail", e.message)
+    : say.text(e instanceof Error ? e.message : String(e));
 
 // ---------------------------------------------------------------- Values
 
@@ -186,32 +184,55 @@ function valueInEffect(r: Resolved, key: string): unknown {
 
 // ---------------------------------------------------------------- Summaries
 
-type Row = { key: string; text: string };
+type Row = { key: string; text: say.Piece[] };
 type Group = { title: string; rows: Row[] };
 
+/** A file or a command the preset brings, and what happens to it. */
+type Brought = { verb: string; what: string };
+
 function summary(
-  head: string,
+  head: say.Line,
   groups: Group[],
-  files: string[],
-  paint: Paint,
-): string[] {
+  brought: Brought[],
+): say.Line[] {
   const shown = groups.filter((g) => g.rows.length);
   const width =
     Math.max(0, ...shown.flatMap((g) => g.rows.map((r) => r.key.length))) + 3;
   return [
     head,
-    "",
+    say.BLANK,
     ...shown.flatMap((g) => [
-      `  ${paint("bold", g.title)}`,
-      ...g.rows.map((r) => `    ${r.key.padEnd(width)}${r.text}`),
+      say.heading(g.title, { indent: 2 }),
+      ...g.rows.map((r) =>
+        say.row(r.key, r.text, { indent: 4, width, gap: 0 }),
+      ),
     ]),
-    ...(files.length ? ["", ...files.map((f) => `  ${f}`)] : []),
+    ...(brought.length
+      ? [
+          say.BLANK,
+          ...brought.map((b) =>
+            say.row(b.verb, say.asIs(b.what), {
+              width: b.verb === "deletes" ? 7 : 6,
+            }),
+          ),
+        ]
+      : []),
   ];
 }
 
 /** An `OLD → NEW` row: the old value dim, the new one bold. */
-const change = (paint: Paint, was: string, now: string) =>
-  `${paint("dim", was)} → ${paint("bold", now)}`;
+const change = (was: string, now: string): say.Piece[] => [
+  say.skip(was),
+  say.asIs(" → "),
+  say.name(now),
+];
+const plus = (text: string): say.Piece[] => [
+  { role: "good", text: `+ ${text}` },
+];
+const minus = (text: string): say.Piece[] => [
+  { role: "bad", text: `− ${text}` },
+];
+const plainly = (text: string): say.Piece[] => [say.asIs(text)];
 
 /** A question asked until the answer is one of `options`. */
 async function choose(
@@ -331,11 +352,17 @@ async function loadYaml(text: string | null): Promise<unknown> {
 /** Runs the sync, saying the choices file was written, where it was, just
  * before the lock, as the sync would have said it. */
 async function syncing(d: PresetDeps, wroteChoices: boolean): Promise<number> {
-  const lines: string[] = [];
-  const code = await d.sync((l) => lines.push(l));
+  const lines: say.Line[] = [];
+  const code = await d.sync((l) => void lines.push(l));
   if (wroteChoices) {
-    const at = lines.indexOf(`wrote ${LOCK_FILE}`);
-    lines.splice(at < 0 ? lines.length : at, 0, `wrote ${CHOICES_FILE}`);
+    const at = lines.findIndex(
+      (l) => say.render(l, false) === `wrote ${LOCK_FILE}`,
+    );
+    lines.splice(
+      at < 0 ? lines.length : at,
+      0,
+      say.text(`wrote ${CHOICES_FILE}`),
+    );
   }
   for (const line of lines) d.out(line);
   return code;
@@ -347,15 +374,16 @@ async function syncing(d: PresetDeps, wroteChoices: boolean): Promise<number> {
 async function quietSync(
   d: PresetDeps,
   presetFile: (path: string) => boolean,
-): Promise<string[] | null> {
-  const ok = (d.paint ?? plain)("green", "✓");
-  const lines: string[] = [];
-  if ((await d.sync((l) => lines.push(l))) !== 0) return null;
+): Promise<say.Line[] | null> {
+  const lines: say.Line[] = [];
+  if ((await d.sync((l) => void lines.push(l))) !== 0) return null;
   return lines.flatMap((line) => {
-    const m = /^(wrote|deleted) (.+)$/.exec(line);
+    const m = /^(wrote|deleted) (.+)$/.exec(say.render(line, false));
     if (!m) return [line];
     if (!presetFile(m[2]!)) return [];
-    return [`${ok} ${m[1] === "wrote" ? "Wrote" : "Deleted"} ${m[2]}.`];
+    return [
+      say.mark("ok", `${m[1] === "wrote" ? "Wrote" : "Deleted"} ${m[2]}.`),
+    ];
   });
 }
 
@@ -394,7 +422,7 @@ const RUNS: [string, string][] = [
 ];
 
 /** A `runs` line for each command in effect that the preset NAME gave. */
-function runsLines(r: Resolved, name: string): string[] {
+function runsLines(r: Resolved, name: string): Brought[] {
   const from = (key: string) => r.resolution.sources.get(key)?.from;
   return RUNS.flatMap(([key, when]) => {
     const value = getPath(r.resolution.raw, key.split("."));
@@ -403,31 +431,32 @@ function runsLines(r: Resolved, name: string): string[] {
       : value !== undefined && value !== null && from(key) === name
         ? [value]
         : [];
-    return commands.map((c) => `runs   ${show(c)}, ${when}`);
+    return commands.map((c) => ({
+      verb: "runs",
+      what: `${show(c)}, ${when}`,
+    }));
   });
 }
 
 export async function add(argv: string[], d: PresetDeps): Promise<number> {
-  const paint = d.paint ?? plain;
   const name = argv.find((a) => !a.startsWith("--"));
   const yes = argv.includes("--yes");
   const dry = argv.includes("--dry-run");
   if (!name) {
-    d.err("Usage: factory preset add NAME [--yes] [--dry-run]");
+    d.err(say.text("Usage: factory preset add NAME [--yes] [--dry-run]"));
     return 2;
   }
   const ownText = d.read(SETTINGS_FILE);
   if (ownText === null) {
-    d.err(`${SETTINGS_FILE} is missing. Run: factory init`);
+    d.err(say.text(`${SETTINGS_FILE} is missing. Run: factory init`));
     return 1;
   }
   const own = (await loadYaml(ownText)) as Obj | null;
   const listed = Array.isArray(own?.presets) ? own.presets.map(String) : [];
   if (listed.includes(name)) {
-    d.err(`${name} is already in presets`);
+    d.err(say.text(`${name} is already in presets`));
     return 1;
   }
-  const fail = paint("red", "✗");
   const { load, dump } = await import("js-yaml");
   const choicesBefore = d.read(CHOICES_FILE);
   const lockBefore = d.read(LOCK_FILE);
@@ -445,7 +474,10 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
     others = !sameOwner(repo, repository);
     if (others && yes) {
       d.err(
-        `${fail} ${name} belongs to another owner, so a person adds it, at a terminal. Run it without --yes.`,
+        say.mark(
+          "fail",
+          `${name} belongs to another owner, so a person adds it, at a terminal. Run it without --yes.`,
+        ),
       );
       return 1;
     }
@@ -455,9 +487,11 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
     } catch (e) {
       if (!(e instanceof FetchError)) throw e;
       d.err(
-        others
-          ? `${fail} ${name}: not found, or private. A preset of another owner has to be public. To follow a private one, keep a copy under ${ownerOf(repository)} and add the copy.`
-          : `${name}: ${repo} could not be read: ${e.message}`,
+        say.text(
+          others
+            ? `✗ ${name}: not found, or private. A preset of another owner has to be public. To follow a private one, keep a copy under ${ownerOf(repository)} and add the copy.`
+            : `${name}: ${repo} could not be read: ${e.message}`,
+        ),
       );
       return 1;
     }
@@ -472,7 +506,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       lockAfter,
     );
   } catch (e) {
-    d.err(said(e, paint));
+    d.err(said(e));
     return 1;
   }
   const [effNow, effAfter] = await Promise.all([
@@ -501,7 +535,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       if (stable(theirs) === stable(mine)) continue;
       yours.push({
         key: list ?? key,
-        text: `yours: ${show(theirs)}   ${PAREN}'s: ${show(mine)}`,
+        text: plainly(`yours: ${show(theirs)}   ${PAREN}'s: ${show(mine)}`),
       });
       questions.push({
         key,
@@ -519,7 +553,9 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       const rows = disagrees.get(before.from) ?? [];
       rows.push({
         key: list ?? key,
-        text: `${before.from}: ${show(theirs)}   ${PAREN}: ${show(mine)}`,
+        text: plainly(
+          `${before.from}: ${show(theirs)}   ${PAREN}: ${show(mine)}`,
+        ),
       });
       disagrees.set(before.from, rows);
       questions.push({
@@ -532,12 +568,12 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       continue;
     }
     if (list) {
-      added.push({ key: list, text: paint("green", `+ ${show(mine)}`) });
+      added.push({ key: list, text: plus(show(mine)) });
       continue;
     }
     const was = getPath(effNow, key.split("."));
     if (stable(was) === stable(mine)) continue;
-    replacesDefault.push({ key, text: change(paint, show(was), show(mine)) });
+    replacesDefault.push({ key, text: change(show(was), show(mine)) });
   }
   for (const path of VALUE_LISTS) {
     const was = getPath(effNow, path.split("."));
@@ -549,20 +585,25 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
         !had.has(stable(item)) &&
         after.resolution.sources.get(`${path}[${stable(item)}]`)?.from === name
       )
-        added.push({ key: path, text: paint("green", `+ ${show(item)}`) });
+        added.push({ key: path, text: plus(show(item)) });
   }
   const locked = await lockFiles(d);
   const writes = [...after.resolution.files]
     .filter(([to, f]) => f.from === name && !now.resolution.files.has(to))
     .filter(([to]) => !existsSync(join(d.root, to)) || locked.includes(to))
-    .map(([to]) => `writes ${to}`);
+    .map(([to]) => ({ verb: "writes", what: to }));
 
   if (others)
     d.out(
-      `${name} is public, and ${ownerOf(parseName(name).repo)} is not this repository's owner.`,
+      say.text(
+        `${name} is public, and ${ownerOf(parseName(name).repo)} is not this repository's owner.`,
+      ),
     );
   for (const line of summary(
-    `${name} at ${short(pin.commit)}, from ${dayOf(date, d.now())}, would change these settings here:`,
+    say.text(
+      say.name(name),
+      ` at ${short(pin.commit)}, from ${dayOf(date, d.now())}, would change these settings here:`,
+    ),
     [
       { title: "added", rows: added },
       { title: "replaces the default", rows: replacesDefault },
@@ -573,17 +614,18 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       { title: `replaced by your ${SETTINGS_FILE}`, rows: yours },
     ],
     [...writes, ...runsLines(after, name)],
-    paint,
   ))
     d.out(line);
 
   if (dry) return 0;
   if (!yes && !d.terminal) {
-    d.out("");
+    d.out(say.BLANK);
     d.out(
-      others
-        ? "Run it in a terminal to apply it."
-        : "Run it in a terminal to choose, or add --yes to apply it.",
+      say.text(
+        others
+          ? "Run it in a terminal to apply it."
+          : "Run it in a terminal to choose, or add --yes to apply it.",
+      ),
     );
     return 1;
   }
@@ -592,8 +634,8 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
   let text = await withPreset(ownText, name);
   if (!yes) {
     if (questions.length) {
-      d.out("");
-      d.out("Choose:");
+      d.out(say.BLANK);
+      d.out(say.action("Choose:"));
     }
     for (const q of questions) {
       const k = q.key;
@@ -614,9 +656,9 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
         if (a === "drop") text = await withoutKey(text, k);
       }
     }
-    d.out("");
+    d.out(say.BLANK);
     if (!(await apply(d))) {
-      d.out("Nothing changed.");
+      d.out(say.text("Nothing changed."));
       return 0;
     }
   }
@@ -626,12 +668,15 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
   if (chosen !== choicesBefore) d.write(CHOICES_FILE, chosen);
   const lines = await quietSync(d, (path) => path in pin.files);
   if (lines === null) return 1;
-  const ok = paint("green", "✓");
   d.out(
-    `${ok} Added ${name} to ${SETTINGS_FILE}, pinned at ${short(pin.commit)} in ${LOCK_FILE}.`,
+    say.mark("ok", [
+      "Added ",
+      say.name(name),
+      ` to ${SETTINGS_FILE}, pinned at ${short(pin.commit)} in ${LOCK_FILE}.`,
+    ]),
   );
   if (chosen !== choicesBefore && chosen !== null)
-    d.out(`${ok} Wrote ${CHOICES_FILE}.`);
+    d.out(say.mark("ok", `Wrote ${CHOICES_FILE}.`));
   for (const line of lines) d.out(line);
   return 0;
 }
@@ -647,19 +692,18 @@ async function lockFiles(d: PresetDeps): Promise<string[]> {
 // ---------------------------------------------------------------- remove
 
 export async function remove(argv: string[], d: PresetDeps): Promise<number> {
-  const paint = d.paint ?? plain;
   const name = argv.find((a) => !a.startsWith("--"));
   const yes = argv.includes("--yes");
   const dry = argv.includes("--dry-run");
   if (!name) {
-    d.err("Usage: factory preset remove NAME [--yes] [--dry-run]");
+    d.err(say.text("Usage: factory preset remove NAME [--yes] [--dry-run]"));
     return 2;
   }
   const ownText = d.read(SETTINGS_FILE) ?? "";
   const own = (await loadYaml(ownText)) as Obj | null;
   const listed = Array.isArray(own?.presets) ? own.presets.map(String) : [];
   if (!listed.includes(name)) {
-    d.err(`${name} is not in presets`);
+    d.err(say.text(`${name} is not in presets`));
     return 1;
   }
   const { load } = await import("js-yaml");
@@ -679,7 +723,7 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
     after = await d.resolve(without, choicesText(kept));
     now = pinned ? await d.resolve(ownText, choicesBefore) : after;
   } catch (e) {
-    d.err(said(e, paint));
+    d.err(said(e));
     return 1;
   }
   const effAfter = await effective(after);
@@ -705,24 +749,16 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
       if (!after.resolution.sources.has(key))
         removed.push({
           key: path,
-          text: paint(
-            "red",
-            `− ${show(JSON.parse(key.slice(path.length + 1, -1)))}`,
-          ),
+          text: minus(show(JSON.parse(key.slice(path.length + 1, -1)))),
         });
       continue;
     }
     if (!nextSrc) {
-      if (list)
-        removed.push({ key: list, text: paint("red", `− ${show(old)}`) });
+      if (list) removed.push({ key: list, text: minus(show(old)) });
       else
         toDefault.push({
           key,
-          text: change(
-            paint,
-            show(old),
-            show(getPath(effAfter, key.split("."))),
-          ),
+          text: change(show(old), show(getPath(effAfter, key.split(".")))),
         });
       continue;
     }
@@ -730,7 +766,10 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
     if (stable(next) === stable(old)) continue;
     const row = {
       key: list ?? key,
-      text: `${change(paint, show(old), show(next))}, from ${nextSrc.from}`,
+      text: [
+        ...change(show(old), show(next)),
+        say.asIs(`, from ${nextSrc.from}`),
+      ],
     };
     if (src.state === "chosen") {
       chosenAgainst.push(row);
@@ -741,9 +780,9 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
   const deletes = [...now.resolution.files]
     .filter(([to, f]) => f.from === name && !after.resolution.files.has(to))
     .filter(([to]) => locked.includes(to))
-    .map(([to]) => `deletes ${to}`);
+    .map(([to]) => ({ verb: "deletes", what: to }));
   for (const line of summary(
-    `Removing ${name} would change these settings here:`,
+    say.text("Removing ", say.name(name), " would change these settings here:"),
     [
       { title: "removed", rows: removed },
       { title: "back to the default", rows: toDefault },
@@ -751,21 +790,22 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
       { title: "back to a value you chose against", rows: chosenAgainst },
     ],
     deletes,
-    paint,
   ))
     d.out(line);
 
   if (dry) return 0;
   if (!yes && !d.terminal) {
-    d.out("");
-    d.out("Run it in a terminal to choose, or add --yes to apply it.");
+    d.out(say.BLANK);
+    d.out(
+      say.text("Run it in a terminal to choose, or add --yes to apply it."),
+    );
     return 1;
   }
   let text = without;
   if (!yes) {
     if (questions.length) {
-      d.out("");
-      d.out("Choose:");
+      d.out(say.BLANK);
+      d.out(say.action("Choose:"));
     }
     for (const q of questions) {
       const [use, keep] = [show(q.next), show(q.old)];
@@ -777,9 +817,9 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
       );
       if (a === options[1]) text = await withKey(text, q.key, q.old);
     }
-    d.out("");
+    d.out(say.BLANK);
     if (!(await apply(d))) {
-      d.out("Nothing changed.");
+      d.out(say.text("Nothing changed."));
       return 0;
     }
   }
@@ -788,11 +828,19 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
   const shippedHere = new Set(now.presets.flatMap((p) => Object.keys(p.files)));
   const lines = await quietSync(d, (path) => shippedHere.has(path));
   if (lines === null) return 1;
-  const ok = paint("green", "✓");
-  d.out(`${ok} Removed ${name} from ${SETTINGS_FILE} and ${LOCK_FILE}.`);
+  d.out(
+    say.mark("ok", [
+      "Removed ",
+      say.name(name),
+      ` from ${SETTINGS_FILE} and ${LOCK_FILE}.`,
+    ]),
+  );
   if (dropped > 0)
     d.out(
-      `${ok} Removed ${dropped} choice${dropped === 1 ? "" : "s"} from ${CHOICES_FILE}.`,
+      say.mark(
+        "ok",
+        `Removed ${dropped} choice${dropped === 1 ? "" : "s"} from ${CHOICES_FILE}.`,
+      ),
     );
   for (const line of lines) d.out(line);
   return 0;
@@ -807,7 +855,7 @@ export async function choices(_argv: string[], d: PresetDeps): Promise<number> {
   try {
     r = await d.resolve(ownText, before);
   } catch (e) {
-    d.err(said(e, d.paint ?? plain));
+    d.err(said(e));
     return 1;
   }
   // What is not chosen yet comes first: it is what a choice is wanted for.
@@ -816,15 +864,18 @@ export async function choices(_argv: string[], d: PresetDeps): Promise<number> {
     ...r.resolution.disagreements.filter((g) => g.chosen),
   ];
   if (!list.length) {
-    d.out("No two presets disagree here.");
+    d.out(say.text("No two presets disagree here."));
     return 0;
   }
   const valueWidth =
     Math.max(
       ...list.flatMap((g) => g.values.map((v) => show(v.value).length)),
     ) + 2;
+  const label = (i: number, v: { value: unknown }) =>
+    `${i + 1}) ${show(v.value)}`;
+  const labelWidth = valueWidth + "1) ".length;
   const item = (i: number, v: { from: string; value: unknown }) =>
-    `  ${i + 1}) ${show(v.value).padEnd(valueWidth)}${v.from}`;
+    `  ${label(i, v).padEnd(labelWidth)}${v.from}`;
   const column =
     Math.max(
       ...list.map((g) => g.key.length),
@@ -832,13 +883,27 @@ export async function choices(_argv: string[], d: PresetDeps): Promise<number> {
     ) + 5;
   const next = { ...r.choices };
   for (const [n, g] of list.entries()) {
-    if (n) d.out("");
-    d.out(`${g.key.padEnd(column)}${g.chosen ? "chosen" : "not chosen yet"}`);
+    if (n) d.out(say.BLANK);
+    d.out(
+      say.row(g.key, g.chosen ? "chosen" : "not chosen yet", {
+        indent: 0,
+        width: column,
+        gap: 0,
+      }),
+    );
     g.values.forEach((v, i) =>
       d.out(
-        v.from === g.applies
-          ? `${item(i, v).padEnd(column)}← applies now`
-          : item(i, v),
+        say.row(
+          label(i, v),
+          say.asIs(
+            v.from === g.applies
+              ? `${item(i, v).padEnd(column)}← applies now`.slice(
+                  labelWidth + 2,
+                )
+              : v.from,
+          ),
+          { width: labelWidth, gap: 0 },
+        ),
       ),
     );
     if (!d.terminal) continue;
@@ -851,10 +916,10 @@ export async function choices(_argv: string[], d: PresetDeps): Promise<number> {
     if (a) next[g.key] = g.values[Number(a) - 1]!.from;
   }
   if (!d.terminal) return 0;
-  d.out("");
+  d.out(say.BLANK);
   const text = choicesText(next);
   if (stable(next) === stable(r.choices)) {
-    d.out("Nothing changed.");
+    d.out(say.text("Nothing changed."));
     return 0;
   }
   d.write(CHOICES_FILE, text);
@@ -867,7 +932,7 @@ export async function chooseOne(
 ): Promise<number> {
   const [key, preset] = argv;
   if (!key || !preset) {
-    d.err("Usage: factory preset choose KEY PRESET");
+    d.err(say.text("Usage: factory preset choose KEY PRESET"));
     return 2;
   }
   const before = d.read(CHOICES_FILE);
@@ -875,16 +940,16 @@ export async function chooseOne(
   try {
     r = await d.resolve(d.read(SETTINGS_FILE) ?? "", before);
   } catch (e) {
-    d.err(said(e, d.paint ?? plain));
+    d.err(said(e));
     return 1;
   }
   const g = r.resolution.disagreements.find((x) => x.key === key);
   if (!g) {
-    d.err(`${key}: no two presets disagree on this`);
+    d.err(say.text(`${key}: no two presets disagree on this`));
     return 1;
   }
   if (!g.values.some((v) => v.from === preset)) {
-    d.err(`${key}: ${preset} doesn't set this`);
+    d.err(say.text(`${key}: ${preset} doesn't set this`));
     return 1;
   }
   const text = choicesText({ ...r.choices, [key]: preset });
@@ -939,7 +1004,9 @@ function presetFolders(dir: string, base = dir): string[] {
 export async function check(_argv: string[], d: PresetDeps): Promise<number> {
   const folders = presetFolders(d.cwd);
   if (!folders.length) {
-    d.err(`No preset here: no ${PRESET_FILE} in this folder or below it`);
+    d.err(
+      say.text(`No preset here: no ${PRESET_FILE} in this folder or below it`),
+    );
     return 1;
   }
   const { load } = await import("js-yaml");
@@ -967,8 +1034,7 @@ export async function check(_argv: string[], d: PresetDeps): Promise<number> {
         `${file}: ${fault.key}: ${fault.message}${ADVICE[fault.kind]}`,
       );
     const schedule = f === "" ? scheduleFault(d.cwd, raw) : null;
-    if (schedule)
-      problems.push(`${(d.paint ?? plain)("red", "✗")} ${schedule}`);
+    if (schedule) problems.push(`✗ ${schedule}`);
     const plugins = isObj(raw) ? raw.plugins : undefined;
     for (const path of [
       ...PLUGIN_LISTS,
@@ -992,14 +1058,20 @@ export async function check(_argv: string[], d: PresetDeps): Promise<number> {
     }
   });
   if (problems.length) {
-    for (const line of [...problems, ...notes]) d.out(line);
+    for (const line of [...problems, ...notes]) d.out(say.text(line));
     return 1;
   }
   const width = Math.max(...names.map((n) => n.length)) + 3;
   folders.forEach((f, i) =>
-    d.out(`${names[i]!.padEnd(width)}${shipsText(join(d.cwd, f))}`),
+    d.out(
+      say.row(names[i]!, shipsText(join(d.cwd, f)), {
+        indent: 0,
+        width,
+        gap: 0,
+      }),
+    ),
   );
-  for (const line of notes) d.out(line);
+  for (const line of notes) d.out(say.text(line));
   return 0;
 }
 
@@ -1085,14 +1157,14 @@ function leaves(
 export async function changes(argv: string[], d: PresetDeps): Promise<number> {
   const ref = argv[0];
   if (!ref) {
-    d.err("Usage: factory preset changes REF");
+    d.err(say.text("Usage: factory preset changes REF"));
     return 2;
   }
   const { load } = await import("js-yaml");
   const oldText = d.show(ref, LOCK_FILE);
   const newText = d.read(LOCK_FILE);
   if (newText === null) {
-    d.err(staleMessages.missing);
+    d.err(say.text(staleMessages.missing));
     return 1;
   }
   const empty: Lock = {
@@ -1228,7 +1300,7 @@ export async function changes(argv: string[], d: PresetDeps): Promise<number> {
   });
   if (choice.length)
     out.push("", "To choose, on this branch:", "  factory preset choices");
-  for (const line of out) d.out(line);
+  for (const line of out) d.out(say.verbatim(line));
   return 0;
 }
 
@@ -1301,7 +1373,9 @@ export async function main(argv: string[], d: PresetDeps): Promise<number> {
   const run = sub ? commands[sub] : undefined;
   if (!run) {
     d.err(
-      "Usage: factory preset add NAME | remove NAME | choices | choose KEY PRESET | check | changes REF",
+      say.text(
+        "Usage: factory preset add NAME | remove NAME | choices | choose KEY PRESET | check | changes REF",
+      ),
     );
     return 2;
   }
@@ -1309,13 +1383,16 @@ export async function main(argv: string[], d: PresetDeps): Promise<number> {
     return await run(rest, d);
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;
-    d.err(said(e, d.paint ?? plain));
+    d.err(said(e));
     return 1;
   }
 }
 
 /** The preset commands' dependencies in the repository at `root`. */
-export function presetDeps(root = repoRoot()): PresetDeps {
+export function presetDeps(
+  root = repoRoot(),
+  words = "preset changes",
+): PresetDeps {
   const files: Deps = filesDeps(root);
   const readAt = (p: string) => {
     try {
@@ -1327,22 +1404,9 @@ export function presetDeps(root = repoRoot()): PresetDeps {
   return {
     root,
     cwd: process.cwd(),
-    out: (l) => console.log(l),
-    err: (l) => console.error(l),
+    ...say.printersFor(words),
     terminal: Boolean(process.stdin.isTTY && process.stdout.isTTY),
-    paint: painter(colorOn()),
-    ask: async (question) => {
-      const { createInterface } = await import("node:readline/promises");
-      const rl = createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
-      try {
-        return await rl.question(question);
-      } finally {
-        rl.close();
-      }
-    },
+    ask: askTyped,
     sync: async (out) => {
       const sync = await import("./sync.mts");
       return sync.main([], {
@@ -1374,5 +1438,5 @@ export function presetDeps(root = repoRoot()): PresetDeps {
 
 /** `factory preset ...`. */
 export async function run(argv: string[]): Promise<number> {
-  return main(argv, presetDeps());
+  return main(argv, presetDeps(repoRoot(), `preset ${argv[0]}`));
 }

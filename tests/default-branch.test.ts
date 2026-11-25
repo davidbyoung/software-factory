@@ -12,6 +12,7 @@ import {
   repositoryRemote,
   type Deps,
 } from "../src/lib/default-branch.mts";
+import { into } from "./printed";
 
 const EVENT = "/runner/event.json";
 const ORIGIN_HEAD = "symbolic-ref --short refs/remotes/origin/HEAD";
@@ -67,12 +68,7 @@ function checkout(o: {
   const command = async (argv: string[] = []) => {
     const out: string[] = [];
     const err: string[] = [];
-    const code = await main(
-      argv,
-      d,
-      (l) => out.push(l),
-      (l) => err.push(l),
-    );
+    const code = await main(argv, d, into(out), into(err));
     return { code, out, err };
   };
   return { d, ran, asked: () => asked, command };

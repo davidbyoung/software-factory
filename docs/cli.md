@@ -9,11 +9,13 @@ the [quick start](quick-start.md#1-install) sets up. `factory` with no
 command, or one it does not have, prints the list of commands it has and
 exits non-zero.
 
-Commands you read yourself, such as `doctor`, `status`, and
-`config explain`, use color when they print to a terminal: a green ✓, a
-red ✗, and dim text for what needs no attention. The marks and words
-are the same without it. Set `NO_COLOR` to turn color off, or
-`FORCE_COLOR=1` to keep it when you pipe the output, as to `less -R`.
+Commands you read yourself use color when they print to a terminal. Cyan
+is something to copy, such as a command or an address. Yellow is your
+turn: a question, or a step that is left for you. Green worked, red
+failed, and dim text can be skipped. The words are the same without it.
+Set `NO_COLOR` to turn color off, or `FORCE_COLOR=1` to keep it when you
+pipe the output, as to `less -R`. A command whose output a skill or a
+workflow reads never uses color.
 
 A table with a State column has commands still to come, marked
 **Planned**; every command in a table without one is built.

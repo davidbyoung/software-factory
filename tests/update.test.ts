@@ -21,6 +21,7 @@ import { TOOLS } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
 import { writeSettings } from "./locked.ts";
 import { CODE_HOST_YAML } from "./settings-fixture.ts";
+import { into } from "./printed";
 
 const pin = (name: string, commit: string): PresetPin => ({
   name,
@@ -62,6 +63,7 @@ type Setup = {
 
 function update(o: Setup = {}) {
   const out: string[] = [];
+  const looks: string[] = [];
   const calls: string[] = [];
   const bodies: string[] = [];
   const compared: string[] = [];
@@ -142,11 +144,12 @@ function update(o: Setup = {}) {
       },
     },
     releaseNotes: (version) => `https://example.com/releases/v${version}`,
-    out: (line) => out.push(line),
+    out: into(out, looks),
   };
   return {
     run: (argv: string[] = []) => main(argv, d),
     out,
+    looks,
     calls,
     bodies,
     compared,
@@ -169,6 +172,15 @@ describe("factory update, by hand", () => {
       "✓ Wrote 2 files and deleted 1. Commit them on a branch and open a pull request.",
     ]);
     expect(u.calls).toEqual(["move acme/factory-config 8d04e7b", "sync 0.3.0"]);
+  });
+
+  it("dims each old value and has each new one in bold", async () => {
+    const u = update({ pins: TWO, changed: ["acme/factory-config"] });
+    await u.run();
+    expect(u.looks.slice(0, 2)).toEqual([
+      "The factory {skip:0.2.0} → {name:0.3.0}",
+      "acme/factory-config {skip:3f2a91c} → {name:8d04e7b}",
+    ]);
   });
 
   it("counts one file as one, and names no deletion when there was none", async () => {
@@ -510,7 +522,7 @@ describe("factory update, where an organization's poller is", () => {
         },
       },
       releaseNotes: (version) => `https://example.com/releases/v${version}`,
-      out: (line) => out.push(line),
+      out: into(out),
     };
     return {
       run: (argv: string[] = []) => updatePoller(argv, d),
@@ -692,7 +704,7 @@ describe("the settings factory update reads", () => {
     withSettings(`version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`);
     appendFileSync(join(repo, ".claude/factory.yaml"), "pr-review:\n");
     const said: string[] = [];
-    const settings = await settingsNow(repo, (l) => said.push(l));
+    const settings = await settingsNow(repo, into(said));
     expect(said).toEqual([]);
     expect(settings?.prReview).not.toBeNull();
   });
@@ -700,7 +712,7 @@ describe("the settings factory update reads", () => {
   it("says what the settings lack in one line, and reads none", async () => {
     withSettings("version: 2\nrepository: o/r\ncode-host:\n  type: github\n");
     const said: string[] = [];
-    expect(await settingsNow(repo, (l) => said.push(l))).toBeNull();
+    expect(await settingsNow(repo, into(said))).toBeNull();
     expect(said).toEqual([
       expect.stringContaining("code-host.branch-name: is required"),
     ]);

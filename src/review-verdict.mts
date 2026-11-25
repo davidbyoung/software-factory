@@ -7,7 +7,8 @@
 // (`review-record.mts`), and an event of the pull request itself
 // (pull_request_target: opened, pushed to, marked ready, or labeled with the
 // override), by this command, from main's copy. What the review found is
-// read from the status its run sets on the commit, never from a comment.
+// what its run says as it ends, and after that the status the run set on
+// the commit, never a comment.
 // The verdict is posted on one commit, so a new push always starts without
 // one.
 import { loadSettings } from "./config.mts";
@@ -17,6 +18,7 @@ import { openCodeHost } from "./code-host/index.mts";
 import type { CodeHost, CommitStatus } from "./code-host/types.mts";
 import { CI_BOT } from "./lib/work-status.mts";
 import { openRunner } from "./runner/index.mts";
+import * as say from "./lib/output.mts";
 
 // The status's name, which the main ruleset requires by exactly this text.
 export const CONTEXT = "Review verdict";
@@ -52,7 +54,8 @@ export type Input = {
   conclusion?: string;
   /** The settings turn the automated review off, so none is coming. */
   reviewOff?: boolean;
-  /** What the review's status on this commit says; null with none. */
+  /** What the review found, as its run or its status on this commit says;
+   * null with neither. */
   verdict: Verdict;
 };
 
@@ -200,7 +203,14 @@ export type VerdictEvent =
   /** A review of the commit `sha` ended. */
   | {
       eventName: "review";
-      event: { pull: number; sha: string; conclusion: string };
+      event: {
+        pull: number;
+        sha: string;
+        conclusion: string;
+        /** What the review found. Its own run says: a status read back just
+         * after it is set can be missing. */
+        verdict: Verdict;
+      };
     };
 
 /** Posts the verdict for one event, removes or announces the override,
@@ -267,7 +277,7 @@ export async function apply(
     overrideUnchecked: lookupFailure !== undefined,
     conclusion: review?.conclusion,
     reviewOff,
-    verdict: verdictIn(await pulls.statuses(sha)),
+    verdict: review ? review.verdict : verdictIn(await pulls.statuses(sha)),
   });
   if (!decision) return log("Nothing to post.");
 
@@ -321,13 +331,13 @@ export async function run(): Promise<number> {
       event: JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH!, "utf8")),
       pulls: openCodeHost(repo),
       link: openRunner(repo).thisRun(process.env)?.page,
-      log: (line) => console.log(line),
+      log: say.plainPrinter(),
       override: settings.codeHost.labels["verdict-override"],
       reviewOn: settings.prReview !== null,
     });
     return 0;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    say.plainError(error instanceof Error ? error.message : String(error));
     return 1;
   }
 }

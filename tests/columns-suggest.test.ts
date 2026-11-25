@@ -12,8 +12,9 @@ import {
   written,
   type Mapping,
 } from "../src/columns-suggest.mts";
-import type { Ask } from "../src/init-shared.mts";
+import type { Ask } from "../src/lib/prompts.mts";
 import { scriptedAgent } from "./fake-tools";
+import { into, look, plainOf } from "./printed";
 
 const BOARD = ["Todo", "In Progress", "Code review", "Done"];
 
@@ -146,7 +147,7 @@ describe("the table", () => {
   });
 
   it("prints the Proposed docs' table for the Shop board", () => {
-    expect(table(mapping({}))).toEqual([
+    expect(table(mapping({})).map(plainOf)).toEqual([
       "  State      Column",
       "  backlog    Todo",
       "  refining   none, shows in Todo",
@@ -157,10 +158,17 @@ describe("the table", () => {
     ]);
   });
 
+  it("has underlined column names, and bold states", () => {
+    expect(table(mapping({})).map(look).slice(0, 2)).toEqual([
+      "  {heading:State}      {heading:Column}",
+      "  {name:backlog}    Todo",
+    ]);
+  });
+
   it("names a column init adds, and a state shown in it by its name alone", () => {
     const lines = table(
       mapping({ refining: "add", building: "none", ready: "add" }),
-    );
+    ).map(plainOf);
     expect(lines[2]).toBe("  refining   In refinement, which init adds");
     expect(lines[3]).toBe("  ready      Ready, which init adds");
     expect(lines[4]).toBe("  building   none, shows in In refinement");
@@ -237,9 +245,11 @@ function asking(answers: string[]) {
     secret: unasked,
     input: unasked,
   };
+  const looks: string[] = [];
   return {
-    d: { ask, out: (line: string) => void out.push(line) },
+    d: { ask, out: into(out, looks) },
     out,
+    looks,
     selects,
   };
 }
@@ -380,6 +390,9 @@ describe("a suggestion that cannot be used", () => {
         BOARD_3,
       );
       expect(got).toBe(1);
+      expect(a.looks).toContain(
+        "{skip:Asking Claude Code which of them shows each of the factory's six states...}",
+      );
       expect(a.out.slice(-3)).toEqual([
         `Claude Code's answer could not be used: ${reason}.`,
         "Run factory init again, or write tickets.columns in .claude/factory.yaml yourself.",

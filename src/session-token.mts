@@ -17,6 +17,7 @@ import { runToken, signIn } from "./code-host/index.mts";
 import { APP_CLIENT_ID } from "./init-org.mts";
 import { APP_KEY } from "./parts.mts";
 import { gh, ghIn, type Gh, type GhIn } from "./lib/gh.mts";
+import * as say from "./lib/output.mts";
 
 export type World = {
   env: Record<string, string | undefined>;
@@ -77,7 +78,7 @@ export async function run(): Promise<number> {
     cli: { run: gh, runIn: ghIn },
     repository: (await reachOf(env)).repository,
     repositories: (await repositories(env)).split(","),
-    out: (line) => console.log(line),
+    out: say.plainPrinter(),
     output: (line) => {
       if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, `${line}\n`);
     },

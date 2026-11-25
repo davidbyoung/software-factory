@@ -33,6 +33,7 @@ import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
 import { TOOLS } from "../src/tools.mts";
 import { fakeCredential } from "./fake-tools";
+import { into } from "./printed";
 
 // A made-up package and an empty repository beside it.
 let dir: string;
@@ -93,8 +94,8 @@ async function sync(
       if (branch === null) throw new NoDefaultBranch(NO_REMOTE);
       return branch;
     },
-    out: (l) => out.push(l),
-    err: (l) => err.push(l),
+    out: into(out),
+    err: into(err),
     ...extra,
   });
   return { code, out, err };

@@ -20,6 +20,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import * as say from "./output.mts";
 
 /** A git command's exit, and what it printed. */
 export type Git = (args: string[]) => { ok: boolean; out: string };
@@ -245,19 +246,19 @@ export const branchDeps = (
 export async function main(
   argv: string[],
   d: Deps,
-  out: (line: string) => void,
-  err: (line: string) => void,
+  out: say.Out,
+  err: say.Out,
 ): Promise<number> {
   if (argv.length > 0) {
-    err("Usage: factory default-branch");
+    err(say.text("Usage: factory default-branch"));
     return 2;
   }
   try {
-    out(await needDefaultBranch(d));
+    out(say.text(say.asIs(await needDefaultBranch(d))));
     return 0;
   } catch (e) {
     if (!(e instanceof NoDefaultBranch)) throw e;
-    err(e.message);
+    err(say.text(e.message));
     return 1;
   }
 }
@@ -265,10 +266,6 @@ export async function main(
 /** `factory default-branch`. */
 export async function run(argv: string[]): Promise<number> {
   const { repoRoot } = await import("../config.mts");
-  return main(
-    argv,
-    branchDeps(repoRoot()),
-    (line) => console.log(line),
-    (line) => console.error(line),
-  );
+  const { out, err } = say.printersFor("default-branch");
+  return main(argv, branchDeps(repoRoot()), out, err);
 }

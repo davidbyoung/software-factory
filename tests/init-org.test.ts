@@ -26,12 +26,8 @@ import { delimiter, dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { main, readLineFrom, type InitOrgDeps } from "../src/init-org.mts";
-import {
-  defaultInWords,
-  onPath,
-  pageOpener,
-  type Ask,
-} from "../src/init-shared.mts";
+import { onPath, pageOpener } from "../src/init-shared.mts";
+import { defaultInWords, type Ask } from "../src/lib/prompts.mts";
 import type { Tickets } from "../src/tickets/types.mts";
 import type { Registry } from "../src/tools.mts";
 import { pollerWorkflow } from "../src/workflow-files.mts";
@@ -46,6 +42,7 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
+import { into } from "./printed";
 
 /** While `on`, starting any command and asking for the repository's root
  * both throw, and each attempt is recorded. */
@@ -441,6 +438,8 @@ function setup(o: Setup = {}) {
   /** Every line printed and every question asked, in the order they came. */
   const transcript: string[] = [];
   const out: string[] = [];
+  /** Every line printed, in color. */
+  const looks: string[] = [];
   const opened: string[] = [];
   const ran: string[][] = [];
   const selects: { message: string; names: string[]; fallback?: string }[] = [];
@@ -544,8 +543,8 @@ function setup(o: Setup = {}) {
   const d: InitOrgDeps = {
     ask,
     out: (line) => {
-      out.push(line);
-      transcript.push(line);
+      into(out, looks)(line);
+      transcript.push(out.at(-1)!);
     },
     interactive: async (argv) => {
       ran.push(argv);
@@ -567,6 +566,7 @@ function setup(o: Setup = {}) {
     run: () => main(o.argv ?? ["--org", o.address ?? ADDRESS], d),
     seed,
     out,
+    looks,
     transcript,
     opened,
     ran,
@@ -852,6 +852,72 @@ describe("factory init --org, a first run", () => {
       ...ending(),
     ]);
     printsNoSecret(s.out);
+  });
+
+  it("has bold labels, dim notes, cyan to copy, and yellow on what the person does, from the first line to the last", async () => {
+    const s = setup({
+      answers: FIRST,
+      boards: [
+        { number: 7, title: "Engineering", columns: [] },
+        { number: 11, title: "Old", columns: [] },
+      ],
+    });
+    expect(await s.run()).toBe(0);
+    expect(s.looks).toEqual([
+      "Setting up the software factory for the organization {name:acme}",
+      "",
+      "{heading:Found}",
+      "  {name:Code host}        GitHub (from the address)",
+      "  {name:You}              an owner of acme",
+      "  {name:Tickets}          GitHub Issues",
+      "  {name:Coding agent}     Claude Code (on this machine)",
+      "  {name:Preset}           {skip:none yet}",
+      "",
+      "Each run of the poller bills at least one Actions minute in a private repository.",
+      "",
+      "{heading:This is everything setup will do:}",
+      '  {name:app}       Register the GitHub App "Software Factory for acme" and install it',
+      "  {name:secrets}   Store FACTORY_APP_PRIVATE_KEY, CLAUDE_CODE_OAUTH_TOKEN, and the variable FACTORY_APP_CLIENT_ID for acme",
+      "  {name:preset}    Create acme/factory-config, a private repository, with the organization's preset and the poller",
+      '  {name:rule}      Require "Review verdict" on repositories set up with the factory',
+      "  {name:board}     Create a board with the factory's columns and fields",
+      "",
+      '{good:✓} Created board 12, "Software factory".',
+      "{good:✓} Created acme/factory-config.",
+      "",
+      '{yourTurn:Registering the GitHub App "Software Factory for acme". Two steps, both in your browser.}',
+      "",
+      "{yourTurn:1.} Create the app. Your browser should open this address. If it does not, open it yourself:",
+      "     {copy:http://127.0.0.1:4100/}",
+      '   Then press "Create GitHub App".',
+      "   Waiting for GitHub to send your browser back. If that page does not load, paste its address here:",
+      "{good:✓} Created the app, and stored its key for acme.",
+      "",
+      "{yourTurn:2.} Install it. Your browser should open this address. If it does not, open it yourself:",
+      `     {copy:${INSTALL_PAGE}}`,
+      '   Choose all repositories, or a selection that includes factory-config, and press "Install".',
+      "   Waiting up to 10 minutes for the installation to show.",
+      "{good:✓} Installed the app on 212 repositories.",
+      "",
+      "The coding agent's token: running {copy:claude setup-token}...",
+      "{skip:Trying the token...}",
+      "{good:✓} Stored 2 secrets and 1 variable for acme.",
+      '{good:✓} Required "Review verdict" where the property software-factory is "on".',
+      "",
+      "{good:✓} acme is set up.",
+      "",
+      "{yourTurn:Next, in each repository you want the factory in:}",
+      "  {yourTurn:1.} A developer installs the factory once on their machine:",
+      "       {copy:npm install -g @davidbyoung/software-factory}",
+      "  {yourTurn:2.} In the repository's checkout, they run:",
+      "       {copy:factory init}",
+      "     It asks them for no token, and opens the pull request that sets the repository up.",
+      "",
+      "The settings every repository shares are yours to edit:",
+      "     {copy:https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml}",
+      "The steps in full:",
+      "     {copy:https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/github/setup.md#in-an-organization}",
+    ]);
   });
 
   it("offers a new board first, then each of the organization's Projects", async () => {

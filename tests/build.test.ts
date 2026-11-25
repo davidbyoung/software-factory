@@ -4,6 +4,7 @@ import { fakeSettings } from "./fake-gh";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner, type MemoryRunnerOptions } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
+import { into } from "./printed";
 
 const STARTED = Date.parse("2026-11-14T22:00:00.400Z");
 
@@ -36,8 +37,8 @@ function build(options: MemoryRunnerOptions & { strict?: boolean } = {}) {
     },
     keyOf: () => (typed) => tickets.key(typed),
     refOf: () => (key) => tickets.ref(key),
-    out: (line) => out.push(line),
-    err: (line) => err.push(line),
+    out: into(out),
+    err: into(err),
   };
   return { d, out, err, slept, picked, host, runner };
 }

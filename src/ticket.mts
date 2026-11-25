@@ -98,6 +98,7 @@ import {
 } from "./tickets/types.mts";
 import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 import { NotSignedInError } from "./code-host/types.mts";
+import * as say from "./lib/output.mts";
 
 /** The ticket system this session reaches. */
 export type Opened = { tickets: Tickets };
@@ -443,7 +444,7 @@ async function adopt(args: string[], c: Ctx): Promise<number> {
     (a, i) => !a.startsWith("--") && args[i - 1] !== "--since-lock",
   );
   if (!all && keys.length === 0) {
-    console.error(ADOPT_USAGE);
+    say.plainError(ADOPT_USAGE);
     return 2;
   }
   const name = c.labels.tickets.factory;
@@ -962,7 +963,7 @@ async function command(argv: string[], deps: Deps): Promise<number> {
           d.labels.tickets,
         );
         if (missing.length > 0) {
-          for (const line of missing) console.error(line);
+          for (const line of missing) say.plainError(line);
           return 1;
         }
         if (rest.includes("--check")) {
@@ -993,7 +994,7 @@ async function command(argv: string[], deps: Deps): Promise<number> {
     // skill prints nothing on stdout, so nothing there reads as an answer.
     if (!READS_AND_WRITES.has(command ?? ""))
       deps.out(command === "claim" ? "could not read" : "failed");
-    console.error(error instanceof Error ? error.message : String(error));
+    say.plainError(error instanceof Error ? error.message : String(error));
     return 1;
   }
 }
@@ -1025,7 +1026,7 @@ export function ticketDeps(): Deps {
     settings: () => loadSettings(),
     env: process.env,
     sleep,
-    out: (line) => console.log(line),
+    out: say.plainPrinter(),
     readFile: (path) => readFileSync(path, "utf8"),
     now: () => new Date(),
     clock: { read: readClock, write: writeClock },

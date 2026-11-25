@@ -14,6 +14,7 @@ import { openCodeHost } from "./code-host/index.mts";
 
 import { matchesAny } from "./lib/glob.mts";
 import { processFiles } from "./specs/index.mts";
+import * as say from "./lib/output.mts";
 
 /** A changed file under GitHub's own field names, which the commands under
  * `auto-merge.commands` have always been handed. */
@@ -165,7 +166,7 @@ export function workflowOutput(
 async function main(argv: string[]) {
   const pr = argv[0];
   if (!pr) {
-    console.error("Usage: factory merge-policy PR");
+    say.plainError("Usage: factory merge-policy PR");
     process.exit(2);
   }
   const settings = await loadSettings();
@@ -192,7 +193,7 @@ async function main(argv: string[]) {
     : [];
   // The pull request as it is now, not as the event described it: an event
   // sent just after a push can carry the previous commit and draft state.
-  console.log(
+  say.plain(
     JSON.stringify({
       ...workflowOutput(decide(paths, holds), settings.codeHost.labels),
       sha: pull.head.sha,

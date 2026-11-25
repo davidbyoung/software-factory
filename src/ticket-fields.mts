@@ -8,6 +8,7 @@ import type { Ask } from "./init.mts";
 import { listed } from "./lib/listed.mts";
 import type { Check } from "./setup.mts";
 import type { TicketField, Tickets } from "./tickets/types.mts";
+import * as say from "./lib/output.mts";
 
 /** The factory fields a refined ticket has, in the order its body has them. */
 export const FACTORY_FIELDS = [
@@ -296,17 +297,24 @@ export function check(
 const shownIn = (field: string | null) => field ?? "the description";
 
 /** The table of each factory field's ticket field. */
-export function table(suggestion: Suggestion): string[] {
-  const pad = (label: string) => `  ${label.padEnd(22)}`;
+export function table(suggestion: Suggestion): say.Line[] {
   return [
-    `${pad("Factory field")}Ticket field`,
-    ...KEYS.map((k) => pad(HEADING[k]) + shownIn(suggestion[k])),
+    say.heads(
+      [
+        ["Factory field", 22],
+        ["Ticket field", 0],
+      ],
+      { indent: 2 },
+    ),
+    ...KEYS.map((k) =>
+      say.row(HEADING[k], shownIn(suggestion[k]), { width: 22, gap: 0 }),
+    ),
   ];
 }
 
 export type FieldStepDeps = {
   ask: Ask;
-  out: (line: string) => void;
+  out: say.Out;
   agent: Agent;
   /** The agent's registered label, which every line names it by. */
   label: string;
@@ -356,7 +364,9 @@ async function changeSome(
       const other = field === null ? null : holding(field, key, s);
       if (other) {
         d.out(
-          `${field} already holds ${HEADING[other]}. Pick another ticket field for ${HEADING[key]}.`,
+          say.text(
+            `${field} already holds ${HEADING[other]}. Pick another ticket field for ${HEADING[key]}.`,
+          ),
         );
         clash = true;
         break;
@@ -378,12 +388,16 @@ export async function suggestFields(
     plainText: string | null;
   },
 ): Promise<[FactoryKey, string][] | 1> {
-  d.out("");
+  d.out(say.BLANK);
   d.out(
-    `${o.repository}'s tickets have the text fields ${listed(o.fields.map((f) => f.name))}.`,
+    say.text(
+      `${o.repository}'s tickets have the text fields ${listed(o.fields.map((f) => f.name))}.`,
+    ),
   );
   d.out(
-    `Asking ${d.label} which of them should hold each of the factory's fields...`,
+    say.note(
+      `Asking ${d.label} which of them should hold each of the factory's fields...`,
+    ),
   );
   const got = await d.agent.answer({
     prompt: prompt(o.fields),
@@ -402,24 +416,30 @@ export async function suggestFields(
           }
         : check(got.answer, o.fields, o.repository);
   if ("reason" in checked) {
-    d.out(`${d.label}'s answer could not be used: ${checked.reason}.`);
     d.out(
-      "Run factory init again, or write tickets.fields in .claude/factory.yaml yourself.",
+      say.text(`${d.label}'s answer could not be used: ${checked.reason}.`),
     );
-    d.out("Nothing changed.");
+    d.out(
+      say.text(
+        "Run factory init again, or write tickets.fields in .claude/factory.yaml yourself.",
+      ),
+    );
+    d.out(say.text("Nothing changed."));
     return 1;
   }
   let suggestion = checked.suggestion;
   for (;;) {
-    d.out("");
+    d.out(say.BLANK);
     for (const line of table(suggestion)) d.out(line);
-    d.out("");
-    d.out("Your own text stays in the description.");
+    d.out(say.BLANK);
+    d.out(say.text("Your own text stays in the description."));
     if (o.plainText)
       d.out(
-        `${o.plainText} shows a field's text as typed, without Markdown formatting.`,
+        say.text(
+          `${o.plainText} shows a field's text as typed, without Markdown formatting.`,
+        ),
       );
-    d.out("");
+    d.out(say.BLANK);
     const use = await d.ask.select(
       "Use these ticket fields?",
       [

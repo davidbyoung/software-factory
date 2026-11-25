@@ -14,7 +14,9 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { COMMANDS, resolveCommand } from "../src/cli.mts";
+import { resolveCommand } from "../src/cli.mts";
+import { COMMANDS } from "../src/commands-list.mts";
+import { marked } from "./printed";
 
 const PACKAGE = fileURLToPath(new URL("..", import.meta.url));
 const LAUNCHER = join(PACKAGE, "bin/factory.js");
@@ -132,6 +134,58 @@ describe("factory's usage", () => {
     expect(r.stderr.trimEnd().split("\n").at(-1)).toBe(
       'The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.',
     );
+  });
+
+  it("is in color where it goes to a terminal that takes it", () => {
+    const r = spawnSync("node", [LAUNCHER], {
+      encoding: "utf8",
+      env: { ...process.env, FORCE_COLOR: "1" },
+    });
+    const [usage, , group, first] = r.stderr.split("\n").map(marked);
+    expect(usage).toBe("Usage: {copy:factory COMMAND}");
+    expect(group).toBe("{heading:Setting up}");
+    expect(first).toBe(
+      "  {copy:init}                 Set a repository up, or turn a part on or off",
+    );
+    expect(r.stderr).toContain("\u001b[36mpreset choose KEY PRESET\u001b[39m");
+  });
+
+  it("lists a person's commands, but for the six whose output is taken as it is", () => {
+    const words = factory([])
+      .stderr.split("\n")
+      .filter((l) => /^ {2}[a-z]/.test(l))
+      .map((l) => resolveCommand(l.trim().split(/\s+/))!.command);
+    expect(
+      words.filter((c) => c.reads === "machine").map((c) => c.words.join(" ")),
+    ).toEqual([
+      "config get",
+      "plugins",
+      "preset changes",
+      "specs list",
+      "specs new",
+      "default-branch",
+    ]);
+    const listed = new Set(words);
+    expect(
+      COMMANDS.filter((c) => c.reads === "person" && !listed.has(c)),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ["config", "get", "repository"],
+    ["plugins"],
+    ["specs", "list"],
+    ["default-branch", "extra"],
+    ["preset", "changes"],
+    ["ticket", "view"],
+    ["pr", "view"],
+  ])("factory %s %s prints no code whatever FORCE_COLOR is", (...args) => {
+    const r = spawnSync("node", [LAUNCHER, ...args], {
+      encoding: "utf8",
+      env: { ...process.env, FORCE_COLOR: "1" },
+    });
+    expect(r.stdout + r.stderr).not.toBe("");
+    expect(r.stdout + r.stderr).not.toContain("\u001b");
   });
 
   it("lists exactly the commands the docs list under a person's headings", () => {
@@ -277,6 +331,53 @@ describe("the launcher", () => {
     expect(r.stderr.trim()).toBe(
       "✗ .claude/factory.lock names the factory banana, which is not a release. Run: factory update",
     );
+  });
+
+  it("marks what stops it in red, and dims that it downloads, in color", () => {
+    const global = join(dir, "global");
+    fakePackage(global, "dist/cli.mjs", "the machine's 0.3.0");
+    // An npm that fails, so nothing is downloaded.
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, "npm"),
+      "#!/bin/sh\necho 'npm error no' >&2\nexit 1\n",
+      {
+        mode: 0o755,
+      },
+    );
+    const at = repository("banana");
+    const lines = (version: string) => {
+      writeFileSync(
+        join(at, ".claude/factory.lock"),
+        readFileSync(join(at, ".claude/factory.lock"), "utf8").replace(
+          /banana|9\.9\.9/,
+          version,
+        ),
+      );
+      return spawnSync("node", [join(global, "bin/factory.js")], {
+        cwd: at,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          FACTORY_VERSION: "",
+          FORCE_COLOR: "1",
+          PATH: `${bin}:${process.env.PATH}`,
+          XDG_CACHE_HOME: join(dir, "cache"),
+        },
+      })
+        .stderr.trim()
+        .split("\n")
+        .map(marked);
+    };
+
+    expect(lines("banana")).toEqual([
+      "{bad:✗} .claude/factory.lock names the factory banana, which is not a release. Run: factory update",
+    ]);
+    expect(lines("9.9.9")).toEqual([
+      "{skip:Downloading the factory 9.9.9, which this repository names. This happens once.}",
+      "{bad:✗} This repository names the factory 9.9.9, and it could not be downloaded: npm error no",
+    ]);
   });
 
   it("runs dist/ when there is no source", () => {

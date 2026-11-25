@@ -5,7 +5,6 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { line, main, type DoctorDeps } from "../src/doctor.mts";
-import { painter, type Paint } from "../src/lib/color.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -25,6 +24,7 @@ import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
 import { chmodSync } from "node:fs";
 import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
+import { into, look } from "./printed";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -90,7 +90,6 @@ function doctor(o: {
   jobsMayWrite?: boolean;
   columns?: string[];
   files?: Record<string, string>;
-  paint?: Paint;
   claude?: boolean;
   tools?: (base: Registry, tickets: Tickets) => Registry;
   ticketFields?: TicketField[];
@@ -118,6 +117,8 @@ function doctor(o: {
   /** Each check's line, without its heading's indent; `printed` is the
    * output as printed, headings included. */
   const out: string[] = [];
+  /** Every line printed, in color. */
+  const looks: string[] = [];
   const printed: string[] = [];
   const tickets = memoryTickets([], {
     ticketFields: o.ticketFields,
@@ -196,13 +197,13 @@ function doctor(o: {
     hasCommand: (name) => name !== "claude" || o.claude !== false,
     tools,
     out: (line) => {
-      printed.push(line);
-      if (line.startsWith("  ")) out.push(line.slice(2));
+      into(printed, looks)(line);
+      const last = printed.at(-1)!;
+      if (last.startsWith("  ")) out.push(last.slice(2));
     },
-    paint: o.paint,
     env: o.env ?? { XDG_CONFIG_HOME: "/nonexistent" },
   };
-  return { run: () => main([], d), out, printed };
+  return { run: () => main([], d), out, printed, looks };
 }
 
 /** The checks printed under `heading`, without their indent. */
@@ -1073,45 +1074,35 @@ describe("factory doctor, the ticket fields the settings name", () => {
 });
 
 describe("factory doctor, in color", () => {
-  const paint = painter(true);
-  const strip = (s: string) => s.replace(/\x1B\[\d+m/g, "");
-
   it.each([
-    ["pass", "✓", "green"],
-    ["fail", "✗", "red"],
-    ["off", "-", "dim"],
-    ["unknown", "?", "yellow"],
-  ] as const)(
-    "colors a %s mark %s %s, and only the mark",
-    (state, mark, color) => {
-      const c = { state, text: "The settings are valid", fix: "Run npm ci" };
-      expect(line(c, paint).startsWith(`${paint(color, mark)} `)).toBe(true);
-      expect(strip(line(c, paint))).toBe(line(c));
-    },
-  );
-
-  it("leaves a failing check's text and fix uncolored", () => {
+    ["pass", "{good:✓} The settings are valid"],
+    ["off", "{skip:-} The settings are valid"],
+    ["unknown", "{yourTurn:?} The settings are valid"],
+    ["fail", "{bad:✗} The settings are valid. Run {copy:factory init}"],
+  ] as const)("colors a %s mark, and a command in its fix", (state, look_) => {
     const c = {
-      state: "fail" as const,
-      text: "Version 0.4.0 is installed",
-      fix: "Run npm ci",
+      state,
+      text: "The settings are valid",
+      fix: "Run factory init",
     };
-    expect(line(c, paint)).toBe(
-      `${paint("red", "✗")} Version 0.4.0 is installed. Run npm ci`,
+    expect(look(line(c))).toBe(look_);
+  });
+
+  it("leaves a failing check's words plain", () => {
+    expect(look(line({ state: "fail", text: "Board 1 can be read" }))).toBe(
+      "{bad:✗} Board 1 can be read",
     );
   });
 
-  it("prints a failing check with no fix as its mark and text alone", () => {
-    expect(line({ state: "fail", text: "Board 1 can be read" }, paint)).toBe(
-      `${paint("red", "✗")} Board 1 can be read`,
-    );
-  });
-
-  it("prints its checks with the paint it is given", async () => {
-    const { run, out } = doctor({ paint });
+  it("prints its checks under headings", async () => {
+    const { run, looks } = doctor({});
     await run();
-    expect(out[0]).toBe(`${paint("green", "✓")} The settings are valid`);
-    expect(out).toContain(`${paint("dim", "-")} A board`);
+    expect(looks.slice(0, 2)).toEqual([
+      "{heading:Settings and files}",
+      "  {good:✓} The settings are valid",
+    ]);
+    expect(looks).toContain("{heading:Parts that are off}");
+    expect(looks).toContain("  {skip:-} A board");
   });
 });
 

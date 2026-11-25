@@ -17,6 +17,7 @@ import { PROPERTY } from "./init-org.mts";
 import { CONTEXT } from "./review-verdict.mts";
 import { RULE } from "./setup.mts";
 import { statusOf } from "./tickets/transport.mts";
+import * as say from "./lib/output.mts";
 
 export type Enroll = {
   repository: string;
@@ -114,10 +115,10 @@ export async function run(): Promise<number> {
       as: holds(process.env),
       codeHost: openCodeHost(repository, codeHost),
     });
-    lines.forEach((line) => console.log(line));
+    for (const line of lines) say.plain(line);
     return 0;
   } catch (error) {
-    console.error(message(error));
+    say.plainError(message(error));
     return 1;
   }
 }

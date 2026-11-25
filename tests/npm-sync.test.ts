@@ -17,6 +17,7 @@ import { main, PACKAGE } from "../src/sync.mts";
 import { FACTORY_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
 import { own, put, read, repo } from "./preset-fixture.ts";
 import { FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { into } from "./printed";
 
 let root = "";
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -30,8 +31,8 @@ async function sync(argv: string[] = []) {
     settings: () => resolveFiles({ ...filesDeps(root, {}) }),
     stale: () => staleOf(defaultDeps(root, {})),
     defaultBranch: async () => "main",
-    out: (l) => out.push(l),
-    err: (l) => err.push(l),
+    out: into(out),
+    err: into(err),
   });
   return { code, out, err };
 }

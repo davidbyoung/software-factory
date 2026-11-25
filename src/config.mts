@@ -8,7 +8,6 @@
 //   factory config check       # ✓ The settings are valid., or what is wrong
 //
 // A list prints one item per line. A failure names the key and exits 1.
-import { colorOn, painter, plain, type Paint } from "./lib/color.mts";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -39,6 +38,7 @@ import {
   type StateKey,
   type Status,
 } from "./lib/work-status.mts";
+import * as say from "./lib/output.mts";
 
 export class SettingsError extends Error {}
 
@@ -1150,9 +1150,8 @@ export type Deps = {
   hasPackage: (name: string) => boolean;
   listFiles: () => string[];
   loadYaml: () => Promise<YamlLoad>;
-  out: (line: string) => void;
-  err: (line: string) => void;
-  paint?: Paint;
+  out: say.Out;
+  err: say.Out;
   /** Where the settings come from when every command reads the lock:
    * `check` stops on a stale one. Unset, they are resolved from the files
    * the lock is made from. */
@@ -1528,9 +1527,7 @@ export const defaultDeps = (
       .split("\n")
       .filter(Boolean),
   loadYaml: async () => (await import("js-yaml")).load,
-  out: (line) => console.log(line),
-  err: (line) => console.error(line),
-  paint: painter(colorOn()),
+  ...say.printersFor(""),
 });
 
 /** The column each state shows in on the board, null for none. */
@@ -1644,7 +1641,9 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   const [command, arg] = argv;
   if (!command) {
     d.err(
-      "Usage: factory config get KEY | config check | config explain | plugins [ROLE]",
+      say.text(
+        "Usage: factory config get KEY | config check | config explain | plugins [ROLE]",
+      ),
     );
     return 2;
   }
@@ -1665,25 +1664,28 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     }
   } catch (e) {
     if (!(e instanceof SettingsError)) throw e;
-    d.err(e.message);
+    d.err(say.text(e.message));
     return 1;
   }
   if (command === "check") {
     if (s.site && !d.hasPackage("playwright")) {
-      d.err(NO_PLAYWRIGHT);
+      d.err(say.text(NO_PLAYWRIGHT));
       return 1;
     }
-    for (const w of patternWarnings(s, d.listFiles())) d.err(`warning: ${w}`);
+    for (const w of patternWarnings(s, d.listFiles()))
+      d.err(say.text(`warning: ${w}`));
     if (s.site && !s.plugins.some((p) => p.role === "mockups"))
       if (!d.exists(DESIGN_SKILL))
         d.err(
-          `warning: ${DESIGN_SKILL} is missing: run \`factory sync\` to give the site its design skill`,
+          say.text(
+            `warning: ${DESIGN_SKILL} is missing: run \`factory sync\` to give the site its design skill`,
+          ),
         );
-    d.out(`${(d.paint ?? plain)("green", "✓")} The settings are valid.`);
+    d.out(say.mark("ok", "The settings are valid."));
     return 0;
   }
   if (command === "explain") {
-    const { explainLines, markerOf, paintExplainLines } =
+    const { explainLines, markerOf, explainedLines } =
       await import("./explain.mts");
     const lines =
       lockText !== null
@@ -1698,42 +1700,40 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       '# The settings in effect. "# default" marks the factory\'s own value,',
       "# a preset's name marks that preset's, and an unmarked line is yours.",
     ];
-    for (const line of paintExplainLines(
-      [...header, ...lines],
-      d.paint ?? plain,
-    ))
-      d.out(line);
+    for (const line of explainedLines([...header, ...lines])) d.out(line);
     return 0;
   }
   if (command === "plugins") {
     if (arg && !(ROLES as readonly string[]).includes(arg)) {
-      d.err(`${arg}: must be one of ${ROLES.join(", ")}`);
+      d.err(say.text(`${arg}: must be one of ${ROLES.join(", ")}`));
       return 1;
     }
     for (const p of pluginsOf(s, d.exists)) {
       if (arg && p.role !== arg) continue;
-      d.out([p.kind, p.name, p.role, ...p.files, ...p.labels].join(" "));
+      d.out(
+        say.text([p.kind, p.name, p.role, ...p.files, ...p.labels].join(" ")),
+      );
     }
     return 0;
   }
   if (command === "site" && s.site) {
-    for (const line of siteLines(s.site)) d.out(line);
+    for (const line of siteLines(s.site)) d.out(say.text(line));
     return 0;
   }
   // A block that turns a part on by being written, so its key prints
   // which.
   if (command === "pr-review") {
-    d.out(s.prReview ? "on" : "off");
+    d.out(say.text(s.prReview ? "on" : "off"));
     return 0;
   }
   const v =
     command.startsWith("site") && !s.site ? undefined : lookup(s, command);
   if (command === "site.pages" && s.site?.pages === null) {
-    d.out("found");
+    d.out(say.text("found"));
     return 0;
   }
   if (v === undefined || isObj(v)) {
-    d.err(`${SETTINGS_FILE}: ${command}: not a setting that prints`);
+    d.err(say.text(`${SETTINGS_FILE}: ${command}: not a setting that prints`));
     return 1;
   }
   // An unset key of the site's settings prints `none`; elsewhere, nothing.
@@ -1741,14 +1741,17 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   for (const line of Array.isArray(v) && !(empty && command.startsWith("site"))
     ? v
     : [empty ? "none" : (v ?? "none")])
-    d.out(String(line));
+    d.out(say.text(String(line)));
   return 0;
 }
 
 /** `factory config get KEY`, `factory config check`, and
  * `factory plugins [ROLE]`. */
 export async function run(argv: string[]): Promise<number> {
-  return main(argv, defaultDeps());
+  const words = ["check", "explain"].includes(argv[0] ?? "")
+    ? `config ${argv[0]}`
+    : "config get";
+  return main(argv, { ...defaultDeps(), ...say.printersFor(words) });
 }
 
 /** What a reading needs from the settings. */

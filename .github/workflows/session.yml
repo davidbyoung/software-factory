@@ -115,21 +115,20 @@ jobs:
         run: factory session ready "$KIND" "$ID" ${REVIEW:+"$REVIEW"}
 
       # Under the app, its token signs the GitHub CLI and git in for the rest
-      # of this job. No AI and nothing a pull request holds runs in it.
+      # of this job. A person's token is given to each step that uses it, and
+      # git asks the CLI: `gh auth login` refuses a token with no `read:org`.
+      # No AI and nothing a pull request holds runs in this job.
       - name: Sign in
         id: app
         if: steps.gate.outputs.ran == 'true'
         env:
           FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
           FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
-          # A review reads, so the workflow's own token will do for it.
-          TOKEN: ${{ secrets.build-token || (inputs.kind == 'review' && github.token) || '' }}
         run: |
           if [ -n "$FACTORY_APP_CLIENT_ID" ] && [ -n "$FACTORY_APP_PRIVATE_KEY" ]; then
             factory session token
           else
-            printf '%s\n' "$TOKEN" | gh auth login --with-token
-            gh auth setup-git
+            gh auth setup-git --hostname github.com --force
           fi
 
       # Claude is a session's author. Its committer is the app's bot, or the
@@ -137,6 +136,8 @@ jobs:
       - name: Name the committer
         if: steps.gate.outputs.ran == 'true'
         env:
+          # A review reads, so the workflow's own token will do for it.
+          GH_TOKEN: &person ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && (secrets.build-token || (inputs.kind == 'review' && github.token)) || '' }}
           APP_SLUG: ${{ steps.app.outputs.slug }}
           KIND: ${{ inputs.kind }}
         run: |
@@ -160,6 +161,7 @@ jobs:
         id: prepare
         if: steps.gate.outputs.ran == 'true'
         env:
+          GH_TOKEN: *person
           FACTORY_RUN: ${{ runner.temp }}/factory
           FACTORY_APP_SLUG: ${{ steps.app.outputs.slug }}
           KIND: ${{ inputs.kind }}
@@ -182,6 +184,7 @@ jobs:
       - name: Release the ticket
         if: (failure() || cancelled()) && inputs.kind == 'build' && steps.gate.outputs.ran == 'true'
         env:
+          GH_TOKEN: *person
           ID: ${{ inputs.id }}
         run: factory ticket end "$ID"
 
@@ -428,13 +431,12 @@ jobs:
         env:
           FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
           FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
-          BUILD_TOKEN: ${{ secrets.build-token }}
+          BUILD_TOKEN_SET: ${{ secrets.build-token != '' }}
         run: |
           if [ -n "$FACTORY_APP_CLIENT_ID" ] && [ -n "$FACTORY_APP_PRIVATE_KEY" ]; then
             factory session token
-          elif [ -n "$BUILD_TOKEN" ]; then
-            printf '%s\n' "$BUILD_TOKEN" | gh auth login --with-token
-            gh auth setup-git
+          elif [ "$BUILD_TOKEN_SET" = true ]; then
+            gh auth setup-git --hostname github.com --force
           else
             echo "No build token is set, so no answer starts."
             exit 0
@@ -444,6 +446,7 @@ jobs:
       - name: Start the next answer
         if: inputs.kind == 'review' && steps.app.outputs.signed == 'true'
         env:
+          GH_TOKEN: &publisher ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
           ID: ${{ inputs.id }}
         run: factory session next "$ID"
 
@@ -452,6 +455,7 @@ jobs:
       - name: Publish what the session left
         if: inputs.kind != 'review'
         env:
+          GH_TOKEN: *publisher
           FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
           FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           CONCLUSION: ${{ needs.session.result }}
@@ -462,5 +466,6 @@ jobs:
       - name: Release the ticket
         if: always() && inputs.kind == 'build' && steps.app.outputs.signed == 'true'
         env:
+          GH_TOKEN: *publisher
           ID: ${{ inputs.id }}
         run: factory ticket end "$ID"

@@ -14,6 +14,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { styleText } from "node:util";
 import { cacheRoot, chooseEntry, install } from "./launch.js";
 
 const here = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -24,6 +25,18 @@ function read(path) {
   } catch {
     return null;
   }
+}
+
+/** Prints a line on standard error, dim for a note and with a red mark for
+ * a fault, as `src/lib/output.mts` would: the launcher loads nothing of it. */
+function report(line, kind) {
+  const color = (look, text) =>
+    styleText(look, text, { stream: process.stderr });
+  console.error(
+    kind === "note"
+      ? color("dim", line)
+      : line.replace(/^✗/, (mark) => color("red", mark)),
+  );
 }
 
 /** The package name a manifest declares, or null when there is none. */
@@ -50,14 +63,15 @@ const choice = chooseEntry({
 });
 
 if ("fault" in choice) {
-  console.error(choice.fault);
+  report(choice.fault);
   process.exit(1);
 }
 
 if ("download" in choice) {
   const { version, entry } = choice.download;
-  console.error(
+  report(
     `Downloading the factory ${version}, which this repository names. This happens once.`,
+    "note",
   );
   const why = install(choice.download, {
     name: manifest.name,
@@ -78,7 +92,7 @@ if ("download" in choice) {
     exists: existsSync,
   });
   if (why !== null) {
-    console.error(
+    report(
       `✗ This repository names the factory ${version}, and it could not be downloaded: ${why}`,
     );
     process.exit(1);

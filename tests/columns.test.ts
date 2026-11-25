@@ -44,11 +44,11 @@ import {
 } from "../src/lib/work-status.mts";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import stockPages from "./fixtures/stock-board.json";
-import { painter } from "../src/lib/color.mts";
 import { BOARD_FIELDS, memoryTickets } from "./memory-tickets";
 import { FACTORY_COLUMNS, FACTORY_COLUMNS_YAML } from "./factory-columns";
 import { ACME, installAcme, own, repo } from "./preset-fixture";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
+import { into, look, plainOf } from "./printed";
 
 const AGENT = "<!-- agent -->";
 const RUN_PAGE = (id: string) => `https://runs.example/${id}`;
@@ -346,7 +346,7 @@ describe("tickets.columns and tickets.fields in the settings", () => {
           listFiles: () => [],
           hasPackage: () => true,
           loadYaml: async () => (await import("js-yaml")).load,
-          out: (l) => out.push(l),
+          out: into(out),
           err: () => {},
         },
         out,
@@ -849,7 +849,7 @@ describe("factory ticket ready", () => {
       settings: async () => settings,
       env: { CLAUDE_CODE_SESSION_ID: "s" },
       sleep: async () => {},
-      out: (l) => out.push(l),
+      out: (l) => void out.push(l),
       followUpStore: { read: () => null, write: () => {} },
       claimStore: { read: () => null, write: () => {} },
       readFile: () => "",
@@ -910,7 +910,7 @@ describe("factory status", () => {
       new Date(at(30)),
       false,
       { color: false, width: null, columns },
-    );
+    ).map(plainOf);
 
   it("heads each group with the repository's column, or the factory's name for a state with none", () => {
     const heads = lines(STOCK_COLUMNS).filter(
@@ -954,7 +954,8 @@ describe("factory board check", () => {
       runner: () => ({ runPage: RUN_PAGE }),
       env: {},
       now: () => new Date(at(30)),
-      out: (l) => out.push(l),
+      out: into(out),
+      err: (line) => console.error(plainOf(line)),
       readFile: () => "",
       writeFile: () => {},
       settings: async () => settings,
@@ -992,7 +993,7 @@ describe("factory board check", () => {
       "code-host": CODE_HOST,
       ...yaml,
     });
-    return boardReport(7, board, boardConfigOf(s), s);
+    return boardReport(7, board, boardConfigOf(s), s).map(plainOf);
   };
   const rowOf = (lines: string[], key: string) =>
     lines.find((l) => l.slice(4).startsWith(`${key} `) || l.slice(4) === key);
@@ -1210,8 +1211,7 @@ describe("factory board check", () => {
     },
   );
 
-  it("colors each row's mark alone when it paints", () => {
-    const paint = painter(true);
+  it("has bold state keys and a bold title, under its headings, with each mark's own color", () => {
     const s = parse({
       ...STOCK_YAML,
       tickets: {
@@ -1220,24 +1220,21 @@ describe("factory board check", () => {
         fields: { cost: "none" },
       },
     });
-    const config = boardConfigOf(s);
-    const painted = boardReport(7, stockBoard(), config, s, paint);
-    expect(painted).toContain(`  ${paint("green", "✓")} backlog    Todo`);
-    expect(painted).toContain(
-      `  ${paint("red", "✗")} review     In review: no such column on the board`,
-    );
-    expect(painted).toContain(
-      `  ${paint("yellow", "?")} Blocked    no state: left alone`,
-    );
-    expect(painted).toContain(`  ${paint("dim", "-")} Cost       off`);
-    expect(painted.slice(0, 3)).toEqual([
-      'Board 7, "Roadmap"',
+    const report = boardReport(7, stockBoard(), boardConfigOf(s), s).map(look);
+    expect(report.slice(0, 3)).toEqual([
+      'Board 7, {name:"Roadmap"}',
       "",
-      "tickets.columns",
+      "{heading:tickets.columns}",
     ]);
-    expect(painted.map((l) => l.replace(/\x1B\[\d+m/g, ""))).toEqual(
-      boardReport(7, stockBoard(), config, s),
+    expect(report).toContain("{heading:tickets.fields}");
+    expect(report).toContain("  {good:✓} {name:backlog}    Todo");
+    expect(report).toContain(
+      "  {bad:✗} {name:review}     In review: no such column on the board",
     );
+    expect(report).toContain(
+      "  {yourTurn:?} {name:Blocked}    no state: left alone",
+    );
+    expect(report).toContain("  {skip:-} {name:Cost}       off");
   });
 
   it("fails the sync with the same words before it writes anything", async () => {
@@ -1417,7 +1414,7 @@ describe("a state with a list of columns", () => {
         { ...listBoard([]), fields: [statusField(...names)] },
         CONFIG,
         LIST,
-      );
+      ).map(plainOf);
     expect(report(BOARD_NAMES)).toContain("  ✓ review     Code review, QA");
     expect(report(BOARD_NAMES)).toContain(
       "  ✓ building   In Progress, Blocked",
@@ -1439,7 +1436,9 @@ describe("a state with a list of columns", () => {
       new Date(at(30)),
       false,
       { color: false, width: null, columns: COLUMNS },
-    ).filter((l) => l && !l.startsWith(" ") && !l.startsWith("#"));
+    )
+      .map(plainOf)
+      .filter((l) => l && !l.startsWith(" ") && !l.startsWith("#"));
     expect(heads).toEqual(
       expect.arrayContaining(["In Progress  1", "Code review  0"]),
     );

@@ -413,7 +413,7 @@ describe("apply", () => {
     const go = () =>
       apply({
         eventName: "review",
-        event: { pull: 31, sha: HEAD, conclusion },
+        event: { pull: 31, sha: HEAD, conclusion, verdict: "ready" },
         pulls: host.codeHost,
         log: (line) => log.push(line),
         ...over,
@@ -421,7 +421,7 @@ describe("apply", () => {
     return { host, log, go };
   };
 
-  it("passes a commit its review found ready, by its status", async () => {
+  it("passes a commit its review's run found ready", async () => {
     const { log, go } = finished();
 
     await go();

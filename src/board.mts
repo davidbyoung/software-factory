@@ -21,13 +21,6 @@
 // Tickets and the board go through the ticket interface (`tickets/`); the
 // pull requests through `code-host/`.
 import { TICKET_LABELS } from "./labels.mts";
-import {
-  colorOn,
-  painter,
-  plain,
-  type Paint,
-  type StyleFormat,
-} from "./lib/color.mts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -76,6 +69,7 @@ import {
   type Tickets,
   type Write,
 } from "./tickets/types.mts";
+import * as say from "./lib/output.mts";
 
 export type { Write };
 
@@ -374,12 +368,12 @@ export function boardRows(
   return { columns, fields: rows };
 }
 
-const MARKS: Record<BoardRow["state"], [string, StyleFormat | null]> = {
-  pass: ["✓", "green"],
-  fail: ["✗", "red"],
-  unknown: ["?", "yellow"],
-  off: ["-", "dim"],
-  none: [" ", null],
+const MARKS: Record<BoardRow["state"], say.MarkKind | null> = {
+  pass: "ok",
+  fail: "fail",
+  unknown: "look",
+  off: "off",
+  none: null,
 };
 
 /** The report `factory board check` prints: each state's column, then each
@@ -389,21 +383,18 @@ export function boardReport(
   board: Board,
   cfg: BoardConfig,
   settings: Pick<Settings, "builds">,
-  paint: Paint = plain,
-): string[] {
+): say.Line[] {
   const rows = boardRows(board.fields, cfg, settings, board.columnField);
-  const row = (r: BoardRow) => {
-    const [mark, color] = MARKS[r.state];
-    return `  ${color ? paint(color, mark) : mark} ${r.key.padEnd(10)} ${r.text}`;
-  };
+  const row = (r: BoardRow) =>
+    say.row(r.key, r.text, { width: 10, mark: MARKS[r.state] });
   // A poller you host has no settings file, so it is told what differs
   // from the defaults, as it is told the ready column.
   const hosted = settings.builds.trigger === "own-server";
-  const poller: string[] = [];
+  const poller: say.Line[] = [];
   if (hosted && cfg.factory !== TICKET_LABELS.factory)
     poller.push(
-      "",
-      "tickets.labels",
+      say.BLANK,
+      say.heading("tickets.labels"),
       row({
         state: "unknown",
         key: "label",
@@ -412,8 +403,8 @@ export function boardReport(
     );
   if (hosted && settings.builds.maxPerHour !== MAX_PER_HOUR)
     poller.push(
-      "",
-      "builds",
+      say.BLANK,
+      say.heading("builds"),
       row({
         state: "unknown",
         key: "builds",
@@ -421,12 +412,14 @@ export function boardReport(
       }),
     );
   return [
-    board.title ? `Board ${number}, "${board.title}"` : `Board ${number}`,
-    "",
-    "tickets.columns",
+    board.title
+      ? say.text(`Board ${number}, `, say.name(`"${board.title}"`))
+      : say.text(`Board ${number}`),
+    say.BLANK,
+    say.heading("tickets.columns"),
     ...rows.columns.map(row),
-    "",
-    "tickets.fields",
+    say.BLANK,
+    say.heading("tickets.fields"),
     ...rows.fields.map(row),
     ...poller,
   ];
@@ -648,14 +641,14 @@ export type Deps = {
   runner: (repository: string, name: string) => Pick<Runner, "runPage">;
   env: Record<string, string | undefined>;
   now: () => Date;
-  out: (line: string) => void;
+  out: say.Out;
+  err: say.Out;
   readFile: (path: string) => string;
   writeFile: (path: string, text: string) => void;
   /** The factory's settings: the ticket system, and the board's number
    * and the repository where FACTORY_BOARD_NUMBER and GITHUB_REPOSITORY do
    * not name them. */
   settings: () => Promise<Settings>;
-  paint?: Paint;
 };
 
 /** The dependencies, with the repository the command works on and its
@@ -674,11 +667,11 @@ async function postAll(comments: Comment[], d: Ctx, dryRun: boolean) {
   for (const c of comments) {
     const first = c.body.split("\n")[0];
     if (dryRun) {
-      d.out(`would comment on ${d.tickets.ref(c.issue)}: ${first}`);
+      d.out(say.text(`would comment on ${d.tickets.ref(c.issue)}: ${first}`));
       continue;
     }
     await d.tickets.record.add(c.issue, c.entry);
-    d.out(`commented on ${d.tickets.ref(c.issue)}: ${first}`);
+    d.out(say.text(`commented on ${d.tickets.ref(c.issue)}: ${first}`));
   }
 }
 
@@ -689,7 +682,7 @@ async function finishAll(keys: Key[], pull: number, d: Ctx, dryRun: boolean) {
   for (const key of keys) {
     const line = `${d.tickets.ref(key)}: pull request #${pull} merged`;
     if (dryRun) {
-      d.out(`would finish ${line}`);
+      d.out(say.text(`would finish ${line}`));
       continue;
     }
     const link = d.pulls.address?.(pull) ?? `#${pull}`;
@@ -698,7 +691,7 @@ async function finishAll(keys: Key[], pull: number, d: Ctx, dryRun: boolean) {
       entryFor({ kind: "merged", pull, link }, d.config.columns),
     );
     await d.tickets.finish(key);
-    d.out(`finished ${line}`);
+    d.out(say.text(`finished ${line}`));
   }
 }
 
@@ -815,7 +808,8 @@ async function apply(
   if (inspected.problems.length)
     throw new Error(`The board: ${inspected.problems.join("; ")}.`);
   for (const line of inspected.lines)
-    if (line.text.startsWith("skipped")) d.out(`${line.label} ${line.text}`);
+    if (line.text.startsWith("skipped"))
+      d.out(say.text(`${line.label} ${line.text}`));
   const plans = planSync(
     snapshotOf(saved, d.now(), d.config),
     board,
@@ -823,7 +817,7 @@ async function apply(
     d.config,
   );
   for (const plan of plans) {
-    d.out(logLine(plan, d.ref));
+    d.out(say.text(logLine(plan, d.ref)));
     if (!write || (plan.writes.length === 0 && plan.column === null)) continue;
     const itemId = plan.itemId ?? (await write.add(plan.key));
     if (plan.column !== null) await write.move(itemId, plan.column);
@@ -908,7 +902,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
     if (argv[0] === "check") {
       const found = await boardOps.read();
       const number = await projectNumber(deps);
-      for (const line of boardReport(number, found, config, settings, d.paint))
+      for (const line of boardReport(number, found, config, settings))
         d.out(line);
       const rows = boardRows(found.fields, config, settings, found.columnField);
       return [...rows.columns, ...rows.fields].some((r) => r.state === "fail")
@@ -931,7 +925,7 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
     await apply(saved, await boardOps.read(), { ...d, ref }, null);
     return 0;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    deps.err(say.text(error instanceof Error ? error.message : String(error)));
     return 1;
   }
 }
@@ -950,11 +944,10 @@ export function boardDeps(argv: string[]): Deps {
     runner: (repository, name) => openRunner(repository, name),
     env: process.env,
     now: () => (nowArg ? new Date(nowArg) : new Date()),
-    out: (line) => console.log(line),
+    ...say.printersFor(argv[0] === "check" ? "board check" : "board"),
     readFile: (path) => readFileSync(path, "utf8"),
     writeFile: (path, text) => writeFileSync(path, text),
     settings: () => loadSettings(),
-    paint: painter(colorOn()),
   };
 }
 

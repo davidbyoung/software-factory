@@ -2,7 +2,7 @@
 
 ## Purpose
 
-When the commands a person reads print in color, and what each colors. The commands this capability covers are `factory doctor`, `init`'s closing checks, `factory board check`, `factory preset add`, `factory preset remove`, `factory config explain`, and `factory status`.
+When what a person's command prints is in color, and what each look says. The capability covers every command `factory`'s usage lists and the usage itself, other than `config get`, `default-branch`, `plugins`, `preset changes`, `specs list`, and `specs new`. Where a line here names another by its number, the numbers are those of the ticket that wrote it.
 
 ## Requirements
 
@@ -51,41 +51,14 @@ The factory SHALL behave as this line says: When they print in color, their text
 - **WHEN** they print in color
 - **THEN** their text with the color codes taken out is exactly the plain text.
 
-### Requirement: Doctor's marks are colored
-
-The factory SHALL behave as this line says: When `factory doctor` prints in color, a `✓` is green, a `✗` red, a `-` dim, and a `?` yellow, and the text after the mark, a fix included, is not colored.
-
-#### Scenario: Doctor's marks are colored
-
-- **WHEN** `factory doctor` prints in color
-- **THEN** a `✓` is green, a `✗` red, a `-` dim, and a `?` yellow, and the text after the mark, a fix included, is not colored.
-
-### Requirement: Init's checks are colored
-
-The factory SHALL behave as this line says: When `init` prints its closing checks in color, each check line is colored as line 6 says, and the lines before `Checks` are not colored.
-
-#### Scenario: Init's checks are colored
-
-- **WHEN** `init` prints its closing checks in color
-- **THEN** each check line is colored as line 6 says, and the lines before `Checks` are not colored.
-
 ### Requirement: The preset summary's changes are colored
 
-The factory SHALL behave as this line says: When `factory preset add` or `factory preset remove` prints its summary in color, each group's heading is bold, an `+ ITEM` is green and a `− ITEM` red, sign included, and in an `OLD → NEW` row, in any group, the old value is dim and the new one bold, with the arrow and any `, from PRESET` after it not colored.
+The factory SHALL behave as this line says: When `factory preset add` or `factory preset remove` prints its summary in color, each group's heading is bold and underlined, an `+ ITEM` is green and a `− ITEM` red, sign included, and in an `OLD → NEW` row, in any group, the old value is dim and the new one bold, with the arrow and any `, from PRESET` after it not colored.
 
 #### Scenario: The preset summary's changes are colored
 
 - **WHEN** `factory preset add` or `factory preset remove` prints its summary in color
-- **THEN** each group's heading is bold, an `+ ITEM` is green and a `− ITEM` red, sign included, and in an `OLD → NEW` row, in any group, the old value is dim and the new one bold, with the arrow and any `, from PRESET` after it not colored.
-
-### Requirement: The preset summary's choices stay plain
-
-The factory SHALL behave as this line says: When the summary prints in color, the rows under `disagrees with PRESET` and `replaced by your .claude/factory.yaml`, the first line, the `writes` and `deletes` lines, the `Choose:` questions, and `Apply? [y/N]` are not colored.
-
-#### Scenario: The preset summary's choices stay plain
-
-- **WHEN** the summary prints in color
-- **THEN** the rows under `disagrees with PRESET` and `replaced by your .claude/factory.yaml`, the first line, the `writes` and `deletes` lines, the `Choose:` questions, and `Apply? [y/N]` are not colored.
+- **THEN** each group's heading is bold and underlined, an `+ ITEM` is green and a `− ITEM` red, sign included, and in an `OLD → NEW` row, in any group, the old value is dim and the new one bold, with the arrow and any `, from PRESET` after it not colored.
 
 ### Requirement: Config explain dims its defaults
 
@@ -98,27 +71,270 @@ The factory SHALL behave as this line says: When `factory config explain` prints
 
 ### Requirement: Config explain colors the lock's settings
 
-The factory SHALL behave as this line says: When `factory config explain` prints the settings the lock records, it colors them as line 11 says, as it does when it resolves them.
+The factory SHALL behave as this line says: When `factory config explain` prints the settings the lock records, it colors them as "Config explain dims its defaults" says, as it does when it resolves them.
 
 #### Scenario: Config explain colors the lock's settings
 
 - **WHEN** `factory config explain` prints the settings the lock records
-- **THEN** it colors them as line 11 says, as it does when it resolves them.
+- **THEN** it colors them as "Config explain dims its defaults" says, as it does when it resolves them.
 
 ### Requirement: Status colors and links follow the rule
 
-The factory SHALL behave as this line says: When `factory status` prints in color, its ticket and pull request numbers are links and its groups, marks, and counts take the colors they take today, and when it prints plain text, they are neither links nor colored.
+The factory SHALL behave as this line says: When `factory status` prints in color, its ticket and pull request numbers are links, and when it prints plain text, they are neither links nor colored.
 
 #### Scenario: Status colors and links follow the rule
 
 - **WHEN** `factory status` prints in color
-- **THEN** its ticket and pull request numbers are links and its groups, marks, and counts take the colors they take today, and when it prints plain text, they are neither links nor colored.
+- **THEN** its ticket and pull request numbers are links, and when it prints plain text, they are neither links nor colored.
 
-### Requirement: Board check's marks are colored
+### Requirement: A person's commands follow the scheme
 
-The factory SHALL behave as this line says: When `factory board check` prints in color, each row's mark is colored as `doctor`'s are, `✓` green, `✗` red, `?` yellow, and `-` dim, and the text after it, the headings, and the first line are not colored.
+The factory SHALL behave as this line says: When a person's command prints in color, it follows lines 4 to 28 and the requirements "The preset summary's changes are colored" and "Config explain dims its defaults", and everything those do not name is plain.
 
-#### Scenario: Board check's marks are colored
+#### Scenario: A person's commands follow the scheme
 
-- **WHEN** `factory board check` prints in color
-- **THEN** each row's mark is colored as `doctor`'s are, `✓` green, `✗` red, `?` yellow, and `-` dim, and the text after it, the headings, and the first line are not colored.
+- **WHEN** a person's command prints in color
+- **THEN** it follows lines 4 to 28 and the requirements "The preset summary's changes are colored" and "Config explain dims its defaults", and everything those do not name is plain.
+
+### Requirement: What a skill or a workflow takes as it is has no color
+
+The factory SHALL behave as this line says: When `factory config get`, `default-branch`, `plugins`, `preset changes`, `specs list`, `specs new`, or a command the usage does not list prints, its standard output and standard error hold no color code, whatever `FORCE_COLOR` is.
+
+#### Scenario: What a skill or a workflow takes as it is has no color
+
+- **WHEN** `factory config get`, `default-branch`, `plugins`, `preset changes`, `specs list`, `specs new`, or a command the usage does not list prints
+- **THEN** its standard output and standard error hold no color code, whatever `FORCE_COLOR` is.
+
+### Requirement: Each stream decides for itself
+
+The factory SHALL behave as this line says: When a person's command prints to standard output and to standard error, each is in color or plain by that stream alone: with standard error sent to a file and `FORCE_COLOR` not set, the file holds no color code.
+
+#### Scenario: Each stream decides for itself
+
+- **WHEN** a person's command prints to standard output and to standard error
+- **THEN** each is in color or plain by that stream alone: with standard error sent to a file and `FORCE_COLOR` not set, the file holds no color code.
+
+### Requirement: The colors no line uses
+
+The factory SHALL behave as this line says: When a person's command prints in color, no line uses blue, magenta, or a bright color, and yellow is never bold.
+
+#### Scenario: The colors no line uses
+
+- **WHEN** a person's command prints in color
+- **THEN** no line uses blue, magenta, or a bright color, and yellow is never bold.
+
+### Requirement: Headings
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Headings
+
+- **WHEN** a heading prints in color
+- **THEN** its words are bold and underlined. A heading is `Found`, `From the presets, so not asked`, `Stored for OWNER, so not asked`, `This is everything setup will do:`, `This is everything remove will do:`, `Checks`, `doctor`'s group names, `tickets.columns` and `tickets.fields` in `board check`, each column name of a table, each group's name in a preset's summary, a tool's name in `remove`'s list, the usage's group names, and the name of a group in `status` that holds a row, since line 22 says what an empty one takes.
+
+### Requirement: Row labels
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: Row labels
+
+- **WHEN** a row prints in color
+- **THEN** its label is bold and its value is plain. A row's label is the first cell of a line of `init`'s or `init --org`'s `Found` block or plan, of the blocks of what was not asked, of `board check`, of the column table and the ticket field table, of a preset summary's settings and its `writes`, `deletes`, and `runs` lines, of `preset choices` and `preset check`, of `remove`'s plan, and of `site compare`'s changed views, whose label is the page. A finding `site compare` prints, measured or from a repository's own check, is no row.
+
+### Requirement: A value of none yet
+
+The factory SHALL behave as this line says: When a row's value is `none yet`, it is dim in color.
+
+#### Scenario: A value of none yet
+
+- **WHEN** a row's value is `none yet`
+- **THEN** it is dim in color.
+
+### Requirement: Questions
+
+The factory SHALL behave as this line says: When a question is asked in color, its words are bold, what a typed question offers in brackets with them, such as `[y/N]` in `Apply? [y/N]`, in `init`, `init --org`, `remove`, and the `preset` commands.
+
+#### Scenario: Questions
+
+- **WHEN** a question is asked in color
+- **THEN** its words are bold, what a typed question offers in brackets with them, such as `[y/N]` in `Apply? [y/N]`, in `init`, `init --org`, `remove`, and the `preset` commands.
+
+### Requirement: The name a command is about
+
+The factory SHALL behave as this line says: When a command's first line names the organization, repository, preset, or board it is about, that name is bold in color: `acme` in `Setting up the software factory for the organization acme`, and `"TITLE"` in `Board 12, "TITLE"`. So are the pull request in `✓ Opened`, and the preset in `✓ Added` and `✓ Removed`.
+
+#### Scenario: The name a command is about
+
+- **WHEN** a command's first line names the organization, repository, preset, or board it is about
+- **THEN** that name is bold in color: `acme` in `Setting up the software factory for the organization acme`, and `"TITLE"` in `Board 12, "TITLE"`. So are the pull request in `✓ Opened`, and the preset in `✓ Added` and `✓ Removed`.
+
+### Requirement: The factory's commands
+
+The factory SHALL behave as this line says: When a line holds a `factory` command the factory has, the command is cyan in color, with its flags and arguments: `factory init --org https://github.com/acme` in `an owner runs factory init --org https://github.com/acme`, and `factory init` alone in `Run factory init again.`
+
+#### Scenario: The factory's commands
+
+- **WHEN** a line holds a `factory` command the factory has
+- **THEN** the command is cyan in color, with its flags and arguments: `factory init --org https://github.com/acme` in `an owner runs factory init --org https://github.com/acme`, and `factory init` alone in `Run factory init again.`
+
+### Requirement: Addresses
+
+The factory SHALL behave as this line says: When a line holds an `http` or `https` address, the address is cyan in color, without the punctuation that ends its sentence.
+
+#### Scenario: Addresses
+
+- **WHEN** a line holds an `http` or `https` address
+- **THEN** the address is cyan in color, without the punctuation that ends its sentence.
+
+### Requirement: Skills
+
+The factory SHALL behave as this line says: When a line holds a `/factory-` skill, the skill and the argument after it are cyan in color, such as `/factory-refine N`.
+
+#### Scenario: Skills
+
+- **WHEN** a line holds a `/factory-` skill
+- **THEN** the skill and the argument after it are cyan in color, such as `/factory-refine N`.
+
+### Requirement: Another tool's commands
+
+The factory SHALL behave as this line says: When a line gives another tool's command to run, that command is cyan in color: what follows `Run: `, `claude setup-token` in `running claude setup-token...`, the `npm install` commands, `git switch BRANCH && git pull`, each `FACTORY_` line of the poller's values, the signing key to add, and the command after `$ ` in `factory gate`.
+
+#### Scenario: Another tool's commands
+
+- **WHEN** a line gives another tool's command to run
+- **THEN** that command is cyan in color: what follows `Run: `, `claude setup-token` in `running claude setup-token...`, the `npm install` commands, `git switch BRANCH && git pull`, each `FACTORY_` line of the poller's values, the signing key to add, and the command after `$ ` in `factory gate`.
+
+### Requirement: The usage's commands
+
+The factory SHALL behave as this line says: When the usage prints in color, `factory COMMAND` and each command's name with its arguments are cyan.
+
+#### Scenario: The usage's commands
+
+- **WHEN** the usage prints in color
+- **THEN** `factory COMMAND` and each command's name with its arguments are cyan.
+
+### Requirement: What the person does
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: What the person does
+
+- **WHEN** a list of what the person does prints in color
+- **THEN** the line that heads it and each step's number are yellow, and a step's words are plain but for lines 10 to 13. Such a line is `Merge it to finish.` with what follows on its line, `Nothing else is left to do.` included, since merging is the person's, `Left to do:`, `After it merges:`, `After it merges, come back to BRANCH and bring it up to date:`, `Next, in each repository you want the factory in:`, the line `Registering the ... Two steps, both in your browser.`, `Choose:`, and `Nothing is committed. Left for you to do by hand:`.
+
+### Requirement: What the person adds by hand
+
+The factory SHALL behave as this line says: When `init` or `init --org` asks the person to add something by hand, in a line that starts `Add this public key to`, `Add these columns to`, or `Add any of these fields`, that line is yellow in color up to and with its last colon.
+
+#### Scenario: What the person adds by hand
+
+- **WHEN** `init` or `init --org` asks the person to add something by hand, in a line that starts `Add this public key to`, `Add these columns to`, or `Add any of these fields`
+- **THEN** that line is yellow in color up to and with its last colon.
+
+### Requirement: Marks
+
+The factory SHALL behave as this line says: When a line starts with a mark in color, after its indent, `✓` is green, `✗` and `⚠` are red, `?` is yellow, and `-` is dim, and the text after it is plain but for lines 6, 9 to 13, 22, and 24.
+
+#### Scenario: Marks
+
+- **WHEN** a line starts with a mark in color, after its indent
+- **THEN** `✓` is green, `✗` and `⚠` are red, `?` is yellow, and `-` is dim, and the text after it is plain but for lines 6, 9 to 13, 22, and 24.
+
+### Requirement: A failure with no mark
+
+The factory SHALL behave as this line says: When a line starts with `Could not` in color, it is red up to and with its first colon, or whole when it has none.
+
+#### Scenario: A failure with no mark
+
+- **WHEN** a line starts with `Could not` in color
+- **THEN** it is red up to and with its first colon, or whole when it has none.
+
+### Requirement: An update's old and new values
+
+The factory SHALL behave as this line says: When `factory update` prints an old value and a new one with an arrow between, the old one is dim and the new one bold in color, as in a preset's summary.
+
+#### Scenario: An update's old and new values
+
+- **WHEN** `factory update` prints an old value and a new one with an arrow between
+- **THEN** the old one is dim and the new one bold in color, as in a preset's summary.
+
+### Requirement: Work that is running
+
+The factory SHALL behave as this line says: When a line says work is running in color, it is dim: `Asking AGENT which of ...`, `Trying the token...`, `Trying the API key...`, and `Downloading the factory VERSION, which this repository names. This happens once.`
+
+#### Scenario: Work that is running
+
+- **WHEN** a line says work is running in color
+- **THEN** it is dim: `Asking AGENT which of ...`, `Trying the token...`, `Trying the API key...`, and `Downloading the factory VERSION, which this repository names. This happens once.`
+
+### Requirement: The marks of a question
+
+The factory SHALL behave as this line says: When `init`, `init --org`, or `remove` asks a question, an open one starts with `?`, yellow in color, and an answered one with `✓`, green in color, in place of the prompt library's own mark. The answer and the choice under the cursor are cyan, the hint and a default dim, and a secret's dots plain.
+
+#### Scenario: The marks of a question
+
+- **WHEN** `init`, `init --org`, or `remove` asks a question
+- **THEN** an open one starts with `?`, yellow in color, and an answered one with `✓`, green in color, in place of the prompt library's own mark. The answer and the choice under the cursor are cyan, the hint and a default dim, and a secret's dots plain.
+
+### Requirement: Status's numbers, times, and empty groups
+
+The factory SHALL behave as this line says: When `factory status` prints in color, the number of a ticket, or of a pull request that is a row of its own or is listed as done, is cyan and a link, `Waiting on you` is yellow, and a group's count, a time, a card's pull request line, and the whole heading of an empty group are dim.
+
+#### Scenario: Status's numbers, times, and empty groups
+
+- **WHEN** `factory status` prints in color
+- **THEN** the number of a ticket, or of a pull request that is a row of its own or is listed as done, is cyan and a link, `Waiting on you` is yellow, and a group's count, a time, a card's pull request line, and the whole heading of an empty group are dim.
+
+### Requirement: Status's flags
+
+The factory SHALL behave as this line says: When `factory status` prints a flag under a ticket in color, the line is red, as today.
+
+#### Scenario: Status's flags
+
+- **WHEN** `factory status` prints a flag under a ticket in color
+- **THEN** the line is red, as today.
+
+### Requirement: Status's reviewers
+
+The factory SHALL behave as this line says: When `factory status` prints a reviewer's row in color, its mark and its result are green for passed, red for failed, dim for running, and yellow for no verdict or stopped without one, its name is plain, and its model, time, and cost are dim.
+
+#### Scenario: Status's reviewers
+
+- **WHEN** `factory status` prints a reviewer's row in color
+- **THEN** its mark and its result are green for passed, red for failed, dim for running, and yellow for no verdict or stopped without one, its name is plain, and its model, time, and cost are dim.
+
+### Requirement: Another tool's output
+
+The factory SHALL behave as this line says: When a command prints another tool's output, such as the last lines of a gate that failed in `init`, `factory config explain` prints the settings, or `site compare` prints what a repository's own check found, lines 10 to 13, 17, and 18 color nothing in it.
+
+#### Scenario: Another tool's output
+
+- **WHEN** a command prints another tool's output, such as the last lines of a gate that failed in `init`, `factory config explain` prints the settings, or `site compare` prints what a repository's own check found
+- **THEN** lines 10 to 13, 17, and 18 color nothing in it.
+
+### Requirement: The launcher's mark
+
+The factory SHALL behave as this line says: When the launcher stops with a line that starts with `✗`, the mark is red in color.
+
+#### Scenario: The launcher's mark
+
+- **WHEN** the launcher stops with a line that starts with `✗`
+- **THEN** the mark is red in color.
+
+### Requirement: A typed answer
+
+The factory SHALL behave as this line says: When a preset's question is answered by typing, as `Apply? [y/N]` is, what is typed is plain.
+
+#### Scenario: A typed answer
+
+- **WHEN** a preset's question is answered by typing, as `Apply? [y/N]` is
+- **THEN** what is typed is plain.
+
+### Requirement: The preset summary's signs
+
+The factory SHALL behave as this line says: When a preset's summary prints in color, an `+ ITEM` is green and a `− ITEM` red, sign included, as today.
+
+#### Scenario: The preset summary's signs
+
+- **WHEN** a preset's summary prints in color
+- **THEN** an `+ ITEM` is green and a `− ITEM` red, sign included, as today.

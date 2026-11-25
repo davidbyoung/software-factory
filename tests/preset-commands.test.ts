@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { load } from "js-yaml";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { painter } from "../src/lib/color.mts";
 import {
   defaultDeps,
   filesDeps,
@@ -39,6 +38,8 @@ import {
   repo,
   type PresetFiles,
 } from "./preset-fixture.ts";
+import type { Out } from "../src/lib/output.mts";
+import { into } from "./printed";
 
 let root = "";
 afterEach(() => {
@@ -102,6 +103,8 @@ const REPOS: Record<string, Record<string, PresetFiles>> = {
 type Run = {
   code: number;
   out: string[];
+  /** What `out` holds, in color. */
+  looks: string[];
   err: string[];
   asked: string[];
   /** Each call to git for a preset's repository. */
@@ -128,7 +131,7 @@ async function setUp(
   await sync();
 }
 
-async function sync(out: (l: string) => void = () => {}) {
+async function sync(out: Out = () => {}) {
   return syncMain([], {
     root,
     pkg: PACKAGE,
@@ -147,7 +150,7 @@ async function preset(
   answers: string[] = [],
   over: Partial<PresetDeps> = {},
 ): Promise<Run> {
-  const r: Run = { code: 0, out: [], err: [], asked: [], git: [] };
+  const r: Run = { code: 0, out: [], looks: [], err: [], asked: [], git: [] };
   const fs = filesDeps(root, {});
   const git: Git = (args, o) => {
     r.git.push(args);
@@ -156,8 +159,8 @@ async function preset(
   const d: PresetDeps = {
     root,
     cwd: root,
-    out: (l) => r.out.push(l),
-    err: (l) => r.err.push(l),
+    out: into(r.out, r.looks),
+    err: into(r.err),
     terminal: true,
     ask: async (q) => {
       r.asked.push(q);
@@ -356,29 +359,34 @@ describe("factory preset add", () => {
     expect(state()).toEqual(before);
   });
 
-  it("colors the summary when it paints, even outside a terminal", async () => {
+  it("has a bold name, underlined group headings, and bold labels in its summary", async () => {
     await setUp([ACME], GATE);
-    const paint = painter(true);
-    const r = await preset(["add", NODE, "--dry-run"], [], {
-      terminal: false,
-      paint,
-    });
-    expect(r.out).toEqual([
-      `${NODE} at ${short()}, from November 20, would change these settings here:`,
+    const r = await preset(["add", NODE, "--dry-run"], [], { terminal: false });
+    expect(r.looks).toEqual([
+      `{name:${NODE}} at ${short()}, from November 20, would change these settings here:`,
       "",
-      `  ${paint("bold", "added")}`,
-      `    plugins.build.reviewers    ${paint("green", "+ node-deps-reviewer")}`,
-      `    pr-review.commands         ${paint("green", "+ npm audit")}`,
-      `  ${paint("bold", "replaces the default")}`,
-      `    rules.review-rounds        ${paint("dim", "2")} → ${paint("bold", "3")}`,
-      `  ${paint("bold", `disagrees with ${ACME}`)}`,
-      `    rules.small-change-lines   ${ACME}: 40   this preset: 30`,
-      `  ${paint("bold", "replaced by your .claude/factory.yaml")}`,
-      "    commands.gate              yours: npm run check   this preset's: npm test",
+      "  {heading:added}",
+      "    {name:plugins.build.reviewers}    {good:+ node-deps-reviewer}",
+      "    {name:pr-review.commands}         {good:+ npm audit}",
+      "  {heading:replaces the default}",
+      "    {name:rules.review-rounds}        {skip:2} → {name:3}",
+      `  {heading:disagrees with ${ACME}}`,
+      `    {name:rules.small-change-lines}   ${ACME}: 40   this preset: 30`,
+      "  {heading:replaced by your .claude/factory.yaml}",
+      "    {name:commands.gate}              yours: npm run check   this preset's: npm test",
       "",
-      "  writes .claude/agents/node-deps-reviewer.md",
-      "  runs   npm audit, in the review",
+      "  {name:writes} .claude/agents/node-deps-reviewer.md",
+      "  {name:runs}   npm audit, in the review",
     ]);
+  });
+
+  it("says in yellow that a choice is the person's, and names what it added in bold", async () => {
+    await setUp([ACME], GATE);
+    const r = await preset(["add", NODE], ["30", "keep", "y"]);
+    expect(r.looks).toContain("{yourTurn:Choose:}");
+    expect(r.looks).toContainEqual(
+      expect.stringContaining(`{good:✓} Added {name:${NODE}} to `),
+    );
   });
 
   it("writes the lock without color, even where FORCE_COLOR asks for it", async () => {
@@ -756,23 +764,22 @@ describe("factory preset remove", () => {
     expect(read(root, ".claude/factory.yaml")).toBe(own([ACME]));
   });
 
-  it("colors the summary when it paints", async () => {
+  it("has red signs, dim old values, and bold new ones in its summary", async () => {
     await both();
-    const paint = painter(true);
-    const r = await preset(["remove", NODE, "--dry-run"], [], { paint });
-    expect(r.out).toEqual([
-      `Removing ${NODE} would change these settings here:`,
+    const r = await preset(["remove", NODE, "--dry-run"]);
+    expect(r.looks).toEqual([
+      `Removing {name:${NODE}} would change these settings here:`,
       "",
-      `  ${paint("bold", "removed")}`,
-      `    plugins.build.reviewers    ${paint("red", "− node-deps-reviewer")}`,
-      `    pr-review.commands         ${paint("red", "− npm audit")}`,
-      `  ${paint("bold", "back to the default")}`,
-      `    rules.review-rounds        ${paint("dim", "3")} → ${paint("bold", "2")}`,
-      `    commands.gate              ${paint("dim", "npm test")} → ${paint("bold", "none")}`,
-      `  ${paint("bold", "back to a value you chose against")}`,
-      `    rules.small-change-lines   ${paint("dim", "30")} → ${paint("bold", "40")}, from ${ACME}`,
+      "  {heading:removed}",
+      "    {name:plugins.build.reviewers}    {bad:− node-deps-reviewer}",
+      "    {name:pr-review.commands}         {bad:− npm audit}",
+      "  {heading:back to the default}",
+      "    {name:rules.review-rounds}        {skip:3} → {name:2}",
+      "    {name:commands.gate}              {skip:npm test} → {name:none}",
+      "  {heading:back to a value you chose against}",
+      `    {name:rules.small-change-lines}   {skip:30} → {name:40}, from ${ACME}`,
       "",
-      "  deletes .claude/agents/node-deps-reviewer.md",
+      "  {name:deletes} .claude/agents/node-deps-reviewer.md",
     ]);
   });
 

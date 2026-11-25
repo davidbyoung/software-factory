@@ -28,6 +28,7 @@ import {
   type Setup,
 } from "./init-harness";
 import { fetching, publish } from "./preset-fixture";
+import { into } from "./printed";
 
 const ROOT = "acme/factory-config";
 const NODE = `${ROOT}//node`;
@@ -479,7 +480,7 @@ describe("the presets as init reads and pins them", () => {
     return {
       out,
       asked: s.asked,
-      d: { ask: s.ask, out: (l: string) => out.push(l) },
+      d: { ask: s.ask, out: into(out) },
     };
   };
 

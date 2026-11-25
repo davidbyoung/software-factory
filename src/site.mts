@@ -49,6 +49,7 @@ import {
   stopKept,
   stopProcess,
 } from "./site/servers.mts";
+import * as say from "./lib/output.mts";
 
 export type Row = {
   page: string;
@@ -284,21 +285,27 @@ export async function compareSites(o: {
 
 const n = (x: number) => x.toLocaleString("en-US");
 
-export function table(r: Report): string[] {
+export function table(r: Report): say.Line[] {
   const lines = [
-    `${r.pages.length} pages, ${r.rows.length / Math.max(1, r.pages.length)} views each.`,
-    "",
+    say.text(
+      `${r.pages.length} pages, ${r.rows.length / Math.max(1, r.pages.length)} views each.`,
+    ),
+    say.BLANK,
   ];
   for (const row of r.rows) {
     if (row.status === "same") continue;
     const rows = row.rows ? `rows ${n(row.rows[0])} to ${n(row.rows[1])}` : "";
     lines.push(
-      `  ${row.page.padEnd(28)} ${String(row.width).padStart(4)} ${row.scheme.padEnd(5)}  ${row.status.padEnd(8)} ${n(row.pixels)} px  ${rows}`.trimEnd(),
+      say.row(
+        row.page,
+        `${String(row.width).padStart(4)} ${row.scheme.padEnd(5)}  ${row.status.padEnd(8)} ${n(row.pixels)} px  ${rows}`.trimEnd(),
+        { width: 28 },
+      ),
     );
   }
-  lines.push(`  ${r.unchanged} pages did not change.`);
+  lines.push(say.text(`  ${r.unchanged} pages did not change.`));
   if (r.darkSkipped)
-    lines.push("  The site has no dark mode, so dark was skipped.");
+    lines.push(say.text("  The site has no dark mode, so dark was skipped."));
   return lines;
 }
 
@@ -336,7 +343,7 @@ export function givenUrls(
   return null;
 }
 
-async function compare(argv: string[]): Promise<number> {
+async function compare(argv: string[], out: say.Out): Promise<number> {
   const root = repoRoot();
   const settings = await loadSettings();
   const site = settings.site;
@@ -390,7 +397,9 @@ async function compare(argv: string[]): Promise<number> {
       started = { after: a.pid, before: b.pid };
       after = a.url;
       before = b.url;
-      console.log(`Started this branch at ${after} and ${base} at ${before}.`);
+      out(
+        say.text(`Started this branch at ${after} and ${base} at ${before}.`),
+      );
     }
     const folder = join(
       root,
@@ -405,8 +414,8 @@ async function compare(argv: string[]): Promise<number> {
       folder,
       browser,
     });
-    for (const line of table(report)) console.log(line);
-    for (const f of report.measured) console.log(formatFinding(f));
+    for (const line of table(report)) out(line);
+    for (const f of report.measured) out(say.text(say.asIs(formatFinding(f))));
     const changedPages = [
       ...new Set(
         report.rows.filter((r) => r.status !== "same").map((r) => r.page),
@@ -419,12 +428,13 @@ async function compare(argv: string[]): Promise<number> {
       report: folder,
     });
     for (const c of checks)
-      for (const f of c.findings) console.log(`${c.command}: ${f}`);
+      for (const f of c.findings) out(say.verbatim(`${c.command}: ${f}`));
     writeFileSync(
       join(folder, "report.json"),
       JSON.stringify({ ...report, checks }, null, 2),
     );
-    console.log(`\nPictures and the full list: ${folder}/`);
+    out(say.BLANK);
+    out(say.text(`Pictures and the full list: ${folder}/`));
     if (keepRunning && worktree && started) {
       kept = true;
       keep(root, {
@@ -432,8 +442,10 @@ async function compare(argv: string[]): Promise<number> {
         after: { url: after, pid: started.after },
         worktree,
       });
-      console.log(
-        `Left running: ${after} (this branch) and ${before} (base). \`factory site stop\` ends them.`,
+      out(
+        say.text(
+          `Left running: ${after} (this branch) and ${before} (base). \`factory site stop\` ends them.`,
+        ),
       );
     }
     return 0;
@@ -453,21 +465,22 @@ export function stopMessage(stopped: boolean): string {
 
 export async function run(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
+  const { out, err } = say.printersFor(`site ${command}`);
   try {
-    if (command === "compare") return await compare(rest);
+    if (command === "compare") return await compare(rest, out);
     if (command === "stop") {
-      console.log(stopMessage(stopKept(repoRoot())));
+      out(say.text(stopMessage(stopKept(repoRoot()))));
       return 0;
     }
-    console.error("Usage: factory site compare | site stop");
+    err(say.text("Usage: factory site compare | site stop"));
     return 2;
   } catch (e) {
     // Anything that stopped the comparison is a job not done, not a finding.
     if (e instanceof SiteError || e instanceof SettingsError) {
-      console.error(e.message);
+      err(say.text(e.message));
       return 1;
     }
-    console.error(e instanceof Error ? e.message : String(e));
+    err(say.text(e instanceof Error ? e.message : String(e)));
     return 1;
   }
 }

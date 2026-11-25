@@ -45,6 +45,7 @@ import {
   utc,
   type ReviewerRun,
 } from "./lib/work-status.mts";
+import * as say from "./lib/output.mts";
 
 export type HookInput = {
   session_id?: string;
@@ -397,6 +398,6 @@ export async function run(argv: string[]): Promise<number> {
         writeFileSync(statePath(session, issue), JSON.stringify(state)),
     },
     locked,
-    out: (line) => console.log(line),
+    out: say.plainPrinter(),
   }).catch(() => 0);
 }

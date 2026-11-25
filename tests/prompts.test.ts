@@ -2,7 +2,7 @@
 // of a terminal: what a paste, typing, and a stop each give it.
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { readSecret } from "../src/init-shared.mts";
+import { promptTheme, readSecret, typedQuestion } from "../src/lib/prompts.mts";
 
 const PASTE = "\u001b[200~";
 const END = "\u001b[201~";
@@ -12,7 +12,7 @@ const OFF = "\u001b[?2004l";
 
 /** Reads a secret from what a terminal would send, chunk by chunk, and
  * records what is written back and each change of the terminal's mode. */
-function reading(chunks: string[]) {
+function reading(chunks: string[], columns?: number) {
   const input = Object.assign(new PassThrough(), {
     isRaw: false,
     setRawMode(mode: boolean) {
@@ -22,7 +22,7 @@ function reading(chunks: string[]) {
     },
   });
   const modes: boolean[] = [];
-  const output = new PassThrough();
+  const output = Object.assign(new PassThrough(), { columns });
   let written = "";
   output.on("data", (chunk: Buffer) => (written += String(chunk)));
   const answer = readSecret("Paste the token:", { input, output });
@@ -118,5 +118,51 @@ describe("reading a secret at the terminal", () => {
     await r.answer;
     expect(r.modes).toEqual([true, false]);
     expect(r.input.isPaused()).toBe(true);
+  });
+});
+
+describe("a question's looks", () => {
+  const ESC = "\u001b[";
+
+  it("marks an open one yellow and an answered one with a green tick", () => {
+    const { prefix } = promptTheme(true);
+    expect(prefix).toEqual({
+      idle: `${ESC}33m?${ESC}39m`,
+      done: `${ESC}32m✓${ESC}39m`,
+    });
+    expect(promptTheme(false).prefix).toEqual({ idle: "?", done: "✓" });
+  });
+
+  it("has bold words, a cyan answer and choice, and dim hints", () => {
+    const { style } = promptTheme(true);
+    expect(style.message("Go?")).toBe(`${ESC}1mGo?${ESC}22m`);
+    expect(style.answer("Yes")).toBe(`${ESC}36mYes${ESC}39m`);
+    expect(style.highlight("Yes")).toBe(`${ESC}36mYes${ESC}39m`);
+    expect(style.help("arrows")).toBe(`${ESC}2marrows${ESC}22m`);
+    expect(style.defaultAnswer("y/N")).toBe(`${ESC}2m(y/N)${ESC}22m`);
+    expect(style.keysHelpTip([["⏎", "select"]])).toBe(
+      `${ESC}2m⏎ select${ESC}22m`,
+    );
+  });
+
+  it("is bold where the answer is typed, and the spaces around it are not", () => {
+    expect(typedQuestion("  Apply? [y/N] ", true)).toBe(
+      `  ${ESC}1mApply? [y/N]${ESC}22m `,
+    );
+    expect(typedQuestion("Apply? [y/N] ", false)).toBe("Apply? [y/N] ");
+  });
+
+  it("puts the tick over a secret's mark once it is answered, as many rows up as it wrapped to", async () => {
+    const r = reading(["abcdef", ENTER], 10);
+    await r.answer;
+    // "? Paste the token: " and six dots are 25 columns, so the mark is two
+    // rows up.
+    expect(r.written()).toContain(`\u001b7${ESC}2A\r✓\u001b8`);
+  });
+
+  it("puts no tick over a secret's mark when it is stopped", async () => {
+    const r = reading(["a", "\u0003"], 80);
+    await r.answer.catch(() => {});
+    expect(r.written()).not.toContain("✓");
   });
 });

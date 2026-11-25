@@ -312,11 +312,11 @@ The factory SHALL behave as this line says: When `doctor` fails its board check,
 - **WHEN** `doctor` fails its board check, and when the board sync logs a skipped field or stops on the board's fields
 - **THEN** they print today's words, apart from a fix line 25 changes; only `board check`'s report is redesigned.
 
-### Requirement: Marks on the new lines are colored
+### Requirement: Marks on this capability's lines
 
-The factory SHALL behave as this line says: When a line this capability adds starts with `✓` or `✗`, the mark is colored as `doctor`'s are and the text after it is not; headings are not colored.
+The factory SHALL behave as this line says: When a line of this capability starts with `✓` or `✗`, or is a heading, it is colored as `terminal-color` says.
 
-#### Scenario: Marks on the new lines are colored
+#### Scenario: Marks on this capability's lines
 
-- **WHEN** a line this capability adds starts with `✓` or `✗`
-- **THEN** the mark is colored as `doctor`'s are and the text after it is not; headings are not colored.
+- **WHEN** a line of this capability starts with `✓` or `✗`, or is a heading
+- **THEN** it is colored as `terminal-color` says.

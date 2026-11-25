@@ -112,6 +112,9 @@ built or planned.
   bin/factory.js               the launcher: plain JavaScript, no logic of its own
   bin/launch.js                which version the launcher runs, and its download
   src/cli.mts                  reads the command and loads only that command's module
+  src/commands-list.mts        every command, who reads what it prints, and its module
+  src/lib/output.mts           what every command prints through, and the table of looks
+  src/lib/prompts.mts          the questions a command asks at the terminal
   src/                         one module per command, and the shared library
   src/tickets/                 the ticket interface, its GitHub adapter, and the transports
   src/code-host/               the code host's interface and GitHub's implementation of it
@@ -814,6 +817,38 @@ A person reads it in a terminal, often while doing something else.
 - **A fault sits on the line it is about,** with the fix after it.
 - **Success prints one line.** Silence reads as nothing happened.
 - **A command is named as `factory X`,** as the docs write it.
+- **A look has one meaning, and a line asks for the meaning.** A command
+  prints through [`src/lib/output.mts`](../src/lib/output.mts), which
+  holds the one table of looks, and nothing else prints or colors. Each
+  look is below by its name in the code.
+
+  | Role       | Look            | What it says              | Where it shows                                                                                                                                                                                   |
+  | ---------- | --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | `heading`  | Bold underlined | A heading                 | What names a block or a table's columns                                                                                                                                                          |
+  | `name`     | Bold            | The name of what follows  | A row's label, a question, a new value after an arrow, and the one name a line is about, such as the repository in a command's first line                                                        |
+  | `skip`     | Dim             | Skip it                   | `none yet`, an old value, a `-`, that work is running, a setting left at its default, and the times and pull request lines in `status`. Never a label, and never a line that asks for something  |
+  | `copy`     | Cyan            | Copy it, or you chose it  | A command, an address, a `/factory-...` skill, a ticket's number, the choice under the cursor, and the answer given                                                                              |
+  | `yourTurn` | Yellow          | Your turn                 | An open question's `?`, a list of what the person does and its step numbers, `Waiting on you`, and `?` for worth a look. Never bold, which many terminals draw too bright for a white background |
+  | `good`     | Green           | It worked, or was added   | `✓` and `+`                                                                                                                                                                                      |
+  | `bad`      | Red             | It failed, or was removed | `✗`, `−`, `⚠`, and the first words of a failure that has no mark, up to its colon                                                                                                                |
+
+  The text after a mark is plain, except a command, an address, or the
+  name the line is about.
+
+- **A line says what it is:** `heading`, `heads` for a table's column
+  names, `row` for a label and a value, `cells` for a row of more, `step`
+  for one of a list the person does, `action` for what heads that list,
+  `mark`, `note` for work that is running, `verbatim` for another tool's
+  output or a settings file's lines, and `text` for the rest. A `factory`
+  command, an address, a skill, a mark that starts a line, and a failure's
+  first words color themselves in all but `verbatim`. Another tool's
+  command is `copy`, and a person's own words, such as a ticket's title,
+  are `asIs`.
+- **A command is a person's or a machine's:** its entry in
+  `src/commands-list.mts` says which reads its output. A machine's is
+  never in color.
+- **A command's test prints through `into`,** in `tests/printed.ts`, which
+  fails on a row or a step printed as `text`.
 - **Piped output is the same text,** without color. Lines a skill reads
   keep their format.
 - **Another tool's output passes through unchanged.** The factory adds

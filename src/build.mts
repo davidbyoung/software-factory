@@ -12,6 +12,7 @@ import { openCodeHost, type CodeHost } from "./code-host/index.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
 import { keyOf, refOf } from "./tickets/index.mts";
 import type { Key } from "./tickets/types.mts";
+import * as say from "./lib/output.mts";
 
 const USAGE = "Usage: factory build N";
 /** How long to look for the run, and how often. */
@@ -30,13 +31,13 @@ export type Deps = {
   refOf: (type: string) => (key: Key) => string;
   now: () => Date;
   sleep: (ms: number) => Promise<unknown>;
-  out: (line: string) => void;
-  err: (line: string) => void;
+  out: say.Out;
+  err: say.Out;
 };
 
 export async function main(argv: string[], d: Deps): Promise<number> {
   if (argv.length !== 1 || !argv[0] || argv[0].startsWith("-")) {
-    d.err(USAGE);
+    d.err(say.text(USAGE));
     return 2;
   }
   try {
@@ -57,11 +58,11 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       if (link || d.now().getTime() - since >= FIND_FOR_MS) break;
       await d.sleep(EVERY_MS);
     }
-    d.out(`Started a build of ${ref} in GitHub Actions:`);
-    d.out(link ?? runner.buildsPage());
+    d.out(say.text(`Started a build of ${ref} in GitHub Actions:`));
+    d.out(say.text(link ?? runner.buildsPage()));
     return 0;
   } catch (error) {
-    d.err(error instanceof Error ? error.message : String(error));
+    d.err(say.text(error instanceof Error ? error.message : String(error)));
     return 1;
   }
 }
@@ -77,7 +78,6 @@ export async function run(argv: string[]): Promise<number> {
     refOf,
     now: () => new Date(),
     sleep,
-    out: (line) => console.log(line),
-    err: (line) => console.error(line),
+    ...say.printersFor("build"),
   });
 }

@@ -77,6 +77,25 @@ export function hostToolIn(text: string): string[] {
     .map((line) => line.trim());
 }
 
+/** Each line that prints, colors, or asks a question around
+ * `src/lib/output.mts` and `src/lib/prompts.mts`. An escape code read, to
+ * take it out of a text, prints nothing. */
+export function printsIn(text: string): string[] {
+  return text
+    .split("\n")
+    .filter((line) => !/^\s*(?:\/\/|\/?\*)/.test(line))
+    .filter(
+      (line) =>
+        /\bconsole\.\w+\(/.test(line) ||
+        /\bprocess\.(?:stdout|stderr)\.write\b/.test(line) ||
+        /\bstyleText\b/.test(line) ||
+        /@inquirer\//.test(line) ||
+        (/\\(?:u001b|x1b|033)/i.test(line) &&
+          !/^const ESCAPES = \//.test(line)),
+    )
+    .map((line) => line.trim());
+}
+
 /** Each place a source file calls GitHub itself: its API's address, a REST
  * path, or a GraphQL query or mutation. */
 export function githubCallsIn(text: string): string[] {
@@ -291,6 +310,34 @@ describe("factoryAfterCdIn", () => {
     ).toHaveLength(1);
     expect(
       factoryAfterCdIn('factory ticket comment N --body-file "$dir/body.md"'),
+    ).toEqual([]);
+  });
+});
+
+describe("printsIn", () => {
+  it("finds a console call, a stream's write, Node's colors, an escape code, and the prompt library", () => {
+    const lines = [
+      "console.log(line);",
+      'console.error("no");',
+      "process.stdout.write(text);",
+      "out: process.stderr.write,",
+      'import { styleText } from "node:util";',
+      'const RED = "\\u001b[31m";',
+      'const { confirm } = await import("@inquirer/prompts");',
+    ];
+    expect(printsIn(lines.join("\n"))).toEqual(lines);
+  });
+
+  it("lets through the printer, a comment, a hushed console, and a code taken out", () => {
+    expect(
+      printsIn(
+        [
+          "d.out(say.text(line));",
+          "// console.log(line) would lose the color",
+          "console.error = () => {};",
+          "const ESCAPES = /\\u001b\\[[0-9;?]*[ -/]*[@-~]/g;",
+        ].join("\n"),
+      ),
     ).toEqual([]);
   });
 });
@@ -683,6 +730,46 @@ describe("the boundaries", () => {
       hostToolIn(readFileSync(path, "utf8")).map((l) => `${path}: ${l}`),
     );
     expect(found).toEqual([]);
+  });
+
+  it("no source file but the printer and the prompts prints, colors, or asks a question, and no file under bin/ but the launcher", () => {
+    const allowed = [
+      "src/lib/output.mts",
+      "src/lib/prompts.mts",
+      "bin/factory.js",
+    ];
+    const files = ["src", "bin"]
+      .flatMap((dir) => filesUnder(join(PACKAGE, dir)))
+      .map((f) => relative(PACKAGE, f));
+    expect(files).toEqual(expect.arrayContaining(allowed));
+    expect(
+      files
+        .filter((f) => !allowed.includes(f))
+        .flatMap((f) =>
+          printsIn(readFileSync(f, "utf8")).map((l) => `${f}: ${l}`),
+        ),
+    ).toEqual([]);
+  });
+
+  it("no test but the stand-in and the printer's own renders a line itself", () => {
+    const own = [
+      "tests/printed.ts",
+      "tests/output.test.ts",
+      "tests/boundary.test.ts",
+    ];
+    expect(
+      filesUnder(join(PACKAGE, "tests"))
+        .map((f) => relative(PACKAGE, f))
+        .filter((f) => /\.m?ts$/.test(f) && !own.includes(f))
+        .filter((f) => {
+          const text = readFileSync(f, "utf8");
+          return (
+            /import \{[^}]*\brender\b[^}]*\} from "[^"]*output\.mts"/.test(
+              text,
+            ) || /\bsay\.render\(/.test(text)
+          );
+        }),
+    ).toEqual([]);
   });
 
   it("no source file outside src/tickets/, src/code-host/, and src/runner/ calls GitHub", () => {

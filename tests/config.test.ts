@@ -15,12 +15,12 @@ import {
   type Deps,
 } from "../src/config.mts";
 import { matchesGlob } from "../src/lib/glob.mts";
-import { painter } from "../src/lib/color.mts";
-import { paintExplainLines } from "../src/explain.mts";
+import { explainedLines } from "../src/explain.mts";
 import { BUILT } from "../src/tool-names.mts";
 import { builtOf, TOOLS } from "../src/tools.mts";
 import { FACTORY_COLUMNS_YAML } from "./factory-columns";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
+import { into, look } from "./printed";
 
 const MINIMAL = {
   version: 2,
@@ -1303,6 +1303,8 @@ describe("patternWarnings", () => {
 
 function deps(over: Partial<Deps> = {}) {
   const out: string[] = [];
+  /** Every line printed, in color. */
+  const looks: string[] = [];
   const err: string[] = [];
   const d: Deps = {
     readFile: () =>
@@ -1333,11 +1335,11 @@ function deps(over: Partial<Deps> = {}) {
     hasPackage: () => true,
     listFiles: () => ["src/a.ts", "public/x"],
     loadYaml: async () => load,
-    out: (line) => out.push(line),
-    err: (line) => err.push(line),
+    out: into(out, looks),
+    err: into(err),
     ...over,
   };
-  return { d, out, err };
+  return { d, out, err, looks };
 }
 
 describe("factory config explain", () => {
@@ -2470,8 +2472,7 @@ describe("reachOf", () => {
 });
 
 describe("factory config explain, in color", () => {
-  const paint = painter(true);
-  const dim = (t: string) => paint("dim", t);
+  const dim = (t: string) => `{skip:${t}}`;
   const at = (text: string, mark: string) => `${text.padEnd(26)}# ${mark}`;
 
   it("dims a default's whole line and a comment line, and only a preset's mark", () => {
@@ -2485,7 +2486,7 @@ describe("factory config explain, in color", () => {
       "rules:",
       at("  review-rounds: 3", "@acme/factory-preset/node"),
     ];
-    expect(paintExplainLines(lines, paint)).toEqual([
+    expect(explainedLines(lines).map(look)).toEqual([
       "version: 2",
       "tickets:",
       "  columns:",
@@ -2497,13 +2498,19 @@ describe("factory config explain, in color", () => {
     ]);
   });
 
+  it("leaves a list's item and an address in the settings as they are", () => {
+    const lines = ["  gate:", "    - npm test", "  url: https://a.example"];
+    expect(explainedLines(lines).map(look)).toEqual(lines);
+    expect(explainedLines(["- npm test"]).map(look)).toEqual(["- npm test"]);
+  });
+
   it("leaves a quoted value holding a comment's spacing alone", () => {
     const lines = [
       at("  board: 3", "default"),
       at("  poll-minutes: 5", "default"),
       '  gate: "npm run x  # note"',
     ];
-    expect(paintExplainLines(lines, paint)[2]).toBe(
+    expect(explainedLines(lines).map(look)[2]).toBe(
       '  gate: "npm run x  # note"',
     );
   });
@@ -2516,27 +2523,24 @@ describe("factory config explain, in color", () => {
       "  # coverage: none (default)",
       at("  gate: npm test", "default"),
     ];
-    expect(paintExplainLines(lines, paint)[4]).toBe(
+    expect(explainedLines(lines).map(look)[4]).toBe(
       dim(at("  gate: npm test", "default")),
     );
   });
 
-  it("prints its lines painted when it is given paint", async () => {
+  it("prints its lines with their looks", async () => {
     const r = deps({
       readFile: () => `version: 2\nrepository: owner/name\n${CODE_HOST_YAML}\n`,
-      paint,
     });
     expect(await main(["explain"], r.d)).toBe(0);
-    expect(r.out).toContainEqual(
-      expect.stringMatching(/^\x1B\[2m {2}type: github +# default\x1B\[22m$/),
+    expect(r.looks).toContainEqual(
+      expect.stringMatching(/^\{skip: {2}type: github +# default\}$/),
     );
-    expect(r.out.slice(0, 3)).toEqual([
-      paint(
-        "dim",
+    expect(r.looks.slice(0, 3)).toEqual([
+      dim(
         '# The settings in effect. "# default" marks the factory\'s own value,',
       ),
-      paint(
-        "dim",
+      dim(
         "# a preset's name marks that preset's, and an unmarked line is yours.",
       ),
       "version: 2",
