@@ -418,6 +418,9 @@ describe("factory doctor", () => {
       "GitHub",
       "  ✓ Signed in as dave",
       "",
+      "GitHub Actions",
+      "  - factory.yml is not on the default branch yet",
+      "",
       "Claude Code",
       "  ✓ CLAUDE.md imports the factory's rules",
       "  ✓ .claude/settings.json has the factory's hooks",
@@ -467,6 +470,7 @@ describe("factory doctor", () => {
       "  ✓ FACTORY_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
       "  ✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
       "  ✓ FACTORY_SIGNING_KEY is set, for signed commits on the factory's updates",
+      "  - factory.yml is not on the default branch yet",
       "",
       "GitHub Issues",
       "  ✓ Board 3 has every column the settings name",
@@ -476,6 +480,23 @@ describe("factory doctor", () => {
       "  ✓ .claude/settings.json has the factory's hooks",
       "  ✓ The claude command is installed",
     ]);
+  });
+
+  it("cannot tell whether factory.yml is enabled when GitHub does not answer, failing nothing and printing every other check", async () => {
+    const { run, printed } = doctor({
+      runnerFails: {
+        workflowState: new Error(
+          "gh api repos/acme/site/actions/workflows/factory.yml: gh: Bad Gateway (HTTP 502)",
+        ),
+      },
+    });
+    expect(await run()).toBe(0);
+    expect(section(printed, "GitHub Actions")).toEqual([
+      "? Could not tell whether factory.yml is enabled: Bad Gateway (HTTP 502)",
+    ]);
+    expect(section(printed, "Claude Code")).toContain(
+      "✓ The claude command is installed",
+    );
   });
 
   describe("the gate", () => {
@@ -776,6 +797,7 @@ describe("factory doctor", () => {
         SET,
         SET_DEPENDABOT,
         `✓ .github/dependabot.yml uses ${JFROG} for its npm updates`,
+        "- factory.yml is not on the default branch yet",
       ]);
     });
 
@@ -1251,9 +1273,10 @@ describe("factory doctor, where the organization's poller starts the builds", ()
     };
   };
 
-  it("says its workflow is enabled there, in place of this repository's own workflow", async () => {
+  it("says its workflow is enabled there, after this repository's own workflow", async () => {
     const r = await run({ "factory-poller.yml": "active" });
     expect(r.lines).toEqual([
+      "✓ factory.yml is enabled",
       "✓ factory-poller.yml is enabled in acme/factory-config",
     ]);
     expect(r.code).toBe(0);
@@ -1263,6 +1286,7 @@ describe("factory doctor, where the organization's poller starts the builds", ()
   it("fails when it is disabled there, naming that repository's Actions tab", async () => {
     const r = await run({ "factory-poller.yml": "disabled" });
     expect(r.lines).toEqual([
+      "✓ factory.yml is enabled",
       "✗ factory-poller.yml is disabled in acme/factory-config: Enable it on the Actions tab of acme/factory-config",
     ]);
     expect(r.code).toBe(1);
@@ -1271,6 +1295,7 @@ describe("factory doctor, where the organization's poller starts the builds", ()
   it("fails when the default branch there no longer has it", async () => {
     const r = await run({});
     expect(r.lines).toEqual([
+      "✓ factory.yml is enabled",
       "✗ factory-poller.yml is not on the default branch of acme/factory-config: An owner of acme runs factory init --org again",
     ]);
     expect(r.code).toBe(1);
@@ -1279,6 +1304,7 @@ describe("factory doctor, where the organization's poller starts the builds", ()
   it("cannot tell, and fails nothing, when that repository's workflows cannot be read", async () => {
     const r = await run(new Error("HTTP 404: Not Found"));
     expect(r.lines).toEqual([
+      "✓ factory.yml is enabled",
       "? Could not tell whether factory-poller.yml is enabled in acme/factory-config: HTTP 404: Not Found",
     ]);
     expect(r.code).toBe(0);

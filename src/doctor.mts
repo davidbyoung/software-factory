@@ -5,6 +5,7 @@
 // A stored secret cannot be read back, so a secret is checked only for
 // being set.
 import { listed } from "./lib/listed.mts";
+import { message, reasonOf } from "./lib/reason.mts";
 import { existsSync, readFileSync } from "node:fs";
 import { load } from "js-yaml";
 import type { CodeHost } from "./code-host/index.mts";
@@ -77,10 +78,6 @@ const SYNC = "Run factory sync";
 const INIT = "Run factory init";
 const SETTINGS = "Settings and files";
 const OFF = "Parts that are off";
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-/** Why a read failed, in the code host's words: without the command its
- * own tool names before them. */
-const reasonOf = (e: unknown) => message(e).replace(/^gh [^\n]*?: gh: /, "");
 
 /** -1, 0, or 1 as version `a` is older than, the same as, or newer than `b`. */
 function compareVersions(a: string, b: string): number {
