@@ -1058,7 +1058,7 @@ describe("factory preset check", () => {
 
     it("prints each problem only a preset has before the first value that is not valid, and neither twice", async () => {
       const r = await checking(
-        "repository: acme/web",
+        "repository: acme",
         "presets: x",
         "auto-merge:",
         "  allow: src",

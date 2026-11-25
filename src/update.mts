@@ -309,13 +309,22 @@ async function asPullRequests(d: UpdateDeps): Promise<number> {
   const base = await baseOf(d);
   const ref = `${base.remote}/${base.branch}`;
   let fetched = false;
+  let refused = false;
   for (const unit of units) {
     if (await openedBefore(d, unit)) continue;
     if (!fetched) d.git(["fetch", base.remote, base.branch]);
     fetched = true;
     // Each from the default branch, so no update rides on another.
     d.git(["switch", "-C", unit.branch, ref]);
-    if (unit.moves.length) await d.presets.move(unit.moves);
+    try {
+      if (unit.moves.length) await d.presets.move(unit.moves);
+    } catch (e) {
+      if (!(e instanceof PresetError)) throw e;
+      d.out(say.text(e.message));
+      d.git(["switch", "--detach", ref]);
+      refused = true;
+      continue;
+    }
     const synced = await d.sync(unit.version);
     if (synced.code !== 0) return synced.code;
     const body = unit.moves.length
@@ -324,7 +333,7 @@ async function asPullRequests(d: UpdateDeps): Promise<number> {
     await open(d, unit, base, body);
   }
   for (const l of unread) d.out(say.text(l));
-  return 0;
+  return refused ? 1 : 0;
 }
 
 export async function main(argv: string[], d: UpdateDeps): Promise<number> {

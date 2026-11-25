@@ -377,18 +377,26 @@ describe("factory update --pull-requests", () => {
     ]);
   });
 
-  it("opens no pull request for a preset whose newest commit is refused, and leaves those it opened", async () => {
+  it("opens no pull request for a preset whose newest commit is refused, opens the others, and exits 1", async () => {
     const said =
       "acme/factory-config: rules.review-rounds: must be a whole number above zero";
     const u = update({
-      pins: [TWO[0]!],
-      changed: ["acme/factory-config"],
+      pins: [TWO[0]!, pin("foo/presets//bar", OLD), pin("acme/gone", OLD)],
+      changed: ["acme/factory-config", "foo/presets//bar"],
       refused: { name: "acme/factory-config", said },
+      heads: { "acme/gone": new Error("not found") },
     });
     expect(await u.run(PR)).toBe(1);
-    expect(u.out).toEqual(["✓ Opened #41, Update the factory to 0.3.0", said]);
+    expect(u.out).toEqual([
+      "✓ Opened #41, Update the factory to 0.3.0",
+      said,
+      "✓ Opened #42, Update foo/presets to 8d04e7b",
+      "? acme/gone could not be read: not found. To stop following it: factory preset remove acme/gone",
+    ]);
     expect(u.calls.filter((c) => /^(open|close|move)/.test(c))).toEqual([
       "open factory-update/factory-0.3.0: Update the factory to 0.3.0",
+      "move foo/presets//bar 8d04e7b",
+      "open factory-update/foo-presets-8d04e7b: Update foo/presets to 8d04e7b",
     ]);
   });
 
