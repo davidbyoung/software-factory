@@ -36,7 +36,7 @@ import {
 } from "./config.mts";
 import {
   branchChange,
-  commitChange,
+  cannotTell,
   relockChange,
   type Change,
   type Git,
@@ -130,25 +130,6 @@ function either(items: string[]): string {
   return `${items.slice(0, -1).join(", ")}, or ${items.at(-1)}`;
 }
 
-/** The line that says why the change can't be told, and how to fix it. */
-function cannotTell(
-  change: Extract<Change, { files: null }>,
-  remote: string,
-): [string, string] {
-  if (change.why === "no-shared")
-    return [
-      `this branch shares no commit with ${remote}`,
-      "In a shallow clone, fetch the history with: git fetch --unshallow origin",
-    ];
-  if (change.why === "no-commit")
-    return ["there is no commit yet", "Commit once, and it reads from there."];
-  const [, name] = remote.split("/");
-  return [
-    `there is no ${remote} to compare with`,
-    `Fetch it with: git fetch origin ${name}`,
-  ];
-}
-
 /** Why a command runs: the first changed file that sets it off, and how
  * many more do, or that it runs on every change. */
 const reasonOf = (files: string[]) =>
@@ -219,9 +200,17 @@ function printPlan(
         `${head}all ${t} run, since ${counted(e.files.length, "changed file is", "changed files are")} in no gate command's files and not in commands.ignore`,
       ),
     );
-    for (const f of e.files.slice(0, 10)) d.out(say.text("  ", f));
-    if (e.files.length > 10)
-      d.out(say.text(`  and ${e.files.length - 10} more`));
+    // A dry run names every one, so a session can name each for the owner.
+    const shown = dry ? e.files : e.files.slice(0, 10);
+    for (const f of shown) d.out(say.text("  ", f));
+    if (shown.length < e.files.length)
+      d.out(
+        say.text(
+          `  and ${e.files.length - shown.length} more: `,
+          say.copy(`factory ${w.command} --dry-run`),
+          " lists each",
+        ),
+      );
   } else if (e?.kind === "unknown") {
     // The "Can't tell" line above says why.
   } else if (plan.nothing)

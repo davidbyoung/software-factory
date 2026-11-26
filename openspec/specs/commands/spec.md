@@ -215,12 +215,12 @@ The factory SHALL behave as this line says: When every command that ran passed a
 
 ### Requirement: The gate's first line when a file nothing covers changed
 
-The factory SHALL behave as this line says: When the gate has an item and a changed file is covered by nothing, the first line is `commands.gate: all T run, since N changed files are in no gate command's files and not in commands.ignore`, followed by each such file on its own line.
+The factory SHALL behave as this line says: When the gate has an item and a changed file is covered by nothing, the first line is `commands.gate: all T run, since N changed files are in no gate command's files and not in commands.ignore`, followed by each such file on its own line: at most ten, then `and N more: factory gate --dry-run lists each`, and every one with `--dry-run`.
 
 #### Scenario: The gate's first line when a file nothing covers changed
 
 - **WHEN** When the gate has an item and a changed file is covered by nothing
-- **THEN** the first line is `commands.gate: all T run, since N changed files are in no gate command's files and not in commands.ignore`, followed by each such file on its own line.
+- **THEN** the first line is `commands.gate: all T run, since N changed files are in no gate command's files and not in commands.ignore`, followed by each such file on its own line: at most ten, then `and N more: factory gate --dry-run lists each`, and every one with `--dry-run`.
 
 ### Requirement: The gate's first line when the settings changed
 

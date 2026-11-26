@@ -19,7 +19,12 @@ import {
   type Command,
   type Site,
 } from "./config.mts";
-import { branchChange, type Git } from "./lib/changes.mts";
+import {
+  branchChange,
+  cannotTell,
+  type Change,
+  type Git,
+} from "./lib/changes.mts";
 import { branchDeps, gitIn, needDefaultBranch } from "./lib/default-branch.mts";
 import { runsOf } from "./lib/paths.mts";
 import { planOf } from "./lib/plan.mts";
@@ -414,8 +419,11 @@ export function sitesToCompare(o: {
       folder: null,
     }));
   const remote = `origin/${defaultBranch ?? "DEFAULT"}`;
-  const change =
-    defaultBranch === null ? null : branchChange(o.git, defaultBranch).files;
+  const read: Change =
+    defaultBranch === null
+      ? { files: null, why: "no-remote", base: "" }
+      : branchChange(o.git, defaultBranch);
+  const change = read.files;
   const plan = planOf({
     commands,
     change,
@@ -435,14 +443,16 @@ export function sitesToCompare(o: {
         `site: all ${t} pictured, since ${e.files.length} changed ${e.files.length === 1 ? "file is" : "files are"} in no gate command's files and not in commands.ignore`,
       ),
     );
-  else if (e?.kind === "unknown")
+  else if (e?.kind === "unknown" && read.files === null) {
+    const [why, fix] = cannotTell(read, remote);
     out(
       say.mark(
         "look",
-        `Can't tell what changed, since there is no ${remote} to compare with. Every site is pictured.`,
+        `Can't tell what changed, since ${why}. Every site command runs.`,
       ),
     );
-  else {
+    out(say.text("  ", fix));
+  } else {
     out(
       say.text(
         `site: ${plan.runs.length} of ${t} pictured, for the ${change!.length} ${change!.length === 1 ? "file" : "files"} changed since ${remote}`,

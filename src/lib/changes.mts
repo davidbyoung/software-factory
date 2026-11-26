@@ -49,3 +49,22 @@ export function relockChange(git: Git, defaultBranch: string): Change {
   const base = git(["merge-base", "HEAD", remote]);
   return { files: since(git, remote), base: base.ok ? base.out.trim() : "" };
 }
+
+/** The line that says why the change can't be told, and how to fix it. */
+export function cannotTell(
+  change: Extract<Change, { files: null }>,
+  remote: string,
+): [string, string] {
+  if (change.why === "no-shared")
+    return [
+      `this branch shares no commit with ${remote}`,
+      "In a shallow clone, fetch the history with: git fetch --unshallow origin",
+    ];
+  if (change.why === "no-commit")
+    return ["there is no commit yet", "Commit once, and it reads from there."];
+  const [, name] = remote.split("/");
+  return [
+    `there is no ${remote} to compare with`,
+    `Fetch it with: git fetch origin ${name}`,
+  ];
+}

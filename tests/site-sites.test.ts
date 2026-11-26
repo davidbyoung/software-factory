@@ -31,7 +31,12 @@ const SITES = {
   },
 };
 
-function pick(changed: string[], argv: string[] = [], raw = SITES) {
+function pick(
+  changed: string[],
+  argv: string[] = [],
+  raw = SITES,
+  shared = true,
+) {
   const s = settingsOf(raw);
   const out: string[] = [];
   const runs = sitesToCompare({
@@ -44,7 +49,7 @@ function pick(changed: string[], argv: string[] = [], raw = SITES) {
       args[0] === "diff"
         ? { ok: true, out: changed.join("\n") }
         : args[0] === "merge-base"
-          ? { ok: true, out: "b45e\n" }
+          ? { ok: shared, out: shared ? "b45e\n" : "" }
           : { ok: true, out: args[0] === "rev-parse" ? "x" : "" },
     defaultBranch: "main",
     files: FILES,
@@ -76,6 +81,15 @@ describe("which sites factory site compare pictures", () => {
     expect(out[0]).toBe(
       "site: all 2 pictured, since 1 changed file is in no gate command's files and not in commands.ignore",
     );
+  });
+
+  it("pictures every site, saying why and what to run, for a branch that shares no commit with origin/main", () => {
+    const { folders, out } = pick(["apps/web/src/page.tsx"], [], SITES, false);
+    expect(folders).toEqual(["apps/admin", "apps/web"]);
+    expect(out.slice(0, 2)).toEqual([
+      "? Can't tell what changed, since this branch shares no commit with origin/main. Every site command runs.",
+      "  In a shallow clone, fetch the history with: git fetch --unshallow origin",
+    ]);
   });
 
   it("pictures the one site --site names, whatever changed", () => {

@@ -408,8 +408,9 @@ first prints which run and why. When it says `commands.gate is not set`,
 stop: a build cannot finish until the settings name a gate.
 
 When it says every command runs since a changed file is in no gate
-command's files, say so in the pull request's description, naming the
-file, and not as a follow-up: which commands it affects is the owner's to
+command's files, say so in the pull request's description, naming each
+file, which `factory gate --dry-run` lists past the first ten, and not as a
+follow-up: which commands it affects is the owner's to
 write, under `files` or `commands.ignore`, and the gate names it again on
 the next change to it. Never add a file to `commands.ignore` to make the
 gate run less.

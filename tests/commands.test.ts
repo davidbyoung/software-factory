@@ -864,6 +864,22 @@ describe("factory gate by path", () => {
     expect(out.at(-1)).toBe("✓ Every gate command passed.");
   });
 
+  it("names ten files nothing covers and counts the rest, and --dry-run names every one", async () => {
+    const twelve = Array.from(
+      { length: 12 },
+      (_, i) => `root-${String(i).padStart(2, "0")}.txt`,
+    );
+    const run = mono(twelve);
+    expect(await main(["gate"], run.d)).toBe(0);
+    expect(run.out.slice(1, 12)).toEqual([
+      ...twelve.slice(0, 10).map((f) => `  ${f}`),
+      "  and 2 more: factory gate --dry-run lists each",
+    ]);
+    const dry = mono(twelve);
+    expect(await main(["gate", "--dry-run"], dry.d)).toBe(0);
+    expect(dry.out.slice(1, 13)).toEqual(twelve.map((f) => `  ${f}`));
+  });
+
   it("runs every command when the settings changed", async () => {
     const { d, ran, out } = mono([".claude/factory.yaml"]);
 
