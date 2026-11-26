@@ -1035,7 +1035,7 @@ describe("factory gate by path", () => {
     expect(out[0]).toBe("$ npm run lint");
   });
 
-  it("runs only the matching items elsewhere when the gate is all text", async () => {
+  it("runs no relock item for a file outside its files while the gate is all text, though no gate item covers the file", async () => {
     const { d, ran } = deps(
       {
         commands: {
@@ -1148,6 +1148,40 @@ describe("factory coverage", () => {
     );
   });
 
+  it("says every changed line is covered when none is left", async () => {
+    const { d, out } = deps(
+      COV,
+      [],
+      {
+        files: MONO_FILES,
+        changed: ["packages/api/src/orders.ts"],
+        diff: DIFF,
+      },
+      {
+        "packages/api/coverage/lcov.info":
+          "SF:src/orders.ts\nDA:2,1\nDA:3,1\nend_of_record\n",
+      },
+    );
+
+    expect(await main(["coverage"], d)).toBe(0);
+    expect(out.at(-1)).toBe(
+      "✓ Coverage ran: every line the branch changed is covered.",
+    );
+  });
+
+  it("lists every command and why with --dry-run, and runs nothing", async () => {
+    const { d, ran, out } = deps(COV, [], {
+      files: MONO_FILES,
+      changed: ["packages/api/src/orders.ts"],
+    });
+
+    expect(await main(["coverage", "--dry-run"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out[0]).toBe(
+      "commands.coverage: 1 of 3 would run, for the 1 file changed since origin/main",
+    );
+  });
+
   it("says so when coverage is not set", async () => {
     const { d, out } = deps({});
 
@@ -1218,6 +1252,50 @@ describe("factory relock and build-setup", () => {
     expect(out.at(-1)).toBe(
       "✓ Every relock command that ran passed: 1 run, 1 left out.",
     );
+  });
+
+  it("relocks everything, and says why, when a file nothing covers differs", async () => {
+    const { d, ran, out } = deps(RELOCK, [], {
+      files: FILES,
+      changed: ["Makefile"],
+    });
+
+    expect(await main(["relock"], d)).toBe(0);
+    expect(ran).toHaveLength(2);
+    expect(out[0]).toBe(
+      "commands.relock: all 2 run, since 1 changed file is in no gate command's files and not in commands.ignore",
+    );
+  });
+
+  it("lists every build-setup command with --dry-run, and runs nothing", async () => {
+    const { d, ran, out } = deps(RELOCK, [], { files: FILES });
+
+    expect(await main(["build-setup", "--dry-run"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out[0]).toBe(
+      "commands.build-setup: all 3 run, before there is a change",
+    );
+  });
+
+  it("stops build-setup after the first command that fails, and names it", async () => {
+    const { d, ran, err } = deps(
+      { commands: { "build-setup": ["make tools", "make more"] } },
+      [1],
+    );
+
+    expect(await main(["build-setup"], d)).toBe(1);
+    expect(ran.map((r) => r.command)).toEqual(["make tools"]);
+    expect(err).toEqual(["✗ Build setup failed on: make tools"]);
+  });
+
+  it("says so when build-setup is not set, and passes", async () => {
+    const { d, ran, out } = deps({});
+
+    expect(await main(["build-setup"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out).toEqual([
+      "- No build-setup command (commands.build-setup is not set).",
+    ]);
   });
 
   it("relocks everything with --all", async () => {

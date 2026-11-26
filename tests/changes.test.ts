@@ -161,6 +161,7 @@ describe("relockChange", () => {
     } catch {
       // The conflict in a.ts stops the merge, as one in a lock file would.
     }
+    expect(existsSync(join(dir, ".git/MERGE_HEAD"))).toBe(true);
     expect(existsSync(join(dir, "main.lock"))).toBe(true);
     expect(relockChange(git, "main").files).toEqual(["a.ts"]);
   });

@@ -599,6 +599,15 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       },
     );
   }
+  if (name === "build-setup" && s.commands.buildSetup.length === 0) {
+    d.out(
+      say.mark(
+        "off",
+        "No build-setup command (commands.build-setup is not set).",
+      ),
+    );
+    return 0;
+  }
   if (name === "relock" || name === "build-setup") {
     const relock = name === "relock";
     return plannedRun(

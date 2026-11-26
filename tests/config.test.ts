@@ -2915,6 +2915,12 @@ describe("config get for commands by path", () => {
     ]);
   });
 
+  it("fails on coverage.report for a list too", async () => {
+    const r = await get(ITEMS, "commands.coverage.report");
+    expect(r.code).toBe(1);
+    expect(r.err[0]).toContain("commands.coverage is a list");
+  });
+
   it("prints a site's key once for each site of a list", async () => {
     const r = await get(
       [

@@ -599,28 +599,21 @@ describe("factory guard commit", () => {
           writeFileSync(join(repo, "packages", name, "a.ts"), "a\n");
         }
         const git = (...args: string[]) =>
-          execFileSync("git", args, { cwd: repo });
-        git(
-          "-c",
-          "user.email=t@e",
-          "-c",
-          "user.name=t",
-          "-c",
-          "commit.gpgsign=false",
-          "add",
-          "-A",
-        );
-        git(
-          "-c",
-          "user.email=t@e",
-          "-c",
-          "user.name=t",
-          "-c",
-          "commit.gpgsign=false",
-          "commit",
-          "-qm",
-          "first",
-        );
+          execFileSync(
+            "git",
+            [
+              "-c",
+              "user.email=t@e",
+              "-c",
+              "user.name=t",
+              "-c",
+              "commit.gpgsign=false",
+              ...args,
+            ],
+            { cwd: repo },
+          );
+        git("add", "-A");
+        git("commit", "-qm", "first");
         for (const f of changed) writeFileSync(join(repo, f), "changed\n");
       }
       const LOGGED = `echo $(basename $PWD) >> "$(git rev-parse --show-toplevel)/${LOG}"`;

@@ -966,6 +966,25 @@ describe("a preset for some folders", () => {
     ]);
   });
 
+  it("adds its site for its folders beside yours", async () => {
+    forServices([
+      "site:",
+      "  start: npm start",
+      "  url: http://localhost:$PORT",
+      "  in: web",
+    ]);
+    python(
+      "site:\n  start: python -m http.server $PORT\n  url: http://localhost:$PORT\n",
+    );
+    put(root, "web/index.html", "");
+    expect(
+      (await resolveAt(root)).settings.sites.map((x) => [x.start, x.in]),
+    ).toEqual([
+      ["npm start", ["web"]],
+      ["python -m http.server $PORT", ["services/*"]],
+    ]);
+  });
+
   it("refuses a setting that is the repository's", async () => {
     forServices();
     python("rules:\n  review-rounds: 4\n");
