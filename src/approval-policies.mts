@@ -81,28 +81,31 @@ export function changedFiles(
   base: string,
   head: string | null,
 ): ChangedFile[] | null {
+  // NUL-separated, so a name git would quote, such as one with an accent,
+  // reads as it is and matches the patterns it should.
   const diff = git([
     "diff",
     "--name-status",
     "-M",
+    "-z",
     base,
     ...(head ? [head] : []),
   ]);
   if (!diff.ok) return null;
-  const files: ChangedFile[] = diff.out
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      const [code = "", a = "", b] = line.split("\t");
-      const status = STATUS[code[0] ?? ""] ?? "changed";
-      return b === undefined
-        ? { filename: a, status }
-        : { filename: b, previous_filename: a, status };
-    });
+  const fields = diff.out.split("\0");
+  const files: ChangedFile[] = [];
+  for (let i = 0; i + 1 < fields.length;) {
+    const code = fields[i++]!;
+    const status = STATUS[code[0] ?? ""] ?? "changed";
+    if (code.startsWith("R") || code.startsWith("C")) {
+      const from = fields[i++]!;
+      files.push({ filename: fields[i++]!, previous_filename: from, status });
+    } else files.push({ filename: fields[i++]!, status });
+  }
   if (head === null) {
-    const added = git(["ls-files", "--others", "--exclude-standard"]);
+    const added = git(["ls-files", "--others", "--exclude-standard", "-z"]);
     if (!added.ok) return null;
-    for (const path of added.out.split("\n").filter(Boolean))
+    for (const path of added.out.split("\0").filter(Boolean))
       files.push({ filename: path, status: "added" });
   }
   return files;

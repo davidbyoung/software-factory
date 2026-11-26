@@ -180,6 +180,32 @@ describe("the change, from git", () => {
     expect(diff).toContain("+fresh");
   });
 
+  it("reads a name git would quote as it is, committed, renamed, or untracked", () => {
+    const base = start();
+    write("db/0042_réfunds.sql", "x\n");
+    write("db/with\ttab.sql", "x\n");
+    git(["mv", "old.txt", 'old "quoted".txt']);
+    const head = commit("change");
+    expect(changedFiles(git, base, head)).toEqual([
+      { filename: "db/0042_réfunds.sql", status: "added" },
+      { filename: "db/with\ttab.sql", status: "added" },
+      {
+        filename: 'old "quoted".txt',
+        previous_filename: "old.txt",
+        status: "renamed",
+      },
+    ]);
+    write("new/ünïcode.json", "fresh\n");
+    expect(changedFiles(git, head, null)).toEqual([
+      { filename: "new/ünïcode.json", status: "added" },
+    ]);
+    expect(
+      diffOf(git, base, head, [
+        { filename: "db/0042_réfunds.sql", status: "added" },
+      ]),
+    ).toContain("+x");
+  });
+
   it("is null when git can't compare the two", () => {
     start();
     expect(changedFiles(git, "0".repeat(40), "HEAD")).toBeNull();
