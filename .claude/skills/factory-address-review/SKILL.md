@@ -23,8 +23,8 @@ a round ends with rejections only and nothing to push, the verdict stays at
 the last review's failure, so ask for a fresh read of the same commit
 (`factory pr review-again N`); the reviewer
 reads your replies and posts a new verdict. Never add the `verdict-override`
-label, never enable auto-merge, and never merge: the override is the
-owner's alone, and the merge policy decides auto-merge.
+or `policy-override` label, never enable auto-merge, and never merge: the
+overrides are the owner's alone, and the merge policy decides auto-merge.
 
 **The repository will not merge with an unresolved thread.** Every thread
 ends in one of three states, and only the first two are yours to reach:
@@ -178,8 +178,8 @@ If the gate fails, reply on the affected threads with the error and leave
 them open.
 
 This run never merges, enables auto-merge, marks a draft ready, or adds the
-`verdict-override` label, and it pushes only to the pull request's
-branch.
+`verdict-override` or `policy-override` label, and it pushes only to the
+pull request's branch.
 
 **Outside a run started by a review,** as in a local session working the
 pull request, the approver comments to work are the unresolved threads
@@ -269,7 +269,10 @@ wakes the session on a failure and when every check has finished, so this
 wait is not needed.
 
 Never report a pull request ready while a check is pending or failing, and
-never report a check you have not seen finish.
+never report a check you have not seen finish. A pending "Approval
+policies" status is not a check to wait for: it waits for a person's
+`policy-override` label, so say in the report that the pull request
+waits for it, and leave it alone.
 
 For each failed check, read the failing job's log and find the failure:
 
