@@ -245,7 +245,12 @@ const run = load(
     string,
     {
       if: string;
-      steps: { id?: string; uses?: string; with?: object; run?: string }[];
+      steps: {
+        id?: string;
+        uses?: string;
+        with?: Record<string, unknown>;
+        run?: string;
+      }[];
     }
   >;
 };
@@ -263,7 +268,9 @@ describe.each(["merge-policy", "verdict"])("run.yml's %s job", (name) => {
       s.uses?.startsWith("actions/checkout"),
     );
     expect(checkouts).toHaveLength(1);
-    expect(checkouts[0]!.with).toBeUndefined();
+    // How much history it fetches is its own; which commit, never.
+    expect(checkouts[0]!.with?.ref).toBeUndefined();
+    expect(checkouts[0]!.with?.repository).toBeUndefined();
   });
 });
 
