@@ -374,3 +374,12 @@ The factory SHALL behave as this line says: When the docs are read, `docs/config
 
 - **WHEN** When the docs are read
 - **THEN** `docs/configuration.md` has the comment's changes at the levels the real page uses (`### commands`, `#### Commands for some folders`, `#### commands.ignore`), `README.md`'s row for the existing-repo page names a monorepo, `docs/presets.md` has the folder preset's row and `--in`, and `docs/cli.md` lists `factory coverage`, `factory relock`, `factory build-setup`, and the new flags.
+
+### Requirement: The approval policies docs
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The approval policies docs
+
+- **WHEN** the docs are read
+- **THEN** `docs/approval-policies.md` is the page under "Proposed docs", and `docs/configuration.md`, `docs/presets.md`, `docs/plugins.md`, `docs/cli.md`, `docs/workflow.md`, and `docs/limitations.md` change as "What changes elsewhere in the docs" lists.
