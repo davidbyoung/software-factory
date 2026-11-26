@@ -93,7 +93,12 @@ settings:
   rules:
     small-change-lines: 30                                                     # default
     review-rounds: 2                                                           # default
-  # approval-policies: none (default)
+  approval-policies:
+    - name: credentials                                                        # default
+      run: node .claude/approval-policies/credentials/find.mts                 # default
+      agent: factory-credentials-reader                                        # default
+      files:                                                                   # default
+        - "**"                                                                 # default
 overridden: {}
 files:
   - .claude/skills/factory-address-review/SKILL.md
@@ -103,8 +108,10 @@ files:
   - .claude/skills/factory-refine/SKILL.md
   - .claude/skills/factory-resolve-conflicts/SKILL.md
   - .claude/skills/factory-trace/SKILL.md
+  - .claude/agents/factory-credentials-reader.md
   - .claude/agents/factory-test-reviewer.md
   - .claude/agents/factory-ticket-readiness.md
+  - .claude/approval-policies/credentials/find.mts
   - .claude/factory/rules.md
   - .github/factory-review.md
   - .github/workflows/factory.yml

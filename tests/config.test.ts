@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import {
+  FACTORY_POLICY,
   main,
   NO_DEPENDENCIES,
   parseSettings,
@@ -101,7 +102,7 @@ describe("parseSettings", () => {
         dependencies: 50,
       },
       rules: { smallChangeLines: 30, reviewRounds: 2 },
-      approvalPolicies: [],
+      approvalPolicies: [FACTORY_POLICY],
     });
   });
 
@@ -1229,6 +1230,62 @@ describe("parseSettings", () => {
   });
 });
 
+describe("the factory's own approval policy", () => {
+  const CREDENTIALS = {
+    name: "credentials",
+    run: "node .claude/approval-policies/credentials/find.mts",
+    agent: "factory-credentials-reader",
+    in: null,
+    files: ["**"],
+  };
+  const policies = (
+    written?: unknown,
+    exists: (p: string) => boolean = () => true,
+  ) =>
+    parse(
+      written === undefined
+        ? MINIMAL
+        : { ...MINIMAL, "approval-policies": written },
+      exists,
+    ).approvalPolicies;
+
+  it("is there when nothing names credentials", () => {
+    expect(policies()).toEqual([CREDENTIALS]);
+    expect(policies([{ name: "licenses", run: "x", files: ["a"] }])).toEqual([
+      { name: "licenses", run: "x", agent: null, in: null, files: ["a"] },
+      CREDENTIALS,
+    ]);
+  });
+
+  it("is left out when turned off", () => {
+    expect(policies([{ name: "credentials", off: true }])).toEqual([]);
+  });
+
+  it("is replaced by a policy of the same name", () => {
+    expect(
+      policies([
+        { name: "credentials", run: "node mine.mjs", files: ["src/**"] },
+      ]),
+    ).toEqual([
+      {
+        name: "credentials",
+        run: "node mine.mjs",
+        agent: null,
+        in: null,
+        files: ["src/**"],
+      },
+    ]);
+  });
+
+  it("doesn't need its agent's file before the sync that writes it", () => {
+    expect(policies(undefined, () => false)).toEqual([CREDENTIALS]);
+    const { in: _, ...written } = { ...CREDENTIALS, files: ["src/**"] };
+    expect(policies([written], () => false)).toEqual([
+      { ...CREDENTIALS, files: ["src/**"] },
+    ]);
+  });
+});
+
 describe("approval-policies", () => {
   const policies = (
     written: unknown,
@@ -1283,12 +1340,10 @@ describe("approval-policies", () => {
     ]);
   });
 
-  it("is an empty list when it is not written", () => {
-    expect(parse(MINIMAL).approvalPolicies).toEqual([]);
-  });
-
   it("leaves out a policy turned off", () => {
-    expect(policies([{ name: "licenses", off: true }])).toEqual([]);
+    expect(
+      policies([{ name: "licenses", off: true }]).map((p) => p.name),
+    ).toEqual(["credentials"]);
   });
 
   it.each([
@@ -1623,7 +1678,12 @@ describe("factory config explain", () => {
       rules:
         small-change-lines: 30                                                     # default
         review-rounds: 3
-      # approval-policies: none (default)"
+      approval-policies:
+        - name: credentials                                                        # default
+          run: node .claude/approval-policies/credentials/find.mts                 # default
+          agent: factory-credentials-reader                                        # default
+          files:                                                                   # default
+            - "**"                                                                 # default"
     `);
   });
 

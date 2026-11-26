@@ -1144,17 +1144,30 @@ function commandsOf(
   };
 }
 
+/** The approval policy every repository has unless it names one of the same
+ * name: `factory sync` writes its two files. */
+export const FACTORY_POLICY: ApprovalPolicy = {
+  name: "credentials",
+  run: "node .claude/approval-policies/credentials/find.mts",
+  agent: "factory-credentials-reader",
+  in: null,
+  files: ["**"],
+};
+
 /** `approval-policies` as written, those turned off with `off: true` left
- * out. An agent's file is checked as a plugin's is. */
+ * out, and the factory's own after them when nothing names it. An agent's
+ * file is checked as a plugin's is, but the factory's own, which the sync
+ * writes after reading these. */
 function approvalPoliciesOf(
   v: unknown,
   preset: boolean,
   exists: (p: string) => boolean,
 ): ApprovalPolicy[] {
-  if (v === undefined) return [];
+  const factory = preset ? [] : [FACTORY_POLICY];
+  if (v === undefined) return factory;
   if (!Array.isArray(v)) return fail("approval-policies", "must be a list");
   const named = new Map<string, number>();
-  return v.flatMap((item, i): ApprovalPolicy[] => {
+  const written = v.flatMap((item, i): ApprovalPolicy[] => {
     const key = `approval-policies[${i}]`;
     if (!isObj(item)) return fail(key, "must be a block with name");
     const o = object(item, key, "approval-policies[]");
@@ -1185,7 +1198,11 @@ function approvalPoliciesOf(
     const files = patternsOf(o.files, `${key}.files`);
     if (folders === null && files === null)
       fail(key, "needs in, files, or both, to say which changes set it off");
-    if (typeof agent === "string" && !preset) {
+    if (
+      typeof agent === "string" &&
+      !preset &&
+      agent !== FACTORY_POLICY.agent
+    ) {
       const path = `.claude/agents/${agent}.md`;
       if (!exists(path)) fail(`${key}.agent`, `${path} does not exist`);
     }
@@ -1199,6 +1216,7 @@ function approvalPoliciesOf(
       },
     ];
   });
+  return named.has(FACTORY_POLICY.name) ? written : [...written, ...factory];
 }
 
 /** The settings with every default filled in. Throws a SettingsError naming

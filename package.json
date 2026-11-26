@@ -19,6 +19,7 @@
     "dist",
     "skills",
     "agents",
+    "approval-policies",
     "rules.md",
     "review.md",
     "poller.Dockerfile",

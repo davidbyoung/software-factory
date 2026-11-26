@@ -11,6 +11,7 @@ import { join, relative, sep } from "node:path";
 import { DEFAULT_CODE_HOST } from "./code-host/index.mts";
 import {
   DEFAULT_RELOCK,
+  FACTORY_POLICY,
   parseSettings,
   readYaml,
   ROLE_SHAPE,
@@ -584,7 +585,8 @@ export function combine(c: Combine): Resolution {
         own &&
         isObj(own.value) &&
         own.value.off === true &&
-        group.length === 1
+        group.length === 1 &&
+        !(NAMED.has(path) && name === FACTORY_POLICY.name)
       )
         throw new PresetError(`${path}: ${name}: off, but no preset names it`);
       out.push(single(`${path}.${name}`, group).value);

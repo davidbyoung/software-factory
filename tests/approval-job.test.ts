@@ -24,14 +24,18 @@ import {
   status,
   type Deps,
 } from "../src/approval-job.mts";
-import type { Input, Ran } from "../src/approval-policies.mts";
-import { parseSettings, type ApprovalPolicy } from "../src/config.mts";
+import { runCommand, type Input, type Ran } from "../src/approval-policies.mts";
+import {
+  FACTORY_POLICY,
+  parseSettings,
+  type ApprovalPolicy,
+} from "../src/config.mts";
 import type { NewStatus } from "../src/code-host/types.mts";
 import { gitIn } from "../src/lib/default-branch.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryTickets } from "./memory-tickets";
 import { memoryRunner } from "./memory-runner";
-import { CODE_HOST } from "./settings-fixture";
+import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { into } from "./printed";
 
 let world = "";
@@ -111,7 +115,7 @@ function setup(
       version: 2,
       repository: "acme/widgets",
       "code-host": CODE_HOST,
-      "approval-policies": o.policies ?? POLICIES,
+      "approval-policies": withoutCredentials(o.policies ?? POLICIES),
     },
     () => true,
   );
@@ -375,6 +379,29 @@ describe("running the checks", () => {
     });
     expect(s.agents).toEqual([]);
     expect(s.answer).toEqual({ kind: "nothing" });
+  });
+
+  it("runs no agent on a one-sentence change to a docs page, under the factory's own policy", async () => {
+    const r = repository(false);
+    put(
+      r.checkout,
+      ".claude/approval-policies/credentials/find.mts",
+      readFileSync("approval-policies/credentials/find.mts", "utf8"),
+    );
+    const { in: _, ...credentials } = FACTORY_POLICY;
+    const s = setup(
+      { policies: [credentials], env: { CLAUDE_CODE_OAUTH_TOKEN: "t" } },
+      r,
+    );
+    s.d.runCommand = (command, input) =>
+      runCommand(command, input, { cwd: r.checkout });
+    await prepare(s.d, r.dir);
+    await commands(s.d, r.dir);
+    await agent(s.d, r.dir, 0);
+    expect(s.agents).toEqual([]);
+    expect(readJson(join(r.dir, "answer", "0.json"))).toEqual({
+      kind: "nothing",
+    });
   });
 
   it("can't run an agent with no Claude credential", async () => {

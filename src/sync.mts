@@ -41,6 +41,7 @@ import {
   type WorkflowOptions,
 } from "./workflow-files.mts";
 import {
+  FACTORY_POLICY,
   filesDeps,
   repoRoot,
   resolveFiles,
@@ -104,6 +105,10 @@ export const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
   "agents/factory-ui-reviewer.md": (s) => s.sites.length > 0,
   "agents/factory-e2e-reviewer.md": (s) => s.commands.endToEnd.length > 0,
   "skills/factory-deps": (_, has) => has(DEPENDABOT),
+  "agents/factory-credentials-reader.md": (s) =>
+    s.approvalPolicies.some((p) => p.agent === FACTORY_POLICY.agent),
+  "approval-policies/credentials": (s) =>
+    s.approvalPolicies.some((p) => p.run === FACTORY_POLICY.run),
 };
 
 /** The parts that are on, which a job of the factory's workflows is
@@ -229,6 +234,7 @@ export function copies(pkg: string, s: Settings, has: Has): [string, string][] {
   };
   add("skills", ".claude/skills");
   add("agents", ".claude/agents");
+  add("approval-policies", ".claude/approval-policies");
   out.push(["rules.md", ".claude/factory/rules.md"]);
   out.push(["review.md", ".github/factory-review.md"]);
   return out;

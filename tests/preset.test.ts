@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   defaultDeps,
+  FACTORY_POLICY,
   loadSettings,
   main as config,
   pluginsOf,
@@ -1048,7 +1049,10 @@ describe("approval policies from presets", () => {
       },
     });
     const { settings, resolution } = await resolveAt(root);
-    expect(settings.approvalPolicies.map((p) => p.name)).toEqual(["licenses"]);
+    expect(settings.approvalPolicies.map((p) => p.name)).toEqual([
+      "licenses",
+      "credentials",
+    ]);
     expect(
       resolution.files.get(".claude/approval-policies/licenses/check.mjs")
         ?.from,
@@ -1073,6 +1077,7 @@ describe("approval policies from presets", () => {
     const { settings } = await resolveAt(root);
     expect(settings.approvalPolicies.map((p) => p.run)).toEqual([
       "node strict.mjs",
+      FACTORY_POLICY.run,
     ]);
     const { out } = await explain();
     expect(lineOf(out, "- name: licenses")).toMatch(
@@ -1091,7 +1096,18 @@ describe("approval policies from presets", () => {
     install(root, ACME, { "": { settings: `version: 2\n${both}` } });
     expect(
       (await resolveAt(root)).settings.approvalPolicies.map((p) => p.name),
-    ).toEqual(["migrations"]);
+    ).toEqual(["migrations", "credentials"]);
+  });
+
+  it("turns the factory's own credentials policy off with off: true in your own file, which no preset names", async () => {
+    root = repo(
+      own(
+        [ACME],
+        ["approval-policies:", "  - name: credentials", "    off: true"],
+      ),
+    );
+    install(root, ACME, { "": { settings: "version: 2\n" } });
+    expect((await resolveAt(root)).settings.approvalPolicies).toEqual([]);
   });
 
   it("gives a preset's policies only its folders when it is added with --in", async () => {
@@ -1105,6 +1121,7 @@ describe("approval policies from presets", () => {
         in: ["services/*"],
         files: ["./package-lock.json"],
       },
+      FACTORY_POLICY,
     ]);
   });
 });
