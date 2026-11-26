@@ -1,7 +1,15 @@
 import { EventEmitter } from "node:events";
-import { readFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   agentPrompt,
   instructionsOf,
@@ -24,17 +32,26 @@ const input: Input = {
 /** A `claude` that prints `stdout` and exits with `code`, and records how
  * it was started and the settings file it was handed. */
 function fakeClaude(stdout: string, code = 0) {
-  const calls: { args: string[]; cwd: string; settings: unknown }[] = [];
+  const calls: {
+    args: string[];
+    cwd: string;
+    settings: unknown;
+    stdin: string;
+  }[] = [];
   const spawn = (_cmd: string, args: string[], o: { cwd: string }) => {
     const settings = JSON.parse(
       readFileSync(args[args.indexOf("--settings") + 1]!, "utf8"),
     );
-    calls.push({ args, cwd: o.cwd, settings });
+    const call = { args, cwd: o.cwd, settings, stdin: "" };
+    calls.push(call);
     const child = new EventEmitter() as EventEmitter & {
+      stdin: PassThrough;
       stdout: PassThrough;
       stderr: PassThrough;
       kill(): boolean;
     };
+    child.stdin = new PassThrough();
+    child.stdin.on("data", (b: Buffer) => (call.stdin += String(b)));
     child.stdout = new PassThrough();
     child.stderr = new PassThrough();
     child.kill = () => true;
@@ -52,6 +69,13 @@ const agentFile =
   "---\nname: rollback-checker\n---\nCheck every migration rolls back.\n";
 
 describe("an approval policy's agent", () => {
+  /** The folder of a fake `claude` a test puts on PATH. */
+  let bin = "";
+  afterEach(() => {
+    if (bin) rmSync(bin, { recursive: true, force: true });
+    bin = "";
+  });
+
   const started = async () => {
     const claude = fakeClaude('{"structured_output":{"findings":[]}}');
     await runAgent("rollback-checker", input, null, {
@@ -144,5 +168,65 @@ describe("an approval policy's agent", () => {
         },
       }),
     ).toEqual({ failed: ".claude/agents/gone.md can't be read" });
+  });
+
+  it("is handed its prompt on standard input, not as an argument", async () => {
+    const claude = fakeClaude('{"structured_output":{"findings":[]}}');
+    await runAgent("r", input, null, {
+      cwd: "/c",
+      spawn: claude.spawn,
+      readFile: () => agentFile,
+    });
+    const { args, stdin } = claude.calls[0]!;
+    expect(stdin).toContain("Check every migration rolls back.");
+    expect(args.some((a) => a.includes("Check every migration"))).toBe(false);
+  });
+
+  it("starts on a change too large for one argument", async () => {
+    bin = mkdtempSync(join(tmpdir(), "fake-claude-"));
+    writeFileSync(
+      join(bin, "claude"),
+      '#!/usr/bin/env node\nlet s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify({structured_output:{findings:[{file:"big",title:String(s.length>200000)}]}})))\n',
+    );
+    chmodSync(join(bin, "claude"), 0o755);
+    vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
+    const big = { ...input, diff: "+x\n".repeat(80_000) };
+    expect(
+      await runAgent("r", big, null, { cwd: bin, readFile: () => agentFile }),
+    ).toEqual({ findings: [{ file: "big", title: "true" }] });
+  });
+
+  it("runs with the model its file names", async () => {
+    const named = fakeClaude('{"structured_output":{"findings":[]}}');
+    await runAgent("r", input, null, {
+      cwd: "/c",
+      spawn: named.spawn,
+      readFile: () =>
+        "---\nname: r\nmodel: opus\n---\nCheck every migration rolls back.\n",
+    });
+    const { args } = named.calls[0]!;
+    expect(args[args.indexOf("--model") + 1]).toBe("opus");
+  });
+
+  it("runs with its own default model when its file names none", async () => {
+    const unnamed = fakeClaude('{"structured_output":{"findings":[]}}');
+    await runAgent("r", input, null, {
+      cwd: "/c",
+      spawn: unnamed.spawn,
+      readFile: () => agentFile,
+    });
+    expect(unnamed.calls[0]!.args).not.toContain("--model");
+  });
+
+  it("can't read /proc, where its own environment holds the Claude token", async () => {
+    const claude = fakeClaude('{"structured_output":{"findings":[]}}');
+    await runAgent("r", input, null, {
+      cwd: "/c",
+      spawn: claude.spawn,
+      readFile: () => agentFile,
+    });
+    expect(claude.calls[0]!.settings).toMatchObject({
+      permissions: { deny: expect.arrayContaining(["Read(//proc/**)"]) },
+    });
   });
 });

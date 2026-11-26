@@ -170,7 +170,8 @@ export type Outcome =
   /** The check ran and its answer is no finding. */
   | { kind: "nothing" }
   /** An agent found nothing, or cleared everything its command found. */
-  | { kind: "cleared"; agent: string }
+  /** `found` is what its command found, which the agent cleared. */
+  | { kind: "cleared"; agent: string; found?: Finding[] }
   | { kind: "failed"; why: string; command: string; stderr: string }
   | { kind: "cant-run"; agent: string };
 
@@ -305,6 +306,7 @@ export function outcomeOf(command: string, ran: Ran): Outcome {
 export function agentOutcome(
   agent: string,
   answer: { findings: Finding[] } | { wrong: string } | { failed: string },
+  found: Finding[] | null = null,
 ): Outcome {
   if ("failed" in answer)
     return { kind: "failed", why: answer.failed, command: agent, stderr: "" };
@@ -312,7 +314,7 @@ export function agentOutcome(
     return { kind: "failed", why: answer.wrong, command: agent, stderr: "" };
   return answer.findings.length
     ? { kind: "findings", findings: answer.findings }
-    : { kind: "cleared", agent };
+    : { kind: "cleared", agent, ...(found?.length && { found }) };
 }
 
 /** One check and what became of it. */

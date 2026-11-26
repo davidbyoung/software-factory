@@ -54,15 +54,23 @@ const DENIED = [
   "Skill",
 ];
 
-/** The settings it runs with, passed on the command line. */
+/** The settings it runs with, passed on the command line. The file tools
+ * run outside any sandbox, so `/proc`, where its own environment holds the
+ * Claude token, is denied to them. */
 export const AGENT_SETTINGS = {
   disableAllHooks: true,
-  permissions: { deny: DENIED },
+  permissions: { deny: [...DENIED, "Read(//proc/**)", "Read(//sys/**)"] },
 };
 
 /** An agent file's instructions: what follows its front matter. */
 export const instructionsOf = (text: string) =>
   text.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+
+/** The model an agent file's front matter names, or null. */
+export const modelOf = (text: string): string | null =>
+  /^---\n[\s\S]*?^model:\s*["']?([\w.-]+)["']?\s*$[\s\S]*?\n---/m.exec(
+    text,
+  )?.[1] ?? null;
 
 /** What the agent is told. */
 export function agentPrompt(
@@ -99,11 +107,15 @@ export function agentPrompt(
   ].join("\n");
 }
 
-/** The arguments `claude` runs with. */
-export function agentArgs(prompt: string, settingsFile: string): string[] {
+/** The arguments `claude` runs with. The prompt goes on standard input:
+ * one argument is capped at 128 KiB, which a large change's diff passes. */
+export function agentArgs(
+  settingsFile: string,
+  model: string | null = null,
+): string[] {
   return [
     "-p",
-    prompt,
+    ...(model ? ["--model", model] : []),
     "--settings",
     settingsFile,
     "--setting-sources",
@@ -133,11 +145,9 @@ export function runAgent(
   },
 ): Promise<{ findings: Finding[] } | { wrong: string } | { failed: string }> {
   const read = o.readFile ?? ((p: string) => readFileSync(p, "utf8"));
-  let instructions: string;
+  let file: string;
   try {
-    instructions = instructionsOf(
-      read(join(o.cwd, ".claude/agents", `${name}.md`)),
-    );
+    file = read(join(o.cwd, ".claude/agents", `${name}.md`));
   } catch {
     return Promise.resolve({
       failed: `.claude/agents/${name}.md can't be read`,
@@ -148,14 +158,12 @@ export function runAgent(
   writeFileSync(settingsFile, JSON.stringify(AGENT_SETTINGS));
   const spawn = o.spawn ?? (nodeSpawn as unknown as Spawn);
   return new Promise((resolve) => {
-    const child = spawn(
-      "claude",
-      agentArgs(agentPrompt(instructions, input, found), settingsFile),
-      {
-        cwd: o.cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+    const child = spawn("claude", agentArgs(settingsFile, modelOf(file)), {
+      cwd: o.cwd,
+      stdio: ["pipe", "pipe", "pipe"] as never,
+    }) as ReturnType<Spawn> & { stdin: NodeJS.WritableStream | null };
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(agentPrompt(instructionsOf(file), input, found));
     let stdout = "";
     let stderr = "";
     let timedOut = false;

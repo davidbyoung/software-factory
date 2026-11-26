@@ -171,8 +171,8 @@ Refinement's own check of the build order is unchanged. The owner runs
 ## Changing the process: this repository
 
 The source of every factory file is in this repository: `skills/`,
-`agents/`, `rules.md`, and `review.md`, and, for the two workflow files a
-repository gets, `src/workflow-files.mts`. Change the source, run
+`agents/`, `approval-policies/`, `rules.md`, and `review.md`, and, for
+the two workflow files a repository gets, `src/workflow-files.mts`. Change the source, run
 `node bin/factory.js sync`, and commit both; CI's `Factory files in step`
 fails when a copy differs from its source. Never edit the copy under
 `.claude/` or `.github/`.
@@ -195,7 +195,10 @@ covers, is everything under `src/` that a workflow, a hook, or a skill's
 gate runs, and the commands a person runs to set a repository or an
 organization up: in particular `merge-policy.mts`, `review-verdict.mts`,
 `poller.mts`, `parts.mts`, `sync.mts`, `board.mts`,
-`ticket.mts`, which starts the board sync,
+`ticket.mts`, which starts the board sync, `approval-job.mts`,
+`approval-policies.mts`, `approval-agent.mts`, and
+`approval-policies/credentials/find.mts`, which decide what waits for a
+person,
 the `guard*.mts` files, `lib/work-status.mts`, `commands.mts` and the
 `lib/plan.mts`, `lib/changes.mts`, and `lib/paths.mts` it and the commit
 guard decide what runs with,

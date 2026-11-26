@@ -1071,3 +1071,37 @@ describe("the docs on an organization's branch names", () => {
     );
   });
 });
+
+describe("the docs on the factory's own approval policy", () => {
+  const flatly = (page: string, heading: string) =>
+    flat(sectionOf(read(page), heading));
+
+  it("name the example of a script and an agent together raw-sql, so copying it can't replace credentials", () => {
+    const agent = sectionOf(
+      read("docs/approval-policies.md"),
+      "## Checking with an agent",
+    );
+    expect(agent).toContain("  - name: raw-sql\n");
+    expect(agent).not.toContain("name: credentials");
+  });
+
+  it("say in the settings that the factory adds credentials, which off: true turns off", () => {
+    expect(
+      flatly("docs/configuration.md", "### `approval-policies`"),
+    ).toContain(
+      "The factory adds one policy of its own, `credentials` ([The factory's own policy](approval-policies.md#the-factorys-own-policy)), which `off: true` turns off.",
+    );
+  });
+
+  it("say what factory-refine writes for a ticket that names a new credential", () => {
+    expect(flatly("docs/skills.md", "## `factory-refine`")).toContain(
+      "`missing: ## Threats, since the ticket names a credential this repository does not have: DEPLOY_TOKEN`",
+    );
+  });
+
+  it("give the rule's measured counts", () => {
+    expect(flatly("docs/approval-policies.md", "### What it reads")).toContain(
+      "In two repositories that use the factory, it picked 31 of 259 merged changes, about 1 in 8.",
+    );
+  });
+});

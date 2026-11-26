@@ -31,7 +31,7 @@ import {
 } from "../src/sync.mts";
 import { FACTORY_FILE, REVIEW_FILE } from "../src/workflow-files.mts";
 import { FACTORY_COLUMNS } from "./factory-columns";
-import { CODE_HOST } from "./settings-fixture";
+import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { TOOLS } from "../src/tools.mts";
 import { fakeCredential } from "./fake-tools";
 import { into } from "./printed";
@@ -53,6 +53,9 @@ const settings = (raw: Record<string, unknown> = {}) => ({
   repository: "o/r",
   "code-host": CODE_HOST,
   ...raw,
+  "approval-policies": withoutCredentials(
+    raw["approval-policies"] as unknown[] | undefined,
+  ),
 });
 
 /** The settings `raw` writes, resolved as `factory sync` resolves them. */
@@ -80,7 +83,7 @@ const NO_REMOTE =
  * line NO_REMOTE gives. */
 async function sync(
   argv: string[] = [],
-  s = settings(FULL),
+  s: Record<string, unknown> = settings(FULL),
   branch: string | null = "main",
   extra: { announce?: boolean; pullIn?: string | null } = {},
 ) {
@@ -117,6 +120,8 @@ beforeEach(() => {
   put(pkg, "agents/factory-ui-reviewer.md", "ui\n");
   put(pkg, "agents/factory-e2e-reviewer.md", "e2e\n");
   put(pkg, "skills/factory-deps/SKILL.md", "deps\n");
+  put(pkg, "agents/factory-credentials-reader.md", "credentials\n");
+  put(pkg, "approval-policies/credentials/find.mts", "find\n");
 });
 
 type Called = {
@@ -276,6 +281,18 @@ describe("factory sync", () => {
     expect((await sync([], settings(SITE))).code).toBe(0);
     expect(read(UI)).toBe("ui\n");
     expect(read(".claude/factory.lock")).toContain(`  - ${UI}`);
+  });
+
+  it("writes the credentials policy's rule and reader only while the policy is on", async () => {
+    const RULE = ".claude/approval-policies/credentials/find.mts";
+    const READER = ".claude/agents/factory-credentials-reader.md";
+    const { "approval-policies": _, ...on } = settings();
+    expect((await sync([], on)).code).toBe(0);
+    expect([read(RULE), read(READER)]).toEqual(["find\n", "credentials\n"]);
+    expect(read(".claude/factory.lock")).toContain(`  - ${RULE}`);
+
+    expect((await sync([], settings())).code).toBe(0);
+    expect([read(RULE), read(READER)]).toEqual([null, null]);
   });
 
   it("writes the end-to-end reviewer, and locks it, only where commands.end-to-end is set", async () => {

@@ -273,12 +273,12 @@ describe("factory enroll, as the workflow's step runs it", () => {
     readFileSync(join(ROOT, "package.json"), "utf8"),
   ) as { version: string };
 
-  it("prints nothing and passes where pr-review is not set", () => {
+  it("prints nothing and passes where pr-review is not set and no approval policy is on", () => {
     const dir = mkdtempSync(join(tmpdir(), "factory-enroll-"));
     mkdirSync(join(dir, ".git"));
     writeSettings(
       dir,
-      `version: 2\nrepository: sam/api\ntickets:\n  type: github\n${CODE_HOST_YAML}\n`,
+      `version: 2\nrepository: sam/api\ntickets:\n  type: github\n${CODE_HOST_YAML}\napproval-policies:\n  - name: credentials\n    off: true\n`,
     );
     const r = spawnSync("node", [join(ROOT, "bin/factory.js"), "enroll"], {
       cwd: dir,

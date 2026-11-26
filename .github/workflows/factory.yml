@@ -20,6 +20,7 @@ on:
       - closed
       - labeled
       - unlabeled
+      - edited
   pull_request_review:
     types: [submitted]
   push:
@@ -56,7 +57,7 @@ jobs:
   factory:
     uses: ./.github/workflows/run.yml
     with:
-      parts: "review board"
+      parts: "review board approval-policies"
       job: ${{ inputs.job }}
       ticket: ${{ inputs.ticket }}
       pr: ${{ inputs.pr }}

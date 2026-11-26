@@ -257,3 +257,57 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 - **WHEN** the settings have a policy
 - **THEN** `factory init` requires **Approval policies** on the default branch beside **Review verdict**, and on a push to the default branch the "Require the verdict" job requires it where its token can, whether or not `pr-review` is on, adding it to the factory's existing ruleset.
+
+### Requirement: An agent's prompt on standard input
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: An agent's prompt on standard input
+
+- **WHEN** an agent check runs
+- **THEN** its prompt goes on standard input, so an input of any size starts it.
+
+### Requirement: An agent handed only what its command found
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: An agent handed only what its command found
+
+- **WHEN** a policy has both `run` and `agent`
+- **THEN** the agent's input holds only the files the command's findings name, a renamed file's entry included, and their diff, not the whole change.
+
+### Requirement: An agent can't read /proc
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: An agent can't read /proc
+
+- **WHEN** an agent check runs
+- **THEN** it is denied `Read` of `/proc`, as a session in the cloud is.
+
+### Requirement: An agent's model
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: An agent's model
+
+- **WHEN** an agent's file names `model:` in its front matter
+- **THEN** the agent runs with that model.
+
+### Requirement: What a cleared change's Details list
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: What a cleared change's Details list
+
+- **WHEN** an agent clears what its command found
+- **THEN** the status's Details list those findings, each as `file:line` and its title, under a heading `NAME: cleared by AGENT, not a person`.
+
+### Requirement: The docs example with a script and an agent
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: The docs example with a script and an agent
+
+- **WHEN** an approval policy's docs example combines a script and an agent
+- **THEN** it is named `raw-sql`.

@@ -87,6 +87,14 @@ spec when [`specs`](configuration.md#specs) is on.
 - A blocked-by relationship for each ticket that must be built first.
 - For a decision about the look, mockups from your
   [`mockups` plugin](plugins.md), if you have one.
+- **A `## Threats` section** when the ticket names a credential your
+  repository does not have, or write access for a workflow: what is
+  held, who can reach it, how established tools handle it, and what stays
+  exposed. You approve it with the rest. `factory ticket refined` refuses
+  the ticket without one, and says which name it found:
+  `missing: ## Threats, since the ticket names a credential this repository does not have: DEPLOY_TOKEN`.
+  Once it is built, its pull request is read too, by the
+  [`credentials` policy](approval-policies.md#the-factorys-own-policy).
 
 **How it asks.** In the session if you are there: each decision as a
 choice, the recommended answer first. Otherwise as one comment on the

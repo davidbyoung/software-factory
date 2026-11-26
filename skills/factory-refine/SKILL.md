@@ -219,6 +219,19 @@ spec tool, writes into the repository's specs, one requirement per line.
   and each case the area's rules say a change must cover ("Rules by area"
   in `CLAUDE.md`).
 
+**Threats,** on either track, when the owner's text names a credential
+the default branch doesn't have outside docs and tests, such as
+`DEPLOY_TOKEN`, or gives a workflow write access, such as
+`contents: write`. Write `## Threats` after Decisions, one row for each
+credential and permission: what is held, meaning what it opens, how far,
+and for how long; who can reach it, each job and process beside it,
+counting an AI agent as someone an attacker may be steering; how
+established tools handle it, from their own docs; and what stays exposed.
+The owner approves it with the rest, and `factory ticket refined` refuses
+the ticket without it, naming what it found. A token's renewal added in
+the middle of a build, after its design was reviewed, once gave a process
+beside an AI a key that worked in every repository.
+
 On an issue without `spec`, write the same lines as a plain list headed
 "Acceptance criteria" instead of grouping them by capability. The one
 addition is a small change that makes a spec line false: put the
@@ -381,6 +394,13 @@ approved it.
 ## Decisions
 
 - [One line per decision: the question and what was chosen.]
+
+## Threats
+
+| What is held | Who can reach it | How established tools handle it | What stays exposed |
+| ------------ | ---------------- | ------------------------------- | ------------------ |
+
+[Only for a ticket that names a new credential or write access.]
 
 ## Spec
 

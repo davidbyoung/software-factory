@@ -28,6 +28,7 @@ import {
   diffOf,
   outcomeOf,
   statusOf,
+  type Check,
   type Finding,
   type Git,
   type Input,
@@ -241,6 +242,74 @@ export async function prepare(d: Deps, dir: string): Promise<Plan> {
   return plan;
 }
 
+/** Runs one check's command against a pull request, as the jobs do: its
+ * change read from git against the merge base, from `root`, the default
+ * branch's checkout, with no credential. A change git can't read is a
+ * failed check. The merge policy runs it to tell whether an agent will
+ * read anything. */
+export async function policyRun(
+  check: Check,
+  o: {
+    git: Git;
+    pr: number;
+    base: string;
+    head: string;
+    repository: string;
+    body: string;
+    tickets: Pick<Tickets, "linksIn" | "read">;
+    root: string;
+  },
+): Promise<Outcome> {
+  const command = check.policy.run ?? "";
+  const failed: Outcome = {
+    kind: "failed",
+    why: "the change couldn't be read",
+    command,
+    stderr: "",
+  };
+  const fetched = o.git([
+    "fetch",
+    "--no-tags",
+    "--quiet",
+    "origin",
+    `+refs/pull/${o.pr}/head:refs/factory/head`,
+    `+refs/heads/${o.base}:refs/factory/base`,
+  ]);
+  const mergeBase = fetched.ok
+    ? o.git(["merge-base", "refs/factory/base", o.head]).out.trim()
+    : "";
+  const diff = mergeBase ? diffOf(o.git, mergeBase, o.head, check.files) : null;
+  if (diff === null) return failed;
+  const links = o.tickets.linksIn(o.body, o.repository);
+  const key = links.closes[0] ?? links.partOf[0];
+  let ticket: Input["ticket"] = null;
+  if (key !== undefined)
+    try {
+      ticket = { id: key, text: (await o.tickets.read(key)).body };
+    } catch {
+      ticket = { id: key, text: "" };
+    }
+  const { runCommand } = await import("./approval-policies.mts");
+  return outcomeOf(
+    command,
+    await runCommand(
+      command,
+      {
+        version: 1,
+        repository: o.repository,
+        pull: o.pr,
+        base: mergeBase,
+        head: o.head,
+        files: check.files,
+        diff,
+        in: check.folder,
+        ticket,
+      },
+      { cwd: o.root },
+    ),
+  );
+}
+
 /** `commands DIR`: runs each policy's command, with no credential in its
  * environment. With an agent too, what it found is the agent's to read. */
 export async function commands(d: Deps, dir: string): Promise<void> {
@@ -281,8 +350,35 @@ export async function agent(d: Deps, dir: string, i: number): Promise<void> {
   const input = readJson<Input>(join(dir, "input", `${i}.json`));
   writeJson(
     answer,
-    agentOutcome(c.agent, await d.runAgent(c.agent, input, found)),
+    agentOutcome(
+      c.agent,
+      await d.runAgent(c.agent, found ? onlyFound(input, found) : input, found),
+      found,
+    ),
   );
+}
+
+/** The input narrowed to the files a command's findings name, and their
+ * diff: an agent reads only what its command found, whatever the change's
+ * size. */
+export function onlyFound(input: Input, found: Finding[]): Input {
+  const named = new Set(found.map((f) => f.file));
+  const files = input.files.filter(
+    (f) =>
+      named.has(f.filename) ||
+      (f.previous_filename !== undefined && named.has(f.previous_filename)),
+  );
+  const keep = new Set(
+    files.flatMap((f) => [f.filename, f.previous_filename ?? f.filename]),
+  );
+  const diff = input.diff
+    .split(/(?=^diff --git )/m)
+    .filter((part) => {
+      const m = /^diff --git a\/(.+?) b\/(.+)$/m.exec(part);
+      return m !== null && (keep.has(m[1]!) || keep.has(m[2]!));
+    })
+    .join("");
+  return { ...input, files, diff };
 }
 
 /** What became of each check of the plan. A check with no answer is an
@@ -319,9 +415,18 @@ export function summaryOf(results: readonly Result[]): string {
       lines.push(`- **${name}:** the check failed: ${o.why}`);
     else if (o.kind === "cant-run")
       lines.push(`- **${name}:** ${o.agent} can't run here`);
-    else if (o.kind === "cleared")
-      lines.push(`- **${name}:** cleared by ${o.agent}, not a person`);
-    else lines.push(`- **${name}:** nothing to approve`);
+    else if (o.kind === "cleared") {
+      if (!o.found?.length)
+        lines.push(`- **${name}:** cleared by ${o.agent}, not a person`);
+      else {
+        lines.push(`### ${name}: cleared by ${o.agent}, not a person`, "");
+        for (const f of o.found)
+          lines.push(
+            `- \`${f.file}${f.line === undefined ? "" : `:${f.line}`}\` ${f.title}`,
+          );
+        lines.push("");
+      }
+    } else lines.push(`- **${name}:** nothing to approve`);
   }
   return `${lines.join("\n").trimEnd()}\n`;
 }
@@ -603,15 +708,18 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
     if (
       c.policy.agent !== null &&
       (c.policy.run === null || outcome.kind === "findings")
-    )
+    ) {
+      const found = outcome.kind === "findings" ? outcome.findings : null;
       outcome = agentOutcome(
         c.policy.agent,
         await d.runAgent(
           c.policy.agent,
-          input,
-          outcome.kind === "findings" ? outcome.findings : null,
+          found ? onlyFound(input, found) : input,
+          found,
         ),
+        found,
       );
+    }
     if (outcome.kind === "failed") {
       failed = true;
       d.err(

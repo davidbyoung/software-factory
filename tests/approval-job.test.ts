@@ -19,18 +19,24 @@ import {
   check,
   commands,
   kept,
+  onlyFound,
+  policyRun,
   prepare,
   status,
   type Deps,
 } from "../src/approval-job.mts";
-import type { Input, Ran } from "../src/approval-policies.mts";
-import { parseSettings, type ApprovalPolicy } from "../src/config.mts";
+import { runCommand, type Input, type Ran } from "../src/approval-policies.mts";
+import {
+  FACTORY_POLICY,
+  parseSettings,
+  type ApprovalPolicy,
+} from "../src/config.mts";
 import type { NewStatus } from "../src/code-host/types.mts";
 import { gitIn } from "../src/lib/default-branch.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryTickets } from "./memory-tickets";
 import { memoryRunner } from "./memory-runner";
-import { CODE_HOST } from "./settings-fixture";
+import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { into } from "./printed";
 
 let world = "";
@@ -110,7 +116,7 @@ function setup(
       version: 2,
       repository: "acme/widgets",
       "code-host": CODE_HOST,
-      "approval-policies": o.policies ?? POLICIES,
+      "approval-policies": withoutCredentials(o.policies ?? POLICIES),
     },
     () => true,
   );
@@ -152,7 +158,7 @@ function setup(
   );
   const outputs: string[] = [];
   const summaries: string[] = [];
-  const agents: { name: string; found: unknown }[] = [];
+  const agents: { name: string; found: unknown; input?: Input }[] = [];
   const d: Deps = {
     settings,
     codeHost: {
@@ -175,8 +181,8 @@ function setup(
         stderr: "",
         timedOut: false,
       },
-    runAgent: async (name, _input, found) => {
-      agents.push({ name, found });
+    runAgent: async (name, input, found) => {
+      agents.push({ name, found, input });
       return o.agentAnswer ?? { findings: [] };
     },
     output: (line) => outputs.push(line),
@@ -335,7 +341,7 @@ describe("running the checks", () => {
 
   it("hands an agent only what its command found", async () => {
     const s = await both();
-    expect(s.agents).toEqual([
+    expect(s.agents.map(({ name, found }) => ({ name, found }))).toEqual([
       {
         name: "reader",
         found: [
@@ -343,7 +349,53 @@ describe("running the checks", () => {
         ],
       },
     ]);
-    expect(s.answer).toEqual({ kind: "cleared", agent: "reader" });
+    expect(s.answer).toMatchObject({ kind: "cleared", agent: "reader" });
+  });
+
+  it("hands an agent only the files its command found something in, and their diff", async () => {
+    const s = await both();
+    const input = s.agents[0]!.input!;
+    expect(input.files.map((f) => f.filename)).toEqual(["package-lock.json"]);
+    expect(input.diff).toContain("package-lock.json");
+    expect(input.diff).not.toContain("migrations/1.sql");
+  });
+
+  it("keeps a renamed file's entry and its diff when the command found something in it", () => {
+    const renamed = {
+      filename: "src/new.ts",
+      previous_filename: "src/old.ts",
+      status: "renamed",
+    };
+    const diff = [
+      "diff --git a/src/old.ts b/src/new.ts",
+      "+NEW_TOKEN",
+      "diff --git a/src/other.ts b/src/other.ts",
+      "+x",
+      "",
+    ].join("\n");
+    expect(
+      onlyFound(
+        {
+          files: [renamed, { filename: "src/other.ts", status: "modified" }],
+          diff,
+        } as unknown as Input,
+        [{ file: "src/new.ts", title: "A new credential: NEW_TOKEN" }],
+      ),
+    ).toMatchObject({
+      files: [renamed],
+      diff: "diff --git a/src/old.ts b/src/new.ts\n+NEW_TOKEN\n",
+    });
+  });
+
+  it("lists what the agent cleared in the run's summary", async () => {
+    const s = await both();
+    await status(s.d, s.r.dir);
+    expect(s.summaries[0]).toContain(
+      "### credentials: cleared by reader, not a person",
+    );
+    expect(s.summaries[0]).toContain(
+      "- `package-lock.json` A dependency is GPL-3.0",
+    );
   });
 
   it("runs no agent when its command found nothing", async () => {
@@ -355,6 +407,29 @@ describe("running the checks", () => {
     });
     expect(s.agents).toEqual([]);
     expect(s.answer).toEqual({ kind: "nothing" });
+  });
+
+  it("runs no agent on a one-sentence change to a docs page, under the factory's own policy", async () => {
+    const r = repository(false);
+    put(
+      r.checkout,
+      ".claude/approval-policies/credentials/find.mts",
+      readFileSync("approval-policies/credentials/find.mts", "utf8"),
+    );
+    const { in: _, ...credentials } = FACTORY_POLICY;
+    const s = setup(
+      { policies: [credentials], env: { CLAUDE_CODE_OAUTH_TOKEN: "t" } },
+      r,
+    );
+    s.d.runCommand = (command, input) =>
+      runCommand(command, input, { cwd: r.checkout });
+    await prepare(s.d, r.dir);
+    await commands(s.d, r.dir);
+    await agent(s.d, r.dir, 0);
+    expect(s.agents).toEqual([]);
+    expect(readJson(join(r.dir, "answer", "0.json"))).toEqual({
+      kind: "nothing",
+    });
   });
 
   it("can't run an agent with no Claude credential", async () => {
@@ -621,6 +696,53 @@ describe("approving with the label", () => {
       .comments.filter((c) => c.body.includes("still waits"));
     expect(said).toHaveLength(1);
     expect(said[0]!.body).toContain("add the `policy-override` label");
+  });
+});
+
+describe("running a policy's command for the merge policy", () => {
+  const check = (run: string) => ({
+    policy: {
+      name: "credentials",
+      run,
+      agent: "reader",
+      in: null,
+      files: ["**"],
+    },
+    folder: null,
+    files: [{ filename: "package-lock.json", status: "modified" }],
+  });
+  const ran = async (run: string, head?: string) => {
+    const r = repository();
+    const { d } = setup({}, r);
+    return policyRun(check(run), {
+      git: d.git,
+      pr: 7,
+      base: "main",
+      head: head ?? r.head,
+      repository: "acme/widgets",
+      body: "Closes #12",
+      tickets: d.tickets,
+      root: r.checkout,
+    });
+  };
+
+  it("runs it on the pull request's change, as the jobs do", async () => {
+    const outcome = await ran(
+      `node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const i=JSON.parse(s);console.log(JSON.stringify({findings:i.diff.includes("GPL-3.0")?[{file:"package-lock.json",title:i.ticket.text}]:[]}))})'`,
+    );
+    expect(outcome).toEqual({
+      kind: "findings",
+      findings: [{ file: "package-lock.json", title: "Add refunds." }],
+    });
+  });
+
+  it("is a failed check when git can't read the change", async () => {
+    expect(await ran("echo '{\"findings\":[]}'", "0".repeat(40))).toMatchObject(
+      {
+        kind: "failed",
+        why: "the change couldn't be read",
+      },
+    );
   });
 });
 

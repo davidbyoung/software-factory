@@ -31,15 +31,60 @@ function under(
   return end === -1 ? rest : rest.slice(0, end);
 }
 
+/** A credential's name, as the credentials policy's `find.mts` reads one. */
+export const CREDENTIAL_NAME =
+  /\b[A-Z][A-Z0-9_]*_(?:TOKEN|SECRET|PASSWORD|KEY|PAT|AUTH|CREDENTIALS?)\b/g;
+
+/** A workflow's permission set to write, as GitHub names its permissions,
+ * and an App token's `permission-NAME` inputs. */
+const WRITE_ACCESS =
+  /\b(actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|permission-[\w-]+):\s*['"]?write(?![\w-])/;
+
+/** Where a name the repository has doesn't count: docs and tests, as git
+ * pathspecs. */
+export const OUTSIDE_DOCS_AND_TESTS = [
+  ":(exclude,glob)**/docs/**",
+  ":(exclude,glob)**/test/**",
+  ":(exclude,glob)**/tests/**",
+  ":(exclude,glob)**/spec/**",
+  ":(exclude,glob)**/specs/**",
+  ":(exclude,glob)**/*.test.*",
+  ":(exclude,glob)**/*.spec.*",
+];
+
+/** The line saying the ticket needs `## Threats`, or null when it doesn't:
+ * when the owner's text, the lines before the first `## ` heading, names a
+ * credential `has` says the repository doesn't have, or write access. */
+function threatsMissing(
+  lines: string[],
+  has: (name: string) => boolean,
+): string | null {
+  if (lines.includes("## Threats")) return null;
+  const end = lines.findIndex((line) => line.startsWith("## "));
+  const owner = (end === -1 ? lines : lines.slice(0, end)).join("\n");
+  const names = [
+    ...new Set([...owner.matchAll(CREDENTIAL_NAME)].map(([n]) => n)),
+  ].filter((n) => n !== "GITHUB_TOKEN" && !has(n));
+  if (names.length)
+    return `missing: ## Threats, since the ticket names a credential this repository does not have: ${names.join(", ")}`;
+  const write = WRITE_ACCESS.exec(owner);
+  return write
+    ? `missing: ## Threats, since the ticket gives a workflow write access: ${write[1]}: write`
+    : null;
+}
+
 /** Each part a build needs that the ticket's body lacks, as the line
  * `factory ticket refined` prints for it; none when the ticket is sound.
  * A ticket without the `spec` label needs its decisions and at least one acceptance
  * criterion. One with it needs its decisions, a spec with a capability
- * and a numbered line, and the builder's design and tasks. */
+ * and a numbered line, and the builder's design and tasks. Either needs
+ * `## Threats` when its owner's text names a credential the repository
+ * doesn't have, by `has`, or write access for a workflow. */
 export function missingParts(
   body: string,
   labels: string[],
   names: Readonly<Record<"spec", string>>,
+  has: (name: string) => boolean,
 ): string[] {
   const lines = proseLines(body);
   const missing: string[] = [];
@@ -47,6 +92,8 @@ export function missingParts(
     if (!found) missing.push(`missing: ${part}`);
   };
   need(lines.includes("## Decisions"), "## Decisions");
+  const threats = threatsMissing(lines, has);
+  if (threats !== null) missing.push(threats);
 
   if (!labels.includes(names.spec)) {
     const criteria = under(lines, "## Acceptance criteria");

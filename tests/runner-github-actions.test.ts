@@ -289,6 +289,13 @@ describe("the runs for a commit", () => {
       [REVIEWS, { workflow_runs: runs }],
       [/actions\/runs\/\d+\/jobs/, { jobs }],
     ]).r.reviewRuns("h");
+  it("asks for the commit's own runs, not the newest 50 of every pull request's", async () => {
+    const { r, calls } = runner([[REVIEWS, { workflow_runs: [] }]]);
+    await r.reviewRuns("h");
+    expect(calls[0]).toContain("head_sha=h");
+    expect(calls[0]).not.toContain("per_page=50");
+  });
+
   const ran = (
     prepare: string | null,
     session: string | null,

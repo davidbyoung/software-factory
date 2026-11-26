@@ -86,6 +86,7 @@ function world(w: World = {}) {
       spend: { dollars: 0, priced: 0, unpriced: new Map() },
     }),
     signedInAs: async () => w.me ?? "dev",
+    hasName: () => true,
     ...(w.cloud ? { fromCloudSession: true } : {}),
   };
   const run = (...argv: string[]) => main(argv, d);

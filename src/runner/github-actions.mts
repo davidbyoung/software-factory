@@ -77,16 +77,17 @@ export function githubActionsRunner(o: {
         `${API}/actions/runs/${run}/jobs?per_page=100`,
       )
     ).jobs;
-  /** The review's jobs in each of the newest runs for a commit, newest
-   * first. GitHub gives such a run the default branch's commit, so it is
-   * found by its name, which holds the pull request's. A run whose review
-   * was skipped, as for a draft, has none. */
+  /** The review's jobs in each of the runs for a commit, newest first.
+   * GitHub gives a `pull_request_target` run the pull request's head as its
+   * `head_sha`, so the commit's own runs are asked for, however many other
+   * runs there are; its name, which holds the commit too, is checked as
+   * well. A run whose review was skipped, as for a draft, has none. */
   const reviewsOf = async (sha: string) => {
     const { workflow_runs } = await t.rest<{
       workflow_runs: (DispatchedRun & { id: number; status: string })[];
     }>(
       "GET",
-      `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=pull_request_target&per_page=50`,
+      `${API}/actions/workflows/${FACTORY_WORKFLOW}/runs?event=pull_request_target&head_sha=${sha}&per_page=100`,
     );
     const found: { jobs: Job[]; status: string; conclusion: string | null }[] =
       [];

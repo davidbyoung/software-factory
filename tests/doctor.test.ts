@@ -21,7 +21,7 @@ import {
   withFakeTickets,
 } from "./fake-tools";
 import { FACTORY_COLUMNS } from "./factory-columns";
-import { CODE_HOST } from "./settings-fixture";
+import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { chmodSync } from "node:fs";
 import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
 import { into, look } from "./printed";
@@ -55,7 +55,15 @@ function checkout(files: Record<string, string> = {}): string {
 
 const settings = (raw: Record<string, unknown> = {}, tools: Registry = TOOLS) =>
   parseSettings(
-    { version: 2, repository: "acme/site", "code-host": CODE_HOST, ...raw },
+    {
+      version: 2,
+      repository: "acme/site",
+      "code-host": CODE_HOST,
+      ...raw,
+      "approval-policies": withoutCredentials(
+        raw["approval-policies"] as unknown[] | undefined,
+      ),
+    },
     () => true,
     builtOf(tools),
   );
