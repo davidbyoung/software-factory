@@ -316,15 +316,29 @@ describe("the code host's setup operations, on GitHub", () => {
     });
   });
 
-  it("leaves a ruleset of that name as it is", async () => {
+  it("leaves a ruleset of that name that requires the check as it is", async () => {
     const { host: h, calls } = host([
+      [
+        /^api repos\/acme\/site\/rulesets\/3$/,
+        {
+          rules: [
+            {
+              type: "required_status_checks",
+              parameters: {
+                required_status_checks: [{ context: "Review verdict" }],
+              },
+            },
+          ],
+        },
+      ],
       [
         /^api repos\/acme\/site\/rulesets/,
         [{ id: 3, name: "Software factory" }],
       ],
     ]);
     await h.requireCheck("Software factory", "Review verdict");
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
+    expect(calls.some((c) => c.line.includes("PUT"))).toBe(false);
   });
 
   describe("the events a workflow file may start on", () => {

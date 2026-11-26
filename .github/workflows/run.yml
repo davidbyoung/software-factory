@@ -26,7 +26,7 @@ on:
   workflow_call:
     inputs:
       parts:
-        description: "The parts that are on, separated by spaces: review, board, auto-merge, poller, dependabot"
+        description: "The parts that are on, separated by spaces: review, board, auto-merge, poller, dependabot, approval-policies"
         type: string
         default: ""
       job:
@@ -49,6 +49,10 @@ on:
         description: The name of the label that passes the verdict for one commit
         type: string
         default: verdict-override
+      policy-label:
+        description: The name of the label that approves what an approval policy found on one commit
+        type: string
+        default: policy-override
       build-minutes:
         type: number
         default: 230
@@ -176,6 +180,294 @@ jobs:
           FACTORY_ACROSS: read
           PR: ${{ github.event_name == 'workflow_dispatch' && inputs.pr || '' }}
         run: factory review verdict ${PR:+--pr "$PR"}
+
+  # The approval policies: `prepare` reads the pull request's change from
+  # git and writes each check's input; `commands` runs each policy's command
+  # with no token; `agent` runs each policy's agent on its own, with tools
+  # that only read; and `status` posts "Approval policies" and keeps what
+  # was found, as an artifact, for the label's run. `factory
+  # approval-policies` holds every rule. Each commit and base's checks run
+  # one at a time, and none cancels another.
+  approval-prepare:
+    name: Read the change for the approval policies
+    if: >-
+      contains(format(' {0} ', inputs.parts), ' approval-policies ') &&
+      github.event_name == 'pull_request_target' &&
+      (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review", "converted_to_draft"]'), github.event.action) ||
+       (github.event.action == 'edited' && github.event.changes.base != null))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: &approval-group
+      group: factory-approval-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    outputs:
+      commands: ${{ steps.prepare.outputs.commands }}
+      agents: ${{ steps.prepare.outputs.agents }}
+      kept: ${{ steps.prepare.outputs.kept }}
+      approved: ${{ steps.prepare.outputs.approved }}
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Prepare
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory approval-policies prepare "$RUNNER_TEMP/approval"
+
+      - name: Keep the inputs
+        if: steps.prepare.outputs.commands == 'true' || steps.prepare.outputs.agents != '[]'
+        uses: actions/upload-artifact@v6
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+          retention-days: 1
+
+  approval-commands:
+    name: Run the approval policies' commands
+    needs: approval-prepare
+    if: needs.approval-prepare.outputs.commands == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Fetch the inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+
+      # No token in this step's environment: a check reads the change from
+      # its input and posts nothing.
+      - name: Run the commands
+        run: factory approval-policies commands "$RUNNER_TEMP/approval"
+
+      - name: Keep the answers
+        uses: actions/upload-artifact@v6
+        with:
+          name: approval-commands
+          path: ${{ runner.temp }}/approval/answer
+          retention-days: 1
+
+  approval-agent:
+    name: Run an approval policy's agent
+    needs: [approval-prepare, approval-commands]
+    # An agent can't run where the run has no Claude credential: on a fork's
+    # pull request, and on a push of Dependabot's. The status says so.
+    if: >-
+      always() && needs.approval-prepare.result == 'success' &&
+      needs.approval-prepare.outputs.agents != '[]' &&
+      needs.approval-commands.result != 'failure' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    strategy:
+      fail-fast: false
+      matrix:
+        check: ${{ fromJSON(needs.approval-prepare.outputs.agents) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Install Claude Code
+        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
+
+      - name: Fetch the inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+
+      - name: Fetch the commands' answers
+        if: needs.approval-commands.result == 'success'
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-commands
+          path: ${{ runner.temp }}/approval/answer
+
+      - name: Run the agent
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.claude-token }}
+          ANTHROPIC_API_KEY: ${{ secrets.claude-token == '' && secrets.claude-api-key || '' }}
+        run: factory approval-policies agent "$RUNNER_TEMP/approval" "${{ matrix.check }}"
+
+      - name: Keep the answer
+        uses: actions/upload-artifact@v6
+        with:
+          name: approval-agent-${{ matrix.check }}
+          path: ${{ runner.temp }}/approval/answer/${{ matrix.check }}.json
+          retention-days: 1
+
+  approval-status:
+    name: Post the approval policies' status
+    needs: [approval-prepare, approval-commands, approval-agent]
+    if: >-
+      always() && needs.approval-prepare.result == 'success' &&
+      (needs.approval-prepare.outputs.commands == 'true' || needs.approval-prepare.outputs.agents != '[]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: *approval-group
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Fetch the inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+
+      - name: Fetch the answers
+        uses: actions/download-artifact@v7
+        with:
+          pattern: approval-{commands,agent-*}
+          path: ${{ runner.temp }}/approval/answer
+          merge-multiple: true
+
+      - name: Find an approval of this commit
+        id: approved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ needs.approval-prepare.outputs.approved }}
+        run: factory approval-policies kept "$NAME"
+
+      - name: Fetch the approval
+        if: steps.approved.outputs.run != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ needs.approval-prepare.outputs.approved }}
+          run-id: ${{ steps.approved.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/approval/approved
+
+      - name: Post the status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory approval-policies status "$RUNNER_TEMP/approval"
+
+      - name: Keep what was found
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ needs.approval-prepare.outputs.kept }}
+          path: ${{ runner.temp }}/approval/kept
+          retention-days: 90
+
+  # Approves what was waiting on a commit when someone who can write adds
+  # the policy label, from what the checks of that commit kept; and says
+  # once, on an approving review, that the label is what approves. The
+  # label's runs go one at a time, and none cancels another.
+  approval-label:
+    name: Approve what an approval policy found
+    if: >-
+      contains(format(' {0} ', inputs.parts), ' approval-policies ') &&
+      ((github.event_name == 'pull_request_target' &&
+        github.event.action == 'labeled' &&
+        github.event.label.name == inputs.policy-label) ||
+       (github.event_name == 'pull_request_review' &&
+        github.event.review.state == 'approved'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: factory-approval-label-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Find what the checks of this commit kept
+        id: kept
+        if: github.event_name == 'pull_request_target'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory approval-policies kept --event findings
+
+      - name: Fetch it
+        if: steps.kept.outputs.run != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.kept.outputs.name }}
+          run-id: ${{ steps.kept.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/approval/kept
+
+      - name: Approve
+        id: approve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory approval-policies approve "$RUNNER_TEMP/approval"
+
+      - name: Keep the approval
+        if: steps.approve.outputs.approved != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.approve.outputs.approved }}
+          path: ${{ runner.temp }}/approval/approved
+          retention-days: 90
 
   # Tells the other repositories of a pull request's ticket that it opened,
   # merged, or closed: theirs wait for it, and the last to merge finishes the
@@ -543,7 +835,8 @@ jobs:
   enroll:
     name: Require the verdict
     if: >-
-      contains(format(' {0} ', inputs.parts), ' review ') &&
+      (contains(format(' {0} ', inputs.parts), ' review ') ||
+       contains(format(' {0} ', inputs.parts), ' approval-policies ')) &&
       github.event_name == 'push' &&
       github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest

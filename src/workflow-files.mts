@@ -57,7 +57,13 @@ const TARGET_ACTIONS = [
 ];
 
 /** The parts a job of run.yml or review.yml is skipped without. */
-export type Part = "review" | "board" | "auto-merge" | "poller" | "dependabot";
+export type Part =
+  | "review"
+  | "board"
+  | "auto-merge"
+  | "poller"
+  | "dependabot"
+  | "approval-policies";
 
 export type WorkflowOptions = {
   /** The factory's version, or null in the factory's own repository, whose
@@ -74,6 +80,8 @@ export type WorkflowOptions = {
   minutes: Record<SessionKind, number>;
   /** The override label's name, as `code-host.labels` gives it. */
   overrideLabel: string;
+  /** The name of the label that approves what an approval policy found. */
+  policyLabel: string;
   /** The secrets the repository's `.npmrc` and ticket system read. */
   secrets: string[];
 };
@@ -146,6 +154,9 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     "  pull_request_target:",
     "    types:",
     ...TARGET_ACTIONS.map((action) => `      - ${action}`),
+    // A change of base checks the approval policies again. Every other
+    // edit of a pull request would start a run whose jobs all skip.
+    ...(o.parts.includes("approval-policies") ? ["      - edited"] : []),
     "  pull_request_review:",
     "    types: [submitted]",
     "  push:",
@@ -189,6 +200,9 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     ...(o.overrideLabel === PR_LABELS["verdict-override"]
       ? []
       : [`      override-label: ${JSON.stringify(o.overrideLabel)}`]),
+    ...(o.policyLabel === PR_LABELS["policy-override"]
+      ? []
+      : [`      policy-label: ${JSON.stringify(o.policyLabel)}`]),
     "    secrets:",
     "      build-token: ${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}",
     "      board-token: ${{ secrets.FACTORY_BOARD_TOKEN }}",

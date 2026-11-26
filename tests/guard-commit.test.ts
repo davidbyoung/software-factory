@@ -364,6 +364,10 @@ describe("factory guard commit", () => {
       blocked("gh pr edit 5 --add-label verdict-override");
     });
 
+    it("blocks adding policy-override, an approver's label too", () => {
+      blocked("gh pr edit 5 --add-label policy-override");
+    });
+
     it("blocks --add-label written with an equals sign", () => {
       blocked('gh pr edit 5 --add-label="verdict-override"');
     });
@@ -460,6 +464,7 @@ describe("factory guard commit", () => {
             '    branch-name: "{ticket}"',
             "    labels:",
             '      verdict-override: "owner: pass"',
+            '      policy-override: "owner: accepts"',
             "files: []",
             "",
           ].join("\n"),
@@ -470,6 +475,9 @@ describe("factory guard commit", () => {
         expect(await check('gh pr edit 5 --add-label "owner: pass"')).toContain(
           "is an approver's label",
         );
+        expect(
+          await check('gh pr edit 5 --add-label "owner: accepts"'),
+        ).toContain("is an approver's label");
         expect(
           await check("gh pr edit 5 --add-label verdict-override"),
         ).toBeNull();

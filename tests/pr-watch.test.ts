@@ -214,6 +214,16 @@ describe("newEvents", () => {
     ]);
   });
 
+  it("counts a waiting approval policy as finished, since it waits for a person", () => {
+    const checks = [
+      check(),
+      check({ name: "Approval policies", state: "pending" }),
+    ];
+    expect(lines({ checks, reviewOn: false })).toEqual([
+      `every check has finished on ${SHA}`,
+    ]);
+  });
+
   it("waits for no review where the automated review is off", () => {
     expect(lines({ checks: [check()], reviewOn: false })).toEqual([
       `every check has finished on ${SHA}`,

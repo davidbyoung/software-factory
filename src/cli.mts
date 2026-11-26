@@ -75,6 +75,10 @@ const USAGE: [string, [string, string][]][] = [
       ["specs check", "Check your written specs"],
       ["specs finish N", "Fold ticket N's spec into your specs"],
       ["default-branch", "Print the default branch's name"],
+      [
+        "approval-policies check",
+        "See what your approval policies would wait for",
+      ],
     ],
   ],
 ];

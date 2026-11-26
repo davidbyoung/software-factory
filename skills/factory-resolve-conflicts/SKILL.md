@@ -122,8 +122,10 @@ another branch would not fix it.
 
 This run merges the default branch into the branch. It never rebases, never force
 pushes, never merges the pull request, approves it, turns on auto-merge,
-marks a draft ready, or adds the `verdict-override` label. Its push
-removes an existing override, as any push does.
+marks a draft ready, or adds the `verdict-override` or `policy-override`
+label. Its push removes an existing override and a policy's approval, as
+any push does, so an approval policy that found something waits for its
+label again.
 
 **First, the stop marker.** If the pull request carries a stop comment
 for its current head (the conflict sweep, step 3), this ends here, unless

@@ -105,6 +105,8 @@ function doctor(o: {
   /** Whether the repository's owner defines that property, and has the
    * rule that applies by it; it does unless given. */
   ownerRule?: boolean;
+  /** Other checks a rule requires on the default branch. */
+  required?: string[];
   /** Each workflow on the default branch; none unless given. */
   workflows?: Record<string, "active" | "disabled">;
   /** The plan of the owner's that keeps its shared secrets from the
@@ -151,6 +153,11 @@ function doctor(o: {
                   property: "software-factory",
                   value: "on",
                 },
+                ...(o.required ?? []).map((check) => ({
+                  check,
+                  property: "software-factory",
+                  value: "on",
+                })),
               ],
         definedProperties: o.ownerRule === false ? [] : ["software-factory"],
         properties: {
@@ -224,6 +231,40 @@ const SIX = [
   "In review",
   "Done",
 ];
+
+describe("factory doctor, with approval policies", () => {
+  const POLICY = {
+    "approval-policies": [
+      { name: "migrations", agent: "rollback-checker", files: ["db/**"] },
+    ],
+  };
+
+  it("says the status is required, and that the agents' credential is set", async () => {
+    const { run, printed } = doctor({
+      raw: POLICY,
+      required: ["Approval policies"],
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    await run();
+    expect(section(printed, "GitHub")).toContain(
+      '✓ "Approval policies" is required before a merge to main',
+    );
+    expect(printed.join("\n")).toContain(
+      "CLAUDE_CODE_OAUTH_TOKEN is set, for the approval policies' agents",
+    );
+  });
+
+  it("says who requires it when nothing does, and that no credential is set for the agents", async () => {
+    const { run, printed } = doctor({ raw: POLICY, secrets: {} });
+    expect(await run()).toBe(1);
+    expect(section(printed, "GitHub")).toContain(
+      '? "Approval policies" is not required before a merge to main. An admin of acme/site runs: factory init',
+    );
+    expect(printed.join("\n")).toContain(
+      "CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is not set, for the approval policies' agents",
+    );
+  });
+});
 
 describe("factory doctor, the rule that requires the review's verdict", () => {
   const REVIEW = { "pr-review": { commands: [] } };

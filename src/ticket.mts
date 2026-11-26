@@ -654,7 +654,11 @@ async function ticketCommand(
    * session may ask about or remove but never add. */
   const named = (word: string) =>
     labelOf(
-      { ...names, "verdict-override": d.labels.codeHost["verdict-override"] },
+      {
+        ...names,
+        "verdict-override": d.labels.codeHost["verdict-override"],
+        "policy-override": d.labels.codeHost["policy-override"],
+      },
       word,
     );
   switch (command) {
@@ -776,7 +780,7 @@ async function ticketCommand(
         const history = need(t, "label-history");
         d.out((await history.wasRemoved(ticket, named(was))) ? "yes" : "no");
       } else if (add !== undefined) {
-        refuseOverride(add, d.labels.codeHost["verdict-override"]);
+        refuseOverride(add, d.labels.codeHost);
         await t.ensureLabel(labelOf(names, add));
         await t.addLabel(ticket, labelOf(names, add));
         d.out("added");

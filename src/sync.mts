@@ -115,6 +115,7 @@ export function partsOn(s: Settings, has: Has): Part[] {
     ["auto-merge", s.autoMerge.allow.length > 0],
     ["poller", s.builds.trigger === "github-action" && !s.builds.pollerIn],
     ["dependabot", has(DEPENDABOT)],
+    ["approval-policies", s.approvalPolicies.length > 0],
   ];
   return on.filter(([, is]) => is).map(([part]) => part);
 }
@@ -636,6 +637,7 @@ export async function plan(
     ref: refOf(s.tickets.type),
     minutes: s.sessionMinutes,
     overrideLabel: s.codeHost.labels["verdict-override"],
+    policyLabel: s.codeHost.labels["policy-override"],
     secrets: [...new Set([...npmrc.names, ...ticketNames])],
   };
   write.set(FACTORY_FILE, factoryWorkflow(workflows));

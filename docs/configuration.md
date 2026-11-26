@@ -48,8 +48,9 @@ The [glossary](glossary.md) has the rest.
   pattern with no wildcard matches that one path from the repository's
   root.
 - **A command is one line of shell.** Each runs with bash, from the
-  repository's root. Only the commands under [`site.checks`](#site) and
-  [`auto-merge.commands`](#auto-merge) are given anything on their
+  repository's root. Only the commands under [`site.checks`](#site),
+  [`auto-merge.commands`](#auto-merge), and
+  [`approval-policies`](#approval-policies) are given anything on their
   standard input, and their entries say what.
 - **Some settings choose between tools, and name the tool with `type`.**
   When `type` is the only thing in the block, you can write the tool's
@@ -255,7 +256,8 @@ presets:
   Each command it gives runs in each of those folders, and each path in
   it starts at each folder. A command list it gives is added after the
   one in your own `factory.yaml`, where a preset without `in` would
-  replace it. It can set only `commands`, `plugins`, and `site`.
+  replace it. It can set only `commands`, `plugins`, `site`, and
+  `approval-policies`.
   [Presets](presets.md#how-presets-combine) says how it combines.
 
 - **A preset can't set** `repository`, `auto-merge.allow`, or
@@ -679,7 +681,7 @@ uses the new pattern; branches already pushed keep their names.
 
 #### `code-host.labels`
 
-The names of the three labels on pull requests. They stay on your code
+The names of the four labels on pull requests. They stay on your code
 host whatever ticket system you use. Most repositories never set them:
 leave the block out, and each label's name is its key.
 
@@ -690,6 +692,7 @@ code-host:
     merge-automatic: auto-merge
     merge-manual: needs-owner
     verdict-override: owner-pass
+    policy-override: owner-accepts
 ```
 
 | Key                | What the label marks                                                                                                                          |
@@ -697,16 +700,18 @@ code-host:
 | `merge-automatic`  | The pull request [merges itself](workflow.md#who-merges) once every check passes                                                              |
 | `merge-manual`     | The pull request [waits for a person](workflow.md#who-merges) to merge it                                                                     |
 | `verdict-override` | A person passed the automated review's verdict on the newest commit, its ruling on whether it is ready. Sessions never add it, under any name |
+| `policy-override`  | A person accepted what an [approval policy](approval-policies.md) found on the newest commit. Sessions never add it, under any name           |
 
 - **The two merge labels appear only if you use
   [`auto-merge`](#auto-merge)**, with a pattern under `auto-merge.allow`.
   Otherwise no pull request gets either, whatever you name them.
 - **The override matters only with [`pr-review`](#pr-review) on**, since
-  that review gives the verdict.
+  that review gives the verdict, and `policy-override` only with
+  [`approval-policies`](#approval-policies).
 - **You don't create these labels either.** The factory creates each merge
   label the first time it adds it, and `verdict-override` the first time
-  it posts "Review verdict" on a pull request. Only a person adds
-  `verdict-override` to one.
+  it posts "Review verdict" on a pull request, and `policy-override` the
+  first time an approval policy waits. Only a person adds either to one.
 - **Naming a label doesn't turn on `auto-merge` or `pr-review`.**
 - **New names take effect once they are on your default branch**, the
   one pull requests merge into, since the workflows that add and read
@@ -1670,6 +1675,31 @@ rules:
 Each must be a whole number above zero. Any rule that isn't a number, you
 change by saying so in your own instructions for the coding agent, such as
 `CLAUDE.md`, which win over the factory's rules.
+
+### `approval-policies`
+
+Checks whose findings make a pull request wait until someone who can
+write to the repository accepts them with the
+[`policy-override`](#code-hostlabels) label.
+[Approval policies](approval-policies.md) says when to use one, what
+each key means, what a check reads and prints, and what a pull request
+shows while one waits.
+
+```yaml
+approval-policies:
+  - name: licenses # what the Approval policies status calls it
+    run: node .claude/approval-policies/licenses/check.mjs # the check, from the root
+    files: [package-lock.json] # the changed files that set it off
+  - name: migrations
+    agent: rollback-checker # an agent in .claude/agents/ checks it
+    in: services/* # each folder under services/, checked on its own
+    files: ["./db/migrations/**"]
+```
+
+[The settings](approval-policies.md#the-settings) there has a table of
+the keys: `name`, `run`, `agent`, `in`, `files`, and `off`. Adding the
+first policy changes `.github/workflows/factory.yml`, which
+`factory sync` rewrites, so commit it from your computer.
 
 ## Checking the file
 

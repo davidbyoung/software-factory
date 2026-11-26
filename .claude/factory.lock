@@ -36,6 +36,7 @@ settings:
       merge-automatic: merge-automatic                                         # default
       merge-manual: merge-manual                                               # default
       verdict-override: verdict-override                                       # default
+      policy-override: policy-override                                         # default
   builds:
     trigger: manual
     runner: github-actions                                                     # default
@@ -92,6 +93,7 @@ settings:
   rules:
     small-change-lines: 30                                                     # default
     review-rounds: 2                                                           # default
+  # approval-policies: none (default)
 overridden: {}
 files:
   - .claude/skills/factory-address-review/SKILL.md

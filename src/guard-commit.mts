@@ -27,7 +27,7 @@ import { commitChange } from "./lib/changes.mts";
 import { gitIn } from "./lib/default-branch.mts";
 import { commandLine } from "./lib/paths.mts";
 import { planOf } from "./lib/plan.mts";
-import { PR_LABELS } from "./labels.mts";
+import { APPROVER_LABELS, PR_LABELS } from "./labels.mts";
 import {
   branchDeps,
   defaultBranch,
@@ -88,17 +88,18 @@ export function addsOverride(raw: string, name: string): boolean {
   );
 }
 
-/** The override's name in the lock of the checkout at `dir`, or its
- * default where there is no lock to read. */
-async function overrideName(dir: string): Promise<string> {
+/** The approvers' labels' names in the lock of the checkout at `dir`, or
+ * their defaults where there is no lock to read. */
+async function approverNames(dir: string): Promise<string[]> {
+  const defaults = APPROVER_LABELS.map((k) => PR_LABELS[k]);
   const top = checkoutOf(dir);
   const lock = join(top, ".claude/factory.lock");
-  if (!existsSync(lock)) return PR_LABELS["verdict-override"];
+  if (!existsSync(lock)) return defaults;
   try {
     const s = await loadSettings(defaultDeps(top, { FACTORY_LOCK: lock }));
-    return s.codeHost.labels["verdict-override"];
+    return APPROVER_LABELS.map((k) => s.codeHost.labels[k]);
   } catch {
-    return PR_LABELS["verdict-override"];
+    return defaults;
   }
 }
 
@@ -228,9 +229,9 @@ export async function checkCommit(
   const raw = input.tool_input?.command ?? "";
   const cwd = input.cwd ?? ".";
   if (/\bgh\s/.test(raw) && /label/i.test(raw)) {
-    const name = await overrideName(cwd);
-    if (addsOverride(raw, name))
-      return `"${name}" is an approver's label. Ask one to add it.`;
+    for (const name of await approverNames(cwd))
+      if (addsOverride(raw, name))
+        return `"${name}" is an approver's label. Ask one to add it.`;
   }
 
   const calls = gitCalls(blankQuoted(raw), cwd);

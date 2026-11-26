@@ -15,7 +15,12 @@ export const PR_LABELS = {
   "merge-automatic": "merge-automatic",
   "merge-manual": "merge-manual",
   "verdict-override": "verdict-override",
+  "policy-override": "policy-override",
 } as const;
+
+/** The labels only an approver adds: a pass of the review's verdict, and
+ * an approval of what an approval policy found. */
+export const APPROVER_LABELS = ["verdict-override", "policy-override"] as const;
 
 export type TicketLabel = keyof typeof TICKET_LABELS;
 export type PrLabel = keyof typeof PR_LABELS;

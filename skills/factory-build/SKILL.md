@@ -518,7 +518,8 @@ ready.
 Where the settings list a file under `auto-merge.allow`, the merge policy labels the pull request `merge-automatic` or `merge-manual` from
 the files it changes, and turns auto-merge on for `merge-automatic` ones, which
 then merge themselves once every gate passes. Never enable auto-merge,
-merge, or add the `verdict-override` label yourself. In the report, say which
+merge, or add the `verdict-override` or `policy-override` label yourself.
+In the report, say whether "Approval policies" waits for the label, and which
 label the pull request got, so the owner knows whether it waits for them;
 with none listed, no label comes, and say it waits for the owner.
 

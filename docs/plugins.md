@@ -430,7 +430,9 @@ your own settings with `off: true`, as
   builder launches is that builder's business.
 - **A rule.** "Migrations always wait for me" is
   [`auto-merge`](configuration.md#auto-merge). "Every migration needs a
-  rollback" is a sentence in your project's instructions for the agent.
+  rollback" is a sentence in your project's instructions for the agent,
+  and "Every migration needs a rollback that someone approves" is an
+  [approval policy](approval-policies.md).
 - **A question you want every refinement to ask.** That is a line under
   "Refining: this repository" in `CLAUDE.md`, as [`refiner`](#refiner)
   says.

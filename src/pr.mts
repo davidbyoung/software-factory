@@ -639,7 +639,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
           throw new Error(USAGE);
         const names = d.labels ? await d.labels() : PR_LABELS;
         if (add !== undefined) {
-          refuseOverride(add, names["verdict-override"]);
+          refuseOverride(add, names);
           await p.addLabel(pr, labelOf(names, add));
         } else await p.removeLabel(pr, labelOf(names, remove!));
         d.out(add !== undefined ? "added" : "removed");

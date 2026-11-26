@@ -23,3 +23,12 @@ The factory SHALL behave as this line says: When a pull request links a ticket t
 
 - **WHEN** a pull request links a ticket that names other repositories, or another repository's ticket
 - **THEN** it is `merge-manual`, with the reason `part of acme/api#12, which spans repositories`.
+
+### Requirement: A policy with an agent waits for a person
+
+The factory SHALL behave as the scenario below says, in the Spec line's own words.
+
+#### Scenario: A policy with an agent waits for a person
+
+- **WHEN** a policy with `agent` applies to a pull request's changed files
+- **THEN** the pull request is `merge-manual`, with the reason `NAME is checked by an agent, so a person merges it`, decided before any check runs.

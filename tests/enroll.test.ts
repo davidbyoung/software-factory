@@ -326,3 +326,39 @@ describe("which token the run holds, as its workflow's step says", () => {
     expect(holds({})).toBeNull();
   });
 });
+
+describe("the approval policies' status", () => {
+  const APPROVAL_NOT_REQUIRED =
+    '? "Approval policies" is not required before a merge to main, and this run\'s token cannot require it. An admin of acme/web runs: factory init';
+
+  it("is required beside the verdict with a person's token, whether or not the review is on", async () => {
+    const { lines, host } = run(
+      "person",
+      {},
+      { reviewOn: false, policiesOn: true },
+    );
+    expect(await lines()).toEqual([
+      '✓ Required "Approval policies" before a merge to main, as the rule "Software factory".',
+    ]);
+    expect(host.settings.rules.map((r) => r.check)).toEqual([
+      "Approval policies",
+    ]);
+    expect(await lines()).toEqual([]);
+  });
+
+  it("says who requires it under the organization's app, which manages no rules", async () => {
+    const { lines, wrote } = run(
+      "app",
+      {},
+      { reviewOn: false, policiesOn: true },
+    );
+    expect(await lines()).toEqual([APPROVAL_NOT_REQUIRED]);
+    expect(wrote()).toEqual([]);
+  });
+
+  it("is left alone with no policy", async () => {
+    const { lines, wrote } = run("person", {}, { reviewOn: false });
+    expect(await lines()).toEqual([]);
+    expect(wrote()).toEqual([]);
+  });
+});

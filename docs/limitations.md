@@ -276,8 +276,9 @@ as a code host's billing or what its workflows can see, are in
   here was drawn out of one repository.
 - **A session acts as you.** That is the design: your agent writes the
   commits, and they go out under your account. It also means the guard
-  against a session approving its own work is a tripwire, not a lock. Your
-  read of the pull request is the control.
+  against a session approving its own work, with `verdict-override` or
+  `policy-override`, is a tripwire, not a lock. Your read of the pull
+  request is the control.
 - **The skills are prose, and prose is hard to test.** A change of wording
   changes behavior in every repository that updates. The checks are a traced
   read by a fresh agent, one real ticket, and your read of the update.

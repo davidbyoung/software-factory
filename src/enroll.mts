@@ -15,6 +15,7 @@
 import { NoRulesError, type CodeHost } from "./code-host/types.mts";
 import { PROPERTY } from "./init-org.mts";
 import { CONTEXT } from "./review-verdict.mts";
+import { CONTEXT as APPROVAL } from "./approval-policies.mts";
 import { RULE } from "./setup.mts";
 import { statusOf } from "./tickets/transport.mts";
 import * as say from "./lib/output.mts";
@@ -25,6 +26,8 @@ export type Enroll = {
   branch: string;
   /** Whether `pr-review` is set. */
   reviewOn: boolean;
+  /** Whether the settings have an approval policy. */
+  policiesOn?: boolean;
   /** Whose token the run holds: the organization's app's, a person's
    * build token, or neither. */
   as: "app" | "person" | null;
@@ -51,9 +54,39 @@ export function holds(env: Record<string, string | undefined>): Enroll["as"] {
   return env.FACTORY_BUILD_TOKEN_SET === "true" ? "person" : null;
 }
 
-/** The lines to print, having done what the run's token can. */
+/** The lines to print, having done what the run's token can: the
+ * verdict's, then the approval policies'. */
 export async function enroll(o: Enroll): Promise<string[]> {
-  if (!o.reviewOn) return [];
+  return [
+    ...(o.reviewOn ? await enrollVerdict(o) : []),
+    ...(o.policiesOn ? await enrollPolicies(o) : []),
+  ];
+}
+
+/** Requires "Approval policies" in the repository's own rule, beside the
+ * verdict. Only a person's token can: the organization's app manages no
+ * rules. */
+async function enrollPolicies(o: Enroll): Promise<string[]> {
+  const settled = await o.codeHost
+    .requiresStatus(o.branch, APPROVAL)
+    .catch((error) => {
+      if (error instanceof NoRulesError) return true;
+      throw error;
+    });
+  if (settled) return [];
+  const notRequired = `? "${APPROVAL}" is not required before a merge to ${o.branch}, and this run's token cannot require it. An admin of ${o.repository} runs: factory init`;
+  if (o.as !== "person") return [notRequired];
+  try {
+    await o.codeHost.requireCheck(RULE, APPROVAL, "runner");
+  } catch {
+    return [notRequired];
+  }
+  return [
+    `✓ Required "${APPROVAL}" before a merge to ${o.branch}, as the rule "${RULE}".`,
+  ];
+}
+
+async function enrollVerdict(o: Enroll): Promise<string[]> {
   const owner = o.repository.slice(0, o.repository.lastIndexOf("/"));
   const notRequired = `? "${CONTEXT}" is not required before a merge to ${o.branch}, and this run's token cannot require it. An admin of ${o.repository} runs: factory init`;
 
@@ -100,7 +133,8 @@ export async function run(): Promise<number> {
   try {
     const { loadSettings, reachOf, repoRoot } = await import("./config.mts");
     const settings = await loadSettings();
-    if (!settings.prReview) return 0;
+    const policiesOn = settings.approvalPolicies.length > 0;
+    if (!settings.prReview && !policiesOn) return 0;
     const { openCodeHost } = await import("./code-host/index.mts");
     const { branchDeps, needDefaultBranch } =
       await import("./lib/default-branch.mts");
@@ -111,7 +145,8 @@ export async function run(): Promise<number> {
     const lines = await enroll({
       repository,
       branch: await needDefaultBranch(branchDeps(repoRoot())),
-      reviewOn: true,
+      reviewOn: settings.prReview !== null,
+      policiesOn,
       as: holds(process.env),
       codeHost: openCodeHost(repository, codeHost),
     });

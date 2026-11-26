@@ -110,10 +110,11 @@ export const fileHash = (text: string) =>
 export const shippedFrom = (to: string) => to.replace(/^\.claude\//, "");
 
 /** Whether a path is one a preset's file is written to: an agent's file,
- * or a file in a skill's folder. */
+ * or a file in a skill's or an approval policy's folder. */
 export const isShippedPath = (path: string) =>
-  /^\.claude\/(agents\/[^/]+\.md|skills\/[^/]+\/.+)$/.test(path) &&
-  !path.split("/").includes("..");
+  /^\.claude\/(agents\/[^/]+\.md|(skills|approval-policies)\/[^/]+\/.+)$/.test(
+    path,
+  ) && !path.split("/").includes("..");
 
 /** The preset NAME as a checkout of its repository holds it: its settings
  * and the hashes of what it ships. Throws a PresetError when the checkout
@@ -159,7 +160,7 @@ export function readPreset(
 export function ownFiles(dir: string): Record<string, string> {
   const paths = [
     ...(existsSync(join(dir, PRESET_FILE)) ? [PRESET_FILE] : []),
-    ...["agents", "skills"].flatMap((sub) =>
+    ...["agents", "skills", "approval-policies"].flatMap((sub) =>
       walk(join(dir, sub)).map((f) => `${sub}/${f}`),
     ),
   ];
@@ -189,13 +190,11 @@ export function shipped(dir: string): [string, string][] {
       `.claude/agents/${f}`,
       join(dir, "agents", f),
     ]);
-  const skills = walk(join(dir, "skills"))
-    .filter((f) => f.includes("/"))
-    .map((f): [string, string] => [
-      `.claude/skills/${f}`,
-      join(dir, "skills", f),
-    ]);
-  return [...agents, ...skills];
+  const folders = (sub: string) =>
+    walk(join(dir, sub))
+      .filter((f) => f.includes("/"))
+      .map((f): [string, string] => [`.claude/${sub}/${f}`, join(dir, sub, f)]);
+  return [...agents, ...folders("skills"), ...folders("approval-policies")];
 }
 
 /** How many agents and skills a preset ships, as `preset check` says it. */
@@ -391,6 +390,9 @@ const TYPED: Record<string, string> = {
   "code-host": DEFAULT_CODE_HOST,
 };
 const LISTS = new Set(PLUGIN_LISTS);
+/** The lists whose items are combined by their `name`, as plugins are by
+ * theirs. */
+const NAMED = new Set(["approval-policies"]);
 /** A block is merged key by key: every path the settings give keys for,
  * but a role that takes one plugin, which is one value. */
 const isBlock = (path: string) =>
@@ -503,7 +505,7 @@ export function combine(c: Combine): Resolution {
         })),
       );
     }
-    if (LISTS.has(path)) return plugins(path, es);
+    if (LISTS.has(path) || NAMED.has(path)) return plugins(path, es);
     if (VALUES.has(path)) return values(path, es);
     if (STEPS.has(path) || !isBlock(path)) return single(path, es).value;
     return block(path, es);
@@ -554,10 +556,15 @@ export function combine(c: Combine): Resolution {
     if (odd) return single(path, es).value;
     const groups = new Map<string, Entry[]>();
     const nameOf = (item: unknown, i: string) =>
-      isObj(item) &&
-      (typeof item.agent === "string" || typeof item.skill === "string")
-        ? String(item.agent ?? item.skill)
-        : `\0${i}`;
+      !isObj(item)
+        ? `\0${i}`
+        : NAMED.has(path)
+          ? typeof item.name === "string"
+            ? item.name
+            : `\0${i}`
+          : typeof item.agent === "string" || typeof item.skill === "string"
+            ? String(item.agent ?? item.skill)
+            : `\0${i}`;
     for (const e of es)
       (e.value as unknown[]).forEach((item, i) => {
         const name = nameOf(item, `${e.layer}${i}`);
@@ -626,7 +633,7 @@ export function combine(c: Combine): Resolution {
 }
 
 /** What a preset for some folders may set: the rest is the repository's. */
-const FOR_FOLDERS = ["commands", "plugins", "site"];
+const FOR_FOLDERS = ["commands", "plugins", "site", "approval-policies"];
 /** The command settings a preset for some folders adds to, in order. */
 const COMMAND_LISTS = [
   "build-setup",
@@ -709,6 +716,16 @@ function addForFolders(
           folders.map((f) => under(f, String(p))),
         ),
       ];
+  }
+  if (Array.isArray(l.raw["approval-policies"])) {
+    const added = l.raw["approval-policies"].map((p) =>
+      isObj(p) && p.off !== true ? inFolders(p, folders, []) : p,
+    );
+    raw["approval-policies"] = [...asList(raw["approval-policies"]), ...added];
+    for (const p of added)
+      if (isObj(p) && typeof p.name === "string")
+        r.sources.set(`approval-policies.${p.name}`, { from: l.name });
+    r.sources.set("approval-policies", { from: "" });
   }
   if (l.raw.site !== undefined) {
     const added = asList(l.raw.site).map((site) =>

@@ -493,3 +493,49 @@ describe("a workflow's state", () => {
     await expect(r.workflowState("factory-poller.yml")).rejects.toBe(refused);
   });
 });
+
+describe("the run that kept an artifact", () => {
+  const LIST =
+    /^api repos\/acme\/widgets\/actions\/artifacts\?name=approval-policies-7-abc/;
+  const RUN = /^api repos\/acme\/widgets\/actions\/runs\/91$/;
+  const kept = { artifacts: [{ expired: false, workflow_run: { id: 91 } }] };
+
+  it("is the factory's own run, started by a pull request's event", async () => {
+    const { r } = runner([
+      [LIST, kept],
+      [
+        RUN,
+        { path: ".github/workflows/factory.yml", event: "pull_request_target" },
+      ],
+    ]);
+    expect(await r.keptBy("approval-policies-7-abc", "factory.yml")).toBe(91);
+  });
+
+  it.each([
+    [
+      "another workflow",
+      { path: ".github/workflows/mine.yml", event: "pull_request_target" },
+    ],
+    [
+      "the pull request's own copy",
+      { path: ".github/workflows/factory.yml", event: "pull_request" },
+    ],
+  ])("is none when the run is %s", async (_, run) => {
+    const { r } = runner([
+      [LIST, kept],
+      [RUN, run],
+    ]);
+    expect(await r.keptBy("approval-policies-7-abc", "factory.yml")).toBeNull();
+  });
+
+  it.each([
+    [
+      "has expired",
+      { artifacts: [{ expired: true, workflow_run: { id: 91 } }] },
+    ],
+    ["is not there", { artifacts: [] }],
+  ])("is none when the artifact %s", async (_, listed) => {
+    const { r } = runner([[LIST, listed]]);
+    expect(await r.keptBy("approval-policies-7-abc", "factory.yml")).toBeNull();
+  });
+});

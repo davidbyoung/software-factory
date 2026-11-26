@@ -353,6 +353,45 @@ describe("judge", () => {
     ).toEqual(["held by a command"]);
   });
 
+  it("holds one an approval policy with an agent applies to, before any check runs, and not one with a command alone", async () => {
+    const policies = [
+      {
+        name: "migrations",
+        run: null,
+        agent: "rollback-checker",
+        in: ["services/*"],
+        files: ["./db/**"],
+      },
+      {
+        name: "licenses",
+        run: "node c.mjs",
+        agent: null,
+        in: null,
+        files: ["docs/**"],
+      },
+    ];
+    const judgedWith = (files: { filename: string }[]) =>
+      judge({
+        files,
+        body: "Closes #7",
+        policy: { allow: ["**"], deny: [] },
+        across: { tickets, repository: "acme/api" },
+        held: () => [],
+        approvalPolicies: policies,
+      });
+    expect(
+      await judgedWith([{ filename: "services/orders/db/1.sql" }]),
+    ).toEqual({
+      risk: "merge-manual",
+      reasons: [
+        "migrations in services/orders is checked by an agent, so a person merges it",
+      ],
+    });
+    expect((await judgedWith([{ filename: "docs/a.md" }])).risk).toBe(
+      "merge-automatic",
+    );
+  });
+
   it("asks no command about one with no files", async () => {
     const found = await judged("", [], () => {
       throw new Error("asked");

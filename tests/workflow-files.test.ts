@@ -23,6 +23,7 @@ const options = (over: Partial<WorkflowOptions> = {}): WorkflowOptions => ({
   ref: (key) => (key.includes("/") ? key : `#${key}`),
   minutes: { ...SESSION_MINUTES },
   overrideLabel: "verdict-override",
+  policyLabel: "policy-override",
   secrets: [],
   ...over,
 });
@@ -71,6 +72,13 @@ describe("factory.yml", () => {
       "pr",
       "review",
     ]);
+  });
+
+  it("starts on a pull request's edit, for a change of its base, only with approval policies on", () => {
+    expect(factory().on.pull_request_target.types).not.toContain("edited");
+    expect(
+      factory({ parts: ["approval-policies"] }).on.pull_request_target.types,
+    ).toContain("edited");
   });
 
   it("names the default branch in the push trigger, quoted where YAML needs it", () => {
@@ -149,6 +157,13 @@ describe("factory.yml", () => {
     expect(
       factory({ overrideLabel: "ship it" }).jobs.factory.with["override-label"],
     ).toBe("ship it");
+  });
+
+  it("passes the policy label's name only when the settings rename it", () => {
+    expect(factory().jobs.factory.with).not.toHaveProperty("policy-label");
+    expect(
+      factory({ policyLabel: "accepted" }).jobs.factory.with["policy-label"],
+    ).toBe("accepted");
   });
 
   it("passes the secrets .npmrc and the ticket system read as one JSON object, by name", () => {

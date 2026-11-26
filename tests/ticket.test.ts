@@ -1348,7 +1348,10 @@ describe("the ticket commands", () => {
   describe("with labels the settings rename", () => {
     const renamed = {
       tickets: { spec: "needs-spec" },
-      codeHost: { "verdict-override": "owner-pass" },
+      codeHost: {
+        "verdict-override": "owner-pass",
+        "policy-override": "owner-accepts",
+      },
     };
     const NAMED = { ...SEVEN, labels: ["enhancement", "needs-spec"] };
 
@@ -1391,16 +1394,19 @@ describe("the ticket commands", () => {
       expect(out).toEqual(["yes"]);
     });
 
-    it.each(["verdict-override", "owner-pass", "Owner-Pass"])(
-      "label --add refuses the override, given as %s",
-      async (word) => {
-        quiet();
-        const { d, memory } = deps([SEVEN], { labels: renamed });
+    it.each([
+      "verdict-override",
+      "owner-pass",
+      "Owner-Pass",
+      "policy-override",
+      "owner-accepts",
+    ])("label --add refuses the override, given as %s", async (word) => {
+      quiet();
+      const { d, memory } = deps([SEVEN], { labels: renamed });
 
-        expect(await main(["label", "7", "--add", word], d)).toBe(1);
-        expect(memory.state.get("7")?.labels).toEqual(["enhancement", "spec"]);
-      },
-    );
+      expect(await main(["label", "7", "--add", word], d)).toBe(1);
+      expect(memory.state.get("7")?.labels).toEqual(["enhancement", "spec"]);
+    });
 
     it("list --label takes a key for its name", async () => {
       const { d, out } = deps(

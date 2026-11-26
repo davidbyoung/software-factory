@@ -957,11 +957,36 @@ export function githubCodeHost(o: {
       await t.rest("PATCH", API, { fields: { allow_auto_merge: true } });
     },
     async requireCheck(rule, check, source) {
-      const existing = await t.rest<{ name: string }[]>(
+      const existing = await t.rest<{ id: number; name: string }[]>(
         "GET",
         `${API}/rulesets?per_page=100`,
       );
-      if (existing.some((r) => r.name === rule)) return;
+      const ours = existing.find((r) => r.name === rule);
+      if (ours) {
+        // A rule made for one check gains another, as the approval
+        // policies' status does beside the verdict.
+        type Rule = {
+          type: string;
+          parameters?: { required_status_checks?: { context: string }[] };
+        };
+        const full = await t.rest<{ rules: Rule[] }>(
+          "GET",
+          `${API}/rulesets/${ours.id}`,
+        );
+        const checks = full.rules.find(
+          (r) => r.type === "required_status_checks",
+        );
+        const listed = checks?.parameters?.required_status_checks ?? [];
+        if (!checks || listed.some((c) => c.context === check)) return;
+        checks.parameters!.required_status_checks = [
+          ...listed,
+          requiredStatus(check, source),
+        ];
+        await t.rest("PUT", `${API}/rulesets/${ours.id}`, {
+          body: { rules: full.rules },
+        });
+        return;
+      }
       await t.rest("POST", `${API}/rulesets`, {
         body: {
           name: rule,
