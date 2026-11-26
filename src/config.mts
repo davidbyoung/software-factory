@@ -18,6 +18,8 @@ import {
   unsupportedCodeHost,
 } from "./code-host/index.mts";
 import { matchesAny } from "./lib/glob.mts";
+import { commandLine, foldersOf, fromFolder, runsOf } from "./lib/paths.mts";
+import { uncovered } from "./lib/plan.mts";
 import { listed } from "./lib/listed.mts";
 import { DEFAULT_RUNNER, unsupportedRunner } from "./runner/index.mts";
 import { TICKET_KEYS, type FieldMapping } from "./ticket-fields.mts";
@@ -211,22 +213,24 @@ export type Settings = {
   specs: string;
   /** The command that checks the specs, or null when `specs` is none. */
   specCheck: string | null;
-  /** Every command a build runs, each from the repository's root. */
+  /** Every command a build runs. An empty list is a setting not written. */
   commands: {
     /** Before an unattended build starts work. */
-    buildSetup: string[];
+    buildSetup: Command[];
     /** Before every commit a session makes. */
-    beforeCommit: string[];
+    beforeCommit: Command[];
     /** Before a session reports a task done. */
-    gate: string[];
+    gate: Command[];
     /** One test alone, with `FILE` and `NAME` in its environment. */
-    testOne: string | null;
+    testOne: Command[];
     /** One end-to-end spec alone, with `FILE` in its environment. */
-    endToEnd: string | null;
-    /** Coverage, and where its report lands. */
-    coverage: { run: string; report: string } | null;
+    endToEnd: Command[];
+    /** Coverage, each with where its report lands. */
+    coverage: Command[];
     /** Rebuilds the package manager's lock file after a conflict in it. */
-    relock: string;
+    relock: Command[];
+    /** The files no check needs. */
+    ignore: string[];
   };
   /** The plugins the settings name, in the roles' order. `pluginsOf` adds
    * the factory's own for each role left out. */
@@ -238,9 +242,9 @@ export type Settings = {
   /** The pull request review, on when `pr-review` is written, with the commands it
    * may run as prefixes beside the factory's own; null when it is off. */
   prReview: { commands: string[] } | null;
-  /** How the factory looks at the repository's website; null when the
-   * repository is not one. */
-  site: Site | null;
+  /** How the factory looks at the repository's websites; empty when the
+   * repository has none. */
+  sites: Site[];
   /** How long each kind of unattended session may run, in minutes. */
   sessionMinutes: Record<SessionKind, number>;
   /** The numbers the process rules use, which `factory sync` writes into
@@ -263,7 +267,33 @@ export const SESSION_MINUTES = {
 } as const;
 export type SessionKind = keyof typeof SESSION_MINUTES;
 
+/** One command of a setting: text, which runs from the root on every
+ * change, or an item, which says where it runs and what sets it off. */
+export type Command = {
+  run: string;
+  /** The folders it runs in, as written; null for text. */
+  in: string[] | null;
+  /** The patterns that set it off, as written; null when not written. */
+  files: string[] | null;
+  /** Coverage's lcov report, as written; null elsewhere. */
+  report: string | null;
+};
+
+export const textCommand = (run: string): Command => ({
+  run,
+  in: null,
+  files: null,
+  report: null,
+});
+
+/** Whether a command says where it runs or what sets it off. */
+export const hasPaths = (c: Command) => c.in !== null || c.files !== null;
+
 export type Site = {
+  /** The folders it is in, as written; null for the root. */
+  in: string[] | null;
+  /** The patterns that set it off, as written; null when not written. */
+  files: string[] | null;
   start: string;
   url: string;
   designGuide: string | null;
@@ -333,11 +363,16 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     "end-to-end",
     "coverage",
     "relock",
+    "ignore",
   ],
-  "commands.coverage": ["run", "report"],
+  "commands.coverage": ["run", "report", "in", "files"],
+  "commands[]": ["run", "in", "files"],
+  "presets[]": ["name", "in"],
   "auto-merge": ["allow", "deny", "commands"],
   "pr-review": ["commands"],
   site: [
+    "in",
+    "files",
     "start",
     "url",
     "design-guide",
@@ -375,43 +410,79 @@ function parseSite(
   v: unknown,
   exists: (p: string) => boolean,
   preset: boolean,
-): Site | null {
-  if (v === undefined) return null;
-  const o = object(v, "site");
+  key: string,
+): Site {
+  const o = object(v, key, "site");
   for (const k of ["start", "url"] as const) {
     if (preset && o[k] === undefined) continue;
     if (typeof o[k] !== "string" || !o[k])
-      fail(`site.${k}`, "is required when site is written");
+      fail(`${key}.${k}`, "is required when site is written");
   }
   const guide = o["design-guide"];
-  if (guide !== undefined && (typeof guide !== "string" || !exists(guide)))
-    fail("site.design-guide", "must be a file that exists");
+  const folders = parseFolders(o.in, `${key}.in`, preset ? null : exists);
+  // A guide in the site's own folder is checked in each of them.
+  const guides =
+    typeof guide === "string" && guide.startsWith("./") && folders
+      ? folders
+          .filter((f) => !f.endsWith("*"))
+          .map((f) => `${f}/${guide.slice(2)}`)
+      : [guide];
+  if (
+    guide !== undefined &&
+    (typeof guide !== "string" ||
+      guides.some((g) => typeof g === "string" && !exists(g)))
+  )
+    fail(`${key}.design-guide`, "must be a file that exists");
   let widths = [390, 1280];
   if (o.widths !== undefined) {
     if (!Array.isArray(o.widths) || o.widths.length === 0)
-      fail("site.widths", "must be a list of widths in pixels");
+      fail(`${key}.widths`, "must be a list of widths in pixels");
     widths = (o.widths as unknown[]).map((w, i) =>
-      wholeNumber(w, `site.widths[${i}]`, 0),
+      wholeNumber(w, `${key}.widths[${i}]`, 0),
     );
   }
   const acc = o.accessibility ?? "wcag22aa";
   if (!(ACCESSIBILITY as readonly unknown[]).includes(acc))
-    fail("site.accessibility", `must be one of ${ACCESSIBILITY.join(", ")}`);
+    fail(`${key}.accessibility`, `must be one of ${ACCESSIBILITY.join(", ")}`);
   const nv = o["new-values"] ?? true;
-  if (typeof nv !== "boolean") fail("site.new-values", "must be true or false");
+  if (typeof nv !== "boolean")
+    fail(`${key}.new-values`, "must be true or false");
   return {
+    in: folders,
+    files: patternsOf(o.files, `${key}.files`),
     start: o.start as string,
     url: o.url as string,
     designGuide: typeof guide === "string" ? guide : null,
-    pages: o.pages === undefined ? null : strings(o.pages, "site.pages"),
+    pages: o.pages === undefined ? null : strings(o.pages, `${key}.pages`),
     widths,
-    hide: strings(o.hide, "site.hide"),
-    checks: strings(o.checks, "site.checks"),
-    maxPages: wholeNumber(o["max-pages"], "site.max-pages", 4),
-    startMinutes: wholeNumber(o["start-minutes"], "site.start-minutes", 5),
+    hide: strings(o.hide, `${key}.hide`),
+    checks: strings(o.checks, `${key}.checks`),
+    maxPages: wholeNumber(o["max-pages"], `${key}.max-pages`, 4),
+    startMinutes: wholeNumber(o["start-minutes"], `${key}.start-minutes`, 5),
     accessibility: acc as Accessibility,
     newValues: nv as boolean,
   };
+}
+
+/** `site` as written: one site, or a list of them, each with `in` when
+ * there are more than one. */
+function parseSites(
+  v: unknown,
+  exists: (p: string) => boolean,
+  preset: boolean,
+): Site[] {
+  if (v === undefined) return [];
+  if (!Array.isArray(v)) return [parseSite(v, exists, preset, "site")];
+  if (v.length === 0) return fail("site", "must list at least one site");
+  const sites = v.map((item, i) =>
+    parseSite(item, exists, preset, `site[${i}]`),
+  );
+  if (sites.length > 1)
+    sites.forEach((site, i) => {
+      if (site.in === null)
+        fail(`site[${i}].in`, "is required when site lists more than one site");
+    });
+  return sites;
 }
 
 /** `factory config get site`: every key in the table's order. */
@@ -855,30 +926,172 @@ function command(v: unknown, key: string): string | null {
   return typeof v === "string" && v ? v : fail(key, "must be text");
 }
 
-function commandsOf(v: unknown, preset: boolean): Settings["commands"] {
-  const o = object(v ?? {}, "commands");
-  let coverage: Settings["commands"]["coverage"] = null;
-  if (o.coverage !== undefined) {
-    const c = object(o.coverage ?? {}, "commands.coverage");
-    for (const k of ["run", "report"] as const)
-      if (
-        !(preset && c[k] === undefined) &&
-        (typeof c[k] !== "string" || !c[k])
+/** A path written in the settings stays inside the repository. */
+const inside = (path: string) =>
+  !path.startsWith("/") && !path.split("/").includes("..");
+
+/** `in` as written: one folder or a list, each with at most a `*` as its
+ * whole last name, and checked against the repository when it names one
+ * folder. */
+function parseFolders(
+  v: unknown,
+  key: string,
+  exists: ((p: string) => boolean) | null,
+): string[] | null {
+  if (v === undefined) return null;
+  const list = typeof v === "string" ? [v] : v;
+  if (!Array.isArray(list) || list.length === 0)
+    return fail(key, "must be a folder or a list of folders");
+  return list.map((item, i) => {
+    const at = typeof v === "string" ? key : `${key}[${i}]`;
+    if (typeof item !== "string" || !item) return fail(at, "must be text");
+    const folder = item.replace(/\/+$/, "");
+    if (!inside(folder))
+      return fail(at, "must be a folder inside the repository");
+    const names = folder.split("/");
+    if (
+      names.some(
+        (n, j) => n.includes("*") && (n !== "*" || j < names.length - 1),
       )
-        fail(
-          `commands.coverage.${k}`,
-          "is required when commands.coverage is written",
-        );
-    coverage = { run: c.run as string, report: c.report as string };
+    )
+      return fail(
+        at,
+        `${item}: a * stands for one whole folder name, last, as in packages/*`,
+      );
+    if (exists && !names.includes("*") && !exists(folder))
+      return fail(at, `${folder} is not a folder`);
+    return folder;
+  });
+}
+
+/** `files` as written: a list of patterns, at least one. */
+function patternsOf(v: unknown, key: string): string[] | null {
+  if (v === undefined) return null;
+  const list = strings(v, key);
+  if (list.length === 0) return fail(key, "must list at least one pattern");
+  list.forEach((p, i) => {
+    if (!inside(p.replace(/^\.\//, "")))
+      fail(`${key}[${i}]`, "must be a pattern inside the repository");
+  });
+  return list;
+}
+
+/** One command of a list: text, or an item. */
+function commandOf(
+  v: unknown,
+  key: string,
+  o: { coverage: boolean; preset: boolean; exists: (p: string) => boolean },
+): Command {
+  if (typeof v === "string") {
+    if (!v) fail(key, "must be text");
+    if (o.coverage) fail(key, "must be a block with run and report");
+    return textCommand(v);
   }
+  if (!isObj(v)) return fail(key, "must be text or a block with run");
+  const item = object(v, key, "commands[]", o.coverage ? ["report"] : []);
+  if (typeof item.run !== "string" || !item.run)
+    fail(`${key}.run`, "is required");
+  const report = item.report;
+  if (report !== undefined && (typeof report !== "string" || !report))
+    fail(`${key}.report`, "must be text");
   return {
-    buildSetup: strings(o["build-setup"], "commands.build-setup"),
-    beforeCommit: strings(o["before-commit"], "commands.before-commit"),
-    gate: strings(o.gate, "commands.gate"),
-    testOne: command(o["test-one"], "commands.test-one"),
-    endToEnd: command(o["end-to-end"], "commands.end-to-end"),
-    coverage,
-    relock: command(o.relock, "commands.relock") ?? DEFAULT_RELOCK,
+    run: item.run as string,
+    in: parseFolders(item.in, `${key}.in`, o.preset ? null : o.exists),
+    files: patternsOf(item.files, `${key}.files`),
+    report: (report as string | undefined) ?? null,
+  };
+}
+
+/** A setting that runs commands, as written: a list of text and items,
+ * or where `one` allows, a single command. */
+function commandListOf(
+  v: unknown,
+  key: string,
+  o: {
+    one: "text" | "item" | null;
+    preset: boolean;
+    exists: (p: string) => boolean;
+  },
+): Command[] {
+  if (v === undefined) return [];
+  const coverage = key === "commands.coverage";
+  const each = { coverage, preset: o.preset, exists: o.exists };
+  if (!Array.isArray(v)) {
+    if (o.one === "text") {
+      if (typeof v !== "string" || !v) return fail(key, "must be text");
+      return [textCommand(v)];
+    }
+    if (o.one === "item") {
+      const c = object(v ?? {}, key);
+      for (const k of ["run", "report"] as const)
+        if (
+          !(o.preset && c[k] === undefined) &&
+          (typeof c[k] !== "string" || !c[k])
+        )
+          fail(`${key}.${k}`, "is required when commands.coverage is written");
+      return [
+        {
+          run: (c.run as string | undefined) ?? "",
+          in: parseFolders(c.in, `${key}.in`, o.preset ? null : o.exists),
+          files: patternsOf(c.files, `${key}.files`),
+          report: (c.report as string | undefined) ?? null,
+        },
+      ];
+    }
+    return fail(key, "must be a list");
+  }
+  const list = v.map((item, i) => commandOf(item, `${key}[${i}]`, each));
+  if (coverage)
+    list.forEach((c, i) => {
+      if (c.report === null && !o.preset)
+        fail(`${key}[${i}].report`, "is required in a list");
+    });
+  return list;
+}
+
+function commandsOf(
+  v: unknown,
+  preset: boolean,
+  exists: (p: string) => boolean,
+): Settings["commands"] {
+  const o = object(v ?? {}, "commands");
+  const of = (k: string, one: "text" | "item" | null) =>
+    commandListOf(o[k], `commands.${k}`, { one, preset, exists });
+  const buildSetup = of("build-setup", null);
+  buildSetup.forEach((c, i) => {
+    if (c.files !== null)
+      fail(
+        `commands.build-setup[${i}].files`,
+        "build-setup runs before there is a change, so every command runs. Leave files out",
+      );
+  });
+  const testOne = of("test-one", "text");
+  const endToEnd = of("end-to-end", "text");
+  for (const [k, list] of [
+    ["test-one", testOne],
+    ["end-to-end", endToEnd],
+  ] as const) {
+    const first = list.findIndex((c) => !hasPaths(c));
+    const later = list.findIndex((c, i) => i > first && hasPaths(c));
+    if (first !== -1 && later !== -1)
+      fail(
+        `commands.${k}[${later}]`,
+        `text at [${first}] covers every file first, so this is never run. Put text last`,
+      );
+  }
+  const relock = of("relock", "text");
+  return {
+    buildSetup,
+    beforeCommit: of("before-commit", null),
+    gate: of("gate", null),
+    testOne,
+    endToEnd,
+    coverage: of("coverage", "item"),
+    relock:
+      o.relock === undefined && !preset
+        ? [textCommand(DEFAULT_RELOCK)]
+        : relock,
+    ignore: strings(o.ignore, "commands.ignore"),
   };
 }
 
@@ -1086,16 +1299,16 @@ export function parseSettings(
       ? null
       : object(top["pr-review"] ?? {}, "pr-review");
 
-  const site = parseSite(top.site, exists, preset);
-  const commands = commandsOf(top.commands, preset);
+  const sites = parseSites(top.site, exists, preset);
+  const commands = commandsOf(top.commands, preset, exists);
   const { plugins, testReviewersWritten } = pluginsWritten(top.plugins);
   // What an agent of the factory's needs comes before its file: the sync
   // writes the file only once the setting is there.
   const lists = (agent: string) =>
     plugins.some((p) => p.kind === "agent" && p.name === agent);
-  if (!site && !preset && lists(SITE_AGENT))
+  if (sites.length === 0 && !preset && lists(SITE_AGENT))
     fail("site", `is required to list ${SITE_AGENT}`);
-  if (commands.endToEnd === null && !preset && lists(E2E_AGENT))
+  if (commands.endToEnd.length === 0 && !preset && lists(E2E_AGENT))
     fail("commands.end-to-end", `is required to list ${E2E_AGENT}`);
   pluginPaths(plugins).forEach((key, i) => {
     const p = plugins[i]!;
@@ -1132,7 +1345,7 @@ export function parseSettings(
       commands: strings(autoMerge.commands, "auto-merge.commands"),
     },
     prReview: prReview && { commands: reviewCommands(prReview.commands) },
-    site,
+    sites,
     sessionMinutes: sessionMinutesOf(top["session-minutes"]),
     rules: rulesOf(top.rules),
   };
@@ -1175,6 +1388,116 @@ export function patternWarnings(s: Settings, files: string[]): string[] {
       .filter((p) => !files.some((f) => matchesAny(f, [p])))
       .map((p) => `${key}: ${p} matches no file`),
   );
+}
+
+/** One line for each part of a command setting or a site that can't be
+ * right as the repository stands: a `*` that matches no folder, a pattern
+ * that matches no file, a pattern that names every folder's own files from
+ * the root, and a report that every folder would share. */
+export function commandWarnings(
+  s: Settings,
+  files: string[],
+  exists: (path: string) => boolean,
+): string[] {
+  const out: string[] = [];
+  const check = (key: string, c: Pick<Command, "in" | "files" | "report">) => {
+    const folders = c.in === null ? null : foldersOf(c.in, files, exists);
+    for (const pattern of c.in ?? [])
+      if (
+        pattern.endsWith("*") &&
+        foldersOf([pattern], files, exists).length === 0
+      )
+        out.push(`${key}.in: ${pattern} matches no folder`);
+    for (const p of c.files ?? []) {
+      const where = p.startsWith("./") ? (folders ?? [null]) : [null];
+      if (
+        !where.some((f) => files.some((x) => matchesAny(x, [fromFolder(p, f)])))
+      )
+        out.push(`${key}.files: ${p} matches no file`);
+      for (const own of c.in ?? [])
+        if (own.endsWith("*") && p.startsWith(`${own}/`))
+          out.push(
+            `${key}.files: ${p} is in every folder of ${own}, so a change in one runs all of them; write ./${p.slice(own.length + 1)} for each folder's own`,
+          );
+    }
+    const several =
+      c.in !== null && (c.in.length > 1 || c.in.some((f) => f.endsWith("*")));
+    if (c.report && !c.report.startsWith("./") && several)
+      out.push(
+        `${key}.report: ${c.report} is the same file in every folder of ${c.in!.join(", ")}; write ./${c.report}`,
+      );
+  };
+  for (const [name, field] of Object.entries(COMMAND_KEYS))
+    s.commands[field].forEach((c, i) => check(`commands.${name}[${i}]`, c));
+  s.sites.forEach((site, i) =>
+    check(s.sites.length > 1 ? `site[${i}]` : "site", {
+      in: site.in,
+      files: site.files,
+      report: null,
+    }),
+  );
+  for (const p of s.commands.ignore)
+    if (!files.some((f) => matchesAny(f, [p])))
+      out.push(`commands.ignore: ${p} matches no file`);
+  return out;
+}
+
+/** The lines that list the files no gate command covers, when the gate has
+ * an item: at most 20, a folder with nothing covered in it as one. */
+export function uncoveredLines(
+  s: Settings,
+  files: string[],
+  exists: (path: string) => boolean,
+): string[] {
+  const left = new Set(
+    uncovered(files, {
+      gate: s.commands.gate,
+      ignore: s.commands.ignore,
+      files,
+      exists,
+    }),
+  );
+  if (left.size === 0) return [];
+  // The shallowest folder whose files are all uncovered stands for them.
+  const paths: { path: string; count: number }[] = [];
+  const done = new Set<string>();
+  for (const file of [...left].sort()) {
+    if (done.has(file)) continue;
+    const names = file.split("/");
+    let shown: { path: string; count: number } | null = null;
+    for (let depth = 1; depth < names.length; depth++) {
+      const folder = `${names.slice(0, depth).join("/")}/`;
+      const inside = files.filter((f) => f.startsWith(folder));
+      if (inside.every((f) => left.has(f))) {
+        shown = { path: folder, count: inside.length };
+        inside.forEach((f) => done.add(f));
+        break;
+      }
+    }
+    paths.push(shown ?? { path: file, count: 0 });
+    done.add(file);
+  }
+  paths.sort(
+    (a, b) =>
+      Number(b.path.endsWith("/")) - Number(a.path.endsWith("/")) ||
+      a.path.localeCompare(b.path),
+  );
+  const width = Math.max(...paths.map((p) => p.path.length));
+  const lines = [
+    `${paths.length} ${paths.length === 1 ? "path is" : "paths are"} in no gate command's files and not in commands.ignore, so a change to one runs every command:`,
+    ...paths
+      .slice(0, 20)
+      .map((p) =>
+        p.count
+          ? `    ${p.path.padEnd(width + 2)}${p.count} ${p.count === 1 ? "file" : "files"}`
+          : `    ${p.path}`,
+      ),
+  ];
+  if (paths.length > 20) lines.push(`  and ${paths.length - 20} more paths`);
+  lines.push(
+    "  Add each to commands.ignore, or to the files of the gate commands it affects.",
+  );
+  return lines;
 }
 
 type YamlLoad = (text: string) => unknown;
@@ -1624,12 +1947,6 @@ export async function loadSettings(d: Deps = defaultDeps()): Promise<Settings> {
 
 function lookup(s: Settings, key: string): unknown {
   if (key === "specs.check") return s.specCheck;
-  // Coverage is a block whether or not it is written, and its two keys
-  // print `none` when it is not.
-  if (key === "commands.coverage") return undefined;
-  if (s.commands.coverage === null)
-    for (const k of SETTINGS_KEYS["commands.coverage"]!)
-      if (key === `commands.coverage.${k}`) return null;
   const camel: Record<string, string> = {
     "before-commit": "beforeCommit",
     "build-setup": "buildSetup",
@@ -1650,6 +1967,23 @@ function lookup(s: Settings, key: string): unknown {
   }
   return v;
 }
+
+/** Each setting that runs commands, by its key under `commands`. */
+const COMMAND_KEYS: Record<
+  string,
+  Exclude<keyof Settings["commands"], "ignore">
+> = {
+  "build-setup": "buildSetup",
+  "before-commit": "beforeCommit",
+  gate: "gate",
+  "test-one": "testOne",
+  "end-to-end": "endToEnd",
+  coverage: "coverage",
+  relock: "relock",
+};
+/** The ones that print `none` when not written, where a list prints
+ * nothing. */
+const UNSET_PRINTS_NONE = ["test-one", "end-to-end", "coverage", "relock"];
 
 /** The factory's design skill, which `factory sync` writes where there is a
  * site. */
@@ -1674,7 +2008,7 @@ export function pluginsOf(
   const fallback: Record<Role, Plugin[]> = {
     refiner: [builtIn("skill", "factory-refine", "refiner")],
     mockups:
-      s.site && exists(DESIGN_SKILL)
+      s.sites.length > 0 && exists(DESIGN_SKILL)
         ? [builtIn("skill", "factory-design", "mockups")]
         : [],
     builder: [],
@@ -1722,18 +2056,29 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     return 1;
   }
   if (command === "check") {
-    if (s.site && !d.hasPackage("playwright")) {
+    if (s.sites.length > 0 && !d.hasPackage("playwright")) {
       d.err(say.text(NO_PLAYWRIGHT));
       return 1;
     }
-    for (const w of patternWarnings(s, d.listFiles()))
-      d.err(say.text(`warning: ${w}`));
-    if (s.site && !s.plugins.some((p) => p.role === "mockups"))
+    const files = d.listFiles();
+    for (const w of [
+      ...patternWarnings(s, files),
+      ...commandWarnings(s, files, d.exists),
+    ])
+      d.err(say.mark("look", `${SETTINGS_FILE}: ${w}`));
+    const [first, ...rest] = uncoveredLines(s, files, d.exists);
+    if (first) {
+      d.err(say.mark("look", first));
+      for (const line of rest) d.err(say.text(line));
+    }
+    if (s.sites.length > 0 && !s.plugins.some((p) => p.role === "mockups"))
       if (!d.exists(DESIGN_SKILL))
         d.err(
-          say.text(
-            `warning: ${DESIGN_SKILL} is missing: run \`factory sync\` to give the site its design skill`,
-          ),
+          say.mark("look", [
+            `${DESIGN_SKILL} is missing: run `,
+            say.copy("factory sync"),
+            " to give the site its design skill",
+          ]),
         );
     d.out(say.mark("ok", "The settings are valid."));
     return 0;
@@ -1770,9 +2115,59 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     }
     return 0;
   }
-  if (command === "site" && s.site) {
-    for (const line of siteLines(s.site)) d.out(say.text(line));
+  const commandKey = /^commands\.([a-z-]+)$/.exec(command)?.[1];
+  if (commandKey && commandKey in COMMAND_KEYS) {
+    const list = s.commands[COMMAND_KEYS[commandKey]!];
+    const runs = list.flatMap((c) => runsOf(c, d.listFiles(), d.exists));
+    if (runs.length === 0 && UNSET_PRINTS_NONE.includes(commandKey))
+      d.out(say.text("none"));
+    for (const run of runs) d.out(say.text(commandLine(run)));
     return 0;
+  }
+  if (command === "commands.ignore") {
+    for (const p of s.commands.ignore) d.out(say.text(p));
+    return 0;
+  }
+  const coverageKey = /^commands\.coverage\.(run|report|in|files)$/.exec(
+    command,
+  )?.[1];
+  if (coverageKey) {
+    const [one, ...more] = s.commands.coverage;
+    if (more.length > 0) {
+      d.err(
+        say.text(
+          `${SETTINGS_FILE}: ${command}: commands.coverage is a list: run factory coverage, which runs each`,
+        ),
+      );
+      return 1;
+    }
+    const v = one?.[coverageKey as "run" | "report" | "in" | "files"] ?? null;
+    for (const line of Array.isArray(v) ? v : [v ?? "none"])
+      d.out(say.text(line));
+    return 0;
+  }
+  if (command === "site" && s.sites.length > 0) {
+    for (const site of s.sites) {
+      const prefix = s.sites.length > 1 ? `${site.in?.join(", ")}: ` : "";
+      for (const line of siteLines(site)) d.out(say.text(prefix + line));
+    }
+    return 0;
+  }
+  if (command.startsWith("site.") && s.sites.length > 1) {
+    let unknown = false;
+    for (const site of s.sites) {
+      const v = lookup({ ...s, site } as unknown as Settings, command);
+      if (v === undefined || isObj(v)) unknown = true;
+      else
+        d.out(
+          say.text(
+            `${site.in?.join(", ")}: ${Array.isArray(v) ? v.join(", ") || "none" : (v ?? (command === "site.pages" ? "found" : "none"))}`,
+          ),
+        );
+    }
+    if (!unknown) return 0;
+    d.err(say.text(`${SETTINGS_FILE}: ${command}: not a setting that prints`));
+    return 1;
   }
   // A block that turns a part on by being written, so its key prints
   // which.
@@ -1780,9 +2175,12 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     d.out(say.text(s.prReview ? "on" : "off"));
     return 0;
   }
+  const site = s.sites[0];
   const v =
-    command.startsWith("site") && !s.site ? undefined : lookup(s, command);
-  if (command === "site.pages" && s.site?.pages === null) {
+    command.startsWith("site") && !site
+      ? undefined
+      : lookup({ ...s, site } as unknown as Settings, command);
+  if (command === "site.pages" && site?.pages === null) {
     d.out(say.text("found"));
     return 0;
   }

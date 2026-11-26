@@ -7,6 +7,7 @@ import {
   NO_DEPENDENCIES,
   parseSettings,
   SETTINGS_KEYS,
+  textCommand,
   SettingsError,
   ROLES,
   patternWarnings,
@@ -81,16 +82,17 @@ describe("parseSettings", () => {
         buildSetup: [],
         beforeCommit: [],
         gate: [],
-        testOne: null,
-        endToEnd: null,
-        coverage: null,
-        relock: "npm install",
+        testOne: [],
+        endToEnd: [],
+        coverage: [],
+        relock: [textCommand("npm install")],
+        ignore: [],
       },
       plugins: [],
       testReviewersWritten: false,
       autoMerge: { allow: [], deny: [], commands: [] },
       prReview: null,
-      site: null,
+      sites: [],
       sessionMinutes: {
         build: 230,
         conflicts: 110,
@@ -917,19 +919,24 @@ describe("parseSettings", () => {
           relock: "make lock",
         }),
       ).toEqual({
-        buildSetup: ["make tools"],
-        beforeCommit: ["make lint", "make types"],
-        gate: ["make check"],
-        testOne: "make test FILE=$FILE",
-        endToEnd: "make e2e FILE=$FILE",
-        coverage: { run: "make coverage", report: "out/lcov.info" },
-        relock: "make lock",
+        buildSetup: [textCommand("make tools")],
+        beforeCommit: [textCommand("make lint"), textCommand("make types")],
+        gate: [textCommand("make check")],
+        testOne: [textCommand("make test FILE=$FILE")],
+        endToEnd: [textCommand("make e2e FILE=$FILE")],
+        coverage: [
+          { ...textCommand("make coverage"), report: "out/lcov.info" },
+        ],
+        relock: [textCommand("make lock")],
+        ignore: [],
       });
     });
 
     it("relocks with npm install, and leaves the rest empty or unset, when the block is empty", () => {
       expect(commands({})).toEqual(parse(MINIMAL).commands);
-      expect(parse(MINIMAL).commands.relock).toBe("npm install");
+      expect(parse(MINIMAL).commands.relock).toEqual([
+        textCommand("npm install"),
+      ]);
     });
 
     it.each(["build-setup", "before-commit", "gate"])(
@@ -947,7 +954,7 @@ describe("parseSettings", () => {
     it.each(["test-one", "end-to-end", "relock"])(
       "fails on %s that is not text, or is empty",
       (key) => {
-        for (const value of ["", 7, ["npm test"], null])
+        for (const value of ["", 7, null])
           expect(() => commands({ [key]: value })).toThrow(
             `.claude/factory.yaml: commands.${key}: must be text`,
           );
@@ -1829,8 +1836,26 @@ describe("factory config explain", () => {
   });
 
   it("prints every key the settings take, so a new one cannot be left out", async () => {
+    // Every key: an item in a list of commands, commands.ignore, and the
+    // folders a site and coverage are in.
+    const every = RICH.flatMap((line) =>
+      line === "  gate: [make check]"
+        ? [
+            "  gate:",
+            "    - make check",
+            "    - run: make test",
+            "      in: lib",
+            "      files: [./**]",
+            "  ignore: [docs/**]",
+          ]
+        : line === "    report: out/lcov.info"
+          ? [line, "    in: lib", "    files: [lib/**]"]
+          : line === "  url: http://localhost:$PORT"
+            ? [line, "  in: web", "  files: [./**]"]
+            : [line],
+    );
     const r = await explain(
-      RICH.concat([
+      every.concat([
         "tickets:",
         "  board: 3",
         FACTORY_COLUMNS_YAML,
@@ -1839,9 +1864,11 @@ describe("factory config explain", () => {
     );
     const text = r.out.join("\n");
     // A key is printed under its block, two spaces deeper for each step of
-    // the block's path, and a list's item starts with a dash.
+    // the block's path, and a list's item starts with a dash. An item of a
+    // list of commands is under its setting, as `commands.gate[]`.
     const printed = (block: string, key: string) => {
-      const depth = block === "" ? 0 : block.split(".").length;
+      const depth =
+        block === "" ? 0 : block === "commands[]" ? 2 : block.split(".").length;
       const indent = block.endsWith("[]")
         ? `${" ".repeat(depth * 2)}(- |  )`
         : " ".repeat(depth * 2);
@@ -1851,7 +1878,13 @@ describe("factory config explain", () => {
     // effect.
     const missing = Object.entries(SETTINGS_KEYS).flatMap(([block, keys]) =>
       keys
-        .filter((k) => !printed(block, k) && k !== "presets" && k !== "off")
+        .filter(
+          (k) =>
+            !printed(block, k) &&
+            k !== "presets" &&
+            k !== "off" &&
+            block !== "presets[]",
+        )
         .map((k) => `${block}.${k}`),
     );
     expect(missing).toEqual([]);
@@ -2009,8 +2042,6 @@ describe("main", () => {
     });
 
     it.each([
-      [BARE, "commands.coverage"],
-      [FULL, "commands.coverage"],
       [FULL, "commands"],
       [FULL, "before-commit"],
       [FULL, "build-setup"],
@@ -2161,7 +2192,7 @@ describe("main", () => {
 
   describe("the design skill as a website's mockups plugin", () => {
     const SKILL = ".claude/skills/factory-design/SKILL.md";
-    const WARNING = `warning: ${SKILL} is missing: run \`factory sync\` to give the site its design skill`;
+    const WARNING = `? ${SKILL} is missing: run factory sync to give the site its design skill`;
     const settings = (plugins: string[]) =>
       [
         "version: 2",
@@ -2262,7 +2293,7 @@ describe("main", () => {
     const { d, out, err } = deps({ listFiles: () => ["src/a.ts"] });
     expect(await main(["check"], d)).toBe(0);
     expect(err).toEqual([
-      "warning: plugins.build.reviewers[0].files: public/** matches no file",
+      "? .claude/factory.yaml: plugins.build.reviewers[0].files: public/** matches no file",
     ]);
     expect(out).toEqual(["✓ The settings are valid."]);
   });
@@ -2327,7 +2358,7 @@ describe("site settings", () => {
         accessibility: "none",
         "new-values": false,
       },
-    }).site;
+    }).sites[0];
     expect(s?.accessibility).toBe("none");
     expect(s?.newValues).toBe(false);
   });
@@ -2337,22 +2368,26 @@ describe("site settings", () => {
     `version: 2\nrepository: a/b\n${CODE_HOST_YAML}\nsite: ${JSON.stringify({ ...site, ...extra })}\n`;
 
   it("fills the defaults", () => {
-    expect(parse({ ...MINIMAL, site }).site).toEqual({
-      ...site,
-      designGuide: null,
-      pages: null,
-      widths: [390, 1280],
-      hide: [],
-      checks: [],
-      maxPages: 4,
-      startMinutes: 5,
-      accessibility: "wcag22aa",
-      newValues: true,
-    });
+    expect(parse({ ...MINIMAL, site }).sites).toEqual([
+      {
+        ...site,
+        in: null,
+        files: null,
+        designGuide: null,
+        pages: null,
+        widths: [390, 1280],
+        hide: [],
+        checks: [],
+        maxPages: 4,
+        startMinutes: 5,
+        accessibility: "wcag22aa",
+        newValues: true,
+      },
+    ]);
   });
 
-  it("is null when no site is written", () => {
-    expect(parse(MINIMAL).site).toBeNull();
+  it("is empty when no site is written", () => {
+    expect(parse(MINIMAL).sites).toEqual([]);
   });
 
   it.each([

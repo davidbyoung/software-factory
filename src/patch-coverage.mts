@@ -5,10 +5,12 @@ import { relative, resolve } from "node:path";
 /** One file's uncovered lines: never run, and run with a branch not taken. */
 export type FileCoverage = { miss: Set<number>; part: Set<number> };
 
-/** An lcov report's uncovered lines, by each file's path from `cwd`. */
+/** An lcov report's uncovered lines, by each file's path from `cwd`. A
+ * report's own paths are read from `from`, the folder its command ran in. */
 export function parseLcov(
   text: string,
   cwd: string,
+  from = cwd,
 ): Map<string, FileCoverage> {
   const files = new Map<string, FileCoverage>();
   let current: FileCoverage | null = null;
@@ -16,7 +18,7 @@ export function parseLcov(
     const line = raw.trim();
     if (line.startsWith("SF:")) {
       current = { miss: new Set(), part: new Set() };
-      files.set(relative(cwd, resolve(cwd, line.slice(3))), current);
+      files.set(relative(cwd, resolve(from, line.slice(3))), current);
     } else if (current && line.startsWith("DA:")) {
       const [number, hits] = line.slice(3).split(",");
       if (hits === "0") current.miss.add(Number(number));

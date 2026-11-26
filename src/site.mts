@@ -9,10 +9,20 @@
 // `site.start` and stops both when it ends. It exits 0 whether or not anything
 // changed, and non-zero only when it could not do its job.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
-import { loadSettings, repoRoot, SettingsError, type Site } from "./config.mts";
+import {
+  loadSettings,
+  repoRoot,
+  SettingsError,
+  type Command,
+  type Site,
+} from "./config.mts";
+import { branchChange } from "./lib/changes.mts";
+import { branchDeps, gitIn, needDefaultBranch } from "./lib/default-branch.mts";
+import { runsOf } from "./lib/paths.mts";
+import { planOf } from "./lib/plan.mts";
 import { crawl, normalize, sitemapPaths } from "./site/pages.mts";
 import {
   changedWithoutNoise,
@@ -62,7 +72,8 @@ export type Row = {
 };
 
 export type Report = {
-  before: string;
+  /** The base's address, or null for a site the base doesn't have. */
+  before: string | null;
   after: string;
   pages: string[];
   widths: number[];
@@ -134,7 +145,8 @@ function outline(
 
 export async function compareSites(o: {
   root: string;
-  before: string;
+  /** The base's address, or null for a site the base doesn't have. */
+  before: string | null;
   after: string;
   site: Pick<Site, "pages" | "widths" | "hide"> &
     Partial<Pick<Site, "accessibility" | "newValues">>;
@@ -145,7 +157,7 @@ export async function compareSites(o: {
   const pages = (
     site.pages ?? [
       ...new Set([
-        ...(await findPages(o.before)),
+        ...(o.before ? await findPages(o.before) : []),
         ...(await findPages(o.after)),
       ]),
     ]
@@ -186,10 +198,13 @@ export async function compareSites(o: {
   const atOnce = viewsAtOnce(availableParallelism());
   await pool(jobs, atOnce, async ({ page, width, scheme }) => {
     const view = { width, scheme };
+    const before = o.before;
     const [b, a] = await Promise.all([
-      shoot(browser, o.before, page, view, site.hide, (snap) =>
-        addToCensus(census, scheme, snap.entries),
-      ),
+      before
+        ? shoot(browser, before, page, view, site.hide, (snap) =>
+            addToCensus(census, scheme, snap.entries),
+          )
+        : null,
       shoot(browser, o.after, page, view, site.hide),
     ]);
     let pixels = 0;
@@ -201,7 +216,7 @@ export async function compareSites(o: {
         // Shot again, both sites: what differs between two pictures of one
         // site is noise, and a pixel has to differ in both pairs.
         const [againB, againA] = await Promise.all([
-          shoot(browser, o.before, page, view, site.hide),
+          shoot(browser, before!, page, view, site.hide),
           shoot(browser, o.after, page, view, site.hide),
         ]);
         if (againA && againB) d = changedWithoutNoise(b, a, againA, againB);
@@ -251,7 +266,7 @@ export async function compareSites(o: {
   await pool(toMeasure, atOnce, async (row) => {
     const view = { page: row.page, width: row.width, scheme: row.scheme };
     const [b, a] = await Promise.all([
-      row.status === "new"
+      row.status === "new" || o.before === null
         ? null
         : measureView(browser, o.before, row.page, view, site.hide, tags),
       measureView(browser, o.after, row.page, view, site.hide, tags),
@@ -343,16 +358,154 @@ export function givenUrls(
   return null;
 }
 
+/** One site to compare, and the folder it is in: null for the root. */
+type SiteRun = { site: Site; folder: string | null };
+
+/** The sites to compare: the one `--site` names, the one site there is, or
+ * each site the change touches, after a plan of them like the gate's. */
+async function sitesToCompare(
+  root: string,
+  sites: Site[],
+  gate: Command[],
+  ignore: string[],
+  argv: string[],
+  out: say.Out,
+): Promise<{ runs: SiteRun[]; defaultBranch: string | null }> {
+  const git = gitIn(root);
+  const files = git(["ls-files", "--cached", "--others", "--exclude-standard"])
+    .out.split("\n")
+    .filter(Boolean);
+  const exists = (path: string) => existsSync(join(root, path));
+  let defaultBranch: string | null = null;
+  try {
+    defaultBranch = await needDefaultBranch(branchDeps(root));
+  } catch {
+    defaultBranch = null;
+  }
+  const asCommand = new Map<Command, Site>();
+  const commands = sites.map((site) => {
+    const c: Command = {
+      run: site.start,
+      in: site.in,
+      files: site.files,
+      report: null,
+    };
+    asCommand.set(c, site);
+    return c;
+  });
+  const every = commands.flatMap((c) => runsOf(c, files, exists));
+  const named = flag(argv, "--site");
+  if (named !== undefined) {
+    const run = every.find((r) => r.folder === named.replace(/\/+$/, ""));
+    if (!run)
+      throw new SiteError(
+        `--site ${named}: no site is in that folder. factory config get site lists them`,
+      );
+    return {
+      runs: [{ site: asCommand.get(run.command)!, folder: run.folder }],
+      defaultBranch,
+    };
+  }
+  if (every.length > 1) {
+    if (givenUrls(argv))
+      throw new SiteError(
+        "--before and --after compare one site: name it with --site FOLDER",
+      );
+    if (argv.includes("--keep"))
+      throw new SiteError(
+        "--keep leaves one site running: name it with --site FOLDER",
+      );
+  }
+  if (!commands.some((c) => c.in !== null || c.files !== null))
+    return {
+      runs: every.map((r) => ({
+        site: asCommand.get(r.command)!,
+        folder: null,
+      })),
+      defaultBranch,
+    };
+  const remote = `origin/${defaultBranch ?? "DEFAULT"}`;
+  const change =
+    defaultBranch === null ? null : branchChange(git, defaultBranch).files;
+  const plan = planOf({
+    commands,
+    change,
+    gate,
+    ignore,
+    files,
+    exists,
+    everyCommand: true,
+  });
+  const t = plan.all.length;
+  const e = plan.everything;
+  if (e?.kind === "settings")
+    out(say.text(`site: all ${t} pictured, since ${e.path} changed`));
+  else if (e?.kind === "uncovered")
+    out(
+      say.text(
+        `site: all ${t} pictured, since ${e.files.length} changed ${e.files.length === 1 ? "file is" : "files are"} in no gate command's files and not in commands.ignore`,
+      ),
+    );
+  else if (e?.kind === "unknown")
+    out(
+      say.mark(
+        "look",
+        `Can't tell what changed, since there is no ${remote} to compare with. Every site is pictured.`,
+      ),
+    );
+  else {
+    out(
+      say.text(
+        `site: ${plan.runs.length} of ${t} pictured, for the ${change!.length} ${change!.length === 1 ? "file" : "files"} changed since ${remote}`,
+      ),
+    );
+    const width = Math.max(
+      0,
+      ...plan.runs.map((r) => (r.run.folder ?? "").length),
+    );
+    for (const r of plan.runs)
+      out(
+        say.row(
+          r.run.folder ?? ".",
+          r.files.length
+            ? `${r.files[0]}${r.files.length > 1 ? `, and ${r.files.length - 1} more` : ""}`
+            : "every change",
+          { width, gap: 2 },
+        ),
+      );
+  }
+  out(say.BLANK);
+  return {
+    runs: plan.runs.map((r) => ({
+      site: asCommand.get(r.run.command)!,
+      folder: r.run.folder,
+    })),
+    defaultBranch,
+  };
+}
+
 async function compare(argv: string[], out: say.Out): Promise<number> {
   const root = repoRoot();
   const settings = await loadSettings();
-  const site = settings.site;
-  if (!site) throw new SiteError(".claude/factory.yaml: site: not written");
+  if (settings.sites.length === 0)
+    throw new SiteError(".claude/factory.yaml: site: not written");
   const keepRunning = argv.includes("--keep");
   const given = givenUrls(argv);
+  const { runs, defaultBranch } = await sitesToCompare(
+    root,
+    settings.sites,
+    settings.commands.gate,
+    settings.commands.ignore,
+    argv,
+    out,
+  );
+  if (runs.length === 0) {
+    out(say.mark("ok", "No site changed."));
+    return 0;
+  }
   let worktree: string | null = null;
   const pids: number[] = [];
-  let started: { after: number; before: number } | null = null;
+  let started: { after: number; before: number | null } | null = null;
   let browser: PwBrowser | null = null;
   // What `--keep` leaves is only what a finished comparison recorded for
   // `factory site stop`; a failed one stops what it started.
@@ -368,85 +521,111 @@ async function compare(argv: string[], out: say.Out): Promise<number> {
       cleanup();
       process.exit(130);
     });
+  const stamp = join(
+    root,
+    "node_modules/.cache/factory/site",
+    new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19),
+  );
   try {
     browser = await launch(root);
-    let before: string;
-    let after: string;
-    if (given) {
-      for (const url of [given.before, given.after]) {
-        try {
-          await fetch(url, { signal: AbortSignal.timeout(5000) });
-        } catch {
-          throw new SiteError(`nothing answers at ${url}`);
+    for (const { site, folder } of runs) {
+      const here = folder === null ? root : join(root, folder);
+      if (folder !== null && runs.length > 1) out(say.text(say.name(folder)));
+      let before: string | null;
+      let after: string;
+      if (given) {
+        for (const url of [given.before, given.after]) {
+          try {
+            await fetch(url, { signal: AbortSignal.timeout(5000) });
+          } catch {
+            throw new SiteError(`nothing answers at ${url}`);
+          }
         }
+        before = given.before;
+        after = given.after;
+      } else {
+        const base = flag(argv, "--base") ?? (await defaultBase(root));
+        // A site the base doesn't have is pictured on this branch alone.
+        const onBase =
+          folder === null ||
+          defaultBranch === null ||
+          gitIn(root)(["ls-tree", "-d", base, folder]).out.trim() !== "";
+        if (onBase && !worktree) worktree = addWorktree(root, base);
+        const common = { start: site.start, minutes: site.startMinutes };
+        const ports = [await freePort(), await freePort()];
+        const wanted = [
+          { ...common, url: site.url, cwd: here, port: ports[0]! },
+          ...(onBase
+            ? [
+                {
+                  ...common,
+                  url: site.url,
+                  cwd: folder === null ? worktree! : join(worktree!, folder),
+                  port: ports[1]!,
+                },
+              ]
+            : []),
+        ];
+        const [a, b] = await startSites(wanted, pids);
+        started = { after: a!.pid, before: b?.pid ?? null };
+        after = a!.url;
+        before = b?.url ?? null;
+        out(
+          say.text(
+            before
+              ? `Started this branch at ${after} and ${base} at ${before}.`
+              : `Started this branch at ${after}. ${base} has no ${folder}, so every page is new.`,
+          ),
+        );
       }
-      before = given.before;
-      after = given.after;
-    } else {
-      const base = flag(argv, "--base") ?? (await defaultBase(root));
-      const [pa, pb] = [await freePort(), await freePort()];
-      worktree = addWorktree(root, base);
-      const common = { start: site.start, minutes: site.startMinutes };
-      const [a, b] = await startSites(
-        [
-          { ...common, url: site.url, cwd: root, port: pa },
-          { ...common, url: site.url, cwd: worktree, port: pb },
-        ],
-        pids,
-      );
-      started = { after: a.pid, before: b.pid };
-      after = a.url;
-      before = b.url;
-      out(
-        say.text(`Started this branch at ${after} and ${base} at ${before}.`),
-      );
-    }
-    const folder = join(
-      root,
-      "node_modules/.cache/factory/site",
-      new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19),
-    );
-    const report = await compareSites({
-      root,
-      before,
-      after,
-      site,
-      folder,
-      browser,
-    });
-    for (const line of table(report)) out(line);
-    for (const f of report.measured) out(say.text(say.asIs(formatFinding(f))));
-    const changedPages = [
-      ...new Set(
-        report.rows.filter((r) => r.status !== "same").map((r) => r.page),
-      ),
-    ];
-    const checks = runChecks(root, site.checks, {
-      before,
-      after,
-      pages: changedPages,
-      report: folder,
-    });
-    for (const c of checks)
-      for (const f of c.findings) out(say.verbatim(`${c.command}: ${f}`));
-    writeFileSync(
-      join(folder, "report.json"),
-      JSON.stringify({ ...report, checks }, null, 2),
-    );
-    out(say.BLANK);
-    out(say.text(`Pictures and the full list: ${folder}/`));
-    if (keepRunning && worktree && started) {
-      kept = true;
-      keep(root, {
-        before: { url: before, pid: started.before },
-        after: { url: after, pid: started.after },
-        worktree,
+      const into = folder === null ? stamp : join(stamp, folder);
+      const report = await compareSites({
+        root,
+        before,
+        after,
+        site,
+        folder: into,
+        browser,
       });
-      out(
-        say.text(
-          `Left running: ${after} (this branch) and ${before} (base). \`factory site stop\` ends them.`,
+      for (const line of table(report)) out(line);
+      for (const f of report.measured)
+        out(say.text(say.asIs(formatFinding(f))));
+      const changedPages = [
+        ...new Set(
+          report.rows.filter((r) => r.status !== "same").map((r) => r.page),
         ),
+      ];
+      const checks = runChecks(here, site.checks, {
+        before,
+        after,
+        pages: changedPages,
+        report: into,
+      });
+      for (const c of checks)
+        for (const f of c.findings) out(say.verbatim(`${c.command}: ${f}`));
+      writeFileSync(
+        join(into, "report.json"),
+        JSON.stringify({ ...report, checks }, null, 2),
       );
+      out(say.BLANK);
+      out(say.text(`Pictures and the full list: ${into}/`));
+      if (keepRunning && worktree && started && started.before !== null) {
+        kept = true;
+        keep(root, {
+          before: { url: before!, pid: started.before },
+          after: { url: after, pid: started.after },
+          worktree,
+        });
+        out(
+          say.text(
+            `Left running: ${after} (this branch) and ${before} (base). \`factory site stop\` ends them.`,
+          ),
+        );
+      }
+      if (!keepRunning && runs.length > 1) {
+        pids.splice(0).forEach(stopProcess);
+        out(say.BLANK);
+      }
     }
     return 0;
   } finally {

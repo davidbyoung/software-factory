@@ -16,7 +16,17 @@ import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaultDeps, loadSettings, settingsPath } from "./config.mts";
+import {
+  defaultDeps,
+  loadSettings,
+  settingsPath,
+  type Command,
+  type Settings,
+} from "./config.mts";
+import { commitChange } from "./lib/changes.mts";
+import { gitIn } from "./lib/default-branch.mts";
+import { commandLine } from "./lib/paths.mts";
+import { planOf } from "./lib/plan.mts";
 import { PR_LABELS } from "./labels.mts";
 import {
   branchDeps,
@@ -263,8 +273,8 @@ export async function checkCommit(
     return `pushing to ${toDefault.branch}. ${toDefault.branch} only changes through a merged pull request.`;
 
   // The fast half of the gate: the `commands.before-commit` commands in the
-  // commit's own checkout's settings, in order, stopping at the first that
-  // fails.
+  // commit's own checkout's settings that the change sets off, in order,
+  // stopping after the first that fails.
   // Settings that cannot be read block the commit, as a failing command
   // would.
   const commit = calls.find((c) => c.kind === "commit");
@@ -285,23 +295,44 @@ export async function checkCommit(
   // A repository with no settings is not one the factory governs, such as
   // another repository a session works in: it has no gate to run.
   if (!existsSync(settingsPath(top))) return null;
-  let commands: string[];
+  let settings: Settings;
   try {
-    commands = (await loadSettings(defaultDeps(top))).commands.beforeCommit;
+    settings = await loadSettings(defaultDeps(top));
   } catch (e) {
     err(lastLines(e instanceof Error ? e.message : String(e)).join("\n"));
     return "the gate failed: the factory's settings could not be read. Fix the error above, then commit.";
   }
-  for (const command of commands) {
-    const r = spawnSync("bash", ["-c", `exec 2>&1\n${command}`], {
-      cwd: top,
+  const git = gitIn(top);
+  const change = commitChange(git);
+  const plan = planOf({
+    commands: settings.commands.beforeCommit,
+    change: change.files,
+    gate: settings.commands.gate,
+    ignore: settings.commands.ignore,
+    files: git(["ls-files", "--cached", "--others", "--exclude-standard"])
+      .out.split("\n")
+      .filter(Boolean),
+    exists: (path) => existsSync(join(top, path)),
+    everyCommand: true,
+  });
+  // After one fails, only the same command's other folders run.
+  const failed: string[] = [];
+  let failedCommand: Command | null = null;
+  for (const { run } of plan.runs) {
+    if (failedCommand && run.command !== failedCommand) break;
+    const r = spawnSync("bash", ["-c", `exec 2>&1\n${run.command.run}`], {
+      cwd: run.folder === null ? top : join(top, run.folder),
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, BASE: change.base },
     });
     if (r.status !== 0) {
       err(lastLines(r.stdout ?? "").join("\n"));
-      return `the gate failed on: ${command}. Fix the errors above, then commit.`;
+      failed.push(commandLine(run));
+      failedCommand = run.command;
     }
   }
+  if (failed.length)
+    return `the gate failed on: ${failed.join(", ")}. Fix the errors above, then commit.`;
   return null;
 }

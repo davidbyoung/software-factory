@@ -94,14 +94,13 @@ describe("combining presets", () => {
       },
     });
     put(root, ".claude/factory.yaml", own([NODE, "acme/more"]));
-    expect((await resolveAt(root)).settings.commands.gate).toEqual([
-      "npm run lint",
-      "npm test",
-    ]);
+    expect(
+      (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
+    ).toEqual(["npm run lint", "npm test"]);
     put(root, ".claude/factory.choices.yaml", `commands.gate: "${NODE}"\n`);
-    expect((await resolveAt(root)).settings.commands.gate).toEqual([
-      "npm test",
-    ]);
+    expect(
+      (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
+    ).toEqual(["npm test"]);
   });
 
   it("adds up every layer's plugins in layer order, a plugin named twice taken whole from one layer", async () => {
@@ -257,7 +256,7 @@ describe("the agents and skills presets ship", () => {
     acme();
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(0);
-    expect(r.err.filter((l) => !l.startsWith("warning:"))).toEqual([]);
+    expect(r.err.filter((l) => !l.includes("matches no file"))).toEqual([]);
   });
 });
 
