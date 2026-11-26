@@ -293,6 +293,22 @@ export const COMMANDS: Command[] = [
       (await import("./commands.mts")).run(["build-setup", ...argv]),
   },
   {
+    words: ["approval-policies", "check"],
+    args: "[--pull N]",
+    reads: "person",
+    run: async (argv) =>
+      (await import("./approval-job.mts")).run(["check", ...argv]),
+  },
+  ...["prepare", "commands", "agent", "status", "kept", "approve"].map(
+    (sub): Command => ({
+      words: ["approval-policies", sub],
+      args: { agent: "DIR I", kept: "NAME" }[sub] ?? "DIR",
+      reads: "machine",
+      run: async (argv) =>
+        (await import("./approval-job.mts")).run([sub, ...argv]),
+    }),
+  ),
+  {
     words: ["specs", "check"],
     args: "",
     reads: "person",
