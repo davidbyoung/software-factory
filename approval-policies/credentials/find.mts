@@ -36,16 +36,25 @@ function added(diff: string): { file: string; line: number; text: string }[] {
   const out: { file: string; line: number; text: string }[] = [];
   let file = "";
   let n = 0;
+  // A file's header runs from its `diff --git` line to its first hunk, so
+  // an added line that starts with "++ " is never read as one.
+  let header = false;
   for (const l of diff.split("\n")) {
-    if (l.startsWith("+++ ")) {
+    if (l.startsWith("diff --git ")) {
+      header = true;
+      continue;
+    }
+    if (header && l.startsWith("+++ ")) {
       file = l === "+++ /dev/null" ? "" : l.replace(/^\+\+\+ b\//, "");
       continue;
     }
     const hunk = /^@@ -\S+ \+(\d+)/.exec(l);
     if (hunk) {
+      header = false;
       n = Number(hunk[1]) - 1;
       continue;
     }
+    if (header) continue;
     if (l.startsWith("-") || l.startsWith("\\")) continue;
     n++;
     if (l.startsWith("+") && file)
@@ -115,11 +124,11 @@ for (const { file, line, text } of added(input.diff)) {
   if (/toJSON\(\s*secrets\s*\)|secrets:\s*inherit\b/.test(code))
     find(file, line, "Passes every secret");
   for (const [, name] of code.matchAll(
-    /([\w-]+)\s*:\s*['"]?write['"]?(?=\s*(?:[,}]|$))/g,
+    /['"]?([\w-]+)['"]?\s*:\s*['"]?write['"]?(?=\s*(?:[,}]|$))/g,
   ))
     find(file, line, `Write access: ${name}: write`);
   if (/\bwrite-all\b/.test(code)) find(file, line, "Write access: write-all");
-  if (/(^|[\s[,{-])pull_request_target\s*(:|,|\]|}|$)/.test(code))
+  if (/(^|[\s[,{-])['"]?pull_request_target['"]?\s*(:|,|\]|}|$)/.test(code))
     find(file, line, "A pull_request_target trigger");
 }
 

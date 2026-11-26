@@ -154,6 +154,8 @@ describe("the credentials policy's rule", () => {
       "Write access: contents: write",
     ],
     ["permissions: write-all", "Write access: write-all"],
+    ["  'contents': write", "Write access: contents: write"],
+    ['  "contents": "write"', "Write access: contents: write"],
   ])("finds write access written as %s", (line, title) => {
     expect(titles(adds(".github/workflows/ci.yml", line))).toEqual([title]);
   });
@@ -169,6 +171,8 @@ describe("the credentials policy's rule", () => {
     "  pull_request_target:",
     "on: [push, pull_request_target]",
     "  - pull_request_target",
+    '  "pull_request_target":',
+    'on: [push, "pull_request_target"]',
   ])("finds a pull_request_target trigger written as %s", (line) => {
     expect(titles(adds(".github/workflows/ci.yml", line))).toEqual([
       "A pull_request_target trigger",
@@ -200,6 +204,14 @@ describe("the credentials policy's rule", () => {
         },
       ]),
     ).toEqual(["A workflow new to the repository"]);
+  });
+
+  it("reads an added line that starts with ++ as code, not as a file's header", () => {
+    expect(
+      found(adds("src/a.js", "++ i;", "process.env.DEPLOY_TOKEN;")),
+    ).toEqual([
+      { file: "src/a.js", line: 2, title: "A new credential: DEPLOY_TOKEN" },
+    ]);
   });
 
   it("leaves a workflow renamed within .github/workflows/ alone", () => {
