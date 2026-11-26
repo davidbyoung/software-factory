@@ -109,7 +109,8 @@ hijacked session could still:
   runs beside it. GitHub's default is read for a new repository and can be
   write for an older one, so `factory doctor` checks it. A workflow of yours
   that runs a pull request's code should say no more than
-  `permissions: contents: read`.
+  `permissions: contents: read`. A workflow the pull request adds is another
+  matter ([Who can pass the review without it](#who-can-pass-the-review-without-it)).
 - **Write text** as the account the run acts as: in the ticket's body, in
   comments on the ticket and the pull request, in replies, in a
   follow-up in the pull request's description, which becomes a ticket only
@@ -135,6 +136,40 @@ boundary", in
 [its vendor's own words](https://code.claude.com/docs/en/sandboxing)
 ([What nobody has tested](limitations.md#what-nobody-has-tested)). A
 session that got out of it would still find no GitHub key on its machine.
+
+### Who can pass the review without it
+
+Your branch rules require "Review verdict", and "Approval policies" where
+you have [approval policies](approval-policies.md), from GitHub Actions,
+not from the factory's own workflow. So a workflow that a pull request
+adds can pass them:
+
+- **From a branch of your repository,** a workflow that asks for
+  `permissions: statuses: write` gets it, whatever your default
+  ([GitHub's own words](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token)),
+  and can mark them passed at any time. Anyone who can push a branch can
+  do this: a person with write access, or a session on your own machine,
+  which works with your sign-in. A session in the cloud can't add a
+  workflow. Pushing such a branch already reaches your repository's
+  secrets, without a pull request, so this lets someone merge without the
+  review, not reach anything new.
+- **From a fork,** a workflow can't post a status, since
+  [its token is read-only](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#how-permissions-are-calculated-for-a-workflow-job).
+  A job named `Review verdict` or `Approval policies` does pass them, but
+  only for the few seconds after each push, before the factory marks them
+  waiting. A fork's push
+  [turns auto-merge off](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request),
+  so only someone merging by hand in those seconds would let it through.
+  In a public repository, a first-time contributor's workflows
+  [wait for your approval](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#controlling-changes-from-forks-to-workflows-in-public-repositories)
+  before they run at all, and in a private one a fork's run only as
+  [its fork settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#enabling-workflows-for-forks-of-private-repositories)
+  allow.
+
+Where several people can write to your repository, have GitHub wait for
+you on every change to a workflow: add a `CODEOWNERS` file with the line
+`/.github/ @your-username`, and turn on "Require review from Code Owners" in your
+branch rules.
 
 ### Who can use the App's key
 
