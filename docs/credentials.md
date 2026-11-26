@@ -136,6 +136,31 @@ boundary", in
 ([What nobody has tested](limitations.md#what-nobody-has-tested)). A
 session that got out of it would still find no GitHub key on its machine.
 
+### Who can pass the review without it
+
+Your branch rules require "Review verdict" and "Approval policies" from
+GitHub Actions, not from the factory's own workflow. So a workflow that a
+pull request adds can pass both:
+
+- **From a branch of your repository,** a workflow that asks for
+  `permissions: statuses: write` gets it, whatever your default, and can
+  mark both passed at any time. Anyone who can push a branch can do this:
+  a person with write access, or a session on your own machine, which
+  works with your sign-in. A session in the cloud can't add a workflow.
+  Pushing such a branch already reaches your repository's secrets, without
+  a pull request, so this lets someone merge without the review, not reach
+  anything new.
+- **From a fork,** a workflow can't post a status, since its token is
+  read-only. A job named `Review verdict` or `Approval policies` does pass
+  them, but only for the few seconds after each push, before the factory
+  marks them waiting. A fork's push turns auto-merge off, so only someone
+  merging by hand in those seconds would let it through.
+
+Where several people can write to your repository, have GitHub wait for
+you on every change to a workflow: add a `CODEOWNERS` file with the line
+`/.github/ @your-username`, and turn on "Require review from Code Owners" in your
+branch rules.
+
 ### Who can use the App's key
 
 Two reaches decide it:
