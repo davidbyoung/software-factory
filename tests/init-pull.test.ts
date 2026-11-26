@@ -675,6 +675,23 @@ describe("factory init, the rule that requires the review's verdict", () => {
     expect(r.out.join("\n")).not.toContain("Once it merges");
   });
 
+  it("requires Approval policies beside it once the workflow is there, where the settings have a policy", async () => {
+    const policy =
+      "approval-policies:\n  - name: licenses\n    run: node check.mjs\n    files: [package-lock.json]\n";
+    const r = review({
+      workflows: { "factory.yml": "active" },
+      settings: `${GATED}${policy}`,
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.host.settings.rules.map((x) => x.check)).toEqual([
+      "Review verdict",
+      "Approval policies",
+    ]);
+    const before = review({ settings: `${GATED}${policy}` });
+    await before.run();
+    expect(before.host.settings.rules).toEqual([]);
+  });
+
   it("makes none before then, and says so in the plan's row", async () => {
     const r = review();
     expect(await r.run()).toBe(0);

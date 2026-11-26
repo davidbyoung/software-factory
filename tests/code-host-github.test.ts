@@ -1055,6 +1055,40 @@ describe("the rules and properties of a repository", () => {
     ]);
   });
 
+  it("adds a check to the factory's rule when the rule is there already, and leaves one it holds", async () => {
+    const rule = { id: 9, name: "Software factory" };
+    const full = {
+      rules: [{ type: "deletion" }, required("Review verdict")],
+    };
+    const { h, calls } = host([
+      [/^api repos\/acme\/widgets\/rulesets\?/, [rule]],
+      [/^api repos\/acme\/widgets\/rulesets\/9$/, full],
+      [/-X PUT repos\/acme\/widgets\/rulesets\/9/, {}],
+    ]);
+    await h.requireCheck("Software factory", "Approval policies", "runner");
+    const put = calls.find((c) => c.line.includes("-X PUT"))!;
+    expect(put.input).toEqual({
+      rules: [
+        { type: "deletion" },
+        {
+          type: "required_status_checks",
+          parameters: {
+            required_status_checks: [
+              { context: "Review verdict" },
+              { context: "Approval policies", integration_id: 15368 },
+            ],
+          },
+        },
+      ],
+    });
+    const again = host([
+      [/^api repos\/acme\/widgets\/rulesets\?/, [rule]],
+      [/^api repos\/acme\/widgets\/rulesets\/9$/, full],
+    ]);
+    await again.h.requireCheck("Software factory", "Review verdict", "runner");
+    expect(again.calls.some((c) => c.line.includes("-X PUT"))).toBe(false);
+  });
+
   it("says a status is required when a rule GitHub applies to the branch names it", async () => {
     const { h, calls } = host([
       [

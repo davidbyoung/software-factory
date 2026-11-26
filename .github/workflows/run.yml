@@ -835,7 +835,8 @@ jobs:
   enroll:
     name: Require the verdict
     if: >-
-      contains(format(' {0} ', inputs.parts), ' review ') &&
+      (contains(format(' {0} ', inputs.parts), ' review ') ||
+       contains(format(' {0} ', inputs.parts), ' approval-policies ')) &&
       github.event_name == 'push' &&
       github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest

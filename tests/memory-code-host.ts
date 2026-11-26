@@ -566,7 +566,8 @@ export function memoryCodeHost(
     async requireCheck(rule, check, source) {
       called("requireCheck", rule, check);
       if (options.rulesRefused) throw new Error(options.rulesRefused);
-      if (!settings.rules.some((r) => r.name === rule))
+      // One rule of a name holds each check it is asked for.
+      if (!settings.rules.some((r) => r.name === rule && r.check === check))
         settings.rules.push({
           name: rule,
           check,

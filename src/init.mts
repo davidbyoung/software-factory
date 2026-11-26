@@ -119,6 +119,7 @@ import {
   type FetchDeps,
 } from "./preset-fetch.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
+import { CONTEXT as APPROVAL_POLICIES } from "./approval-policies.mts";
 import {
   FACTORY_EVENTS,
   FACTORY_FILE,
@@ -2616,6 +2617,23 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         d.out(
           say.text(
             `Could not require "${REVIEW_VERDICT}": ${message(e)}. Carrying on.`,
+          ),
+        ),
+      );
+  // As the verdict's rule, only once the workflow that posts it is on the
+  // default branch.
+  if (
+    settings?.approvalPolicies.length &&
+    (await runner
+      .workflowState(FACTORY_FILE.split("/").at(-1)!)
+      .catch(() => "missing")) !== "missing"
+  )
+    await codeHost
+      .requireCheck(RULE, APPROVAL_POLICIES, "runner")
+      .catch((e) =>
+        d.out(
+          say.text(
+            `Could not require "${APPROVAL_POLICIES}": ${message(e)}. Carrying on.`,
           ),
         ),
       );

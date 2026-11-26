@@ -26,6 +26,8 @@ import { lockedVersion, ownerOf } from "./preset.mts";
 import { presetChecks } from "./preset-commands.mts";
 import { hasCommand } from "./lib/has-command.mts";
 import {
+  AGENT_KEY,
+  AGENT_TOKEN,
   APP_KEY,
   neededSecrets,
   PART_TEXT,
@@ -40,6 +42,7 @@ import {
   NoDefaultBranch,
 } from "./lib/default-branch.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
+import { CONTEXT as APPROVAL_POLICIES } from "./approval-policies.mts";
 import { differences, launcherPath, LOCK, PACKAGE, plan } from "./sync.mts";
 import { FACTORY_FILE, POLLER_FILE } from "./workflow-files.mts";
 import { PROPERTY } from "./init-org.mts";
@@ -211,6 +214,11 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
       await jobsCheck(opened.codeHost),
     ])
       out.push({ ...check, group: codeHost!.label });
+  if (s.approvalPolicies.length)
+    out.push({
+      ...(await policiesCheck(opened.codeHost, s.repository)),
+      group: codeHost!.label,
+    });
 
   // A secret the organization shares with the repository counts as set.
   const isOrganization = await opened.codeHost
@@ -280,6 +288,9 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     entry.fors.push(forWhat);
     reads.set(key, entry);
   };
+  // An approval policy's agent signs in as the review does.
+  if (secrets !== null && s.approvalPolicies.some((p) => p.agent !== null))
+    reading([AGENT_TOKEN, AGENT_KEY], "the approval policies' agents");
   for (const part of PARTS) {
     if (!on.has(part)) {
       out.push({ state: "off", text: PART_TEXT[part].name, group: OFF });
@@ -438,6 +449,36 @@ async function verdictCheck(
     return {
       state: "unknown",
       text: `Could not tell whether "${REVIEW_VERDICT}" is required: ${reasonOf(e)}`,
+    };
+  }
+}
+
+/** Whether the default branch's rules require "Approval policies". Only
+ * the repository's own rule does, which `factory init` makes. */
+async function policiesCheck(
+  codeHost: CodeHost,
+  repository: string,
+): Promise<Check> {
+  try {
+    const branch = await codeHost.defaultBranch();
+    return (await codeHost.requiresStatus(branch, APPROVAL_POLICIES))
+      ? {
+          state: "pass",
+          text: `"${APPROVAL_POLICIES}" is required before a merge to ${branch}`,
+        }
+      : {
+          state: "unknown",
+          text: `"${APPROVAL_POLICIES}" is not required before a merge to ${branch}. An admin of ${repository} runs: factory init`,
+        };
+  } catch (e) {
+    if (e instanceof NoRulesError)
+      return {
+        state: "off",
+        text: `"${APPROVAL_POLICIES}" cannot be required here: ${e.message}`,
+      };
+    return {
+      state: "unknown",
+      text: `Could not tell whether "${APPROVAL_POLICIES}" is required: ${reasonOf(e)}`,
     };
   }
 }
