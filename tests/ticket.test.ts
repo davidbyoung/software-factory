@@ -79,6 +79,8 @@ function deps(
     /** Whether a ticket seeded with no labels gets the factory label, as
      * every ticket the factory works on has; true unless given. */
     labeled?: boolean;
+    /** The names the default branch has; every name unless given. */
+    has?: string[];
   } = {},
 ) {
   if (options.labeled !== false)
@@ -152,6 +154,7 @@ function deps(
             codeHost: { ...named.codeHost, branchName: options.branchName },
           };
     },
+    hasName: (name) => options.has?.includes(name) ?? true,
     signedInAs:
       options.signedInAs ??
       (async () => {
@@ -581,10 +584,18 @@ describe("refinement markers", () => {
 
 describe("the refined check", () => {
   /** `factory ticket refined 7`, with `args` after it, on a ticket with this
-   * body and these labels. */
-  async function refined(body: string, labels: string[], args = ["--check"]) {
+   * body and these labels, where the default branch has the names `has`
+   * gives, or every name. */
+  async function refined(
+    body: string,
+    labels: string[],
+    args = ["--check"],
+    has?: string[],
+  ) {
     quiet();
-    const { d, out, memory, clocks } = deps([{ number: 7, body, labels }]);
+    const { d, out, memory, clocks } = deps([{ number: 7, body, labels }], {
+      has,
+    });
     const code = await main(["refined", "7", ...args], d);
     return { code, out, errors, posted: memory.comments(7), clocks };
   }
@@ -627,6 +638,67 @@ describe("the refined check", () => {
 
       expect(r.code).toBe(1);
       expect(r.errors).toContain("missing: ## Spec");
+    });
+  });
+
+  describe("a ticket whose owner's text names a credential or write access", () => {
+    const owner = (text: string, body = PLAIN_BODY) =>
+      body.replace("The owner's own words.", text);
+    const NEW =
+      "missing: ## Threats, since the ticket names a credential this repository does not have:";
+
+    it.each([
+      ["without", PLAIN_BODY, []],
+      ["with", SPEC_BODY, ["spec"]],
+    ])(
+      "needs Threats for a credential the repository doesn't have, %s the spec label",
+      async (_, body, labels) => {
+        const r = await refined(
+          owner("Deploy with DEPLOY_TOKEN and SENTRY_AUTH.", body),
+          labels,
+          ["--check"],
+          [],
+        );
+        expect(r.code).toBe(1);
+        expect(r.errors).toEqual([`${NEW} DEPLOY_TOKEN, SENTRY_AUTH`]);
+      },
+    );
+
+    it("needs Threats for write access for a workflow", async () => {
+      const r = await refined(
+        owner("Give the release job `contents: write`."),
+        [],
+        ["--check"],
+        [],
+      );
+      expect(r.errors).toEqual([
+        "missing: ## Threats, since the ticket gives a workflow write access: contents: write",
+      ]);
+    });
+
+    it("is sound with a Threats heading", async () => {
+      const r = await refined(
+        owner(
+          "Deploy with DEPLOY_TOKEN.",
+          `${PLAIN_BODY}\n\n## Threats\n\n- None new.`,
+        ),
+        [],
+        ["--check"],
+        [],
+      );
+      expect(r.out).toEqual(["sound"]);
+    });
+
+    it("leaves alone a name the repository has, GITHUB_TOKEN, and one only after the owner's text or in a code block", async () => {
+      const body = owner(
+        "Read EXISTING_TOKEN and GITHUB_TOKEN.\n\n```\nNEW_TOKEN\n```",
+        PLAIN_BODY.replace(
+          "- Which page: the home page.",
+          "- Which page: the one NEW_TOKEN guards.",
+        ),
+      );
+      const r = await refined(body, [], ["--check"], ["EXISTING_TOKEN"]);
+      expect(r.out).toEqual(["sound"]);
     });
   });
 

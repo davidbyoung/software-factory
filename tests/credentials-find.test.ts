@@ -13,6 +13,11 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { modelOf } from "../src/approval-agent.mts";
+import {
+  CREDENTIAL_NAME,
+  OUTSIDE_DOCS_AND_TESTS,
+} from "../src/lib/refined-check.mts";
+import { hasNameIn } from "../src/ticket.mts";
 
 const SCRIPT = resolve("approval-policies/credentials/find.mts");
 
@@ -234,5 +239,37 @@ describe("the credentials policy's reader", () => {
     expect(paragraphs.at(-1)).toBe(
       "Report only a High, in the answer's shape. If you find nothing, answer with no findings.",
     );
+  });
+});
+
+describe("the refined check's lookup", () => {
+  it("reads a credential's name, and leaves out docs and tests, as the rule does", () => {
+    const rule = readFileSync(SCRIPT, "utf8");
+    expect(rule).toContain(CREDENTIAL_NAME.source);
+    for (const spec of OUTSIDE_DOCS_AND_TESTS)
+      expect(rule).toContain(`"${spec}"`);
+  });
+
+  it("finds a name on the default branch outside docs, and on origin's default branch where there is one", () => {
+    const has = hasNameIn(repo);
+    expect([has("EXISTING_TOKEN"), has("DOCS_ONLY_TOKEN")]).toEqual([
+      true,
+      false,
+    ]);
+
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd: repo, env, encoding: "utf8" });
+    git("checkout", "-qb", "ahead");
+    writeFileSync(join(repo, "src/b.ts"), "ORIGIN_ONLY_TOKEN\n");
+    git("add", "-A");
+    git("commit", "-qm", "ahead");
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main");
+    git("checkout", "-q", base);
+    try {
+      expect(hasNameIn(repo)("ORIGIN_ONLY_TOKEN")).toBe(true);
+    } finally {
+      git("symbolic-ref", "--delete", "refs/remotes/origin/HEAD");
+    }
   });
 });

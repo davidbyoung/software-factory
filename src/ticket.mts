@@ -52,6 +52,7 @@
 //
 // A failed read exits 1 with the error; every other outcome is the one line
 // printed.
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { load as parseYaml } from "js-yaml";
@@ -73,7 +74,7 @@ import {
   type IssueComment,
   type PullRequest,
 } from "./lib/work-status.mts";
-import { missingParts } from "./lib/refined-check.mts";
+import { missingParts, OUTSIDE_DOCS_AND_TESTS } from "./lib/refined-check.mts";
 import { labelOf, shownLabels, type Labels } from "./labels.mts";
 import {
   claimPath,
@@ -170,6 +171,9 @@ export type Deps = {
   /** Who the code host's CLI is signed in as, for a branch name's
    * `{user}`. */
   signedInAs: (repository: string, codeHost: string) => Promise<string>;
+  /** Whether the default branch has `name` as a whole word, outside docs
+   * and tests. */
+  hasName: (name: string) => boolean;
 };
 
 /** The dependencies, with the repository, board, and ticket system. */
@@ -1020,6 +1024,7 @@ async function command(argv: string[], deps: Deps): Promise<number> {
           ticket.body,
           ticket.labels,
           d.labels.tickets,
+          d.hasName,
         );
         try {
           readList(ticket, d.tickets);
@@ -1070,6 +1075,30 @@ async function command(argv: string[], deps: Deps): Promise<number> {
   }
 }
 
+/** Whether the default branch, as `origin` has it, or the checkout's own
+ * tip where `origin` names none, has `name` outside docs and tests. */
+export function hasNameIn(cwd: string): (name: string) => boolean {
+  const git = (args: string[]) =>
+    spawnSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  let ref: string | undefined;
+  return (name) => {
+    ref ??=
+      git([
+        "symbolic-ref",
+        "--short",
+        "refs/remotes/origin/HEAD",
+      ]).stdout?.trim() || "HEAD";
+    return (
+      git(["grep", "-qwF", name, ref, "--", ".", ...OUTSIDE_DOCS_AND_TESTS])
+        .status === 0
+    );
+  };
+}
+
 /** What the commands run with, outside a test. */
 export function ticketDeps(): Deps {
   return {
@@ -1092,6 +1121,7 @@ export function ticketDeps(): Deps {
       );
     },
     runner: (repository, name) => openRunner(repository, name),
+    hasName: hasNameIn(process.cwd()),
     startSync: async (repository, settings) => {
       const branch = await openCodeHost(
         repository,

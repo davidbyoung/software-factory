@@ -17,7 +17,7 @@
 
 ## 3. Threats
 
-- [ ] 3.1 `missingParts` with a lookup, both lines and their exit (line 22), in `tests/refined-check.test.ts`.
+- [x] 3.1 `missingParts` with a lookup, both lines and their exit (line 22), in `tests/refined-check.test.ts`.
 - [ ] 3.2 The refine skill writes `## Threats`; `factory sync`; the trace.
 
 ## 4. Docs and verify

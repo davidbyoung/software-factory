@@ -803,6 +803,7 @@ describe("factory ticket ready", () => {
       open: async () => ({ tickets: memory.tickets }),
       openPulls: async () => [],
       signedInAs: async () => "dave",
+      hasName: () => true,
       reach: async () => {
         throw new Error("unexpected reach");
       },
