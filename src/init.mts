@@ -1388,7 +1388,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   // The owner's presets, looked for by name unless something names them.
   const listedPresets = (): string[] => {
     const names = doc.toJS()?.presets;
-    return Array.isArray(names) ? names.map(String) : [];
+    return Array.isArray(names)
+      ? names.map((n) =>
+          typeof n === "object" && n !== null && "name" in n
+            ? String((n as { name: unknown }).name)
+            : String(n),
+        )
+      : [];
   };
   const config = `${owner}/${CONFIG}`;
   const looks = !flags.length && !listedPresets().length;

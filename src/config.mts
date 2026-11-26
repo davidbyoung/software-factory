@@ -926,6 +926,34 @@ function command(v: unknown, key: string): string | null {
   return typeof v === "string" && v ? v : fail(key, "must be text");
 }
 
+/** One preset `presets` lists: its name, and the folders it is for, or
+ * null for the whole repository. */
+export type PresetEntry = { name: string; in: string[] | null };
+
+/** `presets` as written: names, and blocks of `name` and `in`. */
+export function presetEntriesOf(v: unknown): PresetEntry[] {
+  if (v === undefined) return [];
+  if (!Array.isArray(v)) return fail("presets", "must be a list");
+  return v.map((item, i) => {
+    const key = `presets[${i}]`;
+    if (typeof item === "string" && item) return { name: item, in: null };
+    if (!isObj(item))
+      return fail(key, "must be text, or a block with name and in");
+    const o = object(item, key, "presets[]");
+    if (typeof o.name !== "string" || !o.name)
+      fail(`${key}.name`, "is required");
+    if (o.in === undefined) fail(`${key}.in`, "is required");
+    return {
+      name: o.name as string,
+      in: parseFolders(o.in, `${key}.in`, null),
+    };
+  });
+}
+
+/** How a preset entry is said: its name, and `--in` with its folders. */
+export const presetLabel = (e: PresetEntry) =>
+  e.in ? `${e.name} --in ${e.in.join(" --in ")}` : e.name;
+
 /** A path written in the settings stays inside the repository. */
 const inside = (path: string) =>
   !path.startsWith("/") && !path.split("/").includes("..");
@@ -1123,7 +1151,7 @@ export function parseSettings(
       if (key in written) fail(key, `moved to commands.${key}`);
   }
   const top = object(written, "");
-  strings(top.presets, "presets");
+  presetEntriesOf(top.presets);
   if (
     !(preset && top.repository === undefined) &&
     (typeof top.repository !== "string" ||
@@ -1650,9 +1678,11 @@ export async function resolveFiles(
   const own = readYaml(ownText, SETTINGS_FILE, load);
   const P = await import("./preset.mts");
   const top = isObj(own) ? own : {};
-  const names = isObj(own) ? strings(top.presets, "presets") : [];
-  const twice = names.find((n, i) => names.indexOf(n) !== i);
+  const entries = isObj(own) ? presetEntriesOf(top.presets) : [];
+  const labels = entries.map(presetLabel);
+  const twice = labels.find((n, i) => labels.indexOf(n) !== i);
   if (twice) throw new SettingsError(`presets: ${twice} is listed twice`);
+  const names = [...new Set(entries.map((e) => e.name))];
   const pins = names.length
     ? P.pinsOf(
         d.readLock
@@ -1684,9 +1714,17 @@ export async function resolveFiles(
         `${P.LOCK_FILE}: ${name}: ${odd} is not an agent's or a skill's path`,
       );
     presets.push(pin);
-    layers.push({ name, raw: pin.settings });
     ships.set(name, pin.files);
   }
+  entries.forEach((entry, index) => {
+    const pin = presets.find((p) => p.name === entry.name)!;
+    layers.push({
+      name: entry.name,
+      raw: pin.settings,
+      folders: entry.in,
+      index,
+    });
+  });
   layers.push({ name: P.OWN, raw: top });
   const choicesText = d.readChoices?.() ?? null;
   const choices = parseChoices(choicesText, load);
