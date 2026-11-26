@@ -973,8 +973,12 @@ function parseFolders(
   return list.map((item, i) => {
     const at = typeof v === "string" ? key : `${key}[${i}]`;
     if (typeof item !== "string" || !item) return fail(at, "must be text");
-    const folder = item.replace(/\/+$/, "");
-    if (!inside(folder))
+    // Paths from git never start with ./, so neither does a folder.
+    const folder = item.replace(/^\.\//, "").replace(/\/+$/, "");
+    if (
+      !inside(folder) ||
+      folder.split("/").some((name) => name === "" || name === ".")
+    )
       return fail(at, "must be a folder inside the repository");
     const names = folder.split("/");
     if (

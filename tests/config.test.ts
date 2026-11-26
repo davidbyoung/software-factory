@@ -2719,6 +2719,23 @@ describe("commands by path", () => {
     ],
   ])("fails on %j", (written, message) => fails(written, message));
 
+  it("reads an in written with ./ as the folder from the root", () => {
+    expect(
+      commands({ gate: [{ run: "x", in: ["./docs", "./packages/*"] }] })
+        .gate[0]!.in,
+    ).toEqual(["docs", "packages/*"]);
+  });
+
+  it.each([".", "./", "packages/./a", "a//b"])(
+    "fails on an in that names no folder: %j",
+    (folder) => {
+      fails(
+        { gate: [{ run: "x", in: folder }] },
+        "commands.gate[0].in: must be a folder inside the repository",
+      );
+    },
+  );
+
   it("fails on an in that is not a folder", () => {
     expect(() =>
       commands({ gate: [{ run: "x", in: "services/biling" }] }, () => false),
