@@ -1448,7 +1448,7 @@ export function uncoveredLines(
   s: Settings,
   files: string[],
   exists: (path: string) => boolean,
-): string[] {
+): say.Line[] {
   const left = new Set(
     uncovered(files, {
       gate: s.commands.gate,
@@ -1483,19 +1483,27 @@ export function uncoveredLines(
       a.path.localeCompare(b.path),
   );
   const width = Math.max(...paths.map((p) => p.path.length));
-  const lines = [
-    `${paths.length} ${paths.length === 1 ? "path is" : "paths are"} in no gate command's files and not in commands.ignore, so a change to one runs every command:`,
-    ...paths
-      .slice(0, 20)
-      .map((p) =>
-        p.count
-          ? `    ${p.path.padEnd(width + 2)}${p.count} ${p.count === 1 ? "file" : "files"}`
-          : `    ${p.path}`,
-      ),
+  const lines: say.Line[] = [
+    say.mark(
+      "look",
+      `${paths.length} ${paths.length === 1 ? "path is" : "paths are"} in no gate command's files and not in commands.ignore, so a change to one runs every command:`,
+    ),
+    ...paths.slice(0, 20).map((p) =>
+      p.count
+        ? say.row(p.path, `${p.count} ${p.count === 1 ? "file" : "files"}`, {
+            width,
+            indent: 4,
+            gap: 2,
+          })
+        : say.text(`    ${p.path}`),
+    ),
   ];
-  if (paths.length > 20) lines.push(`  and ${paths.length - 20} more paths`);
+  if (paths.length > 20)
+    lines.push(say.text(`  and ${paths.length - 20} more paths`));
   lines.push(
-    "  Add each to commands.ignore, or to the files of the gate commands it affects.",
+    say.text(
+      "  Add each to commands.ignore, or to the files of the gate commands it affects.",
+    ),
   );
   return lines;
 }
@@ -2066,11 +2074,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       ...commandWarnings(s, files, d.exists),
     ])
       d.err(say.mark("look", `${SETTINGS_FILE}: ${w}`));
-    const [first, ...rest] = uncoveredLines(s, files, d.exists);
-    if (first) {
-      d.err(say.mark("look", first));
-      for (const line of rest) d.err(say.text(line));
-    }
+    for (const line of uncoveredLines(s, files, d.exists)) d.err(line);
     if (s.sites.length > 0 && !s.plugins.some((p) => p.role === "mockups"))
       if (!d.exists(DESIGN_SKILL))
         d.err(
@@ -2133,7 +2137,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   )?.[1];
   if (coverageKey) {
     const [one, ...more] = s.commands.coverage;
-    if (more.length > 0) {
+    if (more.length > 0 || (one && hasPaths(one))) {
       d.err(
         say.text(
           `${SETTINGS_FILE}: ${command}: commands.coverage is a list: run factory coverage, which runs each`,

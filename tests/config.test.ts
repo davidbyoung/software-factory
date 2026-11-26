@@ -2580,3 +2580,318 @@ describe("factory config explain, in color", () => {
     ]);
   });
 });
+
+describe("commands by path", () => {
+  const commands = (
+    written: unknown,
+    exists: (p: string) => boolean = () => true,
+  ) => parse({ ...MINIMAL, commands: written }, exists).commands;
+  const fails = (written: unknown, message: string) =>
+    expect(() => commands(written)).toThrow(`.claude/factory.yaml: ${message}`);
+
+  it("takes an item with run, in, and files, and in as one folder or a list", () => {
+    expect(
+      commands({
+        gate: [
+          "npm run lint",
+          { run: "npm test", in: "packages/*", files: ["./**", "lib/**"] },
+          { run: "pytest", in: ["services/a", "services/b/"] },
+        ],
+      }).gate,
+    ).toEqual([
+      textCommand("npm run lint"),
+      {
+        run: "npm test",
+        in: ["packages/*"],
+        files: ["./**", "lib/**"],
+        report: null,
+      },
+      {
+        run: "pytest",
+        in: ["services/a", "services/b"],
+        files: null,
+        report: null,
+      },
+    ]);
+  });
+
+  it("takes a list of items for test-one, end-to-end, and relock", () => {
+    const c = commands({
+      "test-one": [{ run: "vitest $FILE", in: "packages/*" }, "make test"],
+      relock: [
+        { run: "poetry lock", in: "services/*", files: ["./poetry.lock"] },
+      ],
+    });
+    expect(c.testOne.map((x) => x.run)).toEqual(["vitest $FILE", "make test"]);
+    expect(c.relock[0]!.files).toEqual(["./poetry.lock"]);
+  });
+
+  it("takes a list of coverage items, each with its report", () => {
+    expect(
+      commands({
+        coverage: [
+          { run: "npm run coverage", in: "packages/*", report: "./lcov.info" },
+        ],
+      }).coverage,
+    ).toEqual([
+      {
+        run: "npm run coverage",
+        in: ["packages/*"],
+        files: null,
+        report: "./lcov.info",
+      },
+    ]);
+  });
+
+  it.each([
+    [{ gate: [{ in: "a" }] }, "commands.gate[0].run: is required"],
+    [
+      { gate: [{ run: "x", folder: "a" }] },
+      "commands.gate[0].folder: unknown key",
+    ],
+    [
+      { gate: [{ run: "x", report: "r" }] },
+      "commands.gate[0].report: unknown key",
+    ],
+    [
+      { gate: [{ run: "x", files: [] }] },
+      "commands.gate[0].files: must list at least one pattern",
+    ],
+    [
+      { gate: [{ run: "x", in: "packages/**" }] },
+      "commands.gate[0].in: packages/**: a * stands for one whole folder name, last, as in packages/*",
+    ],
+    [
+      { gate: [{ run: "x", in: "apps/*/web" }] },
+      "commands.gate[0].in: apps/*/web: a * stands for one whole folder name, last, as in packages/*",
+    ],
+    [
+      { gate: [{ run: "x", in: "pkg-*" }] },
+      "commands.gate[0].in: pkg-*: a * stands for one whole folder name, last, as in packages/*",
+    ],
+    [
+      { gate: [{ run: "x", in: "../other" }] },
+      "commands.gate[0].in: must be a folder inside the repository",
+    ],
+    [
+      { gate: [{ run: "x", files: ["./../x"] }] },
+      "commands.gate[0].files[0]: must be a pattern inside the repository",
+    ],
+    [
+      { coverage: [{ run: "x", in: "a" }] },
+      "commands.coverage[0].report: is required in a list",
+    ],
+  ])("fails on %j", (written, message) => fails(written, message));
+
+  it("fails on an in that is not a folder", () => {
+    expect(() =>
+      commands({ gate: [{ run: "x", in: "services/biling" }] }, () => false),
+    ).toThrow(
+      ".claude/factory.yaml: commands.gate[0].in: services/biling is not a folder",
+    );
+  });
+
+  it("fails on files under build-setup", () => {
+    fails(
+      { "build-setup": ["a", { run: "x", in: "a", files: ["./**"] }] },
+      "commands.build-setup[1].files: build-setup runs before there is a change, so every command runs. Leave files out",
+    );
+  });
+
+  it.each(["test-one", "end-to-end"])(
+    "fails on text before an item in %s",
+    (key) => {
+      fails(
+        { [key]: ["make test", { run: "x", in: "a" }] },
+        `commands.${key}[1]: text at [0] covers every file first, so this is never run. Put text last`,
+      );
+    },
+  );
+
+  it("takes commands.ignore", () => {
+    expect(commands({ ignore: ["docs/**"] }).ignore).toEqual(["docs/**"]);
+  });
+});
+
+describe("a list of sites", () => {
+  const site = { start: "npm start", url: "http://localhost:$PORT" };
+
+  it("takes one site, or a list with in on each", () => {
+    const sites = parse({
+      ...MINIMAL,
+      site: [
+        { ...site, in: "apps/web", files: ["./**", "packages/ui/**"] },
+        { ...site, in: "apps/admin" },
+      ],
+    }).sites;
+    expect(sites.map((s) => [s.in, s.files])).toEqual([
+      [["apps/web"], ["./**", "packages/ui/**"]],
+      [["apps/admin"], null],
+    ]);
+  });
+
+  it("fails on a site of several with no in", () => {
+    expect(() =>
+      parse({ ...MINIMAL, site: [{ ...site, in: "a" }, site] }),
+    ).toThrow(
+      ".claude/factory.yaml: site[1].in: is required when site lists more than one site",
+    );
+  });
+});
+
+describe("config check for commands by path", () => {
+  const settings = (lines: string[]) =>
+    ["version: 2", "repository: owner/name", CODE_HOST_YAML, ...lines].join(
+      "\n",
+    );
+  const FILES = [
+    "packages/api/src/a.ts",
+    "packages/web/src/b.ts",
+    "services/billing/app.py",
+    "docs/guide.md",
+    ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
+    "Makefile",
+  ];
+  const check = async (lines: string[], files = FILES) => {
+    const r = deps({
+      readFile: () => settings(lines),
+      listFiles: () => files,
+      exists: (p) => files.some((f) => f === p || f.startsWith(`${p}/`)),
+    });
+    const code = await main(["check"], r.d);
+    return { code, ...r };
+  };
+
+  it("lists the files no gate command covers, a folder with nothing covered as one", async () => {
+    const r = await check([
+      "commands:",
+      "  gate:",
+      "    - run: npm test",
+      "      in: packages/*",
+      "  ignore: [docs/**]",
+    ]);
+    expect(r.code).toBe(0);
+    expect(r.err).toEqual([
+      "? 3 paths are in no gate command's files and not in commands.ignore, so a change to one runs every command:",
+      "    .github/   2 files",
+      "    services/  1 file",
+      "    Makefile",
+      "  Add each to commands.ignore, or to the files of the gate commands it affects.",
+    ]);
+  });
+
+  it("lists nothing when the gate has no item", async () => {
+    const r = await check(["commands:", "  gate: [make check]"]);
+    expect(r.err).toEqual([]);
+  });
+
+  it("warns on a * that matches no folder and a pattern that matches no file", async () => {
+    const r = await check([
+      "commands:",
+      "  gate:",
+      "    - run: npm test",
+      "      in: apps/*",
+      "    - run: make",
+      "      files: [lib/**]",
+      "  ignore: [notes/**]",
+    ]);
+    expect(r.err).toContain(
+      "? .claude/factory.yaml: commands.gate[0].in: apps/* matches no folder",
+    );
+    expect(r.err).toContain(
+      "? .claude/factory.yaml: commands.gate[1].files: lib/** matches no file",
+    );
+    expect(r.err).toContain(
+      "? .claude/factory.yaml: commands.ignore: notes/** matches no file",
+    );
+  });
+
+  it("warns on a root pattern that names every folder's own files, and not a shared folder", async () => {
+    const r = await check([
+      "commands:",
+      "  gate:",
+      "    - run: npm test",
+      "      in: packages/*",
+      "      files: [packages/*/src/**, packages/api/**]",
+    ]);
+    expect(r.err).toContain(
+      "? .claude/factory.yaml: commands.gate[0].files: packages/*/src/** is in every folder of packages/*, so a change in one runs all of them; write ./src/** for each folder's own",
+    );
+    expect(r.err.join("\n")).not.toContain(
+      "packages/api/** is in every folder",
+    );
+  });
+
+  it("warns on a coverage report every folder would share", async () => {
+    const r = await check([
+      "commands:",
+      "  coverage:",
+      "    - run: npm run coverage",
+      "      in: packages/*",
+      "      report: coverage/lcov.info",
+    ]);
+    expect(r.err).toContain(
+      "? .claude/factory.yaml: commands.coverage[0].report: coverage/lcov.info is the same file in every folder of packages/*; write ./coverage/lcov.info",
+    );
+  });
+});
+
+describe("config get for commands by path", () => {
+  const get = async (lines: string[], key: string) => {
+    const files = ["packages/api/a.ts", "packages/web/b.ts"];
+    const r = deps({
+      readFile: () =>
+        ["version: 2", "repository: owner/name", CODE_HOST_YAML, ...lines].join(
+          "\n",
+        ),
+      listFiles: () => files,
+      exists: (p) => files.some((f) => f === p || f.startsWith(`${p}/`)),
+    });
+    const code = await main([key], r.d);
+    return { code, out: r.out, err: r.err };
+  };
+  const ITEMS = [
+    "commands:",
+    "  gate:",
+    "    - make lint",
+    "    - run: npm test",
+    "      in: packages/*",
+    "  coverage:",
+    "    - run: npm run coverage",
+    "      in: packages/*",
+    "      report: ./lcov.info",
+  ];
+
+  it("prints each command as it runs, once in each of its folders", async () => {
+    expect((await get(ITEMS, "commands.gate")).out).toEqual([
+      "make lint",
+      "cd packages/api && npm test",
+      "cd packages/web && npm test",
+    ]);
+  });
+
+  it("fails on coverage.run for a list, naming factory coverage", async () => {
+    const r = await get(ITEMS, "commands.coverage.run");
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([
+      ".claude/factory.yaml: commands.coverage.run: commands.coverage is a list: run factory coverage, which runs each",
+    ]);
+  });
+
+  it("prints a site's key once for each site of a list", async () => {
+    const r = await get(
+      [
+        "site:",
+        "  - start: a",
+        "    url: u",
+        "    in: packages/api",
+        "  - start: b",
+        "    url: u",
+        "    in: packages/web",
+      ],
+      "site.start",
+    );
+    expect(r.out).toEqual(["packages/api: a", "packages/web: b"]);
+  });
+});
