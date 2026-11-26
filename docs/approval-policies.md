@@ -11,6 +11,12 @@ A session, the coding agent the factory runs, can fix what a check
 finds, but it can never be the one to say "yes, anyway". An approval
 policy is for when that yes is sometimes right.
 
+Every repository already has one, which the factory ships, called
+`credentials`. [The factory's own policy](#the-factorys-own-policy) says
+what it does. **If a pull request of yours waits on it,** start at
+[When `credentials` makes a pull request wait](#when-credentials-makes-a-pull-request-wait),
+and to stop it, see [Turning it off](#turning-it-off).
+
 ## Is it an approval policy?
 
 Ask whether a person could reasonably say "yes, anyway" to what the check
@@ -102,8 +108,9 @@ approval-policies: 1 applies, for the 2 files changed since origin/main
 `✓ licenses: nothing to approve`. [Trying a policy](#trying-a-policy) has
 what it prints when a check fails, and how to try a past pull request.
 
-**4. Turn it on.** Sync, which adds the job that runs your policies to
-the factory's workflow file:
+**4. Turn it on.** If you turned `credentials` off, so this is your
+only policy, sync first. It adds the job that runs your policies to the
+factory's workflow file:
 
 ```console
 $ factory sync
@@ -111,15 +118,19 @@ wrote .claude/factory.lock
 wrote .github/workflows/factory.yml
 ```
 
-It worked when it prints those two lines. Commit them with the policy and
-its folder, open a pull request, and merge it. A pull request is checked
-by the policies on your default branch, so this one is checked by none,
-and the policy applies from the next one.
+Otherwise there is nothing to sync: the workflow already runs your
+policies, since it runs [the factory's own](#the-factorys-own-policy).
 
-**5. Require it,** so that nothing merges while a policy waits. When the
-pull request merges, the factory requires the **Approval policies**
-status on your default branch, where its token can. Once it has merged,
-pull your default branch and check that it did:
+Commit the policy, its folder, and anything sync wrote, open a pull
+request, and merge it. A pull request is checked by the policies on your
+default branch, so this one isn't checked by yours. It worked when the
+next pull request that changes `package-lock.json` shows `licenses` in
+its **Approval policies** status.
+
+**5. Check it is required,** so that nothing merges while a policy
+waits. The factory requires the **Approval policies** status on your
+default branch, where its token can, once any policy is on there. Pull
+your default branch and check that it did:
 
 ```console
 $ factory doctor
@@ -237,6 +248,7 @@ so its file says only what to look for:
 ---
 name: rollback-checker
 description: Checks that each new migration says how it rolls back.
+model: opus # optional: the model it runs with, as for any agent
 ---
 
 Report each migration in the change whose ticket says nothing about how
@@ -250,24 +262,164 @@ or `ANTHROPIC_API_KEY` secret the
 sets it.
 
 **A script and an agent together:** with both `run` and `agent`, the
-agent runs only when the command found something, and reads only that.
-A quick script keeps the agent, and its cost, off every change that
-doesn't need it. This one's script and agent are yours to write:
+agent runs only when the command found something, and is handed only
+what it found, not the whole diff. A quick script keeps the agent, and
+its cost, off every change that doesn't need it. This one's script and
+agent are yours to write:
+
+```yaml
+approval-policies:
+  - name: raw-sql
+    run: node .claude/approval-policies/raw-sql/find.mjs # finds SQL built from strings
+    agent: sql-reader # reads only those lines
+    files: ["src/**"]
+```
+
+**An agent can be talked out of a finding** by the text it reads. So a
+pull request an agent reads always waits for a person to merge it, even
+where [`auto-merge`](configuration.md#auto-merge) would merge it, and its
+["Who merges" status](workflow.md#who-merges) names the policy. With
+both `run` and `agent`, that holds only when the command found something
+for the agent: a pull request it found nothing in merges as before. When
+the agent finds nothing, the Approval policies status says the agent
+cleared it, not a person, and its **Details** list the lines it was
+handed, for whoever merges.
+
+## The factory's own policy
+
+Every repository has the policy `credentials`, with nothing to write. A
+change that adds a credential, or lets a workflow do more, is read for
+security by an agent that didn't build it, before the change merges.
+`factory sync` writes its two files, as it writes the factory's skills:
+the script `.claude/approval-policies/credentials/find.mts`, and the
+agent's instructions, `.claude/agents/factory-credentials-reader.md`.
+`factory config explain` shows it among your settings:
 
 ```yaml
 approval-policies:
   - name: credentials
-    run: node .claude/approval-policies/credentials/find.mjs # finds lines that add a secret's name
-    agent: credentials-reader # reads only those lines
+    run: node .claude/approval-policies/credentials/find.mts
+    agent: factory-credentials-reader
     files: ["**"]
 ```
 
-**An agent can be talked out of a finding** by the text it reads. So a
-pull request that a policy with an agent applies to always waits for a
-person to merge it, even where [`auto-merge`](configuration.md#auto-merge)
-would merge it, and its ["Who merges" status](workflow.md#who-merges)
-names the policy. When the agent finds nothing, the Approval policies
-status says the agent cleared it, not a person.
+`find.mts` runs on Node 22.18 or later, which the factory needs anyway.
+
+### What it reads
+
+`find.mts` reads the lines a pull request adds. It leaves out tests,
+specs, and docs: any folder `test/`, `tests/`, `spec/`, `specs/`, or
+`docs/`, at any depth, and any `*.test.*` or `*.spec.*` file. It picks
+a pull request, for the agent to read, when it adds any of these:
+
+| What the change adds                                                                                                                                     | Example                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| A credential's name your default branch doesn't have, ending `_TOKEN`, `_SECRET`, `_PASSWORD`, `_KEY`, `_PAT`, `_AUTH`, `_CREDENTIAL`, or `_CREDENTIALS` | `CODECOV_TOKEN`, `STRIPE_KEY`                                                      |
+| A secret passed to a workflow                                                                                                                            | `${{ secrets.DEPLOY_KEY }}`, `secrets['X']`, `toJSON(secrets)`, `secrets: inherit` |
+| Write access for a workflow                                                                                                                              | `contents: write`, `permissions: { contents: write }`, `write-all`                 |
+| A workflow file, new or moved into `.github/workflows/`                                                                                                  | `.github/workflows/deploy.yml`                                                     |
+| A `pull_request_target` trigger                                                                                                                          | `on: pull_request_target`                                                          |
+
+Most pull requests add none of these. Their **Approval policies** status
+reads `Nothing to approve`, and the agent never runs. In two
+repositories that use the factory, it picked 31 of 259 merged changes,
+about 1 in 8. Each of the 31 changed at least 99 lines.
+
+### What the agent does
+
+`factory-credentials-reader` is handed only the lines `find.mts` picked.
+It can read the rest of your code, as it stands on your default branch,
+to follow them through. It traces each
+credential and permission to everything that can reach it, counting
+another AI agent as someone an attacker may be steering. It reports a
+finding only when it is serious: a credential that keeps working after
+the run ends, or works beyond this repository, within reach of someone
+who shouldn't have it, or a person's approval that can now be skipped.
+It runs with Opus, which its file names.
+
+When it finds nothing, the status says the agent cleared it, not a
+person. That pull request still waits for a person to merge it, never
+for `auto-merge`, and **Details** lists what `find.mts` found, which the
+agent cleared.
+
+### When `credentials` makes a pull request wait
+
+The **Approval policies** status, in the pull request's checks list,
+reads
+`credentials: 1 waiting for approval. To accept it, add the policy-override label`.
+
+1. **Open the status's Details,** which lists each finding with its
+   file and line, such as:
+
+   > `.github/workflows/deploy.yml:12` The deploy key is in the same job
+   > as the AI that reads the ticket. An AI steered by a ticket's text
+   > could read the key and send it out, and it has no end date.
+
+2. **Decide.**
+   - **It is real:** push a fix, yourself or by commenting for a session
+     that works this pull request. The push is read again, and a label
+     added for an earlier commit approves nothing on it.
+   - **It is fine as it is:** add the `policy-override` label, under
+     **Labels** on the pull request. Anyone who can write to the
+     repository may, you included. It approves what the agent found on
+     this commit, as [When a pull request waits](#when-a-pull-request-waits)
+     says.
+
+**It worked when** the status reads `Approved by` with your name, or,
+after a fix,
+`Nothing to approve` or `cleared by factory-credentials-reader, not a person`.
+
+**When the status says the agent can't run,** as
+`credentials: factory-credentials-reader can't run here, so everything it applies to waits for approval`,
+no agent read the lines. That happens on a pull request from a fork, on
+Dependabot's, or where your repository has no coding agent's token
+([Checking with an agent](#checking-with-an-agent)). Read the lines
+**Details** lists yourself, then add `policy-override`. A fork's or
+Dependabot's pull request is always read by you this way. Where the
+token is missing, run `factory init`, which sets it, and `factory doctor`
+says whether it is set.
+
+### What it costs
+
+A session spends nothing on it. In GitHub Actions, each push to a pull
+request marked ready runs three jobs: one reads the change, one runs
+`find.mts`, and one posts the status. In a private repository, GitHub
+bills each at a minute or more. When `find.mts` picks something, the
+agent takes about a minute, on your coding agent's token.
+
+### What it won't catch
+
+- **A credential your code builds from settings,** whose name appears
+  only in docs and tests, which `find.mts` doesn't read.
+- **A sensitive line written a way `find.mts` doesn't recognize.**
+- **A change whose own text talks the agent out of a finding.** It then
+  shows as cleared: the pull request still waits for a person to merge
+  it, and **Details** lists what the agent read, so look at it before
+  you merge.
+
+### Turning it off
+
+In `.claude/factory.yaml`:
+
+```yaml
+approval-policies:
+  - name: credentials
+    off: true
+```
+
+Then run `factory sync`. It deletes the policy's two files, and, where
+`credentials` was your only policy, takes the job that runs policies out
+of `.github/workflows/factory.yml`. Commit what it changed with the
+settings, from your computer, open a pull request, and merge it.
+
+Where no policy is left on, also take **Approval policies** out of the
+ruleset "Software factory", under your repository's Settings, Rules,
+Rulesets: nothing posts the status any more, so a pull request would
+wait on it forever.
+
+Nothing then reads a change for security before it merges. **It worked
+when** `factory config explain` no longer lists `credentials`, and the
+next pull request merges without an **Approval policies** status.
 
 ## When a pull request waits
 

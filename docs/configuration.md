@@ -1683,7 +1683,9 @@ write to the repository accepts them with the
 [`policy-override`](#code-hostlabels) label.
 [Approval policies](approval-policies.md) says when to use one, what
 each key means, what a check reads and prints, and what a pull request
-shows while one waits.
+shows while one waits. The factory adds one policy of its own,
+`credentials` ([The factory's own policy](approval-policies.md#the-factorys-own-policy)),
+which `off: true` turns off.
 
 ```yaml
 approval-policies:
@@ -1697,9 +1699,10 @@ approval-policies:
 ```
 
 [The settings](approval-policies.md#the-settings) there has a table of
-the keys: `name`, `run`, `agent`, `in`, `files`, and `off`. Adding the
-first policy changes `.github/workflows/factory.yml`, which
-`factory sync` rewrites, so commit it from your computer.
+the keys: `name`, `run`, `agent`, `in`, `files`, and `off`. Turning
+off every policy, `credentials` included, or turning the first one back
+on, changes `.github/workflows/factory.yml`, which `factory sync`
+rewrites, so commit it from your computer.
 
 ## Checking the file
 

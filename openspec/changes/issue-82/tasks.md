@@ -22,6 +22,6 @@
 
 ## 4. Docs and verify
 
-- [ ] 4.1 The docs (lines 19, 23), and the docs tests.
+- [x] 4.1 The docs (lines 19, 23), and the docs tests.
 - [ ] 4.2 Map every Spec line to its test.
 - [ ] 4.3 `factory gate`, `npm run pack-check`, and `factory specs check`.
