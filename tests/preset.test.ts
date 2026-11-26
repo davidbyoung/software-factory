@@ -414,7 +414,7 @@ describe("what a preset can't do", () => {
     async (path) => {
       await refused(
         {},
-        `.claude/factory.lock: ${ACME}: ${path} is not an agent's or a skill's path`,
+        `.claude/factory.lock: ${ACME}: ${path} is not an agent's, a skill's, or an approval policy's path`,
         { [path]: "sha256:0" },
       );
     },
@@ -1027,5 +1027,84 @@ describe("a preset for some folders", () => {
     await expect(resolveAt(root)).rejects.toThrow(
       "presets: acme/python --in services/* is listed twice",
     );
+  });
+});
+
+describe("approval policies from presets", () => {
+  const POLICY = [
+    "approval-policies:",
+    "  - name: licenses",
+    "    run: node .claude/approval-policies/licenses/check.mjs",
+    "    files: [package-lock.json]",
+    "",
+  ].join("\n");
+
+  it("ships a policy's folder, written to .claude/approval-policies/", async () => {
+    root = repo(own([ACME]));
+    install(root, ACME, {
+      "": {
+        settings: `version: 2\n${POLICY}`,
+        others: { "approval-policies/licenses/check.mjs": "check\n" },
+      },
+    });
+    const { settings, resolution } = await resolveAt(root);
+    expect(settings.approvalPolicies.map((p) => p.name)).toEqual(["licenses"]);
+    expect(
+      resolution.files.get(".claude/approval-policies/licenses/check.mjs")
+        ?.from,
+    ).toBe(ACME);
+  });
+
+  it("replaces an earlier preset's policy with a later one of the same name", async () => {
+    root = repo(own([ACME, "other/preset"]));
+    install(root, ACME, { "": { settings: `version: 2\n${POLICY}` } });
+    install(root, "other/preset", {
+      "": {
+        settings: [
+          "version: 2",
+          "approval-policies:",
+          "  - name: licenses",
+          "    run: node strict.mjs",
+          "    files: [package-lock.json]",
+          "",
+        ].join("\n"),
+      },
+    });
+    const { settings } = await resolveAt(root);
+    expect(settings.approvalPolicies.map((p) => p.run)).toEqual([
+      "node strict.mjs",
+    ]);
+    const { out } = await explain();
+    expect(lineOf(out, "- name: licenses")).toMatch(
+      /^- name: licenses +# other\/preset, not chosen yet$/,
+    );
+  });
+
+  it("turns one of a preset's policies off with off: true in your own file, keeping the rest", async () => {
+    root = repo(
+      own(
+        [ACME],
+        ["approval-policies:", "  - name: licenses", "    off: true"],
+      ),
+    );
+    const both = `${POLICY}  - name: migrations\n    run: node m.mjs\n    files: [db/**]\n`;
+    install(root, ACME, { "": { settings: `version: 2\n${both}` } });
+    expect(
+      (await resolveAt(root)).settings.approvalPolicies.map((p) => p.name),
+    ).toEqual(["migrations"]);
+  });
+
+  it("gives a preset's policies only its folders when it is added with --in", async () => {
+    root = repo(own([`{name: ${ACME}, in: services/*}`]));
+    install(root, ACME, { "": { settings: `version: 2\n${POLICY}` } });
+    expect((await resolveAt(root)).settings.approvalPolicies).toEqual([
+      {
+        name: "licenses",
+        run: "node .claude/approval-policies/licenses/check.mjs",
+        agent: null,
+        in: ["services/*"],
+        files: ["./package-lock.json"],
+      },
+    ]);
   });
 });

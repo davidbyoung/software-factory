@@ -250,6 +250,21 @@ export type Settings = {
   /** The numbers the process rules use, which `factory sync` writes into
    * the copies of the rules and skills that state them. */
   rules: { smallChangeLines: number; reviewRounds: number };
+  /** The checks whose findings wait for a person's approval on a pull
+   * request, those turned off left out. */
+  approvalPolicies: ApprovalPolicy[];
+};
+
+/** One approval policy: what checks a change, and which changes set it
+ * off, read as a command's `in` and `files` are. */
+export type ApprovalPolicy = {
+  name: string;
+  /** The command that checks a change, from the root. */
+  run: string | null;
+  /** The agent that checks it, or reads what `run` found. */
+  agent: string | null;
+  in: string[] | null;
+  files: string[] | null;
 };
 
 /** Each number the rules use, with its default. */
@@ -346,6 +361,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
     "site",
     "session-minutes",
     "rules",
+    "approval-policies",
   ],
   tickets: ["type", "board", "columns", "fields", "labels"],
   "tickets.labels": Object.keys(TICKET_LABELS),
@@ -368,6 +384,7 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "commands.coverage": ["run", "report", "in", "files"],
   "commands[]": ["run", "in", "files"],
   "presets[]": ["name", "in"],
+  "approval-policies[]": ["name", "run", "agent", "in", "files", "off"],
   "auto-merge": ["allow", "deny", "commands"],
   "pr-review": ["commands"],
   site: [
@@ -1127,6 +1144,63 @@ function commandsOf(
   };
 }
 
+/** `approval-policies` as written, those turned off with `off: true` left
+ * out. An agent's file is checked as a plugin's is. */
+function approvalPoliciesOf(
+  v: unknown,
+  preset: boolean,
+  exists: (p: string) => boolean,
+): ApprovalPolicy[] {
+  if (v === undefined) return [];
+  if (!Array.isArray(v)) return fail("approval-policies", "must be a list");
+  const named = new Map<string, number>();
+  return v.flatMap((item, i): ApprovalPolicy[] => {
+    const key = `approval-policies[${i}]`;
+    if (!isObj(item)) return fail(key, "must be a block with name");
+    const o = object(item, key, "approval-policies[]");
+    const name = o.name;
+    if (typeof name !== "string" || !OWN_HEADING.test(name))
+      fail(
+        `${key}.name`,
+        "must be a name of lowercase words joined by hyphens, such as licenses",
+      );
+    const first = named.get(name as string);
+    if (first !== undefined)
+      fail(`${key}.name`, `${name} is named twice, here and at [${first}]`);
+    named.set(name as string, i);
+    if ("off" in o) {
+      if (o.off !== true) fail(`${key}.off`, "must be true");
+      return [];
+    }
+    const run = command(o.run, `${key}.run`);
+    const agent = o.agent;
+    if (
+      agent !== undefined &&
+      (typeof agent !== "string" || !/^[\w-]+$/.test(agent))
+    )
+      fail(`${key}.agent`, "must be a name");
+    if (run === null && agent === undefined)
+      fail(key, "needs run, agent, or both, to check a change");
+    const folders = parseFolders(o.in, `${key}.in`, preset ? null : exists);
+    const files = patternsOf(o.files, `${key}.files`);
+    if (folders === null && files === null)
+      fail(key, "needs in, files, or both, to say which changes set it off");
+    if (typeof agent === "string" && !preset) {
+      const path = `.claude/agents/${agent}.md`;
+      if (!exists(path)) fail(`${key}.agent`, `${path} does not exist`);
+    }
+    return [
+      {
+        name: name as string,
+        run,
+        agent: (agent as string | undefined) ?? null,
+        in: folders,
+        files,
+      },
+    ];
+  });
+}
+
 /** The settings with every default filled in. Throws a SettingsError naming
  * the key on anything unsound. `exists` says whether a path from the root
  * exists, for the plugins' files. `preset` reads one preset's settings by
@@ -1380,6 +1454,11 @@ export function parseSettings(
     sites,
     sessionMinutes: sessionMinutesOf(top["session-minutes"]),
     rules: rulesOf(top.rules),
+    approvalPolicies: approvalPoliciesOf(
+      top["approval-policies"],
+      preset,
+      exists,
+    ),
   };
 }
 
@@ -1715,7 +1794,7 @@ export async function resolveFiles(
     const odd = Object.keys(pin.files).find((f) => !P.isShippedPath(f));
     if (odd)
       throw new SettingsError(
-        `${P.LOCK_FILE}: ${name}: ${odd} is not an agent's or a skill's path`,
+        `${P.LOCK_FILE}: ${name}: ${odd} is not an agent's, a skill's, or an approval policy's path`,
       );
     presets.push(pin);
     ships.set(name, pin.files);

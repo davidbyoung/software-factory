@@ -1,8 +1,8 @@
 ## 1. Settings and presets
 
-- [ ] 1.1 Parse and validate `approval-policies` (line 1), with a test for each refusal in `tests/config.test.ts`.
-- [ ] 1.2 Layer policies by name with `off: true`, and copy a preset's `approval-policies/NAME/` with `--in` scoping (lines 36 to 38), tested beside the existing preset tests.
-- [ ] 1.3 `factory config explain` prints policies with their marks (line 35), tested in its existing file.
+- [x] 1.1 Parse and validate `approval-policies` (line 1), with a test for each refusal in `tests/config.test.ts`.
+- [x] 1.2 Layer policies by name with `off: true`, and copy a preset's `approval-policies/NAME/` with `--in` scoping (lines 36 to 38), tested beside the existing preset tests.
+- [x] 1.3 `factory config explain` prints policies with their marks (line 35), tested in its existing file.
 
 ## 2. Selecting and running checks
 

@@ -100,6 +100,7 @@ describe("parseSettings", () => {
         dependencies: 50,
       },
       rules: { smallChangeLines: 30, reviewRounds: 2 },
+      approvalPolicies: [],
     });
   });
 
@@ -1226,6 +1227,123 @@ describe("parseSettings", () => {
   });
 });
 
+describe("approval-policies", () => {
+  const policies = (
+    written: unknown,
+    exists: (p: string) => boolean = () => true,
+  ) =>
+    parse({ ...MINIMAL, "approval-policies": written }, exists)
+      .approvalPolicies;
+
+  it("reads a policy as a command for some folders, with a name", () => {
+    expect(
+      policies([
+        {
+          name: "licenses",
+          run: "node check.mjs",
+          files: ["package-lock.json"],
+        },
+        {
+          name: "migrations",
+          agent: "rollback-checker",
+          in: "services/*",
+          files: ["./db/migrations/**"],
+        },
+        {
+          name: "credentials",
+          run: "node find.mjs",
+          agent: "reader",
+          files: ["**"],
+        },
+      ]),
+    ).toEqual([
+      {
+        name: "licenses",
+        run: "node check.mjs",
+        agent: null,
+        in: null,
+        files: ["package-lock.json"],
+      },
+      {
+        name: "migrations",
+        run: null,
+        agent: "rollback-checker",
+        in: ["services/*"],
+        files: ["./db/migrations/**"],
+      },
+      {
+        name: "credentials",
+        run: "node find.mjs",
+        agent: "reader",
+        in: null,
+        files: ["**"],
+      },
+    ]);
+  });
+
+  it("is an empty list when it is not written", () => {
+    expect(parse(MINIMAL).approvalPolicies).toEqual([]);
+  });
+
+  it("leaves out a policy turned off", () => {
+    expect(policies([{ name: "licenses", off: true }])).toEqual([]);
+  });
+
+  it.each([
+    [{ run: "x", files: ["a"] }, "approval-policies[0].name: must be a name"],
+    [
+      { name: "Licenses", run: "x", files: ["a"] },
+      "approval-policies[0].name: must be a name",
+    ],
+    [
+      { name: "licenses", files: ["a"] },
+      "approval-policies[0]: needs run, agent, or both",
+    ],
+    [
+      { name: "licenses", run: "x" },
+      "approval-policies[0]: needs in, files, or both",
+    ],
+    [
+      { name: "licenses", run: "x", files: ["a"], when: "y" },
+      "approval-policies[0].when: unknown key",
+    ],
+    [
+      { name: "licenses", agent: "../x", files: ["a"] },
+      "approval-policies[0].agent: must be a name",
+    ],
+    [
+      { name: "licenses", run: "x", files: ["a"], off: false },
+      "approval-policies[0].off: must be true",
+    ],
+  ])("fails on %j, naming the item and what it lacks", (item, words) => {
+    expect(() => policies([item])).toThrow(`.claude/factory.yaml: ${words}`);
+  });
+
+  it("fails on two policies of one name", () => {
+    const one = { name: "licenses", run: "x", files: ["a"] };
+    expect(() => policies([one, one])).toThrow(
+      ".claude/factory.yaml: approval-policies[1].name: licenses is named twice, here and at [0]",
+    );
+  });
+
+  it("fails on an agent with no file", () => {
+    expect(() =>
+      policies(
+        [{ name: "migrations", agent: "gone", files: ["a"] }],
+        () => false,
+      ),
+    ).toThrow(
+      ".claude/factory.yaml: approval-policies[0].agent: .claude/agents/gone.md does not exist",
+    );
+  });
+
+  it("fails when it is not a list", () => {
+    expect(() => policies({ name: "licenses" })).toThrow(
+      ".claude/factory.yaml: approval-policies: must be a list",
+    );
+  });
+});
+
 describe("pluginsOf", () => {
   const SKILL = ".claude/skills/factory-design/SKILL.md";
   const site = { start: "npm start", url: "http://localhost:$PORT" };
@@ -1501,7 +1619,8 @@ describe("factory config explain", () => {
         dependencies: 50                                                           # default
       rules:
         small-change-lines: 30                                                     # default
-        review-rounds: 3"
+        review-rounds: 3
+      # approval-policies: none (default)"
     `);
   });
 
@@ -1860,6 +1979,12 @@ describe("factory config explain", () => {
         "  board: 3",
         FACTORY_COLUMNS_YAML,
         "pr-review:",
+        "approval-policies:",
+        "  - name: licenses",
+        "    run: node check.mjs",
+        "    agent: reader",
+        "    in: lib",
+        "    files: [./**]",
       ]),
     );
     const text = r.out.join("\n");

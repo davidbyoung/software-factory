@@ -99,6 +99,13 @@
     },
     "rules": {
       "$ref": "#/definitions/rules"
+    },
+    "approval-policies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/approval-policies[]"
+      },
+      "description": "Checks whose findings make a pull request wait until someone who can write to the repository adds the policy-override label. A later preset's policy of the same name, or this file's, replaces an earlier one."
     }
   },
   "definitions": {
@@ -1095,6 +1102,88 @@
         }
       },
       "required": ["name", "in"]
+    },
+    "approval-policies[]": {
+      "type": "object",
+      "description": "One approval policy: what checks a change, and which changes set it off.",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "What the Approval policies status calls the policy."
+        },
+        "run": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A command that checks a change, from the root. It reads the change as JSON and prints its findings."
+        },
+        "agent": {
+          "type": "string",
+          "pattern": "^[\\w-]+$",
+          "description": "An agent in .claude/agents/ that checks the change. With run, it reads only what the command found."
+        },
+        "in": {
+          "description": "The folder it runs in, from the root, or a list of them. A * stands for one whole folder name, last, as in packages/*: one command for each such folder.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "The changed files that set it off, as patterns from the root, or from each folder of in when they start with ./. Default: every file in its folders."
+        },
+        "off": {
+          "const": true,
+          "description": "Leaves out the policy of this name that a preset adds."
+        }
+      },
+      "required": ["name"],
+      "anyOf": [
+        {
+          "required": ["off"]
+        },
+        {
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": ["run"]
+                },
+                {
+                  "required": ["agent"]
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "required": ["in"]
+                },
+                {
+                  "required": ["files"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   }
 }

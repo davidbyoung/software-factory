@@ -280,6 +280,28 @@ export async function explainLines(
   put(["rules", "small-change-lines"], s.rules.smallChangeLines);
   put(["rules", "review-rounds"], s.rules.reviewRounds);
 
+  // Each policy carries the mark of the layer it came from, as a plugin
+  // in a list does.
+  if (!s.approvalPolicies.length)
+    comment(0, "approval-policies: none (default)");
+  else {
+    lines.push({ text: "approval-policies:", mark: null });
+    for (const p of s.approvalPolicies) {
+      const mark = marks.plugin(["approval-policies"], p.name);
+      const item = {
+        name: p.name,
+        ...(p.run !== null && { run: p.run }),
+        ...(p.agent !== null && { agent: p.agent }),
+        ...(p.in && { in: p.in.length === 1 ? p.in[0] : p.in }),
+        ...(p.files && { files: p.files }),
+      };
+      stringify([item], { lineWidth: 0 })
+        .trimEnd()
+        .split("\n")
+        .forEach((line) => lines.push({ text: `${pad(1)}${line}`, mark }));
+    }
+  }
+
   // Each mark lines up with the others, two spaces past the longest line
   // that carries one.
   const marked = lines.filter((l) => l.mark !== null);
