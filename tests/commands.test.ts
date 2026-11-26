@@ -31,6 +31,8 @@ type Ran = { command: string; cwd: string; env: Record<string, string> };
  * whether there is an `origin/main` at all. */
 type Repo = {
   files?: string[];
+  /** Folders git still lists files in that are gone from the disk. */
+  gone?: string[];
   changed?: string[];
   remote?: boolean;
   shared?: boolean;
@@ -95,6 +97,7 @@ function deps(
     defaultBranch: async () => "main",
     files: () => repo.files ?? [],
     exists: (path) =>
+      !(repo.gone ?? []).includes(path) &&
       (repo.files ?? []).some((f) => f === path || f.startsWith(`${path}/`)),
     readFile: (path) => {
       if (path in read) return read[path]!;
@@ -1015,7 +1018,8 @@ describe("factory gate by path", () => {
 
   it("does not count a folder that no longer exists, and runs everything for its files", async () => {
     const { d, ran } = deps(MONO, [], {
-      files: MONO_FILES,
+      files: [...MONO_FILES, "packages/old/src/gone.ts"],
+      gone: ["packages/old"],
       changed: ["packages/old/src/gone.ts"],
     });
 

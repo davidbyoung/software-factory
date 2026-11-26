@@ -1,5 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -79,6 +85,21 @@ describe("branchChange", () => {
     expect(branchChange(git, "main").files).toEqual(["mine.ts"]);
   });
 
+  it("leaves out what the default branch changed after the branch left it, before a merge", () => {
+    const { sh, write, git } = repo();
+    write("mine.ts");
+    sh("add", "-A");
+    sh("commit", "-qm", "mine");
+    sh("switch", "-q", "main");
+    write("main-only.ts");
+    sh("add", "-A");
+    sh("commit", "-qm", "on main");
+    sh("update-ref", "refs/remotes/origin/main", "HEAD");
+    sh("switch", "-q", "work");
+
+    expect(branchChange(git, "main").files).toEqual(["mine.ts"]);
+  });
+
   it("can't tell without origin/main", () => {
     const { sh, git } = repo();
     sh("update-ref", "-d", "refs/remotes/origin/main");
@@ -124,6 +145,26 @@ describe("commitChange", () => {
 });
 
 describe("relockChange", () => {
+  it("leaves out a lock the default branch bumped, while a merge with it is in progress", () => {
+    const { dir, sh, write, git } = repo();
+    write("a.ts", "mine");
+    sh("commit", "-qam", "mine");
+    sh("switch", "-q", "main");
+    write("a.ts", "theirs");
+    write("main.lock", "bumped on main");
+    sh("add", "-A");
+    sh("commit", "-qm", "bump");
+    sh("update-ref", "refs/remotes/origin/main", "HEAD");
+    sh("switch", "-q", "work");
+    try {
+      sh("merge", "-q", "--no-edit", "origin/main");
+    } catch {
+      // The conflict in a.ts stops the merge, as one in a lock file would.
+    }
+    expect(existsSync(join(dir, "main.lock"))).toBe(true);
+    expect(relockChange(git, "main").files).toEqual(["a.ts"]);
+  });
+
   it("reads what differs from origin/main itself, so a lock only main bumped is left out", () => {
     const { dir, sh, write, git } = repo();
     sh("switch", "-q", "main");
