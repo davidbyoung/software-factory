@@ -27,6 +27,7 @@ import {
 } from "./code-host/index.mts";
 import { ORDER } from "./merge-order.mts";
 import { CONTEXT } from "./review-verdict.mts";
+import { CONTEXT as APPROVAL } from "./approval-policies.mts";
 import * as say from "./lib/output.mts";
 
 export type Check = {
@@ -127,8 +128,12 @@ export function unfinished<C extends { name: string; state: string }>(
 ): C[] {
   const pending = checks.filter((check) => check.state === "pending");
   const waits = pending.some((check) => check.name === ORDER);
+  // An approval policy that waits, waits for a person's label, not for a
+  // run: a session leaves it alone.
   return pending.filter(
-    (check) => !(waits && [ORDER, CONTEXT].includes(check.name)),
+    (check) =>
+      check.name !== APPROVAL &&
+      !(waits && [ORDER, CONTEXT].includes(check.name)),
   );
 }
 

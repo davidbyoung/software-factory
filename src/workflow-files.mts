@@ -51,7 +51,6 @@ const TARGET_ACTIONS = [
   "synchronize",
   "ready_for_review",
   "converted_to_draft",
-  "edited",
   "closed",
   "labeled",
   "unlabeled",
@@ -155,6 +154,9 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     "  pull_request_target:",
     "    types:",
     ...TARGET_ACTIONS.map((action) => `      - ${action}`),
+    // A change of base checks the approval policies again. Every other
+    // edit of a pull request would start a run whose jobs all skip.
+    ...(o.parts.includes("approval-policies") ? ["      - edited"] : []),
     "  pull_request_review:",
     "    types: [submitted]",
     "  push:",

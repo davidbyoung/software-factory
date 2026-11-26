@@ -61,7 +61,6 @@ describe("factory.yml", () => {
       "synchronize",
       "ready_for_review",
       "converted_to_draft",
-      "edited",
       "closed",
       "labeled",
       "unlabeled",
@@ -73,6 +72,13 @@ describe("factory.yml", () => {
       "pr",
       "review",
     ]);
+  });
+
+  it("starts on a pull request's edit, for a change of its base, only with approval policies on", () => {
+    expect(factory().on.pull_request_target.types).not.toContain("edited");
+    expect(
+      factory({ parts: ["approval-policies"] }).on.pull_request_target.types,
+    ).toContain("edited");
   });
 
   it("names the default branch in the push trigger, quoted where YAML needs it", () => {
