@@ -152,7 +152,7 @@ function setup(
   );
   const outputs: string[] = [];
   const summaries: string[] = [];
-  const agents: { name: string; found: unknown }[] = [];
+  const agents: { name: string; found: unknown; input?: Input }[] = [];
   const d: Deps = {
     settings,
     codeHost: {
@@ -175,8 +175,8 @@ function setup(
         stderr: "",
         timedOut: false,
       },
-    runAgent: async (name, _input, found) => {
-      agents.push({ name, found });
+    runAgent: async (name, input, found) => {
+      agents.push({ name, found, input });
       return o.agentAnswer ?? { findings: [] };
     },
     output: (line) => outputs.push(line),
@@ -335,7 +335,7 @@ describe("running the checks", () => {
 
   it("hands an agent only what its command found", async () => {
     const s = await both();
-    expect(s.agents).toEqual([
+    expect(s.agents.map(({ name, found }) => ({ name, found }))).toEqual([
       {
         name: "reader",
         found: [
@@ -343,7 +343,26 @@ describe("running the checks", () => {
         ],
       },
     ]);
-    expect(s.answer).toEqual({ kind: "cleared", agent: "reader" });
+    expect(s.answer).toMatchObject({ kind: "cleared", agent: "reader" });
+  });
+
+  it("hands an agent only the files its command found something in, and their diff", async () => {
+    const s = await both();
+    const input = s.agents[0]!.input!;
+    expect(input.files.map((f) => f.filename)).toEqual(["package-lock.json"]);
+    expect(input.diff).toContain("package-lock.json");
+    expect(input.diff).not.toContain("migrations/1.sql");
+  });
+
+  it("lists what the agent cleared in the run's summary", async () => {
+    const s = await both();
+    await status(s.d, s.r.dir);
+    expect(s.summaries[0]).toContain(
+      "### credentials: cleared by reader, not a person",
+    );
+    expect(s.summaries[0]).toContain(
+      "- `package-lock.json` A dependency is GPL-3.0",
+    );
   });
 
   it("runs no agent when its command found nothing", async () => {

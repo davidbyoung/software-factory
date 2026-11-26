@@ -281,8 +281,35 @@ export async function agent(d: Deps, dir: string, i: number): Promise<void> {
   const input = readJson<Input>(join(dir, "input", `${i}.json`));
   writeJson(
     answer,
-    agentOutcome(c.agent, await d.runAgent(c.agent, input, found)),
+    agentOutcome(
+      c.agent,
+      await d.runAgent(c.agent, found ? onlyFound(input, found) : input, found),
+      found,
+    ),
   );
+}
+
+/** The input narrowed to the files a command's findings name, and their
+ * diff: an agent reads only what its command found, whatever the change's
+ * size. */
+export function onlyFound(input: Input, found: Finding[]): Input {
+  const named = new Set(found.map((f) => f.file));
+  const files = input.files.filter(
+    (f) =>
+      named.has(f.filename) ||
+      (f.previous_filename !== undefined && named.has(f.previous_filename)),
+  );
+  const keep = new Set(
+    files.flatMap((f) => [f.filename, f.previous_filename ?? f.filename]),
+  );
+  const diff = input.diff
+    .split(/(?=^diff --git )/m)
+    .filter((part) => {
+      const m = /^diff --git a\/(.+?) b\/(.+)$/m.exec(part);
+      return m !== null && (keep.has(m[1]!) || keep.has(m[2]!));
+    })
+    .join("");
+  return { ...input, files, diff };
 }
 
 /** What became of each check of the plan. A check with no answer is an
@@ -319,9 +346,18 @@ export function summaryOf(results: readonly Result[]): string {
       lines.push(`- **${name}:** the check failed: ${o.why}`);
     else if (o.kind === "cant-run")
       lines.push(`- **${name}:** ${o.agent} can't run here`);
-    else if (o.kind === "cleared")
-      lines.push(`- **${name}:** cleared by ${o.agent}, not a person`);
-    else lines.push(`- **${name}:** nothing to approve`);
+    else if (o.kind === "cleared") {
+      if (!o.found?.length)
+        lines.push(`- **${name}:** cleared by ${o.agent}, not a person`);
+      else {
+        lines.push(`### ${name}: cleared by ${o.agent}, not a person`, "");
+        for (const f of o.found)
+          lines.push(
+            `- \`${f.file}${f.line === undefined ? "" : `:${f.line}`}\` ${f.title}`,
+          );
+        lines.push("");
+      }
+    } else lines.push(`- **${name}:** nothing to approve`);
   }
   return `${lines.join("\n").trimEnd()}\n`;
 }
@@ -603,15 +639,18 @@ export async function check(d: CheckDeps, argv: string[]): Promise<number> {
     if (
       c.policy.agent !== null &&
       (c.policy.run === null || outcome.kind === "findings")
-    )
+    ) {
+      const found = outcome.kind === "findings" ? outcome.findings : null;
       outcome = agentOutcome(
         c.policy.agent,
         await d.runAgent(
           c.policy.agent,
-          input,
-          outcome.kind === "findings" ? outcome.findings : null,
+          found ? onlyFound(input, found) : input,
+          found,
         ),
+        found,
       );
+    }
     if (outcome.kind === "failed") {
       failed = true;
       d.err(
