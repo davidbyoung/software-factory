@@ -252,7 +252,7 @@ export const COMMANDS: Command[] = [
   },
   {
     words: ["gate"],
-    args: "",
+    args: "[--dry-run | --all]",
     reads: "person",
     run: async (argv) =>
       (await import("./commands.mts")).run(["gate", ...argv]),
@@ -270,6 +270,27 @@ export const COMMANDS: Command[] = [
     reads: "person",
     run: async (argv) =>
       (await import("./commands.mts")).run(["end-to-end", ...argv]),
+  },
+  {
+    words: ["coverage"],
+    args: "[--dry-run]",
+    reads: "person",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["coverage", ...argv]),
+  },
+  {
+    words: ["relock"],
+    args: "[--dry-run | --all]",
+    reads: "person",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["relock", ...argv]),
+  },
+  {
+    words: ["build-setup"],
+    args: "[--dry-run]",
+    reads: "person",
+    run: async (argv) =>
+      (await import("./commands.mts")).run(["build-setup", ...argv]),
   },
   {
     words: ["specs", "check"],

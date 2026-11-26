@@ -1432,3 +1432,32 @@ describe("factory doctor's preset lines", () => {
     expect(await presetChecks(root, null)).toEqual([]);
   });
 });
+
+describe("factory preset add --in", () => {
+  it("writes the preset with its folders, and names them on each command it runs", async () => {
+    await setUp([]);
+    publish(OTHER, {
+      "": { settings: "version: 2\ncommands:\n  gate: [pytest]\n" },
+    });
+    const r = await preset(["add", OTHER, "--in", "services/*"], ["y"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContainEqual(
+      expect.stringContaining("pytest, at the gate, in services/*"),
+    );
+    expect(read(root, ".claude/factory.yaml")).toContain(
+      `  - name: ${OTHER}\n    in: services/*`,
+    );
+  });
+
+  it("refuses one already listed with the same folders", async () => {
+    await setUp([]);
+    publish(OTHER, {
+      "": { settings: "version: 2\ncommands:\n  gate: [pytest]\n" },
+    });
+    const first = await preset(["add", OTHER, "--in", "services/*"], ["y"]);
+    expect(first.code).toBe(0);
+    const r = await preset(["add", OTHER, "--in", "services/*"]);
+    expect(r.code).toBe(1);
+    expect(r.err).toEqual([`${OTHER} --in services/* is already in presets`]);
+  });
+});

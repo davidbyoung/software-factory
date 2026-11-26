@@ -97,14 +97,13 @@ depends on the one before.
    An option is its own worktree, made the same way. The change need not
    be committed: the comparison pictures the worktree as it stands.
 
-2. **Install it,** in the scratch worktree: run there the command
-   `commands.relock` holds, which installs the repository's dependencies,
-   then each command under `commands.build-setup`. Read both from the
-   checkout this session works in, where the factory is already installed:
+2. **Install it,** in the scratch worktree: run there every relock
+   command, which installs the repository's dependencies, then every
+   command under `commands.build-setup`, each in its folders:
 
    ```bash
-   factory config get commands.relock
-   factory config get commands.build-setup
+   factory relock --all
+   factory build-setup
    ```
 
    The comparison installs the default branch's side, not this one, and
@@ -117,7 +116,8 @@ depends on the one before.
    factory site compare --keep
    ```
 
-   It builds the change and the default branch, pictures every page at the
+   With several sites, add `--site FOLDER` for the site the decision is
+   about. It builds the change and the default branch, pictures every page at the
    site's widths in light and dark, outlines what changed, measures each
    changed view, and runs the site's own `checks`. It leaves both sites
    running and prints their addresses. Its pictures are under the scratch

@@ -94,14 +94,13 @@ describe("combining presets", () => {
       },
     });
     put(root, ".claude/factory.yaml", own([NODE, "acme/more"]));
-    expect((await resolveAt(root)).settings.commands.gate).toEqual([
-      "npm run lint",
-      "npm test",
-    ]);
+    expect(
+      (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
+    ).toEqual(["npm run lint", "npm test"]);
     put(root, ".claude/factory.choices.yaml", `commands.gate: "${NODE}"\n`);
-    expect((await resolveAt(root)).settings.commands.gate).toEqual([
-      "npm test",
-    ]);
+    expect(
+      (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
+    ).toEqual(["npm test"]);
   });
 
   it("adds up every layer's plugins in layer order, a plugin named twice taken whole from one layer", async () => {
@@ -257,7 +256,7 @@ describe("the agents and skills presets ship", () => {
     acme();
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(0);
-    expect(r.err.filter((l) => !l.startsWith("warning:"))).toEqual([]);
+    expect(r.err.filter((l) => !l.includes("matches no file"))).toEqual([]);
   });
 });
 
@@ -899,5 +898,134 @@ describe("the version of the factory a lock names", () => {
   it("is none for a lock that is missing or names none", () => {
     expect(lockedVersion(null)).toBeNull();
     expect(lockedVersion("presets: []\n  version: 2\n")).toBeNull();
+  });
+});
+
+describe("a preset for some folders", () => {
+  const PY = "acme/python";
+  const python = (settings: string) => {
+    install(root, PY, { "": { settings: `version: 2\n${settings}` } });
+  };
+  const forServices = (body: string[] = [], also: string[] = []) => {
+    root = repo(own([...also, `{name: ${PY}, in: services/*}`], body));
+    installAcme(root);
+  };
+
+  it("adds its commands after yours, each in its folders, its paths read from each", async () => {
+    forServices(["commands:", "  gate: [npm run lint]"]);
+    python(
+      "commands:\n  gate:\n    - pytest\n    - run: ruff check\n      files: [src/**]\n",
+    );
+    const { gate } = (await resolveAt(root)).settings.commands;
+    expect(gate).toEqual([
+      { run: "npm run lint", in: null, files: null, report: null },
+      { run: "pytest", in: ["services/*"], files: null, report: null },
+      {
+        run: "ruff check",
+        in: ["services/*"],
+        files: ["./src/**"],
+        report: null,
+      },
+    ]);
+  });
+
+  it("adds its relock to the default npm install", async () => {
+    forServices();
+    python("commands:\n  relock: poetry lock\n");
+    expect(
+      (await resolveAt(root)).settings.commands.relock.map((c) => c.run),
+    ).toEqual(["npm install", "poetry lock"]);
+  });
+
+  it("puts your text test-one after its items", async () => {
+    forServices(["commands:", "  test-one: make test"]);
+    python("commands:\n  test-one: pytest $FILE\n");
+    expect(
+      (await resolveAt(root)).settings.commands.testOne.map((c) => [
+        c.run,
+        c.in,
+      ]),
+    ).toEqual([
+      ["pytest $FILE", ["services/*"]],
+      ["make test", null],
+    ]);
+  });
+
+  it("gives its reviewer its folders, and one reviewer to two presets that give it", async () => {
+    root = repo(
+      own([`{name: ${PY}, in: services/*}`, `{name: ${PY}, in: workers/*}`]),
+    );
+    installAcme(root);
+    put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
+    put(
+      root,
+      ".claude/agents/factory-test-reviewer.md",
+      "---\nname: factory-test-reviewer\n---\n",
+    );
+    python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
+    const reviewers = (await resolveAt(root)).settings.plugins.filter(
+      (p) => p.name === "py-reviewer",
+    );
+    expect(reviewers.map((p) => p.files)).toEqual([
+      ["services/*/**", "workers/*/**"],
+    ]);
+  });
+
+  it("adds its site for its folders beside yours", async () => {
+    forServices([
+      "site:",
+      "  start: npm start",
+      "  url: http://localhost:$PORT",
+      "  in: web",
+    ]);
+    python(
+      "site:\n  start: python -m http.server $PORT\n  url: http://localhost:$PORT\n",
+    );
+    put(root, "web/index.html", "");
+    expect(
+      (await resolveAt(root)).settings.sites.map((x) => [x.start, x.in]),
+    ).toEqual([
+      ["npm start", ["web"]],
+      ["python -m http.server $PORT", ["services/*"]],
+    ]);
+  });
+
+  it("keeps the factory's test reviewer for the rest of the repository when it adds one", async () => {
+    forServices();
+    put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
+    put(
+      root,
+      ".claude/agents/factory-test-reviewer.md",
+      "---\nname: factory-test-reviewer\n---\n",
+    );
+    python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
+    const { settings } = await resolveAt(root);
+    expect(
+      pluginsOf(settings, () => true)
+        .filter((p) => p.role === "test-reviewer")
+        .map((p) => [p.name, p.files]),
+    ).toEqual([
+      ["factory-test-reviewer", []],
+      ["py-reviewer", ["services/*/**"]],
+    ]);
+  });
+
+  it("refuses a setting that is the repository's", async () => {
+    forServices();
+    python("rules:\n  review-rounds: 4\n");
+    await expect(resolveAt(root)).rejects.toThrow(
+      "presets[0]: acme/python sets rules, which a preset for some folders can't",
+    );
+  });
+
+  it("refuses the same preset for the same folders twice", async () => {
+    root = repo(
+      own([`{name: ${PY}, in: services/*}`, `{name: ${PY}, in: services/*}`]),
+    );
+    installAcme(root);
+    python("commands:\n  gate: [pytest]\n");
+    await expect(resolveAt(root)).rejects.toThrow(
+      "presets: acme/python --in services/* is listed twice",
+    );
   });
 });

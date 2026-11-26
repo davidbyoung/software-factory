@@ -4,11 +4,14 @@
 // only `.claude/factory.yaml` sets. `factory sync` writes the same lines
 // into the lock.
 import {
+  hasPaths,
   PHASES,
   pluginsOf,
   ROLE_SHAPE,
   ROLES,
+  type Command,
   type Settings,
+  type Site,
 } from "./config.mts";
 import { itemKey, markText, type Resolution, type Source } from "./preset.mts";
 import * as say from "./lib/output.mts";
@@ -138,23 +141,59 @@ export async function explainLines(
     put(["specs", "check"], s.specCheck);
   } else put(["specs"], s.specs);
 
+  /** A command as it is written: text, or an item. */
+  const written = (c: Command): unknown =>
+    hasPaths(c) || c.report !== null
+      ? {
+          run: c.run,
+          ...(c.in && { in: c.in.length === 1 ? c.in[0] : c.in }),
+          ...(c.files && { files: c.files }),
+          ...(c.report !== null && { report: c.report }),
+        }
+      : c.run;
+  /** A setting of commands: a list, or the one text where it allows
+   * that. */
+  const putCommands = (key: string, list: Command[], one = false) => {
+    const path = ["commands", key];
+    if (one && list.length === 1 && !hasPaths(list[0]!) && !list[0]!.report)
+      return put(path, list[0]!.run);
+    if (!list.some(hasPaths)) return put(path, list.map(written));
+    const mark = marks.value(path);
+    lines.push({ text: `${pad(1)}${key}:`, mark });
+    for (const c of list)
+      stringify([written(c)], { lineWidth: 0 })
+        .trimEnd()
+        .split("\n")
+        .forEach((line) => lines.push({ text: `${pad(2)}${line}`, mark }));
+  };
+
   block(["commands"]);
-  put(["commands", "build-setup"], s.commands.buildSetup);
-  put(["commands", "before-commit"], s.commands.beforeCommit);
-  put(["commands", "gate"], s.commands.gate);
-  for (const [key, command] of [
+  putCommands("build-setup", s.commands.buildSetup);
+  putCommands("before-commit", s.commands.beforeCommit);
+  putCommands("gate", s.commands.gate);
+  for (const [key, list] of [
     ["test-one", s.commands.testOne],
     ["end-to-end", s.commands.endToEnd],
   ] as const)
-    if (command === null) comment(1, `${key}: none (default)`);
-    else put(["commands", key], command);
-  if (s.commands.coverage === null) comment(1, "coverage: none (default)");
+    if (list.length === 0) comment(1, `${key}: none (default)`);
+    else putCommands(key, list, true);
+  const [coverage, ...more] = s.commands.coverage;
+  if (!coverage) comment(1, "coverage: none (default)");
+  else if (more.length) putCommands("coverage", s.commands.coverage);
   else {
     block(["commands", "coverage"]);
-    put(["commands", "coverage", "run"], s.commands.coverage.run);
-    put(["commands", "coverage", "report"], s.commands.coverage.report);
+    put(["commands", "coverage", "run"], coverage.run);
+    put(["commands", "coverage", "report"], coverage.report);
+    if (coverage.in)
+      put(
+        ["commands", "coverage", "in"],
+        coverage.in.length === 1 ? coverage.in[0] : coverage.in,
+      );
+    if (coverage.files) put(["commands", "coverage", "files"], coverage.files);
   }
-  put(["commands", "relock"], s.commands.relock);
+  putCommands("relock", s.commands.relock, true);
+  // Written only when set, so a repository with no items sees nothing new.
+  if (s.commands.ignore.length) put(["commands", "ignore"], s.commands.ignore);
 
   // Each role holds what `factory plugins` prints for it: the settings'
   // own plugins, or the factory's where they name none.
@@ -202,10 +241,21 @@ export async function explainLines(
     put(["pr-review", "commands"], s.prReview.commands);
   }
 
-  if (s.site === null) comment(0, "site: off");
-  else {
-    const site = s.site;
+  const [site, ...otherSites] = s.sites;
+  if (!site) comment(0, "site: off");
+  else if (otherSites.length) {
+    const mark = marks.value(["site"]);
+    lines.push({ text: "site:", mark });
+    for (const each of s.sites)
+      stringify([siteWritten(each)], { lineWidth: 0 })
+        .trimEnd()
+        .split("\n")
+        .forEach((line) => lines.push({ text: `${pad(1)}${line}`, mark }));
+  } else {
     block(["site"]);
+    if (site.in)
+      put(["site", "in"], site.in.length === 1 ? site.in[0] : site.in);
+    if (site.files) put(["site", "files"], site.files);
     put(["site", "start"], site.start);
     put(["site", "url"], site.url);
     if (site.designGuide === null) comment(1, "design-guide: none (default)");
@@ -262,4 +312,23 @@ export function explainedLines(lines: string[]): say.Line[] {
     if (at < 0 || !l.startsWith("  # ", at - 2)) return say.verbatim(l);
     return say.verbatim(l, l.slice(at) === "# default" ? 0 : at);
   });
+}
+
+/** A site as it is written, in a list of them. */
+function siteWritten(site: Site): Record<string, unknown> {
+  return {
+    ...(site.in && { in: site.in.length === 1 ? site.in[0] : site.in }),
+    ...(site.files && { files: site.files }),
+    start: site.start,
+    url: site.url,
+    ...(site.designGuide !== null && { "design-guide": site.designGuide }),
+    ...(site.pages !== null && { pages: site.pages }),
+    widths: site.widths,
+    hide: site.hide,
+    checks: site.checks,
+    "max-pages": site.maxPages,
+    "start-minutes": site.startMinutes,
+    accessibility: site.accessibility,
+    "new-values": site.newValues,
+  };
 }

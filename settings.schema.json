@@ -19,8 +19,15 @@
       "type": "array",
       "uniqueItems": true,
       "items": {
-        "type": "string",
-        "minLength": 1
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "$ref": "#/definitions/presets[]"
+          }
+        ]
       },
       "description": "The presets this repository follows, each a repository on its code host written OWNER/NAME, or a folder of one written OWNER/NAME//FOLDER, holding a factory-preset.yaml. Later ones win over earlier ones, and this file wins over them all."
     },
@@ -73,7 +80,19 @@
       "$ref": "#/definitions/pr-review"
     },
     "site": {
-      "$ref": "#/definitions/site"
+      "description": "How the factory looks at your website, or a list of sites, one for each web app, each with in.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/site"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/site"
+          },
+          "minItems": 1
+        }
+      ]
     },
     "session-minutes": {
       "$ref": "#/definitions/session-minutes"
@@ -377,50 +396,148 @@
     },
     "commands": {
       "type": "object",
-      "description": "Every command a build runs, each from the repository's root.",
+      "description": "Every command a build runs. A command is text, which runs from the root for every change, or an item with in and files.",
       "additionalProperties": false,
       "properties": {
         "build-setup": {
           "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "$ref": "#/definitions/commands[]"
+              }
+            ]
           },
           "description": "Commands run before an unattended build starts work."
         },
         "before-commit": {
           "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "$ref": "#/definitions/commands[]"
+              }
+            ]
           },
           "description": "Commands run before every commit a session makes. If one fails, the commit is blocked."
         },
         "gate": {
           "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "$ref": "#/definitions/commands[]"
+              }
+            ]
           },
           "description": "Commands that check a change, run in order before a session reports a task done."
         },
         "test-one": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Runs one test alone. $FILE is the test's file and $NAME the test's name, empty for the whole file."
+          "description": "Runs one test alone. $FILE is the test's file and $NAME the test's name, empty for the whole file. Or a list of commands, the first whose folder holds the file running it.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "$ref": "#/definitions/commands[]"
+                  }
+                ]
+              },
+              "minItems": 1
+            }
+          ]
         },
         "end-to-end": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Runs one end-to-end spec alone. $FILE is the spec's file."
+          "description": "Runs one end-to-end spec alone. $FILE is the spec's file. Or a list of commands, the first whose folder holds the file running it.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "$ref": "#/definitions/commands[]"
+                  }
+                ]
+              },
+              "minItems": 1
+            }
+          ]
         },
         "coverage": {
-          "$ref": "#/definitions/commands.coverage"
+          "description": "How coverage is measured, and where its report lands: one command, or a list of them, each in its folders.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/commands.coverage"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/commands.coverage"
+              },
+              "minItems": 1
+            }
+          ]
         },
         "relock": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Rebuilds the package manager's lock file after a conflict in it. Default: npm install."
+          "description": "Rebuilds the package manager's lock files after a conflict in one. Default: npm install. Or a list of commands, each set off by the files it rebuilds.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "$ref": "#/definitions/commands[]"
+                  }
+                ]
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "ignore": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Files no check needs. A change to one runs only commands written as text. Default: none."
         }
       }
     },
@@ -437,7 +554,33 @@
         "report": {
           "type": "string",
           "minLength": 1,
-          "description": "The path of the lcov report the command writes."
+          "description": "The path of the lcov report the command writes, from its folder when it starts with ./."
+        },
+        "in": {
+          "description": "The folder it runs in, from the root, or a list of them. A * stands for one whole folder name, last, as in packages/*: one command for each such folder.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "The changed files that set it off, as patterns from the root, or from its folder when they start with ./. Default: every file in its folder."
         }
       },
       "required": ["run", "report"]
@@ -745,6 +888,32 @@
       "description": "How the factory looks at your website.",
       "additionalProperties": false,
       "properties": {
+        "in": {
+          "description": "The folder the site is in; start and checks run there. Required for each site of a list.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "The changed files that picture it, as patterns. Default: every file in its folder."
+        },
         "start": {
           "type": "string",
           "minLength": 1,
@@ -857,6 +1026,75 @@
           "description": "Rounds a session works a review before it hands what is left to you. Default: 2."
         }
       }
+    },
+    "commands[]": {
+      "type": "object",
+      "description": "A command that says where it runs and which changed files set it off.",
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The command."
+        },
+        "in": {
+          "description": "The folder it runs in, from the root, or a list of them. A * stands for one whole folder name, last, as in packages/*: one command for each such folder.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "The changed files that set it off, as patterns from the root, or from its folder when they start with ./. Default: every file in its folder."
+        }
+      },
+      "required": ["run"]
+    },
+    "presets[]": {
+      "type": "object",
+      "description": "A preset for some folders: everything it sets is for those folders.",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The preset, written as in the list."
+        },
+        "in": {
+          "description": "The folders it is for, from the root, or a list of them; a * stands for one whole folder name, last.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        }
+      },
+      "required": ["name", "in"]
     }
   }
 }

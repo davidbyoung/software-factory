@@ -22,6 +22,8 @@ import {
   filesDeps,
   parseChoices,
   POLL_MINUTES,
+  presetEntriesOf,
+  presetLabel,
   PresetsError,
   readYaml,
   repoRoot,
@@ -29,6 +31,7 @@ import {
   SETTINGS_FILE,
   SettingsError,
   type Deps,
+  type PresetEntry,
   type Resolved,
 } from "./config.mts";
 import {
@@ -253,6 +256,16 @@ async function apply(d: PresetDeps): Promise<boolean> {
   return (await d.ask("Apply? [y/N] ")).trim() === "y";
 }
 
+/** The entries `presets` lists in a settings file as written, or none when
+ * it lists none it can read. */
+function entriesOf(own: Obj | null): PresetEntry[] {
+  try {
+    return presetEntriesOf(own?.presets);
+  } catch {
+    return [];
+  }
+}
+
 // ---------------------------------------------------------------- Files
 
 async function yamlDoc(text: string) {
@@ -262,10 +275,19 @@ async function yamlDoc(text: string) {
 
 /** `.claude/factory.yaml` with NAME added at the end of `presets`, which
  * goes after `repository` when it is new. */
-async function withPreset(text: string, name: string): Promise<string> {
+async function withPreset(
+  text: string,
+  name: string,
+  folders: string[] = [],
+): Promise<string> {
   const { Scalar, isMap, isSeq, YAMLSeq, Pair } = await import("yaml");
   const doc = await yamlDoc(text);
-  const item = new Scalar(name);
+  const item = folders.length
+    ? doc.createNode({
+        name,
+        in: folders.length === 1 ? folders[0] : folders,
+      })
+    : new Scalar(name);
   const list = doc.get("presets");
   if (isSeq(list)) list.items.push(item);
   else if (isMap(doc.contents)) {
@@ -289,11 +311,15 @@ async function withPreset(text: string, name: string): Promise<string> {
 /** `.claude/factory.yaml` without NAME in `presets`, and without `presets`
  * once it is empty. */
 async function withoutPreset(text: string, name: string): Promise<string> {
-  const { isSeq, isScalar } = await import("yaml");
+  const { isMap, isSeq, isScalar } = await import("yaml");
   const doc = await yamlDoc(text);
   const list = doc.get("presets");
   if (isSeq(list)) {
-    list.items = list.items.filter((i) => !(isScalar(i) && i.value === name));
+    list.items = list.items.filter(
+      (i) =>
+        !(isScalar(i) && i.value === name) &&
+        !(isMap(i) && i.get("name") === name),
+    );
     if (!list.items.length) doc.delete("presets");
   }
   return doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
@@ -416,6 +442,7 @@ const RUNS: [string, string][] = [
   ...[
     "commands.test-one",
     "commands.end-to-end",
+    "commands.coverage",
     "commands.coverage.run",
     "commands.relock",
     "specs.check",
@@ -435,17 +462,29 @@ function runsLines(r: Resolved, name: string): Brought[] {
         : [];
     return commands.map((c) => ({
       verb: "runs",
-      what: `${show(c)}, ${when}`,
+      what:
+        isObj(c) && c.in !== undefined
+          ? `${show(c.run)}, ${when}, in ${[c.in].flat().join(", ")}`
+          : `${show(c)}, ${when}`,
     }));
   });
 }
 
 export async function add(argv: string[], d: PresetDeps): Promise<number> {
-  const name = argv.find((a) => !a.startsWith("--"));
+  const folders = argv.flatMap((a, i) =>
+    argv[i - 1] === "--in" ? [a.replace(/\/+$/, "")] : [],
+  );
+  const name = argv.find(
+    (a, i) => !a.startsWith("--") && argv[i - 1] !== "--in",
+  );
   const yes = argv.includes("--yes");
   const dry = argv.includes("--dry-run");
   if (!name) {
-    d.err(say.text("Usage: factory preset add NAME [--yes] [--dry-run]"));
+    d.err(
+      say.text(
+        "Usage: factory preset add NAME [--in FOLDER]... [--yes] [--dry-run]",
+      ),
+    );
     return 2;
   }
   const ownText = d.read(SETTINGS_FILE);
@@ -454,9 +493,9 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
     return 1;
   }
   const own = (await loadYaml(ownText)) as Obj | null;
-  const listed = Array.isArray(own?.presets) ? own.presets.map(String) : [];
-  if (listed.includes(name)) {
-    d.err(say.text(`${name} is already in presets`));
+  const label = presetLabel({ name, in: folders.length ? folders : null });
+  if (entriesOf(own).map(presetLabel).includes(label)) {
+    d.err(say.text(`${label} is already in presets`));
     return 1;
   }
   const { load, dump } = await import("js-yaml");
@@ -503,7 +542,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
       yamlDump(dump),
     );
     after = await d.resolve(
-      await withPreset(ownText, name),
+      await withPreset(ownText, name, folders),
       choicesBefore,
       lockAfter,
     );
@@ -633,7 +672,7 @@ export async function add(argv: string[], d: PresetDeps): Promise<number> {
   }
 
   const choices = parseChoices(choicesBefore, (await import("js-yaml")).load);
-  let text = await withPreset(ownText, name);
+  let text = await withPreset(ownText, name, folders);
   if (!yes) {
     if (questions.length) {
       d.out(say.BLANK);
@@ -703,7 +742,7 @@ export async function remove(argv: string[], d: PresetDeps): Promise<number> {
   }
   const ownText = d.read(SETTINGS_FILE) ?? "";
   const own = (await loadYaml(ownText)) as Obj | null;
-  const listed = Array.isArray(own?.presets) ? own.presets.map(String) : [];
+  const listed = entriesOf(own).map((e) => e.name);
   if (!listed.includes(name)) {
     d.err(say.text(`${name} is not in presets`));
     return 1;

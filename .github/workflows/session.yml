@@ -292,13 +292,7 @@ jobs:
 
       - name: Run the build's setup commands
         working-directory: home
-        run: |
-          factory config get commands.build-setup > "$RUNNER_TEMP/build-setup"
-          while IFS= read -r command; do
-            echo "::group::$command"
-            bash -eo pipefail -c "$command" < /dev/null
-            echo "::endgroup::"
-          done < "$RUNNER_TEMP/build-setup"
+        run: factory build-setup < /dev/null
 
       # Claude Code's sandbox needs these, and Ubuntu lets bubblewrap make a
       # user namespace only with a profile that says so

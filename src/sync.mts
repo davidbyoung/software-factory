@@ -100,9 +100,9 @@ type Has = (path: string) => boolean;
  * an agent's file. Everything else is the factory's core, called by its
  * own steps, and is written to every repository. */
 export const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
-  "skills/factory-design": (s) => s.site !== null,
-  "agents/factory-ui-reviewer.md": (s) => s.site !== null,
-  "agents/factory-e2e-reviewer.md": (s) => s.commands.endToEnd !== null,
+  "skills/factory-design": (s) => s.sites.length > 0,
+  "agents/factory-ui-reviewer.md": (s) => s.sites.length > 0,
+  "agents/factory-e2e-reviewer.md": (s) => s.commands.endToEnd.length > 0,
   "skills/factory-deps": (_, has) => has(DEPENDABOT),
 };
 

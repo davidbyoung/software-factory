@@ -10,6 +10,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { DEFAULT_CODE_HOST } from "./code-host/index.mts";
 import {
+  DEFAULT_RELOCK,
   parseSettings,
   readYaml,
   ROLE_SHAPE,
@@ -321,7 +322,14 @@ function get(raw: unknown, path: string): unknown {
 // ---------------------------------------------------------------- Combining
 
 /** One layer's settings: a preset's, or `.claude/factory.yaml`'s. */
-export type Layer = { name: string; raw: Obj };
+/** One layer of the settings: a preset, or the repository's own. A preset
+ * for some folders has them, and its place in `presets`. */
+export type Layer = {
+  name: string;
+  raw: Obj;
+  folders?: string[] | null;
+  index?: number;
+};
 
 /** Where a value in effect came from. `over` names the presets whose
  * values it replaced, where that is part of its mark. */
@@ -580,8 +588,13 @@ export function combine(c: Combine): Resolution {
 
   r.raw = block(
     "",
-    c.layers.map((l) => ({ layer: l.name, value: l.raw })),
+    c.layers
+      .filter((l) => !l.folders)
+      .map((l) => ({ layer: l.name, value: l.raw })),
   ) as Obj;
+  const forFolders = new WeakSet<Obj>();
+  for (const l of c.layers)
+    if (l.folders) addForFolders(r, l, l.folders, forFolders);
 
   // The files the presets ship: the factory's own and the repository's own
   // stay, and two presets' files are chosen as a single value is. A file
@@ -610,6 +623,141 @@ export function combine(c: Combine): Resolution {
     r.files.set(to, { from: winner.layer, hash: String(winner.value) });
   }
   return r;
+}
+
+/** What a preset for some folders may set: the rest is the repository's. */
+const FOR_FOLDERS = ["commands", "plugins", "site"];
+/** The command settings a preset for some folders adds to, in order. */
+const COMMAND_LISTS = [
+  "build-setup",
+  "before-commit",
+  "gate",
+  "test-one",
+  "end-to-end",
+  "coverage",
+  "relock",
+];
+
+/** A path from a preset's root, read from each of its folders. */
+const fromEach = (p: string) => (p.startsWith("./") ? p : `./${p}`);
+const under = (folder: string, p: string) =>
+  `${folder}/${p.replace(/^\.\//, "")}`;
+const asList = (v: unknown): unknown[] =>
+  v === undefined || v === null ? [] : Array.isArray(v) ? v : [v];
+
+/** A preset's command or site, rewritten as if the repository had written
+ * it with `in`: it runs in each folder, and its paths are read from each. */
+function inFolders(item: unknown, folders: string[], paths: string[]): Obj {
+  const o: Obj =
+    typeof item === "string" ? { run: item } : { ...(item as Obj) };
+  const own = o.in === undefined ? null : asList(o.in).map(String);
+  o.in = own ? folders.flatMap((f) => own.map((i) => `${f}/${i}`)) : folders;
+  if (Array.isArray(o.files)) o.files = o.files.map((p) => fromEach(String(p)));
+  for (const k of paths)
+    if (typeof o[k] === "string") o[k] = fromEach(o[k] as string);
+  return o;
+}
+
+/** Adds a preset for some folders after the layers that apply to the whole
+ * repository: its commands after theirs, its sites beside theirs, and its
+ * plugins reading only its folders. */
+function addForFolders(
+  r: Resolution,
+  l: Layer,
+  folders: string[],
+  /** The plugins earlier presets for some folders added. */
+  forFolders: WeakSet<Obj>,
+) {
+  const where = `presets[${l.index ?? 0}]`;
+  for (const k of Object.keys(l.raw))
+    if (!FOR_FOLDERS.includes(k))
+      throw new PresetError(
+        `${where}: ${l.name} sets ${k}, which a preset for some folders can't`,
+      );
+  const raw = r.raw;
+  const commands = isObj(l.raw.commands) ? l.raw.commands : {};
+  if (Object.keys(commands).length) {
+    const mine: Obj = isObj(raw.commands) ? raw.commands : {};
+    raw.commands = mine;
+    for (const key of COMMAND_LISTS) {
+      if (commands[key] === undefined) continue;
+      const added = asList(commands[key]).map((c) =>
+        inFolders(c, folders, key === "coverage" ? ["report"] : []),
+      );
+      // Only the repository's own relock replaces the default.
+      const before =
+        key === "relock" && mine.relock === undefined
+          ? [DEFAULT_RELOCK]
+          : asList(mine[key]);
+      let list = [...before, ...added];
+      if (key === "test-one" || key === "end-to-end")
+        list = [
+          ...list.filter((c) => typeof c !== "string"),
+          ...list.filter((c) => typeof c === "string"),
+        ];
+      mine[key] = list;
+      const path = `commands.${key}`;
+      for (const item of added)
+        r.sources.set(itemKey(path, item), { from: l.name });
+      if (!before.length) r.sources.set(path, { from: l.name });
+      else r.sources.set(path, { from: "" });
+    }
+    if (Array.isArray(commands.ignore))
+      mine.ignore = [
+        ...asList(mine.ignore),
+        ...commands.ignore.flatMap((p) =>
+          folders.map((f) => under(f, String(p))),
+        ),
+      ];
+  }
+  if (l.raw.site !== undefined) {
+    const added = asList(l.raw.site).map((site) =>
+      inFolders(site, folders, ["design-guide"]),
+    );
+    raw.site = [...asList(raw.site), ...added];
+    r.sources.set("site", { from: "" });
+  }
+  if (isObj(l.raw.plugins))
+    for (const [phase, roles] of Object.entries(l.raw.plugins)) {
+      if (!isObj(roles)) continue;
+      for (const [key, value] of Object.entries(roles)) {
+        const path = `plugins.${phase}.${key}`;
+        if (!LISTS.has(path))
+          throw new PresetError(
+            `${where}: ${l.name} sets ${path}, which a preset for some folders can't`,
+          );
+        const plugins: Obj = isObj(raw.plugins) ? raw.plugins : {};
+        raw.plugins = plugins;
+        const inPhase: Obj = isObj(plugins[phase]) ? plugins[phase] : {};
+        plugins[phase] = inPhase;
+        // Only the repository's own list of test reviewers replaces the
+        // factory's.
+        const list = (
+          path === "plugins.test.reviewers" && inPhase[key] === undefined
+            ? [{ agent: "factory-test-reviewer" }]
+            : asList(inPhase[key])
+        ) as Obj[];
+        for (const item of asList(value)) {
+          if (!isObj(item)) continue;
+          const files = Array.isArray(item.files)
+            ? item.files.flatMap((p) => folders.map((f) => under(f, String(p))))
+            : folders.map((f) => `${f}/**`);
+          const name = item.agent ?? item.skill;
+          const same = list.find(
+            (x) => (x.agent ?? x.skill) === name && forFolders.has(x),
+          );
+          if (same)
+            same.files = [...new Set([...asList(same.files), ...files])];
+          else {
+            const added = { ...item, files };
+            forFolders.add(added);
+            list.push(added);
+          }
+        }
+        inPhase[key] = list;
+        r.sources.set(path, { from: "" });
+      }
+    }
 }
 
 /** The mark `factory config explain` gives a value from `source`, or null

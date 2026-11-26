@@ -26,10 +26,50 @@ const ROOT = "/repo";
 
 type Ran = { command: string; cwd: string; env: Record<string, string> };
 
+/** A repository as git answers for it: the files it has, which of them
+ * changed since `BASE`, the commit the branch left `origin/main` at, and
+ * whether there is an `origin/main` at all. */
+type Repo = {
+  files?: string[];
+  /** Folders git still lists files in that are gone from the disk. */
+  gone?: string[];
+  changed?: string[];
+  remote?: boolean;
+  shared?: boolean;
+  diff?: string;
+};
+
+const BASE = "b45e";
+
+function gitFor(repo: Repo) {
+  return (args: string[]) => {
+    const [cmd] = args;
+    if (cmd === "rev-parse")
+      return {
+        ok: repo.remote !== false,
+        out: repo.remote === false ? "" : "x",
+      };
+    if (cmd === "merge-base")
+      return repo.shared === false
+        ? { ok: false, out: "" }
+        : { ok: true, out: `${BASE}\n` };
+    if (cmd === "diff" && args.includes("-U0"))
+      return { ok: true, out: repo.diff ?? "" };
+    if (cmd === "diff")
+      return { ok: true, out: (repo.changed ?? []).join("\n") };
+    return { ok: true, out: "" };
+  };
+}
+
 /** The commands' dependencies with a runner that runs nothing: it records
  * each command, its directory, and what was added to its environment, and
  * answers with the next status in `statuses`, or 0. */
-function deps(raw: Record<string, unknown> = {}, statuses: number[] = []) {
+function deps(
+  raw: Record<string, unknown> = {},
+  statuses: number[] = [],
+  repo: Repo = {},
+  read: Record<string, string> = {},
+) {
   const ran: Ran[] = [];
   const out: string[] = [];
   /** Every line printed, in color. */
@@ -53,6 +93,16 @@ function deps(raw: Record<string, unknown> = {}, statuses: number[] = []) {
     err: into(err, looks),
     specTools: specTools(),
     labels: async () => [],
+    git: gitFor(repo),
+    defaultBranch: async () => "main",
+    files: () => repo.files ?? [],
+    exists: (path) =>
+      !(repo.gone ?? []).includes(path) &&
+      (repo.files ?? []).some((f) => f === path || f.startsWith(`${path}/`)),
+    readFile: (path) => {
+      if (path in read) return read[path]!;
+      throw new Error(`no ${path}`);
+    },
   };
   return { d, ran, out, err, looks };
 }
@@ -65,8 +115,8 @@ describe("factory gate", () => {
 
     expect(await main(["gate"], d)).toBe(0);
     expect(ran).toEqual([
-      { command: "npm run lint", cwd: ROOT, env: {} },
-      { command: "npm test", cwd: ROOT, env: {} },
+      { command: "npm run lint", cwd: ROOT, env: { BASE } },
+      { command: "npm test", cwd: ROOT, env: { BASE } },
     ]);
     expect(out).toEqual([
       "$ npm run lint",
@@ -104,7 +154,7 @@ describe("factory gate", () => {
     const { d, ran, err } = deps(GATE);
 
     expect(await main(["gate", "--fast"], d)).toBe(2);
-    expect(err).toEqual(["Usage: factory gate"]);
+    expect(err).toEqual(["Usage: factory gate [--dry-run | --all]"]);
     expect(ran).toEqual([]);
   });
 });
@@ -734,5 +784,561 @@ describe("the commands' own runner", () => {
 
     expect(r.stdout).toBe("track=1\n✓ The specs check passed.\n");
     expect(r.status).toBe(0);
+  });
+});
+
+/** A monorepo of three Node packages and a Python service. */
+const MONO_FILES = [
+  "packages/api/src/orders.ts",
+  "packages/api/package.json",
+  "packages/shared/src/money.ts",
+  "packages/web/src/cart.ts",
+  "services/billing/app.py",
+  "docs/guide.md",
+  "tsconfig.base.json",
+];
+const MONO = {
+  commands: {
+    gate: [
+      "npm run -s format:check",
+      {
+        run: "npm test",
+        in: "packages/*",
+        files: ["./**", "packages/shared/**"],
+      },
+      { run: "pytest -q", in: "services/*" },
+    ],
+    ignore: ["docs/**"],
+  },
+};
+const mono = (changed: string[], statuses: number[] = [], extra: Repo = {}) =>
+  deps(MONO, statuses, { files: MONO_FILES, changed, ...extra });
+
+describe("factory gate by path", () => {
+  it("runs the commands a changed file sets off, each in its folder, after its plan", async () => {
+    const { d, ran, out } = mono(["packages/api/src/orders.ts"]);
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran).toEqual([
+      { command: "npm run -s format:check", cwd: ROOT, env: { BASE } },
+      { command: "npm test", cwd: `${ROOT}/packages/api`, env: { BASE } },
+    ]);
+    expect(out).toEqual([
+      "commands.gate: 2 of 5 run, for the 1 file changed since origin/main",
+      "  npm run -s format:check      every change",
+      "  cd packages/api && npm test  packages/api/src/orders.ts",
+      "- 3 left out, since this change touches none of their files: factory gate --dry-run lists each",
+      "",
+      "$ npm run -s format:check",
+      "(ran npm run -s format:check)",
+      "$ cd packages/api && npm test",
+      "(ran npm test)",
+      "✓ Every gate command that ran passed: 2 run, 3 left out.",
+    ]);
+  });
+
+  it("runs an item in every folder when a root pattern it lists changes, as one row", async () => {
+    const { d, ran, out } = mono(["packages/shared/src/money.ts"]);
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran.map((r) => r.cwd)).toEqual([
+      ROOT,
+      `${ROOT}/packages/api`,
+      `${ROOT}/packages/shared`,
+      `${ROOT}/packages/web`,
+    ]);
+    expect(out).toContain(
+      "  npm test, in each of the 3 folders of packages/*  packages/shared/src/money.ts",
+    );
+  });
+
+  it("runs every command when a changed file is covered by nothing, and names it", async () => {
+    const { d, ran, out } = mono(["tsconfig.base.json"]);
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran).toHaveLength(5);
+    expect(out.slice(0, 2)).toEqual([
+      "commands.gate: all 5 run, since 1 changed file is in no gate command's files and not in commands.ignore",
+      "  tsconfig.base.json",
+    ]);
+    expect(out.at(-1)).toBe("✓ Every gate command passed.");
+  });
+
+  it("names ten files nothing covers and counts the rest, and --dry-run names every one", async () => {
+    const twelve = Array.from(
+      { length: 12 },
+      (_, i) => `root-${String(i).padStart(2, "0")}.txt`,
+    );
+    const run = mono(twelve);
+    expect(await main(["gate"], run.d)).toBe(0);
+    expect(run.out.slice(1, 12)).toEqual([
+      ...twelve.slice(0, 10).map((f) => `  ${f}`),
+      "  and 2 more: factory gate --dry-run lists each",
+    ]);
+    const dry = mono(twelve);
+    expect(await main(["gate", "--dry-run"], dry.d)).toBe(0);
+    expect(dry.out.slice(1, 13)).toEqual(twelve.map((f) => `  ${f}`));
+  });
+
+  it("runs every command when the settings changed", async () => {
+    const { d, ran, out } = mono([".claude/factory.yaml"]);
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran).toHaveLength(5);
+    expect(out[0]).toBe(
+      "commands.gate: all 5 run, since .claude/factory.yaml changed",
+    );
+  });
+
+  it("runs only text commands when every changed file is ignored", async () => {
+    const { d, ran, out } = mono(["docs/guide.md"]);
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran.map((r) => r.command)).toEqual(["npm run -s format:check"]);
+    expect(out[0]).toBe(
+      "commands.gate: 1 of 5 runs, for the 1 file changed since origin/main, which commands.ignore lists",
+    );
+    expect(out).toContain(
+      "- 4 left out, since commands.ignore lists every changed file",
+    );
+  });
+
+  it("runs no item for an ignored file inside its folder", async () => {
+    const { d, ran } = deps(
+      {
+        commands: {
+          gate: [{ run: "npm test", in: "packages/*" }],
+          ignore: ["**/*.md"],
+        },
+      },
+      [],
+      {
+        files: [...MONO_FILES, "packages/api/README.md"],
+        changed: ["packages/api/README.md"],
+      },
+    );
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran).toEqual([]);
+  });
+
+  it("says when a gate with no text command has nothing to run", async () => {
+    const { d, out } = deps(
+      {
+        commands: {
+          gate: [{ run: "npm test", in: "packages/*" }],
+          ignore: ["docs/**"],
+        },
+      },
+      [],
+      { files: MONO_FILES, changed: ["docs/guide.md"] },
+    );
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(out.at(-1)).toBe(
+      "✓ No gate command needs to run: every changed file is in commands.ignore.",
+    );
+  });
+
+  it("runs nothing when nothing changed", async () => {
+    const { d, ran, out } = mono([]);
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out).toEqual([
+      "commands.gate: 0 of 5 run, since nothing changed since origin/main",
+      "",
+      "✓ Nothing to check.",
+    ]);
+  });
+
+  it("runs every command, and says why, when there is no origin/main", async () => {
+    const { d, ran, out } = mono(["packages/api/src/orders.ts"], [], {
+      remote: false,
+    });
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran).toHaveLength(5);
+    expect(ran[0]!.env).toEqual({ BASE: "" });
+    expect(out.slice(0, 2)).toEqual([
+      "? Can't tell what changed, since there is no origin/main to compare with. Every gate command runs.",
+      "  Fetch it with: git fetch origin main",
+    ]);
+  });
+
+  it("runs every command, and says why, when the branch shares no commit with origin/main", async () => {
+    const { d, ran, out } = mono(["packages/api/src/orders.ts"], [], {
+      shared: false,
+    });
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran).toHaveLength(5);
+    expect(out.slice(0, 2)).toEqual([
+      "? Can't tell what changed, since this branch shares no commit with origin/main. Every gate command runs.",
+      "  In a shallow clone, fetch the history with: git fetch --unshallow origin",
+    ]);
+  });
+
+  it("lists every command and why with --dry-run, and runs nothing", async () => {
+    const { d, ran, out } = mono(["packages/api/src/orders.ts"]);
+
+    expect(await main(["gate", "--dry-run"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out[0]).toBe(
+      "commands.gate: 2 of 5 would run, for the 1 file changed since origin/main",
+    );
+    expect(out).toContain(
+      "  runs      cd packages/api && npm test       packages/api/src/orders.ts",
+    );
+    expect(out).toContain(
+      "  left out  cd packages/web && npm test       no change in ./** or packages/shared/**",
+    );
+  });
+
+  it("runs every command with --all", async () => {
+    const { d, ran, out } = mono([]);
+
+    expect(await main(["gate", "--all"], d)).toBe(0);
+    expect(ran).toHaveLength(5);
+    expect(out[0]).toBe("commands.gate: all 5 run, as --all asks");
+  });
+
+  it("finishes an item's other folders when it fails in one, then stops", async () => {
+    const { d, ran, err } = mono(
+      ["packages/shared/src/money.ts", "services/billing/app.py"],
+      [0, 1, 0, 1],
+    );
+
+    expect(await main(["gate"], d)).toBe(1);
+    expect(ran.map((r) => r.cwd)).toEqual([
+      ROOT,
+      `${ROOT}/packages/api`,
+      `${ROOT}/packages/shared`,
+      `${ROOT}/packages/web`,
+    ]);
+    expect(err).toEqual([
+      "✗ The gate failed in 2 of the 3 folders npm test ran in:",
+      "    cd packages/api && npm test",
+      "    cd packages/web && npm test",
+    ]);
+  });
+
+  it("counts a new folder that git has not been told of yet", async () => {
+    const { d, ran } = mono(["packages/new/src/a.ts"], [], {
+      files: [...MONO_FILES, "packages/new/src/a.ts"],
+    });
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran.map((r) => r.cwd)).toContain(`${ROOT}/packages/new`);
+  });
+
+  it("does not count a folder that no longer exists, and runs everything for its files", async () => {
+    const { d, ran } = deps(MONO, [], {
+      files: [...MONO_FILES, "packages/old/src/gone.ts"],
+      gone: ["packages/old"],
+      changed: ["packages/old/src/gone.ts"],
+    });
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(ran.map((r) => r.cwd)).not.toContain(`${ROOT}/packages/old`);
+    expect(ran).toHaveLength(5);
+  });
+
+  it("prints nothing new for a gate of text", async () => {
+    const { d, out } = deps(GATE, [], { changed: ["a.ts"] });
+
+    expect(await main(["gate"], d)).toBe(0);
+    expect(out[0]).toBe("$ npm run lint");
+  });
+
+  it("runs no relock item for a file outside its files while the gate is all text, though no gate item covers the file", async () => {
+    const { d, ran } = deps(
+      {
+        commands: {
+          gate: ["npx nx affected -t test --base=$BASE"],
+          relock: [
+            { run: "poetry lock", in: "services/*", files: ["./poetry.lock"] },
+          ],
+        },
+      },
+      [],
+      { files: MONO_FILES, changed: ["tsconfig.base.json"] },
+    );
+
+    expect(await main(["relock"], d)).toBe(0);
+    expect(ran).toEqual([]);
+  });
+});
+
+describe("factory test-one and end-to-end with a list", () => {
+  const LIST = {
+    commands: {
+      "test-one": [
+        { run: 'npx vitest run $FILE -t "$NAME"', in: "packages/*" },
+        { run: "pytest $FILE", in: "services/*" },
+      ],
+      "end-to-end": [{ run: "npx playwright test $FILE", in: "packages/*" }],
+    },
+  };
+
+  it("runs the first command whose folder holds FILE, in it, with FILE from it", async () => {
+    const { d, ran, out } = deps(LIST, [], { files: MONO_FILES });
+
+    expect(
+      await main(["test-one", "packages/api/src/orders.ts", "adds"], d),
+    ).toBe(0);
+    expect(ran).toEqual([
+      {
+        command: 'npx vitest run $FILE -t "$NAME"',
+        cwd: `${ROOT}/packages/api`,
+        env: { FILE: "src/orders.ts", NAME: "adds" },
+      },
+    ]);
+    expect(out[0]).toBe(
+      "commands.test-one: cd packages/api, with FILE=src/orders.ts",
+    );
+  });
+
+  it("fails when no command covers FILE", async () => {
+    const { d, ran, err } = deps(LIST, [], { files: MONO_FILES });
+
+    expect(await main(["test-one", "docs/guide.test.ts"], d)).toBe(1);
+    expect(ran).toEqual([]);
+    expect(err).toEqual([
+      "✗ No commands.test-one command covers docs/guide.test.ts: add one whose files cover it to .claude/factory.yaml",
+    ]);
+  });
+
+  it("does the same for end-to-end, --times included", async () => {
+    const { d, ran } = deps(LIST, [], { files: MONO_FILES });
+
+    expect(
+      await main(["end-to-end", "packages/web/src/cart.ts", "--times", "2"], d),
+    ).toBe(0);
+    expect(ran.map((r) => [r.cwd, r.env.FILE])).toEqual([
+      [`${ROOT}/packages/web`, "src/cart.ts"],
+      [`${ROOT}/packages/web`, "src/cart.ts"],
+    ]);
+  });
+});
+
+describe("factory coverage", () => {
+  const COV = {
+    commands: {
+      coverage: [
+        {
+          run: "npm run coverage",
+          in: "packages/*",
+          report: "./coverage/lcov.info",
+        },
+      ],
+    },
+  };
+  const DIFF = [
+    "diff --git a/packages/api/src/orders.ts b/packages/api/src/orders.ts",
+    "+++ b/packages/api/src/orders.ts",
+    "@@ -1,0 +2,2 @@",
+  ].join("\n");
+
+  it("runs the commands a change sets off, then lists the changed lines no test covers", async () => {
+    const { d, ran, out } = deps(
+      COV,
+      [],
+      {
+        files: MONO_FILES,
+        changed: ["packages/api/src/orders.ts"],
+        diff: DIFF,
+      },
+      {
+        "packages/api/coverage/lcov.info":
+          "SF:src/orders.ts\nDA:2,0\nDA:3,1\nend_of_record\n",
+        "packages/api/src/orders.ts": "a\nb\nc\n",
+      },
+    );
+
+    expect(await main(["coverage"], d)).toBe(0);
+    expect(ran.map((r) => r.cwd)).toEqual([`${ROOT}/packages/api`]);
+    expect(out).toContain("=== packages/api/src/orders.ts");
+    expect(out.at(-1)).toBe(
+      "✓ Coverage ran: 1 line the branch changed is not covered, in 1 file.",
+    );
+  });
+
+  it("says every changed line is covered when none is left", async () => {
+    const { d, out } = deps(
+      COV,
+      [],
+      {
+        files: MONO_FILES,
+        changed: ["packages/api/src/orders.ts"],
+        diff: DIFF,
+      },
+      {
+        "packages/api/coverage/lcov.info":
+          "SF:src/orders.ts\nDA:2,1\nDA:3,1\nend_of_record\n",
+      },
+    );
+
+    expect(await main(["coverage"], d)).toBe(0);
+    expect(out.at(-1)).toBe(
+      "✓ Coverage ran: every line the branch changed is covered.",
+    );
+  });
+
+  it("lists every command and why with --dry-run, and runs nothing", async () => {
+    const { d, ran, out } = deps(COV, [], {
+      files: MONO_FILES,
+      changed: ["packages/api/src/orders.ts"],
+    });
+
+    expect(await main(["coverage", "--dry-run"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out[0]).toBe(
+      "commands.coverage: 1 of 3 would run, for the 1 file changed since origin/main",
+    );
+  });
+
+  it("says so when coverage is not set", async () => {
+    const { d, out } = deps({});
+
+    expect(await main(["coverage"], d)).toBe(0);
+    expect(out).toEqual([
+      "- No coverage command (commands.coverage is not set).",
+    ]);
+  });
+
+  it("fails without a base to compare lines with", async () => {
+    const { d, ran, err } = deps(COV, [], { files: MONO_FILES, remote: false });
+
+    expect(await main(["coverage"], d)).toBe(1);
+    expect(ran).toEqual([]);
+    expect(err[0]).toBe(
+      "✗ Can't tell which lines changed, since there is no origin/main to compare with.",
+    );
+  });
+
+  it("fails naming the command when it fails", async () => {
+    const { d, err } = deps(COV, [1], {
+      files: MONO_FILES,
+      changed: ["packages/api/src/orders.ts"],
+    });
+
+    expect(await main(["coverage"], d)).toBe(1);
+    expect(err).toEqual([
+      "✗ Coverage failed on: cd packages/api && npm run coverage",
+    ]);
+  });
+});
+
+describe("factory relock and build-setup", () => {
+  const RELOCK = {
+    commands: {
+      gate: [{ run: "pytest", in: "services/*" }],
+      relock: [
+        {
+          run: "poetry lock",
+          in: "services/*",
+          files: ["./pyproject.toml", "./poetry.lock"],
+        },
+      ],
+      "build-setup": [
+        "pip install poetry",
+        { run: "composer install", in: "services/*" },
+      ],
+    },
+  };
+  const FILES = [
+    "services/billing/pyproject.toml",
+    "services/billing/poetry.lock",
+    "services/orders/pyproject.toml",
+    "services/orders/poetry.lock",
+  ];
+
+  it("relocks the folders whose lock or manifest differs from origin/main", async () => {
+    const { d, ran, out } = deps(RELOCK, [], {
+      files: FILES,
+      changed: ["services/billing/poetry.lock"],
+    });
+
+    expect(await main(["relock"], d)).toBe(0);
+    expect(ran.map((r) => r.cwd)).toEqual([`${ROOT}/services/billing`]);
+    expect(out[0]).toBe(
+      "commands.relock: 1 of 2 runs, for the 1 file that differ from origin/main",
+    );
+    expect(out.at(-1)).toBe(
+      "✓ Every relock command that ran passed: 1 run, 1 left out.",
+    );
+  });
+
+  it("relocks everything, and says why, when a file nothing covers differs", async () => {
+    const { d, ran, out } = deps(RELOCK, [], {
+      files: FILES,
+      changed: ["Makefile"],
+    });
+
+    expect(await main(["relock"], d)).toBe(0);
+    expect(ran).toHaveLength(2);
+    expect(out[0]).toBe(
+      "commands.relock: all 2 run, since 1 changed file is in no gate command's files and not in commands.ignore",
+    );
+  });
+
+  it("lists every build-setup command with --dry-run, and runs nothing", async () => {
+    const { d, ran, out } = deps(RELOCK, [], { files: FILES });
+
+    expect(await main(["build-setup", "--dry-run"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out[0]).toBe(
+      "commands.build-setup: all 3 run, before there is a change",
+    );
+  });
+
+  it("stops build-setup after the first command that fails, and names it", async () => {
+    const { d, ran, err } = deps(
+      { commands: { "build-setup": ["make tools", "make more"] } },
+      [1],
+    );
+
+    expect(await main(["build-setup"], d)).toBe(1);
+    expect(ran.map((r) => r.command)).toEqual(["set -eo pipefail\nmake tools"]);
+    expect(err).toEqual(["✗ Build setup failed on: make tools"]);
+  });
+
+  it("says so when build-setup is not set, and passes", async () => {
+    const { d, ran, out } = deps({});
+
+    expect(await main(["build-setup"], d)).toBe(0);
+    expect(ran).toEqual([]);
+    expect(out).toEqual([
+      "- No build-setup command (commands.build-setup is not set).",
+    ]);
+  });
+
+  it("relocks everything with --all", async () => {
+    const { d, ran } = deps(RELOCK, [], { files: FILES });
+
+    expect(await main(["relock", "--all"], d)).toBe(0);
+    expect(ran).toHaveLength(2);
+  });
+
+  it("runs the default npm install when relock is not written", async () => {
+    const { d, ran } = deps({}, [], {});
+
+    expect(await main(["relock"], d)).toBe(0);
+    expect(ran.map((r) => r.command)).toEqual(["npm install"]);
+  });
+
+  it("runs every build-setup command, each in its folders", async () => {
+    const { d, ran, out } = deps(RELOCK, [], { files: FILES });
+
+    expect(await main(["build-setup"], d)).toBe(0);
+    // As the workflow ran each before, a line or a pipe that fails fails
+    // the command.
+    expect(ran.map((r) => [r.command, r.cwd])).toEqual([
+      ["set -eo pipefail\npip install poetry", ROOT],
+      ["set -eo pipefail\ncomposer install", `${ROOT}/services/billing`],
+      ["set -eo pipefail\ncomposer install", `${ROOT}/services/orders`],
+    ]);
+    expect(out).toContain("$ cd services/orders && composer install");
   });
 });

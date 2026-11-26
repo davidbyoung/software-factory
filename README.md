@@ -110,7 +110,7 @@ nothing to host. Everything else is optional and comes later.
 
 | Page                                                           | For                                                              |
 | -------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [Adopting it in an existing repository](docs/existing-repo.md) | Not JavaScript, an existing board, a team                        |
+| [Adopting it in an existing repository](docs/existing-repo.md) | Not JavaScript, a monorepo, an existing board, or a team         |
 | [Plugins](docs/plugins.md)                                     | Putting your own skills and agents to work                       |
 | [Presets](docs/presets.md)                                     | Sharing settings across several repositories                     |
 | [Where your tokens are kept](docs/credentials.md)              | Joining a repository that uses it, or working on another machine |

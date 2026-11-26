@@ -58,12 +58,14 @@ import {
 } from "./doctor.mts";
 import {
   branchDeps,
+  gitIn,
   needDefaultBranch,
   NoDefaultBranch,
   NoRemote,
   noRemoteLine,
   remoteFor,
 } from "./lib/default-branch.mts";
+import { commandLine, runsOf } from "./lib/paths.mts";
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { DEFAULT_RUNNER, type Runner } from "./runner/index.mts";
 import type { CodeHost } from "./code-host/index.mts";
@@ -830,7 +832,14 @@ export function presetRows(
   }
   const gate = at("commands.gate");
   if (from.gives("commands.gate") && Array.isArray(gate) && gate.length)
-    rows.push(["Gate", listed(gate.map(String))]);
+    rows.push([
+      "Gate",
+      listed(
+        gate.map((g) =>
+          typeof g === "string" ? g : String((g as { run?: unknown }).run),
+        ),
+      ),
+    ]);
   const parts = PRESET_PARTS.filter(([part]) => o.parts(part));
   if (parts.length) rows.push(["Parts", listed(parts.map(([, name]) => name))]);
   return rows;
@@ -1379,7 +1388,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   // The owner's presets, looked for by name unless something names them.
   const listedPresets = (): string[] => {
     const names = doc.toJS()?.presets;
-    return Array.isArray(names) ? names.map(String) : [];
+    return Array.isArray(names)
+      ? names.map((n) =>
+          typeof n === "object" && n !== null && "name" in n
+            ? String((n as { name: unknown }).name)
+            : String(n),
+        )
+      : [];
   };
   const config = `${owner}/${CONFIG}`;
   const looks = !flags.length && !listedPresets().length;
@@ -2403,7 +2418,21 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   // The gate, before anything is committed: a build could not finish in a
   // repository whose own check fails.
   const standingNow = await standing();
-  const gate = standingNow?.commands.gate ?? [];
+  // Every command, each in its folders, as `factory gate --all` runs them.
+  const git = gitIn(d.root);
+  const tracked = git([
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+  ])
+    .out.split("\n")
+    .filter(Boolean);
+  const gate = (standingNow?.commands.gate ?? [])
+    .flatMap((c) =>
+      runsOf(c, tracked, (path) => existsSync(join(d.root, path))),
+    )
+    .map(commandLine);
   let afterGate = -1;
   if (gate.length && synced === 0) {
     gap();

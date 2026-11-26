@@ -26,13 +26,20 @@ file, and never commit. `factory site compare` writes under
 Playwright driver or notes, goes in a directory from `mktemp -d`.
 
 The repository's settings are printed by `factory config get
-site`: its design guide, its `max-pages`, and the rest.
+site`: its design guide, its `max-pages`, and the rest. A repository with
+several sites lists each, and `factory config get site.KEY` prints one line
+for each, starting with the site's folder: read the line of the site you
+review.
 
 ## 1. Compare
 
 ```bash
 factory site compare --keep
 ```
+
+With several sites, its first lines say which a change touches. `--keep`
+needs one of them named: run it once for each, with `--site FOLDER` after
+`--keep`, and review each in turn.
 
 Read its table: each page and view that changed, with the pixels and the rows.
 It exits 0 whether or not anything changed, and non-zero only when it could
