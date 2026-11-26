@@ -18,10 +18,10 @@
 ## 3. Threats
 
 - [x] 3.1 `missingParts` with a lookup, both lines and their exit (line 22), in `tests/refined-check.test.ts`.
-- [ ] 3.2 The refine skill writes `## Threats`; `factory sync`; the trace.
+- [x] 3.2 The refine skill writes `## Threats`; `factory sync`; the trace.
 
 ## 4. Docs and verify
 
 - [x] 4.1 The docs (lines 19, 23), and the docs tests.
-- [ ] 4.2 Map every Spec line to its test.
-- [ ] 4.3 `factory gate`, `npm run pack-check`, and `factory specs check`.
+- [x] 4.2 Map every Spec line to its test.
+- [x] 4.3 `factory gate`, `npm run pack-check`, and `factory specs check`.
