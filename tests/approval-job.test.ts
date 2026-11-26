@@ -19,6 +19,7 @@ import {
   check,
   commands,
   kept,
+  onlyFound,
   policyRun,
   prepare,
   status,
@@ -357,6 +358,33 @@ describe("running the checks", () => {
     expect(input.files.map((f) => f.filename)).toEqual(["package-lock.json"]);
     expect(input.diff).toContain("package-lock.json");
     expect(input.diff).not.toContain("migrations/1.sql");
+  });
+
+  it("keeps a renamed file's entry and its diff when the command found something in it", () => {
+    const renamed = {
+      filename: "src/new.ts",
+      previous_filename: "src/old.ts",
+      status: "renamed",
+    };
+    const diff = [
+      "diff --git a/src/old.ts b/src/new.ts",
+      "+NEW_TOKEN",
+      "diff --git a/src/other.ts b/src/other.ts",
+      "+x",
+      "",
+    ].join("\n");
+    expect(
+      onlyFound(
+        {
+          files: [renamed, { filename: "src/other.ts", status: "modified" }],
+          diff,
+        } as unknown as Input,
+        [{ file: "src/new.ts", title: "A new credential: NEW_TOKEN" }],
+      ),
+    ).toMatchObject({
+      files: [renamed],
+      diff: "diff --git a/src/old.ts b/src/new.ts\n+NEW_TOKEN\n",
+    });
   });
 
   it("lists what the agent cleared in the run's summary", async () => {

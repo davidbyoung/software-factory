@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   agentPrompt,
   instructionsOf,
@@ -69,6 +69,13 @@ const agentFile =
   "---\nname: rollback-checker\n---\nCheck every migration rolls back.\n";
 
 describe("an approval policy's agent", () => {
+  /** The folder of a fake `claude` a test puts on PATH. */
+  let bin = "";
+  afterEach(() => {
+    if (bin) rmSync(bin, { recursive: true, force: true });
+    bin = "";
+  });
+
   const started = async () => {
     const claude = fakeClaude('{"structured_output":{"findings":[]}}');
     await runAgent("rollback-checker", input, null, {
@@ -176,25 +183,20 @@ describe("an approval policy's agent", () => {
   });
 
   it("starts on a change too large for one argument", async () => {
-    const bin = mkdtempSync(join(tmpdir(), "fake-claude-"));
+    bin = mkdtempSync(join(tmpdir(), "fake-claude-"));
     writeFileSync(
       join(bin, "claude"),
       '#!/usr/bin/env node\nlet s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify({structured_output:{findings:[{file:"big",title:String(s.length>200000)}]}})))\n',
     );
     chmodSync(join(bin, "claude"), 0o755);
     vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
-    try {
-      const big = { ...input, diff: "+x\n".repeat(80_000) };
-      expect(
-        await runAgent("r", big, null, { cwd: bin, readFile: () => agentFile }),
-      ).toEqual({ findings: [{ file: "big", title: "true" }] });
-    } finally {
-      vi.unstubAllEnvs();
-      rmSync(bin, { recursive: true, force: true });
-    }
+    const big = { ...input, diff: "+x\n".repeat(80_000) };
+    expect(
+      await runAgent("r", big, null, { cwd: bin, readFile: () => agentFile }),
+    ).toEqual({ findings: [{ file: "big", title: "true" }] });
   });
 
-  it("runs with the model its file names, and its own default without one", async () => {
+  it("runs with the model its file names", async () => {
     const named = fakeClaude('{"structured_output":{"findings":[]}}');
     await runAgent("r", input, null, {
       cwd: "/c",
@@ -204,6 +206,9 @@ describe("an approval policy's agent", () => {
     });
     const { args } = named.calls[0]!;
     expect(args[args.indexOf("--model") + 1]).toBe("opus");
+  });
+
+  it("runs with its own default model when its file names none", async () => {
     const unnamed = fakeClaude('{"structured_output":{"findings":[]}}');
     await runAgent("r", input, null, {
       cwd: "/c",

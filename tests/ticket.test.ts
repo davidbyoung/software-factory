@@ -689,15 +689,25 @@ describe("the refined check", () => {
       expect(r.out).toEqual(["sound"]);
     });
 
-    it("leaves alone a name the repository has, GITHUB_TOKEN, and one only after the owner's text or in a code block", async () => {
-      const body = owner(
-        "Read EXISTING_TOKEN and GITHUB_TOKEN.\n\n```\nNEW_TOKEN\n```",
+    it.each([
+      ["a name the default branch has", "Read EXISTING_TOKEN.", PLAIN_BODY],
+      ["GITHUB_TOKEN", "Read GITHUB_TOKEN.", PLAIN_BODY],
+      ["a name in a code block", "Read:\n\n```\nNEW_TOKEN\n```", PLAIN_BODY],
+      [
+        "a name only after the owner's text",
+        "The owner's own words.",
         PLAIN_BODY.replace(
           "- Which page: the home page.",
           "- Which page: the one NEW_TOKEN guards.",
         ),
+      ],
+    ])("leaves alone %s", async (_, text, body) => {
+      const r = await refined(
+        owner(text, body),
+        [],
+        ["--check"],
+        ["EXISTING_TOKEN"],
       );
-      const r = await refined(body, [], ["--check"], ["EXISTING_TOKEN"]);
       expect(r.out).toEqual(["sound"]);
     });
   });

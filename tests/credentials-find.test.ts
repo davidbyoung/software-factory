@@ -13,10 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { modelOf } from "../src/approval-agent.mts";
-import {
-  CREDENTIAL_NAME,
-  OUTSIDE_DOCS_AND_TESTS,
-} from "../src/lib/refined-check.mts";
+import { CREDENTIAL_NAME } from "../src/lib/refined-check.mts";
 import { hasNameIn } from "../src/ticket.mts";
 
 const SCRIPT = resolve("approval-policies/credentials/find.mts");
@@ -243,33 +240,51 @@ describe("the credentials policy's reader", () => {
 });
 
 describe("the refined check's lookup", () => {
-  it("reads a credential's name, and leaves out docs and tests, as the rule does", () => {
-    const rule = readFileSync(SCRIPT, "utf8");
-    expect(rule).toContain(CREDENTIAL_NAME.source);
-    for (const spec of OUTSIDE_DOCS_AND_TESTS)
-      expect(rule).toContain(`"${spec}"`);
+  it.each([
+    "STRIPE_KEY",
+    "NPM_TOKEN",
+    "GH_PAT",
+    "BASIC_AUTH",
+    "GCP_CREDENTIAL",
+    "COMPAT",
+    "HOTKEY",
+    "OAUTH",
+    "apiKey",
+  ])("reads %s as a credential's name only when the rule does", (name) => {
+    const named = [...` ${name} `.matchAll(CREDENTIAL_NAME)].length > 0;
+    expect(titles(adds("src/b.ts", name)).length > 0).toBe(named);
   });
 
-  it("finds a name on the default branch outside docs, and on origin's default branch where there is one", () => {
+  it("finds a name the default branch has outside docs, and not one only in docs", () => {
     const has = hasNameIn(repo);
     expect([has("EXISTING_TOKEN"), has("DOCS_ONLY_TOKEN")]).toEqual([
       true,
       false,
     ]);
+  });
 
-    const git = (...args: string[]) =>
-      spawnSync("git", args, { cwd: repo, env, encoding: "utf8" });
-    git("checkout", "-qb", "ahead");
-    writeFileSync(join(repo, "src/b.ts"), "ORIGIN_ONLY_TOKEN\n");
-    git("add", "-A");
-    git("commit", "-qm", "ahead");
-    git("update-ref", "refs/remotes/origin/main", "HEAD");
-    git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main");
-    git("checkout", "-q", base);
+  it("reads origin's default branch where there is one", () => {
+    const own = mkdtempSync(join(tmpdir(), "credentials-origin-"));
     try {
-      expect(hasNameIn(repo)("ORIGIN_ONLY_TOKEN")).toBe(true);
+      const git = (...args: string[]) =>
+        spawnSync("git", args, { cwd: own, env, encoding: "utf8" });
+      git("init", "-q");
+      writeFileSync(join(own, "a.ts"), "x\n");
+      git("add", "-A");
+      git("commit", "-qm", "base");
+      const local = git("rev-parse", "HEAD").stdout.trim();
+      writeFileSync(join(own, "a.ts"), "ORIGIN_ONLY_TOKEN\n");
+      git("commit", "-qam", "ahead");
+      git("update-ref", "refs/remotes/origin/main", "HEAD");
+      git(
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/main",
+      );
+      git("checkout", "-q", local);
+      expect(hasNameIn(own)("ORIGIN_ONLY_TOKEN")).toBe(true);
     } finally {
-      git("symbolic-ref", "--delete", "refs/remotes/origin/HEAD");
+      rmSync(own, { recursive: true, force: true });
     }
   });
 });
