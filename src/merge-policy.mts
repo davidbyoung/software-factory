@@ -9,8 +9,14 @@
 // "merge-manual" otherwise. The merge-policy workflow runs this from main's copy,
 // with main's settings, so a pull request cannot change how it is judged.
 import { spawnSync } from "node:child_process";
-import { loadSettings, type ApprovalPolicy } from "./config.mts";
-import { checkName, checksOf } from "./approval-policies.mts";
+import { loadSettings, repoRoot, type ApprovalPolicy } from "./config.mts";
+import { gitIn } from "./lib/default-branch.mts";
+import {
+  checkName,
+  checksOf,
+  type Check,
+  type Outcome,
+} from "./approval-policies.mts";
 import { homeOf, repositoriesOf } from "./across.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import { sameRepository } from "./lib/repositories.mts";
@@ -166,15 +172,26 @@ export async function acrossReasons(
 /** Why a pull request waits for a person, for each approval policy with an
  * agent its files set off: an agent can be talked out of a finding by the
  * text it reads, so what only an agent cleared never merges itself. It is
- * decided from the files, before any check runs. */
-export function agentReasons(
+ * decided before any agent runs, since auto-merge goes on within a minute.
+ * A policy with a command too holds only when `ran`, its command run here,
+ * found something or failed: its agent reads nothing otherwise. */
+export async function agentReasons(
   policies: readonly ApprovalPolicy[],
   files: readonly ChangedFile[],
-): string[] {
-  return checksOf(
+  ran?: (check: Check) => Promise<Outcome>,
+): Promise<string[]> {
+  const reasons: string[] = [];
+  for (const c of checksOf(
     policies.filter((p) => p.agent !== null),
     files,
-  ).map((c) => `${checkName(c)} is checked by an agent, so a person merges it`);
+  )) {
+    if (c.policy.run !== null && ran && (await ran(c)).kind === "nothing")
+      continue;
+    reasons.push(
+      `${checkName(c)} is checked by an agent, so a person merges it`,
+    );
+  }
+  return reasons;
 }
 
 /** Who merges a pull request: by its files, the ticket it is part of, the
@@ -187,10 +204,12 @@ export async function judge(d: {
   /** What the commands said, for a pull request with files. */
   held: () => string[];
   approvalPolicies?: readonly ApprovalPolicy[];
+  /** Runs an approval policy's command, for its agent's hold. */
+  ran?: (check: Check) => Promise<Outcome>;
 }): Promise<Risk> {
   const paths = classify(d.files, d.policy);
   const spans = await acrossReasons(d.body, d.across);
-  const agents = agentReasons(d.approvalPolicies ?? [], d.files);
+  const agents = await agentReasons(d.approvalPolicies ?? [], d.files, d.ran);
   // A pull request with no files waits for the owner whatever a command says.
   return decide(paths, [
     ...spans,
@@ -261,6 +280,19 @@ async function main(argv: string[]) {
     policy: autoMerge,
     across: { tickets, repository: repo },
     approvalPolicies: settings.approvalPolicies,
+    ran: async (check) => {
+      const { policyRun } = await import("./approval-job.mts");
+      return policyRun(check, {
+        git: gitIn(repoRoot()),
+        pr: Number(pr),
+        base: pull.base.branch,
+        head: pull.head.sha,
+        repository: repo,
+        body: pull.body,
+        tickets,
+        root: repoRoot(),
+      });
+    },
     held: () =>
       commandReasons(
         autoMerge.commands.map((command) =>

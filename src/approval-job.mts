@@ -28,6 +28,7 @@ import {
   diffOf,
   outcomeOf,
   statusOf,
+  type Check,
   type Finding,
   type Git,
   type Input,
@@ -239,6 +240,74 @@ export async function prepare(d: Deps, dir: string): Promise<Plan> {
     `agents=${JSON.stringify(plan.checks.filter((c) => c.agent !== null).map((c) => c.i))}`,
   );
   return plan;
+}
+
+/** Runs one check's command against a pull request, as the jobs do: its
+ * change read from git against the merge base, from `root`, the default
+ * branch's checkout, with no credential. A change git can't read is a
+ * failed check. The merge policy runs it to tell whether an agent will
+ * read anything. */
+export async function policyRun(
+  check: Check,
+  o: {
+    git: Git;
+    pr: number;
+    base: string;
+    head: string;
+    repository: string;
+    body: string;
+    tickets: Pick<Tickets, "linksIn" | "read">;
+    root: string;
+  },
+): Promise<Outcome> {
+  const command = check.policy.run ?? "";
+  const failed: Outcome = {
+    kind: "failed",
+    why: "the change couldn't be read",
+    command,
+    stderr: "",
+  };
+  const fetched = o.git([
+    "fetch",
+    "--no-tags",
+    "--quiet",
+    "origin",
+    `+refs/pull/${o.pr}/head:refs/factory/head`,
+    `+refs/heads/${o.base}:refs/factory/base`,
+  ]);
+  const mergeBase = fetched.ok
+    ? o.git(["merge-base", "refs/factory/base", o.head]).out.trim()
+    : "";
+  const diff = mergeBase ? diffOf(o.git, mergeBase, o.head, check.files) : null;
+  if (diff === null) return failed;
+  const links = o.tickets.linksIn(o.body, o.repository);
+  const key = links.closes[0] ?? links.partOf[0];
+  let ticket: Input["ticket"] = null;
+  if (key !== undefined)
+    try {
+      ticket = { id: key, text: (await o.tickets.read(key)).body };
+    } catch {
+      ticket = { id: key, text: "" };
+    }
+  const { runCommand } = await import("./approval-policies.mts");
+  return outcomeOf(
+    command,
+    await runCommand(
+      command,
+      {
+        version: 1,
+        repository: o.repository,
+        pull: o.pr,
+        base: mergeBase,
+        head: o.head,
+        files: check.files,
+        diff,
+        in: check.folder,
+        ticket,
+      },
+      { cwd: o.root },
+    ),
+  );
 }
 
 /** `commands DIR`: runs each policy's command, with no credential in its

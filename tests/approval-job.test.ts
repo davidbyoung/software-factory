@@ -19,6 +19,7 @@ import {
   check,
   commands,
   kept,
+  policyRun,
   prepare,
   status,
   type Deps,
@@ -640,6 +641,53 @@ describe("approving with the label", () => {
       .comments.filter((c) => c.body.includes("still waits"));
     expect(said).toHaveLength(1);
     expect(said[0]!.body).toContain("add the `policy-override` label");
+  });
+});
+
+describe("running a policy's command for the merge policy", () => {
+  const check = (run: string) => ({
+    policy: {
+      name: "credentials",
+      run,
+      agent: "reader",
+      in: null,
+      files: ["**"],
+    },
+    folder: null,
+    files: [{ filename: "package-lock.json", status: "modified" }],
+  });
+  const ran = async (run: string, head?: string) => {
+    const r = repository();
+    const { d } = setup({}, r);
+    return policyRun(check(run), {
+      git: d.git,
+      pr: 7,
+      base: "main",
+      head: head ?? r.head,
+      repository: "acme/widgets",
+      body: "Closes #12",
+      tickets: d.tickets,
+      root: r.checkout,
+    });
+  };
+
+  it("runs it on the pull request's change, as the jobs do", async () => {
+    const outcome = await ran(
+      `node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const i=JSON.parse(s);console.log(JSON.stringify({findings:i.diff.includes("GPL-3.0")?[{file:"package-lock.json",title:i.ticket.text}]:[]}))})'`,
+    );
+    expect(outcome).toEqual({
+      kind: "findings",
+      findings: [{ file: "package-lock.json", title: "Add refunds." }],
+    });
+  });
+
+  it("is a failed check when git can't read the change", async () => {
+    expect(await ran("echo '{\"findings\":[]}'", "0".repeat(40))).toMatchObject(
+      {
+        kind: "failed",
+        why: "the change couldn't be read",
+      },
+    );
   });
 });
 

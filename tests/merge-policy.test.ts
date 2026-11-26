@@ -1,3 +1,4 @@
+import type { Outcome } from "../src/approval-policies.mts";
 import { describe, it, expect } from "vitest";
 import { PR_LABELS } from "../src/labels.mts";
 import { load } from "js-yaml";
@@ -390,6 +391,45 @@ describe("judge", () => {
     expect((await judgedWith([{ filename: "docs/a.md" }])).risk).toBe(
       "merge-automatic",
     );
+  });
+
+  describe("a policy with both a command and an agent", () => {
+    const credentials = {
+      name: "credentials",
+      run: "node find.mts",
+      agent: "factory-credentials-reader",
+      in: null,
+      files: ["**"],
+    };
+    const judgedAfter = (outcome: Outcome) =>
+      judge({
+        files: [{ filename: "docs/a.md" }],
+        body: "Closes #7",
+        policy: { allow: ["**"], deny: [] },
+        across: { tickets, repository: "acme/api" },
+        held: () => [],
+        approvalPolicies: [credentials],
+        ran: async () => outcome,
+      });
+
+    it("lets a pull request its command found nothing in merge itself", async () => {
+      expect((await judgedAfter({ kind: "nothing" })).risk).toBe(
+        "merge-automatic",
+      );
+    });
+
+    it.each<[string, Outcome]>([
+      [
+        "found something",
+        { kind: "findings", findings: [{ file: "a", title: "t" }] },
+      ],
+      ["failed", { kind: "failed", why: "exit 1", command: "c", stderr: "" }],
+    ])("holds one its command %s in, for a person", async (_, outcome) => {
+      expect(await judgedAfter(outcome)).toEqual({
+        risk: "merge-manual",
+        reasons: ["credentials is checked by an agent, so a person merges it"],
+      });
+    });
   });
 
   it("asks no command about one with no files", async () => {

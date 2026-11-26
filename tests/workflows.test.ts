@@ -660,7 +660,9 @@ describe("the jobs that run no session", () => {
       const job = jobs[name]!;
       const checkout = job.steps![0]!;
       expect(checkout.uses).toBe("actions/checkout@v7");
-      expect(checkout.with).toBeUndefined();
+      // How much history it fetches is its own; which commit, never.
+      expect(checkout.with?.ref).toBeUndefined();
+      expect(checkout.with?.repository).toBeUndefined();
       expect(names(job).slice(1, 3)).toEqual([
         "Set up Node",
         "Install the factory",
@@ -842,6 +844,13 @@ describe("the approval policies' jobs", () => {
       "github.event.pull_request.head.repo.full_name == github.repository",
     );
     expect(conditions).toContain("github.actor != 'dependabot[bot]'");
+  });
+
+  it("gives the merge policy the history to read an approval policy's change", () => {
+    const checkout = run.jobs["merge-policy"]!.steps!.find((s) =>
+      s.uses?.startsWith("actions/checkout"),
+    )!;
+    expect(checkout.with?.["fetch-depth"]).toBe(0);
   });
 
   it("installs the version of Claude Code a session runs", () => {
