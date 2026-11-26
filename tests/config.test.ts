@@ -1890,6 +1890,42 @@ describe("factory config explain", () => {
     expect(missing).toEqual([]);
   });
 
+  it("writes items, commands.ignore, and a list of sites back as a valid settings file", async () => {
+    const file = [
+      "version: 2",
+      "repository: owner/name",
+      CODE_HOST_YAML,
+      "commands:",
+      "  gate:",
+      "    - make lint",
+      "    - run: npm test",
+      "      in: packages/*",
+      "      files: [./**, lib/**]",
+      "  ignore: [docs/**]",
+      "site:",
+      "  - start: a",
+      "    url: u",
+      "    in: apps/web",
+      "  - start: b",
+      "    url: u",
+      "    in: apps/admin",
+    ];
+    const r = await explain(file);
+    const s = parse(load(r.out.join("\n")));
+    expect(s.commands.gate).toEqual(parse(load(file.join("\n"))).commands.gate);
+    expect(s.commands.ignore).toEqual(["docs/**"]);
+    expect(s.sites.map((x) => x.in)).toEqual([["apps/web"], ["apps/admin"]]);
+  });
+
+  it("writes no commands.ignore when none is set", async () => {
+    const r = await explain([
+      "version: 2",
+      "repository: owner/name",
+      CODE_HOST_YAML,
+    ]);
+    expect(r.out.join("\n")).not.toContain("ignore");
+  });
+
   it("fails as config check does on settings it cannot read", async () => {
     const r = await explain(["version: 3"]);
     expect(r.code).toBe(1);

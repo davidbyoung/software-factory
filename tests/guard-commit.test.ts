@@ -587,6 +587,72 @@ describe("factory guard commit", () => {
       expect(ran()).toEqual([]);
     });
 
+    describe("with commands for some folders", () => {
+      const PACKAGES = (before: string) =>
+        `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\ncommands:\n  gate:\n    - run: npm test\n      in: packages/*\n  before-commit:\n    - run: ${JSON.stringify(before)}\n      in: packages/*\n`;
+      /** The repository committed, with two packages, and `changed`
+       * edited since. */
+      function packages(before: string, changed: string[]) {
+        withLoader(PACKAGES(before));
+        for (const name of ["api", "web"]) {
+          mkdirSync(join(repo, "packages", name), { recursive: true });
+          writeFileSync(join(repo, "packages", name, "a.ts"), "a\n");
+        }
+        const git = (...args: string[]) =>
+          execFileSync("git", args, { cwd: repo });
+        git(
+          "-c",
+          "user.email=t@e",
+          "-c",
+          "user.name=t",
+          "-c",
+          "commit.gpgsign=false",
+          "add",
+          "-A",
+        );
+        git(
+          "-c",
+          "user.email=t@e",
+          "-c",
+          "user.name=t",
+          "-c",
+          "commit.gpgsign=false",
+          "commit",
+          "-qm",
+          "first",
+        );
+        for (const f of changed) writeFileSync(join(repo, f), "changed\n");
+      }
+      const LOGGED = `echo $(basename $PWD) >> "$(git rev-parse --show-toplevel)/${LOG}"`;
+
+      it("runs a command only in the folders the change touches", () => {
+        packages(LOGGED, ["packages/api/a.ts"]);
+        const r = hook("git commit -m x", repo);
+        expect(r.status).toBe(0);
+        expect(ran()).toEqual(["api"]);
+      });
+
+      it("runs every command when a file no gate command covers changed", () => {
+        packages(LOGGED, ["README.md"]);
+        const r = hook("git commit -m x", repo);
+        expect(r.status).toBe(0);
+        expect(ran()).toEqual(["api", "web"]);
+      });
+
+      it("names each folder a command failed in, after running it in each", () => {
+        packages(`${LOGGED}; exit 1`, [
+          "packages/api/a.ts",
+          "packages/web/a.ts",
+        ]);
+        const r = hook("git commit -m x", repo);
+        expect(r.status).toBe(2);
+        expect(ran()).toEqual(["api", "web"]);
+        expect(r.stderr).toContain(
+          `the gate failed on: cd packages/api && ${LOGGED}; exit 1, cd packages/web && ${LOGGED}; exit 1. Fix the errors above, then commit.`,
+        );
+      });
+    });
+
     it("blocks the commit on settings that still have before-commit at the top level, saying where it moved", () => {
       withLoader(
         `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\nbefore-commit: ["echo old >> ${LOG}"]\n`,

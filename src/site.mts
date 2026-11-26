@@ -19,7 +19,7 @@ import {
   type Command,
   type Site,
 } from "./config.mts";
-import { branchChange } from "./lib/changes.mts";
+import { branchChange, type Git } from "./lib/changes.mts";
 import { branchDeps, gitIn, needDefaultBranch } from "./lib/default-branch.mts";
 import { runsOf } from "./lib/paths.mts";
 import { planOf } from "./lib/plan.mts";
@@ -359,31 +359,26 @@ export function givenUrls(
 }
 
 /** One site to compare, and the folder it is in: null for the root. */
-type SiteRun = { site: Site; folder: string | null };
+export type SiteRun = { site: Site; folder: string | null };
 
 /** The sites to compare: the one `--site` names, the one site there is, or
  * each site the change touches, after a plan of them like the gate's. */
-async function sitesToCompare(
-  root: string,
-  sites: Site[],
-  gate: Command[],
-  ignore: string[],
-  argv: string[],
-  out: say.Out,
-): Promise<{ runs: SiteRun[]; defaultBranch: string | null }> {
-  const git = gitIn(root);
-  const files = git(["ls-files", "--cached", "--others", "--exclude-standard"])
-    .out.split("\n")
-    .filter(Boolean);
-  const exists = (path: string) => existsSync(join(root, path));
-  let defaultBranch: string | null = null;
-  try {
-    defaultBranch = await needDefaultBranch(branchDeps(root));
-  } catch {
-    defaultBranch = null;
-  }
+export function sitesToCompare(o: {
+  sites: Site[];
+  gate: Command[];
+  ignore: string[];
+  argv: string[];
+  out: say.Out;
+  git: Git;
+  /** The default branch's name, or null when it can't be told. */
+  defaultBranch: string | null;
+  /** The files git tracks, and the new ones it doesn't ignore. */
+  files: string[];
+  exists: (path: string) => boolean;
+}): SiteRun[] {
+  const { argv, out, defaultBranch, files, exists } = o;
   const asCommand = new Map<Command, Site>();
-  const commands = sites.map((site) => {
+  const commands = o.sites.map((site) => {
     const c: Command = {
       run: site.start,
       in: site.in,
@@ -401,10 +396,7 @@ async function sitesToCompare(
       throw new SiteError(
         `--site ${named}: no site is in that folder. factory config get site lists them`,
       );
-    return {
-      runs: [{ site: asCommand.get(run.command)!, folder: run.folder }],
-      defaultBranch,
-    };
+    return [{ site: asCommand.get(run.command)!, folder: run.folder }];
   }
   if (every.length > 1) {
     if (givenUrls(argv))
@@ -417,21 +409,18 @@ async function sitesToCompare(
       );
   }
   if (!commands.some((c) => c.in !== null || c.files !== null))
-    return {
-      runs: every.map((r) => ({
-        site: asCommand.get(r.command)!,
-        folder: null,
-      })),
-      defaultBranch,
-    };
+    return every.map((r) => ({
+      site: asCommand.get(r.command)!,
+      folder: null,
+    }));
   const remote = `origin/${defaultBranch ?? "DEFAULT"}`;
   const change =
-    defaultBranch === null ? null : branchChange(git, defaultBranch).files;
+    defaultBranch === null ? null : branchChange(o.git, defaultBranch).files;
   const plan = planOf({
     commands,
     change,
-    gate,
-    ignore,
+    gate: o.gate,
+    ignore: o.ignore,
     files,
     exists,
     everyCommand: true,
@@ -475,13 +464,10 @@ async function sitesToCompare(
       );
   }
   out(say.BLANK);
-  return {
-    runs: plan.runs.map((r) => ({
-      site: asCommand.get(r.run.command)!,
-      folder: r.run.folder,
-    })),
-    defaultBranch,
-  };
+  return plan.runs.map((r) => ({
+    site: asCommand.get(r.run.command)!,
+    folder: r.run.folder,
+  }));
 }
 
 async function compare(argv: string[], out: say.Out): Promise<number> {
@@ -491,14 +477,26 @@ async function compare(argv: string[], out: say.Out): Promise<number> {
     throw new SiteError(".claude/factory.yaml: site: not written");
   const keepRunning = argv.includes("--keep");
   const given = givenUrls(argv);
-  const { runs, defaultBranch } = await sitesToCompare(
-    root,
-    settings.sites,
-    settings.commands.gate,
-    settings.commands.ignore,
+  const git = gitIn(root);
+  let defaultBranch: string | null = null;
+  try {
+    defaultBranch = await needDefaultBranch(branchDeps(root));
+  } catch {
+    defaultBranch = null;
+  }
+  const runs = sitesToCompare({
+    sites: settings.sites,
+    gate: settings.commands.gate,
+    ignore: settings.commands.ignore,
     argv,
     out,
-  );
+    git,
+    defaultBranch,
+    files: git(["ls-files", "--cached", "--others", "--exclude-standard"])
+      .out.split("\n")
+      .filter(Boolean),
+    exists: (path) => existsSync(join(root, path)),
+  });
   if (runs.length === 0) {
     out(say.mark("ok", "No site changed."));
     return 0;
