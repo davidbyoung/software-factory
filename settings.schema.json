@@ -347,6 +347,11 @@
           "type": "string",
           "minLength": 1,
           "description": "The label a person adds to pass the automated review's verdict for the newest commit. Sessions never add it. Default: verdict-override."
+        },
+        "policy-override": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The label a person adds to accept what an approval policy found on the newest commit. Sessions never add it. Default: policy-override."
         }
       }
     },

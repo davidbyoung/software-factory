@@ -263,11 +263,13 @@ Three more things guard a merge:
   review of the newest commit said it is ready, or an approver overrode it
   with the `verdict-override` label. It goes by the review's own run, and
   by no comment, whoever posted it. Sessions never add that label.
-- **"Approval policies"** is a status, required beside it once your
-  settings have an [approval policy](approval-policies.md), that waits
-  while a policy's check found something until a person who can write
-  adds the `policy-override` label. Sessions never add that label either,
-  and a pull request a policy with an agent applies to is `merge-manual`.
+- **"Approval policies"** is a status, which `factory init` requires
+  beside it once your settings have an
+  [approval policy](approval-policies.md), that waits while a policy's
+  check found something until a person who can write adds the
+  `policy-override` label. Sessions never add that label either. Since an
+  agent can be talked out of a finding, a pull request a policy with an
+  agent applies to is `merge-manual`.
 - **Every review thread must be resolved.** A session answers each one,
   fixed or rejected with evidence, before resolving it.
 

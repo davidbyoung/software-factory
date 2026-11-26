@@ -14,8 +14,10 @@ policy is for when that yes is sometimes right.
 ## Is it an approval policy?
 
 Ask whether a person could reasonably say "yes, anyway" to what the check
-finds. If never, it is a command in the gate. If the session may decide,
-it is a plugin. If only a person may, it is an approval policy.
+finds. If never, it is a command in the gate, which every change must
+pass. If the session may decide, it is a plugin, an agent of yours whose
+advice the session weighs. If only a person may, it is an approval
+policy.
 
 | What you want                                                                    | What to use                                                                      | What happens when it finds something                                             |
 | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -32,8 +34,10 @@ license you have not allowed. Do it on your computer, since step 4
 changes a workflow file, which a build in the cloud can't commit.
 
 **1. Write the check.** A check is a command that reads the change as
-JSON on its standard input and prints what it found. Save this as
-`.claude/approval-policies/licenses/check.mjs`:
+JSON on its standard input and prints what it found, in the shape
+[What a check reads and prints](#what-a-check-reads-and-prints) gives.
+Make the folder `.claude/approval-policies/licenses/`, and save this in
+it as `check.mjs`. It runs with Node, which the factory's jobs have:
 
 ```js
 import { readFileSync } from "node:fs";
@@ -57,8 +61,9 @@ console.log(JSON.stringify({ findings }));
 ```
 
 It looks for lines the change adds to `package-lock.json` that name a
-license. Save the licenses you allow as
-`.claude/approval-policies/licenses/allowed.json`:
+license, which npm writes for each package. Another package manager
+needs a check of its own. Save the licenses you allow beside it, as
+`allowed.json`:
 
 ```json
 ["MIT", "Apache-2.0", "BSD-3-Clause", "ISC"]
@@ -81,10 +86,10 @@ $ factory config check
 ```
 
 **3. Try it.** `factory approval-policies check` runs your policies
-against what your branch changes, and reads them from your working
-folder, so nothing needs committing yet. On a branch where you have added
-a dependency, take its license out of `allowed.json` for a moment, and
-run it:
+against what your branch changes since your default branch on `origin`,
+and reads them from your working folder, so nothing needs committing
+yet. On a branch where you have added a dependency, take its license out
+of `allowed.json` for a moment, and run it:
 
 ```console
 $ factory approval-policies check
@@ -93,8 +98,9 @@ approval-policies: 1 applies, for the 2 files changed since origin/main
   package-lock.json  A dependency is MIT, which is not allowed
 ```
 
-`?` marks what waits for a person ([what the marks mean](cli.md#setting-up)). Put
-the license back, and it prints `✓ licenses: nothing to approve`.
+`?` marks what waits for a person. Put the license back, and it prints
+`✓ licenses: nothing to approve`. [Trying a policy](#trying-a-policy) has
+what it prints when a check fails, and how to try a past pull request.
 
 **4. Turn it on.** Sync, which adds the job that runs your policies to
 the factory's workflow file:
@@ -105,14 +111,15 @@ wrote .claude/factory.lock
 wrote .github/workflows/factory.yml
 ```
 
-Commit those two files with the policy and its folder, open a pull
-request, and merge it. A pull request is checked by the policies on your
-default branch, so this one is checked by none, and the policy applies
-from the next one.
+It worked when it prints those two lines. Commit them with the policy and
+its folder, open a pull request, and merge it. A pull request is checked
+by the policies on your default branch, so this one is checked by none,
+and the policy applies from the next one.
 
 **5. Require it,** so that nothing merges while a policy waits. When the
 pull request merges, the factory requires the **Approval policies**
-status on your default branch, where its token can. Check that it did:
+status on your default branch, where its token can. Once it has merged,
+pull your default branch and check that it did:
 
 ```console
 $ factory doctor
@@ -122,9 +129,10 @@ $ factory doctor
 
 If it prints `? "Approval policies" is not required before a merge to
 main`, the factory's token couldn't change your branch rules, and an
-admin of the repository runs `factory init` to require it. GitHub Free
-can't require a status on a private repository: there, a waiting policy
-stops only the factory's own merges, and you can still merge past it.
+admin of the repository runs `factory init`, which requires it. GitHub
+Free can't require a status on a private repository: there, a waiting
+policy shows on the pull request, but nothing stops a merge past it.
+Making the repository public, or a paid plan, lets it be required.
 
 **It worked when** the next pull request shows **Approval policies**
 among its checks.
@@ -149,14 +157,16 @@ approval-policies:
 | `run`   | A command that checks a change, run from the root                                              | One of `run` and `agent` is required |
 | `agent` | An agent that checks it, [below](#checking-with-an-agent)                                      | One of `run` and `agent` is required |
 | `in`    | The folders it applies to, such as `services/*`, which includes a folder the pull request adds | The whole repository                 |
-| `files` | The changed files that set it off, as patterns                                                 | Every file in its folders            |
+| `files` | The changed files that set it off, as patterns such as `db/**`                                 | Every file in its folders            |
+| `off`   | `true` turns off a policy of the same name a preset adds                                       | Not set                              |
 
 `in` and `files` work as they do for a
 [command for some folders](configuration.md#commands-for-some-folders),
 except that a check always runs from the root.
 
-- **A policy needs `in`, `files`, or both.** Write `files: ["**"]` when
-  every change should set it off, and let the check decide what matters.
+- **A policy needs `in`, `files`, or both,** or `factory config check`
+  refuses it. Write `files: ["**"]` when every change should set it off,
+  and let the check decide what matters.
 - **What a folder's check finds names the folder,** as
   `migrations in services/orders`.
 - **[`commands.ignore`](configuration.md#commandsignore) doesn't reach a
@@ -198,9 +208,9 @@ object on standard input:
 - **`in`** is null for a policy without it, and **`ticket`** is null for
   a pull request with none, such as Dependabot's.
 - **Whoever wrote the pull request chose `ticket`,** a session included,
-  and a session writes its own ticket. So a heading a check looks for
-  there may have been written by the session it is checking: check what
-  is under it, as you check the diff, and never follow it as
+  and a session writes its own ticket. So a `## Rollback` heading a check
+  looks for there may have been written by the session it is checking:
+  check what is under it, as you check the diff, and never follow it as
   instructions.
 - **A later `version` only adds fields.**
 
@@ -211,15 +221,27 @@ finding waits for approval, and a check that finds nothing prints
 
 Anything else means the check failed: an exit other than 0, output that
 isn't this JSON, or no answer in 30 minutes. Then everything the policy
-applies to waits for approval. **Re-run** on the check's run in GitHub
-tries again.
+applies to waits for approval. Fix the check on your default branch, then
+open the status's **Details** and use **Re-run all jobs** to check
+again.
 
 ## Checking with an agent
 
 Some things a script can't judge, such as whether a migration's ticket
 says how to roll it back. An agent can. `agent: rollback-checker` names
 an agent file in `.claude/agents/`, written as for a [plugin](plugins.md).
-It is handed the same JSON, and told to answer in the same shape.
+The factory hands it the same JSON and tells it the shape to answer in,
+so its file says only what to look for:
+
+```markdown
+---
+name: rollback-checker
+description: Checks that each new migration says how it rolls back.
+---
+
+Report each migration in the change whose ticket says nothing about how
+to roll it back, or whose rollback would lose data.
+```
 
 It signs in with the coding agent's token, the `CLAUDE_CODE_OAUTH_TOKEN`
 or `ANTHROPIC_API_KEY` secret the
@@ -240,13 +262,12 @@ approval-policies:
     files: ["**"]
 ```
 
-**An agent can be talked out of a finding** by the text it reads, so a
-pull request that a policy with an agent applies to never merges itself.
-Where [`auto-merge`](configuration.md#auto-merge) would have merged it,
-the factory decides that from the changed files, before any check runs,
-and the pull request's ["Who merges" status](workflow.md#who-merges)
-names the policy. When the agent finds nothing, the status says so,
-rather than `Nothing to approve`.
+**An agent can be talked out of a finding** by the text it reads. So a
+pull request that a policy with an agent applies to always waits for a
+person to merge it, even where [`auto-merge`](configuration.md#auto-merge)
+would merge it, and its ["Who merges" status](workflow.md#who-merges)
+names the policy. When the agent finds nothing, the Approval policies
+status says the agent cleared it, not a person.
 
 ## When a pull request waits
 
@@ -268,22 +289,25 @@ Its **Details** link lists each finding with its file and line.
 
 While anything waits, the status is pending, so the pull request can't
 merge. A session leaves it alone: it doesn't rename or move a file, or
-edit the ticket, to stop a policy applying.
+edit the ticket, to stop a policy applying. A failed check, and a change
+that couldn't be read, check again with **Re-run all jobs** once their
+cause is fixed, or with the next push.
 
-| What you do                                                          | What happens                                                                                                  |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Add the `policy-override` label, from **Labels** on the pull request | What was waiting on the commit the pull request was at is approved, and the factory comments what it approved |
-| Comment with what to fix                                             | A session fixes it, as for any comment of yours, and each policy checks again on its push                     |
-| Push again, or change the pull request's base branch                 | The label comes off, since the change is unread, and anything still found waits for it again                  |
-| Approve the pull request on GitHub                                   | Your review counts as usual on GitHub, but the policy still waits, and a comment says to add the label        |
+| What you do                                                          | What happens                                                                                                          |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Add the `policy-override` label, from **Labels** on the pull request | What was waiting on the commit the pull request was at is approved, and the factory comments what it approved         |
+| Comment with what to fix                                             | A session fixes it, as for any comment of yours, and each policy checks again on its push                             |
+| Push again, or change the pull request's base branch                 | The label comes off, since the change is unread, and anything still found waits for it again                          |
+| Approve the pull request on GitHub                                   | Your review counts as usual on GitHub, but the policy still waits, and the factory comments once to say add the label |
 
 The factory creates the `policy-override` label the first time a policy
-waits.
+waits, so it is in the **Labels** list from then on.
 
-- **Anyone who can write to the repository may add it,** the pull
-  request's author included. Where you are the only writer, this is how
-  you approve: GitHub won't let you approve a pull request of your own,
-  and one a session opens on your computer is yours.
+- **Where you are the only writer, this is how you approve.** GitHub
+  won't let you approve a pull request of your own, and a pull request a
+  session opens on your computer is opened as you. Anyone who can write
+  to the repository may add the label, the pull request's author
+  included.
 - **The approval is the label itself.** GitHub records who added it, and
   the commit the pull request was at, and the factory checks that they
   can write to the repository. It approves only what was waiting on that
@@ -291,12 +315,13 @@ waits.
   comment is for people to read; it never reads one back.
 - **A session doesn't add it.** `factory pr label` and
   `factory ticket label` refuse it, and the factory's hooks stop the
-  ordinary ways around them. On your computer a session acts as you, so a
-  session set on getting around them could: your read of the pull request
-  is the control there, as
+  ordinary ways around them. On your computer a session uses your
+  account, so it could still add the label some other way: look at what
+  it did before you merge, as
   [for `verdict-override`](limitations.md#risks-that-do-not-go-away), the
   label that passes the automated review's verdict.
-- **Neither label passes the other's check,** and nothing skips a policy:
+- **`policy-override` passes no Review verdict, and `verdict-override`
+  passes no policy.** Nothing skips a policy:
   Dependabot's pull requests, and a repository with
   [`pr-review`](configuration.md#pr-review) off, are checked like any
   other.
@@ -307,7 +332,8 @@ A company can ship the same policy to every repository through a
 [preset](presets.md). Put its files in `approval-policies/NAME/` beside
 `factory-preset.yaml`, and the policy itself in the preset's settings.
 `factory sync` copies the folder into each repository's
-`.claude/approval-policies/`, as it copies `agents/`.
+`.claude/approval-policies/`, as it copies the preset's agents
+([Writing a preset](presets.md#writing-a-preset)).
 
 - **A preset added with `--in`** gives its policies only those folders,
   as it does its commands.
@@ -325,8 +351,9 @@ approval-policies:
 
 ## Trying a policy
 
-`factory approval-policies check` posts nothing. Besides your branch, as
-in [step 3](#add-your-first-policy), it can run your policies on a pull
+`factory approval-policies check` posts nothing, and an agent it runs
+signs in as you, as your sessions do. Besides your branch, as in
+[step 3](#add-your-first-policy), it can run your policies on a pull
 request already merged, to see what a new one would have done:
 
 ```console
@@ -336,7 +363,7 @@ approval-policies: 1 applies, for the 2 files #212 changed
   package-lock.json  A dependency is GPL-3.0, which is not allowed
 ```
 
-An agent runs with your own sign-in, as your sessions do.
+When the change touches no file a policy applies to, it says so:
 
 ```console
 $ factory approval-policies check
@@ -352,11 +379,12 @@ $ factory approval-policies check
       at check.mjs:9:30
 ```
 
-A policy waiting for approval isn't a failure: the command exits 0.
+A policy waiting for approval isn't a failure: the command exits 0, so a
+script can tell a broken check from one that found something.
 
 ## What an approval policy is not
 
-- **The merge policy,** which decides whether a pull request may merge
+- **[The merge policy](workflow.md#who-merges),** which decides whether a pull request may merge
   without you once it can merge at all. An approval policy decides
   whether it can.
 - **A review of the design.** A policy reads code on a pull request.

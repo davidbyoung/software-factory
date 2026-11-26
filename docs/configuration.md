@@ -1679,9 +1679,11 @@ change by saying so in your own instructions for the coding agent, such as
 ### `approval-policies`
 
 Checks whose findings make a pull request wait until someone who can
-write to the repository accepts them with the `policy-override` label.
-[Approval policies](approval-policies.md) says when to use one, what a
-check reads and prints, and what a pull request shows while one waits.
+write to the repository accepts them with the
+[`policy-override`](#code-hostlabels) label.
+[Approval policies](approval-policies.md) says when to use one, what
+each key means, what a check reads and prints, and what a pull request
+shows while one waits.
 
 ```yaml
 approval-policies:
@@ -1694,21 +1696,10 @@ approval-policies:
     files: ["./db/migrations/**"]
 ```
 
-| Key     | What it says                                                                                                   | Required or default                  |
-| ------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `name`  | What the status calls the policy: lowercase words joined by hyphens                                            | Required                             |
-| `run`   | A command that checks a change, run from the root                                                              | One of `run` and `agent` is required |
-| `agent` | An agent in `.claude/agents/` that checks it. With `run`, it reads only what the command found                 | One of `run` and `agent` is required |
-| `in`    | The folders it applies to, as for a [command for some folders](#commands-for-some-folders), a new one included | The whole repository                 |
-| `files` | The changed files that set it off, as patterns, `./` being each folder of `in`                                 | Every file in its folders            |
-| `off`   | `true` turns off a policy of the same name a preset adds                                                       | Off is not set                       |
-
-- **A policy needs `in`, `files`, or both,** and two policies in one file
-  can't share a name.
-- **A preset's policy** is replaced by a later one of the same name, or
-  your own, as a [plugin](#plugins) is.
-- **Adding the first policy** changes `.github/workflows/factory.yml`,
-  which `factory sync` rewrites, so commit it from your computer.
+[The settings](approval-policies.md#the-settings) there has a table of
+the keys: `name`, `run`, `agent`, `in`, `files`, and `off`. Adding the
+first policy changes `.github/workflows/factory.yml`, which
+`factory sync` rewrites, so commit it from your computer.
 
 ## Checking the file
 
