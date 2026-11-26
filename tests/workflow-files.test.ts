@@ -23,6 +23,7 @@ const options = (over: Partial<WorkflowOptions> = {}): WorkflowOptions => ({
   ref: (key) => (key.includes("/") ? key : `#${key}`),
   minutes: { ...SESSION_MINUTES },
   overrideLabel: "verdict-override",
+  policyLabel: "policy-override",
   secrets: [],
   ...over,
 });
@@ -60,6 +61,7 @@ describe("factory.yml", () => {
       "synchronize",
       "ready_for_review",
       "converted_to_draft",
+      "edited",
       "closed",
       "labeled",
       "unlabeled",
@@ -149,6 +151,13 @@ describe("factory.yml", () => {
     expect(
       factory({ overrideLabel: "ship it" }).jobs.factory.with["override-label"],
     ).toBe("ship it");
+  });
+
+  it("passes the policy label's name only when the settings rename it", () => {
+    expect(factory().jobs.factory.with).not.toHaveProperty("policy-label");
+    expect(
+      factory({ policyLabel: "accepted" }).jobs.factory.with["policy-label"],
+    ).toBe("accepted");
   });
 
   it("passes the secrets .npmrc and the ticket system read as one JSON object, by name", () => {

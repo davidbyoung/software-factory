@@ -225,6 +225,8 @@ export async function prepare(d: Deps, dir: string): Promise<Plan> {
   }
   plan.done = false;
   writeJson(join(dir, "plan.json"), plan);
+  d.output(`kept=${keptName(pr, head)}`);
+  d.output(`approved=${approvedName(pr, head)}`);
   d.output(`commands=${plan.checks.some((c) => c.run !== null)}`);
   d.output(
     `agents=${JSON.stringify(plan.checks.filter((c) => c.agent !== null).map((c) => c.i))}`,
@@ -414,6 +416,7 @@ export async function approve(d: Deps, dir: string): Promise<void> {
     head: seen,
     waiting: waitingOf(kept.results),
   });
+  d.output(`approved=${approvedName(pr, seen)}`);
   await d.codeHost.setStatus(seen, {
     state: "success",
     name: CONTEXT,
@@ -442,9 +445,22 @@ export async function approve(d: Deps, dir: string): Promise<void> {
   );
 }
 
-/** `kept NAME`: the trusted run that kept the artifact, for the workflow
- * to download it from, or nothing. */
-export async function kept(d: Pick<Deps, "runner" | "output">, name: string) {
+/** `kept NAME`, or `kept --event findings`: the trusted run that kept the
+ * artifact, for the workflow to download it from, or nothing. With
+ * `--event`, the name is the findings' for the commit the event names. */
+export async function kept(
+  d: Pick<Deps, "runner" | "output" | "env">,
+  argv: string[],
+) {
+  let name = argv[0]!;
+  if (name === "--event") {
+    const event = eventOf(d);
+    name = keptName(
+      event.pull_request!.number,
+      event.pull_request!.head?.sha ?? "",
+    );
+    d.output(`name=${name}`);
+  }
   const run = await d.runner.keptBy(name, WORKFLOW_FILE);
   d.output(`run=${run ?? ""}`);
 }
@@ -691,7 +707,7 @@ export async function run(argv: string[]): Promise<number> {
     else if (sub === "commands") await commands(d, dir);
     else if (sub === "agent") await agent(d, dir, Number(rest[1]));
     else if (sub === "status") await status(d, dir);
-    else if (sub === "kept") await kept(d, dir);
+    else if (sub === "kept") await kept(d, rest);
     else if (sub === "approve") await approve(d, dir);
     else throw new Error(USAGE);
     return 0;

@@ -683,6 +683,7 @@ describe("the docs", () => {
         ref: (key) => key,
         minutes: { ...SESSION_MINUTES },
         overrideLabel: "verdict-override",
+        policyLabel: "policy-override",
         secrets: [],
       }),
     ) as { jobs: { factory: { secrets: Record<string, string> } } };

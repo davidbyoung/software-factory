@@ -1268,12 +1268,30 @@ describe("the board part", () => {
       tickets: { board, statuses },
       autoMerge: { allow: [] },
       builds: { trigger: "manual" },
+      approvalPolicies: [],
     }) as unknown as Settings;
 
   it("is on with a board, or with a ticket system that has statuses of its own", () => {
     expect(partsOn(with_(1, false), () => false)).toEqual(["board"]);
     expect(partsOn(with_(null, true), () => false)).toEqual(["board"]);
     expect(partsOn(with_(null, false), () => false)).toEqual([]);
+  });
+});
+
+describe("the approval policies part", () => {
+  it("is on when the settings have a policy that is not turned off", () => {
+    const s = (approvalPolicies: unknown[]) =>
+      ({
+        prReview: null,
+        tickets: { board: null, statuses: false },
+        autoMerge: { allow: [] },
+        builds: { trigger: "manual" },
+        approvalPolicies,
+      }) as unknown as Settings;
+    expect(partsOn(s([{ name: "licenses" }]), () => false)).toEqual([
+      "approval-policies",
+    ]);
+    expect(partsOn(s([]), () => false)).toEqual([]);
   });
 });
 

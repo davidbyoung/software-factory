@@ -212,7 +212,12 @@ describe("preparing the checks", () => {
     expect(input.diff).toContain('+  "license": "GPL-3.0"');
     expect(input.diff).not.toContain("DROP TABLE");
     expect(readJson(join(r.dir, "input", "1.json")).in).toBe("services/orders");
-    expect(outputs).toEqual(["commands=true", "agents=[1]"]);
+    expect(outputs).toEqual([
+      `kept=approval-policies-7-${r.head}`,
+      `approved=approval-policies-approved-7-${r.head}`,
+      "commands=true",
+      "agents=[1]",
+    ]);
   });
 
   it("posts Nothing to approve when no policy applies, and runs nothing", async () => {
@@ -532,19 +537,35 @@ describe("approving with the label", () => {
 describe("the run that kept an artifact", () => {
   it("is printed for the workflow to download from, or nothing", async () => {
     const outputs: string[] = [];
+    const output = (l: string) => void outputs.push(l);
+    const runner = memoryRunner({
+      kept: { "approval-policies-7-abc": 91 },
+    }).runner;
+    await kept({ runner, output, env: {} }, ["approval-policies-7-abc"]);
+    await kept({ runner: memoryRunner().runner, output, env: {} }, ["x"]);
+    expect(outputs).toEqual(["run=91", "run="]);
+  });
+
+  it("is named, with --event, for the findings of the commit the event names", async () => {
+    world = mkdtempSync(join(tmpdir(), "approval-job-"));
+    const event = join(world, "event.json");
+    writeFileSync(
+      event,
+      JSON.stringify({ pull_request: { number: 7, head: { sha: "abc" } } }),
+    );
+    const outputs: string[] = [];
+    const runner = memoryRunner({
+      kept: { "approval-policies-7-abc": 91 },
+    }).runner;
     await kept(
       {
-        runner: memoryRunner({ kept: { "approval-policies-7-abc": 91 } })
-          .runner,
-        output: (l) => outputs.push(l),
+        runner,
+        output: (l) => void outputs.push(l),
+        env: { GITHUB_EVENT_PATH: event },
       },
-      "approval-policies-7-abc",
+      ["--event", "findings"],
     );
-    await kept(
-      { runner: memoryRunner().runner, output: (l) => outputs.push(l) },
-      "x",
-    );
-    expect(outputs).toEqual(["run=91", "run="]);
+    expect(outputs).toEqual(["name=approval-policies-7-abc", "run=91"]);
   });
 });
 

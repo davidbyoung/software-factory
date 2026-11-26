@@ -89,6 +89,7 @@ const options = (over: Partial<WorkflowOptions> = {}): WorkflowOptions => ({
   ref: (key) => `#${key}`,
   minutes: { ...SESSION_MINUTES },
   overrideLabel: "verdict-override",
+  policyLabel: "policy-override",
   secrets: [],
   ...over,
 });
@@ -572,6 +573,45 @@ describe("which job an event starts", () => {
     expect(started(renamed)).toEqual([]);
   });
 
+  it("starts the approval policies' checks on a push, a change of base, and a draft, and approves on the label or an approving review", () => {
+    const on = {
+      parts: "approval-policies",
+      "policy-label": "policy-override",
+    };
+    for (const action of [
+      "opened",
+      "synchronize",
+      "ready_for_review",
+      "converted_to_draft",
+    ])
+      expect(started(target(action), on), action).toContain("approval-prepare");
+    expect(
+      started(target("edited", { changes: { base: { ref: {} } } }), on),
+    ).toEqual(["approval-prepare"]);
+    expect(started(target("edited", { changes: { title: {} } }), on)).toEqual(
+      [],
+    );
+    expect(
+      started(target("labeled", { label: { name: "policy-override" } }), on),
+    ).toContain("approval-label");
+    expect(
+      started(
+        {
+          name: "pull_request_review",
+          pull_request: pull(),
+          review: { state: "approved" },
+        },
+        on,
+      ),
+    ).toContain("approval-label");
+    expect(
+      started(target("opened"), {
+        parts: "",
+        "policy-label": "policy-override",
+      }),
+    ).not.toContain("approval-prepare");
+  });
+
   it("fails one job, naming it, for a job it does not have", () => {
     const { dir } = sandbox();
     const r = runScript(run.jobs.unknown!.steps![0]!.run!, dir, {
@@ -736,6 +776,48 @@ describe("the jobs that run no session", () => {
       "No build token is set, so no update's pull request is opened. factory doctor shows when you are behind.",
     ]);
     expect(calls()).toEqual([]);
+  });
+});
+
+describe("the approval policies' jobs", () => {
+  const job = (id: string) => run.jobs[id]!;
+  const checkout = (j: Job) =>
+    j.steps!.find((s) => s.uses?.startsWith("actions/checkout"))!;
+
+  it("runs the commands and the agent with no token, a checkout that keeps none, and only reading the code", () => {
+    for (const id of ["approval-commands", "approval-agent"]) {
+      const j = job(id);
+      expect(j.permissions, id).toEqual({ contents: "read" });
+      expect(checkout(j).with?.["persist-credentials"], id).toBe(false);
+      expect(JSON.stringify(j.steps), id).not.toMatch(
+        /GH_TOKEN|GITHUB_TOKEN|github\.token/,
+      );
+    }
+  });
+
+  it("runs an agent only on a pull request from the repository itself, and not on Dependabot's push", () => {
+    const conditions = job("approval-agent")
+      .if!.split("&&")
+      .map((c) => c.trim());
+    expect(conditions).toContain(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    );
+    expect(conditions).toContain("github.actor != 'dependabot[bot]'");
+  });
+
+  it("checks one pull request at a time, approves one label at a time, and cancels none", () => {
+    for (const id of ["approval-prepare", "approval-status", "approval-label"])
+      expect(job(id).concurrency?.["cancel-in-progress"], id).toBe(false);
+    expect(job("approval-prepare").concurrency?.group).toBe(
+      job("approval-status").concurrency?.group,
+    );
+  });
+
+  it("keeps what was found, and what was approved, for as long as GitHub allows by default", () => {
+    const kept = (id: string, name: string) =>
+      job(id).steps!.find((s) => s.name === name)!.with!["retention-days"];
+    expect(kept("approval-status", "Keep what was found")).toBe(90);
+    expect(kept("approval-label", "Keep the approval")).toBe(90);
   });
 });
 
@@ -2335,6 +2417,8 @@ describe("a pull request's own code, in run.yml", () => {
   it("is judged in these jobs, which start on pull_request_target", () => {
     expect(target.map(([id]) => id)).toEqual([
       "verdict",
+      "approval-prepare",
+      "approval-label",
       "across",
       "merge-policy",
       "board",
