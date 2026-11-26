@@ -63,7 +63,7 @@ for (const [path, old, replacement, test] of MUTATIONS) {
 ```
 
 `factory test-one` runs the settings' own command for one test file,
-`commands.test-one`. For a coverage-instrumented runner, disable coverage
+`commands.test-one`, the one for the file's folder where it lists several. For a coverage-instrumented runner, disable coverage
 for speed. For an end-to-end spec, run `factory end-to-end` in its place,
 and rebuild before each run if the tests run against a build.
 

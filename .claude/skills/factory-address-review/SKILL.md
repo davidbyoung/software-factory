@@ -302,17 +302,13 @@ second try is a flake that will fail someone else.
 
 ## 1b. Coverage report
 
-Coverage is read from the settings, under `commands.coverage`: the command
-that measures it, and where its lcov report lands.
+Coverage is run by `factory coverage`, from the settings' `commands.coverage`:
+it runs the coverage commands the branch's change sets off, each in its
+folder, and prints each line the branch changed that no test covers.
 
-```bash
-factory config get commands.coverage.run
-factory config get commands.coverage.report
-```
-
-**Skip this whole section when they print `none`,** a coverage service's
-checks included: the settings name no coverage command, so there are no
-lines to judge. A repository that reports to a coverage service sets
+**Skip this whole section when it prints `- No coverage command`,** a
+coverage service's checks included: the settings name no coverage command,
+so there are no lines to judge. A repository that reports to a coverage service sets
 `commands.coverage` to get its verdicts.
 
 If the repository reports to Codecov, read its checks in the same pass,
@@ -331,16 +327,14 @@ whatever floors the coverage command enforces inside the CI check, and
 patch coverage by the verdicts below.
 
 Neither the checks nor the comment name lines. Get them from the same lcov
-report CI uploads: run the coverage command, the first of the two above,
-then
+reports CI uploads:
 
 ```bash
-factory pr uncovered origin/DEFAULT REPORT
+factory coverage
 ```
 
 which prints each uncovered (`MISS`) or partly covered (`PART`) line in the
-branch's diff. REPORT is the report's path, the second of the two above.
-Its total should roughly match the coverage service's, where there is one;
+branch's diff. Its total should roughly match the coverage service's, where there is one;
 if it does not, the local run differs from CI, and that has to be settled
 before any verdict.
 

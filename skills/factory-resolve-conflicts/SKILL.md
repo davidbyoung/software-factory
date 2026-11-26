@@ -159,10 +159,10 @@ area" in `CLAUDE.md`).
   from them. Do it before anything else that runs `factory`: every command
   but the sync reads its settings from the lock, and stops while it is
   conflicted or stale.
-- **The lock file `commands.relock` regenerates:** resolve the manifest
+- **A lock file `commands.relock` regenerates:** resolve the manifest
   it is generated from first, then take the default branch's copy of the
-  lock file and run `commands.relock`, the command
-  `factory config get commands.relock` prints.
+  lock file and run `factory relock`, which runs the relock commands the
+  branch's change sets off, each in its folder.
 - **A file a resolver rebuilds:** any other conflicted file that matches a
   resolver's `files` is that resolver's, in place of a hand merge, and
   where two match it, the first listed.
@@ -175,8 +175,8 @@ area" in `CLAUDE.md`).
 - **What a fix never does:** skip or loosen a test, lower a coverage
   threshold, relax a lint or type rule, or make a CI step non-blocking.
 
-After resolving and before the gate, run `commands.relock` if the lock
-file differs from what is installed. A clean merge can bring in a new lock
+After resolving and before the gate, run `factory relock` if a lock file
+differs from what is installed. A clean merge can bring in a new lock
 file, and each pull request in a sweep has its own; stale dependencies
 would fail the gate and read as a false stop.
 

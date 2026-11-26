@@ -68,9 +68,9 @@ would only start CI again.
 
 A `dirty` state is a conflict, almost always in the lock file, and
 blocks the merge. Check the branch out (step 3), merge `origin/DEFAULT`,
-take the default branch's lock file, run `commands.relock`, the command
-`factory config get commands.relock` prints, so the bump
-is reapplied on top of it, and commit the merge. Any other conflicted file
+take the default branch's lock file, run `factory relock`, which runs
+the relock commands the change sets off, so the bump is reapplied on top
+of it, and commit the merge. Any other conflicted file
 that matches the `files` of a resolver
 (`factory plugins resolver`) is that resolver's, and a
 conflict in `.claude/factory.lock` is resolved first, by `factory sync`, as

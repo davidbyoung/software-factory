@@ -401,14 +401,23 @@ Run the gate:
 factory gate
 ```
 
-It runs each command under `commands.gate` in the settings, in order, and
-stops at the first that fails. When it says `commands.gate is not set`,
+It runs each command under `commands.gate` in the settings that the
+branch's change sets off, in order, each in its folders, and stops after
+the first that fails. When some commands name their folders and files, it
+first prints which run and why. When it says `commands.gate is not set`,
 stop: a build cannot finish until the settings name a gate.
 
+When it says every command runs since a changed file is in no gate
+command's files, say so in the pull request, naming the file: which
+commands it affects is the owner's to write, under `files` or
+`commands.ignore`. Never add a file to `commands.ignore` to make the gate
+run less.
+
 Run the end-to-end specs the change added or changed. Where
-`factory config get commands.end-to-end` prints a
-command, run each with `factory end-to-end FILE`, and a
-new one ten times, with `--times 10` after FILE. Where it prints `none`,
+`factory config get commands.end-to-end` prints anything but `none`, run
+each with `factory end-to-end FILE`, which picks the command for the
+file's folder, and a new one ten times, with `--times 10` after FILE.
+Where it prints `none`,
 run them the way the repository's `CLAUDE.md` says, or say there is no
 end-to-end suite. CI runs the full suite on the draft (step 6).
 Commit, and push with `factory pr push`, as "Branching, pushing, and

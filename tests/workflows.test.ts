@@ -1107,29 +1107,16 @@ describe("the job that runs the agent", () => {
     });
   });
 
-  it("runs each commands.build-setup command of the settings, in order, and stops at the first that fails", () => {
+  it("runs factory build-setup, which runs each command in its folders, and fails when it does", () => {
     const setup = step(sessionJob, "Run the build's setup commands").run!;
-    const runSetup = (commands: string[]) => {
-      const { dir } = sandbox({
-        factory:
-          '[ "$*" = "config get commands.build-setup" ] || exit 1\n' +
-          (commands.length
-            ? `printf '%s\\n' ${commands.map((c) => `'${c}'`).join(" ")}`
-            : ":"),
-      });
-      return runScript(setup, dir);
+    const runSetup = (status: number) => {
+      const { dir, calls } = sandbox({ factory: `exit ${status}` });
+      return { r: runScript(setup, dir), calls: calls() };
     };
-    const ok = runSetup(["echo first", "echo second"]);
-    expect(ok.status).toBe(0);
-    expect(ok.stdout.split("\n").filter((l) => !l.startsWith("::"))).toEqual([
-      "first",
-      "second",
-      "",
-    ]);
-    expect(runSetup([])).toMatchObject({ status: 0, stdout: "" });
-    const failed = runSetup(["echo first", "false", "echo third"]);
-    expect(failed.status).not.toBe(0);
-    expect(failed.stdout).not.toContain("third");
+    const ok = runSetup(0);
+    expect(ok.r.status).toBe(0);
+    expect(ok.calls).toEqual(["factory build-setup"]);
+    expect(runSetup(1).r.status).not.toBe(0);
   });
 
   it("gives the session one Claude credential: the subscription's when both are set, and neither input's own variable", () => {
