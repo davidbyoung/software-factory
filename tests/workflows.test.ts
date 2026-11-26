@@ -824,6 +824,12 @@ describe("the approval policies' jobs", () => {
     expect(conditions).toContain("github.actor != 'dependabot[bot]'");
   });
 
+  it("installs the version of Claude Code a session runs", () => {
+    const install = (j: Job) =>
+      j.steps!.find((s) => s.run?.includes("@anthropic-ai/claude-code@"))!.run;
+    expect(install(job("approval-agent"))).toBe(install(sessionJob));
+  });
+
   it("checks one pull request at a time, approves one label at a time, and cancels none", () => {
     for (const id of ["approval-prepare", "approval-status", "approval-label"])
       expect(job(id).concurrency?.["cancel-in-progress"], id).toBe(false);

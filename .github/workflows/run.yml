@@ -309,7 +309,7 @@ jobs:
       - *install
 
       - name: Install Claude Code
-        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2
+        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
 
       - name: Fetch the inputs
         uses: actions/download-artifact@v5
