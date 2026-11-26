@@ -798,6 +798,26 @@ describe("the jobs that run no session", () => {
   });
 });
 
+describe("the actions the workflows use", () => {
+  it("uses one version of each action across every workflow", () => {
+    const versions = new Map<string, Set<string>>();
+    for (const file of readdirSync(".github/workflows"))
+      for (const [, action, version] of readFileSync(
+        `.github/workflows/${file}`,
+        "utf8",
+      ).matchAll(/uses: (actions\/[\w-]+)@(\S+)/g))
+        versions.set(
+          action!,
+          (versions.get(action!) ?? new Set()).add(version!),
+        );
+    expect(
+      [...versions]
+        .filter(([, v]) => v.size > 1)
+        .map(([a, v]) => `${a}: ${[...v].join(", ")}`),
+    ).toEqual([]);
+  });
+});
+
 describe("the approval policies' jobs", () => {
   const job = (id: string) => run.jobs[id]!;
   const checkout = (j: Job) =>

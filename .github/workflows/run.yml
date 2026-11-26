@@ -231,7 +231,7 @@ jobs:
 
       - name: Keep the inputs
         if: steps.prepare.outputs.commands == 'true' || steps.prepare.outputs.agents != '[]'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: approval-input
           path: ${{ runner.temp }}/approval
@@ -259,7 +259,7 @@ jobs:
       - *install
 
       - name: Fetch the inputs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: approval-input
           path: ${{ runner.temp }}/approval
@@ -270,7 +270,7 @@ jobs:
         run: factory approval-policies commands "$RUNNER_TEMP/approval"
 
       - name: Keep the answers
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: approval-commands
           path: ${{ runner.temp }}/approval/answer
@@ -312,14 +312,14 @@ jobs:
         run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
 
       - name: Fetch the inputs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: approval-input
           path: ${{ runner.temp }}/approval
 
       - name: Fetch the commands' answers
         if: needs.approval-commands.result == 'success'
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: approval-commands
           path: ${{ runner.temp }}/approval/answer
@@ -331,7 +331,7 @@ jobs:
         run: factory approval-policies agent "$RUNNER_TEMP/approval" "${{ matrix.check }}"
 
       - name: Keep the answer
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: approval-agent-${{ matrix.check }}
           path: ${{ runner.temp }}/approval/answer/${{ matrix.check }}.json
@@ -364,13 +364,13 @@ jobs:
       - *install
 
       - name: Fetch the inputs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: approval-input
           path: ${{ runner.temp }}/approval
 
       - name: Fetch the answers
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           pattern: approval-{commands,agent-*}
           path: ${{ runner.temp }}/approval/answer
@@ -385,7 +385,7 @@ jobs:
 
       - name: Fetch the approval
         if: steps.approved.outputs.run != ''
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: ${{ needs.approval-prepare.outputs.approved }}
           run-id: ${{ steps.approved.outputs.run }}
@@ -398,7 +398,7 @@ jobs:
         run: factory approval-policies status "$RUNNER_TEMP/approval"
 
       - name: Keep what was found
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ needs.approval-prepare.outputs.kept }}
           path: ${{ runner.temp }}/approval/kept
@@ -448,7 +448,7 @@ jobs:
 
       - name: Fetch it
         if: steps.kept.outputs.run != ''
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: ${{ steps.kept.outputs.name }}
           run-id: ${{ steps.kept.outputs.run }}
@@ -463,7 +463,7 @@ jobs:
 
       - name: Keep the approval
         if: steps.approve.outputs.approved != ''
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.approve.outputs.approved }}
           path: ${{ runner.temp }}/approval/approved
