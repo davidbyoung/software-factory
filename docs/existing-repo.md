@@ -55,18 +55,20 @@ complete settings file for a PHP library.
 
 This is for a repository that holds several packages, such as Node
 packages under `packages/` and Python services under `services/`. At the
-end, a session that changes one package runs that package's checks, not
-every package's, and a change to a file nobody accounted for still runs
-them all.
+end, a [session](glossary.md#the-words) that changes one package runs
+that package's checks, its [gate](glossary.md#the-words), not every
+package's, and a change to a file nobody accounted for still runs them
+all.
 
 Set the factory up first, at the repository's root, with the
 [quick start](quick-start.md): one `factory init`, one
 `.claude/factory.yaml`, and one board, as for any repository. This
-section changes the commands in that file.
+section changes the commands under `commands` in that file, on the
+branch the quick start leaves you on.
 
 **If your monorepo already has Nx, Turborepo, or Pants,** it already
-knows which packages a change affects. Replace the `gate` list
-`factory init` wrote with one command that asks it, and pass it
+knows which packages a change affects, and you skip steps 1 and 2. Make
+your gate one command that asks it, and pass it
 [`$BASE`](configuration.md#commands-for-some-folders), the commit your
 branch started from on your default branch:
 
@@ -78,14 +80,20 @@ commands:
     # Pants: pants --changed-since=$BASE --changed-dependents=transitive test
 ```
 
-Read on only to split up your other commands, such as
+**It worked when** `factory gate` prints `$ npx nx affected ...` with no
+line before it, and ends with `✓ Every gate command passed.` When it
+starts with `? Can't tell what changed`, `$BASE` is empty: run the fetch
+command that line prints, and run the gate again. Read on only to split
+up your other commands, such as
 [`commands.test-one`](configuration.md#commandstest-one), by package
 ([The other settings](#the-other-settings)).
 
 ### 1. Write each package's commands
 
-Replace the `gate` list `factory init` wrote in `.claude/factory.yaml`
-with a command for each kind of package:
+Write [`commands.gate`](configuration.md#commandsgate) in
+`.claude/factory.yaml`, replacing the one
+command `factory init` asked you for, if you gave one, with a command for
+each kind of package:
 
 ```yaml
 commands:
@@ -121,14 +129,15 @@ might break. That is what keeps an edit to a root file such as
 `tsconfig.base.json` from passing with no type check.
 
 **It worked when** `factory gate --dry-run` lists each command as it
-will run, such as `cd packages/api && npm test`, with whether your
-current branch would run it.
+will run, such as `cd packages/api && npm test`, each marked `runs` or
+`left out` for the change on your branch.
 
 ### 2. Settle what nothing covers
 
 Your repository has files outside every package: CI workflows, scripts,
-and root settings. `factory config check` lists the ones nothing covers,
-a folder to a line:
+and root settings. `factory config check` lists the ones nothing covers.
+A folder with nothing covered in it is one line, with how many files it
+holds:
 
 ```
 $ factory config check
@@ -172,16 +181,18 @@ in its folder:
 factory gate --all
 ```
 
-**It worked when** `factory config check` lists nothing you still need
-to decide, and `factory gate --all` ends with
-`✓ Every gate command passed.` Commit `.claude/factory.yaml`.
+**It worked when** `factory config check` prints only
+`✓ The settings are valid.`, or lists only files you chose to leave, and
+`factory gate --all` ends with `✓ Every gate command passed.` Commit
+`.claude/factory.yaml` on that branch.
 
 ### What runs from then on
 
 A session's `factory gate` compares its branch with the commit the branch
-started from on your default branch, which it reads from
-`origin/main`, and runs each command a changed file sets off. With fifty
-packages and twenty services:
+started from on your default branch, which it reads from `origin/` and
+the default branch's name, and runs each command a changed file sets
+off. With fifty packages and twenty services, and `main` as the default
+branch:
 
 ```
 $ factory gate
@@ -199,22 +210,27 @@ has every rule.
 
 ### The other settings
 
+Each of these is optional. Split one only when your packages need
+different commands for it.
+
 - **[`commands.test-one`](configuration.md#commandstest-one) and
   [`commands.end-to-end`](configuration.md#commandsend-to-end),** which a
-  session uses to run one test file, take a command for each kind of
-  package. The factory runs the one whose folder holds the test file.
-- **[`commands.coverage`](configuration.md#commandscoverage)** takes a
-  command for each kind of package, each with its own report, and
-  `factory coverage` runs the ones a change needs.
-- **[`commands.relock`](configuration.md#commandsrelock)** takes a
-  command for each lock file, such as one in each Python service, and
-  `factory relock` runs the ones a change needs.
-- **[`site`](configuration.md#site)** can list a site for each web app,
-  and `factory site compare` takes screenshots of the ones a change
-  touches.
-- **A [preset](configuration.md#presets)** written for one package, such
-  as your company's Python preset, can be applied to each of your
-  services with `factory preset add NAME --in 'services/*'`.
+  session uses to run one test file, if your packages run their tests
+  with different tools: give a command for each kind of package, and the
+  factory runs the one whose folder holds the test file.
+- **[`commands.coverage`](configuration.md#commandscoverage),** if each
+  package measures its own coverage: give each its command and report,
+  and `factory coverage` runs the ones a change needs.
+- **[`commands.relock`](configuration.md#commandsrelock),** if your
+  packages keep their own lock files, such as one in each Python
+  service: `factory relock` rebuilds the ones a change needs after a
+  conflict.
+- **[`site`](configuration.md#site),** if the repository holds more than
+  one web app: list a site for each, and `factory site compare` takes
+  screenshots of the ones a change touches.
+- **A [preset](presets.md),** a shared set of settings, if your company
+  has one written for one package, such as a Python preset: apply it to
+  each of your services with `factory preset add NAME --in 'services/*'`.
 - **Notes for a session about one package** go in a `CLAUDE.md` in that
   package's folder, which Claude Code reads when it works there.
 

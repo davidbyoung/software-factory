@@ -438,8 +438,9 @@ not do its job.
 - **With several sites,** a list under [`site`](configuration.md#site), it
   compares each site the branch's change touches, one after another, after
   a line that says which and why, and saves each site's pictures in a
-  folder of its own. `--site FOLDER` compares the one site in that folder,
-  whatever changed, and `--keep` or `--before` and `--after` need it there.
+  `--site FOLDER` compares the one site in that folder,
+  whatever changed. With several sites, `--keep`, `--before`, and
+  `--after` need `--site FOLDER`.
   A site the default branch doesn't have yet is pictured alone, every page
   of it new.
 - `--base REF` compares against something other than the default branch.

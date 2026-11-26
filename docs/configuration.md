@@ -931,7 +931,7 @@ commands:
 - **A list runs in order and stops at the first command that fails.**
 - **In a monorepo,** a command can run in each package's folder, and
   only when that package changes:
-  [Commands for some folders](#commands-for-some-folders). There,
+  [Commands for some folders](#commands-for-some-folders). With those,
   [`commands.ignore`](#commandsignore) lists the files no check needs.
 
 #### Commands for some folders
@@ -962,8 +962,9 @@ commands:
 - **`in`** is the folder it runs in, from the root, or a list of
   folders. A `*` stands for one folder name: `packages/*` is each folder
   directly under `packages/`, including a new one not committed yet, and
-  the item becomes one command for each, run in name order. `**` is not
-  allowed here.
+  the item becomes one command for each, run in name order.
+  `factory config check` fails on a `**` here, and on a `*` anywhere but
+  a whole last folder name.
 - **`files`** lists the changed files that set it off, as patterns such
   as `src/**/*.ts`. Without `files`, a change to any file in its folder
   does. Writing `files` replaces that, so keep `./**` in it when the
@@ -977,8 +978,12 @@ commands:
   command's folder.
 - **`$BASE`** is set for every command: the commit your branch started
   from on your default branch, or the last commit for `before-commit`,
-  for a tool that finds what changed itself, such as Nx. It is empty when the factory can't find that commit, and
-  `factory gate` then says to fetch it.
+  for a tool that finds what changed itself, such as Nx.
+- **When the factory can't find that commit,** such as in a shallow
+  clone, `$BASE` is empty and every command runs. `factory gate` says so
+  first, with the command that fetches it, such as
+  `Fetch it with: git fetch origin main`. A tool given an empty `$BASE`
+  may check nothing, so run that command, then the gate again.
 - **What changed** is every file that differs between that commit and
   your working folder now, committed or not, including new files git
   doesn't ignore. `before-commit` reads only what differs from the last
@@ -987,13 +992,17 @@ commands:
   or its folder does when it has no `files`, or
   [`commands.ignore`](#commandsignore) lists it.
 - **When the gate has an item, a changed file nothing covers runs every
-  command** of `gate`, `before-commit`, `relock`, and `site`, since nothing
-  says what it could break. So does a change to `.claude/factory.yaml`,
-  `.claude/factory.lock`, or `.claude/factory.choices.yaml`. `factory
-gate` names the file on its first line, such as
-  `commands.gate: all 71 run, since 1 changed file is in no gate command's files and not in commands.ignore`.
-  `coverage` runs only what a change sets off: a file nothing covers has
-  no lines in a coverage report.
+  command,** since nothing says what it could break. `factory gate`
+  names the file on its first line.
+- **A change to the settings runs every command,** gate or not:
+  `.claude/factory.yaml`, `.claude/factory.lock`, or
+  `.claude/factory.choices.yaml`. So a command you add is tried in the
+  pull request that adds it.
+- **Both rules hold for `gate`, `before-commit`, `relock`, and the sites
+  under [`site`](#site).** Not for `coverage`, since a file nothing
+  covers has no lines in a coverage report; not for `test-one` and
+  `end-to-end`, which run for one test file, not a change; and not for
+  `build-setup`, which runs every command anyway.
 - **A failure in one folder** doesn't stop the item's other folders: each
   runs, and every failure is listed. The commands after it in the list
   don't run.
@@ -1008,8 +1017,9 @@ gate` names the file on its first line, such as
 
 Use it when your gate has
 [commands for some folders](#commands-for-some-folders): it lists the
-files no check needs, such as documentation. A change to one runs only
-your plain text commands.
+files no check needs, such as documentation, as patterns from the root,
+like `files`. A change to one runs only your plain text commands, in
+`gate`, `before-commit`, `relock`, and `site` alike.
 
 ```yaml
 commands:
