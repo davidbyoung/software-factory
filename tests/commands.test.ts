@@ -1284,7 +1284,7 @@ describe("factory relock and build-setup", () => {
     );
 
     expect(await main(["build-setup"], d)).toBe(1);
-    expect(ran.map((r) => r.command)).toEqual(["make tools"]);
+    expect(ran.map((r) => r.command)).toEqual(["set -eo pipefail\nmake tools"]);
     expect(err).toEqual(["✗ Build setup failed on: make tools"]);
   });
 
@@ -1316,10 +1316,12 @@ describe("factory relock and build-setup", () => {
     const { d, ran, out } = deps(RELOCK, [], { files: FILES });
 
     expect(await main(["build-setup"], d)).toBe(0);
+    // As the workflow ran each before, a line or a pipe that fails fails
+    // the command.
     expect(ran.map((r) => [r.command, r.cwd])).toEqual([
-      ["pip install poetry", ROOT],
-      ["composer install", `${ROOT}/services/billing`],
-      ["composer install", `${ROOT}/services/orders`],
+      ["set -eo pipefail\npip install poetry", ROOT],
+      ["set -eo pipefail\ncomposer install", `${ROOT}/services/billing`],
+      ["set -eo pipefail\ncomposer install", `${ROOT}/services/orders`],
     ]);
     expect(out).toContain("$ cd services/orders && composer install");
   });

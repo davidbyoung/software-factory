@@ -730,7 +730,13 @@ function addForFolders(
         raw.plugins = plugins;
         const inPhase: Obj = isObj(plugins[phase]) ? plugins[phase] : {};
         plugins[phase] = inPhase;
-        const list = asList(inPhase[key]) as Obj[];
+        // Only the repository's own list of test reviewers replaces the
+        // factory's.
+        const list = (
+          path === "plugins.test.reviewers" && inPhase[key] === undefined
+            ? [{ agent: "factory-test-reviewer" }]
+            : asList(inPhase[key])
+        ) as Obj[];
         for (const item of asList(value)) {
           if (!isObj(item)) continue;
           const files = Array.isArray(item.files)

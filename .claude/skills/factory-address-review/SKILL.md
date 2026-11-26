@@ -334,7 +334,11 @@ factory coverage
 ```
 
 which prints each uncovered (`MISS`) or partly covered (`PART`) line in the
-branch's diff. Its total should roughly match the coverage service's, where there is one;
+branch's diff. When the settings run coverage by folder, it runs only the
+folders the change touches, and `Coverage ran: nothing it covers changed.`
+means no line of the change is in a report: there is nothing to judge,
+whatever a coverage service fed by CI's full run says. Otherwise its total
+should roughly match the coverage service's, where there is one;
 if it does not, the local run differs from CI, and that has to be settled
 before any verdict.
 

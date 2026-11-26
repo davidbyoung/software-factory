@@ -279,14 +279,23 @@ function printPlan(
 }
 
 /** Runs the plan's commands in order: after one fails, only the same
- * command's other folders. The commands that failed, by command line. */
-function runPlan(d: Deps, runs: Run[], env: Record<string, string>): Run[] {
+ * command's other folders. `strict` fails a command on any line or pipe
+ * that fails, as build-setup's always have. The commands that failed. */
+function runPlan(
+  d: Deps,
+  runs: Run[],
+  env: Record<string, string>,
+  strict = false,
+): Run[] {
   const failed: Run[] = [];
   for (const run of runs) {
     if (failed.length && run.command !== failed[0]!.command) break;
     d.out(say.text("$ ", say.copy(commandLine(run))));
     const cwd = run.folder === null ? d.root : join(d.root, run.folder);
-    if (d.exec(run.command.run, cwd, env) !== 0) failed.push(run);
+    const command = strict
+      ? `set -eo pipefail\n${run.command.run}`
+      : run.command.run;
+    if (d.exec(command, cwd, env) !== 0) failed.push(run);
   }
   return failed;
 }
@@ -361,7 +370,7 @@ async function plannedRun(
   if (dry) return 0;
   const runs = plan.runs.map((r) => r.run);
   const base = change && change.files !== null ? change.base : "";
-  const failed = runPlan(d, runs, { BASE: base });
+  const failed = runPlan(d, runs, { BASE: base }, o.always === true);
   if (failed.length) {
     failure(d, failed, runs, w);
     return 1;

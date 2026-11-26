@@ -408,10 +408,11 @@ first prints which run and why. When it says `commands.gate is not set`,
 stop: a build cannot finish until the settings name a gate.
 
 When it says every command runs since a changed file is in no gate
-command's files, say so in the pull request, naming the file: which
-commands it affects is the owner's to write, under `files` or
-`commands.ignore`. Never add a file to `commands.ignore` to make the gate
-run less.
+command's files, say so in the pull request's description, naming the
+file, and not as a follow-up: which commands it affects is the owner's to
+write, under `files` or `commands.ignore`, and the gate names it again on
+the next change to it. Never add a file to `commands.ignore` to make the
+gate run less.
 
 Run the end-to-end specs the change added or changed. Where
 `factory config get commands.end-to-end` prints anything but `none`, run

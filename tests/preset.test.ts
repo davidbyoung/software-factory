@@ -957,6 +957,11 @@ describe("a preset for some folders", () => {
     );
     installAcme(root);
     put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
+    put(
+      root,
+      ".claude/agents/factory-test-reviewer.md",
+      "---\nname: factory-test-reviewer\n---\n",
+    );
     python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
     const reviewers = (await resolveAt(root)).settings.plugins.filter(
       (p) => p.name === "py-reviewer",
@@ -982,6 +987,26 @@ describe("a preset for some folders", () => {
     ).toEqual([
       ["npm start", ["web"]],
       ["python -m http.server $PORT", ["services/*"]],
+    ]);
+  });
+
+  it("keeps the factory's test reviewer for the rest of the repository when it adds one", async () => {
+    forServices();
+    put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
+    put(
+      root,
+      ".claude/agents/factory-test-reviewer.md",
+      "---\nname: factory-test-reviewer\n---\n",
+    );
+    python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
+    const { settings } = await resolveAt(root);
+    expect(
+      pluginsOf(settings, () => true)
+        .filter((p) => p.role === "test-reviewer")
+        .map((p) => [p.name, p.files]),
+    ).toEqual([
+      ["factory-test-reviewer", []],
+      ["py-reviewer", ["services/*/**"]],
     ]);
   });
 
