@@ -22,7 +22,6 @@ import {
   prepare,
   status,
   type Deps,
-  type Plan,
 } from "../src/approval-job.mts";
 import type { Input, Ran } from "../src/approval-policies.mts";
 import { parseSettings, type ApprovalPolicy } from "../src/config.mts";
@@ -302,19 +301,29 @@ describe("running the checks", () => {
     });
   });
 
-  it("hands an agent only what its command found, and runs none when it found nothing", async () => {
-    const both = [
-      {
-        name: "credentials",
-        run: "node find.mjs",
-        agent: "reader",
-        files: ["**"],
-      },
-    ];
-    const s = setup({ policies: both, env: { CLAUDE_CODE_OAUTH_TOKEN: "t" } });
+  const BOTH = [
+    {
+      name: "credentials",
+      run: "node find.mjs",
+      agent: "reader",
+      files: ["**"],
+    },
+  ];
+  /** A policy with a command and an agent, run through both. */
+  const both = async (ran?: Ran) => {
+    const s = setup({
+      policies: BOTH,
+      env: { CLAUDE_CODE_OAUTH_TOKEN: "t" },
+      ran,
+    });
     await prepare(s.d, s.r.dir);
     await commands(s.d, s.r.dir);
     await agent(s.d, s.r.dir, 0);
+    return { ...s, answer: readJson(join(s.r.dir, "answer", "0.json")) };
+  };
+
+  it("hands an agent only what its command found", async () => {
+    const s = await both();
     expect(s.agents).toEqual([
       {
         name: "reader",
@@ -323,28 +332,18 @@ describe("running the checks", () => {
         ],
       },
     ]);
-    expect(readJson(join(s.r.dir, "answer", "0.json"))).toEqual({
-      kind: "cleared",
-      agent: "reader",
+    expect(s.answer).toEqual({ kind: "cleared", agent: "reader" });
+  });
+
+  it("runs no agent when its command found nothing", async () => {
+    const s = await both({
+      status: 0,
+      stdout: '{"findings":[]}',
+      stderr: "",
+      timedOut: false,
     });
-    rmSync(world, { recursive: true, force: true });
-    const none = setup({
-      policies: both,
-      env: { CLAUDE_CODE_OAUTH_TOKEN: "t" },
-      ran: {
-        status: 0,
-        stdout: '{"findings":[]}',
-        stderr: "",
-        timedOut: false,
-      },
-    });
-    await prepare(none.d, none.r.dir);
-    await commands(none.d, none.r.dir);
-    await agent(none.d, none.r.dir, 0);
-    expect(none.agents).toEqual([]);
-    expect(readJson(join(none.r.dir, "answer", "0.json"))).toEqual({
-      kind: "nothing",
-    });
+    expect(s.agents).toEqual([]);
+    expect(s.answer).toEqual({ kind: "nothing" });
   });
 
   it("can't run an agent with no Claude credential", async () => {
@@ -402,43 +401,49 @@ describe("posting the status", () => {
     );
   });
 
-  it("leaves an approval of this commit standing when nothing waits beyond what it covered", async () => {
-    const policies = [POLICIES[0]];
-    const first = setup({ policies });
-    await prepare(first.d, first.r.dir);
-    await commands(first.d, first.r.dir);
-    await status(first.d, first.r.dir);
-    // The label's run approves what the status kept.
+  /** A commit whose licenses finding was approved with the label, and
+   * a later run of its checks whose command answers `stdout`. */
+  async function rerunAfterApproval(stdout: string) {
+    const s = setup({ policies: [POLICIES[0]] });
+    await prepare(s.d, s.r.dir);
+    await commands(s.d, s.r.dir);
+    await status(s.d, s.r.dir);
     writeFileSync(
-      first.d.env.GITHUB_EVENT_PATH!,
+      s.d.env.GITHUB_EVENT_PATH!,
       JSON.stringify({
         action: "labeled",
         label: { name: "policy-override" },
-        pull_request: { number: 7, head: { sha: first.r.head } },
+        pull_request: { number: 7, head: { sha: s.r.head } },
       }),
     );
-    first.host.change(7, { labels: ["policy-override"] });
-    await approve(first.d, first.r.dir);
-    // A later run of the checks on the same commit finds the same.
-    rmSync(join(first.r.dir, "answer"), { recursive: true });
-    await commands(first.d, first.r.dir);
-    await status(first.d, first.r.dir);
-    expect(first.posted.at(-1)).toMatchObject({
-      state: "success",
-      description: `Approved by @lead at ${first.r.head.slice(0, 7)}`,
-    });
-    // One that finds more waits again.
-    first.d.runCommand = async () => ({
+    s.host.change(7, { labels: ["policy-override"] });
+    await approve(s.d, s.r.dir);
+    s.d.runCommand = async () => ({
       status: 0,
-      stdout:
-        '{"findings":[{"file":"package-lock.json","title":"A dependency is GPL-3.0"},{"file":"package-lock.json","title":"Another"}]}',
+      stdout,
       stderr: "",
       timedOut: false,
     });
-    rmSync(join(first.r.dir, "answer"), { recursive: true });
-    await commands(first.d, first.r.dir);
-    await status(first.d, first.r.dir);
-    expect(first.posted.at(-1)?.state).toBe("pending");
+    rmSync(join(s.r.dir, "answer"), { recursive: true });
+    await commands(s.d, s.r.dir);
+    await status(s.d, s.r.dir);
+    return s;
+  }
+  const GPL = '{"file":"package-lock.json","title":"A dependency is GPL-3.0"}';
+
+  it("leaves an approval of this commit standing when its checks run again and find the same", async () => {
+    const s = await rerunAfterApproval(`{"findings":[${GPL}]}`);
+    expect(s.posted.at(-1)).toMatchObject({
+      state: "success",
+      description: `Approved by @lead at ${s.r.head.slice(0, 7)}`,
+    });
+  });
+
+  it("waits again when its checks run again and find more than was approved", async () => {
+    const s = await rerunAfterApproval(
+      `{"findings":[${GPL},{"file":"package-lock.json","title":"Another"}]}`,
+    );
+    expect(s.posted.at(-1)?.state).toBe("pending");
   });
 });
 
@@ -717,5 +722,3 @@ describe("factory approval-policies check", () => {
     );
   });
 });
-
-export type { Plan };

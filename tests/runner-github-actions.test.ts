@@ -528,10 +528,14 @@ describe("the run that kept an artifact", () => {
     expect(await r.keptBy("approval-policies-7-abc", "factory.yml")).toBeNull();
   });
 
-  it("is none when the artifact has expired or there is none", async () => {
-    const { r } = runner([
-      [LIST, { artifacts: [{ expired: true, workflow_run: { id: 91 } }] }],
-    ]);
+  it.each([
+    [
+      "has expired",
+      { artifacts: [{ expired: true, workflow_run: { id: 91 } }] },
+    ],
+    ["is not there", { artifacts: [] }],
+  ])("is none when the artifact %s", async (_, listed) => {
+    const { r } = runner([[LIST, listed]]);
     expect(await r.keptBy("approval-policies-7-abc", "factory.yml")).toBeNull();
   });
 });

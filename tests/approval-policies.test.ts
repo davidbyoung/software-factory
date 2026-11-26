@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   agentOutcome,
   answerOf,
@@ -140,11 +140,30 @@ describe("the change, from git", () => {
       { filename: "new.txt", previous_filename: "old.txt", status: "renamed" },
       { filename: "package-lock.json", status: "modified" },
     ]);
+  });
+
+  it("diffs only the files a policy applies to", () => {
+    const base = start();
+    write("package-lock.json", '{"license": "MIT"}\n');
+    write("old.txt", "same\nsame\nchanged\n");
+    const head = commit("change");
     const diff = diffOf(git, base, head, [
       { filename: "package-lock.json", status: "modified" },
     ]);
     expect(diff).toContain('+{"license": "MIT"}');
-    expect(diff).not.toContain("old.txt");
+    expect(diff).not.toContain("+changed");
+  });
+
+  it("diffs a renamed file as a rename, from its old name", () => {
+    const base = start();
+    git(["mv", "old.txt", "new.txt"]);
+    write("new.txt", "same\nsame\nsame\nadded\n");
+    const head = commit("change");
+    const diff = diffOf(git, base, head, [
+      { filename: "new.txt", previous_filename: "old.txt", status: "renamed" },
+    ]);
+    expect(diff).toContain("rename from old.txt");
+    expect(diff).toContain("+added");
   });
 
   it("reads the working folder, uncommitted and untracked files included", () => {
@@ -168,6 +187,7 @@ describe("the change, from git", () => {
 });
 
 describe("running a command check", () => {
+  afterEach(() => vi.unstubAllEnvs());
   const input: Input = {
     version: 1,
     repository: "acme/billing",
@@ -186,22 +206,26 @@ describe("running a command check", () => {
   });
 
   it("keeps every credential out of its environment", async () => {
-    process.env.GH_TOKEN = "ghs_secret";
-    process.env.GITHUB_TOKEN = "ghs_secret";
-    process.env.CLAUDE_CODE_OAUTH_TOKEN = "sk-ant-oat";
-    try {
-      const ran = await runCommand("env", input, { cwd: tmpdir() });
-      expect(ran.stdout).not.toContain("ghs_secret");
-      expect(ran.stdout).not.toContain("sk-ant-oat");
-      expect(ran.stdout).toContain("PATH=");
-    } finally {
-      delete process.env.GH_TOKEN;
-      delete process.env.GITHUB_TOKEN;
-      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    }
-    expect(Object.keys(checkEnv({ FOO_KEY: "x", PATH: "/bin" }))).toEqual([
-      "PATH",
-    ]);
+    vi.stubEnv("GH_TOKEN", "ghs_secret");
+    vi.stubEnv("GITHUB_TOKEN", "ghs_secret");
+    vi.stubEnv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat");
+    const ran = await runCommand("env", input, { cwd: tmpdir() });
+    expect(ran.stdout).not.toContain("ghs_secret");
+    expect(ran.stdout).not.toContain("sk-ant-oat");
+    expect(ran.stdout).toContain("PATH=");
+  });
+
+  it("leaves out any variable named as a key, a secret, or a password", () => {
+    expect(
+      Object.keys(
+        checkEnv({
+          FOO_KEY: "x",
+          DB_PASSWORD: "y",
+          MY_SECRET: "z",
+          PATH: "/bin",
+        }),
+      ),
+    ).toEqual(["PATH"]);
   });
 
   it("stops one that runs past its time", async () => {
@@ -268,8 +292,12 @@ describe("a check's answer", () => {
       kind: "cleared",
       agent: "rollback-checker",
     });
+  });
+
+  it("reads an agent's answer that isn't the JSON as a failed check", () => {
     expect(agentOutcome("r", answerOf("nope"))).toMatchObject({
       kind: "failed",
+      why: "its answer isn't JSON",
     });
   });
 });
