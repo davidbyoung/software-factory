@@ -78,6 +78,11 @@ export type Runner = {
   /** The jobs that failed in one run, each with its log. Which runs count
    * is the caller's: `factory pr failed` takes those `wait-checks` waits on. */
   failedJobs(run: number): Promise<FailedJob[]>;
+  /** The run that keeps the artifact `name`, as its newest one not
+   * expired, when that run is of the factory's own workflow, by its file
+   * name, started by a pull request's event on the default branch's copy:
+   * only such a run can be trusted for what it kept. Null otherwise. */
+  keptBy(name: string, file: string): Promise<number | null>;
   /** Whether a workflow of the factory's, by its file name, runs: missing
    * when the default branch does not have it. */
   workflowState(file: string): Promise<"active" | "disabled" | "missing">;

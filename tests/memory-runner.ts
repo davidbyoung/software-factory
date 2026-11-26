@@ -42,6 +42,8 @@ export type MemoryRunnerOptions = {
   answers?: Record<number, number>;
   /** Each workflow's state, by its file name; missing unless given. */
   workflows?: Record<string, "active" | "disabled">;
+  /** The trusted run that keeps each artifact, by the artifact's name. */
+  kept?: Record<string, number>;
 };
 
 export function memoryRunner(options: MemoryRunnerOptions = {}) {
@@ -120,6 +122,10 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     async failedJobs(run) {
       called("failedJobs", run);
       return (options.failedJobs?.[run] ?? []).map((j) => ({ ...j }));
+    },
+    async keptBy(name, file) {
+      called("keptBy", name, file);
+      return options.kept?.[name] ?? null;
     },
     async workflowState(file) {
       called("workflowState", file);

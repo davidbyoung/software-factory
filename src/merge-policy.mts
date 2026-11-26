@@ -9,7 +9,8 @@
 // "merge-manual" otherwise. The merge-policy workflow runs this from main's copy,
 // with main's settings, so a pull request cannot change how it is judged.
 import { spawnSync } from "node:child_process";
-import { loadSettings } from "./config.mts";
+import { loadSettings, type ApprovalPolicy } from "./config.mts";
+import { checkName, checksOf } from "./approval-policies.mts";
 import { homeOf, repositoriesOf } from "./across.mts";
 import { openCodeHost } from "./code-host/index.mts";
 import { sameRepository } from "./lib/repositories.mts";
@@ -162,8 +163,22 @@ export async function acrossReasons(
   return reasons;
 }
 
-/** Who merges a pull request: by its files, the ticket it is part of, and
- * each command's answer. */
+/** Why a pull request waits for a person, for each approval policy with an
+ * agent its files set off: an agent can be talked out of a finding by the
+ * text it reads, so what only an agent cleared never merges itself. It is
+ * decided from the files, before any check runs. */
+export function agentReasons(
+  policies: readonly ApprovalPolicy[],
+  files: readonly ChangedFile[],
+): string[] {
+  return checksOf(
+    policies.filter((p) => p.agent !== null),
+    files,
+  ).map((c) => `${checkName(c)} is checked by an agent, so a person merges it`);
+}
+
+/** Who merges a pull request: by its files, the ticket it is part of, the
+ * approval policies with an agent, and each command's answer. */
 export async function judge(d: {
   files: ChangedFile[];
   body: string;
@@ -171,11 +186,17 @@ export async function judge(d: {
   across: Parameters<typeof acrossReasons>[1];
   /** What the commands said, for a pull request with files. */
   held: () => string[];
+  approvalPolicies?: readonly ApprovalPolicy[];
 }): Promise<Risk> {
   const paths = classify(d.files, d.policy);
   const spans = await acrossReasons(d.body, d.across);
+  const agents = agentReasons(d.approvalPolicies ?? [], d.files);
   // A pull request with no files waits for the owner whatever a command says.
-  return decide(paths, [...spans, ...(d.files.length ? d.held() : [])]);
+  return decide(paths, [
+    ...spans,
+    ...agents,
+    ...(d.files.length ? d.held() : []),
+  ]);
 }
 
 /** The path decision, then each command's, as one. */
@@ -239,6 +260,7 @@ async function main(argv: string[]) {
     body: pull.body,
     policy: autoMerge,
     across: { tickets, repository: repo },
+    approvalPolicies: settings.approvalPolicies,
     held: () =>
       commandReasons(
         autoMerge.commands.map((command) =>

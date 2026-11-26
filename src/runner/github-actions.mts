@@ -238,6 +238,26 @@ export function githubActionsRunner(o: {
       }
       return failed;
     },
+    async keptBy(name, file) {
+      const listed = await t.rest<{
+        artifacts: { expired: boolean; workflow_run?: { id: number } }[];
+      }>(
+        "GET",
+        `${API}/actions/artifacts?name=${encodeURIComponent(name)}&per_page=100`,
+      );
+      const kept = listed.artifacts.find((a) => !a.expired && a.workflow_run);
+      if (!kept) return null;
+      const run = await t.rest<{ path?: string; event: string }>(
+        "GET",
+        `${API}/actions/runs/${kept.workflow_run!.id}`,
+      );
+      // A run's path can carry the ref after an @.
+      const path = (run.path ?? "").replace(/@.*$/, "");
+      return path === `.github/workflows/${file}` &&
+        run.event === "pull_request_target"
+        ? kept.workflow_run!.id
+        : null;
+    },
     async workflowState(file) {
       try {
         const workflow = await t.rest<{ state: string }>(

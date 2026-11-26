@@ -849,6 +849,7 @@ describe("the pull-request commands", () => {
       "merge-automatic": "auto-merge",
       "merge-manual": "needs owner",
       "verdict-override": "owner-pass",
+      "policy-override": "owner-accepts",
     });
 
     it("label --add takes a merge label's key for its name", async () => {
@@ -881,18 +882,21 @@ describe("the pull-request commands", () => {
       expect(host.pull(12).labels).toEqual(["spec"]);
     });
 
-    it.each(["verdict-override", "owner-pass", "OWNER-PASS"])(
-      "label --add refuses the override, given as %s",
-      async (word) => {
-        quiet();
-        const { d, log } = twelve();
+    it.each([
+      "verdict-override",
+      "owner-pass",
+      "OWNER-PASS",
+      "policy-override",
+      "owner-accepts",
+    ])("label --add refuses the override, given as %s", async (word) => {
+      quiet();
+      const { d, log } = twelve();
 
-        expect(
-          await main(["label", "12", "--add", word], { ...d, labels: renamed }),
-        ).toBe(1);
-        expect(log).toEqual([]);
-      },
-    );
+      expect(
+        await main(["label", "12", "--add", word], { ...d, labels: renamed }),
+      ).toBe(1);
+      expect(log).toEqual([]);
+    });
   });
 });
 

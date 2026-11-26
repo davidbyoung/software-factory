@@ -67,6 +67,7 @@ describe("parseSettings", () => {
           "merge-automatic": "merge-automatic",
           "merge-manual": "merge-manual",
           "verdict-override": "verdict-override",
+          "policy-override": "policy-override",
         },
       },
       builds: {
@@ -674,6 +675,7 @@ describe("parseSettings", () => {
         "merge-automatic": "merge-automatic",
         "merge-manual": "merge-manual",
         "verdict-override": "verdict-override",
+        "policy-override": "policy-override",
       });
     });
 
@@ -1571,6 +1573,7 @@ describe("factory config explain", () => {
           merge-automatic: merge-automatic                                         # default
           merge-manual: merge-manual                                               # default
           verdict-override: verdict-override                                       # default
+          policy-override: policy-override                                         # default
       builds:
         trigger: manual                                                            # default
         runner: github-actions                                                     # default

@@ -17,7 +17,12 @@
 // an issue's, so those paths are read too; `gh pr` and `pulls/N` are not.
 
 import { fencedLines } from "./lib/fences.mts";
-import { PR_LABELS, sameLabel } from "./labels.mts";
+import {
+  APPROVER_LABELS,
+  PR_LABELS,
+  sameLabel,
+  type Labels,
+} from "./labels.mts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -293,10 +298,19 @@ export function refuseBareTags(text: string): void {
 /** An approver's pass of the review verdict for one commit, which no agent
  * adds ("What merges without the owner" in rules.md), by its key or by
  * `name`, the name the settings give it. */
-export function refuseOverride(label: string, name: string): void {
+export function refuseOverride(
+  label: string,
+  names: Pick<Labels["codeHost"], "verdict-override" | "policy-override">,
+): void {
   const given = label.trim();
-  if ([PR_LABELS["verdict-override"], name].some((n) => sameLabel(n, given)))
-    throw new Error(
-      `Refused: the ${name} label is an approver's pass of the review verdict, which an agent never adds.`,
-    );
+  const what = {
+    "verdict-override": "an approver's pass of the review verdict",
+    "policy-override":
+      "an approver's acceptance of what an approval policy found",
+  };
+  for (const key of APPROVER_LABELS)
+    if ([PR_LABELS[key], names[key]].some((n) => sameLabel(n, given)))
+      throw new Error(
+        `Refused: the ${names[key]} label is ${what[key]}, which an agent never adds.`,
+      );
 }
