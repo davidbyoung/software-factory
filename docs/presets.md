@@ -340,15 +340,17 @@ The factory's defaults come first, then each preset in the order
 `presets` lists them, then your own `factory.yaml`. When more than one of
 them sets the same thing, what applies depends on its kind:
 
-| Kind of setting                              | Examples                                                                                                                | What applies when more than one sets it                                                                                      |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| A single value                               | [`rules.small-change-lines`](configuration.md#rules)                                                                    | The later preset's value, unless you [chose](#your-choices) another. Your own `factory.yaml` wins over every preset          |
-| A list of commands run in order              | [`commands.gate`](configuration.md#commandsgate)                                                                        | One whole list, the same way as a single value, since running two lists would run steps twice                                |
-| A list of plugins                            | [`plugins.build.reviewers`](configuration.md#pluginsbuild)                                                              | Every plugin from every list. A plugin named in two lists is treated as a single value                                       |
-| A list of values                             | [`pr-review.commands`](configuration.md#pr-review), [`auto-merge.deny`](configuration.md#auto-merge)                    | Every value from every list, each once                                                                                       |
-| A preset for some folders, added with `--in` | Its [`commands`](configuration.md#commands), [`site`](configuration.md#site), and [`plugins`](configuration.md#plugins) | Added to the rest, not chosen over it, as the next section says                                                              |
-| A setting that names its tool with `type`    | [`tickets`](configuration.md#tickets), [`specs`](configuration.md#specs)                                                | The whole setting from one place, when two places name different tools, so a Jira setup never inherits a GitHub board number |
-| An agent or skill file a preset ships        | `.claude/agents/security-reviewer.md`                                                                                   | The later preset's file, unless you chose another. A file your repository wrote itself always stays                          |
+| Kind of setting                                      | Examples                                                                                                                                   | What applies when more than one sets it                                                                                      |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| A single value                                       | [`rules.small-change-lines`](configuration.md#rules)                                                                                       | The later preset's value, unless you [chose](#your-choices) another. Your own `factory.yaml` wins over every preset          |
+| A list of commands run in order                      | [`commands.gate`](configuration.md#commandsgate)                                                                                           | One whole list, the same way as a single value, since running two lists would run steps twice                                |
+| A list of plugins                                    | [`plugins.build.reviewers`](configuration.md#pluginsbuild)                                                                                 | Every plugin from every list. A plugin named in two lists is treated as a single value                                       |
+| A list of approval policies                          | [`approval-policies`](configuration.md#approval-policies)                                                                                  | Every policy from every list. A policy named in two lists is treated as a single value                                       |
+| A list of values                                     | [`pr-review.commands`](configuration.md#pr-review), [`auto-merge.deny`](configuration.md#auto-merge)                                       | Every value from every list, each once                                                                                       |
+| A preset for some folders, added with `--in`         | Its [`commands`](configuration.md#commands), [`site`](configuration.md#site), [`plugins`](configuration.md#plugins), and approval policies | Added to the rest, not chosen over it, as the next section says                                                              |
+| A setting that names its tool with `type`            | [`tickets`](configuration.md#tickets), [`specs`](configuration.md#specs)                                                                   | The whole setting from one place, when two places name different tools, so a Jira setup never inherits a GitHub board number |
+| An agent or skill file a preset ships                | `.claude/agents/security-reviewer.md`                                                                                                      | The later preset's file, unless you chose another. A file your repository wrote itself always stays                          |
+| A file in an approval policy's folder a preset ships | `.claude/approval-policies/licenses/check.mjs`                                                                                             | The same as an agent's or a skill's file                                                                                     |
 
 A preset added with `--in` is for those folders only:
 
@@ -360,12 +362,13 @@ A preset added with `--in` is for those folders only:
 - **Its `relock` adds to the default,** `npm install`, which a
   repository without a `relock` of its own runs. Only your own `relock`
   replaces the default.
-- **Its reviewers read only changes in its folders.**
+- **Its reviewers read only changes in its folders,** and so do its
+  approval policies, whose `files` are read from each.
 - **It can set nothing else:** `factory config check` fails on any other
   setting in it.
 
-To leave out one plugin a preset adds, name it in your own
-`factory.yaml` with `off: true`:
+To leave out one plugin, or one approval policy, a preset adds, name it
+in your own `factory.yaml` with `off: true`:
 
 ```yaml
 plugins:
@@ -502,8 +505,11 @@ bring the original's later changes into it yourself.
 
 3. **Add the agents and skills its settings name** in `agents/` and
    `skills/`, beside `factory-preset.yaml`, written the way your coding
-   agent expects them ([Plugins](plugins.md)). `factory sync` copies them
-   into each repository that follows the preset.
+   agent expects them ([Plugins](plugins.md)), and each approval policy's
+   files in `approval-policies/NAME/`
+   ([Approval policies](approval-policies.md#ship-a-policy-in-a-preset)).
+   `factory sync` copies them into each repository that follows the
+   preset.
 4. **For a second preset in the same repository,** such as one for Node
    repositories, add a folder with its own `factory-preset.yaml`, and its
    own `agents/` and `skills/` if it needs them. Its name is the

@@ -90,6 +90,7 @@ marked working below exist only in these docs.
 | An organization's one poller, in the repository that holds its preset                                                                                                          | Working                                             |
 | `init` choosing the repository from the checkout's remotes, reading presets before it asks, running the gate, and opening the setup pull request                               | Working                                             |
 | The verdict made a required check by the first run after a repository's setup merges, with `factory enroll`                                                                    | Working                                             |
+| [Approval policies](approval-policies.md): checks whose findings wait for a person's `policy-override`                                                                         | Built. Not yet run end to end                       |
 | A person's GitHub and Claude tokens kept on their machine, for their next repository                                                                                           | Working                                             |
 | Verified commits from a build that acts as an organization's App                                                                                                               | Planned: #77                                        |
 | Another ticket system, such as Jira                                                                                                                                            | Planned: #63                                        |
@@ -128,6 +129,8 @@ built or planned.
   src/session-publish.mts      Publish: what is checked and done, the wait for CI, and the rounds
   src/session-token.mts        signs a job in as an organization's App
   src/review-record.mts        what Publish does with a review's answer
+  src/approval-policies.mts    which approval policies a change sets off, a check's input, and the status
+  src/approval-job.mts         factory approval-policies: the steps of its jobs, and check
   skills/factory-*/SKILL.md    the skills
   agents/factory-*.md          the built-in reviewers
   rules.md                     the process rules

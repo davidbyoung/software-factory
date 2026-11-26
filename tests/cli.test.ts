@@ -192,7 +192,8 @@ describe("factory's usage", () => {
     const usage = factory([]).stderr.split("\n");
     const listed = usage
       .filter((l) => /^ {2}[a-z]/.test(l))
-      .map((l) => l.slice(2, 23).trim())
+      // A name longer than the column is on a line of its own.
+      .map((l) => (l[22] === " " ? l.slice(2, 23) : l.slice(2)).trim())
       .map((c) =>
         c
           .split(" ")

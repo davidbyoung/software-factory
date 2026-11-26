@@ -228,11 +228,15 @@ skill name them, read it as "waits for the owner".
 
 Agents never merge, enable auto-merge, or add the `verdict-override`
 label, an approver's pass of the verdict for one commit, which does not
-pass what it waits for in another repository; `factory pr label`
-and `factory ticket label` refuse it, and the guard hook stops the ordinary
-ways of adding it around them. The merge policy and the verdict run from
-the default branch's copy, so a pull request cannot change how it is judged,
-and changes to them are always the owner's.
+pass what it waits for in another repository, or the `policy-override`
+label, an approver's acceptance of what an approval policy found;
+`factory pr label` and `factory ticket label` refuse both, and the guard
+hook stops the ordinary ways of adding them around them. While "Approval
+policies" waits, a session leaves it alone: it never renames or moves a
+file, or edits a ticket, to stop a policy applying. The merge policy, the
+verdict, and the approval policies run from the default branch's copy, so
+a pull request cannot change how it is judged, and changes to them are
+always the owner's.
 
 ## Spec track
 
