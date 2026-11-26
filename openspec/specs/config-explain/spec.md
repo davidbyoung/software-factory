@@ -140,3 +140,12 @@ The factory SHALL behave as this line says: When `factory config explain` runs, 
 
 - **WHEN** `factory config explain` runs
 - **THEN** it prints `code-host` as a block with `type` and `branch-name`, never on one line, with `branch-name` in double quotes, unmarked when the file sets it and marked with the preset's name when a preset does.
+
+### Requirement: Explain writes items
+
+The factory SHALL behave as this line says: When a command setting has items, `factory config explain` writes each as the item it is, with `in` and `files`, and writes `commands.ignore`, a list of sites, and a preset's `in`, as a valid settings file.
+
+#### Scenario: Explain writes items
+
+- **WHEN** When a command setting has items
+- **THEN** `factory config explain` writes each as the item it is, with `in` and `files`, and writes `commands.ignore`, a list of sites, and a preset's `in`, as a valid settings file.
