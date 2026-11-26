@@ -35,6 +35,11 @@ function under(
 export const CREDENTIAL_NAME =
   /\b[A-Z][A-Z0-9_]*_(?:TOKEN|SECRET|PASSWORD|KEY|PAT|AUTH|CREDENTIALS?)\b/g;
 
+/** A workflow's permission set to write, as GitHub names its permissions,
+ * and an App token's `permission-NAME` inputs. */
+const WRITE_ACCESS =
+  /\b(actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|permission-[\w-]+):\s*['"]?write(?![\w-])/;
+
 /** Where a name the repository has doesn't count: docs and tests, as git
  * pathspecs. */
 export const OUTSIDE_DOCS_AND_TESTS = [
@@ -62,7 +67,7 @@ function threatsMissing(
   ].filter((n) => n !== "GITHUB_TOKEN" && !has(n));
   if (names.length)
     return `missing: ## Threats, since the ticket names a credential this repository does not have: ${names.join(", ")}`;
-  const write = /([\w-]+):\s*['"]?write(?![\w-])/.exec(owner);
+  const write = WRITE_ACCESS.exec(owner);
   return write
     ? `missing: ## Threats, since the ticket gives a workflow write access: ${write[1]}: write`
     : null;

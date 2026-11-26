@@ -676,6 +676,16 @@ describe("the refined check", () => {
       ]);
     });
 
+    it("leaves alone a word followed by write that is no permission", async () => {
+      const r = await refined(
+        owner("Steps: write a test, then fix it."),
+        [],
+        ["--check"],
+        [],
+      );
+      expect(r.out).toEqual(["sound"]);
+    });
+
     it("is sound with a Threats heading", async () => {
       const r = await refined(
         owner(

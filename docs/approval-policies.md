@@ -383,7 +383,8 @@ says whether it is set.
 
 A session spends nothing on it. In GitHub Actions, each push to a pull
 request marked ready runs three jobs: one reads the change, one runs
-`find.mts`, and one posts the status. In a private repository, GitHub
+`find.mts`, and one posts the status. A push to a draft runs only the
+first, which posts that the policies check once it is marked ready. In a private repository, GitHub
 bills each at a minute or more. When `find.mts` picks something, the
 agent takes about a minute, on your coding agent's token.
 

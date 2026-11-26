@@ -272,7 +272,11 @@ Never report a pull request ready while a check is pending or failing, and
 never report a check you have not seen finish. A pending "Approval
 policies" status is not a check to wait for: it waits for a person's
 `policy-override` label, so say in the report that the pull request
-waits for it, and leave it alone.
+waits for it, and leave it alone. When an approver's comment asks for a
+fix to what it found, the status's Details, the summary of the run that
+posted it, list each finding with its file and line, and
+`factory approval-policies check --pull N` runs the policies again on
+this machine. Fix it as any finding; the push is read again.
 
 For each failed check, read the failing job's log and find the failure:
 
