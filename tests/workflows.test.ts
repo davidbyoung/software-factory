@@ -612,6 +612,25 @@ describe("which job an event starts", () => {
     ).not.toContain("approval-prepare");
   });
 
+  it("passes neither override with the other's label", () => {
+    const on = {
+      parts: "approval-policies review",
+      "policy-label": "policy-override",
+    };
+    const policy = started(
+      target("labeled", { label: { name: "policy-override" } }),
+      on,
+    );
+    expect(policy).toContain("approval-label");
+    expect(policy).not.toContain("verdict");
+    const verdict = started(
+      target("labeled", { label: { name: "verdict-override" } }),
+      on,
+    );
+    expect(verdict).toContain("verdict");
+    expect(verdict).not.toContain("approval-label");
+  });
+
   it("fails one job, naming it, for a job it does not have", () => {
     const { dir } = sandbox();
     const r = runScript(run.jobs.unknown!.steps![0]!.run!, dir, {

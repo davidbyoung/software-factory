@@ -510,6 +510,21 @@ describe("approving with the label", () => {
     );
   });
 
+  it("approves nothing on the verdict's override", async () => {
+    const { d, r, posted, host } = await ready({
+      event: {
+        action: "labeled",
+        label: { name: "verdict-override" },
+        pull_request: { number: 7 },
+      },
+    });
+    const before = posted.length;
+    const comments = host.pull(7).comments.length;
+    await approve(d, r.dir);
+    expect(posted.length).toBe(before);
+    expect(host.pull(7).comments.length).toBe(comments);
+  });
+
   it("takes off a label added before the checks kept anything", async () => {
     const { d, r, host } = await ready();
     rmSync(join(r.dir, "kept"), { recursive: true });
@@ -650,6 +665,48 @@ describe("factory approval-policies check", () => {
       "  TypeError: boom",
       "      at check.mjs:9:30",
     ]);
+  });
+
+  it("hands a check the ticket the branch is named for", async () => {
+    const l = local({ "package-lock.json": "x\n" });
+    const inputs: Input[] = [];
+    await check(
+      {
+        settings: parseSettings(
+          {
+            version: 2,
+            repository: "acme/widgets",
+            "code-host": { "branch-name": "{ticket}" },
+            "approval-policies": [POLICIES[0]],
+          },
+          () => true,
+        ),
+        git: gitIn(l.r.checkout),
+        defaultBranch: async () => "main",
+        pull: async () => ({ body: "", head: "", base: "main" }),
+        tickets: {
+          ...memoryTickets([{ key: "12", body: "Add refunds." }], {
+            repository: "acme/widgets",
+          }).tickets,
+          key: (k: string) => k,
+        } as never,
+        runCommand: async (_c, input) => {
+          inputs.push(input);
+          return {
+            status: 0,
+            stdout: '{"findings":[]}',
+            stderr: "",
+            timedOut: false,
+          };
+        },
+        runAgent: async () => ({ findings: [] }),
+        out: () => {},
+        err: () => {},
+      },
+      [],
+    );
+    expect(inputs[0]?.ticket).toEqual({ id: "12", text: "Add refunds." });
+    expect(inputs[0]?.pull).toBeNull();
   });
 
   it("checks a past pull request with --pull", async () => {
