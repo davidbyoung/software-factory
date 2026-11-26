@@ -142,7 +142,11 @@ function setup(
     JSON.stringify(
       o.event ?? {
         action: "opened",
-        pull_request: { number: 7, head: { sha: r.head } },
+        pull_request: {
+          number: 7,
+          head: { sha: r.head },
+          base: { ref: "main" },
+        },
       },
     ),
   );
@@ -212,8 +216,8 @@ describe("preparing the checks", () => {
     expect(input.diff).not.toContain("DROP TABLE");
     expect(readJson(join(r.dir, "input", "1.json")).in).toBe("services/orders");
     expect(outputs).toEqual([
-      `kept=approval-policies-7-${r.head}`,
-      `approved=approval-policies-approved-7-${r.head}`,
+      `kept=approval-policies-7-${r.head}-main`,
+      `approved=approval-policies-approved-7-${r.head}-main`,
       "commands=true",
       "agents=[1]",
     ]);
@@ -262,7 +266,14 @@ describe("preparing the checks", () => {
     const { d, host } = setup(
       {
         labels: ["policy-override"],
-        event: { ...e, pull_request: { number: 7, head: { sha: r.head } } },
+        event: {
+          ...e,
+          pull_request: {
+            number: 7,
+            head: { sha: r.head },
+            base: { ref: "main" },
+          },
+        },
       },
       r,
     );
@@ -413,7 +424,11 @@ describe("posting the status", () => {
       JSON.stringify({
         action: "labeled",
         label: { name: "policy-override" },
-        pull_request: { number: 7, head: { sha: s.r.head } },
+        pull_request: {
+          number: 7,
+          head: { sha: s.r.head },
+          base: { ref: "main" },
+        },
       }),
     );
     s.host.change(7, { labels: ["policy-override"] });
@@ -447,11 +462,53 @@ describe("posting the status", () => {
   });
 });
 
+describe("naming what an approval covers", () => {
+  it("names an approval by its commit and its base, so a change of base finds none", async () => {
+    const s = setup({ policies: [POLICIES[0]] });
+    await prepare(s.d, s.r.dir);
+    const named = (prefix: string) =>
+      s.outputs.filter((o) => o.startsWith(prefix)).at(-1);
+    const prepared = named("approved=");
+    await commands(s.d, s.r.dir);
+    await status(s.d, s.r.dir);
+    writeFileSync(
+      s.d.env.GITHUB_EVENT_PATH!,
+      JSON.stringify({
+        action: "labeled",
+        label: { name: "policy-override" },
+        pull_request: {
+          number: 7,
+          head: { sha: s.r.head },
+          base: { ref: "main" },
+        },
+      }),
+    );
+    s.host.change(7, { labels: ["policy-override"] });
+    await approve(s.d, s.r.dir);
+    expect(named("approved=")).toBe(prepared);
+
+    sh(join(world, "origin"), "branch", "release", "main");
+    s.host.change(7, {
+      base: { sha: "", branch: "release", repository: "acme/widgets" },
+    });
+    writeFileSync(
+      s.d.env.GITHUB_EVENT_PATH!,
+      JSON.stringify({
+        action: "edited",
+        changes: { base: { ref: { from: "main" } } },
+        pull_request: { number: 7 },
+      }),
+    );
+    await prepare(s.d, s.r.dir);
+    expect(named("approved=")).not.toBe(prepared);
+  });
+});
+
 describe("approving with the label", () => {
   const labeled = (head: string) => ({
     action: "labeled",
     label: { name: "policy-override" },
-    pull_request: { number: 7, head: { sha: head } },
+    pull_request: { number: 7, head: { sha: head }, base: { ref: "main" } },
   });
   async function ready(o: Parameters<typeof setup>[0] = {}) {
     const r = repository();
@@ -530,6 +587,19 @@ describe("approving with the label", () => {
     expect(host.pull(7).comments.length).toBe(comments);
   });
 
+  it("takes off a label added before a change of base, and approves nothing", async () => {
+    const { d, r, posted, host } = await ready();
+    host.change(7, {
+      base: { sha: "", branch: "release", repository: "acme/widgets" },
+    });
+    const before = posted.length;
+    await approve(d, r.dir);
+    expect(posted.length).toBe(before);
+    expect(host.pull(7).comments.at(-1)?.body).toContain(
+      "the base is now release, and the change against it is unread",
+    );
+  });
+
   it("takes off a label added before the checks kept anything", async () => {
     const { d, r, host } = await ready();
     rmSync(join(r.dir, "kept"), { recursive: true });
@@ -559,9 +629,9 @@ describe("the run that kept an artifact", () => {
     const outputs: string[] = [];
     const output = (l: string) => void outputs.push(l);
     const runner = memoryRunner({
-      kept: { "approval-policies-7-abc": 91 },
+      kept: { "approval-policies-7-abc-main": 91 },
     }).runner;
-    await kept({ runner, output, env: {} }, ["approval-policies-7-abc"]);
+    await kept({ runner, output, env: {} }, ["approval-policies-7-abc-main"]);
     await kept({ runner: memoryRunner().runner, output, env: {} }, ["x"]);
     expect(outputs).toEqual(["run=91", "run="]);
   });
@@ -571,11 +641,17 @@ describe("the run that kept an artifact", () => {
     const event = join(world, "event.json");
     writeFileSync(
       event,
-      JSON.stringify({ pull_request: { number: 7, head: { sha: "abc" } } }),
+      JSON.stringify({
+        pull_request: {
+          number: 7,
+          head: { sha: "abc" },
+          base: { ref: "main" },
+        },
+      }),
     );
     const outputs: string[] = [];
     const runner = memoryRunner({
-      kept: { "approval-policies-7-abc": 91 },
+      kept: { "approval-policies-7-abc-main": 91 },
     }).runner;
     await kept(
       {
@@ -585,7 +661,7 @@ describe("the run that kept an artifact", () => {
       },
       ["--event", "findings"],
     );
-    expect(outputs).toEqual(["name=approval-policies-7-abc", "run=91"]);
+    expect(outputs).toEqual(["name=approval-policies-7-abc-main", "run=91"]);
   });
 });
 

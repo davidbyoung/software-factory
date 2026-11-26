@@ -41,11 +41,14 @@ import * as say from "./lib/output.mts";
 export const WORKFLOW_FILE = "factory.yml";
 
 /** What the factory names the artifacts that keep a pull request's
- * findings, and what an approval approved, for one commit. */
-export const keptName = (pr: number, head: string) =>
-  `approval-policies-${pr}-${head}`;
-export const approvedName = (pr: number, head: string) =>
-  `approval-policies-approved-${pr}-${head}`;
+ * findings, and what an approval approved, for one commit against one base
+ * branch: a change of base finds neither. An artifact's name takes no `/`,
+ * which a branch's can hold. */
+const baseOf = (branch: string) => branch.replace(/[^\w.-]/g, "-");
+export const keptName = (pr: number, head: string, base: string) =>
+  `approval-policies-${pr}-${head}-${baseOf(base)}`;
+export const approvedName = (pr: number, head: string, base: string) =>
+  `approval-policies-approved-${pr}-${head}-${baseOf(base)}`;
 
 const LABEL_LOOK = {
   color: "b60205",
@@ -137,7 +140,11 @@ type Event = {
   changes?: { base?: unknown };
   label?: { name?: string };
   review?: { state?: string };
-  pull_request?: { number: number; head?: { sha?: string } };
+  pull_request?: {
+    number: number;
+    head?: { sha?: string };
+    base?: { ref?: string };
+  };
 };
 
 const eventOf = (d: Pick<Deps, "env">): Event =>
@@ -225,8 +232,8 @@ export async function prepare(d: Deps, dir: string): Promise<Plan> {
   }
   plan.done = false;
   writeJson(join(dir, "plan.json"), plan);
-  d.output(`kept=${keptName(pr, head)}`);
-  d.output(`approved=${approvedName(pr, head)}`);
+  d.output(`kept=${keptName(pr, head, pull.base.branch)}`);
+  d.output(`approved=${approvedName(pr, head, pull.base.branch)}`);
   d.output(`commands=${plan.checks.some((c) => c.run !== null)}`);
   d.output(
     `agents=${JSON.stringify(plan.checks.filter((c) => c.agent !== null).map((c) => c.i))}`,
@@ -405,6 +412,11 @@ export async function approve(d: Deps, dir: string): Promise<void> {
     return refuse(
       `a newer commit, ${pull.head.sha.slice(0, 7)}, is unread. Add it again once its checks have run.`,
     );
+  const base = event.pull_request!.base?.ref ?? "";
+  if (base !== pull.base.branch)
+    return refuse(
+      `the base is now ${pull.base.branch}, and the change against it is unread. Add it again once its checks have run.`,
+    );
   const keptFile = join(dir, "kept", "results.json");
   if (!existsSync(keptFile))
     return refuse(
@@ -416,7 +428,7 @@ export async function approve(d: Deps, dir: string): Promise<void> {
     head: seen,
     waiting: waitingOf(kept.results),
   });
-  d.output(`approved=${approvedName(pr, seen)}`);
+  d.output(`approved=${approvedName(pr, seen, base)}`);
   await d.codeHost.setStatus(seen, {
     state: "success",
     name: CONTEXT,
@@ -458,6 +470,7 @@ export async function kept(
     name = keptName(
       event.pull_request!.number,
       event.pull_request!.head?.sha ?? "",
+      event.pull_request!.base?.ref ?? "",
     );
     d.output(`name=${name}`);
   }

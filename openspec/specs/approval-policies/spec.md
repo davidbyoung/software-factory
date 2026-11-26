@@ -130,7 +130,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Where findings are kept
 
 - **WHEN** the status has findings
-- **THEN** its link opens the run's summary, which lists each finding by policy and folder with its file, line, title, and why, and the run keeps every policy's answer as the artifact `approval-policies-PR-HEAD`, named by the pull request's number and its head commit, for the longest the repository allows.
+- **THEN** its link opens the run's summary, which lists each finding by policy and folder with its file, line, title, and why, and the run keeps every policy's answer as the artifact `approval-policies-PR-HEAD-BASE`, named by the pull request's number, its head commit, and its base branch, for the longest the repository allows.
 
 ### Requirement: Approving with the label
 
@@ -139,7 +139,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: Approving with the label
 
 - **WHEN** someone adds the `policy-override` label, and GitHub's labeled event names someone who can write to the repository, and the head commit in the event's payload is the pull request's head when the job runs
-- **THEN** the findings in the artifact `approval-policies-PR-HEAD` for that commit, from a run of `.github/workflows/factory.yml` started by `pull_request_target`, are approved, the approval is kept as the artifact `approval-policies-approved-PR-HEAD`, the status reads `Approved by @LOGIN at SHORT-SHA`, and the factory comments the approved findings, by policy, for people to read.
+- **THEN** the findings in the artifact `approval-policies-PR-HEAD-BASE` for that commit, from a run of `.github/workflows/factory.yml` started by `pull_request_target`, are approved, the approval is kept as the artifact `approval-policies-approved-PR-HEAD-BASE`, the status reads `Approved by @LOGIN at SHORT-SHA`, and the factory comments the approved findings, by policy, for people to read.
 
 ### Requirement: A label that approves nothing
 
