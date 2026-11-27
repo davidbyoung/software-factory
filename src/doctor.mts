@@ -53,7 +53,7 @@ import {
   pastedDay,
   type MachineState,
 } from "./lib/credentials.mts";
-import { agentTokenDay, doctorCheck, statusLine } from "./lib/claude-token.mts";
+import { agentTokenDay, doctorCheck, statusLine } from "./lib/token-day.mts";
 import type { StoredSecret } from "./runner/types.mts";
 import type { Registry as Tools } from "./tools.mts";
 import * as say from "./lib/output.mts";

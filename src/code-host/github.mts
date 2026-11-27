@@ -911,6 +911,11 @@ export function githubCodeHost(o: {
           `GitHub refused the token: ${body.message ?? response.statusText}`,
         );
       const scopes = response.headers.get("x-oauth-scopes");
+      // GitHub writes it as `2027-02-25 00:00:00 UTC`, and sends none for a
+      // token that never expires.
+      const expires = /^\d{4}-\d{2}-\d{2}/.exec(
+        response.headers.get("github-authentication-token-expiration") ?? "",
+      )?.[0];
       return {
         account: body.login,
         scopes:
@@ -920,6 +925,7 @@ export function githubCodeHost(o: {
                 .split(",")
                 .map((x) => x.trim())
                 .filter(Boolean),
+        expires: expires ?? "never",
       };
     },
     scopesFor: (needs) =>

@@ -239,6 +239,7 @@ describe("the code host's setup operations, on GitHub", () => {
     expect(await h.tokenOwner("ghp_x")).toEqual({
       account: "dave",
       scopes: ["repo", "workflow", "project"],
+      expires: "never",
     });
     expect(seen).toEqual(["https://api.github.com/user Bearer ghp_x"]);
   });
@@ -252,7 +253,25 @@ describe("the code host's setup operations, on GitHub", () => {
     expect(await h.tokenOwner("github_pat_x")).toEqual({
       account: "dave",
       scopes: null,
+      expires: "never",
     });
+  });
+
+  const expiring = (header: string) =>
+    (async () =>
+      new Response(JSON.stringify({ login: "dave" }), {
+        status: 200,
+        headers: { "github-authentication-token-expiration": header },
+      })) as unknown as typeof fetch;
+
+  it("reads the day a token expires from GitHub's answer", async () => {
+    const { host: h } = host([], expiring("2027-02-25 00:00:00 UTC"));
+    expect((await h.tokenOwner("ghp_x")).expires).toBe("2027-02-25");
+  });
+
+  it("counts a header that names no day as none, so the token never expires", async () => {
+    const { host: h } = host([], expiring("soon"));
+    expect((await h.tokenOwner("ghp_x")).expires).toBe("never");
   });
 
   it("refuses a token GitHub refuses", async () => {
