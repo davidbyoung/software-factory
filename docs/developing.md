@@ -443,9 +443,11 @@ and every command that reads the settings and reaches a pull request, with
 
 A command that a workflow also runs, such as `factory pr`, does not read
 the settings there, so an unreadable settings file cannot fail the
-workflow's step; it asks for the default. The poller you host has no
-settings at all and names its implementations itself; a scheduled pass
-reads the settings only for its board and Ready column.
+workflow's step; it asks for the default. Both pollers read only the
+settings they use, the ticket system included: a scheduled pass from its
+checkout, and the poller you host from the lock on the default branch.
+Each names the code host and the runner itself, GitHub and GitHub
+Actions.
 
 | Operation                                | In `CodeHost`                                                 | What it returns or does                                                                                                                                                                                                                                                                                  |
 | ---------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
