@@ -655,6 +655,7 @@ describe("factory init, the GitHub access token's days", () => {
     expect(
       r.asked.filter((q) => q.startsWith("secret:")).join("\n"),
     ).not.toContain("Paste it (leave empty");
+    expect(r.out.join("\n")).not.toContain("from this machine");
   });
 
   it("offers the machine's newer token in place of an older one here, and stores it with nothing to paste", async () => {
