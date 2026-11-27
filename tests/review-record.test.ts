@@ -395,6 +395,14 @@ describe("recordReview", () => {
     const pull = {
       labels: ["owner-pass"],
       labeledBy: { "owner-pass": "acme" },
+      comments: [
+        {
+          id: 1,
+          author: "github-actions[bot]",
+          body: `Overridden.\n<!-- verdict-override: ${HEAD} -->`,
+          createdAt: "2026-11-22T15:00:00Z",
+        },
+      ],
     };
     const overridden = world(answer(), { pull, override: "owner-pass" });
     await overridden.go();
