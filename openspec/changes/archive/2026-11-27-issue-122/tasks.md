@@ -17,13 +17,13 @@
 - [x] 2.1 Write `docs/github/reference.md` and `docs/updating.md` as Proposed docs shows them. Verify: `npm run format` leaves them as written, and the docs tests pass.
 - [x] 2.2 Add a docs test that the reference page's "Group" table names exactly each group's jobs, by their `name`, and that the jobs it lists as in no group are `run.yml`'s own. Verify: red when a job's `name` in a group file changes.
 - [x] 2.3 List the three files in `CLAUDE.md` and `docs/developing.md` where `run.yml` is listed as source. Verify: `grep -n 'session.yml' CLAUDE.md docs/developing.md` shows each list with them.
-- [ ] 2.4 `factory specs new 122`, write Spec 1 to 7 and the "No longer" changes into the change, and `factory specs finish 122`. Verify: `factory specs check` passes.
+- [x] 2.4 `factory specs new 122`, write Spec 1 to 7 and the "No longer" changes into the change, and `factory specs finish 122`. Verify: `factory specs check` passes.
 
 ## 3. Verify
 
-- [ ] 3.1 Map each Spec line to its test: 1 to 1.5, 2 to 1.1 and 1.2, 3 to 1.6 and 3.2, 4 to 1.5 and 3.2, 5 to 1.7, 6 to the existing follow-ups rows of "which job an event starts" read through 1.1, and 7 to its push row. Name any line without one and write it.
+- [x] 3.1 Map each Spec line to its test: 1 to 1.5, 2 to 1.1 and 1.2, 3 to 1.6 and 3.2, 4 to 1.5 and 3.2, 5 to 1.7, 6 to the existing follow-ups rows of "which job an event starts" read through 1.1, and 7 to its push row. Name any line without one and write it.
 - [ ] 3.2 After `factory pr open --draft`, push the branch and run its own workflows by hand, which runs its `run.yml` and the groups it calls: `gh workflow run factory.yml --ref BRANCH -f job=board`, and `gh workflow run factory.yml --ref BRANCH -f job=order -f pr=N` with this pull request's number. Each run must pass, and its jobs must read as Spec 3 and 4 say: `factory / Tickets / Sync the board` and `factory / Pull request / Record the verdict` among the run's jobs, and each other call one skipped row. Put both runs' job lists in the pull request. Verify: `gh run view RUN --json jobs --jq '.jobs[].name'` for each.
 
 ## 4. The gate
 
-- [ ] 4.1 `npm run format`, then `factory gate`, then `npm run pack-check`. No end-to-end spec is added.
+- [x] 4.1 `npm run format`, then `factory gate`, then `npm run pack-check`. No end-to-end spec is added.
