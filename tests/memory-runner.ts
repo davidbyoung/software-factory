@@ -142,8 +142,10 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
       called("secretNames");
       return [...secrets.keys()];
     },
+    // One listing with secretNames, so it fails as that does.
     async secrets() {
       called("secrets");
+      if (fail.secretNames) throw fail.secretNames;
       return [...secrets.keys()].map(storedOf);
     },
     async setSecret(name, value) {
@@ -165,6 +167,7 @@ export function memoryRunner(options: MemoryRunnerOptions = {}) {
     },
     async organizationSecrets() {
       called("organizationSecrets");
+      if (fail.organizationSecretNames) throw fail.organizationSecretNames;
       return (options.organizationSecrets ?? []).map(storedOf);
     },
     async organizationVariableNames() {

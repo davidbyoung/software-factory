@@ -3,7 +3,7 @@
 // same checks.
 //
 // A stored secret cannot be read back, so a secret is checked only for
-// being set.
+// being set, and the coding agent's token for the day it stops working.
 import { listed } from "./lib/listed.mts";
 import { message, reasonOf } from "./lib/reason.mts";
 import { existsSync, readFileSync } from "node:fs";
@@ -48,7 +48,14 @@ import { FACTORY_FILE, POLLER_FILE } from "./workflow-files.mts";
 import { PROPERTY } from "./init-org.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
-import { machineState, type MachineState } from "./lib/credentials.mts";
+import {
+  machineState,
+  pastedDay,
+  type MachineState,
+} from "./lib/credentials.mts";
+import { agentTokenDay, doctorCheck } from "./lib/claude-token.mts";
+import type { StoredSecret } from "./runner/types.mts";
+import type { Registry as Tools } from "./tools.mts";
 import * as say from "./lib/output.mts";
 
 export type { Check } from "./setup.mts";
@@ -75,6 +82,8 @@ export type DoctorDeps = {
   out: say.Out;
   /** Where a credential's variables and the credentials file are read. */
   env?: Record<string, string | undefined>;
+  /** Today, for the day the coding agent's token stops working. */
+  now?: () => Date;
 };
 
 const SYNC = "Run factory sync";
@@ -230,9 +239,10 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   const withheldBy = isOrganization
     ? await opened.codeHost.secretsWithheldBy().catch(() => null)
     : null;
-  const stored = isOrganization
-    ? await opened.runner.organizationSecretNames().catch(() => [])
+  const storedDated: StoredSecret[] = isOrganization
+    ? await opened.runner.organizationSecrets().catch(() => [])
     : [];
+  const stored = storedDated.map((x) => x.name);
   const shared = withheldBy ? [] : stored;
   const withheld = (name: string): Check | null =>
     withheldBy && stored.includes(name)
@@ -243,8 +253,10 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
         }
       : null;
   let own: string[] | null;
+  let ownDated: StoredSecret[] = [];
   try {
-    own = await opened.runner.secretNames();
+    ownDated = await opened.runner.secrets();
+    own = ownDated.map((x) => x.name);
   } catch (e) {
     own = null;
     out.push({
@@ -312,8 +324,25 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
   if (secrets !== null)
     for (const need of needed.filter((n) => n.part === null))
       reading(need.anyOf, need.tool);
-  for (const { anyOf, fors } of reads.values())
-    out.push({ ...secretLine(anyOf, listed(fors)), group: runner!.label });
+  for (const { anyOf, fors } of reads.values()) {
+    const set = secretLine(anyOf, listed(fors));
+    out.push({ ...set, group: runner!.label });
+    if (set.state !== "pass" || !anyOf.includes(AGENT_TOKEN)) continue;
+    const day = agentTokenDay({
+      own: ownDated,
+      shared: withheldBy ? [] : storedDated,
+      org: isOrganization ? ownerOf(s.repository) : null,
+      pasted: isOrganization
+        ? null
+        : pastedDay({
+            tool: chosen.agent,
+            site: `${opened.codeHost.remote(s.repository).host}/${ownerOf(s.repository)}`,
+            env: d.env ?? process.env,
+          }),
+      now: (d.now ?? (() => new Date()))(),
+    });
+    if (day) out.push({ ...doctorCheck(day), group: runner!.label });
+  }
 
   out.push(
     ...under(
@@ -373,6 +402,25 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     .map((c, i) => [c, i] as const)
     .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
     .map(([c]) => c);
+}
+
+/** Whether anything on reads the coding agent's token: a part, by the
+ * tools' steps, or an approval policy's agent. It is how `doctor` decides
+ * to print the token's line, and `status` its warning. */
+export function readsAgentToken(
+  s: Settings,
+  tools: Tools,
+  context: (parts: Iterable<Part>) => SetupContext,
+  secrets: string[],
+): boolean {
+  if (s.approvalPolicies.some((p) => p.agent !== null)) return true;
+  const cloudNeeds = secretSteps(tools, context(["cloud"])).flatMap((x) =>
+    x.step.needs.filter((n) => n.part === "cloud"),
+  );
+  const on = partsOn(s, secrets, cloudNeeds);
+  return neededSecrets(on, secretSteps(tools, context(on))).some((n) =>
+    n.anyOf.includes(AGENT_TOKEN),
+  );
 }
 
 /** Where what a job may do by default is set. */

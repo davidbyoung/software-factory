@@ -119,3 +119,26 @@ export function statusLine(t: TokenDay): say.Line | null {
         `${AGENT_TOKEN} stopped working by ${t.day}. ${fix ?? "Run factory init"}`,
       );
 }
+
+/** The coding agent's token's day, from the repository's own secrets,
+ * then the organization's that reach it. `org` names the organization
+ * that owns the repository, and `pasted` is read only for a person's. */
+export function agentTokenDay(o: {
+  own: { name: string; stored: string }[];
+  shared: { name: string; stored: string }[];
+  org: string | null;
+  pasted: string | null;
+  now: Date;
+}): TokenDay | null {
+  const own = o.own.find((x) => x.name === AGENT_TOKEN);
+  if (own)
+    return tokenDay({
+      stored: own.stored,
+      pasted: o.org === null ? o.pasted : null,
+      now: o.now,
+    });
+  const shared = o.shared.find((x) => x.name === AGENT_TOKEN);
+  return shared && o.org !== null
+    ? tokenDay({ stored: shared.stored, now: o.now, org: o.org })
+    : null;
+}
