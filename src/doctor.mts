@@ -49,11 +49,22 @@ import { PROPERTY } from "./init-org.mts";
 import { inUse, secretSteps, TOOLS, type Registry } from "./tools.mts";
 import { fieldChecks } from "./ticket-fields.mts";
 import {
+  keptDays,
   machineState,
   pastedDay,
   type MachineState,
 } from "./lib/credentials.mts";
-import { agentTokenDay, doctorCheck, statusLine } from "./lib/token-day.mts";
+import {
+  accessChecks,
+  accessDay,
+  accessStatusLines,
+  agentTokenDay,
+  doctorCheck,
+  holders,
+  statusLine,
+  type AccessDay,
+  type Holders,
+} from "./lib/token-day.mts";
 import type { StoredSecret } from "./runner/types.mts";
 import type { Registry as Tools } from "./tools.mts";
 import * as say from "./lib/output.mts";
@@ -343,6 +354,34 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     });
     if (day) out.push({ ...doctorCheck(day), group: runner!.label });
   }
+  // The access token's lines go after the last line for its secrets.
+  const access =
+    own === null
+      ? null
+      : accessTokenOf({
+          tools: d.tools,
+          context: () => context(on),
+          own: ownDated,
+          isOrganization,
+          codeHost: chosen.codeHost,
+          site: `${opened.codeHost.remote(s.repository).host}/${ownerOf(s.repository)}`,
+          env: d.env ?? process.env,
+          now: (d.now ?? (() => new Date()))(),
+        });
+  if (access) {
+    const its = [...access.holders.names, ...access.holders.older];
+    const at = out.findLastIndex((c) =>
+      its.some((n) => c.text.startsWith(`${n} is set`)),
+    );
+    out.splice(
+      at + 1,
+      0,
+      ...accessChecks(access.day, access.holders).map((c) => ({
+        ...c,
+        group: runner!.label,
+      })),
+    );
+  }
 
   out.push(
     ...under(
@@ -423,9 +462,10 @@ export function readsAgentToken(
   );
 }
 
-/** The line `status` ends with on the coding agent's token: from 30 days
- * before the day it stops working, when `doctor` would print that day.
- * A read that fails rejects, and `status` then says nothing. */
+/** The lines `status` ends with on the tokens: the coding agent's from 30
+ * days before the day it stops working, when `doctor` would print that
+ * day, then the GitHub access token's. A read that fails rejects, and
+ * `status` then says nothing. */
 export async function tokenWarning(o: {
   settings: Settings;
   tools: Tools;
@@ -434,7 +474,7 @@ export async function tokenWarning(o: {
   opened: Opened;
   env: Record<string, string | undefined>;
   now: Date;
-}): Promise<say.Line | null> {
+}): Promise<say.Line[]> {
   const s = o.settings;
   const isOrganization = await o.opened.codeHost.ownerIsOrganization();
   const withheld =
@@ -460,22 +500,72 @@ export async function tokenWarning(o: {
     opened: o.opened,
   });
   const names = [...own, ...shared].map((x) => x.name);
-  if (!readsAgentToken(s, o.tools, context, names)) return null;
   const owner = ownerOf(s.repository);
-  const day = agentTokenDay({
+  const site = `${o.opened.codeHost.remote(s.repository).host}/${owner}`;
+  const out: say.Line[] = [];
+  if (readsAgentToken(s, o.tools, context, names)) {
+    const day = agentTokenDay({
+      own,
+      shared,
+      org: isOrganization ? owner : null,
+      pasted: isOrganization
+        ? null
+        : pastedDay({ tool: chosen.agent, site, env: o.env }),
+      now: o.now,
+    });
+    const line = day && statusLine(day);
+    if (line) out.push(line);
+  }
+  // The access token's lines have a gate of their own.
+  const cloudNeeds = secretSteps(o.tools, context(["cloud"])).flatMap((x) =>
+    x.step.needs.filter((n) => n.part === "cloud"),
+  );
+  const on = partsOn(s, names, cloudNeeds);
+  const access = accessTokenOf({
+    tools: o.tools,
+    context: () => context(on),
     own,
-    shared,
-    org: isOrganization ? owner : null,
-    pasted: isOrganization
-      ? null
-      : pastedDay({
-          tool: chosen.agent,
-          site: `${o.opened.codeHost.remote(s.repository).host}/${owner}`,
-          env: o.env,
-        }),
+    isOrganization,
+    codeHost: chosen.codeHost,
+    site,
+    env: o.env,
     now: o.now,
   });
-  return day && statusLine(day);
+  if (access) out.push(...accessStatusLines(access.day, access.holders));
+  return out;
+}
+
+/** The GitHub access token a person keeps on this machine: its day, from
+ * what `init` wrote beside it, and which of the secrets its step stores it
+ * under for the parts on hold it. Null in an organization's repository,
+ * with no such token on this machine, or with none of its secrets set. */
+export function accessTokenOf(o: {
+  tools: Tools;
+  context: () => SetupContext;
+  own: StoredSecret[];
+  isOrganization: boolean;
+  codeHost: string;
+  site: string;
+  env: Record<string, string | undefined>;
+  now: Date;
+}): { day: AccessDay | null; holders: Holders } | null {
+  if (o.isOrganization) return null;
+  const days = keptDays({ tool: o.codeHost, site: o.site, env: o.env });
+  if (!days.held) return null;
+  const kept = secretSteps(o.tools, o.context()).find(
+    (x) => x.name === o.codeHost && x.step.kind === "secret" && x.step.machine,
+  );
+  if (!kept || kept.step.kind !== "secret") return null;
+  const h = holders({
+    secrets: o.own,
+    names: kept.step.storeAs,
+    pasted: days.pasted,
+  });
+  if (!h.names.length && !h.older.length) return null;
+  return {
+    day: days.expires ? accessDay(days.expires, o.now) : null,
+    holders: h,
+  };
 }
 
 /** Where what a job may do by default is set. */

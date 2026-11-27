@@ -280,6 +280,103 @@ describe("factory doctor, with approval policies", () => {
   });
 });
 
+describe("factory doctor, the day the GitHub access token expires", () => {
+  const PARTS = { "auto-merge": { allow: ["docs/**"] } };
+  const SET = {
+    CLAUDE_CODE_OAUTH_TOKEN: "x",
+    FACTORY_BUILD_TOKEN: "x",
+    FACTORY_AUTOMERGE_TOKEN: "x",
+  };
+  /** The machine's file, holding the access token with these days. */
+  const machine = (values: Record<string, string>) => {
+    const home = mkdtempSync(join(tmpdir(), "doctor-home-"));
+    roots.push(home);
+    const env = { XDG_CONFIG_HOME: home };
+    writeCredential({
+      tool: "github",
+      site: "code.example/acme",
+      values: { token: "ghp_x", ...values },
+      env,
+    });
+    return env;
+  };
+  /** The line right after the last line that says one of the token's
+   * secrets is set. */
+  const afterSet = (out: string[]) => {
+    const last = out.findLastIndex((l) =>
+      /^✓ FACTORY_(BUILD|AUTOMERGE|BOARD)_TOKEN is set/.test(l),
+    );
+    return out.slice(last + 1, last + 3);
+  };
+
+  it("says when the token in its secrets expires, after the last of them", async () => {
+    const { run, out } = doctor({
+      raw: PARTS,
+      secrets: SET,
+      env: machine({ pasted: "2026-10-03", expires: "2027-01-01" }),
+    });
+    expect(await run()).toBe(0);
+    expect(afterSet(out)[0]).toBe(
+      "✓ The GitHub access token in FACTORY_BUILD_TOKEN and FACTORY_AUTOMERGE_TOKEN expires on 2027-01-01",
+    );
+  });
+
+  it("warns in its last 30 days without failing, and fails after", async () => {
+    const soon = doctor({
+      raw: PARTS,
+      secrets: SET,
+      env: machine({ pasted: "2026-10-03", expires: "2026-12-10" }),
+    });
+    expect(await soon.run()).toBe(0);
+    expect(afterSet(soon.out)[0]).toBe(
+      "? The GitHub access token in FACTORY_BUILD_TOKEN and FACTORY_AUTOMERGE_TOKEN expires on 2026-12-10, in 13 days. Run factory init to replace it",
+    );
+    const over = doctor({
+      raw: PARTS,
+      secrets: SET,
+      env: machine({ pasted: "2026-10-03", expires: "2026-11-20" }),
+    });
+    expect(await over.run()).toBe(1);
+    expect(afterSet(over.out)[0]).toBe(
+      "✗ The GitHub access token in FACTORY_BUILD_TOKEN and FACTORY_AUTOMERGE_TOKEN expired on 2026-11-20. Run factory init",
+    );
+  });
+
+  it("names a secret stored before the token on this machine was pasted", async () => {
+    const { run, out } = doctor({
+      raw: PARTS,
+      secrets: SET,
+      stored: { FACTORY_AUTOMERGE_TOKEN: "2026-10-01T00:00:00Z" },
+      env: machine({ pasted: "2026-11-01", expires: "2027-01-30" }),
+    });
+    expect(await run()).toBe(0);
+    expect(afterSet(out)).toEqual([
+      "✓ The GitHub access token in FACTORY_BUILD_TOKEN expires on 2027-01-30",
+      "? FACTORY_AUTOMERGE_TOKEN here is older than the GitHub access token on this machine. Run factory init to store that one in its place",
+    ]);
+  });
+
+  it.each<[string, Parameters<typeof doctor>[0]]>([
+    ["no token on this machine", { raw: PARTS, secrets: SET }],
+    [
+      "an organization's repository",
+      {
+        raw: PARTS,
+        secrets: SET,
+        organization: true,
+        env: machine({ pasted: "2026-10-03", expires: "2026-12-10" }),
+      },
+    ],
+  ])("says nothing of it for %s", async (_what, o) => {
+    const { run, out } = doctor(o);
+    await run();
+    expect(out).toContain(
+      "✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
+    );
+    expect(out.join("\n")).not.toContain("GitHub access token");
+  });
+});
+
 describe("factory doctor, the day the Claude token stops working", () => {
   const SET =
     "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request";
@@ -1510,6 +1607,7 @@ describe("the warning status gives on the Claude token", () => {
     stored?: Record<string, string>;
     organization?: boolean;
     secretsWithheldBy?: string;
+    env?: Record<string, string>;
   }) => {
     const tickets = memoryTickets([]).tickets;
     const codeHost = memoryCodeHost([], {
@@ -1529,11 +1627,67 @@ describe("the warning status gives on the Claude token", () => {
       root: "/nowhere",
       hasCommand: () => true,
       opened: { codeHost, runner, tickets },
-      env: { XDG_CONFIG_HOME: "/nonexistent" },
+      env: o.env ?? { XDG_CONFIG_HOME: "/nonexistent" },
       now: NOW,
     });
-    return line && plainOf(line);
+    return line.length ? line.map(plainOf).join("\n") : null;
   };
+
+  /** The machine's file, holding the access token with these days. */
+  const machine = (values: Record<string, string>) => {
+    const home = mkdtempSync(join(tmpdir(), "status-home-"));
+    roots.push(home);
+    const env = { XDG_CONFIG_HOME: home };
+    writeCredential({
+      tool: "github",
+      site: "code.example/acme",
+      values: { token: "ghp_x", ...values },
+      env,
+    });
+    return env;
+  };
+  const AUTOMERGE = { "auto-merge": { allow: ["docs/**"] } };
+
+  it("warns in the access token's last 30 days, whether or not anything reads the Claude token", async () => {
+    expect(
+      await warning({
+        raw: AUTOMERGE,
+        secrets: { FACTORY_AUTOMERGE_TOKEN: "x" },
+        env: machine({ pasted: "2026-10-03", expires: "2026-12-10" }),
+      }),
+    ).toBe(
+      "? The GitHub access token expires on 2026-12-10, in 13 days. Run factory init to replace it",
+    );
+  });
+
+  it("gives the Claude token's line first, then the access token's", async () => {
+    expect(
+      await warning({
+        raw: { ...AUTOMERGE, "pr-review": null },
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_AUTOMERGE_TOKEN: "x" },
+        stored: {
+          CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z",
+          FACTORY_AUTOMERGE_TOKEN: "2026-01-01T00:00:00Z",
+        },
+        env: machine({ pasted: "2026-10-03", expires: "2026-12-10" }),
+      }),
+    ).toBe(
+      [
+        "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
+        "? FACTORY_AUTOMERGE_TOKEN here is older than the GitHub access token on this machine. Run factory init to replace it",
+      ].join("\n"),
+    );
+  });
+
+  it("says nothing of an access token more than 30 days from its day", async () => {
+    expect(
+      await warning({
+        raw: AUTOMERGE,
+        secrets: { FACTORY_AUTOMERGE_TOKEN: "x" },
+        env: machine({ pasted: "2026-10-03", expires: "2027-01-01" }),
+      }),
+    ).toBeNull();
+  });
 
   it("warns in the token's last 30 days", async () => {
     expect(
