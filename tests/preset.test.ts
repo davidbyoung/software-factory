@@ -25,6 +25,7 @@ import {
   deps,
   install,
   installAcme,
+  NODE_SETTINGS,
   lockPin,
   NODE,
   own,
@@ -178,10 +179,17 @@ describe("combining presets", () => {
     ]);
   });
 
-  it("turns the review off with the repository's pr-review: false over a preset's true", async () => {
-    acme([ACME, NODE], ["pr-review: false"]);
-    expect((await resolveAt(root)).settings.prReview).toBe(false);
-  });
+  it.each([
+    [[], true],
+    [["pr-review: false"], false],
+  ])(
+    "takes a preset's pr-review: true unless the repository's %j says otherwise",
+    async (body, on) => {
+      root = repo(own([ACME, NODE], body));
+      installAcme(root, undefined, `${NODE_SETTINGS}pr-review: true\n`);
+      expect((await resolveAt(root)).settings.prReview).toBe(on);
+    },
+  );
 
   it("adds up every layer's builds.hosts, each once", async () => {
     root = repo(
