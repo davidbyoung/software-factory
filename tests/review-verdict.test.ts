@@ -145,6 +145,28 @@ describe("decide, on the pull request's own events", () => {
     ).toBe(true);
   });
 
+  it("starts over, and removes an approver's override, when the base branch changes", () => {
+    expect(
+      pr({
+        action: "edited",
+        baseChanged: true,
+        verdict: "ready",
+        hasOverride: true,
+        overrideOnHead: true,
+        overrideByApprover: true,
+      }),
+    ).toEqual({
+      state: "pending",
+      description: "Waiting for the review of this commit",
+      removeOverride: true,
+    });
+  });
+
+  it("posts nothing for an edit that leaves the base branch alone", () => {
+    expect(pr({ action: "edited", verdict: "ready" })).toBeNull();
+    expect(on({ action: "edited", reviewOff: true })).toBeNull();
+  });
+
   it("passes and announces when an approver adds the override", () => {
     expect(
       pr({
@@ -494,7 +516,7 @@ describe("apply", () => {
     expect(writes).toEqual(["comment 31", `setStatus ${HEAD} Review verdict`]);
     expect(host.pull(31).labels).toEqual(["verdict-override"]);
     expect(comments(host)).toEqual([
-      `\`Review verdict\` overridden by @alice at 4c1d2ab. 0 review thread(s) still open; each must be resolved before this can merge. A new push removes the override.\n<!-- verdict-override: ${HEAD} -->`,
+      `\`Review verdict\` overridden by @alice at 4c1d2ab. 0 review thread(s) still open; each must be resolved before this can merge. A new push, or a change of the base branch, removes the override.\n<!-- verdict-override: ${HEAD} -->`,
     ]);
   });
 

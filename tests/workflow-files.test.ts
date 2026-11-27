@@ -74,11 +74,16 @@ describe("factory.yml", () => {
     ]);
   });
 
-  it("starts on a pull request's edit, for a change of its base, only with approval policies on", () => {
-    expect(factory().on.pull_request_target.types).not.toContain("edited");
+  it("starts on a pull request's edit, for a change of its base, with a part that runs on one", () => {
+    for (const part of ["review", "auto-merge", "approval-policies"] as const)
+      expect(
+        factory({ parts: [part] }).on.pull_request_target.types,
+        part,
+      ).toContain("edited");
     expect(
-      factory({ parts: ["approval-policies"] }).on.pull_request_target.types,
-    ).toContain("edited");
+      factory({ parts: ["board", "poller", "dependabot"] }).on
+        .pull_request_target.types,
+    ).not.toContain("edited");
   });
 
   it("names the default branch in the push trigger, quoted where YAML needs it", () => {

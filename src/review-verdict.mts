@@ -6,8 +6,8 @@
 //
 // It is posted on two occasions: a review ending, by the review's own run
 // (`review-record.mts`), and an event of the pull request itself
-// (pull_request_target: opened, pushed to, marked ready, or labeled with the
-// override), by this command, from main's copy. What the review found is
+// (pull_request_target: opened, pushed to, marked ready, given another base
+// branch, or labeled with the override), by this command, from main's copy. What the review found is
 // what its run says as it ends, and after that the status the run set on
 // the commit, never a comment.
 // The verdict is posted on one commit, so a new push always starts without
@@ -46,6 +46,8 @@ export type Input = {
   event: "review" | "pull_request_target";
   /** pull_request_target's action, such as synchronize or labeled. */
   action?: string;
+  /** An edited action changed the base branch. */
+  baseChanged?: boolean;
   /** The label added or removed, on a labeled or unlabeled action. */
   label?: string;
   /** The override's name, as `code-host.labels` gives it. */
@@ -134,6 +136,7 @@ function withoutOverride(input: Input): Decision {
 
 /** The status to post, or null to leave the commit's status as it is. */
 export function decide(input: Input): Decision | null {
+  if (input.action === "edited" && !input.baseChanged) return null;
   if (input.isDependabot) {
     return {
       state: "success",
@@ -148,8 +151,9 @@ export function decide(input: Input): Decision | null {
       input.label !== (input.override ?? OVERRIDE);
     return otherLabel ? null : OFF;
   }
-  if (input.action === "synchronize") {
-    // The approver overrode the commit they read. The new one is unread.
+  if (input.action === "synchronize" || input.action === "edited") {
+    // The approver overrode the change they read: a new commit, or this one
+    // against another base, is unread.
     return { ...WAITING, removeOverride: input.hasOverride };
   }
   if (input.hasOverride && !input.overrideByApprover) {
@@ -325,7 +329,8 @@ export async function apply(
     hasOverride &&
     !isDependabot &&
     !reviewOff &&
-    event.action !== "synchronize"
+    event.action !== "synchronize" &&
+    event.action !== "edited"
   )
     try {
       overrideBy = await pulls.labeledBy(pr.number, override);
@@ -344,6 +349,7 @@ export async function apply(
   const decided = decide({
     event: review ? "review" : "pull_request_target",
     action: event.action,
+    baseChanged: event.changes?.base !== undefined,
     label: event.label?.name,
     override,
     isDependabot,
@@ -370,7 +376,7 @@ export async function apply(
       pr.number,
       `\`${CONTEXT}\` overridden by @${overrideBy} at ${sha.slice(0, 7)}. ` +
         `${open} review thread(s) still open; each must be resolved before this can merge. ` +
-        `A new push removes the override.\n${recordOf(sha)}`,
+        `A new push, or a change of the base branch, removes the override.\n${recordOf(sha)}`,
     );
   }
 
