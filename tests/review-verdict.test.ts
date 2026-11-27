@@ -400,6 +400,7 @@ describe("apply", () => {
       sender: string,
       added = override ?? "verdict-override",
       seen = host.pull(31).head.sha,
+      changes?: Record<string, unknown>,
     ) => {
       if (action === "labeled")
         host.change(31, { labeledBy: { [added]: sender } });
@@ -411,6 +412,7 @@ describe("apply", () => {
           sender: { login: sender },
           repository: { owner: { login: "acme" } },
           pull_request: { number: 31, head: { sha: seen } },
+          ...(changes ? { changes } : {}),
         },
         pulls: host.codeHost,
         log: (line) => void log.push(line),
@@ -637,6 +639,33 @@ describe("apply", () => {
     });
   });
 
+  describe("on an edit of the pull request", () => {
+    it("starts over, and takes an approver's override off with no comment, when the base branch changes", async () => {
+      const { host, log, go } = setUp();
+      await go("labeled", "alice");
+      log.length = 0;
+
+      await go("edited", "alice", undefined, undefined, {
+        base: { ref: { from: "side" } },
+      });
+      expect(log).toEqual([
+        `Review verdict on ${HEAD}: pending, Waiting for the review of this commit`,
+      ]);
+      expect(host.pull(31).labels).toEqual([]);
+      expect(comments(host)).toHaveLength(1);
+    });
+
+    it("posts nothing when the base branch stays the same", async () => {
+      const { host, log, go } = setUp();
+
+      await go("edited", "alice", undefined, undefined, {
+        title: { from: "Old" },
+      });
+      expect(log).toEqual(["Nothing to post."]);
+      expect(host.pull(31).labels).toEqual(["verdict-override"]);
+    });
+  });
+
   describe("with the override renamed by the settings", () => {
     it("passes the verdict for an approver who adds the configured name", async () => {
       const { log, go } = setUp({}, ["owner-pass"], "owner-pass");
@@ -685,6 +714,7 @@ describe("apply", () => {
     it.each<[string, string, string[]]>([
       ["the label is off", "reopened", []],
       ["a push takes it off", "synchronize", ["verdict-override"]],
+      ["an edit takes it off or posts nothing", "edited", ["verdict-override"]],
     ])("does not ask who added it when %s", async (_, action, labels) => {
       const { host, go } = setUp({}, labels);
 
