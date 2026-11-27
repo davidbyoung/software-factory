@@ -40,7 +40,7 @@ const PRESETS: Record<string, FakePreset> = {
       tickets: { board: 12, columns: FACTORY_COLUMNS },
       "code-host": { "branch-name": "{user}/{ticket}" },
       specs: "none",
-      "pr-review": { commands: [] },
+      "pr-review": true,
       builds: { trigger: "github-action", "poll-minutes": 30 },
     },
     summary: [

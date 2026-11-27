@@ -1629,12 +1629,11 @@ verdict that [`auto-merge`](#auto-merge) waits for. It is separate from
 your own CI, which keeps running your tests as before.
 
 ```yaml
-pr-review: {}
+pr-review: true
 ```
 
-- **Default:** off. Writing `pr-review` turns it on, even with nothing
-  under it (`pr-review: {}`), and `factory sync` then turns the review's
-  run on in `.github/workflows/factory.yml`. While it is off,
+- **Default:** off. `true` turns it on, and `factory sync` then turns the
+  review's run on in `.github/workflows/factory.yml`. While it is off,
   each pull request's "Review verdict" status passes, reading "The
   automated review is off". `factory config get pr-review` prints `on`
   or `off`.
@@ -1644,12 +1643,11 @@ pr-review: {}
   [the session's sandbox](builds.md#what-a-cloud-run-is), with no sign-in
   to your code host. It doesn't run your tests on every pull request: your
   CI does that.
-- **`commands` does nothing today, so leave it out.** It once listed what
-  the reviewer could run. The sandbox now confines it instead, and it may
-  run any command there. A list already in your settings is still checked:
-  a command in it can't contain a comma, a parenthesis, or a quote.
-- **To turn it off,** delete `pr-review` and run `factory sync`, which
-  turns the run off again.
+- **To turn it off,** set it to `false`, or delete it, and run
+  `factory sync`, which turns the run off again. `false` also turns off a
+  review a [preset](presets.md) turns on.
+- **An older file that says `pr-review: {}`,** or lists `commands` under
+  it, fails `factory config check`. Write `pr-review: true` in its place.
 
 ### `rules`
 
@@ -1802,7 +1800,7 @@ auto-merge:
   commands:
     - node scripts/public-api-changed.mjs
 
-pr-review: {}
+pr-review: true
 ```
 
 ### A small website

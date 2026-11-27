@@ -376,7 +376,6 @@ const STEPS = new Set([
 ]);
 const VALUES = new Set([
   "builds.hosts",
-  "pr-review.commands",
   "auto-merge.allow",
   "auto-merge.deny",
   "auto-merge.commands",

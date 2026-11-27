@@ -146,8 +146,7 @@ const presetText = (o: {
     // Quoted, as JSON quotes it: YAML reads a pattern that starts with `{`
     // as a map.
     `  branch-name: ${JSON.stringify(o.branchName)}`,
-    "pr-review:",
-    "  commands: []",
+    "pr-review: true",
     "builds:",
     "  trigger: github-action",
     ...(o.pollMinutes === 5 ? [] : [`  poll-minutes: ${o.pollMinutes}`]),

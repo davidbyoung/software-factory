@@ -250,7 +250,7 @@ export const githubCodeHostSetup: ToolSetup = {
   leftovers: (c) => {
     const lines: string[] = [];
     // init only ever adds the rule, so it can outlast the review.
-    const sure = c.settings?.prReview != null;
+    const sure = c.settings?.prReview === true;
     lines.push(
       `Delete the "${RULE}" ruleset first${sure ? "" : ", if there is one"}, under Settings, Rules: until then every pull request waits on its "Review verdict" check`,
     );

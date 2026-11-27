@@ -154,7 +154,6 @@ async function effective(r: Resolved): Promise<Obj> {
 
 const VALUE_LISTS = [
   "builds.hosts",
-  "pr-review.commands",
   "auto-merge.deny",
   "site.pages",
   "site.widths",
@@ -435,7 +434,6 @@ export function dayOf(date: Date, now: Date): string {
 /** When each setting that holds a command runs it, in the order the
  * summary lists them. */
 const RUNS: [string, string][] = [
-  ["pr-review.commands", "in the review"],
   ["commands.gate", "at the gate"],
   ["commands.before-commit", "before each commit"],
   ["commands.build-setup", "at the start of a cloud build"],

@@ -304,7 +304,7 @@ after the session ends, and `pr wait-checks`, `pr watch`, and
 `pr state --wait` say that the run ends there
 ([What a cloud run is](builds.md#what-a-cloud-run-is)).
 
-Where [`pr-review`](configuration.md#pr-review) is not set, no automated
+Where [`pr-review`](configuration.md#pr-review) is off, no automated
 review runs. `factory pr state N` then prints
 `Claude review: none expected on this head`, and `factory pr state N --wait`
 and `factory pr watch N` wait for none.

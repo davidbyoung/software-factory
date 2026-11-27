@@ -751,7 +751,7 @@ describe("the settings factory update reads", () => {
 
   it("reads the settings file as it is now, edited since the last sync", async () => {
     withSettings(`version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`);
-    appendFileSync(join(repo, ".claude/factory.yaml"), "pr-review:\n");
+    appendFileSync(join(repo, ".claude/factory.yaml"), "pr-review: true\n");
     const said: string[] = [];
     const settings = await settingsNow(repo, into(said));
     expect(said).toEqual([]);

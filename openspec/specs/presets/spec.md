@@ -53,11 +53,11 @@ The factory SHALL behave as this line says: When `.claude/factory.yaml` names a 
 
 ### Requirement: A list of values
 
-The factory SHALL behave as this line says: When layers set `pr-review.commands`, `auto-merge.deny`, `site.pages`, `site.widths`, `site.checks`, or `site.hide`, every value from every layer applies, each once, in layer order.
+The factory SHALL behave as this line says: When layers set `auto-merge.deny`, `site.pages`, `site.widths`, `site.checks`, or `site.hide`, every value from every layer applies, each once, in layer order.
 
 #### Scenario: A list of values
 
-- **WHEN** layers set `pr-review.commands`, `auto-merge.deny`, `site.pages`, `site.widths`, `site.checks`, or `site.hide`
+- **WHEN** layers set `auto-merge.deny`, `site.pages`, `site.widths`, `site.checks`, or `site.hide`
 - **THEN** every value from every layer applies, each once, in layer order.
 
 ### Requirement: A setting with a type
@@ -418,7 +418,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: The summary's runs lines
 
 - **WHEN** a command in effect after the add has this preset as its source
-- **THEN** After `writes`, the summary has one `runs` line for it: the command, a comma, and when it runs, `in the review` for `pr-review.commands`, `at the gate` for `commands.gate`, `before each commit` for `commands.before-commit`, `at the start of a cloud build` for `commands.build-setup`, and `as ` and the setting's key for any other. For a preset for some folders, `, in` and its folders follow.
+- **THEN** After `writes`, the summary has one `runs` line for it: the command, a comma, and when it runs, `at the gate` for `commands.gate`, `before each commit` for `commands.before-commit`, `at the start of a cloud build` for `commands.build-setup`, and `as ` and the setting's key for any other. For a preset for some folders, `, in` and its folders follow.
 
 ### Requirement: What preset add prints when applied
 

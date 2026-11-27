@@ -185,8 +185,8 @@ export const NODE_SETTINGS = [
   "    reviewers:",
   "      - agent: node-deps-reviewer",
   "        files: [package.json]",
-  "pr-review:",
-  "  commands: [npm audit]",
+  "auto-merge:",
+  "  deny: [package-lock.json]",
   "",
 ].join("\n");
 

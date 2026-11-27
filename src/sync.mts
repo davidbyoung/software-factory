@@ -115,7 +115,7 @@ export const NEEDS: Record<string, (s: Settings, has: Has) => boolean> = {
  * skipped without, in the order the workflow files list them. */
 export function partsOn(s: Settings, has: Has): Part[] {
   const on: [Part, boolean][] = [
-    ["review", s.prReview !== null],
+    ["review", s.prReview],
     ["board", s.tickets.board !== null || s.tickets.statuses],
     ["auto-merge", s.autoMerge.allow.length > 0],
     ["poller", s.builds.trigger === "github-action" && !s.builds.pollerIn],
