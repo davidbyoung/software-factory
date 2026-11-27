@@ -203,3 +203,12 @@ The factory SHALL behave as this line says: With `ANTHROPIC_API_KEY` stored in i
 
 - **WHEN** `factory init --org` finds `ANTHROPIC_API_KEY` stored in place of `CLAUDE_CODE_OAUTH_TOKEN`
 - **THEN** the question is today's.
+
+### Requirement: The organization's steps in full
+
+The factory SHALL behave as this line says: When `factory init --org` ends, the line after `The steps in full:` is the address of "What each developer does next" in `docs/setup/organization.md` at the installed release.
+
+#### Scenario: The organization's steps in full
+
+- **WHEN** `factory init --org` ends
+- **THEN** The line after `The steps in full:` is the address of "What each developer does next" in `docs/setup/organization.md` at the installed release.
