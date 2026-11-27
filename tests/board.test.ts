@@ -605,11 +605,11 @@ describe("a build in GitHub Actions", () => {
   });
 });
 
-describe("run.yml's board job", () => {
+describe("the board job of run.yml's Tickets group", () => {
   const job = (
     loadYaml(
       readFileSync(
-        new URL("../.github/workflows/run.yml", import.meta.url),
+        new URL("../.github/workflows/run-tickets.yml", import.meta.url),
         "utf8",
       ),
     ) as {

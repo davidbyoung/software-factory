@@ -1105,3 +1105,36 @@ describe("the docs on the factory's own approval policy", () => {
     );
   });
 });
+
+describe("the docs on run.yml's groups", () => {
+  const workflow = (file: string) =>
+    load(read(`.github/workflows/${file}`)) as {
+      jobs: Record<string, { name: string; uses?: string }>;
+    };
+  const run = workflow("run.yml");
+  /** The reference page's table of groups, by its first cell. */
+  const table = Object.fromEntries(
+    rows(sectionOf(read("docs/github/reference.md"), "### The jobs"))
+      .filter(([group]) => group === "None" || group?.startsWith("`"))
+      .map(([group, jobs]) => [group!.replaceAll("`", ""), flat(jobs!)]),
+  );
+
+  it("name each job of a group in its row, by the name its row in the checks shows", () => {
+    const called = Object.values(run.jobs).filter((job) =>
+      job.uses?.startsWith("./.github/workflows/run-"),
+    );
+    expect(Object.keys(table)).toEqual([
+      "None",
+      ...called.map((job) => job.name),
+    ]);
+    for (const call of called)
+      for (const job of Object.values(
+        workflow(call.uses!.slice("./.github/workflows/".length)).jobs,
+      ))
+        expect(table[call.name], call.name).toContain(job.name);
+    for (const job of Object.values(run.jobs).filter(
+      (j) => !called.includes(j),
+    ))
+      expect(table.None).toContain(job.name);
+  });
+});

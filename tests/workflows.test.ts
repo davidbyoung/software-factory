@@ -71,6 +71,24 @@ const read = (name: string) =>
     merge: true,
   }) as Workflow;
 const run = read("run.yml");
+/** run.yml's groups, each a file a job of run.yml calls, by that job's id. */
+const GROUP_FILES: Record<string, string> = {
+  "pull-request": "run-pull-request.yml",
+  tickets: "run-tickets.yml",
+  "default-branch": "run-default-branch.yml",
+};
+const groups = Object.fromEntries(
+  Object.entries(GROUP_FILES).map(([id, file]) => [id, read(file)]),
+);
+/** run.yml and its groups' files, by name. */
+const RUN_FILES = ["run.yml", ...Object.values(GROUP_FILES)];
+/** Every job run.yml runs, its own and its groups', by id. */
+const jobs: Record<string, Job> = Object.assign(
+  Object.fromEntries(
+    Object.entries(run.jobs).filter(([id]) => !(id in groups)),
+  ),
+  ...Object.values(groups).map((g) => g.jobs),
+);
 const review = read("review.yml");
 const session = read("session.yml");
 const step = (job: Job, name: string) =>
@@ -187,7 +205,7 @@ const truthy = (v: unknown) => v !== "" && v !== false && v != null;
 const same = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : v);
 
 describe("the conditions of every job and step", () => {
-  it.each(["run.yml", "session.yml", "poller.yml"])(
+  it.each([...RUN_FILES, "session.yml", "poller.yml"])(
     "%s reads no secret in an `if`, where GitHub refuses one",
     (name) => {
       const conditions = Object.values(read(name).jobs).flatMap((job) => [
@@ -370,9 +388,48 @@ describe("which job an event starts", () => {
         ...inputs,
       },
     };
+    const holds = (job: Job) => evaluate(job.if!, context);
     return Object.entries(run.jobs)
-      .filter(([, job]) => evaluate(job.if!, context))
-      .map(([id]) => id);
+      .flatMap(([id, job]): [string, Job][] =>
+        !holds(job)
+          ? []
+          : id in groups
+            ? Object.entries(groups[id]!.jobs).filter(([, j]) => holds(j))
+            : [[id, job]],
+      )
+      .map(([id]) => id)
+      .sort();
+  };
+  /** The groups whose call holds on an event, and those with a job whose
+   * own `if` holds on it, as though the call did not stand in its way. */
+  const calledFor = (
+    event: Record<string, unknown>,
+    inputs: Record<string, string> = {},
+  ) => {
+    const { name, ...payload } = event;
+    const context = {
+      github: {
+        event_name: name,
+        event: { repository: { default_branch: "main" }, ...payload },
+        repository: "acme/site",
+        ref_name: event.ref ?? "main",
+        actor: (event.pull_request as Pull | undefined)?.user.login ?? "dana",
+      },
+      inputs: {
+        parts: EVERY_PART,
+        job: "",
+        ticket: "",
+        "override-label": "verdict-override",
+        ...inputs,
+      },
+    };
+    const ids = Object.keys(groups);
+    return {
+      called: ids.filter((id) => evaluate(run.jobs[id]!.if!, context)),
+      needed: ids.filter((id) =>
+        Object.values(groups[id]!.jobs).some((j) => evaluate(j.if!, context)),
+      ),
+    };
   };
   const target = (action: string, more: Record<string, unknown> = {}) => ({
     name: "pull_request_target",
@@ -404,7 +461,7 @@ describe("which job an event starts", () => {
     expect(evaluate("github.repository == 'acme/other'", context)).toBe(false);
   });
 
-  it.each<[string, Record<string, unknown>, string[]]>([
+  const EVENTS: [string, Record<string, unknown>, string[]][] = [
     [
       "a push to the default branch",
       { name: "push" },
@@ -520,11 +577,13 @@ describe("which job an event starts", () => {
       { name: "schedule", schedule: "0 * * * *" },
       ["poller"],
     ],
-  ])("on %s, starts %j", (_, event, jobs) => {
-    expect(started(event)).toEqual(jobs);
+  ];
+
+  it.each(EVENTS)("on %s, starts %j", (_, event, jobs) => {
+    expect(started(event)).toEqual([...jobs].sort());
   });
 
-  it.each<[Record<string, string>, string[]]>([
+  const BY_HAND: [Record<string, string>, string[]][] = [
     [{ job: "build", ticket: "12" }, ["build"]],
     [{ ticket: "12" }, ["build"]],
     [{ job: "review", pr: "7", review: "9" }, ["answer"]],
@@ -538,9 +597,57 @@ describe("which job an event starts", () => {
     [{ job: "poller" }, ["poller"]],
     [{ job: "polish" }, ["unknown"]],
     [{}, []],
-  ])("by hand with %j, starts %j", (inputs, jobs) => {
-    expect(started({ name: "workflow_dispatch" }, inputs)).toEqual(jobs);
+  ];
+
+  it.each(BY_HAND)("by hand with %j, starts %j", (inputs, jobs) => {
+    expect(started({ name: "workflow_dispatch" }, inputs)).toEqual(
+      [...jobs].sort(),
+    );
   });
+
+  // A call whose `if` misses an event its file's jobs start on stops them
+  // without a sound; one that holds on more lists their rows, skipped.
+  it.each([
+    ...EVENTS.map(
+      ([what, event]): [
+        string,
+        Record<string, unknown>,
+        Record<string, string>,
+      ] => [what, event, {}],
+    ),
+    ...BY_HAND.map(
+      ([inputs]): [string, Record<string, unknown>, Record<string, string>] => [
+        `by hand with ${JSON.stringify(inputs)}`,
+        { name: "workflow_dispatch" },
+        inputs,
+      ],
+    ),
+  ])("on %s, calls every group a job of which starts", (_, event, inputs) => {
+    const { called, needed } = calledFor(event, inputs);
+    expect(called).toEqual(expect.arrayContaining(needed));
+  });
+
+  it.each<[string, Record<string, unknown>, string[]]>([
+    ["a push to a pull request", target("synchronize"), ["pull-request"]],
+    [
+      "a review submitted",
+      { name: "pull_request_review", pull_request: pull() },
+      [],
+    ],
+    ["a label no job reads", target("labeled", { label: { name: "bug" } }), []],
+    ["07:00", { name: "schedule", schedule: "0 7 * * *" }, ["tickets"]],
+    [
+      "the poller's own schedule",
+      { name: "schedule", schedule: "*/5 * * * *" },
+      ["default-branch"],
+    ],
+    ["a push to the default branch", { name: "push" }, ["default-branch"]],
+  ])(
+    "on %s, calls only %j, so each other group is one skipped row",
+    (_, event, called) => {
+      expect(calledFor(event).called).toEqual(called);
+    },
+  );
 
   it("starts no job a part turns off, and still the verdict, a build, an answer, the sweep, and updates", () => {
     const off = { parts: "" };
@@ -597,7 +704,7 @@ describe("which job an event starts", () => {
       expect(started(target(action), on), action).toContain("approval-prepare");
     expect(
       started(target("edited", { changes: { base: { ref: {} } } }), on),
-    ).toEqual(["verdict", "approval-prepare"]);
+    ).toEqual(["approval-prepare", "verdict"]);
     expect(started(target("edited", { changes: { title: {} } }), on)).toEqual(
       [],
     );
@@ -643,7 +750,7 @@ describe("which job an event starts", () => {
 
   it("fails one job, naming it, for a job it does not have", () => {
     const { dir } = sandbox();
-    const r = runScript(run.jobs.unknown!.steps![0]!.run!, dir, {
+    const r = runScript(jobs.unknown!.steps![0]!.run!, dir, {
       JOB: "polish",
     });
     expect(r.status).toBe(1);
@@ -652,8 +759,6 @@ describe("which job an event starts", () => {
 });
 
 describe("the jobs that run no session", () => {
-  const { jobs } = run;
-
   it.each([
     "check",
     "verdict",
@@ -831,7 +936,7 @@ describe("the actions the workflows use", () => {
 });
 
 describe("the approval policies' jobs", () => {
-  const job = (id: string) => run.jobs[id]!;
+  const job = (id: string) => jobs[id]!;
   const checkout = (j: Job) =>
     j.steps!.find((s) => s.uses?.startsWith("actions/checkout"))!;
 
@@ -857,7 +962,7 @@ describe("the approval policies' jobs", () => {
   });
 
   it("gives the merge policy the history to read an approval policy's change", () => {
-    const checkout = run.jobs["merge-policy"]!.steps!.find((s) =>
+    const checkout = jobs["merge-policy"]!.steps!.find((s) =>
       s.uses?.startsWith("actions/checkout"),
     )!;
     expect(checkout.with?.["fetch-depth"]).toBe(0);
@@ -886,7 +991,7 @@ describe("the approval policies' jobs", () => {
 });
 
 describe("installing the factory in a run", () => {
-  const install = step(run.jobs.check!, "Install the factory").run!;
+  const install = step(jobs.check!, "Install the factory").run!;
   const npm = { npm: "" };
 
   /** A checkout whose lock names `version`. */
@@ -939,7 +1044,7 @@ describe("installing the factory in a run", () => {
   });
 
   it("is the same script in every job that runs the factory, with its scripts on only where the repository's own dependencies are needed", () => {
-    for (const job of Object.values(run.jobs))
+    for (const job of Object.values(jobs))
       for (const s of job.steps ?? [])
         if (s.name === "Install the factory") expect(s.run).toBe(install);
     for (const job of [review.jobs.check!, prepareJob, publishJob])
@@ -990,11 +1095,7 @@ describe("the repository's own secrets", () => {
   });
 
   it("is the same script in the board sync, the job that opens the ticked tickets, and the poller", () => {
-    for (const job of [
-      run.jobs.board!,
-      run.jobs["follow-ups"]!,
-      run.jobs.poller!,
-    ])
+    for (const job of [jobs.board!, jobs["follow-ups"]!, jobs.poller!])
       expect(step(job, "Take the repository's own secrets").run).toBe(take.run);
   });
 });
@@ -1408,7 +1509,7 @@ describe("the five jobs that run a session", () => {
     ["conflict", "conflict", "conflicts", "`factory-resolve-conflicts`"],
     ["dependency", "dependency", "dependencies", "`factory-deps`"],
   ];
-  const calling = Object.entries(run.jobs).filter(([, job]) => job.uses);
+  const calling = Object.entries(jobs).filter(([, job]) => job.uses);
   const REPOSITORY = new URL("..", import.meta.url).pathname;
   /** A command of the factory's, or a module's call, run in an empty folder
    * with nothing signed in and no settings, so it reads no code host. */
@@ -1423,13 +1524,15 @@ describe("the five jobs that run a session", () => {
   };
 
   it("are the only ones that call another workflow", () => {
-    expect(calling.map(([id]) => id)).toEqual(SESSIONS.map(([id]) => id));
+    expect(calling.map(([id]) => id).sort()).toEqual(
+      SESSIONS.map(([id]) => id).sort(),
+    );
   });
 
   it.each(SESSIONS)(
     "%s calls session.yml for a %s session, with the settings' minutes and limit and the instructions' name",
     (name, kind, minutes, instructions) => {
-      const job = run.jobs[name]!;
+      const job = jobs[name]!;
       expect(job.uses).toBe("./.github/workflows/session.yml");
       expect(job.with).toMatchObject({
         kind,
@@ -1450,7 +1553,7 @@ describe("the five jobs that run a session", () => {
   it.each(SESSIONS)(
     "%s tells the session it works in ../work, with no sign-in",
     (name) => {
-      const { prompt } = run.jobs[name]!.with!;
+      const { prompt } = jobs[name]!.with!;
       expect(prompt).toContain("The branch you work on is in `../work`");
       expect(prompt).toContain("`cd ../work`");
       expect(prompt).toContain("no sign-in to the code host");
@@ -1491,7 +1594,7 @@ describe("the five jobs that run a session", () => {
       event: Record<string, unknown>,
       inputs: Record<string, string>,
     ) =>
-      valueOf(inside(run.jobs.answer!.with![key]), {
+      valueOf(inside(jobs.answer!.with![key]), {
         github: { event },
         inputs,
       });
@@ -1513,26 +1616,26 @@ describe("the five jobs that run a session", () => {
         "factory-answer-${{ inputs.pr || github.event.pull_request.number }}-${{ github.event.review.id || inputs.review }}",
       ],
     ])
-      expect(run.jobs[job]!.concurrency, job).toEqual({
+      expect(jobs[job]!.concurrency, job).toEqual({
         group,
         "cancel-in-progress": false,
       });
   });
 
   it("reviews a pull request's newest push alone, and sets no limit on a build", () => {
-    expect(run.jobs.review!.concurrency).toEqual({
+    expect(jobs.review!.concurrency).toEqual({
       group: "factory-review-${{ github.event.pull_request.number }}",
       "cancel-in-progress": true,
     });
-    expect(run.jobs.build!.concurrency).toBeUndefined();
+    expect(jobs.build!.concurrency).toBeUndefined();
   });
 
   it("keeps one search for conflicts and one for dependencies waiting, and cancels none", () => {
-    expect(run.jobs.conflicts!.concurrency).toEqual({
+    expect(jobs.conflicts!.concurrency).toEqual({
       group: "factory-conflicts",
       "cancel-in-progress": false,
     });
-    expect(run.jobs.dependencies!.concurrency).toEqual({
+    expect(jobs.dependencies!.concurrency).toEqual({
       group: "factory-deps",
       "cancel-in-progress": false,
     });
@@ -1548,15 +1651,15 @@ describe("a token of the organization's app, where its key reaches the run", () 
    * checkout to read the lock from, and ends within the hour a token of
    * the app's lasts. */
   const JOBS: [string, Job][] = [
-    ["run.yml's merge-policy", run.jobs["merge-policy"]!],
-    ["run.yml's board", run.jobs.board!],
-    ["run.yml's poller", run.jobs.poller!],
-    ["run.yml's updates", run.jobs.updates!],
-    ["run.yml's enroll", run.jobs.enroll!],
-    ["run.yml's conflicts", run.jobs.conflicts!],
-    ["run.yml's dependencies", run.jobs.dependencies!],
+    ["run.yml's merge-policy", jobs["merge-policy"]!],
+    ["run.yml's board", jobs.board!],
+    ["run.yml's poller", jobs.poller!],
+    ["run.yml's updates", jobs.updates!],
+    ["run.yml's enroll", jobs.enroll!],
+    ["run.yml's conflicts", jobs.conflicts!],
+    ["run.yml's dependencies", jobs.dependencies!],
   ];
-  const list = step(run.jobs.board!, LIST);
+  const list = step(jobs.board!, LIST);
   const REACHES = { APP_KEY_SET: "true", CLIENT_ID: "Iv23li" };
 
   it.each(JOBS)(
@@ -1590,7 +1693,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
   );
 
   it.each<[string, Workflow]>([
-    ["run.yml", run],
+    ...RUN_FILES.map((name): [string, Workflow] => [name, read(name)]),
     ["poller.yml", read("poller.yml")],
   ])(
     "%s hands the app's key to the step that makes the token, and to a session it calls, and only compares it anywhere else",
@@ -1644,7 +1747,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
   });
 
   it("makes one for the repository alone for Dependabot's pull request, whose code it does not check out", () => {
-    const job = run.jobs.dependabot!;
+    const job = jobs.dependabot!;
     expect(names(job)).toEqual([
       "Read the update",
       "Check whether the app's key reaches the run",
@@ -1679,7 +1782,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
     expect(output({ ...REACHES, CLIENT_ID: "" })).toEqual([0, [], ""]);
   });
 
-  it.each([...JOBS, ["run.yml's dependabot", run.jobs.dependabot!]] as [
+  it.each([...JOBS, ["run.yml's dependabot", jobs.dependabot!]] as [
     string,
     Job,
   ][])(
@@ -1704,49 +1807,49 @@ describe("a token of the organization's app, where its key reaches the run", () 
   it.each<[string, Job, string, string, string]>([
     [
       "turns auto-merge on",
-      run.jobs["merge-policy"]!,
+      jobs["merge-policy"]!,
       "Turn auto-merge on or off",
       "GH_TOKEN",
       "automerge-token",
     ],
     [
       "writes the board",
-      run.jobs.board!,
+      jobs.board!,
       "Write the board",
       "GH_TOKEN",
       "board-token",
     ],
     [
       "starts the Ready tickets",
-      run.jobs.poller!,
+      jobs.poller!,
       "Start the Ready tickets",
       "FACTORY_BOARD_TOKEN",
       "board-token",
     ],
     [
       "opens the updates' pull requests",
-      run.jobs.updates!,
+      jobs.updates!,
       "Open the pull requests",
       "GH_TOKEN",
       "build-token",
     ],
     [
       "turns auto-merge on for Dependabot's pull request",
-      run.jobs.dependabot!,
+      jobs.dependabot!,
       "Enable auto-merge",
       "GH_TOKEN",
       "automerge-token",
     ],
     [
       "starts a run for each pull request that conflicts",
-      run.jobs.conflicts!,
+      jobs.conflicts!,
       "Start a run for each",
       "GH_TOKEN",
       "build-token",
     ],
     [
       "starts a run for each of Dependabot's pull requests",
-      run.jobs.dependencies!,
+      jobs.dependencies!,
       "Start a run for each",
       "GH_TOKEN",
       "build-token",
@@ -1791,7 +1894,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
       secrets: Record<string, string>,
       vars: Record<string, string>,
     ) =>
-      valueOf(inside(run.jobs.updates!.steps![0]!.with!.token), {
+      valueOf(inside(jobs.updates!.steps![0]!.with!.token), {
         secrets,
         vars,
         github: { token: "the workflow's" },
@@ -1806,7 +1909,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
   });
 
   it("checks the updates' job out again with the app's token before it pushes, and cleans nothing the factory's install left", () => {
-    const job = run.jobs.updates!;
+    const job = jobs.updates!;
     const again = step(job, AGAIN);
     expect(again.uses).toBe("actions/checkout@v7");
     expect(again.if).toContain("steps.app.outputs.token != ''");
@@ -1823,7 +1926,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
   });
 
   it("commits an update as the app's bot, and signs nothing, whatever the signing key holds", () => {
-    const open = step(run.jobs.updates!, "Open the pull requests");
+    const open = step(jobs.updates!, "Open the pull requests");
     expect(open.env!.APP_SLUG).toBe("${{ steps.app.outputs.app-slug }}");
     const { dir, calls } = sandbox({ gh: "echo 4242", git: "", factory: "" });
 
@@ -1844,7 +1947,7 @@ describe("a token of the organization's app, where its key reaches the run", () 
 });
 
 describe("what each job's token of the app may do", () => {
-  const FILES = ["run.yml", "review.yml", "session.yml", "poller.yml"];
+  const FILES = [...RUN_FILES, "review.yml", "session.yml", "poller.yml"];
   /** Every step that makes a token of the app's, by its file and job,
    * with the permissions it asks for, each by the name the app's
    * registration gives it. */
@@ -1870,17 +1973,17 @@ describe("what each job's token of the app may do", () => {
   it.each<[string, string, Record<string, string>]>([
     [
       "turns auto-merge on or off",
-      "run.yml merge-policy",
+      "run-pull-request.yml merge-policy",
       { pull_requests: "write", contents: "write" },
     ],
     [
       "writes the board's cards for the repository's tickets",
-      "run.yml board",
+      "run-tickets.yml board",
       { organization_projects: "write", issues: "read" },
     ],
     [
       "reads the board, the tickets, and their pull requests, notes a start on a ticket, and starts its build",
-      "run.yml poller",
+      "run-default-branch.yml poller",
       {
         organization_projects: "read",
         issues: "write",
@@ -1890,27 +1993,27 @@ describe("what each job's token of the app may do", () => {
     ],
     [
       "pushes an update's branch, a workflow's file with it, and opens its pull request",
-      "run.yml updates",
+      "run-default-branch.yml updates",
       { contents: "write", workflows: "write", pull_requests: "write" },
     ],
     [
       "sets the repository's software-factory property",
-      "run.yml enroll",
+      "run-default-branch.yml enroll",
       { repository_custom_properties: "write" },
     ],
     [
       "finds the pull requests that conflict, and starts a run for each",
-      "run.yml conflicts",
+      "run-default-branch.yml conflicts",
       { actions: "write", pull_requests: "read" },
     ],
     [
       "finds Dependabot's pull requests, and starts a run for each",
-      "run.yml dependencies",
+      "run-default-branch.yml dependencies",
       { actions: "write", pull_requests: "read" },
     ],
     [
       "turns auto-merge on for Dependabot's pull request",
-      "run.yml dependabot",
+      "run-pull-request.yml dependabot",
       { pull_requests: "write", contents: "write" },
     ],
     [
@@ -1935,14 +2038,14 @@ describe("what each job's token of the app may do", () => {
 
   it("has a set for every token a job makes, so none falls back to everything the app may do", () => {
     expect(tokens.map((t) => t.job)).toEqual([
-      "run.yml merge-policy",
-      "run.yml board",
-      "run.yml poller",
-      "run.yml enroll",
-      "run.yml conflicts",
-      "run.yml dependencies",
-      "run.yml dependabot",
-      "run.yml updates",
+      "run-pull-request.yml merge-policy",
+      "run-pull-request.yml dependabot",
+      "run-tickets.yml board",
+      "run-default-branch.yml enroll",
+      "run-default-branch.yml conflicts",
+      "run-default-branch.yml dependencies",
+      "run-default-branch.yml updates",
+      "run-default-branch.yml poller",
       "poller.yml poller",
       "poller.yml updates",
     ]);
@@ -1957,7 +2060,7 @@ describe("what each job's token of the app may do", () => {
       tokens
         .filter((t) => "repository_custom_properties" in t.permissions)
         .map((t) => t.job),
-    ).toEqual(["run.yml enroll"]);
+    ).toEqual(["run-default-branch.yml enroll"]);
   });
 
   it("asks for nothing the app's registration does not hold, which GitHub would refuse", () => {
@@ -2157,7 +2260,7 @@ describe("the sign-in of the two jobs around a session", () => {
 
   it("signs no commit: nothing of a session reads the signing key, which the updates' job alone does", () => {
     expect(JSON.stringify(session)).not.toContain("signing-key");
-    const reading = Object.entries(run.jobs)
+    const reading = Object.entries(jobs)
       .filter(([, job]) => JSON.stringify(job).includes("secrets.signing-key"))
       .map(([id]) => id);
     expect(reading).toEqual(["updates"]);
@@ -2189,7 +2292,7 @@ describe("the review and its verdict, which stay the workflow's own", () => {
     };
   };
   const READERS: [string, Step][] = [
-    ["the verdict", step(run.jobs.verdict!, "Post the verdict")],
+    ["the verdict", step(jobs.verdict!, "Post the verdict")],
     ["a review", step(publishJob, "Record the review")],
   ];
 
@@ -2212,13 +2315,13 @@ describe("the review and its verdict, which stay the workflow's own", () => {
   );
 
   it("names no other person's token in the verdict's job, and none of an action's", () => {
-    expect(JSON.stringify(run.jobs.verdict)).not.toMatch(
+    expect(JSON.stringify(jobs.verdict)).not.toMatch(
       /(?:board|automerge)-token|create-github-app-token|steps\.app\./,
     );
   });
 
   it("gives the verdict's job one to read with when another repository starts it again", () => {
-    const s = step(run.jobs.verdict!, "Post the verdict");
+    const s = step(jobs.verdict!, "Post the verdict");
     expect(reading(s, { job: "order" }).key).toBe("K");
     expect(reading(s, { job: "build" }).key).toBe("");
   });
@@ -2470,25 +2573,25 @@ describe("the two jobs around a session, which have a sign-in", () => {
   });
 });
 
-describe("a pull request's own code, in run.yml", () => {
+describe("a pull request's own code, in run.yml and its groups", () => {
   /** What names a pull request's own commit or branch. */
   const HEAD =
     /pull_request\.head\.(?:sha|ref)|head_sha|head_ref|refs\/pull\/|merge_commit_sha|gh pr checkout|github\.(?:sha|ref)\b/;
-  const target = Object.entries(run.jobs).filter(
+  const target = Object.entries(jobs).filter(
     ([, job]) => !job.if || job.if.includes("pull_request_target"),
   );
 
   it("is judged in these jobs, which start on pull_request_target", () => {
     expect(target.map(([id]) => id)).toEqual([
+      "approval-label",
+      "review",
       "verdict",
       "approval-prepare",
-      "approval-label",
-      "across",
       "merge-policy",
-      "board",
-      "follow-ups",
-      "review",
       "dependabot",
+      "across",
+      "follow-ups",
+      "board",
     ]);
   });
 
@@ -2544,7 +2647,7 @@ describe("what the two files grant the jobs they call, which can have no more", 
     Object.values(file.jobs)
       .filter((job) => !job.uses)
       .map((job) => job.permissions ?? file.permissions);
-  const calling = Object.entries(run.jobs).filter(([, job]) => job.uses);
+  const calling = Object.entries(jobs).filter(([, job]) => job.uses);
 
   it.each<[string, string[]]>([
     ["no secret of the repository's own", []],
@@ -2553,7 +2656,13 @@ describe("what the two files grant the jobs they call, which can have no more", 
     "is what some job of theirs asks for, and no more, with %s",
     (_, secrets) => {
       const grants = factoryYml({ secrets }).permissions;
-      expect(grants).toEqual(most([...asked(run), ...asked(session)]));
+      expect(grants).toEqual(
+        most([
+          ...asked(run),
+          ...Object.values(groups).flatMap(asked),
+          ...asked(session),
+        ]),
+      );
     },
   );
 
@@ -2565,6 +2674,106 @@ describe("what the two files grant the jobs they call, which can have no more", 
     "is what a job of session.yml asks for, and no more, from %s",
     (_, job) => {
       expect(job.permissions).toEqual(most(asked(session)));
+    },
+  );
+});
+
+describe("run.yml's groups", () => {
+  it("give no two jobs one id, so none hides another", () => {
+    const ids = RUN_FILES.flatMap((file) => Object.keys(read(file).jobs));
+    expect(ids.length).toBe(new Set(ids).size);
+  });
+
+  it("are three calls beside the review, the answer, and the policy label's approval, each named for its row", () => {
+    expect(
+      Object.entries(run.jobs).map(([id, job]) => [id, job.name, job.uses]),
+    ).toEqual([
+      ["approval-label", "Approve what an approval policy found", undefined],
+      ["review", "Review", "./.github/workflows/session.yml"],
+      ["answer", "Answer", "./.github/workflows/session.yml"],
+      [
+        "pull-request",
+        "Pull request",
+        "./.github/workflows/run-pull-request.yml",
+      ],
+      ["tickets", "Tickets", "./.github/workflows/run-tickets.yml"],
+      [
+        "default-branch",
+        "Default branch",
+        "./.github/workflows/run-default-branch.yml",
+      ],
+    ]);
+  });
+
+  it.each<[string, string[]]>([
+    [
+      "pull-request",
+      [
+        "Record the verdict",
+        "Read the change for the approval policies",
+        "Run the approval policies' commands",
+        "Run an approval policy's agent",
+        "Post the approval policies' status",
+        "Classify risk",
+        "Enable auto-merge",
+      ],
+    ],
+    [
+      "tickets",
+      [
+        "Tell the other repositories",
+        "Open the ticked tickets",
+        "Sync the board",
+      ],
+    ],
+    [
+      "default-branch",
+      [
+        "Factory files in step",
+        "Require the verdict",
+        "Build",
+        "Find the conflicts",
+        "Conflict",
+        "Find the dependency pull requests",
+        "Dependency",
+        "Open the updates' pull requests",
+        "Start the Ready tickets",
+        "Unknown job",
+      ],
+    ],
+  ])("%s holds these jobs, by the names their rows show", (id, names) => {
+    expect(Object.values(groups[id]!.jobs).map((job) => job.name)).toEqual(
+      names,
+    );
+  });
+
+  it.each(Object.keys(GROUP_FILES))(
+    "%s is passed the secrets its jobs read, and no other",
+    (id) => {
+      const read = [
+        ...new Set(
+          JSON.stringify(groups[id]!.jobs).match(/secrets\.[a-z-]+/g) ?? [],
+        ),
+      ]
+        .map((s) => s.slice("secrets.".length))
+        .sort();
+      expect(Object.keys(run.jobs[id]!.secrets!).sort()).toEqual(read);
+      expect(
+        Object.keys(groups[id]!.on.workflow_call!.secrets!).sort(),
+      ).toEqual(read);
+    },
+  );
+
+  it.each(Object.keys(GROUP_FILES))(
+    "%s's call grants what its jobs ask for, and no more",
+    (id) => {
+      const RANK = ["none", "read", "write"];
+      const all: Record<string, string> = { contents: "read" };
+      for (const job of Object.values(groups[id]!.jobs))
+        for (const [name, level] of Object.entries(job.permissions ?? {}))
+          if (RANK.indexOf(level) > RANK.indexOf(all[name] ?? "none"))
+            all[name] = level;
+      expect(run.jobs[id]!.permissions).toEqual(all);
     },
   );
 });
@@ -2588,7 +2797,7 @@ describe("the names one part of the factory goes by for another", () => {
 
   it("names the review's jobs as the runner looks for them", () => {
     const [calling] = Object.keys(factoryYml().jobs);
-    const name = `${calling} / ${run.jobs.review!.name} / `;
+    const name = `${calling} / ${jobs.review!.name} / `;
 
     expect(REVIEW_JOBS).toBe(name);
     expect(Object.values(session.jobs).map((job) => job.name)).toEqual([
@@ -2600,7 +2809,7 @@ describe("the names one part of the factory goes by for another", () => {
 });
 
 describe("the job that makes the verdict required, once a setup has merged", () => {
-  const job = run.jobs.enroll!;
+  const job = jobs.enroll!;
 
   it("runs factory enroll with the app's token, or a person's build token, or the workflow's own, and says which it holds", () => {
     const enroll = step(job, "Require the verdict");
@@ -2764,7 +2973,7 @@ describe("review.yml", () => {
 });
 
 describe("Dependabot's auto-merge", () => {
-  const job = run.jobs.dependabot!;
+  const job = jobs.dependabot!;
 
   it("is turned on only for Dependabot's own pull request, never a major, and never one that names the factory", () => {
     expect(job.if!.replace(/\s+/g, " ")).toBe(

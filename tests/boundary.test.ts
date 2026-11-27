@@ -169,9 +169,15 @@ export function factoryAfterCdIn(text: string): string[] {
 
 /** The factory's own workflows, which the two files `factory sync` writes
  * into a repository call, and the one an organization's poller file calls. */
-const WORKFLOWS = ["run.yml", "review.yml", "session.yml", "poller.yml"].map(
-  (file) => join(PACKAGE, ".github/workflows", file),
-);
+const WORKFLOWS = [
+  "run.yml",
+  "run-pull-request.yml",
+  "run-tickets.yml",
+  "run-default-branch.yml",
+  "review.yml",
+  "session.yml",
+  "poller.yml",
+].map((file) => join(PACKAGE, ".github/workflows", file));
 
 const instructionFiles = () => [
   ...["skills", "agents"].flatMap((d) => filesUnder(join(PACKAGE, d))),
@@ -670,6 +676,9 @@ describe("the boundaries", () => {
         "skills/factory-build/SKILL.md",
         "agents/factory-test-reviewer.md",
         ".github/workflows/run.yml",
+        ".github/workflows/run-pull-request.yml",
+        ".github/workflows/run-tickets.yml",
+        ".github/workflows/run-default-branch.yml",
         ".github/workflows/review.yml",
         ".github/workflows/session.yml",
         ".github/workflows/poller.yml",

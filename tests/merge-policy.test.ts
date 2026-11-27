@@ -222,11 +222,12 @@ describe("workflowOutput", () => {
 
 // The merge policy and the verdict run the default branch's copy of
 // themselves and of the factory's command, never a pull request's: jobs of
-// run.yml that start on pull_request_target, with the default checkout,
+// run.yml's Pull request group that start on pull_request_target, with the
+// default checkout,
 // which is the base branch.
 const run = load(
   readFileSync(
-    new URL("../.github/workflows/run.yml", import.meta.url),
+    new URL("../.github/workflows/run-pull-request.yml", import.meta.url),
     "utf8",
   ),
 ) as {
@@ -244,26 +245,29 @@ const run = load(
   >;
 };
 
-describe.each(["merge-policy", "verdict"])("run.yml's %s job", (name) => {
-  const job = run.jobs[name]!;
+describe.each(["merge-policy", "verdict"])(
+  "the Pull request group's %s job",
+  (name) => {
+    const job = run.jobs[name]!;
 
-  it("starts on pull_request_target, never pull_request", () => {
-    expect(job.if).toContain("github.event_name == 'pull_request_target'");
-    expect(job.if).not.toContain("github.event_name == 'pull_request'");
-  });
+    it("starts on pull_request_target, never pull_request", () => {
+      expect(job.if).toContain("github.event_name == 'pull_request_target'");
+      expect(job.if).not.toContain("github.event_name == 'pull_request'");
+    });
 
-  it("checks out the base branch, not the pull request", () => {
-    const checkouts = job.steps.filter((s) =>
-      s.uses?.startsWith("actions/checkout"),
-    );
-    expect(checkouts).toHaveLength(1);
-    // How much history it fetches is its own; which commit, never.
-    expect(checkouts[0]!.with?.ref).toBeUndefined();
-    expect(checkouts[0]!.with?.repository).toBeUndefined();
-  });
-});
+    it("checks out the base branch, not the pull request", () => {
+      const checkouts = job.steps.filter((s) =>
+        s.uses?.startsWith("actions/checkout"),
+      );
+      expect(checkouts).toHaveLength(1);
+      // How much history it fetches is its own; which commit, never.
+      expect(checkouts[0]!.with?.ref).toBeUndefined();
+      expect(checkouts[0]!.with?.repository).toBeUndefined();
+    });
+  },
+);
 
-describe("run.yml's merge-policy job", () => {
+describe("the Pull request group's merge-policy job", () => {
   const classify = run.jobs["merge-policy"]!.steps.find(
     (s) => s.id === "classify",
   )!;
