@@ -7,7 +7,7 @@ import { Writable } from "node:stream";
 import { join } from "node:path";
 import { chmodSync, statSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { initDeps, parseRemote, pollerStep } from "../src/init.mts";
+import { initDeps, parseRemote } from "../src/init.mts";
 import { credentialsPath, readCredential } from "../src/lib/credentials.mts";
 import { pagesSpecTool } from "./memory-tools";
 import {
@@ -774,7 +774,7 @@ describe("factory init, where the poller runs", () => {
     expect(r.out.join("\n")).not.toMatch(/poller/i);
   });
 
-  it("names the poller's image and its two variables for a server you host, and where the rest comes from", async () => {
+  it("names the poller's image and its two variables for a server you host", async () => {
     const r = chosen("own-server");
     await r.run();
 
@@ -788,7 +788,7 @@ describe("factory init, where the poller runs", () => {
     );
   });
 
-  it("gives each of the two as one to copy, under the step's number, and the last line as plain words", async () => {
+  it("gives each variable as one to copy, and the line after them as plain words", async () => {
     const r = chosen("own-server");
     await r.run();
     const left = r.looks.find((l) => l.includes("Run the poller's image"));
@@ -800,15 +800,16 @@ describe("factory init, where the poller runs", () => {
     ]);
   });
 
-  it("says the poller reads the settings once they are on the default branch, when no pull request opened", () => {
-    expect(
-      pollerStep("acme/site", "0.2.0", false, "trunk").split("\n"),
-    ).toEqual([
-      "Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:",
-      "       FACTORY_REPOSITORY=acme/site",
-      "       FACTORY_BOARD_TOKEN=the access token you just made",
-      "     It reads the rest from your settings once they are on trunk.",
-    ]);
+  it("says the poller reads the settings once they are on the default branch, when no pull request opened", async () => {
+    const r = chosen("own-server", {
+      git: (args) => (args[0] === "status" ? { stdout: "" } : undefined),
+    });
+    await r.run();
+
+    expect(r.out.join("\n")).not.toMatch(/Opened/);
+    expect(r.out.join("\n")).toContain(
+      "     It reads the rest from your settings once they are on main.",
+    );
   });
 
   it.each(["github-action", "own-server"])(

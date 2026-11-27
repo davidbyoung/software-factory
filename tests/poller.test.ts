@@ -653,7 +653,7 @@ describe("tick", () => {
 
 describe("the poller you host", () => {
   /** A lock as `factory sync` writes it, written by factory `version`, with
-   * `settings` in place of the settings block's lines where given. */
+   * `tickets` and `settings` adding lines under each. */
   function lockOf(
     o: {
       version?: string;
@@ -662,7 +662,8 @@ describe("the poller you host", () => {
       max?: number;
       trigger?: string;
       board?: string;
-      extra?: string;
+      tickets?: string[];
+      settings?: string[];
     } = {},
   ) {
     return [
@@ -689,28 +690,37 @@ describe("the poller you host", () => {
           ]),
       "    labels:",
       `      factory: ${o.label ?? "factory"}`,
+      ...(o.tickets ?? []).map((l) => `    ${l}`),
       "  builds:",
       `    trigger: ${o.trigger ?? "own-server"}`,
       `    max-per-hour: ${o.max ?? 20}`,
-      ...(o.extra ? o.extra.split("\n") : []),
+      ...(o.settings ?? []).map((l) => `  ${l}`),
       "",
     ].join("\n");
   }
 
+  /** A hosted poller of acme/widgets at 0.2.0. `answers.lock` can be
+   * swapped between passes. */
   function host(
-    answers: Parameters<typeof fakeFetch>[0],
+    over: Parameters<typeof fakeFetch>[0] = {},
     env: Deps["env"] = { FACTORY_BOARD_TOKEN: "ghp_secret_github" },
   ) {
-    const s = setup({ lock: lockOf(), ...answers }, env);
+    const answers: Parameters<typeof fakeFetch>[0] = {
+      lock: lockOf(),
+      ...over,
+    };
+    const s = setup(answers, env);
     s.d.version = "0.2.0";
-    return s;
+    return { ...s, answers };
   }
 
   const SETTINGS_LINE =
     'settings from .claude/factory.lock on trunk: board 1, ready column "Ready", label "factory", 20 builds an hour';
+  const MANUAL =
+    "not polling: builds.trigger is manual on trunk, not own-server";
 
   it("starts a card in the ready column the lock names", async () => {
-    const { d, state, dispatches } = host({});
+    const { d, state, dispatches } = host();
 
     await hosted(d, state);
 
@@ -733,28 +743,52 @@ describe("the poller you host", () => {
     expect(dispatches()).toEqual([]);
   });
 
-  it("finds tickets by the label the lock names", async () => {
+  it("reads the board the lock names, owned by the repository's owner, whatever the old variables say", async () => {
+    const { d, state, calls } = host(
+      { lock: lockOf({ board: "7" }) },
+      {
+        FACTORY_BOARD_TOKEN: "ghp_secret_github",
+        FACTORY_BOARD_OWNER: "someone-else",
+        FACTORY_BOARD_NUMBER: "1",
+      },
+    );
+
+    await hosted(d, state);
+
+    const boards = calls
+      .filter((c) => c.url.endsWith("/graphql"))
+      .map((c) => JSON.parse(c.body))
+      .filter((b) => b.query.includes("projectV2"))
+      .map((b) => [b.variables.owner, b.variables.number]);
+    expect(boards.length).toBeGreaterThan(0);
+    expect(new Set(boards.map(String))).toEqual(new Set(["acme,7"]));
+  });
+
+  it("finds tickets by the label the lock names, whatever FACTORY_LABEL says", async () => {
     const renamed = JSON.parse(
       JSON.stringify(repoPages[0]).replaceAll(
         '{"name":"factory"}',
         '{"name":"built-by-factory"}',
       ),
     );
-    const { d, state, dispatches } = host({
-      repoPage: renamed,
-      lock: lockOf({ label: "built-by-factory" }),
-    });
+    const { d, state, dispatches } = host(
+      { repoPage: renamed, lock: lockOf({ label: "built-by-factory" }) },
+      { FACTORY_BOARD_TOKEN: "ghp_secret_github", FACTORY_LABEL: "factory" },
+    );
 
     await hosted(d, state);
 
     expect(dispatches()).toHaveLength(1);
   });
 
-  it("keeps the hourly cap the lock sets", async () => {
-    const { d, state, dispatches, logs } = host({
-      ...withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
-      lock: lockOf({ max: 2 }),
-    });
+  it("keeps the hourly cap the lock sets, whatever FACTORY_MAX_PER_HOUR says", async () => {
+    const { d, state, dispatches, logs } = host(
+      {
+        ...withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
+        lock: lockOf({ max: 2 }),
+      },
+      { FACTORY_BOARD_TOKEN: "ghp_secret_github", FACTORY_MAX_PER_HOUR: "20" },
+    );
 
     await hosted(d, state);
 
@@ -764,19 +798,44 @@ describe("the poller you host", () => {
     );
   });
 
-  it("logs the settings it read once, and again when they change", async () => {
-    const { d, state, logs } = host({});
+  it("logs the settings it read once while they stay the same", async () => {
+    const { d, state, logs } = host();
 
     await hosted(d, state);
     await hosted(d, state);
-    const twice = logs.filter((l) => l.startsWith("settings from"));
-    const changed = host({ lock: lockOf({ ready: "Approved" }) });
-    changed.d.defaultBranch = d.defaultBranch;
-    await hosted(changed.d, state);
 
-    expect(twice).toEqual([SETTINGS_LINE]);
-    expect(changed.logs.filter((l) => l.startsWith("settings from"))).toEqual([
-      'settings from .claude/factory.lock on trunk: board 1, ready column "Approved", label "factory", 20 builds an hour',
+    expect(logs.filter((l) => l.startsWith("settings from"))).toEqual([
+      SETTINGS_LINE,
+    ]);
+  });
+
+  it.each([
+    [
+      { ready: "Approved" },
+      'board 1, ready column "Approved", label "factory", 20 builds an hour',
+    ],
+    [
+      { board: "7" },
+      'board 7, ready column "Ready", label "factory", 20 builds an hour',
+    ],
+    [
+      { label: "built" },
+      'board 1, ready column "Ready", label "built", 20 builds an hour',
+    ],
+    [
+      { max: 5 },
+      'board 1, ready column "Ready", label "factory", 5 builds an hour',
+    ],
+  ])("logs the settings again when %o changes", async (change, read) => {
+    const { d, state, logs, answers } = host();
+    await hosted(d, state);
+    answers.lock = lockOf(change);
+
+    await hosted(d, state);
+
+    expect(logs.filter((l) => l.startsWith("settings from"))).toEqual([
+      SETTINGS_LINE,
+      `settings from .claude/factory.lock on trunk: ${read}`,
     ]);
   });
 
@@ -811,7 +870,7 @@ describe("the poller you host", () => {
   );
 
   it("names no variable when none of the old ones is set", async () => {
-    const { d, state, logs } = host({});
+    const { d, state, logs } = host();
 
     await hosted(d, state);
 
@@ -869,17 +928,43 @@ describe("the poller you host", () => {
     expect(logs).toEqual([`not polling: ${reason}`]);
   });
 
+  it("starts nothing with a lock that is not YAML, and gives the parser's first line", async () => {
+    const { d, state, logs, dispatches } = host({ lock: "version: [0.2.0\n" });
+
+    await hosted(d, state);
+
+    expect(dispatches()).toEqual([]);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatch(
+      /^not polling: \.claude\/factory\.lock on trunk: \S/,
+    );
+    expect(logs[0]).not.toContain("\n");
+  });
+
+  it("names the factory's own version when the test gives none", async () => {
+    const own = JSON.parse(readFileSync("package.json", "utf8")).version;
+    const { d, state, logs } = host({
+      lock: lockOf({ max: 0, version: "9.9.9" }),
+    });
+    delete d.version;
+
+    await hosted(d, state);
+
+    expect(logs[0]).toContain(`and this poller is ${own}:`);
+  });
+
   it("reads past keys and values it does not use", async () => {
     const { d, state, dispatches } = host({
       lock: lockOf({
         version: "0.3.0",
-        extra: [
-          "    poll-minutes: 7",
-          "  commands:",
-          "    gate: 12",
-          "  newer-setting: true",
-        ].join("\n"),
-      }).replace("    labels:\n", "    triage: Inbox\n    labels:\n"),
+        tickets: ["triage: Inbox"],
+        settings: [
+          "  poll-minutes: 7",
+          "commands:",
+          "  gate: 12",
+          "newer-setting: true",
+        ],
+      }),
     });
 
     await hosted(d, state);
@@ -887,43 +972,74 @@ describe("the poller you host", () => {
     expect(dispatches()).toHaveLength(1);
   });
 
-  it("logs a reason once while it holds, repeats it in the hourly heartbeat, and resets the failures", async () => {
+  it("logs a reason once while it holds", async () => {
     const { d, state, logs } = host({ lock: lockOf({ trigger: "manual" }) });
-    state.failuresInARow = 3;
 
     await hosted(d, state);
     await hosted(d, state);
-    d.now = () => NOW + 3_600_000;
+
+    expect(logs).toEqual([MANUAL]);
+  });
+
+  it("logs a reason again when it changes to another", async () => {
+    const { d, state, logs, answers } = host({
+      lock: { status: 404, body: { message: "Not Found" } },
+    });
+    await hosted(d, state);
+    answers.lock = lockOf({ trigger: "manual" });
+
     await hosted(d, state);
 
     expect(logs).toEqual([
-      "not polling: builds.trigger is manual on trunk, not own-server",
+      "not polling: no .claude/factory.lock on trunk yet. Merge the pull request that sets the factory up.",
+      MANUAL,
+    ]);
+  });
+
+  it("repeats a reason that holds in its hourly heartbeat", async () => {
+    const { d, state, logs } = host({ lock: lockOf({ trigger: "manual" }) });
+    await hosted(d, state);
+    d.now = () => NOW + 3_600_000;
+
+    await hosted(d, state);
+
+    expect(logs).toEqual([
+      MANUAL,
       "heartbeat: not polling: builds.trigger is manual on trunk, not own-server",
     ]);
+  });
+
+  it("resets the count of failed reads at a pass that read the lock, even one that polls nothing", async () => {
+    const { d, state } = host({ lock: lockOf({ trigger: "manual" }) });
+    state.failuresInARow = 3;
+
+    await hosted(d, state);
+
     expect(state.failuresInARow).toBe(0);
   });
 
   it("polls again at the first pass after the reason clears", async () => {
-    const { d, state } = host({ lock: lockOf({ trigger: "manual" }) });
+    const { d, state, logs, dispatches, answers } = host({
+      lock: lockOf({ trigger: "manual" }),
+    });
     await hosted(d, state);
-    const fixed = host({});
-    fixed.d.defaultBranch = d.defaultBranch;
+    answers.lock = lockOf();
 
-    await hosted(fixed.d, state);
+    await hosted(d, state);
 
-    expect(fixed.dispatches()).toHaveLength(1);
-    expect(fixed.logs[0]).toBe(SETTINGS_LINE);
+    expect(dispatches()).toHaveLength(1);
+    expect(logs.slice(0, 2)).toEqual([MANUAL, SETTINGS_LINE]);
   });
 
   it("uses nothing it read at an earlier pass once the lock can't be read", async () => {
-    const { d, state } = host({});
+    const { d, state, dispatches, answers } = host();
     await hosted(d, state);
-    const broken = host({ lock: lockOf({ max: 0 }) });
-    broken.d.defaultBranch = d.defaultBranch;
+    const before = dispatches().length;
+    answers.lock = lockOf({ max: 0 });
 
-    await hosted(broken.d, state);
+    await hosted(d, state);
 
-    expect(broken.dispatches()).toEqual([]);
+    expect(dispatches()).toHaveLength(before);
   });
 
   it("counts a failed read of the lock toward the slower retry", async () => {
@@ -960,6 +1076,15 @@ describe("the poller you host", () => {
       "ready-poller started for acme/widgets",
       "not polling: FACTORY_BOARD_TOKEN not set",
     ]);
+  });
+
+  it("waits a minute between passes, and ten once ten in a row have failed", async () => {
+    const { d } = host({}, {});
+    const waits: number[] = [];
+
+    await serve(d, async (ms) => waits.push(ms), 11);
+
+    expect(waits).toEqual([...Array(9).fill(60_000), 600_000]);
   });
 });
 

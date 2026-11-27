@@ -1025,7 +1025,7 @@ describe("factory board check", () => {
     );
   });
 
-  it("shows an own-server poller's ready column as any other trigger's, and fails it when missing", () => {
+  it("shows an own-server poller's ready column with no reminder, as a schedule's, and fails it when missing", () => {
     const yaml = (trigger: string) => ({
       builds: { trigger },
       tickets: {
@@ -1037,6 +1037,9 @@ describe("factory board check", () => {
       SIX.map((c) => (c === "Ready" ? "Ready for dev" : c)),
     );
     expect(rowOf(report(yaml("own-server"), withColumn), "ready")).toBe(
+      "  ✓ ready      Ready for dev",
+    );
+    expect(rowOf(report(yaml("github-action"), withColumn), "ready")).toBe(
       "  ✓ ready      Ready for dev",
     );
     expect(rowOf(report(yaml("own-server"), fullBoard(SIX)), "ready")).toBe(
