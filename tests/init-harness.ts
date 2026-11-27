@@ -226,7 +226,10 @@ export type Setup = {
   eventsRefused?: string;
   createRefused?: string;
   files?: Record<string, string>;
-  tokens?: Record<string, { account: string; scopes: string[] | null }>;
+  tokens?: Record<
+    string,
+    { account: string; scopes: string[] | null; expires?: string }
+  >;
   tools?: (base: Registry, tickets: Tickets) => Registry;
   /** Whether the repository is private; public unless given. */
   private?: boolean;

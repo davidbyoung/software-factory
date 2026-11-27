@@ -129,7 +129,11 @@ export async function askSecret(
   d: Terminal,
   step: SecretStep,
   again: string,
-): Promise<{ value: string; account?: string } | null> {
+): Promise<{
+  value: string;
+  account?: string;
+  kept?: Record<string, string>;
+} | null> {
   for (const l of step.intro) d.out(introLine(l, step.get));
   if (step.get && "page" in step.get) d.openPage(step.get.page);
   if (step.get && "command" in step.get) await d.interactive(step.get.command);
@@ -139,7 +143,11 @@ export async function askSecret(
       d.out(say.text(`${step.skipped} ${again}`));
       return null;
     }
-    let checked: { lines: string[]; account?: string } = { lines: [] };
+    let checked: {
+      lines: string[];
+      account?: string;
+      kept?: Record<string, string>;
+    } = { lines: [] };
     if (step.verify)
       try {
         checked = await step.verify(value, (l) => d.out(progress(l)));
@@ -148,7 +156,7 @@ export async function askSecret(
         continue;
       }
     for (const l of checked.lines) d.out(say.text(l));
-    return { value, account: checked.account };
+    return { value, account: checked.account, kept: checked.kept };
   }
 }
 

@@ -81,6 +81,7 @@ import { listed } from "./lib/listed.mts";
 import {
   credentialsPath,
   fileProblem,
+  keptDays,
   machineState,
   pastedDay,
   readCredential,
@@ -93,11 +94,17 @@ import {
 } from "./lib/credentials.mts";
 import { APP_CLIENT_ID, CONFIG, PROPERTY } from "./init-org.mts";
 import {
+  accessDay,
+  accessNearLine,
+  accessNotStoredLine,
   agentTokenDay,
   dayOf,
+  holders,
   nearLine,
   notStoredLine,
+  olderStoredLine,
   tokenDay,
+  type AccessDay,
 } from "./lib/token-day.mts";
 import {
   AGENT_TOKEN,
@@ -2110,9 +2117,70 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const npmBothSet = npm.tokens.filter(
     (n) => isSet(n) && npm.dependabot(n) === "set",
   );
+  const now = (d.now ?? (() => new Date()))();
+  const today = now.toISOString().slice(0, 10);
+  // A person's GitHub access token from 30 days before its day, or in a
+  // secret here older than the machine's: asked about on its own, before
+  // the others, and left out of replacing them.
+  const accessStep = isOrganization
+    ? undefined
+    : steps.find(
+        (x): x is typeof x & { step: SecretStep } =>
+          x.name === chosen.codeHost &&
+          x.step.kind === "secret" &&
+          x.step.machine !== undefined,
+      );
+  const accessKept = keeps.find((k) => k.name === accessStep?.name)?.kept;
+  const accessDays = accessStep
+    ? keptDays({ tool: accessStep.name, site, env })
+    : null;
+  const accessHolders =
+    accessStep && accessDays?.held
+      ? holders({
+          secrets: ownDated,
+          names: accessStep.step.storeAs,
+          pasted: accessDays.pasted,
+        })
+      : null;
+  const nearOf = (day: AccessDay | null) =>
+    day !== null && (day.stage === "soon" || day.stage === "over")
+      ? (day as AccessDay & { left: number })
+      : null;
+  const machineNear = nearOf(
+    accessDays?.expires ? accessDay(accessDays.expires, now) : null,
+  );
+  let accessNear: "machine" | "new" | "keep" | null = null;
+  if (
+    accessStep &&
+    accessKept &&
+    accessHolders &&
+    heldOn(accessStep.name, accessKept.name) !== null
+  ) {
+    if (
+      machineNear &&
+      (accessHolders.names.length || accessHolders.older.length)
+    ) {
+      d.out(say.BLANK);
+      d.out(say.text(accessNearLine(machineNear)));
+      accessNear = (await d.ask.confirm(
+        "Make a new one now? Press Enter for yes:",
+        true,
+      ))
+        ? "new"
+        : "keep";
+    } else if (accessHolders.older.length && accessDays?.pasted) {
+      d.out(say.BLANK);
+      d.out(say.text(olderStoredLine(accessHolders, accessDays.pasted)));
+      accessNear = (await d.ask.confirm(
+        "Store the one on this machine in its place? Press Enter for yes:",
+        true,
+      ))
+        ? "machine"
+        : "keep";
+    }
+  }
   // A person's Claude token from 30 days before its day: asked about on
   // its own, before the others, and left out of replacing them.
-  const now = (d.now ?? (() => new Date()))();
   const agentStep = isOrganization
     ? undefined
     : steps.find(
@@ -2168,7 +2236,10 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     ...new Set([
       ...needed
         .flatMap((n) => n.anyOf.filter(isSet))
-        .filter((n) => near === null || n !== AGENT_TOKEN),
+        .filter((n) => near === null || n !== AGENT_TOKEN)
+        .filter(
+          (n) => accessNear === null || !accessStep!.step.storeAs.includes(n),
+        ),
       ...npmBothSet,
     ]),
   ];
@@ -2185,9 +2256,15 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       (n) => (n.part === null || parts.has(n.part)) && !n.anyOf.some(isSet),
     );
   const isNear = (step: unknown) => near !== null && step === agentStep?.step;
+  const isAccessNear = (step: unknown) =>
+    accessNear !== null && step === accessStep?.step;
   const asked = steps
     .filter(({ step }) =>
-      isNear(step) ? near !== "keep" : replace || unmet(step),
+      isNear(step)
+        ? near !== "keep"
+        : isAccessNear(step)
+          ? accessNear !== "keep"
+          : replace || unmet(step),
     )
     .map(({ step, name: tool }) => ({
       step,
@@ -2195,11 +2272,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       // A credential's parts are checked together, so all are stored.
       names: isNear(step)
         ? [AGENT_TOKEN]
-        : step.kind === "secret"
-          ? step.storeAs.filter((n) => replace || !isSet(n))
-          : step.parts.some((p) => replace || !isSet(p.name))
-            ? step.parts.map((p) => p.name)
-            : [],
+        : isAccessNear(step)
+          ? [...accessHolders!.names, ...accessHolders!.older]
+          : step.kind === "secret"
+            ? step.storeAs.filter((n) => replace || !isSet(n))
+            : step.parts.some((p) => replace || !isSet(p.name))
+              ? step.parts.map((p) => p.name)
+              : [],
     }))
     .filter((a) => a.names.length > 0);
   // A credential kept on the machine: the site it is filed under, and on
@@ -2228,7 +2307,10 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       ? [{ ...a, step: a.step, kept }]
       : [];
   });
-  const servedFrom = new Map<SecretStep, { value: string; account?: string }>();
+  const servedFrom = new Map<
+    SecretStep,
+    { value: string; account?: string; kept?: Record<string, string> }
+  >();
   const stale = new Map<SecretStep, string>();
   for (const a of keptAsked) {
     const value = heldOn(a.tool, a.kept.name);
@@ -2241,9 +2323,30 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         continue;
       }
     }
+    if (a.step === accessStep?.step) {
+      if (accessNear === "new") continue;
+      if (accessNear === null && machineNear) {
+        stale.set(a.step, accessNotStoredLine(machineNear));
+        continue;
+      }
+    }
     try {
       const served = (await a.step.machine!.serves?.(value, owner)) ?? {};
-      servedFrom.set(a.step, { value, account: served.account });
+      // A token the file has no day for, near the day GitHub gives.
+      const checked = nearOf(
+        a.step === accessStep?.step && accessNear === null
+          ? accessDay(served.kept?.expires ?? "", now)
+          : null,
+      );
+      if (checked) {
+        stale.set(a.step, accessNotStoredLine(checked));
+        continue;
+      }
+      servedFrom.set(a.step, {
+        value,
+        account: served.account,
+        kept: served.kept,
+      });
     } catch (e) {
       stale.set(a.step, message(e));
     }
@@ -2563,6 +2666,14 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
       for (const n of names) stored.add(n);
       fromThisMachine += names.length;
       if (served.account !== undefined) tokenAccount = served.account;
+      // A token kept before the file held its expiry gets it now.
+      if (served.kept?.expires && !keptDays({ tool, site, env }).expires)
+        writeCredential({
+          tool,
+          site,
+          values: { expires: served.kept.expires },
+          env,
+        });
       continue;
     }
     if (stale.has(step)) {
@@ -2582,13 +2693,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     writeCredential({
       tool,
       site,
-      values: {
-        [kept.name]: got.value,
-        // The day its year counts from.
-        ...(kept.name === AGENT_TOKEN
-          ? { pasted: now.toISOString().slice(0, 10) }
-          : {}),
-      },
+      values: { [kept.name]: got.value, pasted: today, ...got.kept },
       env,
     });
     d.out(
@@ -2596,7 +2701,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         `${got.account === undefined ? "" : `It belongs to ${got.account}. `}Stored for ${repository}, and on this machine for your next repository.`,
       ),
     );
-    if (isNear(step))
+    if (isNear(step) || (isAccessNear(step) && accessNear === "new"))
       d.out(
         say.text(
           "Each of your other repositories keeps the old token until you run factory init there. It stores this one from your machine.",

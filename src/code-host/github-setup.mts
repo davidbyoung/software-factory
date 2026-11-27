@@ -157,7 +157,7 @@ export const githubCodeHostSetup: ToolSetup = {
         intro: [
           "",
           `An access token: opening ${page}`,
-          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it.`,
+          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.`,
         ],
         get: { page },
         prompt: "Paste it (leave empty to do this later):",
