@@ -521,6 +521,20 @@ describe("this repository's workflows", () => {
     .filter((f) => f.endsWith(".yml"))
     .map((f) => `${DIR}/${f}`);
   const factoryEvents = triggers(load(factoryWorkflow(OPTIONS)) as Workflow);
+  const RUN = `${DIR}/run.yml`;
+  const SESSION = `${DIR}/session.yml`;
+  /** Each group run.yml calls, with the events its call starts on. */
+  const groupCalls = calls(open(RUN), factoryEvents).filter(
+    ([file]) => file !== SESSION,
+  );
+  /** The jobs of run.yml and its groups that start on an event with the
+   * secrets: the groups' with the events their calls start on. */
+  const runJobsWithSecrets = () => [
+    ...jobsWithSecrets(open(RUN), factoryEvents).filter(
+      ([, job]) => !groupCalls.some(([file]) => job.uses === `./${file}`),
+    ),
+    ...groupCalls.flatMap(([file, on]) => jobsWithSecrets(open(file), on)),
+  ];
 
   it("finds the workflows to scan, and the factory's own behind the two files sync writes", () => {
     expect(files).toContain(`${DIR}/release.yml`);
@@ -530,39 +544,41 @@ describe("this repository's workflows", () => {
     expect(calls(reviewWorkflow(OPTIONS))).toEqual([
       [`${DIR}/review.yml`, ["pull_request"]],
     ]);
+    expect(calls(open(RUN), factoryEvents).map(([file]) => file)).toEqual([
+      SESSION,
+      SESSION,
+      `${DIR}/run-pull-request.yml`,
+      `${DIR}/run-tickets.yml`,
+      `${DIR}/run-default-branch.yml`,
+    ]);
     expect(
-      calls(open(`${DIR}/run.yml`), factoryEvents).map(([file]) => file),
-    ).toEqual(Array(5).fill(`${DIR}/session.yml`));
+      groupCalls.flatMap(([file, on]) =>
+        calls(open(file), on).map(([called]) => called),
+      ),
+    ).toEqual(Array(3).fill(SESSION));
   });
 
   it("starts only the verdict, the approval policies' checks, what tells the other repositories, the merge policy, the board sync, the ticked tickets, the review, and Dependabot's auto-merge on an event that has the secrets", () => {
     expect(factoryEvents).toContain("pull_request_target");
     expect(factoryEvents).not.toContain("workflow_run");
-    expect(
-      jobsWithSecrets(open(`${DIR}/run.yml`), factoryEvents).map(
-        ([name]) => name,
-      ),
-    ).toEqual([
+    expect(runJobsWithSecrets().map(([name]) => name)).toEqual([
+      "approval-label",
+      "review",
       "verdict",
       "approval-prepare",
       "approval-commands",
       "approval-agent",
       "approval-status",
-      "approval-label",
-      "across",
       "merge-policy",
-      "board",
-      "follow-ups",
-      "review",
       "dependabot",
+      "across",
+      "follow-ups",
+      "board",
     ]);
   });
 
   it("starts one session, the review, with them, and only for a pull request from the repository itself, and nothing of review.yml", () => {
-    const sessions = jobsWithSecrets(
-      open(`${DIR}/run.yml`),
-      factoryEvents,
-    ).filter(([, job]) => job.uses);
+    const sessions = runJobsWithSecrets().filter(([, job]) => job.uses);
     expect(sessions.map(([name]) => name)).toEqual(["review"]);
     expect(conjuncts(sessions[0]![1].if!)).toContain(
       "github.event.pull_request.head.repo.full_name == github.repository",

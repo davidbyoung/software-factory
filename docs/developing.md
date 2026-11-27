@@ -136,7 +136,7 @@ built or planned.
   rules.md                     the process rules
   review.md                    the pull request reviewer's instructions
   src/workflow-files.mts       writes the two workflow files a repository gets, and an organization's factory-poller.yml
-  .github/workflows/           run.yml, review.yml, session.yml, and poller.yml: the jobs those files call
+  .github/workflows/           run.yml, its three run-*.yml groups, review.yml, session.yml, and poller.yml: the jobs those files call
   poller.Dockerfile            the poller's image
   docs/                        these pages
   tests/                       the tool's tests and their fixtures
@@ -237,14 +237,17 @@ file in the repository turns it on: add it to `NEEDS` in `src/sync.mts`,
 so a repository that does not use it never carries it.
 
 **The workflows are source, not copies.** `.github/workflows/run.yml`,
-`review.yml`, `session.yml`, and `poller.yml` are edited where they are,
+the three groups it calls (`run-pull-request.yml`, `run-tickets.yml`, and
+`run-default-branch.yml`), `review.yml`, `session.yml`, and `poller.yml`
+are edited where they are,
 and nothing copies them. A repository that uses the factory gets two files,
 `.github/workflows/factory.yml` and `.github/workflows/factory-review.yml`,
 which `src/workflow-files.mts` writes from its settings: the default
 branch, the parts that are on, the poller's schedule, each session's
 minutes, and the names of its secrets. Each has one job, which calls
 `run.yml` or `review.yml` in this repository at `@v` and the version the
-lock names, and `run.yml` calls `session.yml` for each job that runs a
+lock names. `run.yml` calls its groups, and `run.yml` and
+`run-default-branch.yml` call `session.yml` for each job that runs a
 session. `factory init --org` writes a third file, into the repository
 that holds an organization's preset: `.github/workflows/factory-poller.yml`,
 from `pollerWorkflow` in the same module, which calls `poller.yml` at the
@@ -551,8 +554,8 @@ every command that reads the settings and reaches the runner, with
 | The jobs that failed in a run        | `failedJobs`      | Each failed job's name and everything it printed. Which runs count is the caller's: `factory pr failed` takes those `wait-checks` waits on |
 
 **A runner also needs its own job files, which no interface covers.**
-`run.yml`, `review.yml`, `session.yml`, and `poller.yml` under
-`.github/workflows/`, the files `src/workflow-files.mts` writes that
+`run.yml` and its groups, `review.yml`, `session.yml`, and `poller.yml`
+under `.github/workflows/`, the files `src/workflow-files.mts` writes that
 call them, and their secrets are GitHub Actions' own. `factory sync` writes the two files whatever
 `builds.runner` says, and another runner would need its own set, written
 for it.

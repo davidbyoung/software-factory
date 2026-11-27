@@ -1,0 +1,220 @@
+# The jobs of run.yml's "Tickets" group: what tells the other
+# repositories, opens the ticked tickets, and syncs the board. run.yml
+# calls this file only on the events one of them starts on.
+name: Factory tickets
+
+on:
+  workflow_call:
+    inputs:
+      parts:
+        description: "The parts that are on, separated by spaces: review, board, auto-merge, poller, dependabot, approval-policies"
+        type: string
+        default: ""
+      job:
+        description: "What a run by hand is for: build, review, conflicts, dependencies, updates, board, or poller"
+        type: string
+        default: ""
+    secrets:
+      app-key:
+        required: false
+      board-token:
+        required: false
+      build-token:
+        required: false
+      extra:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Tells the other repositories of a pull request's ticket that it opened,
+  # merged, or closed: theirs wait for it, and the last to merge finishes the
+  # ticket. `factory across` holds every rule.
+  across:
+    name: Tell the other repositories
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      contains(fromJSON('["opened", "reopened", "closed"]'), github.event.action) &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.body || '', 'Part of ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - &install
+        name: Install the factory
+        run: |
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
+            npm ci --ignore-scripts
+            npm link
+          else
+            version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::.claude/factory.lock names no release of the factory. Run factory sync, and commit what it writes."
+              exit 1
+            fi
+            npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
+          fi
+
+      - name: Tell the other repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+        run: factory across --event "$GITHUB_EVENT_PATH"
+
+  # Opens a ticket for each follow-up a person ticked in a pull request's
+  # description before it merged. No AI runs here: `factory pr follow-ups`
+  # decides everything, from the event. A fork's author can edit what it
+  # reads, so it runs for this repository's own branches alone.
+  follow-ups:
+    name: Open the ticked tickets
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.body || '', '<!-- factory: follow-ups -->')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: factory-follow-ups-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - &extra
+        name: Take the repository's own secrets
+        env:
+          EXTRA: ${{ secrets.extra }}
+        run: |
+          [ -n "$EXTRA" ] || exit 0
+          end="FACTORY_$(openssl rand -hex 8)"
+          for name in $(jq -r 'to_entries[] | select(.value != "") | .key' <<< "$EXTRA"); do
+            value="$(jq -r --arg name "$name" '.[$name]' <<< "$EXTRA")"
+            while IFS= read -r line; do
+              [ -z "$line" ] || echo "::add-mask::$line"
+            done <<< "$value"
+            { echo "$name<<$end"; echo "$value"; echo "$end"; } >> "$GITHUB_ENV"
+          done
+
+      - name: Open the ticked tickets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory pr follow-ups --event "$GITHUB_EVENT_PATH"
+
+  # Keeps the board's Status, Session, and Runs in in step with what
+  # sessions record on each labeled ticket, and Cost with the costs on each
+  # ticket and the pull requests that build it. It recomputes every ticket
+  # on every run, so a run that waits behind another loses nothing. The
+  # workflow's own token cannot reach a user's Project, so the board's
+  # token, or the app's, goes only to the step that writes the board.
+  board:
+    name: Sync the board
+    # Dependabot's pull requests close no ticket and are not on the board,
+    # and a fork's pull request does not get the board's token.
+    # The tickets a merge opens are on the board once this has run.
+    needs: [follow-ups]
+    if: >-
+      !cancelled() &&
+      contains(format(' {0} ', inputs.parts), ' board ') &&
+      ((github.event_name == 'pull_request_target' &&
+        contains(fromJSON('["opened", "closed", "reopened", "ready_for_review", "converted_to_draft"]'), github.event.action) &&
+        github.event.pull_request.user.login != 'dependabot[bot]' &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+       (github.event_name == 'schedule' && github.event.schedule == '0 7 * * *') ||
+       (github.event_name == 'workflow_dispatch' && inputs.job == 'board'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: factory-board-sync
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - &repositories
+        name: List the repositories the app's token is for
+        id: repositories
+        env:
+          APP_KEY_SET: ${{ secrets.app-key != '' }}
+          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+        run: |
+          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
+            names="$(factory session repositories)"
+            echo "names=$names" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Make the app's token
+        id: app
+        if: steps.repositories.outputs.names != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repositories.outputs.names }}
+          permission-organization-projects: write
+          permission-issues: read
+
+      - &uninstalled
+        name: Say that the app is not installed
+        if: failure() && steps.app.outcome == 'failure'
+        run: |
+          echo "::error::The software factory's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+
+      - *extra
+
+      - name: Read the repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          FACTORY_ACROSS: read
+        run: >-
+          factory board collect
+          --out "$RUNNER_TEMP/repo.json"
+          --event "$GITHUB_EVENT_PATH"
+          --event-name "$GITHUB_EVENT_NAME"
+
+      - name: Write the board
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.board-token }}
+        run: factory board apply --in "$RUNNER_TEMP/repo.json"

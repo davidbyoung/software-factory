@@ -10,13 +10,14 @@ The others need lines in your settings file that it doesn't have:
 [Moving to settings version 2](#moving-to-settings-version-2) and
 [Naming build branches](#naming-build-branches), for every repository, and
 [Naming every column](#naming-every-column), for a repository whose
-settings have a [`tickets.board`](configuration.md#tickets). Five more,
+settings have a [`tickets.board`](configuration.md#tickets). Six more,
 [Labeling your open tickets](#labeling-your-open-tickets),
 [A spec for every visible change](#a-spec-for-every-visible-change),
 [Tickets across repositories](#tickets-across-repositories),
-[Follow-ups in the pull request](#follow-ups-in-the-pull-request), and
-[The poller reads your settings](#the-poller-reads-your-settings), ask
-nothing of most repositories, but are worth reading. One more,
+[Follow-ups in the pull request](#follow-ups-in-the-pull-request),
+[The poller reads your settings](#the-poller-reads-your-settings), and
+[Grouped checks](#grouped-checks), ask nothing of most repositories, but
+are worth reading. One more,
 [Cloud runs in three jobs](#cloud-runs-in-three-jobs), asks you to pass one
 pull request's verdict by hand.
 
@@ -663,6 +664,29 @@ container's output, shows the settings it read, such as:
 ```text
 settings from .claude/factory.lock on main: board 1, ready column "Ready", label "factory", 20 builds an hour
 ```
+
+## Grouped checks
+
+From this release on, a pull request's list of checks shows most of the
+factory's jobs in three groups, Pull request, Tickets, and Default
+branch, so a group with nothing to do shows as one skipped row, not a
+row for each of its jobs. Nothing in your settings has to change. The
+rules the factory makes require statuses, such as "Review verdict",
+whose names stay the same.
+
+A rule you made yourself may require one of the factory's jobs by its
+row's name. Look in your repository's Settings, under Rules and
+Branches, at each rule's list of required checks. A name such as
+`factory / Record the verdict` no longer appears, so a pull request
+waits for it forever. Change it to the job's new name, which adds the
+group, such as `factory / Pull request / Record the verdict`.
+[Workflows](github/reference.md#workflows) lists each group's jobs. The
+rows of Review and Answer, such as `factory / Review / Session`, and
+`review / Factory files in step`, keep their names.
+
+**It worked when** a pull request opened after the update no longer
+shows a required check as "Expected — Waiting for status to be
+reported".
 
 ## The commands
 

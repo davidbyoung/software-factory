@@ -1,0 +1,532 @@
+# The jobs of run.yml's "Pull request" group: what judges a pull request's
+# commit. run.yml calls this file only on the events one of them starts on,
+# so on any other a pull request's checks list it as one skipped row.
+name: Factory pull request
+
+on:
+  workflow_call:
+    inputs:
+      parts:
+        description: "The parts that are on, separated by spaces: review, board, auto-merge, poller, dependabot, approval-policies"
+        type: string
+        default: ""
+      job:
+        description: "What a run by hand is for: build, review, conflicts, dependencies, updates, board, or poller"
+        type: string
+        default: ""
+      pr:
+        description: The pull request's number, to answer a review
+        type: string
+        default: ""
+      override-label:
+        description: The name of the label that passes the verdict for one commit
+        type: string
+        default: verdict-override
+    secrets:
+      app-key:
+        required: false
+      automerge-token:
+        required: false
+      build-token:
+        required: false
+      claude-api-key:
+        required: false
+      claude-token:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Posts the "Review verdict" commit status, which records what the
+  # automated review concluded about one commit: success only when its
+  # summary for that commit says ready, an approver overrode it, or the
+  # review is off. `factory review verdict` holds every rule. On a pull
+  # request of a ticket that names other repositories it also posts "Merge
+  # order", from what those repositories say, which only a token of their own
+  # can read in a private one. Another repository's run starts it again, by
+  # hand, when what this one waits for changed.
+  verdict:
+    name: Record the verdict
+    # Label events matter only for the override; the labels the merge policy
+    # adds are added with the workflow's own token and start no runs.
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) ||
+       (github.event.action == 'edited' && github.event.changes.base != null) ||
+       ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
+        github.event.label.name == inputs.override-label)) ||
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'order')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - &install
+        name: Install the factory
+        run: |
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
+            npm ci --ignore-scripts
+            npm link
+          else
+            version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::.claude/factory.lock names no release of the factory. Run factory sync, and commit what it writes."
+              exit 1
+            fi
+            npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
+          fi
+
+      - name: Post the verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          FACTORY_APP_PRIVATE_KEY: ${{ (inputs.job == 'order' || contains(github.event.pull_request.body || '', 'Part of ')) && secrets.app-key || '' }}
+          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          FACTORY_ACROSS: read
+          PR: ${{ github.event_name == 'workflow_dispatch' && inputs.pr || '' }}
+        run: factory review verdict ${PR:+--pr "$PR"}
+
+  # The approval policies: `prepare` reads the pull request's change from
+  # git and writes each check's input; `commands` runs each policy's command
+  # with no token; `agent` runs each policy's agent on its own, with tools
+  # that only read; and `status` posts "Approval policies" and keeps what
+  # was found, as an artifact, for the label's run. `factory
+  # approval-policies` holds every rule. Each commit and base's checks run
+  # one at a time, and none cancels another.
+  approval-prepare:
+    name: Read the change for the approval policies
+    if: >-
+      contains(format(' {0} ', inputs.parts), ' approval-policies ') &&
+      github.event_name == 'pull_request_target' &&
+      (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review", "converted_to_draft"]'), github.event.action) ||
+       (github.event.action == 'edited' && github.event.changes.base != null))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: &approval-group
+      group: factory-approval-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    outputs:
+      commands: ${{ steps.prepare.outputs.commands }}
+      agents: ${{ steps.prepare.outputs.agents }}
+      kept: ${{ steps.prepare.outputs.kept }}
+      approved: ${{ steps.prepare.outputs.approved }}
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Prepare
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory approval-policies prepare "$RUNNER_TEMP/approval"
+
+      - name: Keep the inputs
+        if: steps.prepare.outputs.commands == 'true' || steps.prepare.outputs.agents != '[]'
+        uses: actions/upload-artifact@v6
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+          retention-days: 1
+
+  approval-commands:
+    name: Run the approval policies' commands
+    needs: approval-prepare
+    if: needs.approval-prepare.outputs.commands == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Fetch the inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+
+      # No token in this step's environment: a check reads the change from
+      # its input and posts nothing.
+      - name: Run the commands
+        run: factory approval-policies commands "$RUNNER_TEMP/approval"
+
+      - name: Keep the answers
+        uses: actions/upload-artifact@v6
+        with:
+          name: approval-commands
+          path: ${{ runner.temp }}/approval/answer
+          retention-days: 1
+
+  approval-agent:
+    name: Run an approval policy's agent
+    needs: [approval-prepare, approval-commands]
+    # An agent can't run where the run has no Claude credential: on a fork's
+    # pull request, and on a push of Dependabot's. The status says so.
+    if: >-
+      always() && needs.approval-prepare.result == 'success' &&
+      needs.approval-prepare.outputs.agents != '[]' &&
+      needs.approval-commands.result != 'failure' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    strategy:
+      fail-fast: false
+      matrix:
+        check: ${{ fromJSON(needs.approval-prepare.outputs.agents) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Install Claude Code
+        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
+
+      - name: Fetch the inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+
+      - name: Fetch the commands' answers
+        if: needs.approval-commands.result == 'success'
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-commands
+          path: ${{ runner.temp }}/approval/answer
+
+      - name: Run the agent
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.claude-token }}
+          ANTHROPIC_API_KEY: ${{ secrets.claude-token == '' && secrets.claude-api-key || '' }}
+        run: factory approval-policies agent "$RUNNER_TEMP/approval" "${{ matrix.check }}"
+
+      - name: Keep the answer
+        uses: actions/upload-artifact@v6
+        with:
+          name: approval-agent-${{ matrix.check }}
+          path: ${{ runner.temp }}/approval/answer/${{ matrix.check }}.json
+          retention-days: 1
+
+  approval-status:
+    name: Post the approval policies' status
+    needs: [approval-prepare, approval-commands, approval-agent]
+    if: >-
+      always() && needs.approval-prepare.result == 'success' &&
+      (needs.approval-prepare.outputs.commands == 'true' || needs.approval-prepare.outputs.agents != '[]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: *approval-group
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      - name: Fetch the inputs
+        uses: actions/download-artifact@v7
+        with:
+          name: approval-input
+          path: ${{ runner.temp }}/approval
+
+      - name: Fetch the answers
+        uses: actions/download-artifact@v7
+        with:
+          pattern: approval-{commands,agent-*}
+          path: ${{ runner.temp }}/approval/answer
+          merge-multiple: true
+
+      - name: Find an approval of this commit
+        id: approved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ needs.approval-prepare.outputs.approved }}
+        run: factory approval-policies kept "$NAME"
+
+      - name: Fetch the approval
+        if: steps.approved.outputs.run != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ needs.approval-prepare.outputs.approved }}
+          run-id: ${{ steps.approved.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/approval/approved
+
+      - name: Post the status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: factory approval-policies status "$RUNNER_TEMP/approval"
+
+      - name: Keep what was found
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ needs.approval-prepare.outputs.kept }}
+          path: ${{ runner.temp }}/approval/kept
+          retention-days: 90
+
+  # Labels each pull request merge-automatic or merge-manual, by the names
+  # code-host.labels gives them, from the files it changes, posts the reason
+  # as the non-blocking "Who merges" status, and turns auto-merge on only
+  # for merge-automatic ones that are not drafts. It reads the pull request
+  # as it is now, through the API: an event sent just after a push can
+  # carry the previous commit.
+  merge-policy:
+    name: Classify risk
+    # Dependabot's pull requests have their own auto-merge job.
+    if: >-
+      contains(format(' {0} ', inputs.parts), ' auto-merge ') &&
+      github.event_name == 'pull_request_target' &&
+      (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) ||
+       (github.event.action == 'edited' && github.event.changes.base != null)) &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: factory-merge-policy-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        # The history, to read an approval policy's change against its merge base.
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - *install
+
+      # The app's token is for this repository and for each repository of
+      # the same owner that holds a preset the lock names. The key is told
+      # from an empty one through `env`, since a step's `if` cannot read a
+      # secret.
+      - &repositories
+        name: List the repositories the app's token is for
+        id: repositories
+        env:
+          APP_KEY_SET: ${{ secrets.app-key != '' }}
+          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+        run: |
+          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
+            names="$(factory session repositories)"
+            echo "names=$names" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Each job's token carries the permissions its own steps use and no
+      # others: with none named, it would carry all the app has.
+      - name: Make the app's token
+        id: app
+        if: steps.repositories.outputs.names != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repositories.outputs.names }}
+          permission-pull-requests: write
+          permission-contents: write
+
+      - &uninstalled
+        name: Say that the app is not installed
+        if: failure() && steps.app.outcome == 'failure'
+        run: |
+          echo "::error::The software factory's app for $GITHUB_REPOSITORY_OWNER is not installed on $GITHUB_REPOSITORY. An owner of $GITHUB_REPOSITORY_OWNER adds it: $GITHUB_SERVER_URL/organizations/$GITHUB_REPOSITORY_OWNER/settings/installations"
+
+      - name: Classify
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          result=$(factory merge-policy "$PR")
+          {
+            echo "label=$(jq -r .label <<<"$result")"
+            echo "other=$(jq -r .other <<<"$result")"
+            echo "automatic=$(jq -r .automatic <<<"$result")"
+            echo "status=$(jq -r .status <<<"$result")"
+            echo "sha=$(jq -r .sha <<<"$result")"
+            echo "draft=$(jq -r .draft <<<"$result")"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### $(jq -r .label <<<"$result")"
+            jq -r '.reasons[] | "- \(.)"' <<<"$result"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Through the factory's command, which reaches the label the way
+      # GitHub serves it, so nothing here calls the issues API.
+      - name: Label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ steps.classify.outputs.label }}
+          OTHER: ${{ steps.classify.outputs.other }}
+        run: |
+          factory pr label "$PR" --add "$LABEL" >/dev/null
+          if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name' | grep -qxF "$OTHER"; then
+            factory pr label "$PR" --remove "$OTHER" >/dev/null
+          fi
+
+      # Always success, and not a required check: it says why, in the checks
+      # list, without blocking. The merge waits on the label, not on this.
+      - name: Post the reason
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.classify.outputs.sha }}
+          STATUS: ${{ steps.classify.outputs.status }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+            -f state=success -f "context=Who merges" -f "description=$STATUS" \
+            -f "target_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
+
+      # The app's token or the owner's, so the merge it leads to starts the
+      # workflows a push to the default branch starts; a merge made with the
+      # workflow's own token starts none. Auto-merge still waits for every
+      # required check and for every review thread to be resolved.
+      - name: Turn auto-merge on or off
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.automerge-token }}
+          AUTOMATIC: ${{ steps.classify.outputs.automatic }}
+          DRAFT: ${{ steps.classify.outputs.draft }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::FACTORY_AUTOMERGE_TOKEN is not set as an Actions secret."
+            exit 1
+          fi
+          enabled=$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')
+          if [[ $AUTOMATIC == true && $DRAFT == false ]]; then
+            [[ $enabled == true ]] || gh pr merge --auto --squash "$PR_URL"
+          elif [[ $enabled == true ]]; then
+            gh pr merge --disable-auto "$PR_URL"
+          fi
+
+  # Lets one of Dependabot's pull requests merge itself. Never a major,
+  # whose migration the owner reads first, and never one that names the
+  # factory, as a raised version in a workflow file would: that changes the
+  # instructions every session follows. Auto-merge still waits for every
+  # required check and for every review thread to be resolved.
+  #
+  # FACTORY_AUTOMERGE_TOKEN is the owner's token. A merge enabled with the
+  # workflow's own token would start no workflow on the default branch. The
+  # app's token takes its place where the app's key reaches the run.
+  dependabot:
+    name: Enable auto-merge
+    if: >-
+      contains(format(' {0} ', inputs.parts), ' dependabot ') &&
+      github.event_name == 'pull_request_target' &&
+      contains(fromJSON('["opened", "reopened", "synchronize"]'), github.event.action) &&
+      github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The merge is turned on with the app's token or the owner's: the
+    # workflow's own is read-only on a pull request of Dependabot's.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Read the update
+        id: meta
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ github.token }}
+
+      # For this repository alone: the job reads no preset, and checks out
+      # nothing of the pull request's.
+      - name: Check whether the app's key reaches the run
+        id: repositories
+        env:
+          APP_KEY_SET: ${{ secrets.app-key != '' }}
+          CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
+        run: |
+          if [ "$APP_KEY_SET" = "true" ] && [ -n "$CLIENT_ID" ]; then
+            echo "names=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Make the app's token
+        id: app
+        if: steps.repositories.outputs.names != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.app-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repositories.outputs.names }}
+          permission-pull-requests: write
+          permission-contents: write
+
+      - *uninstalled
+
+      - name: Enable auto-merge
+        if: >-
+          steps.meta.outputs.update-type != 'version-update:semver-major' &&
+          !contains(steps.meta.outputs.dependency-names, 'davidbyoung/software-factory')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.automerge-token }}

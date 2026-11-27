@@ -179,7 +179,9 @@ fails when a copy differs from its source. Never edit the copy under
 These are not copies: they have no source elsewhere and are edited where
 they are.
 
-- `.github/workflows/run.yml`, `review.yml`, and `session.yml`, the
+- `.github/workflows/run.yml`, the three groups it calls
+  (`run-pull-request.yml`, `run-tickets.yml`, and
+  `run-default-branch.yml`), `review.yml`, and `session.yml`, the
   workflows every repository's two files call. Here those two files,
   `factory.yml` and `factory-review.yml`, call the copies in the same
   commit, so a pull request's own `review.yml` runs on it, and `run.yml`

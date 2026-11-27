@@ -205,9 +205,25 @@ What the less obvious ones do:
 
 In a pull request's list of checks, a job's name follows the name of the
 file's calling job: `review / Factory files in step` from
-`factory-review.yml`, and `factory / Record the verdict` and
-`factory / Review / Session` from `factory.yml`. "Review verdict",
-"Automated review", and "Who merges" are statuses, and keep those names.
+`factory-review.yml`, and `factory / Review / Session` from `factory.yml`.
+Most of `factory.yml`'s other jobs are in a group, and the group's name
+comes next, as in `factory / Pull request / Record the verdict`. Each job
+is listed here by the name its row shows:
+
+| Group            | Its jobs                                                                                                                                                                                                                                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| None             | Review and Answer, each three jobs, and Approve what an approval policy found                                                                                                                                                                                                                             |
+| `Pull request`   | Record the verdict, the [approval policies](../approval-policies.md)' Read the change for the approval policies, Run the approval policies' commands, Run an approval policy's agent, and Post the approval policies' status, Classify risk (Who merges), and Enable auto-merge (Dependabot's auto-merge) |
+| `Tickets`        | Tell the other repositories, Sync the board, and Open the ticked tickets                                                                                                                                                                                                                                  |
+| `Default branch` | Factory files in step, Require the verdict, Build, Find the conflicts, Conflict, Find the dependency pull requests, Dependency, Open the updates' pull requests, Start the Ready tickets, and Unknown job                                                                                                 |
+
+A build's rows read `factory / Default branch / Build / Session`. A group
+with nothing to do on an event shows as one skipped row with the group's
+name, such as `factory / Tickets`, not a row for each of its jobs.
+
+"Review verdict", "Automated review", "Approval policies", and "Who
+merges" are statuses: a job posts each on the commit, under that name,
+and the names do not change.
 
 **An organization's poller is in a workflow file of its own, in one
 repository.** `factory init --org` writes
