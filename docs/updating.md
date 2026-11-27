@@ -273,7 +273,7 @@ file. On a branch:
 | A plugin with `role: mockups`                                            | The one block [`plugins.refine.mockups`](configuration.md#pluginsrefine)                       |
 | A plugin with `role: builder`                                            | An item of the list [`plugins.build.builders`](configuration.md#pluginsbuild)                  |
 | A plugin with `role: reviewer`                                           | An item of the list `plugins.build.reviewers`                                                  |
-| `ci-review`                                                              | [`pr-review`](configuration.md#pr-review), the same block under a new name                     |
+| `ci-review`                                                              | [`pr-review: true`](configuration.md#pr-review), in place of the block                         |
 | [`specs`](configuration.md#specs), one word                              | Still one word. It is now also a block, with `type` and [`check`](configuration.md#specscheck) |
 
 Every other key keeps its name, its place, and its meaning.
