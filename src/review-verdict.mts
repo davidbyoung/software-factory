@@ -310,7 +310,7 @@ export async function apply(
       }
       await pulls.comment(
         pr.number,
-        `Removed \`${override}\`: a newer commit, ${sha.slice(0, 7)}, is unread. Add it again once its review has run.`,
+        `Removed \`${override}\`: a newer commit, \`${sha.slice(0, 7)}\`, is unread. Add it again once its review has run.`,
       );
       return log(
         `The override names ${seen.slice(0, 7)}, and ${sha} is the head: nothing to post.`,

@@ -508,8 +508,19 @@ describe("apply", () => {
     ]);
     expect(host.pull(31).labels).toEqual([]);
     expect(comments(host)).toEqual([
-      "Removed `verdict-override`: a newer commit, 4c1d2ab, is unread. Add it again once its review has run.",
+      "Removed `verdict-override`: a newer commit, `4c1d2ab`, is unread. Add it again once its review has run.",
     ]);
+  });
+
+  it("fails, and says nothing, when the stale override cannot be taken off", async () => {
+    const { host, go } = setUp({
+      fail: { removeLabel: new Error("gh: Server Error (HTTP 500)") },
+    });
+
+    await expect(
+      go("labeled", "alice", undefined, "01d5a00000"),
+    ).rejects.toThrow("gh: Server Error (HTTP 500)");
+    expect(comments(host)).toEqual([]);
   });
 
   it("says why when the push's own run took the stale override off first", async () => {
@@ -518,7 +529,7 @@ describe("apply", () => {
     await go("labeled", "alice", undefined, "01d5a00000");
     expect(host.log.filter((l) => /^setStatus/.test(l))).toEqual([]);
     expect(comments(host)).toEqual([
-      "Removed `verdict-override`: a newer commit, 4c1d2ab, is unread. Add it again once its review has run.",
+      "Removed `verdict-override`: a newer commit, `4c1d2ab`, is unread. Add it again once its review has run.",
     ]);
   });
 
