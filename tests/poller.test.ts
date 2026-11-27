@@ -1198,6 +1198,8 @@ describe("one pass for every repository on an organization's board", () => {
     /** Each repository's own `.claude/factory.yaml` on its default branch,
      * or what GitHub answers in place of it; it has none unless given. */
     own?: Record<string, string | Response>;
+    /** Each repository's `.claude/factory.lock` the same way. */
+    lock?: Record<string, string | Response>;
     pages?: { repoPage: unknown; boardPage: unknown };
     settings?: Partial<Parameters<typeof onceEach>[0]>;
     token?: string | null;
@@ -1248,8 +1250,9 @@ describe("one pass for every repository on an organization's board", () => {
           ? answer(200, UNREACHABLE)
           : answer(200, o.pages?.repoPage ?? repoPages[0]);
       }
-      if (url.endsWith("/contents/.claude/factory.yaml")) {
-        const file = o.own?.[repo];
+      const path = /\/contents\/(.+)$/.exec(url)?.[1];
+      if (path === ".claude/factory.yaml" || path === ".claude/factory.lock") {
+        const file = (path === ".claude/factory.yaml" ? o.own : o.lock)?.[repo];
         if (file instanceof Response) return file.clone();
         return file === undefined
           ? answer(404, { message: "Not Found" }, "Not Found")
@@ -1404,19 +1407,41 @@ describe("one pass for every repository on an organization's board", () => {
     ]);
   });
 
-  describe("a repository whose own settings file sets builds.trigger", () => {
-    const OWN = (trigger: string | null) =>
-      [
-        "version: 2",
-        "repository: acme/web",
-        "presets:",
-        "  - acme/factory-config",
-        ...(trigger === null ? [] : ["builds:", `  trigger: ${trigger}`]),
-        "",
-      ].join("\n");
-    const STARTED_API =
-      "acme/api: #12 started st_0123456789ab: dispatched factory.yml";
+  const OWN = (trigger: string | null, presets = ["acme/factory-config"]) =>
+    [
+      "version: 2",
+      "repository: acme/web",
+      ...(presets.length
+        ? ["presets:", ...presets.map((p) => `  - ${p}`)]
+        : []),
+      ...(trigger === null ? [] : ["builds:", `  trigger: ${trigger}`]),
+      "",
+    ].join("\n");
+  /** A lock as `factory sync` writes it, pinning `presets` and recording
+   * the settings in effect, or, with a null trigger, none, as a lock from
+   * an earlier release does. */
+  const LOCK = (presets: string[], trigger: string | null) =>
+    [
+      "version: 0.0.0-development",
+      ...(presets.length
+        ? [
+            "presets:",
+            ...presets.flatMap((p) => [
+              `  - name: ${p}`,
+              "    commit: 3f9c2e1",
+              "    settings: {}",
+            ]),
+          ]
+        : ["presets: []"]),
+      ...(trigger === null
+        ? []
+        : ["settings:", "  builds:", `    trigger: ${trigger}`]),
+      "",
+    ].join("\n");
+  const STARTED_API =
+    "acme/api: #12 started st_0123456789ab: dispatched factory.yml";
 
+  describe("a repository whose own settings file sets builds.trigger", () => {
     it.each(["manual", "own-server"])(
       "is left alone when the file itself says %s, whatever the preset it follows says, and the next repository is polled",
       async (trigger) => {
@@ -1451,17 +1476,14 @@ describe("one pass for every repository on an organization's board", () => {
 
     it.each<[string, string | Response | undefined]>([
       ["the file itself says github-action", OWN("github-action")],
-      [
-        "the file sets no trigger of its own and follows its presets, which are not read",
-        OWN(null),
-      ],
       ["the default branch has no such file", undefined],
       ["the file cannot be read", answer(500, { message: "Server Error" })],
       ["the file is not YAML", "builds: ["],
-    ])("is polled when %s", async (_, file) => {
+    ])("is polled when %s, and its lock is not read", async (_, file) => {
       const o = org({
         ready: ["acme/web"],
         own: file === undefined ? {} : { "acme/web": file },
+        lock: { "acme/web": LOCK(["acme/factory-config"], "manual") },
       });
 
       expect(await o.run()).toBe(0);
@@ -1470,6 +1492,94 @@ describe("one pass for every repository on an organization's board", () => {
       expect(o.calls.map((c) => c.url)).not.toContainEqual(
         expect.stringContaining("factory-config/contents"),
       );
+    });
+  });
+
+  describe("a repository whose own settings file sets no builds.trigger", () => {
+    const READS = [
+      ["acme/web", ".claude/factory.yaml"],
+      ["acme/web", ".claude/factory.lock"],
+    ];
+
+    it.each<[string, string[], string]>([
+      ["a preset it follows says manual", ["acme/factory-config"], "manual"],
+      [
+        "a preset it follows says own-server",
+        ["acme/factory-config"],
+        "own-server",
+      ],
+      [
+        "two presets disagree and the choice it recorded says own-server",
+        ["acme/factory-config", "acme/factory-config//node"],
+        "own-server",
+      ],
+    ])(
+      "is left when %s, as the settings in effect its lock records",
+      async (_, presets, trigger) => {
+        const o = org({
+          ready: ["acme/web", "acme/api"],
+          own: { "acme/web": OWN(null, presets) },
+          lock: { "acme/web": LOCK(presets, trigger) },
+        });
+
+        expect(await o.run()).toBe(0);
+        expect(o.logs).toEqual([
+          `acme/web: builds.trigger is ${trigger} there, so its tickets are left`,
+          STARTED_API,
+        ]);
+        expect(o.ownReads().filter(([repo]) => repo === "acme/web")).toEqual(
+          READS,
+        );
+        expect(o.dispatches().map(([repo]) => repo)).toEqual(["acme/api"]);
+      },
+    );
+
+    it("is left as manual, the default, when it follows no preset", async () => {
+      const o = org({
+        ready: ["acme/web"],
+        own: { "acme/web": OWN(null, []) },
+        lock: { "acme/web": LOCK([], "manual") },
+        env: { GITHUB_ACTIONS: "true" },
+      });
+
+      expect(await o.run()).toBe(0);
+      expect(o.logs).toEqual([
+        "acme/web: builds.trigger is manual there, so its tickets are left",
+      ]);
+      expect(o.dispatches()).toEqual([]);
+    });
+
+    it("is polled when a preset it follows says github-action", async () => {
+      const o = org({
+        ready: ["acme/web"],
+        own: { "acme/web": OWN(null) },
+        lock: { "acme/web": LOCK(["acme/factory-config"], "github-action") },
+      });
+
+      expect(await o.run()).toBe(0);
+      expect(o.ownReads()).toEqual(READS);
+      expect(o.dispatches()).toEqual([["acme/web", build("trunk")]]);
+    });
+
+    it.each<[string, string | Response | undefined]>([
+      ["the default branch has no lock", undefined],
+      ["the lock cannot be read", answer(500, { message: "Server Error" })],
+      ["the lock is not YAML", "settings: ["],
+      [
+        "the lock is from a release that recorded no settings",
+        LOCK(["acme/factory-config"], null),
+      ],
+      ["the lock does not pin a preset the file lists", LOCK([], "manual")],
+    ])("is polled when %s", async (_, lock) => {
+      const o = org({
+        ready: ["acme/web"],
+        own: { "acme/web": OWN(null) },
+        lock: lock === undefined ? {} : { "acme/web": lock },
+      });
+
+      expect(await o.run()).toBe(0);
+      expect(o.ownReads()).toEqual(READS);
+      expect(o.dispatches()).toEqual([["acme/web", build("trunk")]]);
     });
   });
 
