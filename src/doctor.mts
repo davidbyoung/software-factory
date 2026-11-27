@@ -330,7 +330,7 @@ export async function checks(d: DoctorDeps): Promise<Check[]> {
     if (set.state !== "pass" || !anyOf.includes(AGENT_TOKEN)) continue;
     const day = agentTokenDay({
       own: ownDated,
-      shared: withheldBy ? [] : storedDated,
+      shared: storedDated,
       org: isOrganization ? ownerOf(s.repository) : null,
       pasted: isOrganization
         ? null

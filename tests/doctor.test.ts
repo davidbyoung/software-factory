@@ -1568,6 +1568,22 @@ describe("the warning status gives on the Claude token", () => {
     ).toBeNull();
   });
 
+  it("warns when only an approval policy's agent reads the token", async () => {
+    expect(
+      await warning({
+        raw: {
+          "approval-policies": [
+            { name: "migrations", agent: "rollback-checker", files: ["db/**"] },
+          ],
+        },
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
+      }),
+    ).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
+    );
+  });
+
   it("says nothing more than 30 days before the day", async () => {
     expect(
       await warning({ secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" } }),
