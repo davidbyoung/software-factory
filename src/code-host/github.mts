@@ -25,7 +25,6 @@ import {
 } from "./github-app.mts";
 import { NeedsScopeError, NoRulesError, NotSignedInError } from "./types.mts";
 import type {
-  ChangedFile,
   CheckRun,
   CodeHost,
   CommitStatus,
@@ -116,12 +115,6 @@ type RestStatus = {
   state: string;
   target_url?: string;
   creator?: { login: string } | null;
-};
-
-type RestFile = {
-  filename: string;
-  previous_filename?: string;
-  status: string;
 };
 
 const endOf = (end: RestEnd | undefined) => ({
@@ -563,23 +556,6 @@ export function githubCodeHost(o: {
           `${API}/commits/${sha}/pulls`,
         )
       ).map(({ number, state }) => ({ number, state })),
-    files: async (n) =>
-      (await list<RestFile>(`${API}/pulls/${n}/files?per_page=100`)).map(
-        (f): ChangedFile => ({
-          path: f.filename,
-          ...(f.previous_filename === undefined
-            ? {}
-            : { previousPath: f.previous_filename }),
-          status: f.status,
-        }),
-      ),
-    async mergeBase(base, head) {
-      const compare = await t.rest<{ merge_base_commit: { sha: string } }>(
-        "GET",
-        `${API}/compare/${base}...${head}`,
-      );
-      return compare.merge_base_commit.sha;
-    },
     async defaultBranch() {
       const repo = await t.rest<{ default_branch: string }>("GET", API);
       return repo.default_branch;

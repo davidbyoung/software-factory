@@ -4,7 +4,6 @@
 // that needs `fake-gh` for a pull request is a sign the command went around
 // the interface.
 import type {
-  ChangedFile,
   CheckRun,
   CodeHost,
   CommitStatus,
@@ -31,7 +30,6 @@ export type PullSeed = Partial<Pull> & {
   /** Each review with the comments it left on lines. */
   reviews?: (Review & { comments?: PullComment[] })[];
   threads?: Thread[];
-  files?: ChangedFile[];
   /** What `unverifiedCommits` answers. */
   unverified?: string[];
   commits?: PullCommit[];
@@ -61,8 +59,6 @@ export type MemoryCodeHostOptions = {
     string,
     { checkRuns?: CheckRun[]; statuses?: CommitStatus[] }
   >;
-  /** The merge base of `base...head`; the base itself unless given. */
-  mergeBases?: Record<string, string>;
   /** What each operation fails with, to test a command's failure path. */
   fail?: Partial<Record<keyof CodeHost, Error>>;
   /** Every operation called, in order, as its name and arguments. Shared
@@ -149,7 +145,6 @@ export function memoryCodeHost(
       createdAt: "2026-11-09T12:00:00Z",
       mergedAt: p.merged ? "2026-11-09T12:30:00Z" : null,
       autoMerge: false,
-      files: [],
       unverified: [],
       commits: [],
       labeledBy: {},
@@ -301,14 +296,6 @@ export function memoryCodeHost(
       return [...pulls.values()]
         .filter((p) => p.head.sha === sha)
         .map(({ number, state }) => ({ number, state }));
-    },
-    async files(n) {
-      called("files", n);
-      return get(n).files.map((f) => ({ ...f }));
-    },
-    async mergeBase(base, head) {
-      called("mergeBase", base, head);
-      return options.mergeBases?.[`${base}...${head}`] ?? base;
     },
     async defaultBranch() {
       called("defaultBranch");
@@ -493,7 +480,6 @@ export function memoryCodeHost(
         comments: [],
         reviews: [],
         threads: [],
-        files: [],
         unverified: [],
         commits: [],
         labeledBy: {},

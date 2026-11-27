@@ -111,13 +111,6 @@ export type NewPull = {
   draft: boolean;
 };
 
-export type ChangedFile = {
-  path: string;
-  /** The path it had before, when the pull request renamed it. */
-  previousPath?: string;
-  status: string;
-};
-
 export type PullCommit = {
   sha: string;
   /** The account the code host itself verifies as the commit's author, or
@@ -147,9 +140,6 @@ export type CodeHost = {
   lastForBranch(branch: string): Promise<LastPull | null>;
   /** The pull requests that hold the commit, open or not. */
   forCommit(sha: string): Promise<{ number: number; state: string }[]>;
-  files(pull: number): Promise<ChangedFile[]>;
-  /** The commit two commits both descend from. */
-  mergeBase(base: string, head: string): Promise<string>;
   defaultBranch(): Promise<string>;
   /** Whether only people given access can see the repository. */
   isPrivate(): Promise<boolean>;

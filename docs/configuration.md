@@ -1622,6 +1622,7 @@ it:
 | `held by COMMAND`                      | The same, and the command printed nothing       |
 | `held by COMMAND: it could not be run` | The command was not found or could not start    |
 | `no changed files`                     | The pull request changes nothing                |
+| `the changed files could not be read`  | The change could not be read from git           |
 
 A renamed file is checked under both its old and new names.
 
