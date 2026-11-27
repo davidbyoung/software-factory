@@ -585,6 +585,7 @@ function setup(o: Setup = {}) {
     },
     packageName: "@davidbyoung/software-factory",
     packageVersion: o.version ?? "0.4.0",
+    now: () => new Date("2026-11-27T12:00:00Z"),
   };
   return {
     run: () => main(o.argv ?? ["--org", o.address ?? ADDRESS], d),
@@ -2087,13 +2088,49 @@ describe("factory init --org, run again", () => {
       "  Preset           acme/factory-config",
       '  Rule             "Review verdict" is required where software-factory is "on"',
       "",
-      "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.",
+      "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme, and works until 2027-11-16. Replace it? Only if it has been revoked. Press Enter for no:",
       "✓ acme is set up. Nothing to do.",
       "",
       ...ADDRESSES,
     ]);
     expect(s.confirms[0]!.fallback).toBe(false);
     expect(s.changes()).toEqual([]);
+  });
+
+  it("says when a Claude token in its last 30 days stops working, and replaces it on Enter", async () => {
+    const s = setup({
+      org: {
+        ...DONE,
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T14:50:57Z" },
+      },
+      answers: { confirm: [true, true], secret: [TOKEN] },
+    });
+    expect(await s.run()).toBe(0);
+    const at = s.transcript.indexOf(
+      "? confirm: Replace it now? Press Enter for yes:",
+    );
+    expect(s.transcript[at - 1]).toBe(
+      "CLAUDE_CODE_OAUTH_TOKEN, stored for acme on 2025-12-10, stops working by 2026-12-10, in 13 days.",
+    );
+    expect(s.confirms[0]).toEqual({
+      message: "Replace it now? Press Enter for yes:",
+      fallback: true,
+    });
+    expect(s.transcript).toContain("✓ Stored 1 secret for acme.");
+  });
+
+  it("says when a Claude token stopped working", async () => {
+    const s = setup({
+      org: {
+        ...DONE,
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
+      },
+      answers: { confirm: [false] },
+    });
+    await s.run();
+    expect(s.transcript).toContain(
+      "CLAUDE_CODE_OAUTH_TOKEN, stored for acme on 2025-11-10, stopped working by 2026-11-10.",
+    );
   });
 
   it("names the API key in the question when that is what is stored", async () => {
@@ -2132,7 +2169,7 @@ describe("factory init --org, run again", () => {
     });
     expect(await s.run()).toBe(0);
     const from = s.transcript.indexOf(
-      "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.",
+      "? confirm: CLAUDE_CODE_OAUTH_TOKEN is already stored for acme, and works until 2027-11-16. Replace it? Only if it has been revoked. Press Enter for no:",
     );
     expect(s.transcript.slice(from + 1)).toEqual([
       "",

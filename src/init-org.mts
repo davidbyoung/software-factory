@@ -39,7 +39,8 @@ import { hasCommand } from "./lib/has-command.mts";
 import { listed } from "./lib/listed.mts";
 import { terminalAsk } from "./lib/prompts.mts";
 import { sameName, STATE_KEYS, type StateKey } from "./lib/work-status.mts";
-import { APP_KEY } from "./parts.mts";
+import { AGENT_TOKEN, APP_KEY } from "./parts.mts";
+import { tokenDay, when } from "./lib/claude-token.mts";
 import { parsePreset, PRESET_FILE } from "./preset.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { RULE, type SecretStep } from "./setup.mts";
@@ -58,6 +59,8 @@ export type InitOrgDeps = Terminal & {
   readLine: (signal: AbortSignal) => Promise<string>;
   packageName: string;
   packageVersion: string;
+  /** Today, for the day the Claude token stops working. */
+  now?: () => Date;
 };
 
 /** The variable that holds the app's client ID, which the workflows make a
@@ -310,13 +313,15 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     : [];
 
   let plan, config, secrets, clientId, installation, ruled, known;
+  let dated: { name: string; stored: string }[] = [];
   const files: Record<string, string | null> = {};
   try {
     plan = await organization.plan();
     config = await organization.repository(CONFIG);
     for (const path of FILES)
       files[path] = config ? await organization.file(CONFIG, path) : null;
-    secrets = await organization.secretNames();
+    dated = await organization.secrets();
+    secrets = dated.map((x) => x.name);
     clientId = await organization.variable(APP_CLIENT_ID);
     installation = clientId ? await organization.installation(clientId) : null;
     // The app as the code host finds it before it is installed, if it can.
@@ -457,13 +462,33 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   // null to store none.
   let storeAs: string | null = null;
   if (credential && agentStored.length) {
-    if (
-      await d.ask.confirm(
-        `${agentStored[0]} is already stored for ${org}. Replace it? Only if it has expired or been revoked.`,
-        false,
-      )
-    )
-      storeAs = agentStored[0]!;
+    const name = agentStored[0]!;
+    const stored = dated.find((x) => x.name === name)?.stored;
+    const day =
+      name === AGENT_TOKEN && stored
+        ? tokenDay({ stored, now: (d.now ?? (() => new Date()))(), org })
+        : null;
+    if (day && day.stage !== "fine")
+      d.out(
+        say.text(
+          day.stage === "over"
+            ? `${name}, stored for ${org} on ${day.since}, stopped working by ${day.day}.`
+            : `${name}, stored for ${org} on ${day.since}, stops working by ${day.day}, ${when(day.left)}.`,
+        ),
+      );
+    const replace =
+      day === null
+        ? await d.ask.confirm(
+            `${name} is already stored for ${org}. Replace it? Only if it has expired or been revoked.`,
+            false,
+          )
+        : day.stage === "fine"
+          ? await d.ask.confirm(
+              `${name} is already stored for ${org}, and works until ${day.day}. Replace it? Only if it has been revoked. Press Enter for no:`,
+              false,
+            )
+          : await d.ask.confirm("Replace it now? Press Enter for yes:", true);
+    if (replace) storeAs = name;
   } else if (credential) {
     const getCommand =
       credential.get && "command" in credential.get
