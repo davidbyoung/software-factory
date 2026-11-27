@@ -474,6 +474,11 @@ describe("which job an event starts", () => {
       ["verdict", "merge-policy", "board", "review"],
     ],
     [
+      "a pull request reopened",
+      target("reopened"),
+      ["verdict", "merge-policy", "board", "review"],
+    ],
+    [
       "a draft opened",
       { ...target("opened"), pull_request: pull({ draft: true }) },
       ["verdict", "merge-policy", "board"],
@@ -534,6 +539,11 @@ describe("which job an event starts", () => {
     [
       "the override label added",
       target("labeled", { label: { name: "verdict-override" } }),
+      ["verdict"],
+    ],
+    [
+      "the override label removed",
+      target("unlabeled", { label: { name: "verdict-override" } }),
       ["verdict"],
     ],
     ["another label added", target("labeled", { label: { name: "bug" } }), []],

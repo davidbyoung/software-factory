@@ -301,7 +301,7 @@ describe("the runs for a commit", () => {
     session: string | null,
     publish: string | null,
   ) => [
-    job(1, "factory / Record the verdict", "failure"),
+    job(1, "factory / Pull request / Record the verdict", "failure"),
     job(2, "factory / Review / Prepare", prepare),
     job(3, "factory / Review / Session", session),
     job(4, "factory / Review / Publish", publish),
@@ -352,7 +352,7 @@ describe("the runs for a commit", () => {
         [pullRun(9, "h", "in_progress")],
         [
           ...ran("success", "success", "success"),
-          job(5, "factory / Sync the board", null),
+          job(5, "factory / Tickets / Sync the board", null),
         ],
       ),
     ).toEqual([{ status: "completed", conclusion: "success" }]);
@@ -363,7 +363,7 @@ describe("the runs for a commit", () => {
       await reviews(
         [pullRun(9, "h")],
         [
-          job(1, "factory / Record the verdict", "success"),
+          job(1, "factory / Pull request / Record the verdict", "success"),
           job(2, "factory / Review", "skipped"),
         ],
       ),
