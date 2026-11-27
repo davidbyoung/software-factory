@@ -25,7 +25,8 @@ export const TIMEOUT_MS = 60_000;
 
 const KEYS = Object.keys(STATE_KEYS) as StateKey[];
 
-/** What each state means, as `docs/workflow.md` "The six states" says. */
+/** What each state means, as `docs/workflow/README.md` "The six states"
+ * says. */
 const MEANING: Record<StateKey, string> = {
   backlog: "nothing is happening",
   refining:

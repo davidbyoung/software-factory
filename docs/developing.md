@@ -147,7 +147,8 @@ one. That costs nothing, and it keeps the plugin's own tooling usable on the
 folder. The settings are validated in code, and `settings.schema.json` is the
 editor's copy of their keys. A new key goes in `SETTINGS_KEYS` in
 `src/config.mts`, in the schema, in `src/explain.mts`, which prints it, and
-in `docs/configuration.md`, and a test fails when the first two differ. A
+on its page under `docs/reference/settings/`, and a test fails when the
+first two differ. A
 rule that one setting needs another lets a preset leave the other out,
 through `preset` in `parseSettings`.
 
@@ -158,12 +159,14 @@ through `preset` in `parseSettings`.
 - **A plugin role** goes in `ROLES` and `ROLE_SHAPE` in `src/config.mts`,
   which say its phase, whether it takes a skill or an agent, one or a
   list, and `files` or `labels`. Its keys in `SETTINGS_KEYS` follow from
-  that table. `docs/plugins.md` gains its table of what it is handed and
+  that table. `docs/customize/plugins.md` gains its table of what it is
+  handed and
   what it returns.
 - **A key that is renamed or moved** raises the settings' `version`.
   There is no command that converts a file: the older version is refused
-  with a line that names a section of `docs/updating.md`, as version 1 is
-  with "Moving to settings version 2", and that section shows each key
+  with the address of a section of `docs/maintain/upgrade-notes.md`,
+  through `DOCS_PAGES` in `src/lib/docs-page.mts`, as version 1 is with
+  "Moving to settings version 2", and that section shows each key
   before and after.
 
 ## Running from source
@@ -796,8 +799,17 @@ this repository's own reviewer, reads a changed page as that person.
   not knowing which one ran.
 - **Say only what the reader must do or decide.** What a command does for
   them is one sentence, and a link to the page that lists it.
-- **A setting links to its entry in `docs/configuration.md` where a page
-  first names it.** A test fails on one that does not.
+- **A skill is shown in Claude Code's form,** such as
+  `/factory-refine 12`, with nothing more. The one table of each coding
+  agent's form is on the Integrations overview, so a second agent adds a
+  row there and changes no other page.
+- **A setting links to its entry on its page under
+  `docs/reference/settings/` where a page first names it,** such as
+  `reference/settings/tickets.md#ticketsfields`. A test fails on one that
+  does not.
+- **A troubleshooting heading is the symptom in the reader's words,** and
+  each fix has one home: the page that owns what failed, which the heading
+  links to.
 - **A setting the reader writes is shown as YAML they can paste,** with
   what each line is for.
 - **A step ends with how the reader knows it worked.**
@@ -818,7 +830,7 @@ A person reads it in a terminal, often while doing something else.
 
 - **Precise and short.** A label and a value, or a mark and a few words,
   not a sentence explaining them. What a mark or a state word means is
-  said once, in `docs/cli.md`.
+  said once, in `docs/reference/cli.md`.
 - **A block is headed by the setting it shows,** such as
   [`tickets.fields`](reference/settings/tickets.md#ticketsfields), so the reader knows
   what to edit.

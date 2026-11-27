@@ -10,7 +10,8 @@ import { COMMANDS, type Command } from "./commands-list.mts";
 import * as say from "./lib/output.mts";
 import { DOCS_PAGES, docsPage, installedVersion } from "./lib/docs-page.mts";
 
-/** The commands a person runs, in the groups and words of docs/cli.md. */
+/** The commands a person runs, in the groups and words of
+ * docs/reference/cli.md. */
 const USAGE: [string, [string, string][]][] = [
   [
     "Setting up",

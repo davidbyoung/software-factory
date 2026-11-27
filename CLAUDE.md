@@ -227,5 +227,5 @@ that installs the factory.
   tried, since one reads words too, and does not ask GitHub. It went back to
   the forms GitHub documents, in one expression, and Publish asks GitHub
   itself what the pull request would close. What is left is in "What a
-  hijacked session could still do" in `docs/credentials.md`: do not extend
+  hijacked session could still do" in `docs/security/risks.md`: do not extend
   the matcher for it.

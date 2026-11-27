@@ -345,7 +345,8 @@ export const NO_PLAYWRIGHT = "site needs Playwright: npm install -D playwright";
 /** The keys each block allows, by the block's path: `""` is the top of the
  * file and `plugins.build.builders[]` is one builder. `settings.schema.json`
  * lists the same keys, and a test fails when the two differ. A key the code
- * accepts goes here, in the schema, and in docs/configuration.md. */
+ * accepts goes here, in the schema, and on its page under
+ * docs/reference/settings/. */
 export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "": [
     "version",
