@@ -98,7 +98,12 @@ describe("decide, when the review finishes", () => {
 
   it("does not overwrite an approver's override", () => {
     expect(
-      on({ hasOverride: true, overrideByApprover: true, verdict: "changes" }),
+      on({
+        hasOverride: true,
+        overrideOnHead: true,
+        overrideByApprover: true,
+        verdict: "changes",
+      }),
     ).toBeNull();
   });
 
@@ -146,6 +151,7 @@ describe("decide, on the pull request's own events", () => {
         action: "labeled",
         label: "verdict-override",
         hasOverride: true,
+        overrideOnHead: true,
         overrideByApprover: true,
       }),
     ).toEqual({
@@ -272,7 +278,12 @@ describe("decide, on the pull request's own events", () => {
 
   it("keeps an approver's override when a labeled pull request is reopened", () => {
     expect(
-      pr({ action: "reopened", hasOverride: true, overrideByApprover: true }),
+      pr({
+        action: "reopened",
+        hasOverride: true,
+        overrideOnHead: true,
+        overrideByApprover: true,
+      }),
     ).toEqual({ state: "success", description: "Overridden by an approver" });
   });
 
@@ -366,6 +377,7 @@ describe("apply", () => {
       action: string,
       sender: string,
       added = override ?? "verdict-override",
+      seen = host.pull(31).head.sha,
     ) => {
       if (action === "labeled")
         host.change(31, { labeledBy: { [added]: sender } });
@@ -376,7 +388,7 @@ describe("apply", () => {
           label: { name: added },
           sender: { login: sender },
           repository: { owner: { login: "acme" } },
-          pull_request: { number: 31 },
+          pull_request: { number: 31, head: { sha: seen } },
         },
         pulls: host.codeHost,
         log: (line) => void log.push(line),
@@ -478,9 +490,35 @@ describe("apply", () => {
     expect(log).toContain(
       `Review verdict on ${HEAD}: success, Overridden by an approver`,
     );
+    const writes = host.log.filter((l) => /^(comment|setStatus) /.test(l));
+    expect(writes).toEqual(["comment 31", `setStatus ${HEAD} Review verdict`]);
     expect(host.pull(31).labels).toEqual(["verdict-override"]);
     expect(comments(host)).toEqual([
-      "`Review verdict` overridden by @alice at 4c1d2ab. 0 review thread(s) still open; each must be resolved before this can merge. A new push removes the override.",
+      `\`Review verdict\` overridden by @alice at 4c1d2ab. 0 review thread(s) still open; each must be resolved before this can merge. A new push removes the override.\n<!-- verdict-override: ${HEAD} -->`,
+    ]);
+  });
+
+  it("passes nothing when the label's event names a commit that is no longer the head", async () => {
+    const { host, log, go } = setUp();
+
+    await go("labeled", "alice", undefined, "01d5a00000");
+    expect(host.log.filter((l) => /^setStatus/.test(l))).toEqual([]);
+    expect(log).toEqual([
+      `The override names 01d5a00, and ${HEAD} is the head: nothing to post.`,
+    ]);
+    expect(host.pull(31).labels).toEqual([]);
+    expect(comments(host)).toEqual([
+      "Removed `verdict-override`: a newer commit, 4c1d2ab, is unread. Add it again once its review has run.",
+    ]);
+  });
+
+  it("says why when the push's own run took the stale override off first", async () => {
+    const { host, go } = setUp({}, []);
+
+    await go("labeled", "alice", undefined, "01d5a00000");
+    expect(host.log.filter((l) => /^setStatus/.test(l))).toEqual([]);
+    expect(comments(host)).toEqual([
+      "Removed `verdict-override`: a newer commit, 4c1d2ab, is unread. Add it again once its review has run.",
     ]);
   });
 
@@ -672,15 +710,88 @@ describe("apply", () => {
       },
     );
 
+    const RECORD = (sha: string, author = "github-actions[bot]", id = 9) => ({
+      id,
+      author,
+      body: `Overridden.\n<!-- verdict-override: ${sha} -->`,
+      createdAt: "2026-11-22T16:00:00Z",
+    });
+
     it("keeps an approver's on a pull request someone else reopened", async () => {
+      const { host, log, go } = setUp({ owner: "github-actions[bot]" });
+
+      await go("labeled", "alice");
+      await go("reopened", "bob");
+      expect(log.at(-1)).toBe(
+        `Review verdict on ${HEAD}: success, Overridden by an approver`,
+      );
+      expect(host.pull(31).labels).toEqual(["verdict-override"]);
+    });
+
+    it("does not pass a reopened head the newest override was not given on", async () => {
       const { host, log, go } = setUp();
-      host.change(31, { labeledBy: { "verdict-override": "alice" } });
+      host.change(31, {
+        labeledBy: { "verdict-override": "alice" },
+        comments: [
+          SAYS("ready"),
+          RECORD(HEAD),
+          RECORD("01d5a00000", undefined, 10),
+        ],
+      });
 
       await go("reopened", "bob");
       expect(log).toEqual([
-        `Review verdict on ${HEAD}: success, Overridden by an approver`,
+        `Review verdict on ${HEAD}: failure, The review asked for changes`,
       ]);
       expect(host.pull(31).labels).toEqual(["verdict-override"]);
+    });
+
+    it("counts no record another account posted", async () => {
+      const { host, log, go } = setUp();
+      host.change(31, {
+        labeledBy: { "verdict-override": "alice" },
+        comments: [SAYS("ready"), RECORD(HEAD, "bob")],
+      });
+
+      await go("reopened", "bob");
+      expect(log).toEqual([
+        `Review verdict on ${HEAD}: failure, The review asked for changes`,
+      ]);
+    });
+
+    it("keeps the override a review finds on the head its record names", async () => {
+      const { host, log, go } = finished(
+        {},
+        "success",
+        {
+          labels: ["verdict-override"],
+          labeledBy: { "verdict-override": "alice" },
+          comments: [RECORD(HEAD)],
+        },
+        { writers: ["alice"] },
+      );
+
+      await go();
+      expect(log).toEqual(["Nothing to post."]);
+      expect(host.pull(31).labels).toEqual(["verdict-override"]);
+    });
+
+    it("posts what the review found on a head the override was not given on", async () => {
+      const { log, go } = finished(
+        {},
+        "success",
+        {
+          labels: ["verdict-override"],
+          labeledBy: { "verdict-override": "alice" },
+          comments: [RECORD("01d5a00000")],
+        },
+        { writers: ["alice"] },
+      );
+
+      await go();
+      expect(log).toEqual([
+        `Review verdict on ${HEAD}: success, The review found it ready`,
+      ]);
     });
 
     it("removes it when the review finishes, and posts what the review said", async () => {
@@ -707,7 +818,7 @@ describe("apply", () => {
           action: "labeled",
           label: { name: "verdict-override" },
           sender: { login: "alice" },
-          pull_request: { number: 31 },
+          pull_request: { number: 31, head: { sha: HEAD } },
         },
         pulls: host.codeHost,
         log: (line) => void log.push(line),

@@ -16,7 +16,12 @@ import { loadSettings } from "./config.mts";
 import { PR_LABELS } from "./labels.mts";
 import { readFileSync } from "node:fs";
 import { openCodeHost } from "./code-host/index.mts";
-import type { CodeHost, CommitStatus } from "./code-host/types.mts";
+import type {
+  CodeHost,
+  CommitStatus,
+  PullComment,
+} from "./code-host/types.mts";
+import { NotFoundError } from "./tickets/types.mts";
 import { CI_BOT } from "./lib/work-status.mts";
 import { openRunner } from "./runner/index.mts";
 import { liveOrder, ORDER, type Order } from "./merge-order.mts";
@@ -49,9 +54,12 @@ export type Input = {
    * as Dependabot's. */
   isDependabot: boolean;
   isDraft: boolean;
-  /** The override label is on the pull request. A push removes it, so it
-   * always applies to the head. */
+  /** The override label is on the pull request. */
   hasOverride: boolean;
+  /** The override was given on this commit: the labeled event names it, or
+   * the newest record of one does. A push's run takes the label off only
+   * after the push, so the label alone can sit on an unread commit. */
+  overrideOnHead?: boolean;
   /** The account the code host says added the override can write to the
    * repository. Agents act through such accounts too; the guard hook stops
    * them on a person's laptop. This stops everyone else. */
@@ -155,11 +163,12 @@ export function decide(input: Input): Decision | null {
   }
   // An override already vouches for this commit; a late review must not
   // overwrite it.
-  if (input.event === "review" && input.hasOverride) return null;
+  const overridden = input.hasOverride && input.overrideOnHead === true;
+  if (input.event === "review" && overridden) return null;
   switch (input.action) {
     case "labeled":
       if (input.label !== (input.override ?? OVERRIDE)) return null;
-      return input.hasOverride
+      return overridden
         ? { ...OVERRIDDEN, announceOverride: true }
         : withoutOverride(input);
     case "unlabeled":
@@ -167,8 +176,24 @@ export function decide(input: Input): Decision | null {
         ? withoutOverride(input)
         : null;
     default:
-      return input.hasOverride ? OVERRIDDEN : withoutOverride(input);
+      return overridden ? OVERRIDDEN : withoutOverride(input);
   }
+}
+
+/** The commit an override was given on, in the announcement that records
+ * it. */
+const recordOf = (sha: string) => `<!-- verdict-override: ${sha} -->`;
+const RECORD = /<!-- verdict-override: ([0-9a-f]+) -->/;
+
+/** The commit the newest override's record names, among the workflow's own
+ * comments, or null. */
+export function overriddenAt(comments: PullComment[]): string | null {
+  const record = comments
+    .filter((c) => c.author === CI_BOT)
+    .map((c) => RECORD.exec(c.body)?.[1])
+    .filter((sha) => sha !== undefined)
+    .at(-1);
+  return record ?? null;
 }
 
 /** What the review's own run says of the commit whose statuses these are.
@@ -273,6 +298,25 @@ export async function apply(
   const { labels } = pr;
   const reviewOff = o.reviewOn === false;
   const isDependabot = await onlyDependabot(pulls, pr, sha, log);
+  const labeled = event.action === "labeled" && event.label?.name === override;
+  // The approver read the commit their event names, not one pushed since.
+  if (labeled && !reviewOff && !isDependabot) {
+    const seen: string = event.pull_request.head?.sha ?? "";
+    if (seen !== sha) {
+      try {
+        await pulls.removeLabel(pr.number, override);
+      } catch (error) {
+        if (!(error instanceof NotFoundError)) throw error;
+      }
+      await pulls.comment(
+        pr.number,
+        `Removed \`${override}\`: a newer commit, ${sha.slice(0, 7)}, is unread. Add it again once its review has run.`,
+      );
+      return log(
+        `The override names ${seen.slice(0, 7)}, and ${sha} is the head: nothing to post.`,
+      );
+    }
+  }
   const hasOverride = labels.includes(override);
   let overrideBy: string | null = null;
   let overrideByApprover: boolean | undefined;
@@ -293,6 +337,10 @@ export async function apply(
     } catch (error) {
       lookupFailure = error ?? new Error("The access lookup failed.");
     }
+  const overrideOnHead =
+    labeled ||
+    (overrideByApprover === true &&
+      overriddenAt(await pulls.comments(pr.number)) === sha);
   const decided = decide({
     event: review ? "review" : "pull_request_target",
     action: event.action,
@@ -301,6 +349,7 @@ export async function apply(
     isDependabot,
     isDraft: pr.isDraft,
     hasOverride,
+    overrideOnHead,
     overrideByApprover,
     overrideUnchecked: lookupFailure !== undefined,
     conclusion: review?.conclusion,
@@ -313,6 +362,17 @@ export async function apply(
     decided.state === "success" && order?.state === "pending"
       ? { ...decided, ...order }
       : decided;
+
+  // The record first: a pass with none would not outlive the next event.
+  if (decision.announceOverride) {
+    const open = await pulls.openThreadCount(pr.number);
+    await pulls.comment(
+      pr.number,
+      `\`${CONTEXT}\` overridden by @${overrideBy} at ${sha.slice(0, 7)}. ` +
+        `${open} review thread(s) still open; each must be resolved before this can merge. ` +
+        `A new push removes the override.\n${recordOf(sha)}`,
+    );
+  }
 
   await pulls.setStatus(sha, {
     state: decision.state,
@@ -345,15 +405,6 @@ export async function apply(
         : `Removed \`${override}\`: could not check whether @${overrideBy} can write to this repository. Add the label again to retry.`,
     );
     throw lookupFailure;
-  }
-  if (decision.announceOverride) {
-    const open = await pulls.openThreadCount(pr.number);
-    await pulls.comment(
-      pr.number,
-      `\`${CONTEXT}\` overridden by @${overrideBy} at ${sha.slice(0, 7)}. ` +
-        `${open} review thread(s) still open; each must be resolved before this can merge. ` +
-        `A new push removes the override.`,
-    );
   }
 }
 
