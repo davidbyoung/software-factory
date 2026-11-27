@@ -7,7 +7,7 @@ import { Writable } from "node:stream";
 import { join } from "node:path";
 import { chmodSync, statSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { initDeps, parseRemote } from "../src/init.mts";
+import { initDeps, parseRemote, pollerStep } from "../src/init.mts";
 import { credentialsPath, readCredential } from "../src/lib/credentials.mts";
 import { pagesSpecTool } from "./memory-tools";
 import {
@@ -162,8 +162,7 @@ describe("factory init, a first run with every part", () => {
     const text = r.out.join("\n");
     expect(text).not.toContain("Install the app");
     expect(text).toContain("FACTORY_REPOSITORY=acme/site");
-    expect(text).toContain("FACTORY_BOARD_OWNER=acme");
-    expect(text).toContain("FACTORY_BOARD_NUMBER=1");
+    expect(text).toContain("FACTORY_BOARD_TOKEN=");
     expect(text).toContain("Every check passed");
     expect(text).toContain("Merge it to finish. Left to do:");
     printsNoSecret(r.out);
@@ -775,7 +774,7 @@ describe("factory init, where the poller runs", () => {
     expect(r.out.join("\n")).not.toMatch(/poller/i);
   });
 
-  it("names the poller's image and its five settings for a server you host", async () => {
+  it("names the poller's image and its two variables for a server you host, and where the rest comes from", async () => {
     const r = chosen("own-server");
     await r.run();
 
@@ -783,22 +782,32 @@ describe("factory init, where the poller runs", () => {
       [
         "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:",
         "       FACTORY_REPOSITORY=acme/site",
-        "       FACTORY_BOARD_OWNER=acme",
-        "       FACTORY_BOARD_NUMBER=1",
         "       FACTORY_BOARD_TOKEN=the access token you just made",
-        "       FACTORY_READY_COLUMN=Ready",
+        "     It reads the rest from your settings once this pull request merges.",
       ].join("\n"),
     );
   });
 
-  it("gives each of the five as one to copy, under the step's number", async () => {
+  it("gives each of the two as one to copy, under the step's number, and the last line as plain words", async () => {
     const r = chosen("own-server");
     await r.run();
     const left = r.looks.find((l) => l.includes("Run the poller's image"));
     expect(left).toMatch(/^ {2}\{yourTurn:1\.\} Run the poller's image/);
-    expect(left!.split("\n").slice(1, 3)).toEqual([
+    expect(left!.split("\n").slice(1)).toEqual([
       "       {copy:FACTORY_REPOSITORY=acme/site}",
-      expect.stringMatching(/^ {7}\{copy:FACTORY_BOARD_OWNER=.*\}$/),
+      "       {copy:FACTORY_BOARD_TOKEN=the access token you just made}",
+      "     It reads the rest from your settings once this pull request merges.",
+    ]);
+  });
+
+  it("says the poller reads the settings once they are on the default branch, when no pull request opened", () => {
+    expect(
+      pollerStep("acme/site", "0.2.0", false, "trunk").split("\n"),
+    ).toEqual([
+      "Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:",
+      "       FACTORY_REPOSITORY=acme/site",
+      "       FACTORY_BOARD_TOKEN=the access token you just made",
+      "     It reads the rest from your settings once they are on trunk.",
     ]);
   });
 
@@ -831,41 +840,6 @@ describe("factory init, where the poller runs", () => {
       expect(r.yaml().builds).toEqual({ trigger });
     },
   );
-
-  it("names the ready column the settings give in the poller's settings", async () => {
-    const r = init({
-      private: true,
-      settings: [
-        "version: 2",
-        "repository: acme/site",
-        CODE_HOST_YAML,
-        "tickets:",
-        "  board: 3",
-        FACTORY_COLUMNS_YAML.replace("ready: Ready", "ready: Ready for dev"),
-        "builds:",
-        "  trigger: own-server",
-        "",
-      ].join("\n"),
-      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
-      boards: [
-        {
-          number: 3,
-          title: "Roadmap",
-          columns: SIX_COLUMNS.map((c) =>
-            c === "Ready" ? "Ready for dev" : c,
-          ),
-        },
-      ],
-      answers: {
-        checkbox: [["board", "cloud", "from-board"]],
-        confirm: [false, true],
-      },
-    });
-    expect(await r.run()).toBe(0);
-    expect(r.out.join("\n")).toContain(
-      "       FACTORY_READY_COLUMN=Ready for dev",
-    );
-  });
 
   it("takes out the interval with the part", async () => {
     const r = init({
@@ -1040,10 +1014,8 @@ describe("factory init, word for word", () => {
         "Merge it to finish. Left to do:",
         "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
              FACTORY_REPOSITORY=acme/site
-             FACTORY_BOARD_OWNER=acme
-             FACTORY_BOARD_NUMBER=1
              FACTORY_BOARD_TOKEN=the access token you just made
-             FACTORY_READY_COLUMN=Ready",
+           It reads the rest from your settings once this pull request merges.",
         "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
         "",
         "After it merges:",
@@ -1121,10 +1093,8 @@ describe("factory init, word for word", () => {
         "Merge it to finish. Left to do:",
         "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
              FACTORY_REPOSITORY=acme/site
-             FACTORY_BOARD_OWNER=acme
-             FACTORY_BOARD_NUMBER=3
              FACTORY_BOARD_TOKEN=the access token you just made
-             FACTORY_READY_COLUMN=Ready",
+           It reads the rest from your settings once this pull request merges.",
         "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
         "",
         "After it merges, come back to main and bring it up to date: git switch main && git pull",
