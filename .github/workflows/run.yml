@@ -149,6 +149,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request_target' &&
       (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) ||
+       (github.event.action == 'edited' && github.event.changes.base != null) ||
        ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
         github.event.label.name == inputs.override-label)) ||
       (github.event_name == 'workflow_dispatch' && inputs.job == 'order')
@@ -516,7 +517,8 @@ jobs:
     if: >-
       contains(format(' {0} ', inputs.parts), ' auto-merge ') &&
       github.event_name == 'pull_request_target' &&
-      contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) &&
+      (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) ||
+       (github.event.action == 'edited' && github.event.changes.base != null)) &&
       github.event.pull_request.user.login != 'dependabot[bot]' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -921,7 +923,8 @@ jobs:
     if: >-
       contains(format(' {0} ', inputs.parts), ' review ') &&
       github.event_name == 'pull_request_target' &&
-      contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) &&
+      (contains(fromJSON('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action) ||
+       (github.event.action == 'edited' && github.event.changes.base != null)) &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.event.pull_request.user.login != 'dependabot[bot]' ||

@@ -436,6 +436,16 @@ describe("which job an event starts", () => {
       target("ready_for_review"),
       ["verdict", "merge-policy", "board", "review"],
     ],
+    [
+      "a pull request given another base branch",
+      target("edited", { changes: { base: { ref: { from: "side" } } } }),
+      ["verdict", "merge-policy", "review"],
+    ],
+    [
+      "a pull request whose title is edited",
+      target("edited", { changes: { title: { from: "Old" } } }),
+      [],
+    ],
     ["a pull request made a draft", target("converted_to_draft"), ["board"]],
     ["a pull request closed", target("closed"), ["board"]],
     [
@@ -587,7 +597,7 @@ describe("which job an event starts", () => {
       expect(started(target(action), on), action).toContain("approval-prepare");
     expect(
       started(target("edited", { changes: { base: { ref: {} } } }), on),
-    ).toEqual(["approval-prepare"]);
+    ).toEqual(["verdict", "approval-prepare"]);
     expect(started(target("edited", { changes: { title: {} } }), on)).toEqual(
       [],
     );
