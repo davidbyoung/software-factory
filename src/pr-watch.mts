@@ -31,7 +31,7 @@ import { CONTEXT as APPROVAL } from "./approval-policies.mts";
 import * as say from "./lib/output.mts";
 
 export type Check = {
-  /** A re-run has a new id, so its result is news on the same commit. */
+  /** A re-run has a new id, so its failure is news on the same commit. */
   id: number;
   name: string;
   state: "pending" | "passed" | "failed";
@@ -198,11 +198,11 @@ export function newEvents(
     unfinished(snapshot.checks).length === 0 &&
     reviewIsOver(snapshot);
   if (finished) {
+    // By what the checks say, not their IDs: every run of a workflow, even
+    // one that skips all its jobs, adds check runs to the commit.
+    const said = new Set(snapshot.checks.map((c) => `${c.name}:${c.state}`));
     found.push({
-      key: `finished:${snapshot.checks
-        .map((check) => check.id)
-        .sort()
-        .join(",")}`,
+      key: `finished:${sha}:${[...said].sort().join(",")}`,
       line: `every check has finished on ${sha}`,
     });
   }
