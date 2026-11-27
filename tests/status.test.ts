@@ -13,6 +13,7 @@ import {
   type Deps,
   type Source,
   type Style,
+  type Target,
 } from "../src/status.mts";
 import type {
   Board,
@@ -24,6 +25,7 @@ import {
   NO_DEPENDENCIES,
   SettingsError,
   parseSettings,
+  type Settings,
 } from "../src/config.mts";
 import { watchOf } from "../src/lib/work-status.mts";
 import { fakeSettings } from "./fake-gh";
@@ -36,7 +38,7 @@ import boardPages from "./fixtures/sync/board.json";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
 import { styleText } from "node:util";
-import type { Line } from "../src/lib/output.mts";
+import { mark, type Line } from "../src/lib/output.mts";
 import { colored, into, look, plainOf } from "./printed";
 
 /** What formatRows gives, as it is printed: in color for a style in it. */
@@ -974,6 +976,94 @@ describe("main in a terminal", () => {
 
     expect(await main([], d)).toBe(0);
     expect(out.join("\n")).toContain(`${ESC}]8;;${url}${ESC}\\`);
+  });
+});
+
+describe("main, near the Claude token's day", () => {
+  const WARNING =
+    "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it";
+  const withToken = (token: Source["token"]) => {
+    const base = fixtureSource().source;
+    const source = vi.fn(async (s: Settings, t: Target) => ({
+      ...(await base(s, t)),
+      token,
+    }));
+    return source;
+  };
+  const deps = (
+    source: Deps["source"],
+    sleep: Deps["sleep"] = async () => {},
+  ) => {
+    const out: string[] = [];
+    const d: Deps = {
+      source,
+      settings: fakeSettings,
+      env: {},
+      now: () => NOW,
+      out: into(out),
+      sleep,
+      write: () => {},
+      onInterrupt: () => {},
+    };
+    return { d, out };
+  };
+
+  it("ends with the warning, after the rows", async () => {
+    const { d, out } = deps(
+      withToken(async () => mark("look", WARNING.slice(2))),
+    );
+    expect(await main([], d)).toBe(0);
+    expect(out.at(-1)).toBe(WARNING);
+    expect(out.at(-2)).toBe("");
+  });
+
+  it("keeps its exit status when the warning is a failure", async () => {
+    const { d, out } = deps(
+      withToken(async () =>
+        mark(
+          "fail",
+          "CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run factory init",
+        ),
+      ),
+    );
+    expect(await main([], d)).toBe(0);
+    expect(out.at(-1)).toBe(
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run factory init",
+    );
+  });
+
+  it("puts it after the hook's closing fence", async () => {
+    const { d, out } = deps(
+      withToken(async () => mark("look", WARNING.slice(2))),
+      () => new Promise(() => {}),
+    );
+    await main(["--hook"], d);
+    expect(out.slice(-3)).toEqual(["```", "", WARNING]);
+  });
+
+  it("prints nothing about the token when there is no warning, or reading it fails", async () => {
+    for (const token of [
+      async () => null,
+      () => Promise.reject(new Error("gh: HTTP 403")),
+    ]) {
+      const { d, out } = deps(withToken(token));
+      expect(await main([], d)).toBe(0);
+      expect(out.join("\n")).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
+      const plain = deps(fixtureSource().source);
+      await main([], plain.d);
+      expect(out).toEqual(plain.out);
+    }
+  });
+
+  it("reads the token's day once under --watch", async () => {
+    const token = vi.fn(async () => mark("look", WARNING.slice(2)));
+    const stop = new Error("stop");
+    let slept = 0;
+    const { d } = deps(withToken(token), async () => {
+      if (++slept === 3) throw stop;
+    });
+    await expect(main(["--watch"], d)).rejects.toBe(stop);
+    expect(token).toHaveBeenCalledTimes(1);
   });
 });
 

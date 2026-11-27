@@ -35,7 +35,7 @@ import {
   partsOn,
   type Part,
 } from "./parts.mts";
-import type { Check, Chosen, SetupContext } from "./setup.mts";
+import type { Check, Chosen, Opened, SetupContext } from "./setup.mts";
 import {
   branchDeps,
   needDefaultBranch,
@@ -53,7 +53,7 @@ import {
   pastedDay,
   type MachineState,
 } from "./lib/credentials.mts";
-import { agentTokenDay, doctorCheck } from "./lib/claude-token.mts";
+import { agentTokenDay, doctorCheck, statusLine } from "./lib/claude-token.mts";
 import type { StoredSecret } from "./runner/types.mts";
 import type { Registry as Tools } from "./tools.mts";
 import * as say from "./lib/output.mts";
@@ -421,6 +421,61 @@ export function readsAgentToken(
   return neededSecrets(on, secretSteps(tools, context(on))).some((n) =>
     n.anyOf.includes(AGENT_TOKEN),
   );
+}
+
+/** The line `status` ends with on the coding agent's token: from 30 days
+ * before the day it stops working, when `doctor` would print that day.
+ * A read that fails rejects, and `status` then says nothing. */
+export async function tokenWarning(o: {
+  settings: Settings;
+  tools: Tools;
+  root: string;
+  hasCommand: (name: string) => boolean;
+  opened: Opened;
+  env: Record<string, string | undefined>;
+  now: Date;
+}): Promise<say.Line | null> {
+  const s = o.settings;
+  const isOrganization = await o.opened.codeHost.ownerIsOrganization();
+  const withheld =
+    isOrganization && (await o.opened.codeHost.secretsWithheldBy()) !== null;
+  const own = await o.opened.runner.secrets();
+  const shared =
+    isOrganization && !withheld
+      ? await o.opened.runner.organizationSecrets()
+      : [];
+  const chosen: Chosen = {
+    codeHost: s.codeHost.type,
+    tickets: s.tickets.type,
+    runner: s.builds.runner,
+    agent: Object.keys(o.tools.agent)[0]!,
+  };
+  const context = (parts: Iterable<Part>): SetupContext => ({
+    repository: s.repository,
+    root: o.root,
+    parts: new Set(parts),
+    chosen,
+    settings: s,
+    hasCommand: o.hasCommand,
+    opened: o.opened,
+  });
+  const names = [...own, ...shared].map((x) => x.name);
+  if (!readsAgentToken(s, o.tools, context, names)) return null;
+  const owner = ownerOf(s.repository);
+  const day = agentTokenDay({
+    own,
+    shared,
+    org: isOrganization ? owner : null,
+    pasted: isOrganization
+      ? null
+      : pastedDay({
+          tool: chosen.agent,
+          site: `${o.opened.codeHost.remote(s.repository).host}/${owner}`,
+          env: o.env,
+        }),
+    now: o.now,
+  });
+  return day && statusLine(day);
 }
 
 /** Where what a job may do by default is set. */

@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
-import { line, main, type DoctorDeps } from "../src/doctor.mts";
+import { line, main, tokenWarning, type DoctorDeps } from "../src/doctor.mts";
+import { render } from "../src/lib/output.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -1490,5 +1491,87 @@ describe("factory doctor, where the organization's poller starts the builds", ()
     const r = await run({}, "");
     expect(r.lines).toEqual(["✓ factory.yml is enabled"]);
     expect(r.opened).toEqual(["acme/site"]);
+  });
+});
+
+describe("the warning status gives on the Claude token", () => {
+  const warning = async (o: {
+    raw?: Record<string, unknown>;
+    secrets?: Record<string, string>;
+    organizationSecrets?: string[];
+    stored?: Record<string, string>;
+    organization?: boolean;
+    secretsWithheldBy?: string;
+  }) => {
+    const tickets = memoryTickets([]).tickets;
+    const codeHost = memoryCodeHost([], {
+      owner: "dave",
+      ownerIsOrganization: o.organization,
+      secretsWithheldBy: o.secretsWithheldBy,
+    }).codeHost;
+    const runner = memoryRunner({
+      secrets: o.secrets ?? {},
+      organizationSecrets: o.organizationSecrets,
+      stored: o.stored,
+    }).runner;
+    const tools = memoryTools({ codeHost, runner, tickets });
+    const line = await tokenWarning({
+      settings: settings(o.raw ?? { "pr-review": null }, tools),
+      tools,
+      root: "/nowhere",
+      hasCommand: () => true,
+      opened: { codeHost, runner, tickets },
+      env: { XDG_CONFIG_HOME: "/nonexistent" },
+      now: NOW,
+    });
+    return line && render(line, false);
+  };
+
+  it("warns in the token's last 30 days", async () => {
+    expect(
+      await warning({
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
+      }),
+    ).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
+    );
+  });
+
+  it("names the organization's owner for the organization's token", async () => {
+    expect(
+      await warning({
+        organization: true,
+        organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
+      }),
+    ).toBe(
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. An owner of acme runs factory init --org to replace it",
+    );
+  });
+
+  it("says nothing when doctor would print no day: nothing reads the token, or the organization's copy does not reach the repository", async () => {
+    const near = { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" };
+    expect(
+      await warning({
+        raw: {},
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+        stored: near,
+      }),
+    ).toBeNull();
+    expect(
+      await warning({
+        organization: true,
+        organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+        secretsWithheldBy: "GitHub Free",
+        stored: near,
+      }),
+    ).toBeNull();
+  });
+
+  it("says nothing more than 30 days before the day", async () => {
+    expect(
+      await warning({ secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" } }),
+    ).toBeNull();
   });
 });
