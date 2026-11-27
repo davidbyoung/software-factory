@@ -33,7 +33,11 @@ the GitHub ones.
 
 - **On your own account, you paste two tokens, and they are kept in
   two places.** One is a GitHub access token, which GitHub requires
-  there, since a board a person owns refuses an App's token. The other
+  there, since a board a person owns refuses an App's token. It expires
+  on the day you choose when you make it, and the factory warns you in
+  its last month
+  ([When the GitHub access token expires](#when-the-github-access-token-expires)).
+  The other
   is your Claude token, which lasts a year, and the factory warns you
   in its last month
   ([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
@@ -210,8 +214,9 @@ them.
 Run `factory doctor`. **It worked when** it shows
 ✓ on every line, or - for a part you left off. It checks that you are
 signed in, that each secret your parts read is set, and when the Claude
-token expires
-([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+token and, on your own account, the GitHub access token expire
+([When the Claude token's year is up](#when-the-claude-tokens-year-is-up),
+[When the GitHub access token expires](#when-the-github-access-token-expires)).
 It does not try the GitHub access token or the Claude token that
 `factory init` keeps on your machine. When GitHub refuses that access
 token, or it lacks a scope a part needs, `factory init` says so the next
@@ -289,6 +294,76 @@ owners are listed on its People page on GitHub, under the Owner role.
 **A run that failed** because of the old token passes once the new one
 is stored: re-run it from its page on the Actions tab.
 
+### When the GitHub access token expires
+
+For you, on your own GitHub account. In an organization the App makes a
+token for each run, and nothing here applies.
+
+The GitHub access token is the one `factory init` asked you to make on
+GitHub's page. It stores it as `FACTORY_BOARD_TOKEN`, or
+`FACTORY_BUILD_TOKEN` without a board, and as `FACTORY_AUTOMERGE_TOKEN`
+when pull requests merge themselves, so a repository has one or two of
+these ([Secrets](github/by-hand.md#secrets)). It expires on the day you chose on
+that page, where GitHub suggests 30 days; 90 days is a good balance. When
+it expires, the board sync, builds in the cloud, and merges stop, and
+their runs fail with GitHub's `Bad credentials`.
+
+**To see when it expires,** run `factory doctor`. Under `GitHub Actions`
+it prints a line about the token, after the lines for the secrets that
+hold it:
+
+```text
+✓ The GitHub access token in FACTORY_BOARD_TOKEN and FACTORY_AUTOMERGE_TOKEN expires on 2027-01-01
+```
+
+It reads the day from your machine, where `factory init` writes it when
+you paste the token ([The file on your machine](#the-file-on-your-machine)).
+So a teammate, whose machine holds no token of yours, sees no such line.
+A token you made with no expiry gets `has no expiry date` in its place,
+and the file on your machine holds `expires: never` for it.
+
+In its last 30 days, `factory doctor` and `factory status` print it with
+a `?`, and a session shows it to you when it starts. For a token that
+expires on 2026-12-10:
+
+```text
+? The GitHub access token expires on 2026-12-10, in 13 days. Run factory init to replace it
+```
+
+Once the day has passed, `factory doctor` marks the line ✗ and fails.
+
+**To replace it,** run `factory init` in the repository that printed the
+line. It asks its other questions as when you set the repository up,
+each offering what the repository has now, so Enter keeps it. Before the
+secrets, it asks
+`Make a new one now?`. Press Enter, and it opens GitHub's page with the
+scopes ticked, or prints its address for you to open on a machine with
+no browser. Choose an expiry, generate the token, copy it, and paste it
+at the prompt `factory init` is waiting on. **It worked when** it prints
+`It belongs to sam. Stored for sam/api, and on this machine for your next repository.`,
+where `sam` is the GitHub account the token acts as.
+
+Each of your other repositories still holds the old token, and stops
+when it expires. In each of them `factory doctor` and `factory status`
+say so:
+
+```text
+? FACTORY_BOARD_TOKEN here is older than the GitHub access token on this machine. Run factory init to store that one in its place
+```
+
+Run `factory init` there. It asks
+`Store the one on this machine in its place?`: press Enter, and it
+stores the token you just made, with nothing to paste. **It worked
+when** it prints `✓ Stored 2 secrets for sam/blog from this machine.`,
+counting each name the token is stored under.
+
+`factory init` never copies a token from your machine into a repository
+once it expires in 30 days or fewer. It has you make a new one, with the
+steps above.
+
+**A run that failed** because the token expired passes once the new one
+is stored: re-run it from its page on the Actions tab.
+
 ### Replacing the App's key
 
 For an owner of the organization, when the key may have leaked. The
@@ -331,18 +406,26 @@ filed under your account, here `sam`:
 github:
   github.com/sam:
     token: ghp_...
+    pasted: 2026-11-27
+    expires: 2027-02-25
 claude-code:
   github.com/sam:
     CLAUDE_CODE_OAUTH_TOKEN: sk-ant-oat01-...
     pasted: 2026-11-27
 ```
 
-`pasted` is the day you gave `factory init` the Claude token, which
-`factory doctor` and `factory status` read to tell when its year is up
-([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
-A file written by an earlier release has no `pasted` line, so the two
-commands count from the day GitHub gives until you next replace the
-token, which adds it.
+`pasted` is the day you gave `factory init` each token, and `expires`
+the day GitHub says the access token expires, or `never`.
+`factory doctor` and `factory status` read these days, and never the
+tokens
+([When the Claude token's year is up](#when-the-claude-tokens-year-is-up),
+[When the GitHub access token expires](#when-the-github-access-token-expires)).
+A file written by an earlier release has no `pasted` line, and no
+`expires` line for the access token. For the Claude token, the two
+commands then count from the day it was stored in the
+repository. For the
+access token, they say nothing until `factory init` next stores it in a
+repository, which reads its expiry from GitHub and adds both lines.
 
 The two tokens are read from the file alone: a variable of the same name in your
 environment does not stand in for either. A repository an organization
