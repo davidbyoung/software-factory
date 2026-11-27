@@ -142,3 +142,16 @@ export function agentTokenDay(o: {
     ? tokenDay({ stored: shared.stored, now: o.now, org: o.org })
     : null;
 }
+
+/** `init`'s line before it asks about a token from 30 days before its
+ * day. */
+export const nearLine = (t: TokenDay): string =>
+  t.stage === "over"
+    ? `${AGENT_TOKEN} stopped working by ${t.day}: a Claude token lasts a year.`
+    : `${AGENT_TOKEN} stops working by ${t.day}, ${when(t.left)}: a Claude token lasts a year.`;
+
+/** `init`'s line for the token on this machine that it does not store. */
+export const notStoredLine = (t: TokenDay): string =>
+  t.stage === "over"
+    ? `The Claude token on this machine stopped working by ${t.day}, so it is not stored here.`
+    : `The Claude token on this machine stops working by ${t.day}, ${when(t.left)}, so it is not stored here.`;

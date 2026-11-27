@@ -6,7 +6,7 @@ import {
   tokenDay,
   type TokenDay,
 } from "../src/lib/claude-token.mts";
-import { render } from "../src/lib/output.mts";
+import { plainOf } from "./printed";
 
 const NOW = new Date("2026-11-27T15:00:00Z");
 const at = (stored: string, o: Partial<Parameters<typeof tokenDay>[0]> = {}) =>
@@ -126,7 +126,7 @@ describe("doctorCheck", () => {
 describe("statusLine", () => {
   const shown = (t: TokenDay) => {
     const line = statusLine(t);
-    return line && render(line, false);
+    return line && plainOf(line);
   };
 
   it("says nothing more than 30 days before the day", () => {

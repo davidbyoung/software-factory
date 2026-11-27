@@ -95,7 +95,9 @@ describe("factory init, a person's first repository", () => {
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
     expect(load(readFileSync(credentialsPath(r.env), "utf8"))).toEqual({
       github: { [SITE]: { token: GOOD } },
-      "claude-code": { [SITE]: { CLAUDE_CODE_OAUTH_TOKEN: AGENT } },
+      "claude-code": {
+        [SITE]: { CLAUDE_CODE_OAUTH_TOKEN: AGENT, pasted: "2026-11-27" },
+      },
     });
     printsNoSecret(r.out);
   });
@@ -383,5 +385,127 @@ describe("factory init, a stop after it stored a credential on this machine", ()
     expect(await r.run()).toBe(0);
     expect(kept(r)).toBe("missing");
     expect(r.out.at(-1)).toBe("Nothing changed.");
+  });
+});
+
+describe("factory init, a Claude token in its last 30 days", () => {
+  const OLD = "sk-ant-oat01-old";
+  const NEAR =
+    "CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days: a Claude token lasts a year.";
+  const MAKE = "confirm: Make a new one now? Press Enter for yes:";
+  const PASTE =
+    "secret: Paste the token it printed, the line that starts sk-ant-oat01- (leave empty to do this later):";
+  const near = (confirm: boolean[], over: Partial<Setup> = {}) =>
+    sam({
+      settings: `version: 2\nrepository: sam/api\n${CODE_HOST_YAML}\n`,
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: OLD, FACTORY_BOARD_TOKEN: GOOD },
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T14:50:57Z" },
+      answers: { checkbox: [["cloud"]], confirm, secret: [AGENT] },
+      ...over,
+    });
+
+  it("says when it stops working, makes a new one on yes, and keeps it on this machine with the day", async () => {
+    const r = near([true, false, true]);
+    expect(await r.run()).toBe(0);
+    const at = r.out.indexOf(NEAR);
+    expect(at).toBeGreaterThan(-1);
+    expect(r.asked.filter((q) => q.startsWith("confirm:"))).toEqual([
+      MAKE,
+      "confirm: 1 secret these parts read is already set. Replace it?",
+      "confirm: Go ahead?",
+    ]);
+    expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([PASTE]);
+    expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
+    expect(held(r, "claude-code", "CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
+    expect(held(r, "claude-code", "pasted")).toBe("2026-11-27");
+    const stored = r.out.indexOf(
+      "Stored for sam/api, and on this machine for your next repository.",
+    );
+    expect(r.out[stored + 1]).toBe(
+      "Each of your other repositories keeps the old token until you run factory init there. It stores this one from your machine.",
+    );
+    printsNoSecret(r.out);
+  });
+
+  it("replaces nothing on no, and a yes to Replace it? does not ask for the token again", async () => {
+    const no = near([false, false, true]);
+    await no.run();
+    expect(no.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(OLD);
+    expect(no.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
+
+    const replace = near([false, true, true], {
+      answers: {
+        checkbox: [["cloud"]],
+        confirm: [false, true, true],
+        secret: [GOOD],
+      },
+    });
+    await replace.run();
+    expect(replace.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(OLD);
+    expect(replace.asked.filter((q) => q.startsWith("secret:"))).toEqual([
+      "secret: Paste it (leave empty to do this later):",
+    ]);
+  });
+
+  it("offers the newer token this machine holds, and stores it with nothing to paste", async () => {
+    const r = near([true, false, true]);
+    writeCredential({
+      tool: "claude-code",
+      site: SITE,
+      values: { CLAUDE_CODE_OAUTH_TOKEN: AGENT, pasted: "2026-11-20" },
+      env: r.env,
+    });
+    await r.run();
+    expect(r.asked).toContain(
+      "confirm: Store the one on this machine, pasted on 2026-11-20, in its place? Press Enter for yes:",
+    );
+    expect(r.asked).not.toContain(MAKE);
+    expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
+    expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
+    expect(r.out).toContain("✓ Stored 1 secret for sam/api from this machine.");
+  });
+
+  it("asks nothing about a token more than 30 days from its day", async () => {
+    const r = near([false, true], {
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2026-11-16T14:50:57Z" },
+    });
+    await r.run();
+    expect(r.asked).not.toContain(MAKE);
+    expect(r.asked).toContain(
+      "confirm: 2 secrets these parts read are already set. Replace them?",
+    );
+  });
+
+  it("does not copy a token in its last 30 days from this machine into a new repository", async () => {
+    const r = sam({
+      remote: "git@github.com:sam/web.git",
+      answers: {
+        checkbox: [["board", "cloud"]],
+        select: ["new"],
+        confirm: [true],
+        secret: [AGENT],
+      },
+    });
+    keep(r, { token: GOOD });
+    writeCredential({
+      tool: "claude-code",
+      site: SITE,
+      values: { CLAUDE_CODE_OAUTH_TOKEN: OLD, pasted: "2025-12-10" },
+      env: r.env,
+    });
+    await r.run();
+    expect(r.out).toContain(
+      "The Claude token on this machine stops working by 2026-12-10, in 13 days, so it is not stored here.",
+    );
+    expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([PASTE]);
+    expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
+  });
+});
+
+describe("factory init, the day a Claude token was pasted", () => {
+  it("is written beside the token it was given", async () => {
+    const r = sam();
+    await r.run();
+    expect(held(r, "claude-code", "pasted")).toBe("2026-11-27");
   });
 });

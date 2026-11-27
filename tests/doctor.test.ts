@@ -5,7 +5,6 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
 import { line, main, tokenWarning, type DoctorDeps } from "../src/doctor.mts";
-import { render } from "../src/lib/output.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -25,7 +24,7 @@ import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { chmodSync } from "node:fs";
 import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
-import { into, look } from "./printed";
+import { into, look, plainOf } from "./printed";
 
 const roots: string[] = [];
 /** Today, for the Claude token's day. */
@@ -1524,7 +1523,7 @@ describe("the warning status gives on the Claude token", () => {
       env: { XDG_CONFIG_HOME: "/nonexistent" },
       now: NOW,
     });
-    return line && render(line, false);
+    return line && plainOf(line);
   };
 
   it("warns in the token's last 30 days", async () => {

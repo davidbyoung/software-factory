@@ -181,12 +181,17 @@ export type FakePreset = {
   refuses?: string;
 };
 
+/** Today, for the day the Claude token stops working. */
+export const TODAY = new Date("2026-11-27T12:00:00Z");
+
 export type Setup = {
   answers: Answers;
   /** What `factory init` is given after its name. */
   argv?: string[];
   settings?: string;
   secrets?: Record<string, string>;
+  /** When each secret was last stored, by name; 2026-11-16 unless given. */
+  stored?: Record<string, string>;
   remote?: string | null;
   /** Every remote of the checkout, in place of the one `remote` names
    * `origin`. */
@@ -378,6 +383,7 @@ export function init(setup: Setup) {
   const branchAsked: string[] = [];
   const runner = memoryRunner({
     secrets: setup.secrets ?? {},
+    stored: setup.stored,
     dependabotSecrets: setup.dependabotSecrets,
     organizationSecrets: setup.organizationSecrets,
     organizationVariables: setup.organizationVariables,
@@ -587,6 +593,7 @@ export function init(setup: Setup) {
             tools: d.tools,
             out: () => {},
             env,
+            now: () => TODAY,
           })
         : (setup.checks ?? [{ state: "pass", text: "Every check passed" }]),
     packageName: "@davidbyoung/software-factory",
@@ -605,6 +612,7 @@ export function init(setup: Setup) {
       return setup.install ?? { status: 0, stderr: "" };
     },
     env,
+    now: () => TODAY,
   };
   const read = (path: string) =>
     existsSync(join(root, path))

@@ -68,6 +68,7 @@ import {
 import { commandLine, runsOf } from "./lib/paths.mts";
 import { hasCommand, noTerminal } from "./lib/has-command.mts";
 import { DEFAULT_RUNNER, type Runner } from "./runner/index.mts";
+import type { StoredSecret } from "./runner/types.mts";
 import type { CodeHost } from "./code-host/index.mts";
 import {
   addressOf,
@@ -81,6 +82,7 @@ import {
   credentialsPath,
   fileProblem,
   machineState,
+  pastedDay,
   readCredential,
   refusedEnvLine,
   rememberedPresets,
@@ -91,6 +93,14 @@ import {
 } from "./lib/credentials.mts";
 import { APP_CLIENT_ID, CONFIG, PROPERTY } from "./init-org.mts";
 import {
+  agentTokenDay,
+  dayOf,
+  nearLine,
+  notStoredLine,
+  tokenDay,
+} from "./lib/claude-token.mts";
+import {
+  AGENT_TOKEN,
   APP_KEY,
   BOARD_TOKEN,
   BUILD_TOKEN,
@@ -246,6 +256,8 @@ export type InitDeps = {
   install: (argv: string[]) => Promise<{ status: number; stderr: string }>;
   /** Where the credentials file and a credential's variables are read. */
   env?: Record<string, string | undefined>;
+  /** Today, for the day the coding agent's token stops working. */
+  now?: () => Date;
 };
 
 const SIGNING_TITLE = "software factory builds";
@@ -1785,11 +1797,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
 
   const { runner, tickets, context } = await openTools(chosen);
   let own: string[];
+  let ownDated: StoredSecret[];
   let npm: NpmSecrets;
   // A secret the organization shares with the repository counts as set.
   let shared: string[] = [];
   try {
-    own = await runner.secretNames();
+    ownDated = await runner.secrets();
+    own = ownDated.map((x) => x.name);
     if (isOrganization && !withheld)
       shared = await runner.organizationSecretNames().catch(() => []);
     npm = await npmSecrets(npmrc, runner, codeHost, isOrganization);
@@ -2096,9 +2110,65 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const npmBothSet = npm.tokens.filter(
     (n) => isSet(n) && npm.dependabot(n) === "set",
   );
+  // A person's Claude token from 30 days before its day: asked about on
+  // its own, before the others, and left out of replacing them.
+  const now = (d.now ?? (() => new Date()))();
+  const agentStep = isOrganization
+    ? undefined
+    : steps.find(
+        (x): x is typeof x & { step: SecretStep } =>
+          x.step.kind === "secret" &&
+          x.step.machine !== undefined &&
+          x.step.storeAs.includes(AGENT_TOKEN),
+      );
+  const pastedOn = agentStep
+    ? pastedDay({ tool: agentStep.name, site, env })
+    : null;
+  const pastedOld = (() => {
+    const day = pastedOn ? tokenDay({ stored: pastedOn, now }) : null;
+    return day !== null && day.stage !== "fine" ? day : null;
+  })();
+  const agentDay =
+    agentStep &&
+    own.includes(AGENT_TOKEN) &&
+    needed.some((n) => n.anyOf.includes(AGENT_TOKEN))
+      ? agentTokenDay({
+          own: ownDated,
+          shared: [],
+          org: null,
+          pasted: pastedOn,
+          now,
+        })
+      : null;
+  let near: "machine" | "new" | "keep" | null = null;
+  if (agentStep && agentDay && agentDay.stage !== "fine") {
+    d.out(say.BLANK);
+    d.out(say.text(nearLine(agentDay)));
+    const storedDay = dayOf(
+      ownDated.find((x) => x.name === AGENT_TOKEN)!.stored,
+    );
+    const newer =
+      pastedOn !== null &&
+      !pastedOld &&
+      storedDay !== null &&
+      pastedOn > storedDay &&
+      heldOn(agentStep.name, AGENT_TOKEN) !== null;
+    near = newer
+      ? (await d.ask.confirm(
+          `Store the one on this machine, pasted on ${pastedOn}, in its place? Press Enter for yes:`,
+          true,
+        ))
+        ? "machine"
+        : "keep"
+      : (await d.ask.confirm("Make a new one now? Press Enter for yes:", true))
+        ? "new"
+        : "keep";
+  }
   const alreadySet = [
     ...new Set([
-      ...needed.flatMap((n) => n.anyOf.filter(isSet)),
+      ...needed
+        .flatMap((n) => n.anyOf.filter(isSet))
+        .filter((n) => near === null || n !== AGENT_TOKEN),
       ...npmBothSet,
     ]),
   ];
@@ -2114,14 +2184,18 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     step.needs.some(
       (n) => (n.part === null || parts.has(n.part)) && !n.anyOf.some(isSet),
     );
+  const isNear = (step: unknown) => near !== null && step === agentStep?.step;
   const asked = steps
-    .filter(({ step }) => replace || unmet(step))
+    .filter(({ step }) =>
+      isNear(step) ? near !== "keep" : replace || unmet(step),
+    )
     .map(({ step, name: tool }) => ({
       step,
       tool,
       // A credential's parts are checked together, so all are stored.
-      names:
-        step.kind === "secret"
+      names: isNear(step)
+        ? [AGENT_TOKEN]
+        : step.kind === "secret"
           ? step.storeAs.filter((n) => replace || !isSet(n))
           : step.parts.some((p) => replace || !isSet(p.name))
             ? step.parts.map((p) => p.name)
@@ -2159,6 +2233,14 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   for (const a of keptAsked) {
     const value = heldOn(a.tool, a.kept.name);
     if (value === null) continue;
+    if (a.step === agentStep?.step) {
+      if (near === "new") continue;
+      // Never copied into a repository from 30 days before its day.
+      if (near === null && pastedOld) {
+        stale.set(a.step, notStoredLine(pastedOld));
+        continue;
+      }
+    }
     try {
       const served = (await a.step.machine!.serves?.(value, owner)) ?? {};
       servedFrom.set(a.step, { value, account: served.account });
@@ -2500,7 +2582,13 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     writeCredential({
       tool,
       site,
-      values: { [kept.name]: got.value },
+      values: {
+        [kept.name]: got.value,
+        // The day its year counts from.
+        ...(kept.name === AGENT_TOKEN
+          ? { pasted: now.toISOString().slice(0, 10) }
+          : {}),
+      },
       env,
     });
     d.out(
@@ -2508,6 +2596,12 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
         `${got.account === undefined ? "" : `It belongs to ${got.account}. `}Stored for ${repository}, and on this machine for your next repository.`,
       ),
     );
+    if (isNear(step))
+      d.out(
+        say.text(
+          "Each of your other repositories keeps the old token until you run factory init there. It stores this one from your machine.",
+        ),
+      );
   }
   if (fromThisMachine)
     d.out(
