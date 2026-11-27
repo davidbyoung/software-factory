@@ -269,7 +269,6 @@ export type InitDeps = {
 };
 
 const SIGNING_TITLE = "software factory builds";
-/** Where each release's poller image is published. */
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 const AGAIN = "Run factory init again to add it.";
