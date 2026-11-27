@@ -9,6 +9,7 @@ import {
   runLine,
   sessionCell,
   styleFor,
+  tokenReader,
   toRows,
   type Deps,
   type Source,
@@ -30,6 +31,10 @@ import {
 import { watchOf } from "../src/lib/work-status.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryTickets } from "./memory-tickets";
+import { memoryCodeHost } from "./memory-code-host";
+import { memoryRunner } from "./memory-runner";
+import { memoryTools } from "./memory-tools";
+import { builtOf } from "../src/tools.mts";
 import { network, SECTION, type Place } from "./network";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import { CredentialError, type Ticket } from "../src/tickets/types.mts";
@@ -1041,18 +1046,51 @@ describe("main, near the Claude token's day", () => {
     expect(out.slice(-3)).toEqual(["```", "", WARNING]);
   });
 
-  it("prints nothing about the token when there is no warning, or reading it fails", async () => {
-    for (const token of [
-      async () => null,
-      () => Promise.reject(new Error("gh: HTTP 403")),
-    ]) {
-      const { d, out } = deps(withToken(token));
-      expect(await main([], d)).toBe(0);
-      expect(out.join("\n")).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
+  it.each<[string, Source["token"]]>([
+    ["there is no warning", async () => null],
+    ["reading it fails", () => Promise.reject(new Error("gh: HTTP 403"))],
+  ])(
+    "prints just what it prints without a token when %s",
+    async (_what, token) => {
       const plain = deps(fixtureSource().source);
       await main([], plain.d);
+      const { d, out } = deps(withToken(token));
+      expect(await main([], d)).toBe(0);
       expect(out).toEqual(plain.out);
-    }
+    },
+  );
+
+  it("reads the token's day from the code host and runner it opened, as doctor decides it", async () => {
+    const tickets = memoryTickets([]).tickets;
+    const codeHost = memoryCodeHost([], { owner: "dave" }).codeHost;
+    const runner = memoryRunner({
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
+    }).runner;
+    const tools = memoryTools({ codeHost, runner, tickets });
+    const settings = parseSettings(
+      {
+        version: 2,
+        repository: "acme/site",
+        "code-host": CODE_HOST,
+        "pr-review": null,
+      },
+      () => true,
+      builtOf(tools),
+    );
+    const read = tokenReader(
+      settings,
+      { codeHost, runner, tickets },
+      {
+        tools,
+        root: "/nowhere",
+        env: { XDG_CONFIG_HOME: "/nonexistent" },
+        now: () => new Date("2026-11-27T12:00:00Z"),
+      },
+    );
+    expect(plainOf((await read())!)).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
+    );
   });
 
   it("reads the token's day once under --watch", async () => {

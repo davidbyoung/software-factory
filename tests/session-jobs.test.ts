@@ -254,13 +254,16 @@ describe("the error a session ends with", () => {
     ).toBe("::error::Claude Code refused ANTHROPIC_API_KEY: Invalid API key.");
   });
 
-  it("gives any other error in Claude Code's own words, on one line", () => {
+  it("gives any other error in Claude Code's own words, its first line only", () => {
     expect(
       sessionError(
-        failed("Reached the turn limit\nand stopped 100%"),
+        failed("Reached the turn limit\nand stopped"),
         at("CLAUDE_CODE_OAUTH_TOKEN"),
       ),
     ).toBe("::error::Claude Code: Reached the turn limit");
+  });
+
+  it("escapes a percent sign, as the runner reads one", () => {
     expect(
       sessionError(failed("50% done"), at("CLAUDE_CODE_OAUTH_TOKEN")),
     ).toBe("::error::Claude Code: 50%25 done");

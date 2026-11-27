@@ -404,47 +404,59 @@ describe("factory init, a Claude token in its last 30 days", () => {
       ...over,
     });
 
-  it("says when it stops working, makes a new one on yes, and keeps it on this machine with the day", async () => {
+  it("says when it stops working, then asks to make a new one before the other secrets", async () => {
     const r = near([true, false, true]);
     expect(await r.run()).toBe(0);
-    const at = r.out.indexOf(NEAR);
-    expect(at).toBeGreaterThan(-1);
+    expect(r.out).toContain(NEAR);
     expect(r.asked.filter((q) => q.startsWith("confirm:"))).toEqual([
       MAKE,
       "confirm: 1 secret these parts read is already set. Replace it?",
       "confirm: Go ahead?",
     ]);
+  });
+
+  it("on yes, has a new one pasted and stores it on the repository and on this machine with the day", async () => {
+    const r = near([true, false, true]);
+    await r.run();
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([PASTE]);
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
     expect(held(r, "claude-code", "CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
     expect(held(r, "claude-code", "pasted")).toBe("2026-11-27");
+    printsNoSecret(r.out);
+  });
+
+  it("says the other repositories keep the old token, after storing a new one", async () => {
+    const r = near([true, false, true]);
+    await r.run();
     const stored = r.out.indexOf(
       "Stored for sam/api, and on this machine for your next repository.",
     );
     expect(r.out[stored + 1]).toBe(
       "Each of your other repositories keeps the old token until you run factory init there. It stores this one from your machine.",
     );
-    printsNoSecret(r.out);
   });
 
-  it("replaces nothing on no, and a yes to Replace it? does not ask for the token again", async () => {
-    const no = near([false, false, true]);
-    await no.run();
-    expect(no.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(OLD);
-    expect(no.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
+  it("replaces nothing on no", async () => {
+    const r = near([false, false, true]);
+    await r.run();
+    expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(OLD);
+    expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
+  });
 
-    const replace = near([false, true, true], {
+  it("asks only for the GitHub token on a yes to Replace it? after no, and keeps the old Claude token", async () => {
+    const r = near([false, true, true], {
       answers: {
         checkbox: [["cloud"]],
         confirm: [false, true, true],
         secret: [GOOD],
       },
     });
-    await replace.run();
-    expect(replace.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(OLD);
-    expect(replace.asked.filter((q) => q.startsWith("secret:"))).toEqual([
+    await r.run();
+    expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([
       "secret: Paste it (leave empty to do this later):",
     ]);
+    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(OLD);
   });
 
   it("offers the newer token this machine holds, and stores it with nothing to paste", async () => {
@@ -499,13 +511,5 @@ describe("factory init, a Claude token in its last 30 days", () => {
     );
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([PASTE]);
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
-  });
-});
-
-describe("factory init, the day a Claude token was pasted", () => {
-  it("is written beside the token it was given", async () => {
-    const r = sam();
-    await r.run();
-    expect(held(r, "claude-code", "pasted")).toBe("2026-11-27");
   });
 });

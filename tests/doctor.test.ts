@@ -364,25 +364,34 @@ describe("factory doctor, the day the Claude token stops working", () => {
     );
   });
 
-  it("gives no day for an API key, for secrets it cannot list, or for an organization's copy kept from the repository", async () => {
-    const cases: Parameters<typeof doctor>[0][] = [
+  it.each<[string, Parameters<typeof doctor>[0], string]>([
+    [
+      "an API key",
       { secrets: { ANTHROPIC_API_KEY: "x" } },
+      "✓ ANTHROPIC_API_KEY is set, for an automated review of every pull request",
+    ],
+    [
+      "secrets it cannot list",
       {
         secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
-        runnerFails: { secretNames: new Error("403") },
+        runnerFails: { secretNames: new Error("HTTP 403") },
       },
+      "✗ The secrets can be listed: HTTP 403",
+    ],
+    [
+      "an organization's copy kept from the repository",
       {
         organization: true,
         organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
         secretsWithheldBy: "GitHub Free",
       },
-    ];
-    for (const o of cases) {
-      const { run, out } = doctor({ raw: { "pr-review": null }, ...o });
-      await run();
-      expect(out.join("\n")).not.toContain("stops working");
-      expect(out.join("\n")).not.toContain("stopped working");
-    }
+      "✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository: make the repository public, or move acme to a paid plan",
+    ],
+  ])("gives no day for %s", async (_what, o, instead) => {
+    const { run, out } = doctor({ raw: { "pr-review": null }, ...o });
+    await run();
+    expect(out).toContain(instead);
+    expect(out.join("\n")).not.toMatch(/stops working|stopped working/);
   });
 
   it("gives the day when only an approval policy's agent reads the token", async () => {

@@ -199,7 +199,7 @@ describe("the day a token was pasted", () => {
     expect(pastedDay({ ...AT, env })).toBe("2025-12-10");
   });
 
-  it("is null with no pasted day, for another owner, or with no file", () => {
+  it("is null with no file, with no pasted day, or for another owner", () => {
     expect(pastedDay({ ...AT, env })).toBeNull();
     writeCredential({
       ...AT,
