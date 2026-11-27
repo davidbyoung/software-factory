@@ -10,11 +10,12 @@ The others need lines in your settings file that it doesn't have:
 [Moving to settings version 2](#moving-to-settings-version-2) and
 [Naming build branches](#naming-build-branches), for every repository, and
 [Naming every column](#naming-every-column), for a repository whose
-settings have a [`tickets.board`](configuration.md#tickets). Four more,
+settings have a [`tickets.board`](configuration.md#tickets). Five more,
 [Labeling your open tickets](#labeling-your-open-tickets),
 [A spec for every visible change](#a-spec-for-every-visible-change),
-[Tickets across repositories](#tickets-across-repositories), and
-[Follow-ups in the pull request](#follow-ups-in-the-pull-request), ask
+[Tickets across repositories](#tickets-across-repositories),
+[Follow-ups in the pull request](#follow-ups-in-the-pull-request), and
+[The poller reads your settings](#the-poller-reads-your-settings), ask
 nothing of most repositories, but are worth reading. One more,
 [Cloud runs in three jobs](#cloud-runs-in-three-jobs), asks you to pass one
 pull request's verdict by hand.
@@ -543,9 +544,9 @@ leaves it where it is.
 
 If you renamed the label under
 [`tickets.labels`](configuration.md#ticketslabels) and host your own
-[poller](builds.md#the-poller), set `FACTORY_LABEL` to the new name where
-the poller's other variables are set, before you merge
-([What it reads from its environment](builds.md#what-it-reads-from-its-environment)).
+[poller](builds.md#the-poller), update the poller too, as
+[The poller reads your settings](#the-poller-reads-your-settings) says:
+it then reads the new name from your settings.
 
 **It worked when** `factory status` lists the tickets it listed before
 the update, less any you took the label off.
@@ -636,6 +637,32 @@ no follow-ups ticket anymore, and the factory no longer knows its label.
 
 **It worked when** `factory config check` prints `✓ The settings are valid.`
 after the update, and no open ticket is titled "Follow-ups".
+
+## The poller reads your settings
+
+From this release, a [poller you host](builds.md#hosting-the-poller-own-server)
+reads [`tickets.board`](configuration.md#tickets),
+[`tickets.columns`](configuration.md#ticketscolumns),
+[`tickets.labels`](configuration.md#ticketslabels), and
+[`builds`](configuration.md#builds) from your settings on your default
+branch, so its environment needs only `FACTORY_REPOSITORY` and
+`FACTORY_BOARD_TOKEN`. A scheduled poller, yours or your organization's,
+already read them, and nothing changes for it.
+
+1. Merge the pull request that updates the factory.
+2. Run the poller's image of the version on the `version:` line of
+   `.claude/factory.lock`, as
+   [Hosting the poller](builds.md#hosting-the-poller-own-server) shows.
+3. Take the variables it no longer reads out of its environment:
+   [What it reads](builds.md#what-it-reads) lists them. Until you do, it
+   ignores them, and names each one in its log when it starts.
+
+**It worked when** the poller's log, wherever your host keeps a
+container's output, shows the settings it read, such as:
+
+```text
+settings from .claude/factory.lock on main: board 1, ready column "Ready", label "factory", 20 builds an hour
+```
 
 ## The commands
 
