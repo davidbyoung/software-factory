@@ -204,14 +204,46 @@ describe("newEvents", () => {
     );
   });
 
-  it("says so again when a re-run finishes, not otherwise", () => {
+  it("says nothing new when a workflow run adds skipped jobs to finished checks", () => {
     const conversation = [summary(1, SHA, "ready")];
-    const seen = keysOf({ checks: [check()], conversation });
+    const checks = [check(), check({ id: 2, name: "factory / Build" })];
+    const seen = keysOf({ checks, conversation });
+    const skipped = [
+      check({ id: 3, name: "factory / Build" }),
+      check({ id: 4, name: "Tests" }),
+    ];
 
-    expect(lines({ checks: [check()], conversation }, seen)).toEqual([]);
-    expect(lines({ checks: [check({ id: 2 })], conversation }, seen)).toEqual([
-      `every check has finished on ${SHA}`,
-    ]);
+    expect(
+      lines({ checks: [...checks, ...skipped], conversation }, seen),
+    ).toEqual([]);
+  });
+
+  it("says so again when a re-run changes a check's result, not when it keeps it", () => {
+    const conversation = [summary(1, SHA, "ready")];
+    const failed = keysOf({
+      checks: [check({ state: "failed" })],
+      conversation,
+    });
+    const passed = keysOf({ checks: [check()], conversation });
+
+    expect(lines({ checks: [check({ id: 2 })], conversation }, failed)).toEqual(
+      [`every check has finished on ${SHA}`],
+    );
+    expect(lines({ checks: [check({ id: 2 })], conversation }, passed)).toEqual(
+      [],
+    );
+  });
+
+  it("says so again for a new head commit", () => {
+    const seen = keysOf({
+      checks: [check()],
+      conversation: [summary(1, SHA, "ready")],
+    });
+    const next = { headSha: "def456", checks: [check({ id: 2 })] };
+
+    expect(
+      lines({ ...next, conversation: [summary(2, "def456", "ready")] }, seen),
+    ).toContain("every check has finished on def456");
   });
 
   it("counts a waiting approval policy as finished, since it waits for a person", () => {
