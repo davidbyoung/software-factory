@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   archiveOf,
   isJob,
+  ownerKindOf,
   publishTicketDeps,
   quietlyWith,
   sessionError,
@@ -308,5 +309,35 @@ describe("a line held while the runner reads no commands", () => {
       "::t0k::",
       "::error::Claude Code: x",
     ]);
+  });
+});
+
+describe("who owns the run's repository", () => {
+  const event = (body: string) => {
+    const dir = mkdtempSync(join(tmpdir(), "event-"));
+    const path = join(dir, "event.json");
+    writeFileSync(path, body);
+    return { GITHUB_EVENT_PATH: path };
+  };
+
+  it("is the owner's type in the run's event", () => {
+    expect(
+      ownerKindOf(
+        event(
+          JSON.stringify({ repository: { owner: { type: "Organization" } } }),
+        ),
+      ),
+    ).toBe("Organization");
+    expect(
+      ownerKindOf(
+        event(JSON.stringify({ repository: { owner: { type: "User" } } })),
+      ),
+    ).toBe("User");
+  });
+
+  it("is unknown outside a run, or for an event it cannot read", () => {
+    expect(ownerKindOf({})).toBeNull();
+    expect(ownerKindOf(event("not json"))).toBeNull();
+    expect(ownerKindOf(event(JSON.stringify({ repository: {} })))).toBeNull();
   });
 });

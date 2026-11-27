@@ -261,7 +261,7 @@ export function sessionError(
 
 /** Who owns the run's repository, `User` or `Organization`, from its
  * event, or null outside a run. */
-function ownerKindOf(env: Env): string | null {
+export function ownerKindOf(env: Env): string | null {
   if (!env.GITHUB_EVENT_PATH) return null;
   try {
     const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8")) as {
