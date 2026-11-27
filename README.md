@@ -1,7 +1,5 @@
 # Software factory
 
-[![Coverage](https://codecov.io/gh/davidbyoung/software-factory/graph/badge.svg)](https://codecov.io/gh/davidbyoung/software-factory)
-
 > **Early, and not yet for general use.** This is below 1.0: it changes
 > weekly, and any minor version may break what the one before it did,
 > without notice. A repository stays on one exact version until you merge
@@ -10,135 +8,125 @@
 You already ask an AI assistant to write code. The hard part is everything
 around it: saying clearly what you want, checking it built that, getting it
 reviewed, fixing what the review finds, and doing it the same careful way
-the hundredth time as the first. That part still needs you at the keyboard,
-one prompt at a time.
+the hundredth time as the first.
 
 The software factory does that part. You write a ticket. Your coding agent
-turns it into a spec, asking you only the decisions that are yours, builds
+turns it into a spec, a written statement of what the change must do,
+asking you only the decisions that are yours, builds
 it with tests, has it reviewed, answers the review, and hands you a pull
 request to read. You decide what merges.
 
-## What changes for you
+Two steps are yours: approving a ticket, and merging its pull request.
+[How it works](docs/get-started/how-it-works.md) shows a ticket's path in
+one picture.
 
-- **You write tickets, not prompts.** A few sentences of what you want and
-  why. The factory asks the rest.
-- **Every change is built the same way.** A test first, the change, your
-  own checks, a review, and a pull request that says how it was verified.
-- **You are asked only what is yours to decide,** each question with a
-  recommended answer, and nothing merges without you unless you said which
-  files may.
-- **Work can run while you are away.** Start a build in the cloud with one
-  command, or have one start whenever you move a ticket to Ready on your
-  board, with no session open on your machine.
-- **You can see where everything stands.** A board shows every ticket's
-  state, which session has it, and what it cost.
+## What you need
 
-## How a ticket moves
+- A repository on GitHub, in any language, cloned on your machine, with
+  the GitHub CLI signed in.
+- Claude Code, signed in.
+- Node 22.18 or later.
 
-```mermaid
-flowchart LR
-    A[You write a ticket] --> B[Refine: a session asks your decisions and writes the spec]
-    B --> C{You approve}
-    C -->|"run /factory-build N in a session"| D[Build: on your machine]
-    C -->|move its card to Ready| E[Build: in the cloud]
-    D --> F[A pull request, with tests and a review]
-    E --> F
-    F --> G[A session answers the review]
-    G --> H{You merge}
+Nothing else to start: no board, no secrets, and nothing to host. If
+your repository belongs to an organization, an owner may need to set the
+organization up first: [Which setup is yours](docs/setup/README.md) says.
+
+## Install
+
+Once on your machine, for every repository you use it in:
+
+```bash
+npm install -g @davidbyoung/software-factory
 ```
 
-Two steps are yours: approving a ticket, and merging its pull request. A
-session of your coding agent does every step in between, on your machine
-when you ask it to, or in the cloud when you move a card.
-[Workflow](docs/workflow.md) follows a ticket through each step.
+Then, in your repository, on its default branch:
 
-## Who it is for
+```bash
+factory init
+```
 
-Someone who uses a coding agent on a repository, in any language, and
-wants tickets built the same careful way every time: one person with
-several repositories, or a small team.
+It asks a few questions and opens a pull request with the files it adds.
+It worked when it prints `✓ Opened` and the pull request's number.
+[The quick start](docs/get-started/quick-start.md) takes you from here to
+your first built ticket.
 
-**What it is not.** It is not a hosted service: everything runs in your
-repository, your CI, and your agent's account. It does not replace reading
-the pull request.
+## Three commands in a session
+
+Once the setup is merged, you work a ticket from a
+[session](docs/reference/glossary.md), one conversation with your coding
+agent in your repository:
+
+| Run                          | What the session does                                          |
+| ---------------------------- | -------------------------------------------------------------- |
+| `/factory-refine 12`         | Asks the decisions that are yours, and writes ticket 12's spec |
+| `/factory-build 12`          | Builds it with tests, and opens a pull request                 |
+| `/factory-address-review 15` | Fixes or answers each comment on pull request 15               |
+
+## Every day
+
+| Run                | What it does                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `factory status`   | Shows each ticket's state, which session has it, and its cost                                   |
+| `factory doctor`   | Checks the setup, and says what to do about each fault                                          |
+| `factory build 12` | Builds ticket 12 in the cloud, once [builds in the cloud](docs/features/cloud-builds.md) are on |
+| `factory update`   | Opens a pull request that moves to a newer version                                              |
+
+[Commands](docs/reference/cli.md) lists every one.
 
 ## What it works with
 
-The factory talks to each tool through one interface, so another can be
-added without changing the rest. Today each has one choice:
+These are the tools it works with today, one choice of each kind.
+[Integrations](docs/integrations/README.md) lists them all, with the
+optional spec tool, which keeps specs in your repository.
 
-| You need                                              | Supported today                    | Setting it up                                |
-| ----------------------------------------------------- | ---------------------------------- | -------------------------------------------- |
-| A code host, for the repository and its pull requests | GitHub                             | [Setting up on GitHub](docs/github/setup.md) |
-| A ticket system, and optionally a board               | GitHub Issues, and GitHub Projects | [Setting up on GitHub](docs/github/setup.md) |
-| Somewhere to build in the cloud, optionally           | GitHub Actions                     | [Setting up on GitHub](docs/github/setup.md) |
-| A coding agent                                        | Claude Code                        | [Setting up on GitHub](docs/github/setup.md) |
-
-## Get started
-
-[The quick start](docs/quick-start.md) takes you from nothing to a first
-built pull request. Refining and building a ticket on your machine needs
-only the `factory` command, installed once: no board, no secrets, and
-nothing to host. Everything else is optional and comes later.
+| You need                   | Supported today | Its page                                                |
+| -------------------------- | --------------- | ------------------------------------------------------- |
+| A code host                | GitHub          | [GitHub](docs/integrations/github.md)                   |
+| A ticket system            | GitHub Issues   | [GitHub Issues](docs/integrations/github-issues.md)     |
+| A board, optionally        | GitHub Projects | [GitHub Projects](docs/integrations/github-projects.md) |
+| A cloud runner, optionally | GitHub Actions  | [GitHub Actions](docs/integrations/github-actions.md)   |
+| A coding agent             | Claude Code     | [Claude Code](docs/integrations/claude-code.md)         |
 
 ## What it holds to
 
-1. **Your agent writes the code; a person approves it.** A cloud build's
-   commits name your coding agent as their author. People approve the
-   ticket, review the pull request, and merge it, and whoever merges
+1. **Your agent writes the code; a person approves it.** People approve
+   the ticket, review the pull request, and merge it, and whoever merges
    answers for it.
 2. **In the cloud, your agent holds no key.** It works in a sandbox with no
-   sign-in to your code host, and a job with no AI checks what it left
-   before doing any of it
-   ([What a cloud run is](docs/builds.md#what-a-cloud-run-is)).
+   sign-in to your code host. A separate step with no AI checks what the
+   agent left before carrying any of it out
+   ([How a cloud run is contained](docs/security/cloud-runs.md)).
 3. **Everything waits for you unless you said otherwise.**
 4. **It asks for almost nothing.** Every setting has a default, and a
-   build needs one thing from you: the commands that check a change.
+   build needs one thing from you: the
+   [commands that check a change](docs/reference/settings/commands.md).
 
 ## The docs
 
-**Start here**
+- [Get started](docs/get-started/how-it-works.md): how it works, installing
+  it, and your first built ticket.
+- [Set up](docs/setup/README.md): a repository, an organization, an
+  existing repository, or a team.
+- [Working a ticket](docs/workflow/README.md): each step from a ticket to a
+  merge.
+- [Features](docs/features/README.md): the review, the board, builds in the
+  cloud, and the rest you can turn on.
+- [Customize](docs/customize/commands.md): your commands, a monorepo, your
+  own skills and agents, presets, and rules.
+- [Integrations](docs/integrations/README.md): one page for each tool it
+  works with.
+- [Security](docs/security/cloud-runs.md): what a cloud run can reach, where
+  tokens are kept, and the risks that remain.
+- [Keep it running](docs/maintain/updating.md): updating, upgrade notes,
+  troubleshooting, and removing it.
+- [Reference](docs/reference/cli.md): commands, settings, skills, labels,
+  and the glossary.
+- [About](docs/about/design.md): why it works this way, and its
+  limitations.
 
-| Page                                         | For                                                         |
-| -------------------------------------------- | ----------------------------------------------------------- |
-| [Quick start](docs/quick-start.md)           | Your first built ticket, step by step                       |
-| [Setting up on GitHub](docs/github/setup.md) | Setting a repository up on GitHub, or an organization, once |
-| [Workflow](docs/workflow.md)                 | How a ticket moves, and which steps are yours               |
-| [Glossary](docs/glossary.md)                 | Any word here you do not know                               |
-
-**Guides**
-
-| Page                                                           | For                                                              |
-| -------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [Adopting it in an existing repository](docs/existing-repo.md) | Not JavaScript, a monorepo, an existing board, or a team         |
-| [Plugins](docs/plugins.md)                                     | Putting your own skills and agents to work                       |
-| [Presets](docs/presets.md)                                     | Sharing settings across several repositories                     |
-| [Where your tokens are kept](docs/credentials.md)              | Joining a repository that uses it, or working on another machine |
-| [Builds in the cloud](docs/builds.md)                          | Starting builds from your board                                  |
-| [Updating](docs/updating.md)                                   | Getting a new version                                            |
-| [What it changes, and removing it](docs/removing.md)           | Everything it adds, and how to undo it                           |
-
-**Reference**
-
-| Page                                                         | For                                                |
-| ------------------------------------------------------------ | -------------------------------------------------- |
-| [The commands](docs/cli.md)                                  | Every command, by when you use it                  |
-| [Skills](docs/skills.md)                                     | What each skill does, and what it never does       |
-| [Configuration](docs/configuration.md)                       | The settings most change, then every key           |
-| [GitHub and Claude Code reference](docs/github/reference.md) | Where each part lives on GitHub and in Claude Code |
-| [Setting up on GitHub by hand](docs/github/by-hand.md)       | Every step `factory init` takes, and every secret  |
-
-**About**
-
-| Page                                    | For                                              |
-| --------------------------------------- | ------------------------------------------------ |
-| [Why it works this way](docs/design.md) | The reasons behind its choices                   |
-| [Limitations](docs/limitations.md)      | What it does not do, and what is untested        |
-| [Developing](docs/developing.md)        | Working on the factory itself, and what is built |
-
-Some of what these pages describe is still being built. Each such step is
-marked _[Planned](docs/developing.md#what-is-built)_, with what to do until
-then.
+Anything these pages describe that is not built yet is marked
+_Planned_, with what to do until then. Working on the factory itself:
+[Developing](docs/developing.md).
 
 ## License
 

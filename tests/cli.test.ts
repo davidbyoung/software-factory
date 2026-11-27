@@ -77,8 +77,10 @@ describe("the commands the router knows", () => {
     expect(handled.filter((sub) => !listed.includes(sub))).toEqual([]);
   });
 
-  it("routes every command docs/cli.md does not mark Planned", () => {
-    const built = readFileSync(join(PACKAGE, "docs/cli.md"), "utf8")
+  it("routes every command the commands pages do not mark Planned", () => {
+    const built = ["docs/reference/cli.md", "docs/reference/cli-internal.md"]
+      .map((page) => readFileSync(join(PACKAGE, page), "utf8"))
+      .join("\n")
       .split("\n")
       .filter((line) => /^\| `(?:npx --no-install )?factory/.test(line))
       .filter((line) => !/\|\s*Planned\s*\|\s*$/.test(line))
@@ -99,11 +101,13 @@ describe("the commands the router knows", () => {
 });
 
 describe("factory's usage", () => {
-  /** The commands docs/cli.md lists under a heading, by their words. */
+  /** The commands docs/reference/cli.md lists under a heading, by their
+   * words. */
   const documented = (heading: string) => {
-    const lines = readFileSync(join(PACKAGE, "docs/cli.md"), "utf8").split(
-      "\n",
-    );
+    const lines = readFileSync(
+      join(PACKAGE, "docs/reference/cli.md"),
+      "utf8",
+    ).split("\n");
     const start = lines.findIndex((l) => l === heading);
     const end = lines.findIndex((l, i) => i > start && /^#{2,3} /.test(l));
     return lines
@@ -206,7 +210,7 @@ describe("factory's usage", () => {
       "## Every day",
       "## Now and then",
       "## Presets",
-      "### Your repository's commands",
+      "## Your repository's commands",
     ].flatMap(documented);
 
     expect(new Set(listed)).toEqual(new Set(docs));
