@@ -339,62 +339,81 @@ ticket gets a comment saying why its build can't start.
 [A scheduled poller](#a-scheduled-poller-github-action) says what
 differs there.
 
-### What it reads from its environment
+### What it reads
 
-On a server you host, the poller runs with no copy of your repository, so
-it takes everything from environment variables. All five are required.
-Without `FACTORY_REPOSITORY` it doesn't start. Without any of the others,
-it logs `not polling:` naming each that is missing, and starts no build
-until they are set. On a schedule it has a
-checkout, and needs only the token.
+On a server you host, the poller has no copy of your repository. Its
+environment tells it which repository, and gives it a token. Both are
+required:
 
-| Variable               | What it is                                                          |
-| ---------------------- | ------------------------------------------------------------------- |
-| `FACTORY_REPOSITORY`   | The repository, as `owner/name`                                     |
-| `FACTORY_BOARD_OWNER`  | The account the board belongs to                                    |
-| `FACTORY_BOARD_NUMBER` | The board's number, the last part of its address                    |
-| `FACTORY_BOARD_TOKEN`  | An access token that can read the board, comment, and start a build |
-| `FACTORY_READY_COLUMN` | The column that approves a build                                    |
+| Variable              | What it is                                                                                                                    |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `FACTORY_REPOSITORY`  | The repository, as `owner/name`                                                                                               |
+| `FACTORY_BOARD_TOKEN` | An access token that can read the board, comment, and start a build: [Secrets](github/by-hand.md#secrets) has the one to make |
 
-Two more are optional, and needed only where your settings differ from
-the defaults. A poller set up before them keeps working:
+Without `FACTORY_REPOSITORY` it logs
+`ready-poller not started: FACTORY_REPOSITORY is not set` and exits.
+Without the token, it logs `not polling: FACTORY_BOARD_TOKEN not set`
+and starts no build.
 
-| Variable               | What it is                                                                          | Without it |
-| ---------------------- | ----------------------------------------------------------------------------------- | ---------- |
-| `FACTORY_LABEL`        | The name [`tickets.labels.factory`](configuration.md#ticketslabels) gives the label | `factory`  |
-| `FACTORY_MAX_PER_HOUR` | What [`builds.max-per-hour`](configuration.md#builds) says                          | 20         |
-
-`factory board check` prints each one that differs, for you to copy:
-
-```text
-? label      built-by-factory: the poller needs FACTORY_LABEL set to "built-by-factory"
-? builds     40 an hour: the poller needs FACTORY_MAX_PER_HOUR set to 40
-```
-
-A `FACTORY_MAX_PER_HOUR` that isn't a whole number of 1 or more logs
-`not polling: FACTORY_MAX_PER_HOUR must be a whole number, 1 or more` and
-starts nothing.
-
-The repository, the board's number, and the ready column repeat what your
-settings file says, because the poller cannot read it. The ready column
-is the one [`tickets.columns.ready`](configuration.md#ticketscolumns)
-names. [`factory board check`](cli.md) prints it on the ready row, for
-you to copy:
+Everything else it reads from your settings on your default branch, at
+every pass: [`tickets.board`](configuration.md#tickets), the ready
+column in [`tickets.columns`](configuration.md#ticketscolumns), the
+factory label in [`tickets.labels`](configuration.md#ticketslabels),
+and [`builds.max-per-hour` and `builds.trigger`](configuration.md#builds).
+It reads them from `.claude/factory.lock`, the file `factory sync`
+writes with your settings as they apply, your presets' values included.
+So a change to your settings reaches the poller within a minute of
+merging, and there is nothing to restart. Its log says what it read,
+when it first reads the settings and again whenever they change. It
+names your default branch, `main` here:
 
 ```text
-? ready      Ready: the poller needs FACTORY_READY_COLUMN set to "Ready"
+settings from .claude/factory.lock on main: board 1, ready column "Ready", label "factory", 20 builds an hour
 ```
 
-A poller only runs with a ready column: with `ready: none`, builds start
-only when you ask, and there is no poller to host.
+The board must belong to the account that owns the repository, a person
+or an organization. A board owned by another account is not supported
+yet.
 
-A poller set up before `FACTORY_READY_COLUMN` was required logs
-`not polling: FACTORY_READY_COLUMN not set` after an update, and polls
-nothing until you set it.
+**It polls nothing while your settings say not to,** and its log says
+why: once when it stops, again if the reason changes, and in the
+heartbeat it logs each hour. It checks at every pass, so it starts again within a minute
+of the fix merging.
 
-The factory takes the board's owner to be the repository's owner
-everywhere else, a person or an organization, so a board owned by another
-account is not supported yet.
+| What its log says                                                                                                                     | What to do                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `not polling: no .claude/factory.lock on main yet. Merge the pull request that sets the factory up.`                                  | Merge the pull request `factory init` opened                                                                                                                      |
+| `not polling: builds.trigger is manual on main, not own-server`                                                                       | Set `builds.trigger: own-server`, as [Hosting the poller](#hosting-the-poller-own-server) shows, and merge it                                                     |
+| `not polling: builds.trigger is github-action on main, not own-server`                                                                | Stop the poller you host: the schedule starts your builds now                                                                                                     |
+| `not polling: tickets.board is not set on main`                                                                                       | Set [`tickets.board`](configuration.md#tickets)                                                                                                                   |
+| `not polling: .claude/factory.lock on main: builds.max-per-hour: must be a whole number, 1 or more`, or another setting and its fault | Fix that setting. If the line ends by naming two versions, run the newer image: [When the poller and the factory differ](#when-the-poller-and-the-factory-differ) |
+
+**A poller set up before it read your settings** had five more
+variables: `FACTORY_BOARD_OWNER`, `FACTORY_BOARD_NUMBER`,
+`FACTORY_READY_COLUMN`, `FACTORY_LABEL`, and `FACTORY_MAX_PER_HOUR`. It
+no longer reads them, and keeps working with them set. When it starts,
+it names each one that is still set, for you to take out
+([The poller reads your settings](updating.md#the-poller-reads-your-settings)):
+
+```text
+FACTORY_BOARD_OWNER, FACTORY_BOARD_NUMBER, FACTORY_READY_COLUMN are no longer read: the settings on main are. Take them out of the poller's environment.
+```
+
+### When the poller and the factory differ
+
+The [poller's image](#hosting-the-poller-own-server) and the factory in
+your repository update separately, each by a pull request of its own,
+so for a while one can be a release ahead of the other. The
+poller reads only the settings it uses, and leaves any other alone, so
+a newer factory in your repository doesn't stop it. If a setting it uses
+has changed in a way it can't read, it polls nothing and names both
+versions:
+
+```text
+not polling: .claude/factory.lock on main: tickets.columns.ready: must be one column, or none: only a ticket you approved goes there (written by factory 0.3.0, and this poller is 0.2.0: run ghcr.io/davidbyoung/software-factory-poller:0.3.0)
+```
+
+Run the image it names.
 
 ### Its limits
 
@@ -402,8 +421,7 @@ account is not supported yet.
   ([Which tickets are the factory's](workflow.md#which-tickets-are-the-factorys)).
   A ticket without it sits in Ready and nothing starts it.
 - **It starts at most 20 builds an hour,** or what
-  [`builds.max-per-hour`](configuration.md#builds) says (on a server you
-  host, what `FACTORY_MAX_PER_HOUR` says), counted from the start notes
+  [`builds.max-per-hour`](configuration.md#builds) says, counted from the start notes
   it recorded, so a restart or a scheduled pass still knows them. A ticket
   past that waits, and the poller's log says so. Each build may run as long as
   [`session-minutes`](configuration.md#session-minutes) allows, so several
@@ -422,22 +440,33 @@ half a gigabyte of memory. It serves no traffic. A poller you host
 serves one repository: an organization's one poller runs only on a
 schedule.
 
+Set the trigger in `.claude/factory.yaml`. `factory init` writes it when
+you choose a server you host; without it the poller polls nothing:
+
+```yaml
+builds:
+  trigger: own-server # start a build when a ticket moves to Ready, through the poller you host
+```
+
 Each release of the factory publishes the poller as a container image,
 `ghcr.io/davidbyoung/software-factory-poller`, tagged with its version and
 `latest`. It holds nothing but Node and that version of the factory, runs
-as an unprivileged user, and needs no sign-in to pull. Run the version your
-repository names, with the variables above; `factory init` prints the
-exact line. To try it on your machine:
+as an unprivileged user, and needs no sign-in to pull. Run the version on
+the `version:` line of your repository's `.claude/factory.lock`, with the
+two variables [above](#what-it-reads); `factory init` prints the exact
+line. To try it on your machine, with the token in your shell's own
+`FACTORY_BOARD_TOKEN`:
 
 ```bash
 docker run \
   -e FACTORY_REPOSITORY=your-name/your-repo \
-  -e FACTORY_BOARD_OWNER=your-name \
-  -e FACTORY_BOARD_NUMBER=1 \
   -e FACTORY_BOARD_TOKEN \
-  -e FACTORY_READY_COLUMN=Ready \
   ghcr.io/davidbyoung/software-factory-poller:0.2.0
 ```
+
+**It worked when** its log shows `settings from .claude/factory.lock on main:`
+with your board and ready column, then a heartbeat with the number of Ready
+tickets.
 
 **A host that builds from your repository,** rather than running an image,
 needs a Dockerfile there. Add one of a single line, such as
@@ -461,20 +490,21 @@ factory's own [update](updating.md) does:
 As an example, one setup runs it as a worker on DigitalOcean's App
 Platform, in the same app as the site it builds, for about $5 a month. Its
 app spec declares the worker, points it at the Dockerfile, redeploys it on
-every merge, and sets the variables above, with the board's token as a
+every merge, and sets the two variables, with the board's token as a
 secret. Any host that runs a container works the same way.
 
-That hosting is yours. Nothing about it goes in `.claude/factory.yaml`, and
-the factory never deploys it.
+That hosting is yours. Beyond `builds.trigger`, nothing about it goes in
+`.claude/factory.yaml`, and the factory never deploys it.
 
 ### When something fails
 
-| What you see                                                                | What happened                           | What to do                                                                                   |
-| --------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck             | Read its log                                                                                 |
-| A comment saying a build could not start, with a refusal from the code host | The token cannot start a build          | Give it what [Secrets](github/by-hand.md#secrets) names, then move the ticket to Ready again |
-| The board stops updating                                                    | The board's token is missing or expired | Replace it. The poller uses the same token                                                   |
-| A ticket in Ready is skipped                                                | It is blocked by an open ticket         | It starts at the poller's first pass after the blocker closes                                |
+| What you see                                                                | What happened                                   | What to do                                                                                   |
+| --------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck                     | Read its log                                                                                 |
+| A comment saying a build could not start, with a refusal from the code host | The token cannot start a build                  | Give it what [Secrets](github/by-hand.md#secrets) names, then move the ticket to Ready again |
+| The board stops updating                                                    | The board's token is missing or expired         | Replace it. The poller uses the same token                                                   |
+| A ticket in Ready is skipped                                                | It is blocked by an open ticket                 | It starts at the poller's first pass after the blocker closes                                |
+| Its log says `not polling:`                                                 | Your settings say not to poll, or can't be read | [What it reads](#what-it-reads) has each line                                                |
 
 ## A scheduled poller: `github-action`
 
@@ -557,9 +587,11 @@ more. Where an organization's repository runs the poller, the flag names
 that repository: "not started, is the poller in acme/factory-config
 running?"
 
-**Moving from a poller you host to the schedule,** stop the one you host:
-both would start builds, and each start comment counts toward the 20 an
-hour.
+**Moving from a poller you host to the schedule,** set
+`builds.trigger: github-action` and merge it. From its next pass, the
+poller you host starts nothing, and logs
+`not polling: builds.trigger is github-action on main, not own-server`.
+Then stop it.
 
 ### When the schedule fails
 

@@ -10,6 +10,7 @@
 // this machine's credentials file (`lib/credentials.mts`) where a person
 // keeps one for their next repository: none is printed, written to any
 // other file, or passed in a command's arguments.
+import { POLLER_IMAGE } from "./poller.mts";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -268,8 +269,6 @@ export type InitDeps = {
 };
 
 const SIGNING_TITLE = "software factory builds";
-/** Where each release's poller image is published. */
-const POLLER_IMAGE = "ghcr.io/davidbyoung/software-factory-poller";
 /** A month of runs at each interval the scheduled poller allows. */
 const RUNS_A_MONTH = (minutes: number) => (30 * 24 * 60) / minutes;
 const AGAIN = "Run factory init again to add it.";
@@ -2903,14 +2902,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     typeof board === "number"
   )
     left.push(
-      [
-        `Run the poller's image, ${POLLER_IMAGE}:${d.packageVersion}, where you host it, with:`,
-        `       FACTORY_REPOSITORY=${repository}`,
-        `       FACTORY_BOARD_OWNER=${owner}`,
-        `       FACTORY_BOARD_NUMBER=${board}`,
-        "       FACTORY_BOARD_TOKEN=the access token you just made",
-        `       FACTORY_READY_COLUMN=${columnsOf(standingNow!).Ready?.[0]}`,
-      ].join("\n"),
+      pollerStep(repository, d.packageVersion, pull?.state === "opened", base),
     );
   // Without a gate `factory gate` fails, and a build cannot finish.
   if (!gate.length)
@@ -2945,7 +2937,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     const [first, ...values] = step.split("\n");
     const copied = values.flatMap((v): say.Piece[] => {
       const [, indent, value] = /^(\s*)(.*)$/.exec(v)!;
-      return [say.asIs(`\n${indent}`), say.copy(value!)];
+      return /^[A-Z_]+=/.test(value!)
+        ? [say.asIs(`\n${indent}`), say.copy(value!)]
+        : [say.asIs(`\n${indent}${value}`)];
     });
     d.out(say.step(i + 1, [first!, ...copied]));
   });
@@ -2960,6 +2954,22 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   const found2 = await d.checks();
   for (const l of printChecks(found2, 2)) d.out(l);
   return found2.some((c) => c.state === "fail") ? 1 : 0;
+}
+
+/** The step "Left to do" gives a poller you host: its image, its two
+ * variables to copy, and where it reads the rest. */
+export function pollerStep(
+  repository: string,
+  version: string,
+  opened: boolean,
+  base: string,
+): string {
+  return [
+    `Run the poller's image, ${POLLER_IMAGE}:${version}, where you host it, with:`,
+    `       FACTORY_REPOSITORY=${repository}`,
+    "       FACTORY_BOARD_TOKEN=the access token you just made",
+    `     It reads the rest from your settings once ${opened ? "this pull request merges" : `they are on ${base}`}.`,
+  ].join("\n");
 }
 
 /** The folders of a checkout that hold a preset, "" for its root first. */

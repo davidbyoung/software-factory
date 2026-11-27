@@ -389,9 +389,6 @@ factory's own names:
   session.
 - **A ticket in a column no state uses is left alone.** The board sync
   doesn't move it or fill in its fields, and nothing builds it.
-- **If you host your own poller,** it needs `FACTORY_READY_COLUMN` set
-  to the column `ready` names: see
-  [Builds](builds.md#what-it-reads-from-its-environment).
 
 `factory config check` stops, naming the key, when `columns` has:
 
@@ -547,9 +544,7 @@ To rename a label:
    never renames a label, so until you do, it doesn't see them: a
    ticket still labeled `spec` is built without its Spec. Renaming `factory`
    hides every ticket that carries the old name until you rename the label on
-   GitHub too. If you
-   host the poller, also set `FACTORY_LABEL` to the new name
-   ([Builds](builds.md#what-it-reads-from-its-environment)).
+   GitHub too.
 3. Check the file and sync, as for every setting:
 
    ```console

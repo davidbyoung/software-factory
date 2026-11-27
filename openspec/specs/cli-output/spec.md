@@ -105,15 +105,6 @@ The factory SHALL behave as this line says: When the board lacks a column a stat
 - **WHEN** the board lacks a column a state names
 - **THEN** its row is `✗` and `NAMES: no such column on the board`, followed by `: MISSING` naming the missing ones when the state has more than one name, such as `✗ review     Code review, QA: no such column on the board: QA`. This row wins over line 12's.
 
-### Requirement: The poller's ready column
-
-The factory SHALL behave as this line says: When `builds.trigger` is `own-server` and `ready` names a column, Ready included, `factory board check`'s `ready` row is `?` and `COLUMN: the poller needs FACTORY_READY_COLUMN set to "COLUMN"`. With `ready: none`, the row is as today.
-
-#### Scenario: The poller's ready column
-
-- **WHEN** `builds.trigger` is `own-server` and `ready` names a column, Ready included
-- **THEN** `factory board check`'s `ready` row is `?` and `COLUMN: the poller needs FACTORY_READY_COLUMN set to "COLUMN"`. With `ready: none`, the row is as today.
-
 ### Requirement: A column no state names
 
 The factory SHALL behave as this line says: When the board has a column no state names, a row follows the states' rows: `?`, the column's name padded as a key, and `no state: left alone`.
@@ -320,3 +311,12 @@ The factory SHALL behave as this line says: When a line of this capability start
 
 - **WHEN** a line of this capability starts with `✓` or `✗`, or is a heading
 - **THEN** it is colored as `terminal-color` says.
+
+### Requirement: Board check with a poller you host
+
+The factory SHALL behave as this line says: When `factory board check` runs with `builds.trigger: own-server`, its `ready` row is `✓` and the column's name, as with any other trigger, and it prints no `tickets.labels` or `builds` block naming a poller's variable.
+
+#### Scenario: Board check with a poller you host
+
+- **WHEN** `factory board check` runs with `builds.trigger: own-server`
+- **THEN** its `ready` row is `✓` and the column's name, as with any other trigger, and it prints no `tickets.labels` or `builds` block naming a poller's variable.
