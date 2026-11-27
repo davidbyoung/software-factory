@@ -34,7 +34,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: The hosted poller names variables it no longer reads
 
 - **WHEN** the hosted poller starts with any of `FACTORY_BOARD_OWNER`, `FACTORY_BOARD_NUMBER`, `FACTORY_READY_COLUMN`, `FACTORY_LABEL`, and `FACTORY_MAX_PER_HOUR` set to more than spaces
-- **THEN** it reads none of them, and logs once, before its first `settings from` line, `NAMES are no longer read: the settings on BRANCH are. Take them out of the poller's environment.`, NAMES being those set, in that order, joined by `, `, and `is` in place of `are` for one.
+- **THEN** it reads none of them, and logs once, before its first `settings from` line, `NAMES are no longer read: the settings on BRANCH are. Take them out of the poller's environment.`, NAMES being those set, in that order, joined by `, `, and `is` in place of `are` and `it` in place of `them` for one.
 
 ### Requirement: No lock on the default branch
 

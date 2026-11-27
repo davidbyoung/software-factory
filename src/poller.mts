@@ -8,24 +8,23 @@
 // the organization's preset, and starts the builds of every repository
 // with a ticket in the Ready column of the one board.
 //
-// Hosted, its environment: FACTORY_REPOSITORY (owner/name), FACTORY_BOARD_OWNER,
-// FACTORY_BOARD_NUMBER, FACTORY_BOARD_TOKEN (a classic token with the
-// repo and project scopes, or a fine-grained one that can also write
-// Actions: it starts the workflow), and FACTORY_READY_COLUMN (the column
-// tickets.columns.ready names). It has no checkout, so it reads the
-// repository and the column from its environment rather than the
-// factory's settings.
+// Hosted, its environment is FACTORY_REPOSITORY (owner/name) and
+// FACTORY_BOARD_TOKEN (a classic token with the repo and project scopes,
+// or a fine-grained one that can also write Actions: it starts the
+// workflow). It has no checkout, so at every pass it reads the settings
+// the scheduled pass reads from the lock on the default branch.
 //
 // Once started it never exits on its own: a host that deploys every
 // component together can fail the whole deploy when a worker exits during
 // a rollout. The one exit is at start, with no repository to read.
 //
-// It names its implementations itself, having no settings to name them:
-// the GitHub ticket adapter, GitHub as the code host, and GitHub Actions as
-// the runner, each over the `fetch` transport, since it runs with no `gh`.
+// It names the code host and the runner itself, GitHub and GitHub Actions,
+// each over the `fetch` transport, since it runs with no `gh`.
 import { TICKET_LABELS } from "./labels.mts";
+import { BUILT } from "./tool-names.mts";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   columnsOf,
   loadSettings,
@@ -37,7 +36,7 @@ import {
   type Settings,
 } from "./config.mts";
 import { setTimeout as sleep } from "node:timers/promises";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   DEFAULT_COLUMNS,
   cardOf,
@@ -69,6 +68,18 @@ import {
 } from "./tickets/types.mts";
 import { linkPulls, ownLinks } from "./lib/pull-tickets.mts";
 import * as say from "./lib/output.mts";
+
+/** The image each release publishes the hosted poller as. */
+export const POLLER_IMAGE = "ghcr.io/davidbyoung/software-factory-poller";
+
+/** The variables a hosted poller read before it read the settings. */
+const RETIRED = [
+  "FACTORY_BOARD_OWNER",
+  "FACTORY_BOARD_NUMBER",
+  "FACTORY_READY_COLUMN",
+  "FACTORY_LABEL",
+  "FACTORY_MAX_PER_HOUR",
+];
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -103,9 +114,9 @@ export function startMarker(): string {
   return `st_${randomBytes(6).toString("hex")}`;
 }
 
-/** The columns the poller reads a board by. It runs with no settings file,
- * so it is told the one name it needs, the column that approves a build:
- * FACTORY_READY_COLUMN, which `readConfig` requires. */
+/** The columns `tick` reads a board by: the defaults, with the column
+ * that approves a build from FACTORY_READY_COLUMN, which `readConfig`
+ * requires and each pass sets from its settings. */
 export function columnsFrom(env: Record<string, string | undefined>): Columns {
   return {
     ...DEFAULT_COLUMNS,
@@ -193,6 +204,13 @@ export function readConfig(
 export type State = {
   failuresInARow: number;
   lastHeartbeat: number;
+  /** The hosted poller's reason not to poll, while one holds. */
+  reason?: string | null;
+  /** The hosted poller's last `settings from` line. */
+  settingsLine?: string;
+  /** Whether the hosted poller has looked for the variables it no longer
+   * reads. */
+  retiredChecked?: boolean;
 };
 
 export type Deps = {
@@ -207,8 +225,8 @@ export type Deps = {
    * running; a dispatch runs on it. */
   defaultBranch?: string;
   /** The ticket system to read, its settings under `tickets`, and whether
-   * the code host's links are its own: the settings' for a scheduled
-   * pass, and the default system for a poller someone hosts. */
+   * the code host's links are its own, from the settings; the default
+   * system when not given. */
   ticketSystem?: {
     type: string;
     options: Record<string, unknown>;
@@ -216,19 +234,38 @@ export type Deps = {
   };
   /** The ticket systems to open it from; the factory's own unless given. */
   systems?: Registry["tickets"];
+  /** The factory's own version; the package's unless given. */
+  version?: string;
 };
 
 const HOSTED = { type: DEFAULT_TICKETS, options: {}, own: true };
 
-/** The ticket system, the code host, and the runner, over the `fetch`
- * transport. */
-export async function sources(d: Deps, c: Config) {
+/** The code host and a reader of any repository's files, over the
+ * `fetch` transport: what the hosted poller needs before it knows the
+ * board. */
+function reader(d: Deps, token: string) {
   const transport = fetchTransport({
-    token: c.githubToken,
+    token,
     fetch: d.fetch,
     timeoutMs: FIRE_TIMEOUT_MS,
     userAgent: "ready-poller",
   });
+  return {
+    transport,
+    codeHost: githubCodeHost({ transport, repository: d.repository }),
+    /** A file's text on the default branch of any repository the token
+     * reads, or null when it has none. */
+    file: (repository: string, path: string) => {
+      const [owner, name] = repository.split("/") as [string, string];
+      return githubOrganization({ transport, name: owner }).file(name, path);
+    },
+  };
+}
+
+/** The ticket system, the code host, and the runner, over the `fetch`
+ * transport. */
+export async function sources(d: Deps, c: Config) {
+  const { transport, codeHost, file } = reader(d, c.githubToken);
   const system = d.ticketSystem ?? HOSTED;
   return {
     tickets: await openSystem(
@@ -240,14 +277,9 @@ export async function sources(d: Deps, c: Config) {
       { transport },
       d.env,
     ),
-    codeHost: githubCodeHost({ transport, repository: d.repository }),
+    codeHost,
     runner: githubActionsRunner({ transport, repository: d.repository }),
-    /** A file's text on the default branch of any repository the token
-     * reads, or null when it has none. */
-    file: (repository: string, path: string) => {
-      const [owner, name] = repository.split("/") as [string, string];
-      return githubOrganization({ transport, name: owner }).file(name, path);
-    },
+    file,
   };
 }
 
@@ -481,14 +513,183 @@ function onceEnv(s: OnceSettings, d: Deps, file: string): Deps["env"] | null {
     d.log(`No card can start a build: the Ready column is none in ${file}.`);
     return null;
   }
+  return envOf(s, d);
+}
+
+/** The environment `tick` reads, from settings that name a board and a
+ * Ready column. The board's owner is the repository's. */
+function envOf(s: OnceSettings, d: Deps): Deps["env"] {
   return {
     ...d.env,
     FACTORY_BOARD_OWNER: d.repository.split("/")[0],
     FACTORY_BOARD_NUMBER: String(s.board),
-    FACTORY_READY_COLUMN: s.ready,
+    FACTORY_READY_COLUMN: s.ready!,
     FACTORY_LABEL: s.factory,
     FACTORY_MAX_PER_HOUR: String(s.maxPerHour ?? FIRE_LIMIT),
   };
+}
+
+/** The settings the hosted poller uses, from the lock's `settings`, and
+ * nothing else: a key or value it does not use, from a newer release or
+ * not, is left out before they are checked. */
+function used(raw: Record<string, unknown>): Record<string, unknown> {
+  const isObj = (v: unknown): v is Record<string, unknown> =>
+    typeof v === "object" && v !== null && !Array.isArray(v);
+  const pick = (o: unknown, keys: readonly string[]) =>
+    isObj(o)
+      ? Object.fromEntries(keys.filter((k) => k in o).map((k) => [k, o[k]]))
+      : {};
+  const tickets = isObj(raw.tickets) ? raw.tickets : {};
+  const type = isObj(tickets.type) ? tickets.type.type : tickets.type;
+  const options = typeof type === "string" ? (BUILT.tickets[type] ?? []) : [];
+  const columns = pick(tickets.columns, ["ready"]);
+  const labels = pick(tickets.labels, ["factory"]);
+  return {
+    ...pick(raw, ["version", "repository"]),
+    tickets: {
+      ...pick(tickets, ["type", "board", ...options]),
+      ...(Object.keys(columns).length ? { columns } : {}),
+      ...(Object.keys(labels).length ? { labels } : {}),
+    },
+    builds: pick(raw.builds, ["trigger", "max-per-hour"]),
+  };
+}
+
+/** What the hosted poller reads from the lock's text on `branch`: the
+ * settings, or why it polls nothing. `own` is its own version, named
+ * beside the lock's when a setting it uses can't be read. */
+export async function hostedSettings(
+  text: string,
+  branch: string,
+  own: string,
+): Promise<{ settings: OnceSettings } | { reason: string }> {
+  const { load } = await import("js-yaml");
+  const P = await import("./preset.mts");
+  const fault = (words: string, written: string) =>
+    `${P.LOCK_FILE} on ${branch}: ${words}${
+      written && written !== own
+        ? ` (written by factory ${written}, and this poller is ${own}: run ${POLLER_IMAGE}:${written})`
+        : ""
+    }`;
+  let lock: ReturnType<typeof P.readLock>;
+  try {
+    lock = P.readLock(text, load);
+  } catch (e) {
+    return { reason: fault((e as Error).message.split("\n")[0]!, "") };
+  }
+  if (!lock.settings)
+    return {
+      reason: fault(
+        P.staleMessages.earlier.slice(P.LOCK_FILE.length + 1),
+        lock.version,
+      ),
+    };
+  let s: Settings;
+  try {
+    s = parseSettings(used(lock.settings), () => true, undefined, {
+      partial: true,
+    });
+  } catch (e) {
+    if (!(e instanceof SettingsError)) throw e;
+    return {
+      reason: fault(e.message.replace(`${SETTINGS_FILE}: `, ""), lock.version),
+    };
+  }
+  if (s.builds.trigger !== "own-server")
+    return {
+      reason: `builds.trigger is ${s.builds.trigger} on ${branch}, not own-server`,
+    };
+  const settings = onceSettings(s);
+  if (settings.board === null)
+    return { reason: `tickets.board is not set on ${branch}` };
+  if (settings.ready === null)
+    return {
+      reason: fault(
+        "tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
+        lock.version,
+      ),
+    };
+  return { settings };
+}
+
+/** The factory's version, from its package's manifest. */
+function ownVersion(): string {
+  const root = dirname(dirname(fileURLToPath(import.meta.url)));
+  return (
+    JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+      version: string;
+    }
+  ).version;
+}
+
+/** One pass of the hosted poller: the settings from the lock on the
+ * default branch, then the board as `tick` reads it. It never throws. */
+export async function hosted(d: Deps, state: State): Promise<void> {
+  const token = d.env.FACTORY_BOARD_TOKEN?.trim();
+  if (!token) {
+    d.log("not polling: FACTORY_BOARD_TOKEN not set");
+    state.failuresInARow += 1;
+    return;
+  }
+  const { codeHost, file } = reader(d, token);
+  if (!d.defaultBranch) {
+    try {
+      d.defaultBranch = await codeHost.defaultBranch();
+    } catch (error) {
+      state.failuresInARow += 1;
+      d.log(`default branch not read: ${String(error)}`);
+      return;
+    }
+  }
+  const branch = d.defaultBranch;
+  if (!state.retiredChecked) {
+    state.retiredChecked = true;
+    const set = RETIRED.filter((name) => d.env[name]?.trim());
+    if (set.length)
+      d.log(
+        `${set.join(", ")} ${set.length === 1 ? "is" : "are"} no longer read: the settings on ${branch} are. Take ${set.length === 1 ? "it" : "them"} out of the poller's environment.`,
+      );
+  }
+  const { LOCK_FILE } = await import("./preset.mts");
+  let text: string | null;
+  try {
+    text = await file(d.repository, LOCK_FILE);
+  } catch (error) {
+    state.failuresInARow += 1;
+    d.log(`read failed (${state.failuresInARow} in a row): ${String(error)}`);
+    return;
+  }
+  state.failuresInARow = 0;
+  const read =
+    text === null
+      ? {
+          reason: `no ${LOCK_FILE} on ${branch} yet. Merge the pull request that sets the factory up.`,
+        }
+      : await hostedSettings(text, branch, d.version ?? ownVersion());
+  if ("reason" in read) {
+    if (read.reason !== state.reason) {
+      d.log(`not polling: ${read.reason}`);
+      state.lastHeartbeat = d.now();
+    } else if (d.now() - state.lastHeartbeat >= HOUR) {
+      d.log(`heartbeat: not polling: ${read.reason}`);
+      state.lastHeartbeat = d.now();
+    }
+    state.reason = read.reason;
+    return;
+  }
+  state.reason = null;
+  const s = read.settings;
+  const line = `settings from ${LOCK_FILE} on ${branch}: board ${s.board}, ready column "${s.ready}", label "${s.factory}", ${s.maxPerHour ?? FIRE_LIMIT} builds an hour`;
+  if (line !== state.settingsLine) d.log(line);
+  state.settingsLine = line;
+  await tick(
+    {
+      ...d,
+      env: envOf(s, d),
+      ...(s.ticketSystem ? { ticketSystem: s.ticketSystem } : {}),
+    },
+    state,
+  );
 }
 
 /** What a pass for an organization reads from its preset's text, parsed
@@ -634,6 +835,25 @@ function liveDeps(): Omit<Deps, "repository"> {
   };
 }
 
+/** The hosted poller: it names its repository, then makes a pass, waits,
+ * and makes another, `passes` times, which is forever but in a test. */
+export async function serve(
+  d: Deps,
+  wait: (ms: number) => Promise<unknown> = sleep,
+  passes = Infinity,
+): Promise<void> {
+  const state: State = { failuresInARow: 0, lastHeartbeat: 0 };
+  d.log(`ready-poller started for ${d.repository}`);
+  for (let pass = 0; pass < passes; pass++) {
+    try {
+      await hosted(d, state);
+    } catch (error) {
+      d.log(`tick failed: ${String(error)}`);
+    }
+    if (pass + 1 < passes) await wait(nextDelay(state.failuresInARow));
+  }
+}
+
 async function main(): Promise<number> {
   const repository = process.env.FACTORY_REPOSITORY;
   if (!repository) {
@@ -642,20 +862,12 @@ async function main(): Promise<number> {
     );
     return 1;
   }
-  const state: State = { failuresInARow: 0, lastHeartbeat: 0 };
   const d = { ...liveDeps(), repository };
   process.on("unhandledRejection", (error) =>
     d.log(`unhandled: ${String(error)}`),
   );
-  d.log("ready-poller started");
-  for (;;) {
-    try {
-      await tick(d, state);
-    } catch (error) {
-      d.log(`tick failed: ${String(error)}`);
-    }
-    await sleep(nextDelay(state.failuresInARow));
-  }
+  await serve(d);
+  return 0;
 }
 
 /** `factory poller`, `factory poller --once`, and `factory poller --once
