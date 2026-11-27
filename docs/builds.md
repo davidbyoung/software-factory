@@ -332,8 +332,10 @@ The poller skips a repository whose settings in effect set
 default, `manual`. So to keep a repository's tickets from the
 organization's poller, set `builds.trigger: manual` in its own
 `.claude/factory.yaml`. A repository that doesn't follow the
-organization's preset needs `builds.trigger: github-action` there for
-the poller to build it.
+organization's preset is skipped too, since its default is `manual`:
+[add the preset](presets.md#adding-a-preset) for the poller to build it.
+A repository with no `.claude/factory.yaml` is not skipped, and its
+ticket gets a comment saying why its build can't start.
 [A scheduled poller](#a-scheduled-poller-github-action) says what
 differs there.
 
