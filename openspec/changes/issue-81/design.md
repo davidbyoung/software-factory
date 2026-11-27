@@ -1,0 +1,39 @@
+# Design
+
+## Where it goes
+
+- **The dates.** `src/runner/types.mts` gets `type StoredSecret = { name: string; stored: string }` (the ISO `updated_at`), and two methods: `secrets(): Promise<StoredSecret[]>` and `organizationSecrets(): Promise<StoredSecret[]>`. In `src/runner/github-actions.mts`, `secretsAt` keeps `updated_at` from each listing, the two new methods return it, and `secretNames` and `organizationSecretNames` become `.map((x) => x.name)` of them, so their callers are untouched. The organization's own list, which `factory init --org` reads through `organization.secretNames()` in `src/code-host/github.mts`, gets the same: a `secrets()` beside it returning `StoredSecret[]`.
+- **One place that works out the day.** A new `src/lib/claude-token.mts` holds the pure part: `tokenDay({ stored, pasted }): { day: string; from: "stored" | "pasted" }` (line 2, a calendar year later in UTC, 29 February to 1 March), `daysLeft(day, now): number`, `stage(daysLeft): "fine" | "soon" | "over"` (more than 30, 0 to 30, below 0), and `inDays(n)` for `in 1 day`, `in N days`, `today`. `doctor`, `status`, `init`, and `init --org` take their wording from here, so the dates agree everywhere. It also exports the line builders for doctor (lines 3 to 5) and status (line 9).
+- **The `pasted` day.** `src/lib/credentials.mts` gets `pastedDay(owner, env): string | null`, reading `claude-code` → `github.com/OWNER` → `pasted`, null when absent or the file cannot be read, never throwing, never returning the token. `writeCredential`'s callers in `src/init.mts` pass `pasted` beside `CLAUDE_CODE_OAUTH_TOKEN` when the value came from a paste (line 12). `readCredential` ignores the extra key already, since it reads named values.
+- **`factory doctor`.** In `checks()` in `src/doctor.mts`, read `opened.runner.secrets()` and, for an organization, `organizationSecrets()`, in place of the two name lists, and derive the names from them. Inside the final `for (const { anyOf, fors } of reads.values())` loop, right after the `secretLine` it pushes, when that line passed for `AGENT_TOKEN`, push the day's line under the runner's label (lines 1 to 6). The withheld case already fails that `is set` line, so it gets no day line. Pull the decision (is the token read and set, from where, and its dates) into one exported function in `src/lib/claude-token.mts` that `status` also calls, so the two agree on when the line shows. `DoctorDeps` gets `now?: () => Date` and reads `pastedDay` through `env`, so tests set both. Update the module comment that says a secret is checked only for being set.
+- **`factory status`.** In `src/status.mts`, `Source` gets an optional `tokenLine(): Promise<say.Line | null>`, run once per invocation, including once for `--watch`, alongside the ticket and pull request reads in `snapshotLines`'s `Promise.all` so `--hook` stays inside `HOOK_LIMIT_MS`. It is built from the same function doctor uses to decide line 1 (see `factory doctor` below), fed by `openRunner`'s `secrets()` and `organizationSecrets()`, the code host's `ownerIsOrganization()` and `secretsWithheldBy()`, and `pastedDay`. Its line goes after the table, and in `--hook` after the closing fence. Any error in it gives null (line 10), and it never changes `status`'s exit.
+- **`factory init`, own account.** In `src/init.mts`, next to where `alreadySet` and `replace` are worked out (around the `Replace them?` question), compute the token's stage from the repository's `secrets()` and `pastedDay`. When it is `soon` or `over`, print line 13 and ask line 14's or line 15's question before `Replace them?`, and drop `AGENT_TOKEN` from `alreadySet` for that question. `asked` today holds a step only when `replace || unmet(step)`, and a set token is neither, so a yes to line 14 or 15 adds the coding agent's secret step to `asked` itself, with `names: [AGENT_TOKEN]`. Line 15's yes then puts it in `keeping`, not `servedFrom`, so it is asked and written to the file with `pasted`; line 14's yes puts it in `servedFrom` with the file's value. Whatever the answer, the step is kept out of the `replace` path: a later yes to `Replace them?` does not ask for the token again (line 16), and, only in `soon` or `over`, `alreadySet` drops `AGENT_TOKEN` alone. `init`'s deps get `now?: () => Date` for lines 12 to 17's tests. Line 17: in the loop that fills `servedFrom` from `heldOn`, skip `AGENT_TOKEN` when its `pasted` stage is `soon` or `over`, print line 17, and leave it to be asked.
+- **`factory init --org`.** In `src/init-org.mts`, the `agentStored.length` branch (the `already stored for ... Replace it?` question) reads the stored day from `organization.secrets()` and asks line 18's or line 19's question with that default. `init-org`'s deps get `now?: () => Date` too, for task 4.4.
+- **The session's error.** In `src/session-jobs.mts`, `shown()` keeps its `Finished (...)` line, and for a `result` event with `is_error` holds line 21, 22, or 23 until the session has ended. Which credential was read is `env.CLAUDE_CODE_OAUTH_TOKEN` or `env.ANTHROPIC_API_KEY` in the session job's environment (`.github/workflows/session.yml` exports exactly one). Who owns the repository is `repository.owner.type` in the file `GITHUB_EVENT_PATH` names, read in the way `fromEvent` in `src/lib/default-branch.mts` reads that file: `Organization` gives the `--org` line, anything else, or no file, the `factory init` line. ORG is `GITHUB_REPOSITORY_OWNER`. **The line must be printed after workflow commands resume:** `runTheSession` calls `quietly()`, which prints `::stop-commands::TOKEN` and resumes only in its `exit` handler, so an `::error::` printed while the session streams is plain text. Keep the error line and print it from an `exit` handler registered after `quietly()`'s, so it runs after `::TOKEN::`. WORDS is one line, with GitHub's annotation escaping applied, so nothing a session wrote can start another command. Move `REFUSAL` from `src/agent/claude-code.mts` to an export both use. Since `shown()` is per line and pure today, pass the credential's name and the owner's kind in as arguments from `runTheSession`.
+
+## Contracts
+
+- GitHub's `GET repos/OWNER/REPO/actions/secrets`, `GET repos/OWNER/REPO/actions/organization-secrets`, and `GET orgs/ORG/actions/secrets` each give `updated_at` per secret, as an ISO time in UTC. No new permission or scope.
+- The credentials file entry: `claude-code: { github.com/OWNER: { CLAUDE_CODE_OAUTH_TOKEN: ..., pasted: YYYY-MM-DD } }`.
+- The run's event: `repository.owner.type` is `User` or `Organization`.
+
+## States
+
+The token's stage from `daysLeft`: `fine` (more than 30), `soon` (30 down to 0, `today` at 0), `over` (below 0). On a personal repository, `init` also compares the file's `pasted` with the secret's `updated_at` to choose line 14 over line 15.
+
+## Edge cases
+
+- The secret set both on the repository and by the organization: the repository's own wins today for which is read, so its date counts, and the line has no `ORG stored it` ending.
+- A `pasted` day later than `updated_at` in `doctor`: the earlier of the two, so `updated_at` counts (the secret may be older than the file's token).
+- A file for another owner: ignored, since the entry is filed by owner.
+- A malformed `updated_at` or `pasted`: no line, as if unknown, never a thrown error.
+- The clock: every comparison is in UTC days, with `now` injected for tests.
+- `--hook` runs under a time limit: the extra request must not push it past it, so it runs alongside the ticket reads, not after.
+
+## Risks and rollback
+
+If GitHub's `updated_at` ever changes meaning, the lines mislead but break nothing: `doctor` only fails after the day. The first thing to change is `tokenDay`. If a Claude token's life changes, it is the one constant in `src/lib/claude-token.mts`.
+
+## Dependencies
+
+No owner-only step. #74 is closed. #114 waits on this ticket, recorded as blocked by #81.
