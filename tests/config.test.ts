@@ -118,7 +118,7 @@ describe("parseSettings", () => {
       "fails on %j, saying to write true or false",
       (value) => {
         expect(() => parse({ ...MINIMAL, "pr-review": value })).toThrow(
-          "pr-review: must be true or false",
+          "pr-review: must be true or false: write pr-review: true to turn the review on",
         );
       },
     );

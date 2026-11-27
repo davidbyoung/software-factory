@@ -1408,7 +1408,10 @@ export function parseSettings(
   const prReview =
     typeof review === "boolean"
       ? review
-      : fail("pr-review", "must be true or false");
+      : fail(
+          "pr-review",
+          "must be true or false: write pr-review: true to turn the review on",
+        );
 
   const sites = parseSites(top.site, exists, preset);
   const commands = commandsOf(top.commands, preset, exists);
