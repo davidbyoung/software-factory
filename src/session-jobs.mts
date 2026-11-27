@@ -248,7 +248,7 @@ export function sessionError(
   if (!first) return null;
   // The runner's own escaping, so the words stay data.
   const words = first.replace(/%/g, "%25").replace(/\r/g, "%0D");
-  if (!at.credential || !REFUSAL.test(r.result))
+  if (!at.credential || !REFUSAL.test(first))
     return `::error::Claude Code: ${words}`;
   const refused = `::error::Claude Code refused ${at.credential}: ${words.replace(/\.$/, "")}.`;
   if (at.credential !== AGENT_TOKEN) return refused;

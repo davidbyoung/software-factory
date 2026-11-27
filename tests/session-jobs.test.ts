@@ -263,6 +263,17 @@ describe("the error a session ends with", () => {
     ).toBe("::error::Claude Code: Reached the turn limit");
   });
 
+  it("is no refusal when only a later line of the result reads as one", () => {
+    expect(
+      sessionError(
+        failed(
+          "Reached the maximum number of turns\nThe last test failed with HTTP 401 from the mock server",
+        ),
+        at("CLAUDE_CODE_OAUTH_TOKEN"),
+      ),
+    ).toBe("::error::Claude Code: Reached the maximum number of turns");
+  });
+
   it("escapes a percent sign, as the runner reads one", () => {
     expect(
       sessionError(failed("50% done"), at("CLAUDE_CODE_OAUTH_TOKEN")),
