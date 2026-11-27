@@ -31,6 +31,7 @@ import {
   loadSettings,
   MAX_PER_HOUR,
   parseSettings,
+  presetEntriesOf,
   SETTINGS_FILE,
   SettingsError,
   type Settings,
@@ -250,10 +251,13 @@ export async function sources(d: Deps, c: Config) {
   };
 }
 
-/** The `builds.trigger` a repository's own settings file sets on its
- * default branch: null when the file sets none, is missing, or cannot be
- * read. Its presets are not read, so a trigger only they set is null. */
-async function ownTrigger(
+/** The `builds.trigger` in effect in a repository, from its default
+ * branch: its own settings file's key, else what its lock records, which
+ * `factory sync` combined from its presets, its choices, and the default.
+ * Null when the file is missing or cannot be read, or when it sets none
+ * and the lock cannot say: one missing, unreadable, from a release that
+ * recorded no settings, or not pinning a preset the file lists. */
+async function triggerInEffect(
   file: (repository: string, path: string) => Promise<string | null>,
   repository: string,
 ): Promise<string | null> {
@@ -261,9 +265,22 @@ async function ownTrigger(
     const text = await file(repository, SETTINGS_FILE);
     if (text === null) return null;
     const { load } = await import("js-yaml");
-    const trigger = (load(text) as { builds?: { trigger?: unknown } } | null)
-      ?.builds?.trigger;
-    return typeof trigger === "string" ? trigger : null;
+    const own = load(text) as {
+      builds?: { trigger?: unknown };
+      presets?: unknown;
+    } | null;
+    const trigger = own?.builds?.trigger;
+    if (typeof trigger === "string") return trigger;
+    const P = await import("./preset.mts");
+    const lockText = await file(repository, P.LOCK_FILE);
+    if (lockText === null) return null;
+    const lock = P.readLock(lockText, load);
+    const pinned = new Set(lock.presets.map((p) => p.name));
+    if (presetEntriesOf(own?.presets).some((e) => !pinned.has(e.name)))
+      return null;
+    const inEffect = (lock.settings?.builds as { trigger?: unknown } | null)
+      ?.trigger;
+    return typeof inEffect === "string" ? inEffect : null;
   } catch {
     return null;
   }
@@ -496,7 +513,7 @@ export async function presetSettings(
  * once for the repositories with a ticket in its Ready column, and each
  * gets the pass `once` makes, with its own hourly cap. The board's owner
  * is the owner of `d.repository`, the repository that holds the preset.
- * A repository whose own settings file sets another `builds.trigger` is
+ * A repository whose settings in effect set another `builds.trigger` is
  * left. 1 when the board could not be read. A repository that could not be read
  * is logged, as a warning in a workflow's run, and fails nothing: one
  * ticket in a repository the token does not reach would otherwise fail
@@ -537,7 +554,7 @@ export async function onceEach(
   for (const repository of repositories) {
     // A repository that starts its builds another way, or by hand, is not
     // started from here as well.
-    const trigger = await ownTrigger(fileOf, repository);
+    const trigger = await triggerInEffect(fileOf, repository);
     if (trigger !== null && trigger !== "github-action") {
       d.log(
         `${repository}: builds.trigger is ${trigger} there, so its tickets are left`,

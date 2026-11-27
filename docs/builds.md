@@ -324,11 +324,16 @@ with a ticket in Ready it does what the list above says, in that
 repository: the same tickets, in the same order, with that repository's
 own count toward the builds an hour that [Its limits](#its-limits)
 allows. A repository that follows the
-organization's [preset](presets.md) runs no poller of its own. To keep
-a repository's tickets from the organization's poller, set
-`builds.trigger: manual` in that repository's own
-`.claude/factory.yaml`: the poller skips a repository whose own settings
-set the trigger to anything but `github-action`.
+organization's [preset](presets.md) runs no poller of its own.
+
+The poller skips a repository whose settings in effect set
+`builds.trigger` to anything but `github-action`: its own
+`.claude/factory.yaml` first, then the presets it follows, then the
+default, `manual`. So to keep a repository's tickets from the
+organization's poller, set `builds.trigger: manual` in its own
+`.claude/factory.yaml`. A repository that doesn't follow the
+organization's preset needs `builds.trigger: github-action` there for
+the poller to build it.
 [A scheduled poller](#a-scheduled-poller-github-action) says what
 differs there.
 
