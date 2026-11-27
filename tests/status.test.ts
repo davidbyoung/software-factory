@@ -9,10 +9,12 @@ import {
   runLine,
   sessionCell,
   styleFor,
+  tokenReader,
   toRows,
   type Deps,
   type Source,
   type Style,
+  type Target,
 } from "../src/status.mts";
 import type {
   Board,
@@ -24,10 +26,15 @@ import {
   NO_DEPENDENCIES,
   SettingsError,
   parseSettings,
+  type Settings,
 } from "../src/config.mts";
 import { watchOf } from "../src/lib/work-status.mts";
 import { fakeSettings } from "./fake-gh";
 import { memoryTickets } from "./memory-tickets";
+import { memoryCodeHost } from "./memory-code-host";
+import { memoryRunner } from "./memory-runner";
+import { memoryTools } from "./memory-tools";
+import { builtOf } from "../src/tools.mts";
 import { network, SECTION, type Place } from "./network";
 import { toBoard, type BoardPage } from "../src/tickets/github.mts";
 import { CredentialError, type Ticket } from "../src/tickets/types.mts";
@@ -36,7 +43,7 @@ import boardPages from "./fixtures/sync/board.json";
 import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST } from "./settings-fixture";
 import { styleText } from "node:util";
-import type { Line } from "../src/lib/output.mts";
+import { mark, type Line } from "../src/lib/output.mts";
 import { colored, into, look, plainOf } from "./printed";
 
 /** What formatRows gives, as it is printed: in color for a style in it. */
@@ -974,6 +981,127 @@ describe("main in a terminal", () => {
 
     expect(await main([], d)).toBe(0);
     expect(out.join("\n")).toContain(`${ESC}]8;;${url}${ESC}\\`);
+  });
+});
+
+describe("main, near the Claude token's day", () => {
+  const WARNING =
+    "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it";
+  const withToken = (token: Source["token"]) => {
+    const base = fixtureSource().source;
+    const source = vi.fn(async (s: Settings, t: Target) => ({
+      ...(await base(s, t)),
+      token,
+    }));
+    return source;
+  };
+  const deps = (
+    source: Deps["source"],
+    sleep: Deps["sleep"] = async () => {},
+  ) => {
+    const out: string[] = [];
+    const d: Deps = {
+      source,
+      settings: fakeSettings,
+      env: {},
+      now: () => NOW,
+      out: into(out),
+      sleep,
+      write: () => {},
+      onInterrupt: () => {},
+    };
+    return { d, out };
+  };
+
+  it("ends with the warning, after the rows", async () => {
+    const { d, out } = deps(
+      withToken(async () => mark("look", WARNING.slice(2))),
+    );
+    expect(await main([], d)).toBe(0);
+    expect(out.at(-1)).toBe(WARNING);
+    expect(out.at(-2)).toBe("");
+  });
+
+  it("keeps its exit status when the warning is a failure", async () => {
+    const { d, out } = deps(
+      withToken(async () =>
+        mark(
+          "fail",
+          "CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run factory init",
+        ),
+      ),
+    );
+    expect(await main([], d)).toBe(0);
+    expect(out.at(-1)).toBe(
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run factory init",
+    );
+  });
+
+  it("puts it after the hook's closing fence", async () => {
+    const { d, out } = deps(
+      withToken(async () => mark("look", WARNING.slice(2))),
+      () => new Promise(() => {}),
+    );
+    await main(["--hook"], d);
+    expect(out.slice(-3)).toEqual(["```", "", WARNING]);
+  });
+
+  it.each<[string, Source["token"]]>([
+    ["there is no warning", async () => null],
+    ["reading it fails", () => Promise.reject(new Error("gh: HTTP 403"))],
+  ])(
+    "prints just what it prints without a token when %s",
+    async (_what, token) => {
+      const plain = deps(fixtureSource().source);
+      await main([], plain.d);
+      const { d, out } = deps(withToken(token));
+      expect(await main([], d)).toBe(0);
+      expect(out).toEqual(plain.out);
+    },
+  );
+
+  it("reads the token's day from the code host and runner it opened, as doctor decides it", async () => {
+    const tickets = memoryTickets([]).tickets;
+    const codeHost = memoryCodeHost([], { owner: "dave" }).codeHost;
+    const runner = memoryRunner({
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
+    }).runner;
+    const tools = memoryTools({ codeHost, runner, tickets });
+    const settings = parseSettings(
+      {
+        version: 2,
+        repository: "acme/site",
+        "code-host": CODE_HOST,
+        "pr-review": null,
+      },
+      () => true,
+      builtOf(tools),
+    );
+    const read = tokenReader(
+      settings,
+      { codeHost, runner, tickets },
+      {
+        tools,
+        root: "/nowhere",
+        env: { XDG_CONFIG_HOME: "/nonexistent" },
+        now: () => new Date("2026-11-27T12:00:00Z"),
+      },
+    );
+    expect(plainOf((await read())!)).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
+    );
+  });
+
+  it("reads the token's day once under --watch", async () => {
+    const token = vi.fn(async () => mark("look", WARNING.slice(2)));
+    const stop = new Error("stop");
+    let slept = 0;
+    const { d } = deps(withToken(token), async () => {
+      if (++slept === 3) throw stop;
+    });
+    await expect(main(["--watch"], d)).rejects.toBe(stop);
+    expect(token).toHaveBeenCalledTimes(1);
   });
 });
 

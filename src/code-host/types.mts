@@ -369,6 +369,8 @@ export type Organization = {
 
   /** The names of the secrets the organization shares. */
   secretNames(): Promise<string[]>;
+  /** The same secrets, each with when it was last stored, as an ISO time. */
+  secrets(): Promise<{ name: string; stored: string }[]>;
   /** Stores a secret every repository of the organization can read. The
    * value never appears in a command's arguments or its output. */
   setSecret(name: string, value: string): Promise<void>;

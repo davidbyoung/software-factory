@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseSettings, SettingsError } from "../src/config.mts";
-import { line, main, type DoctorDeps } from "../src/doctor.mts";
+import { line, main, tokenWarning, type DoctorDeps } from "../src/doctor.mts";
 import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
@@ -24,9 +24,11 @@ import { FACTORY_COLUMNS } from "./factory-columns";
 import { CODE_HOST, withoutCredentials } from "./settings-fixture";
 import { chmodSync } from "node:fs";
 import { credentialsPath, writeCredential } from "../src/lib/credentials.mts";
-import { into, look } from "./printed";
+import { into, look, plainOf } from "./printed";
 
 const roots: string[] = [];
+/** Today, for the Claude token's day. */
+const NOW = new Date("2026-11-27T12:00:00Z");
 afterEach(() => {
   for (const root of roots.splice(0))
     rmSync(root, { recursive: true, force: true });
@@ -83,6 +85,8 @@ function doctor(o: {
   /** The repository is the factory's own, which runs its source. */
   own?: boolean;
   secrets?: Record<string, string>;
+  /** When each secret was last stored, by name; 2026-11-16 unless given. */
+  stored?: Record<string, string>;
   dependabotSecrets?: Record<string, string>;
   organizationSecrets?: string[];
   organizationDependabotSecrets?: string[] | null;
@@ -175,6 +179,7 @@ function doctor(o: {
       }).codeHost,
       runner: memoryRunner({
         secrets: o.secrets ?? {},
+        stored: o.stored,
         dependabotSecrets: o.dependabotSecrets,
         organizationSecrets: o.organizationSecrets,
         organizationDependabotSecrets: o.organizationDependabotSecrets,
@@ -217,6 +222,7 @@ function doctor(o: {
       if (last.startsWith("  ")) out.push(last.slice(2));
     },
     env: o.env ?? { XDG_CONFIG_HOME: "/nonexistent" },
+    now: () => NOW,
   };
   return { run: () => main([], d), out, printed, looks };
 }
@@ -270,6 +276,136 @@ describe("factory doctor, with approval policies", () => {
     );
     expect(printed.join("\n")).toContain(
       "CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY is not set, for the approval policies' agents",
+    );
+  });
+});
+
+describe("factory doctor, the day the Claude token stops working", () => {
+  const SET =
+    "✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request";
+  const after = (out: string[], line: string) => out[out.indexOf(line) + 1];
+
+  it("gives the day, a year after the secret was stored, right after the line that says it is set", async () => {
+    const { run, out } = doctor({
+      raw: { "pr-review": null },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2026-11-16T14:50:57Z" },
+    });
+    expect(await run()).toBe(0);
+    expect(after(out, SET)).toBe(
+      "✓ CLAUDE_CODE_OAUTH_TOKEN stops working by 2027-11-16, a year after it was stored",
+    );
+  });
+
+  it("warns in its last 30 days, without failing", async () => {
+    const { run, out } = doctor({
+      raw: { "pr-review": null },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T14:50:57Z" },
+    });
+    expect(await run()).toBe(0);
+    expect(after(out, SET)).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days, a year after it was stored. Run factory init to replace it",
+    );
+  });
+
+  it("fails once the day has passed", async () => {
+    const { run, out } = doctor({
+      raw: { "pr-review": null },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
+    });
+    expect(await run()).toBe(1);
+    expect(after(out, SET)).toBe(
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10, a year after it was stored. Run factory init",
+    );
+  });
+
+  it("counts from the day it was pasted on this machine when that is earlier", async () => {
+    const home = mkdtempSync(join(tmpdir(), "doctor-home-"));
+    roots.push(home);
+    const env = { XDG_CONFIG_HOME: home };
+    writeCredential({
+      tool: "claude-code",
+      site: "code.example/acme",
+      values: {
+        CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-x",
+        pasted: "2025-12-10",
+      },
+      env,
+    });
+    const { run, out } = doctor({
+      raw: { "pr-review": null },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2026-03-01T00:00:00Z" },
+      env,
+    });
+    await run();
+    expect(after(out, SET)).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days, a year after you pasted it. Run factory init to replace it",
+    );
+  });
+
+  it("names the organization that stored it, and who replaces it", async () => {
+    const { run, out } = doctor({
+      raw: { "pr-review": null },
+      organization: true,
+      organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+      stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
+    });
+    expect(await run()).toBe(1);
+    expect(
+      after(
+        out,
+        "✓ CLAUDE_CODE_OAUTH_TOKEN is set by the organization, for an automated review of every pull request",
+      ),
+    ).toBe(
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10, a year after acme stored it: an owner of acme runs factory init --org",
+    );
+  });
+
+  it.each<[string, Parameters<typeof doctor>[0], string]>([
+    [
+      "an API key",
+      { secrets: { ANTHROPIC_API_KEY: "x" } },
+      "✓ ANTHROPIC_API_KEY is set, for an automated review of every pull request",
+    ],
+    [
+      "secrets it cannot list",
+      {
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+        runnerFails: { secretNames: new Error("HTTP 403") },
+      },
+      "✗ The secrets can be listed: HTTP 403",
+    ],
+    [
+      "an organization's copy kept from the repository",
+      {
+        organization: true,
+        organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+        secretsWithheldBy: "GitHub Free",
+      },
+      "✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository: make the repository public, or move acme to a paid plan",
+    ],
+  ])("gives no day for %s", async (_what, o, instead) => {
+    const { run, out } = doctor({ raw: { "pr-review": null }, ...o });
+    await run();
+    expect(out).toContain(instead);
+    expect(out.join("\n")).not.toMatch(/stops working|stopped working/);
+  });
+
+  it("gives the day when only an approval policy's agent reads the token", async () => {
+    const { run, out } = doctor({
+      raw: {
+        "approval-policies": [
+          { name: "migrations", agent: "rollback-checker", files: ["db/**"] },
+        ],
+      },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+    });
+    await run();
+    expect(out).toContain(
+      "✓ CLAUDE_CODE_OAUTH_TOKEN stops working by 2027-11-16, a year after it was stored",
     );
   });
 });
@@ -516,6 +652,7 @@ describe("factory doctor", () => {
       "",
       "GitHub Actions",
       "  ✓ CLAUDE_CODE_OAUTH_TOKEN is set, for an automated review of every pull request and builds in the cloud",
+      "  ✓ CLAUDE_CODE_OAUTH_TOKEN stops working by 2027-11-16, a year after it was stored",
       "  ✓ FACTORY_BOARD_TOKEN is set, for a board, builds in the cloud, and builds that start when you move a card to Ready",
       "  ✓ FACTORY_AUTOMERGE_TOKEN is set, for pull requests that merge themselves",
       "  ✓ FACTORY_SIGNING_KEY is set, for signed commits on the factory's updates",
@@ -1362,5 +1499,103 @@ describe("factory doctor, where the organization's poller starts the builds", ()
     const r = await run({}, "");
     expect(r.lines).toEqual(["✓ factory.yml is enabled"]);
     expect(r.opened).toEqual(["acme/site"]);
+  });
+});
+
+describe("the warning status gives on the Claude token", () => {
+  const warning = async (o: {
+    raw?: Record<string, unknown>;
+    secrets?: Record<string, string>;
+    organizationSecrets?: string[];
+    stored?: Record<string, string>;
+    organization?: boolean;
+    secretsWithheldBy?: string;
+  }) => {
+    const tickets = memoryTickets([]).tickets;
+    const codeHost = memoryCodeHost([], {
+      owner: "dave",
+      ownerIsOrganization: o.organization,
+      secretsWithheldBy: o.secretsWithheldBy,
+    }).codeHost;
+    const runner = memoryRunner({
+      secrets: o.secrets ?? {},
+      organizationSecrets: o.organizationSecrets,
+      stored: o.stored,
+    }).runner;
+    const tools = memoryTools({ codeHost, runner, tickets });
+    const line = await tokenWarning({
+      settings: settings(o.raw ?? { "pr-review": null }, tools),
+      tools,
+      root: "/nowhere",
+      hasCommand: () => true,
+      opened: { codeHost, runner, tickets },
+      env: { XDG_CONFIG_HOME: "/nonexistent" },
+      now: NOW,
+    });
+    return line && plainOf(line);
+  };
+
+  it("warns in the token's last 30 days", async () => {
+    expect(
+      await warning({
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
+      }),
+    ).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
+    );
+  });
+
+  it("names the organization's owner for the organization's token", async () => {
+    expect(
+      await warning({
+        organization: true,
+        organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
+      }),
+    ).toBe(
+      "✗ CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. An owner of acme runs factory init --org to replace it",
+    );
+  });
+
+  it("says nothing when doctor would print no day: nothing reads the token, or the organization's copy does not reach the repository", async () => {
+    const near = { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" };
+    expect(
+      await warning({
+        raw: {},
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+        stored: near,
+      }),
+    ).toBeNull();
+    expect(
+      await warning({
+        organization: true,
+        organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
+        secretsWithheldBy: "GitHub Free",
+        stored: near,
+      }),
+    ).toBeNull();
+  });
+
+  it("warns when only an approval policy's agent reads the token", async () => {
+    expect(
+      await warning({
+        raw: {
+          "approval-policies": [
+            { name: "migrations", agent: "rollback-checker", files: ["db/**"] },
+          ],
+        },
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
+        stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z" },
+      }),
+    ).toBe(
+      "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
+    );
+  });
+
+  it("says nothing more than 30 days before the day", async () => {
+    expect(
+      await warning({ secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" } }),
+    ).toBeNull();
   });
 });

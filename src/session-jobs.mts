@@ -62,6 +62,8 @@ import {
 } from "./ticket.mts";
 import { openTickets } from "./tickets/index.mts";
 import * as say from "./lib/output.mts";
+import { REFUSAL } from "./agent/claude-code.mts";
+import { AGENT_KEY, AGENT_TOKEN } from "./parts.mts";
 
 type Env = Record<string, string | undefined>;
 
@@ -203,12 +205,73 @@ async function runPrepare(argv: string[], env: Env): Promise<number> {
 }
 
 /** Has the runner take nothing this process prints as a command to it, since
- * what a session wrote is printed here. */
-function quietly(): void {
-  if (!process.env.GITHUB_ACTIONS) return;
-  const token = randomBytes(16).toString("hex");
-  out(`::stop-commands::${token}`);
-  process.on("exit", () => out(`::${token}::`));
+ * what a session wrote is printed here. What it returns holds a line of the
+ * factory's own until commands resume, as the process exits. */
+export function quietlyWith(o: {
+  actions: boolean;
+  token: string;
+  out: (line: string) => void;
+  onExit: (then: () => void) => void;
+}): (line: string) => void {
+  const held: string[] = [];
+  if (o.actions) o.out(`::stop-commands::${o.token}`);
+  o.onExit(() => {
+    if (o.actions) o.out(`::${o.token}::`);
+    for (const line of held) o.out(line);
+  });
+  return (line) => void held.push(line);
+}
+
+const quietly = () =>
+  quietlyWith({
+    actions: Boolean(process.env.GITHUB_ACTIONS),
+    token: randomBytes(16).toString("hex"),
+    out,
+    onExit: (then) => process.on("exit", then),
+  });
+
+/** The error a session's last word gives, as a line the runner shows on the
+ * run, in Claude Code's own words, or null for a session that did not end
+ * in one. A refusal of the Claude token says who stores a new one. */
+export function sessionError(
+  e: unknown,
+  at: { credential: string | null; ownerKind: string | null; owner: string },
+): string | null {
+  if (typeof e !== "object" || e === null) return null;
+  const r = e as { type?: unknown; is_error?: unknown; result?: unknown };
+  if (r.type !== "result" || r.is_error !== true) return null;
+  if (typeof r.result !== "string") return null;
+  const first = r.result
+    .split("\n")
+    .map((l) => l.trim())
+    .find(Boolean);
+  if (!first) return null;
+  // The runner's own escaping, so the words stay data.
+  const words = first.replace(/%/g, "%25").replace(/\r/g, "%0D");
+  if (!at.credential || !REFUSAL.test(first))
+    return `::error::Claude Code: ${words}`;
+  const refused = `::error::Claude Code refused ${at.credential}: ${words.replace(/\.$/, "")}.`;
+  if (at.credential !== AGENT_TOKEN) return refused;
+  const who =
+    at.ownerKind === "Organization"
+      ? `an owner of ${at.owner} runs factory init --org`
+      : "run factory init";
+  return `${refused} A Claude token lasts a year: ${who} to store a new one.`;
+}
+
+/** Who owns the run's repository, `User` or `Organization`, from its
+ * event, or null outside a run. */
+export function ownerKindOf(env: Env): string | null {
+  if (!env.GITHUB_EVENT_PATH) return null;
+  try {
+    const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8")) as {
+      repository?: { owner?: { type?: unknown } };
+    };
+    const kind = event.repository?.owner?.type;
+    return typeof kind === "string" ? kind : null;
+  } catch {
+    return null;
+  }
 }
 
 /** One line for each thing the agent says and each tool it runs, then how
@@ -254,7 +317,16 @@ async function runTheSession(env: Env): Promise<number> {
   const run = JSON.parse(
     readFileSync(join(dir, "in/run.json"), "utf8"),
   ) as RunFile;
-  quietly();
+  const hold = quietly();
+  const at = {
+    credential: env.CLAUDE_CODE_OAUTH_TOKEN
+      ? AGENT_TOKEN
+      : env.ANTHROPIC_API_KEY
+        ? AGENT_KEY
+        : null,
+    ownerKind: ownerKindOf(env),
+    owner: env.GITHUB_REPOSITORY_OWNER ?? "",
+  };
   if (existsSync(join(dir, "in/cache")))
     cpSync(join(dir, "in/cache"), join(dir, "cache"), { recursive: true });
   const schema =
@@ -288,6 +360,14 @@ async function runTheSession(env: Env): Promise<number> {
         createInterface({ input: child.stdout }).on("line", (text) => {
           line(text);
           shown(text).forEach(out);
+          let event: unknown;
+          try {
+            event = JSON.parse(text);
+          } catch {
+            return;
+          }
+          const error = sessionError(event, at);
+          if (error) hold(error);
         });
         child.on("error", fail);
         child.on("close", (code) => {

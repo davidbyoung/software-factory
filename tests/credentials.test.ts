@@ -16,6 +16,7 @@ import { parse } from "yaml";
 import {
   credentialsPath,
   hasEntry,
+  pastedDay,
   presetsPath,
   readCredential,
   rememberedPresets,
@@ -180,6 +181,49 @@ describe("a person's own token, which only init reads", () => {
     const lines = fileBoth().split("\n");
     expect(lines).toContain("github:");
     expect(lines.filter((l) => /[{}]/.test(l))).toEqual([]);
+  });
+});
+
+describe("the day a token was pasted", () => {
+  const AT = { tool: "claude-code", site: "github.com/sam" };
+
+  it("is the pasted day beside the token", () => {
+    writeCredential({
+      ...AT,
+      values: {
+        CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-x",
+        pasted: "2025-12-10",
+      },
+      env,
+    });
+    expect(pastedDay({ ...AT, env })).toBe("2025-12-10");
+  });
+
+  it("is null with no file, with no pasted day, or for another owner", () => {
+    expect(pastedDay({ ...AT, env })).toBeNull();
+    writeCredential({
+      ...AT,
+      values: { CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-x" },
+      env,
+    });
+    expect(pastedDay({ ...AT, env })).toBeNull();
+    writeCredential({
+      tool: "claude-code",
+      site: "github.com/ana",
+      values: { pasted: "2025-12-10" },
+      env,
+    });
+    expect(pastedDay({ ...AT, env })).toBeNull();
+  });
+
+  it("is null, not an error, when the file cannot be read", () => {
+    const path = credentialsPath(env);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, "pasted: [", { mode: 0o600 });
+    expect(pastedDay({ ...AT, env })).toBeNull();
+    writeFileSync(path, "{}\n");
+    chmodSync(path, 0o644);
+    expect(pastedDay({ ...AT, env })).toBeNull();
   });
 });
 

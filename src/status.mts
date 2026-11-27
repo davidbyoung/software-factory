@@ -16,6 +16,7 @@ import {
   NO_DEPENDENCIES,
   SettingsError,
   loadSettings,
+  repoRoot,
   targetOf,
   type Settings,
   type Target,
@@ -67,6 +68,8 @@ import {
 } from "./lib/repositories.mts";
 import { clonesIn, ticketOfWord, workFolder } from "./workspace.mts";
 import { openRunner, type Runner } from "./runner/index.mts";
+import type { Opened } from "./setup.mts";
+import type { Registry } from "./tools.mts";
 import { subscriptionDollars } from "./lib/pricing.mts";
 import { dollars } from "./lib/usage.mts";
 import { minutes, resultText } from "./reviewers.mts";
@@ -613,6 +616,9 @@ export type Source = {
   inField: boolean;
   /** The clones `factory workspace` left on this machine. */
   clones: () => { key: Key; name: string; folder: string }[];
+  /** The line on the coding agent's token, from 30 days before the day it
+   * stops working, and null before then. */
+  token?: () => Promise<say.Line | null>;
 };
 
 /** The open pull requests of each ticket that names several repositories,
@@ -796,16 +802,28 @@ export async function main(argv: string[], d: Deps): Promise<number> {
       d.out(say.text(error.message));
     return hook ? 0 : 1;
   }
+  // Read once, whatever --watch draws; a failed read says nothing.
+  let token: Promise<say.Line[]> | null = null;
+  const tokenLines = (source: Source) =>
+    (token ??= (source.token?.() ?? Promise.resolve(null)).then(
+      (line) => (line ? [say.BLANK, line] : []),
+      () => [],
+    ));
   if (hook) {
     const limit = d.sleep(HOOK_LIMIT_MS).then(() => "timeout" as const);
     const work = (async () => {
       const source = await d.source(settings, target);
+      const [lines, last] = await Promise.all([
+        snapshotLines(source, target, d.now(), true),
+        tokenLines(source),
+      ]);
       return [
         say.text("## Work in progress"),
         say.BLANK,
         say.text("```"),
-        ...(await snapshotLines(source, target, d.now(), true)),
+        ...lines,
         say.text("```"),
+        ...last,
       ];
     })().catch((error: unknown) =>
       // A credential to fix is said in place of the tickets' state.
@@ -838,7 +856,11 @@ export async function main(argv: string[], d: Deps): Promise<number> {
     const style = d.style?.() ?? PLAIN;
     try {
       source ??= await d.source(settings, target);
-      lines = await snapshotLines(source, target, d.now(), false, style);
+      const [rows, last] = await Promise.all([
+        snapshotLines(source, target, d.now(), false, style),
+        tokenLines(source),
+      ]);
+      lines = [...rows, ...last];
     } catch (error) {
       lines = [say.text(failureLine(error))];
       code = 1;
@@ -858,15 +880,49 @@ export async function main(argv: string[], d: Deps): Promise<number> {
 export const terminalStyle = (): Style =>
   styleFor(say.colorOn(), process.stdout.columns);
 
+/** `status`'s read of the coding agent's token, over the tools it opened:
+ * the repository's checkout, the factory's tools, and today, unless a test
+ * gives others. */
+export function tokenReader(
+  settings: Settings,
+  opened: Opened,
+  o: {
+    tools?: Registry;
+    root?: string;
+    env?: Record<string, string | undefined>;
+    now?: () => Date;
+  } = {},
+): () => Promise<say.Line | null> {
+  return async () => {
+    const [{ tokenWarning }, { TOOLS }, { hasCommand }] = await Promise.all([
+      import("./doctor.mts"),
+      import("./tools.mts"),
+      import("./lib/has-command.mts"),
+    ]);
+    return tokenWarning({
+      settings,
+      tools: o.tools ?? TOOLS,
+      root: o.root ?? repoRoot(),
+      hasCommand,
+      opened,
+      env: o.env ?? process.env,
+      now: (o.now ?? (() => new Date()))(),
+    });
+  };
+}
+
 /** `factory status [--watch]`, and `factory session-start`'s second half. */
 export async function run(argv: string[]): Promise<number> {
   const code = await main(argv, {
     source: async (settings, target) => {
       const { tickets } = await openTickets(settings, target);
+      const codeHost = openCodeHost(target.repository, settings.codeHost.type);
+      const runner = openRunner(target.repository, settings.builds.runner);
       return {
         tickets,
-        pulls: openCodeHost(target.repository, settings.codeHost.type),
-        runner: openRunner(target.repository, settings.builds.runner),
+        pulls: codeHost,
+        runner,
+        token: tokenReader(settings, { codeHost, runner, tickets }),
         own: ownLinks(settings),
         reach: (name) =>
           reachCodeHost(name, settings.codeHost.type, target.repository),

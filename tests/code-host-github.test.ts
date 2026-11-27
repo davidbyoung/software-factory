@@ -1469,6 +1469,26 @@ describe("an organization, on GitHub", () => {
     expect(names.at(-1)).toBe("FACTORY_APP_PRIVATE_KEY");
   });
 
+  it("keeps the day GitHub last stored each of the organization's secrets", async () => {
+    const { o } = org([
+      [
+        /orgs\/acme\/actions\/secrets\?per_page=100&page=1$/,
+        {
+          secrets: [
+            {
+              name: "CLAUDE_CODE_OAUTH_TOKEN",
+              created_at: "2025-01-01T00:00:00Z",
+              updated_at: "2025-12-10T14:50:57Z",
+            },
+          ],
+        },
+      ],
+    ]);
+    expect(await o.secrets()).toEqual([
+      { name: "CLAUDE_CODE_OAUTH_TOKEN", stored: "2025-12-10T14:50:57Z" },
+    ]);
+  });
+
   it("stores a secret for every repository, with its value on standard input", async () => {
     const { o, calls } = org([[/^secret set/, ""]]);
     await o.setSecret("FACTORY_APP_PRIVATE_KEY", SECRET);

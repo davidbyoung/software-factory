@@ -353,13 +353,16 @@ there if the board's columns change.
 
 **To run it again,** as after a run that stopped, give the same command.
 It does only what is missing, and asks whether to replace the Claude
-token, with the words below. Answer yes only if the token has expired
-or been revoked. Where the App is registered and not installed yet, it
-prints only the step that installs it, with the address to open. With
+token, with the day it stops working. In its last 30 days, Enter
+replaces it; otherwise Enter keeps it, and you answer yes only if it has
+been revoked
+([When the Claude token's year is up](../credentials.md#when-the-claude-tokens-year-is-up)).
+Where the App is registered and not installed yet, it prints only the
+step that installs it, with the address to open. With
 nothing missing, it ends `✓ acme is set up. Nothing to do.`
 
 ```text
-? CLAUDE_CODE_OAUTH_TOKEN is already stored for acme. Replace it? Only if it has expired or been revoked.
+? CLAUDE_CODE_OAUTH_TOKEN is already stored for acme, and works until 2027-11-25. Replace it? Only if it has been revoked. Press Enter for no:
 ```
 
 Three things stay by hand, on GitHub:

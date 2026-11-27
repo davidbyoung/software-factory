@@ -188,6 +188,7 @@ const PRESET_READERS: Record<string, Reader> = {
         file: async (_: string, path: string) =>
           path === PRESET ? file : null,
         secretNames: async () => [],
+        secrets: async () => [],
         variable: async () => null,
         ruleNames: async () => [],
       };
