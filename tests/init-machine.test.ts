@@ -643,15 +643,26 @@ describe("factory init, the GitHub access token's days", () => {
     expect(r.asked).not.toContain(STORE);
   });
 
-  it("replaces nothing on no, and a yes to Replace it? does not ask for the token again", async () => {
-    const r = rerun([false, true, true], {
+  const nearNow = (confirm: boolean[]) =>
+    rerun(confirm, {
       stored: "2026-10-03T00:00:00Z",
       pasted: "2026-10-03",
       expires: "2026-12-10",
       secret: [AGENT],
     });
+
+  it("replaces nothing on no to making a new one", async () => {
+    // Make a new one: no; Replace it?: no; Go ahead: yes.
+    const r = nearNow([false, false, true]);
     await r.run();
     expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(GOOD);
+    expect(r.out.join("\n")).not.toContain("from this machine");
+  });
+
+  it("neither asks for the token nor stores it from the machine on a yes to Replace it? after that no", async () => {
+    // Make a new one: no; Replace it?: yes; Go ahead: yes.
+    const r = nearNow([false, true, true]);
+    await r.run();
     expect(
       r.asked.filter((q) => q.startsWith("secret:")).join("\n"),
     ).not.toContain("Paste it (leave empty");

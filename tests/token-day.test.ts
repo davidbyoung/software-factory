@@ -1,4 +1,5 @@
-// The day a Claude token stops working, and the lines that say so.
+// The day the Claude token and the GitHub access token stop working, and
+// the lines that say so.
 import { describe, expect, it } from "vitest";
 import {
   accessChecks,
