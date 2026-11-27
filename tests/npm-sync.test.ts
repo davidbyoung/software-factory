@@ -54,8 +54,7 @@ function everyPart(npmrc: string | null) {
         "  trigger: github-action",
         "auto-merge:",
         '  allow: ["docs/**"]',
-        "pr-review:",
-        "  commands: []",
+        "pr-review: true",
       ],
     ),
   );

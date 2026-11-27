@@ -239,9 +239,8 @@ export type Settings = {
    * list of test reviewers, even when it is empty. */
   testReviewersWritten: boolean;
   autoMerge: { allow: string[]; deny: string[]; commands: string[] };
-  /** The pull request review, on when `pr-review` is written, with the commands it
-   * may run as prefixes beside the factory's own; null when it is off. */
-  prReview: { commands: string[] } | null;
+  /** Whether the pull request review is on: `pr-review: true`. */
+  prReview: boolean;
   /** How the factory looks at the repository's websites; empty when the
    * repository has none. */
   sites: Site[];
@@ -386,7 +385,6 @@ export const SETTINGS_KEYS: Record<string, readonly string[]> = {
   "presets[]": ["name", "in"],
   "approval-policies[]": ["name", "run", "agent", "in", "files", "off"],
   "auto-merge": ["allow", "deny", "commands"],
-  "pr-review": ["commands"],
   site: [
     "in",
     "files",
@@ -578,18 +576,6 @@ function strings(v: unknown, key: string): string[] {
     typeof item === "string" && item
       ? item
       : fail(`${key}[${i}]`, "must be text"),
-  );
-}
-
-/** The pull request review's commands: each becomes `Bash(COMMAND:*)` in a list
- * that commas separate, so none may hold a comma, a parenthesis, or a
- * quote. */
-function reviewCommands(v: unknown): string[] {
-  const key = "pr-review.commands";
-  return strings(v, key).map((command, i) =>
-    /[,()"]/.test(command)
-      ? fail(`${key}[${i}]`, "must hold no comma, parenthesis, or quote")
-      : command,
   );
 }
 
@@ -1418,10 +1404,14 @@ export function parseSettings(
   const specCheck =
     specs === "none" ? null : (specCheckText ?? built.specs[specs]!);
   const autoMerge = object(top["auto-merge"], "auto-merge");
+  const review = top["pr-review"] === undefined ? false : top["pr-review"];
   const prReview =
-    top["pr-review"] === undefined
-      ? null
-      : object(top["pr-review"] ?? {}, "pr-review");
+    typeof review === "boolean"
+      ? review
+      : fail(
+          "pr-review",
+          "must be true or false: write pr-review: true to turn the review on",
+        );
 
   const sites = parseSites(top.site, exists, preset);
   const commands = commandsOf(top.commands, preset, exists);
@@ -1468,7 +1458,7 @@ export function parseSettings(
       deny: strings(autoMerge.deny, "auto-merge.deny"),
       commands: strings(autoMerge.commands, "auto-merge.commands"),
     },
-    prReview: prReview && { commands: reviewCommands(prReview.commands) },
+    prReview,
     sites,
     sessionMinutes: sessionMinutesOf(top["session-minutes"]),
     rules: rulesOf(top.rules),

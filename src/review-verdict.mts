@@ -442,7 +442,7 @@ export async function run(argv: string[] = []): Promise<number> {
       link: openRunner(repo).thisRun(process.env)?.page,
       log: say.plainPrinter(),
       override: settings.codeHost.labels["verdict-override"],
-      reviewOn: settings.prReview !== null,
+      reviewOn: settings.prReview,
     });
     return 0;
   } catch (error) {

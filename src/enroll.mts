@@ -145,7 +145,7 @@ export async function run(): Promise<number> {
     const lines = await enroll({
       repository,
       branch: await needDefaultBranch(branchDeps(repoRoot())),
-      reviewOn: settings.prReview !== null,
+      reviewOn: settings.prReview,
       policiesOn,
       as: holds(process.env),
       codeHost: openCodeHost(repository, codeHost),

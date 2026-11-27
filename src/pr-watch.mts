@@ -310,7 +310,7 @@ async function main(argv: string[]) {
     process.exit(1);
   }
 
-  const reviewOn = (await loadSettings()).prReview !== null;
+  const reviewOn = (await loadSettings()).prReview;
   const seenFile = execFileSync(
     "git",
     ["rev-parse", "--git-path", `watch-pr-${pr}.json`],

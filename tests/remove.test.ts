@@ -35,8 +35,7 @@ const SETTINGS = [
   "tickets:",
   "  board: 3",
   FACTORY_COLUMNS_YAML,
-  "pr-review:",
-  "  commands: []",
+  "pr-review: true",
   "",
 ].join("\n");
 

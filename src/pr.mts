@@ -864,7 +864,7 @@ export function prDeps(
       return { tickets, own: ownLinks(settings) };
     },
     labels: async () => (await loadSettings()).codeHost.labels,
-    reviewOn: async () => (await loadSettings()).prReview !== null,
+    reviewOn: async () => (await loadSettings()).prReview,
     cost: {
       env: process.env,
       now: () => new Date(),

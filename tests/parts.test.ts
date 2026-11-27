@@ -46,7 +46,7 @@ describe("partsOn", () => {
   it("reads the review from its setting, and the rest from the secrets set", () => {
     expect(
       partsOn(
-        settings({ "pr-review": null }),
+        settings({ "pr-review": true }),
         [
           "CLAUDE_CODE_OAUTH_TOKEN",
           "FACTORY_BUILD_TOKEN",

@@ -93,7 +93,7 @@ describe("parseSettings", () => {
       plugins: [],
       testReviewersWritten: false,
       autoMerge: { allow: [], deny: [], commands: [] },
-      prReview: null,
+      prReview: false,
       sites: [],
       sessionMinutes: {
         build: 230,
@@ -106,32 +106,22 @@ describe("parseSettings", () => {
     });
   });
 
-  describe("the CI review and the commands it may run", () => {
-    it("is on with no commands when pr-review is written with nothing under it", () => {
-      expect(parse({ ...MINIMAL, "pr-review": null }).prReview).toEqual({
-        commands: [],
-      });
-    });
-
-    it("takes a list of command prefixes", () => {
-      expect(
-        parse({
-          ...MINIMAL,
-          "pr-review": { commands: ["npx vitest run", "node"] },
-        }).prReview,
-      ).toEqual({ commands: ["npx vitest run", "node"] });
-    });
-
+  describe("the pull request review", () => {
     it.each([
-      [{ "pr-review": { commands: "npx vitest run" } }, "pr-review.commands:"],
-      [{ "pr-review": { commands: [1] } }, "pr-review.commands[0]:"],
-      [{ "pr-review": { commands: ["a, b"] } }, "pr-review.commands[0]:"],
-      [{ "pr-review": { commands: ["a)"] } }, "pr-review.commands[0]:"],
-      [{ "pr-review": { commands: ['a"'] } }, "pr-review.commands[0]:"],
-      [{ "pr-review": "npx vitest run" }, "pr-review:"],
-    ])("fails on %j, naming the key", (raw, message) => {
-      expect(() => parse({ ...MINIMAL, ...raw })).toThrow(message);
+      [true, true],
+      [false, false],
+    ])("pr-review: %j sets it to %j", (value, on) => {
+      expect(parse({ ...MINIMAL, "pr-review": value }).prReview).toBe(on);
     });
+
+    it.each([null, {}, { commands: [] }, "on"])(
+      "fails on %j, saying to write true or false",
+      (value) => {
+        expect(() => parse({ ...MINIMAL, "pr-review": value })).toThrow(
+          "pr-review: must be true or false: write pr-review: true to turn the review on",
+        );
+      },
+    );
   });
 
   describe("the numbers the rules use", () => {
@@ -1545,8 +1535,7 @@ describe("factory config explain", () => {
     "commands:",
     "  before-commit:",
     "    - npm test",
-    "pr-review:",
-    "  commands: [npm test]",
+    "pr-review: true",
     "rules:",
     "  review-rounds: 3",
   ];
@@ -1666,9 +1655,7 @@ describe("factory config explain", () => {
         allow: []                                                                  # default
         deny: []                                                                   # default
         commands: []                                                               # default
-      pr-review:
-        commands:
-          - npm test
+      pr-review: true
       # site: off
       session-minutes:
         build: 230                                                                 # default
@@ -2041,7 +2028,7 @@ describe("factory config explain", () => {
         "tickets:",
         "  board: 3",
         FACTORY_COLUMNS_YAML,
-        "pr-review:",
+        "pr-review: true",
         "approval-policies:",
         "  - name: licenses",
         "    run: node check.mjs",
@@ -2254,7 +2241,7 @@ describe("main", () => {
         out: ["off"],
         err: [],
       });
-      expect(await get(`${BARE}pr-review:\n`, "pr-review")).toEqual({
+      expect(await get(`${BARE}pr-review: true\n`, "pr-review")).toEqual({
         code: 0,
         out: ["on"],
         err: [],

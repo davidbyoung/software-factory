@@ -145,11 +145,11 @@ own token.
 
 1. **Store your Claude token** as `CLAUDE_CODE_OAUTH_TOKEN`
    ([Secrets](#secrets)).
-2. **Write `pr-review` in `.claude/factory.yaml`,** and run
+2. **Write `pr-review: true` in `.claude/factory.yaml`,** and run
    `factory sync`, which turns the review's run on:
 
    ```yaml
-   pr-review: {}
+   pr-review: true
    ```
 
    The reviewer may run the pull request's own code to confirm a finding,

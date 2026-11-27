@@ -93,8 +93,8 @@ const REPOS: Record<string, Record<string, PresetFiles>> = {
         "    reviewers:",
         "      - agent: bar-reviewer",
         "        files: [src/**]",
-        "pr-review:",
-        "  commands: [npm audit]",
+        "auto-merge:",
+        "  deny: [package-lock.json]",
         "",
       ].join("\n"),
       agents: { "bar-reviewer": "bar\n" },
@@ -204,7 +204,7 @@ const addSummary = () => [
   "",
   "  added",
   "    plugins.build.reviewers    + node-deps-reviewer",
-  "    pr-review.commands         + npm audit",
+  "    auto-merge.deny            + package-lock.json",
   "  replaces the default",
   "    rules.review-rounds        2 → 3",
   `  disagrees with ${ACME}`,
@@ -213,7 +213,6 @@ const addSummary = () => [
   "    commands.gate              yours: npm run check   this preset's: npm test",
   "",
   "  writes .claude/agents/node-deps-reviewer.md",
-  "  runs   npm audit, in the review",
 ];
 
 const GATE = ["commands:", "  gate: [npm run check]"];
@@ -384,7 +383,7 @@ describe("factory preset add", () => {
       "",
       "  {heading:added}",
       "    {name:plugins.build.reviewers}    {good:+ node-deps-reviewer}",
-      "    {name:pr-review.commands}         {good:+ npm audit}",
+      "    {name:auto-merge.deny}            {good:+ package-lock.json}",
       "  {heading:replaces the default}",
       "    {name:rules.review-rounds}        {skip:2} → {name:3}",
       `  {heading:disagrees with ${ACME}}`,
@@ -393,7 +392,6 @@ describe("factory preset add", () => {
       "    {name:commands.gate}              yours: npm run check   this preset's: npm test",
       "",
       "  {name:writes} .claude/agents/node-deps-reviewer.md",
-      "  {name:runs}   npm audit, in the review",
     ]);
   });
 
@@ -528,8 +526,6 @@ describe("the runs lines of factory preset add's summary", () => {
     "  before-commit: [npm run format]",
     "  gate: [npm run check, npm run lint]",
     "  test-one: npx vitest run {path}",
-    "pr-review:",
-    "  commands: [npm test, npm audit]",
     "",
   ].join("\n");
   const add = async (body: string[] = []) => {
@@ -541,8 +537,6 @@ describe("the runs lines of factory preset add's summary", () => {
 
   it("say each command the preset has the factory run, and when", async () => {
     expect(await add()).toEqual([
-      "  runs   npm test, in the review",
-      "  runs   npm audit, in the review",
       "  runs   npm run check, at the gate",
       "  runs   npm run lint, at the gate",
       "  runs   npm run format, before each commit",
@@ -559,20 +553,18 @@ describe("the runs lines of factory preset add's summary", () => {
         "  test-one: make test-one",
       ]),
     ).toEqual([
-      "  runs   npm test, in the review",
-      "  runs   npm audit, in the review",
       "  runs   npm run format, before each commit",
       "  runs   npm ci, at the start of a cloud build",
     ]);
   });
 
   it("come after the writes lines, each aligned with them", async () => {
-    await setUp([ACME], GATE);
+    await setUp([ACME]);
     const r = await preset(["add", NODE, "--dry-run"]);
     expect(r.out.slice(-3)).toEqual([
       "",
       "  writes .claude/agents/node-deps-reviewer.md",
-      "  runs   npm audit, in the review",
+      "  runs   npm test, at the gate",
     ]);
   });
 });
@@ -584,12 +576,11 @@ describe("factory preset add for a preset of another owner", () => {
     "",
     "  added",
     "    plugins.build.reviewers   + bar-reviewer",
-    "    pr-review.commands        + npm audit",
+    "    auto-merge.deny           + package-lock.json",
     "  replaces the default",
     "    rules.review-rounds       2 → 3",
     "",
     "  writes .claude/agents/bar-reviewer.md",
-    "  runs   npm audit, in the review",
   ];
 
   it("opens the summary by saying whose it is, and adds it on y", async () => {
@@ -707,7 +698,7 @@ describe("factory preset remove", () => {
     "",
     "  removed",
     "    plugins.build.reviewers    − node-deps-reviewer",
-    "    pr-review.commands         − npm audit",
+    "    auto-merge.deny            − package-lock.json",
     "  back to the default",
     "    rules.review-rounds        3 → 2",
     "    commands.gate              npm test → none",
@@ -789,7 +780,7 @@ describe("factory preset remove", () => {
       "",
       "  {heading:removed}",
       "    {name:plugins.build.reviewers}    {bad:− node-deps-reviewer}",
-      "    {name:pr-review.commands}         {bad:− npm audit}",
+      "    {name:auto-merge.deny}            {bad:− package-lock.json}",
       "  {heading:back to the default}",
       "    {name:rules.review-rounds}        {skip:3} → {name:2}",
       "    {name:commands.gate}              {skip:npm test} → {name:none}",
