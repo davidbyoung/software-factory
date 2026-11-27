@@ -25,6 +25,17 @@ on the ticket, its history survives even if the board is rebuilt.
 
 `factory status` prints the same picture in a terminal.
 
+## Turn it on
+
+Run `factory init` and check "A board". It asks which board to use: a new
+one, made with the factory's columns, or one you already have, whose
+columns it reads ([You already have a board](#you-already-have-a-board)).
+A board needs a token that can write to it, which init asks for on your
+own account ([GitHub Projects](../integrations/github-projects.md)).
+
+**It worked when** `factory doctor` shows ✓ beside the board, and the
+board shows your open tickets that carry the factory's label.
+
 ## You already have a board
 
 A ticket is always in one of six [states](../workflow/README.md#the-six-states),

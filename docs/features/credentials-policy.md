@@ -1,8 +1,7 @@
 # The credentials policy
 
 For anyone whose pull request waits on the `credentials` policy, or who
-wants to know what it checks. Every repository has it, with nothing to
-write.
+wants to know what it checks, and how to turn it off.
 
 ## The factory's own policy
 

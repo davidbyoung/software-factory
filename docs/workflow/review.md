@@ -1,8 +1,12 @@
 # Review and answer
 
 For someone reading the pull request a build opened, and answering its
-review with `/factory-address-review 15`. At the end each comment is
-fixed, or rejected with evidence, and each thread resolved.
+review with `/factory-address-review 15`, where 15 is the pull request's
+number. The comments come from you, your team, and, where it is on,
+[the automated review](../features/automated-review.md). At the end each
+comment is fixed, or rejected with evidence, and each thread resolved. A
+conflict with your default branch is settled the same way
+([`factory-resolve-conflicts`](#factory-resolve-conflicts)).
 
 ## `factory-address-review`
 

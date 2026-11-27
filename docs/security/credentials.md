@@ -2,8 +2,8 @@
 
 For anyone who sets the factory up, joins a repository that already uses
 it, or works in a [session](../reference/glossary.md) on another machine.
-At the end, every token the factory needs is where it reads it, and
-`factory doctor` shows it works. Each tool's page says how to make and
+At the end you know who handles each token and where it is kept, and
+`factory doctor` shows each works. Each tool's page says how to make and
 replace its own token; this page says who handles each one, and where it
 is kept. For whoever judges whether that is safe,
 [What each job holds](cloud-runs.md#what-each-job-holds) says what a run
@@ -19,7 +19,7 @@ the GitHub ones.
 
 - **In an organization, nobody on the team handles a token.** A teammate
   joining a repository needs the two logins, and the `factory` command
-  [installed](../get-started/quick-start.md#1-install) once on their machine. The workflows
+  [installed](../get-started/install.md) once on their machine. The workflows
   make a token for each job that needs one from the organization's GitHub
   App. An owner stored three things for the organization once, when they [set
   it up](../setup/organization.md#set-an-organization-up-once):
@@ -82,7 +82,7 @@ What you store on a repository:
 | `FACTORY_BOARD_TOKEN`     | A board. Also builds in the cloud, when `FACTORY_BUILD_TOKEN` is not set               | [A classic token](https://github.com/settings/tokens/new?scopes=repo,project,workflow&description=factory%20board) with `repo`, `project`, and `workflow` |
 | `FACTORY_BUILD_TOKEN`     | Builds in the cloud. Optional with a board token; used instead of it when both are set | [A classic token](https://github.com/settings/tokens/new?scopes=repo,workflow&description=factory%20builds) with `repo` and `workflow`                    |
 | `FACTORY_AUTOMERGE_TOKEN` | Pull requests that merge themselves                                                    | [A classic token](https://github.com/settings/tokens/new?scopes=repo&description=factory%20auto-merge) with `repo`                                        |
-| `FACTORY_SIGNING_KEY`     | Signed commits on the factory's updates. Read by the updates' job alone                | [The steps above](../integrations/github.md#signed-commits-on-the-factorys-updates)                                                                       |
+| `FACTORY_SIGNING_KEY`     | Signed commits on the factory's updates. Read by the updates' job alone                | [Signed commits on the factory's updates](../integrations/github.md#signed-commits-on-the-factorys-updates)                                               |
 
 Each token link opens GitHub's page with the scopes checked; choose an
 expiry date and generate it. The account that makes a token is the one

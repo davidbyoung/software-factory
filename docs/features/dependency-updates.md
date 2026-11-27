@@ -2,7 +2,8 @@
 
 For a repository whose dependency bot opens pull requests. At the end
 you know how the factory moves them toward merged, and why the factory's
-own updates come another way.
+own updates come another way. A job in the cloud runs it three times a
+day; to run it yourself, type `/factory-deps` in a session.
 
 ## `factory-deps`
 

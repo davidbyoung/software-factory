@@ -31,7 +31,7 @@ as a code host's billing or what its workflows can see, are in
   line in the setup of the environment the session runs in:
   `npm install -g @davidbyoung/software-factory`. The hooks then run,
   and the commands that read only the repository work. On GitHub,
-  [the reference](../integrations/github-actions.md#limits) says what still does not
+  [GitHub Actions](../integrations/github-actions.md#limits) says what still does not
   work there.
 - **A preset names no versions of the factory.** A preset has no version
   of its own, and says nowhere which factory it was written for. One

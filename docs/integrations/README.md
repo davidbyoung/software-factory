@@ -3,7 +3,7 @@
 For someone who wants to know which tools the factory works with, or
 what one of them needs. The factory works through six kinds of tool,
 and the other sections of these docs name only the kind. This section
-names the product: one page for each, all on the same headings.
+names the product: one page for each.
 
 | Kind of tool  | What the factory uses it for                                               | Supported today                                                                        | Needed for                                                                                                                                                            |
 | ------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

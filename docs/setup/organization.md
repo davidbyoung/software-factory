@@ -82,7 +82,7 @@ Next, in each repository you want the factory in:
 The settings every repository shares are yours to edit:
      https://github.com/acme/factory-config/blob/HEAD/factory-preset.yaml
 The steps in full:
-     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/github/setup.md#in-an-organization
+     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/setup/organization.md#what-each-developer-does-next
 ```
 
 The terminal says what to press at each of the two steps in your

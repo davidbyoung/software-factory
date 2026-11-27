@@ -1,11 +1,11 @@
 # Write a preset
 
-For someone who shares settings across several repositories. At the end
-a repository holds your preset, and others follow it.
+For someone who shares settings across several repositories. A preset is
+a folder in a repository on your code host that holds the settings those
+repositories share ([Use a preset](presets.md#the-idea)). At the end a
+repository holds your preset, and others follow it.
 
-## Writing a preset
-
-### Making the repository
+## Making the repository
 
 1. **Create a repository** on your code host, or use one you have. It can
    have any name, and hold other things too. If you name it
@@ -76,7 +76,7 @@ it does not know, and names the key, so a preset written for a newer
 factory stops `factory preset add` and `factory update`, with that key's
 name.
 
-### The ticket system is set through a company preset
+## The ticket system is set through a company preset
 
 A company, or any organization, whose repositories share one ticket
 system and one board puts [`tickets`](../reference/settings/tickets.md#tickets) in its
@@ -90,7 +90,7 @@ of all of them ([The poller](../features/builds-from-the-board.md#the-poller)). 
 Presets stay optional. A repository that follows none writes `tickets`
 in its own `.claude/factory.yaml`.
 
-### What a preset can't set
+## What a preset can't set
 
 Three settings belong to each repository:
 [`repository`](../reference/settings/README.md#repository), and
@@ -103,7 +103,7 @@ A preset also can't name another preset. Each repository lists every
 preset it follows, so the order is in one place, and adding one never
 brings in another.
 
-### Checking and releasing
+## Checking and releasing
 
 In a checkout of the preset's repository, run:
 

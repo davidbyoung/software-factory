@@ -5,6 +5,33 @@ repository. At the end a build runs your tests, your linter, and one test
 at a time, as you do. Every key is on
 [`commands`](../reference/settings/commands.md#commands).
 
+## Set your commands
+
+A build needs one command from you: the one that checks a change, under
+`gate`. `factory init` asks for it. To write it yourself, or to add the
+command that runs one test, put them in `.claude/factory.yaml`:
+
+```yaml
+commands:
+  gate:
+    - npm run lint
+    - npm test
+  test-one: npx vitest run $FILE -t "$NAME"
+```
+
+Use your project's own commands. A start for each of five languages, to
+change to what your project runs ([Any language](any-language.md)):
+
+| Language   | `gate`                          | `test-one`                                  |
+| ---------- | ------------------------------- | ------------------------------------------- |
+| JavaScript | `npm test`                      | `npx vitest run $FILE -t "$NAME"`           |
+| Python     | `pytest`                        | `pytest $FILE -k "$NAME"`                   |
+| Go         | `go vet ./... && go test ./...` | `go test ./$(dirname $FILE) -run "$NAME"`   |
+| PHP        | `composer test`                 | `vendor/bin/phpunit $FILE --filter "$NAME"` |
+| Rust       | `cargo test`                    | `cargo test "$NAME"`                        |
+
+**It worked when** `factory gate` runs your commands and passes.
+
 ## Optional: tune it
 
 Each is a few lines in `.claude/factory.yaml`, merged like any change.

@@ -1,7 +1,9 @@
 # Website review
 
 For a repository that is a website. At the end each change that affects
-a page is shown before and after, and read by a UI reviewer.
+a page is pictured before and after, in a browser the factory drives, and
+read by a UI reviewer: an agent that looks at those pictures for
+usability and design.
 
 ## The UI reviewer
 

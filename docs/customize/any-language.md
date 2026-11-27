@@ -18,7 +18,7 @@ Python, or Go repository that means:
   `node_modules/`.
 - **Everyone who runs an agent session in the repository needs Node
   22.18 or later,** and the `factory` command, installed once on their
-  machine as [the quick start](../get-started/quick-start.md#1-install) shows.
+  machine as [Install](../get-started/install.md) shows.
 - **Your own CI does not change.** The factory's cloud jobs install Node
   and the factory for themselves. They run `npm ci` for your project only
   when its root has a `package-lock.json`, so in a repository without one
@@ -33,8 +33,8 @@ Python, or Go repository that means:
   whatever your project runs: `composer test`, `make check`,
   `go vet ./...`.
 
-The factory's hooks run that one command, so they need nothing beyond
-Node and the install. On a machine without it, they stop a session's
+The factory's hooks run the `factory` command, so they need nothing
+beyond Node and its install. On a machine without the command, they stop a session's
 commands and say how to install it. Someone who only writes code by
 hand, and never runs an agent session in the repository, needs none of
 this.

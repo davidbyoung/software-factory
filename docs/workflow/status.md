@@ -7,20 +7,38 @@ which session has it, what it cost, and which ones wait on you.
 factory status
 ```
 
-It lists the factory's open tickets under their
-[six states](README.md#the-six-states), each with how long it has been
-there, what it has cost, and the session that has it. `factory status --watch`
-reads it again every 15 seconds.
+It lists the factory's open tickets, those with its
+[label](tickets.md#which-tickets-are-the-factorys), under their
+[six states](README.md#the-six-states), each with how long it has been in
+its state, what it has cost, and the session that has it:
 
-**Waiting on you** beside a ticket means nothing moves until you act:
-a refinement waits for your answers or your approval, or a build ended
+```text
+  #     Title                                                Time in status  Cost   Session
+
+Backlog  1
+  #77   Show a cloud build's commits as verified             3d
+
+In refinement  1
+  #63   Support Jira as a ticket system                      4d                     local 502d66cf
+        ⚠ stale
+
+In progress  1
+  #127  Turn the pull request review on with true            4m              $1.20  local 749cadda
+```
+
+**It worked when** it lists your open tickets, or prints each state with
+nothing under it. `factory status --watch` reads it again every 15 seconds.
+
+**Waiting on you** in the Session column means nothing moves until you
+act: a refinement waits for your answers or your approval, or a build ended
 without a merge and needs you to say what next. The ticket's last comment
 says which.
 
-In the last 30 days before a token the factory stores stops working,
-`status` ends with a line that says when, and
-[Troubleshooting](../maintain/troubleshooting.md) says what to do.
+When the coding agent's token, or on your own account the code host's
+access token, stops working within 30 days, `status` ends with a line that
+says when, and [Troubleshooting](../maintain/troubleshooting.md#factory-status-says-a-token-stops-working-soon)
+says what to do.
 
-Where you have a board, it shows the same, kept up to date by the sync
-([The board](../features/board.md)). Every other everyday command is in
+Where you have a [board](../features/board.md), it shows the same, kept up
+to date by the board sync. Every other everyday command is in
 [Commands](../reference/cli.md#every-day).

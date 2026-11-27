@@ -2,9 +2,12 @@
 
 What the factory adds to your repository, your code host, and your board,
 and how to undo it. Read this before you set it up, and again if you
-decide to take it out. On GitHub with Claude Code,
-[the reference](../integrations/claude-code.md#what-setup-adds) names every file,
-hook, label, and setting.
+decide to take it out. Each tool's page lists what setup adds there:
+[Claude Code](../integrations/claude-code.md#what-setup-adds) for the
+files in your repository,
+[GitHub](../integrations/github.md#what-setup-adds),
+[GitHub Projects](../integrations/github-projects.md#what-setup-adds), and
+[GitHub organizations](../integrations/github-organizations.md#what-setup-adds).
 
 ## What it adds
 
@@ -98,7 +101,7 @@ it finds, and names what the tools it ships with leave behind.
 
 It leaves the setting that turns off your agent's lines naming itself in
 commits and pull requests, as
-[the reference](../integrations/claude-code.md#what-setup-adds) says. If setup
+[What setup adds](../integrations/claude-code.md#what-setup-adds) says. If setup
 installed a spec tool with npm, it also leaves that tool's
 `package.json` entry and the `node_modules/` line in your `.gitignore`:
 remove them with npm if nothing else uses them.

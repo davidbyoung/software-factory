@@ -30,8 +30,9 @@ renames them.
 
 ## Tokens and secrets
 
-None of its own: the factory reaches issues with the same sign-in it uses
-for the repository ([GitHub](github.md)).
+None of its own: on your machine the factory reaches issues with the same
+sign-in it uses for the repository, and in the cloud with the same token
+or App as the rest of the run ([GitHub](github.md)).
 
 ## What the factory can and cannot do there
 

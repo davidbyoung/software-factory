@@ -23,8 +23,8 @@ Run `factory init` and check "Pull requests that merge themselves". It
 asks which files may merge without you: type their patterns, such as
 `docs/**`, and start with a short list.
 
-**It worked when** the next pull request that changes only those files
-has the `merge-automatic` label and merges once its checks pass.
+**It worked when**, once the setup's pull request has merged, the next
+pull request that changes only those files has the `merge-automatic` label and merges once its checks pass.
 
 ## How it works
 
@@ -45,7 +45,12 @@ auto-merge:
     - docs/**
   deny:
     - docs/legal/**
+  commands:
+    - node scripts/public-api-changed.mjs
 ```
+
+A command under [`auto-merge.commands`](../reference/settings/auto-merge.md#auto-merge) is your own check: it exits 0 to let the pull
+request merge, and anything else to hold it.
 
 Every key, the command it can run, and each reason a held pull request
 gives, are on [`auto-merge`](../reference/settings/auto-merge.md#auto-merge).

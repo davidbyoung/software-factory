@@ -2,7 +2,15 @@
 
 For someone who wants a ticket built when they move it to Ready. At the
 end you know which of the three triggers fits you, and what the poller
-reads.
+reads. The trigger is
+[`builds.trigger`](../reference/settings/builds.md#builds), one of:
+
+- **`own-server`:** a poller you host starts a build within a minute
+  ([Host the poller](hosting-the-poller.md)).
+- **`github-action`:** a poller on a schedule in the cloud starts one at
+  its next pass ([A scheduled poller](#a-scheduled-poller-github-action)).
+- **`manual`:** nothing starts a build from the board
+  ([No trigger](#no-trigger-manual)).
 
 ## The poller
 

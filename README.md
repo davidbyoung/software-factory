@@ -39,16 +39,10 @@ Once on your machine, for every repository you use it in:
 npm install -g @davidbyoung/software-factory
 ```
 
-Then, in your repository, on its default branch:
-
-```bash
-factory init
-```
-
-It asks a few questions and opens a pull request with the files it adds.
-It worked when it prints `✓ Opened` and the pull request's number.
-[The quick start](docs/get-started/quick-start.md) takes you from here to
-your first built ticket.
+Then [the quick start](docs/get-started/quick-start.md) takes you from
+setting your repository up with `factory init` to your first built
+ticket. [Install](docs/get-started/install.md) has the rest of what to
+know about the command.
 
 ## Three commands in a session
 
@@ -79,7 +73,7 @@ These are the tools it works with today, one choice of each kind.
 [Integrations](docs/integrations/README.md) lists them all, with the
 optional spec tool, which keeps specs in your repository.
 
-| You need                   | Supported today | Its page                                                |
+| You need                   | Supported today | Page                                                    |
 | -------------------------- | --------------- | ------------------------------------------------------- |
 | A code host                | GitHub          | [GitHub](docs/integrations/github.md)                   |
 | A ticket system            | GitHub Issues   | [GitHub Issues](docs/integrations/github-issues.md)     |

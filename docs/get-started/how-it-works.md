@@ -42,7 +42,7 @@ each step.
   own checks, a review, and a pull request that says how it was verified.
 - **You are asked only what is yours to decide,** each question with a
   recommended answer, and nothing merges without you unless you said which
-  files may.
+  files may ([Pull requests that merge themselves](../features/auto-merge.md)).
 - **Work can run while you are away.** Start a build in the cloud with one
   command, or have one start whenever you move a ticket to Ready on your
   board, with no session open on your machine.
@@ -56,6 +56,14 @@ repository and its pull requests, a ticket system, a board, a cloud runner
 for the work with nobody at the keyboard, and a coding agent. A board and a
 cloud runner are optional. [Integrations](../integrations/README.md) says
 which tool of each kind is supported today.
+
+## What you need
+
+A repository on a supported code host, cloned on your machine, with the
+code host's command-line tool signed in; a supported coding agent, signed
+in; and Node 22.18 or later. Your repository can be in any language.
+[Integrations](../integrations/README.md) names the supported tools, and
+[Install](install.md) is the next step.
 
 ## Who it is for
 

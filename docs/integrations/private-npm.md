@@ -1,14 +1,11 @@
 # Private npm registries
 
-For a repository whose `package.json` installs a package from a private
-npm registry. At the end the factory's jobs in the cloud install it too.
-
-## Private npm packages
-
 For a repository whose own dependencies include a package from a private
 registry, such as your company's own packages. At the end, the factory's
 jobs that install your dependencies install it as your machine does, and
 Dependabot offers its new versions.
+
+## Private npm packages
 
 The factory itself needs none of this. It comes from the public npm
 registry, onto each machine and each job, and a

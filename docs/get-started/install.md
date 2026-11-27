@@ -14,8 +14,7 @@ same line installs it.
 
 ## The `factory` command on your machine
 
-The command you installed once, in the [quick start](quick-start.md#1-install),
-only starts the version each repository names
+The command you installed above only starts the version each repository names
 ([Which version runs](#which-version-runs)), so it rarely needs
 updating itself. It keeps each version it downloads in
 `~/.cache/software-factory/`, or under `$XDG_CACHE_HOME` when that is
@@ -46,7 +45,7 @@ Downloading the factory 0.3.0, which this repository names. This happens once.
 
 `FACTORY_VERSION=0.3.0 factory init` runs that one `init` at 0.3.0.
 `factory update` sets the variable itself for its sync, and
-[Updating](../maintain/upgrade-notes.md#naming-every-column) uses it where a release needs
+[Naming every column](../maintain/upgrade-notes.md#naming-every-column), in the upgrade notes, uses it where a release needs
 a setting before it can sync. A run in the cloud installs the version the
 repository names:
 [What a job installs](../integrations/github-actions.md#what-a-job-installs).
@@ -66,3 +65,5 @@ stop each command the session tries to run, and print:
 ```text
 The factory is not installed on this machine. Install it once: npm install -g @davidbyoung/software-factory
 ```
+
+Next: [Quick start](quick-start.md).

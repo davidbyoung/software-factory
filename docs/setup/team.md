@@ -25,7 +25,7 @@ version.
   access, and from nobody else. There is nothing to list: give a
   teammate write access, and their reviews are answered.
 - **Each person installs the factory once,** on their own machine, as
-  [the quick start](../get-started/quick-start.md#1-install) shows. A machine without it
+  [Install](../get-started/install.md) shows. A machine without it
   is told so when a session starts.
 - **One version for everyone.** The repository names the version, in
   `.claude/factory.lock`, and each person's `factory` command runs that
@@ -49,49 +49,24 @@ version.
 ## Joining a repository that is already set up
 
 Clone it, and with the `factory` command
-[installed on your machine](../get-started/quick-start.md#1-install), run:
+[installed on your machine](../get-started/install.md), run in your
+checkout:
 
 ```bash
-factory init
+factory doctor
 ```
 
-Since `.claude/factory.yaml` is already there, it shows
-`This machine   no Jira credential` in the list it prints first, and asks only for
-your own token. It opens the page that makes one, checks what you paste
-against Jira, and stores it on this machine. Then it asks
-`Change which parts are on?`, which would change the repository's
-settings for everyone: answer no.
+Your sessions use your own sign-ins to the code host and the coding
+agent, and the repository's settings and secrets are already there, so
+there is nothing to set up.
 
-If you cannot see the repository's secrets, it stops before that
-question, with your token stored:
-
-```text
-Could not list the repository's secrets, so the parts are left as they are: 403 Must have admin rights to Repository
-```
-
-That is expected: your machine is set up, and the repository's secrets
-are someone else's to change.
-
-**It worked when** `factory doctor` shows
-`✓ The credential on this machine is accepted, for you@example.com` under
-Jira.
+**It worked when** `factory doctor` shows ✓ on every line, or `-` for a
+part that is off. A ticket system with a token of its own, such as Jira,
+asks each person for theirs: [Jira](../integrations/jira.md) says how.
 
 ## In a session on another machine
 
-Every such machine needs the factory installed first:
-
-```bash
-npm install -g @davidbyoung/software-factory
-```
-
-| Where the session runs          | What you do                                                                                                                                                                                                                                                   |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A server you reach over SSH     | Run `factory init` there. With no browser on the server, open the address it prints on your own machine, make the token, and paste it into the server's terminal                                                                                              |
-| A Codespace                     | On GitHub, under your account's Settings, Codespaces, add `FACTORY_JIRA_EMAIL` and `FACTORY_JIRA_TOKEN` as secrets, with the repository selected. Make the token at [Atlassian's API token page](https://id.atlassian.com/manage-profile/security/api-tokens) |
-| A dev container on your machine | Run `factory init` inside it, as on a server                                                                                                                                                                                                                  |
-| Claude Code on the web          | In the environment's settings, where you choose it for a session, add `FACTORY_JIRA_EMAIL` and `FACTORY_JIRA_TOKEN` as environment variables. Make the token as in the Codespace row. Put the install line above in the environment's setup too               |
-
-A session with neither the file nor the variables says so as it starts,
-in the state of the tickets it shows you, and names
-`FACTORY_JIRA_EMAIL`, `FACTORY_JIRA_TOKEN`, and `factory init`. **It worked when**
-`factory doctor`, run in that session, shows ✓ under Jira.
+Install the factory there, as above, and sign in to the code host and the
+coding agent as you would on your own machine. A session that cannot run
+the install command, such as a hosted one, gets the factory from the same
+line ([Install](../get-started/install.md)).

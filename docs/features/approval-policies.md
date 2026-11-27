@@ -349,7 +349,7 @@ A company can ship the same policy to every repository through a
 `factory-preset.yaml`, and the policy itself in the preset's settings.
 `factory sync` copies the folder into each repository's
 `.claude/approval-policies/`, as it copies the preset's agents
-([Writing a preset](../customize/writing-a-preset.md#writing-a-preset)).
+([Write a preset](../customize/writing-a-preset.md)).
 
 - **A preset added with `--in`** gives its policies only those folders,
   as it does its commands.

@@ -93,7 +93,7 @@ After it merges:
   2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.
   3. Refine a ticket with /factory-refine N, then build it with /factory-build N.
 The steps in full:
-     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/quick-start.md#4-open-a-ticket
+     https://github.com/davidbyoung/software-factory/blob/v0.4.0/docs/get-started/quick-start.md#4-open-a-ticket
 ```
 
 Merge the pull request, then do what those lines say: your checkout is
@@ -122,7 +122,7 @@ asks for neither
 prompt empty to skip it, and run `factory init` again when you have the
 token. To share settings between your repositories, put a preset in a
 repository named `factory-config`
-([Writing a preset](../customize/writing-a-preset.md#writing-a-preset)).
+([Write a preset](../customize/writing-a-preset.md)).
 
 **It worked when** init prints the first line here, and in your next
 repository the second:

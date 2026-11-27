@@ -10,7 +10,7 @@ It has two readers:
 - **If you look after a repository,** [Using a preset](#using-a-preset)
   ends with your repository following the shared settings, and a pull
   request whenever they change.
-- **If you maintain the shared settings,** [Writing a preset](writing-a-preset.md#writing-a-preset)
+- **If you maintain the shared settings,** [Write a preset](writing-a-preset.md)
   ends with a preset that every repository can add.
 
 ## The idea
@@ -284,7 +284,7 @@ repository keeps the preset as it was, and keeps working. To stay on the
 commit you have, close the pull request: the job opens another only when
 the preset changes again.
 
-The job needs [builds in the cloud](../setup/README.md). Without them, or to
+The job needs [builds in the cloud](../features/cloud-builds.md). Without them, or to
 update now, run [`factory update`](../maintain/updating.md#doing-it-yourself)
 yourself.
 

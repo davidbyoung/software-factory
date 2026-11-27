@@ -67,4 +67,5 @@ the ticket left open. Reopen a decision the ticket settled.
 
 **Defaults you can change.**
 [`rules.small-change-lines`](../reference/settings/rules.md#rules), default 30: a change
-under it takes the lighter path [The workflow](README.md) describes.
+under it takes the lighter path
+[Sizing the work to the change](#sizing-the-work-to-the-change) describes.

@@ -24,7 +24,7 @@ Each release of the factory publishes the poller as a container image,
 `latest`. It holds nothing but Node and that version of the factory, runs
 as an unprivileged user, and needs no sign-in to pull. Run the version on
 the `version:` line of your repository's `.claude/factory.lock`, with the
-two variables [above](builds-from-the-board.md#what-it-reads); `factory init` prints the exact
+two variables [What it reads](builds-from-the-board.md#what-it-reads) names; `factory init` prints the exact
 line. To try it on your machine, with the token in your shell's own
 `FACTORY_BOARD_TOKEN`:
 
@@ -77,12 +77,11 @@ That hosting is yours. Beyond [`builds.trigger`](../reference/settings/builds.md
 | A ticket in Ready is skipped                                                | It is blocked by an open ticket                 | It starts at the poller's first pass after the blocker closes                                         |
 | Its log says `not polling:`                                                 | Your settings say not to poll, or can't be read | [What it reads](builds-from-the-board.md#what-it-reads) has each line                                 |
 
-## Outside GitHub
+## Stop hosting it
 
-Only if you host the poller
-([`builds.trigger: own-server`](../reference/settings/builds.md#builds)): **the
-poller**, wherever you host it, with the `FACTORY_` variables you
-gave it. Stop and delete it.
+Set [`builds.trigger`](../reference/settings/builds.md#builds) to another
+value first, so nothing waits on the poller. Then stop the poller wherever
+you host it, and delete it with the `FACTORY_` variables you gave it.
 
 ## On your tools
 

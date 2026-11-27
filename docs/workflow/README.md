@@ -1,7 +1,13 @@
 # The workflow
 
-How a ticket moves from an idea to a merged pull request, who moves it at
-each step, and what the factory will not do on its own.
+For anyone working tickets with the factory. At the end you know how a
+ticket moves from an idea to a merged pull request, who moves it at each
+step, and what the factory will not do on its own. Each step has a page
+of its own: [Write a ticket](tickets.md), [Refine](refine.md),
+[Build](build.md), [Review and answer](review.md), [Merge](merge.md), and
+[Follow-ups](follow-ups.md). [See where things stand](status.md) shows
+every ticket's state, and a [session](../reference/glossary.md#the-words)
+is one conversation with your coding agent.
 
 ## From a ticket to a merge
 

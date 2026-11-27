@@ -51,7 +51,7 @@ that version.
    Downloading the factory 0.3.0, which this repository names. This happens once.
    ```
 
-The job needs [builds in the cloud](../setup/README.md), since it pushes a
+The job needs [builds in the cloud](../features/cloud-builds.md), since it pushes a
 branch and opens a pull request with the build's token, or, in an
 organization that is set up, with a token made from the organization's
 App. Without them, [do it yourself](#doing-it-yourself).

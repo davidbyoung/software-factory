@@ -2,6 +2,8 @@
 
 For someone deciding whether a pull request merges. At the end you know
 who merges each pull request, and why it waits for you or merges itself.
+Letting some merge without you is
+[Pull requests that merge themselves](../features/auto-merge.md).
 
 ## Who merges
 

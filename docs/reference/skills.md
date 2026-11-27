@@ -2,8 +2,9 @@
 
 A skill is a set of instructions an agent session follows when you ask for
 it. An agent, in this page's sense, is a separate reviewer a session
-launches, which reads and reports and changes nothing. This page covers
-every skill and agent the factory brings.
+launches, which reads and reports and changes nothing. This page lists
+every skill and agent the factory brings, and links each skill to its
+entry on the page about the work it does.
 
 You call a skill by typing its name as a slash command in a session, with
 the ticket or pull request number after it: `/factory-refine 12`. Slash
@@ -40,24 +41,25 @@ commands such as `factory gate` and `factory test-one`
 ([Commands](cli.md#your-repositorys-commands)), and asks
 `factory default-branch` for your default branch's name.
 
-Where a step below names a built-in skill or agent, a
+Where a step names a built-in skill or agent, a
 [plugin](../customize/plugins.md#the-roles) of yours can stand in for it: your own
 refiner, builder, prover, test reviewers, and conflict resolvers.
 
 ## At a glance
 
-| Slash command                    | Plain words that also work         | What it does                                                             |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
-| `/factory-refine 12`             | "refine ticket 12"                 | Turns a ticket into a spec a builder can start from                      |
-| `/factory-build 12`              | "build ticket 12"                  | Builds a ticket to a reviewed pull request                               |
-| `/factory-address-review 280`    | "address the review on 280"        | Works a pull request's review until it can merge                         |
-| `/factory-resolve-conflicts 280` | "resolve the conflicts on 280"     | Merges your default branch into a pull request and settles the conflicts |
-| `/factory-diagnose`              | "diagnose this failing test"       | Finds a bug's cause before any code changes                              |
-| `/factory-mutate`                | "mutate this test"                 | Proves a test can fail                                                   |
-| `/factory-deps`                  | "fix the dependency pull requests" | Moves dependency pull requests toward merged                             |
-| `/factory-design`                | "mock up a new about page"         | Designs a visible change to a website, with mockups                      |
-| `/factory-trace`                 | "trace this rule change"           | Traces a change to the rules through every kind of change                |
+| Slash command                                                                       | Plain words that also work         | What it does                                                             |
+| ----------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
+| [`/factory-refine 12`](../workflow/refine.md#factory-refine)                        | "refine ticket 12"                 | Turns a ticket into a spec a builder can start from                      |
+| [`/factory-build 12`](../workflow/build.md#factory-build)                           | "build ticket 12"                  | Builds a ticket to a reviewed pull request                               |
+| [`/factory-address-review 280`](../workflow/review.md#factory-address-review)       | "address the review on 280"        | Works a pull request's review until it can merge                         |
+| [`/factory-resolve-conflicts 280`](../workflow/review.md#factory-resolve-conflicts) | "resolve the conflicts on 280"     | Merges your default branch into a pull request and settles the conflicts |
+| [`/factory-diagnose`](#factory-diagnose)                                            | "diagnose this failing test"       | Finds a bug's cause before any code changes                              |
+| [`/factory-mutate`](#factory-mutate)                                                | "mutate this test"                 | Proves a test can fail                                                   |
+| [`/factory-deps`](../features/dependency-updates.md#factory-deps)                   | "fix the dependency pull requests" | Moves dependency pull requests toward merged                             |
+| [`/factory-design`](../features/website-review.md#factory-design)                   | "mock up a new about page"         | Designs a visible change to a website, with mockups                      |
+| [`/factory-trace`](../customize/rules.md#factory-trace)                             | "trace this rule change"           | Traces a change to the rules through every kind of change                |
 
+Each skill's link goes to its entry, on the page about the work it does.
 Typing `/factory` in a session lists them, which is also how to check that
 a session picked the factory up.
 

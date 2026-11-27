@@ -5,7 +5,7 @@ everything that must give the same answer every time. You will run a few
 of these yourself; most are run for you.
 
 Run any command as `factory`, from the one install on your machine that
-the [quick start](../get-started/quick-start.md#1-install) sets up. `factory` with no
+[Install](../get-started/install.md) sets up. `factory` with no
 command, or one it does not have, prints the list of commands it has and
 exits non-zero.
 
@@ -105,15 +105,15 @@ when
 
 ## Now and then
 
-| Command                  | When you run it                                                                                               | State |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- | ----- |
-| `factory config get KEY` | To print one setting in effect, such as `tickets.board`                                                       | Built |
-| `factory config explain` | To see every setting in effect, defaults included                                                             | Built |
-| `factory plugins`        | To see the plugins the factory will use, by role                                                              | Built |
-| `factory site compare`   | To picture a website's pages before and after a change. See below                                             | Built |
-| `factory site stop`      | To end the sites `compare --keep` left running                                                                | Built |
-| `factory update`         | To raise the factory to its newest release, and each preset to its newest commit, without waiting for the job | Built |
-| `factory remove`         | To take the factory out of a repository                                                                       | Built |
+| Command                  | When you run it                                                                                                       | State |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----- |
+| `factory config get KEY` | To print one setting in effect, such as `tickets.board`                                                               | Built |
+| `factory config explain` | To see every setting in effect, defaults included                                                                     | Built |
+| `factory plugins`        | To see the plugins the factory will use, by role                                                                      | Built |
+| `factory site compare`   | To picture a website's pages before and after a change ([Website review](../features/website-review.md#factory-site)) | Built |
+| `factory site stop`      | To end the sites `compare --keep` left running                                                                        | Built |
+| `factory update`         | To raise the factory to its newest release, and each preset to its newest commit, without waiting for the job         | Built |
+| `factory remove`         | To take the factory out of a repository                                                                               | Built |
 
 `factory plugins` prints one line for each plugin, the factory's own
 included: its kind, its name, its [role](../customize/plugins.md#the-roles), then its

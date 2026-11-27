@@ -1,8 +1,9 @@
 # Add it to an existing repository
 
-Most repositories already have a toolchain, a board, instructions for a
-coding agent, a team, or several packages in one repository. This page
-says what the factory does in each case, and what it leaves alone.
+For someone adding the factory to a repository that already has a
+toolchain, a board, instructions for a coding agent, a team, or several
+packages. At the end you know what the factory leaves alone, and which
+page covers your case.
 
 ## Try it without committing to it
 
@@ -15,13 +16,14 @@ have already merged.
 
 ## Your case
 
-| What your repository already has             | Where to go                                                |
-| -------------------------------------------- | ---------------------------------------------------------- |
-| A board, or tickets with fields of their own | [The board](../features/board.md#you-already-have-a-board) |
-| Several packages in one repository           | [A monorepo](../customize/monorepo.md)                     |
-| A language other than JavaScript             | [Any language](../customize/any-language.md)               |
-| Several people working on it                 | [Work as a team](team.md)                                  |
-| Commands of its own to check a change        | [Your commands](../customize/commands.md)                  |
+| What your repository already has                    | Where to go                                                                        |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| A board, or tickets with fields of their own        | [The board](../features/board.md#you-already-have-a-board)                         |
+| Several packages in one repository                  | [A monorepo](../customize/monorepo.md)                                             |
+| A language other than JavaScript                    | [Any language](../customize/any-language.md)                                       |
+| Several people working on it                        | [Work as a team](team.md)                                                          |
+| Commands of its own to check a change               | [Your commands](../customize/commands.md)                                          |
+| Agent instructions, agent settings, or CI workflows | [The section below](#you-already-have-agent-instructions-settings-or-ci-workflows) |
 
 ## You already have agent instructions, settings, or CI workflows
 
@@ -43,8 +45,8 @@ have already merged.
   rows of its plan, `settings`, `files`, and `workflows`, and changes
   nothing if you say no. The pull request it opens shows every file.
 
-On GitHub with Claude Code, [Claude Code](../integrations/claude-code.md#what-setup-adds)
-names each file.
+The coding agent's page lists each file setup adds
+([What setup adds](../integrations/claude-code.md#what-setup-adds)).
 
 ## What it does to your repository, in short
 

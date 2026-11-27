@@ -59,8 +59,8 @@ it:
 ```
 
 When `init` cannot add the policy, it says so and puts the step under
-"Left to do". [GitHub](#a-public-repository-1)
-has each field to fill in.
+"Left to do". [A public repository](#a-public-repository-1), under
+"By hand", has each field to fill in.
 
 ## When the GitHub access token expires
 
@@ -141,7 +141,7 @@ Every step `factory init` takes on GitHub, for someone who wants to take them wi
 The basics are all the [quick start](../get-started/quick-start.md) needs. Everything
 else is optional, and each part stands alone. You need the tools under
 [What you need](../setup/repository.md#what-you-need), and the `factory` command
-[installed on your machine](../get-started/quick-start.md#1-install). Nothing is
+[installed on your machine](../get-started/install.md). Nothing is
 installed in the repository.
 
 | Part                                                                               | What it takes                                                      |
@@ -181,7 +181,7 @@ If you followed the quick start, this is done.
    It writes the skills, agents, and rules Claude Code loads, under
    `.claude/`; adds hook entries to `.claude/settings.json`; adds one line
    to `CLAUDE.md`; and writes its two workflow files under
-   `.github/workflows/`. [What lives where](README.md) names each.
+   `.github/workflows/`. [What setup adds](claude-code.md#what-setup-adds), on the Claude Code page, names each.
 
 3. List the commands that check a change, such as your tests and linter,
    under [`commands.gate`](../reference/settings/commands.md#commandsgate). A build runs

@@ -25,7 +25,7 @@ this release, and do these steps in the repository's checkout.
    repository. Create that repository on your code host, put what the
    package held, its `factory-preset.yaml`, `agents/`, and `skills/`, at
    its root, and push it
-   ([Writing a preset](../customize/writing-a-preset.md#writing-a-preset)). Then
+   ([Write a preset](../customize/writing-a-preset.md)). Then
    `npm uninstall` the package, and delete its name from
    [`presets`](../reference/settings/presets.md#presets) in `.claude/factory.yaml`. If
    the update in step 3 then stops on a setting the preset supplied,
@@ -101,7 +101,9 @@ Until you do, every command that reads the settings stops with:
 .claude/factory.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md
 ```
 
-So `factory update` cannot sync to that release until the file is moved.
+A release since this page moved prints this section's address in place of
+`docs/updating.md`. So `factory update` cannot sync to that release until
+the file is moved.
 From step 1 until step 4, no other `factory` command works in the
 repository, since the version the lock still names refuses a version 2
 file. On a branch:

@@ -1,7 +1,7 @@
 # Settings
 
-This page is for changing what the factory does in your repository once it
-is set up. Everything you can change is in one file,
+This page and the ones it lists are for changing what the factory does in
+your repository once it is set up. Everything you can change is in one file,
 `.claude/factory.yaml`, which [`factory init`](../../setup/README.md) writes when
 you set the factory up. You don't need to read this page top to bottom:
 start with
@@ -173,6 +173,27 @@ wrote. Every change needs it, one under `plugins` included, as
 
 ## Every setting
 
+`version` and `repository` are below. Every other key has a page of its
+own:
+
+| Key                                         | What it sets                                                  |
+| ------------------------------------------- | ------------------------------------------------------------- |
+| [`presets`](presets.md)                     | The shared settings this repository follows                   |
+| [`tickets`](tickets.md)                     | The ticket system, the board, its columns, fields, and labels |
+| [`code-host`](code-host.md)                 | The code host, how a build names its branch, and its labels   |
+| [`builds`](builds.md)                       | Builds in the cloud, and what starts them                     |
+| [`specs`](specs.md)                         | The spec tool, if any                                         |
+| [`commands`](commands.md)                   | The commands that check a change                              |
+| [`session-minutes`](session-minutes.md)     | How long a session in the cloud may run                       |
+| [`plugins`](plugins.md)                     | Your own skills and agents                                    |
+| [`site`](site.md)                           | A website's pages, for the website review                     |
+| [`auto-merge`](auto-merge.md)               | The pull requests that merge themselves                       |
+| [`pr-review`](pr-review.md)                 | The automated review                                          |
+| [`rules`](rules.md)                         | The factory's rules, tuned for your repository                |
+| [`approval-policies`](approval-policies.md) | The checks a person approves                                  |
+
+[Example settings files](examples.md) shows three whole files.
+
 ### `version`
 
 Which layout of this file you are using. It is not the factory's version.
@@ -181,7 +202,7 @@ Write `2`.
 - **Default:** none. `factory init` writes it.
 - **If it is wrong,** every factory command that reads this file stops
   with `version: must be 2`. For a version 1 file, it also says where
-  [Updating](../../maintain/upgrade-notes.md#moving-to-settings-version-2) shows each setting
+  [Upgrade notes](../../maintain/upgrade-notes.md#moving-to-settings-version-2) shows each setting
   that moved.
 
 ### `repository`

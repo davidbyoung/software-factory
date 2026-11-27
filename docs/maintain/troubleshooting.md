@@ -1,7 +1,7 @@
 # Troubleshooting
 
 For anyone whose factory did something they did not expect. Start with
-`factory doctor`. If its output does not settle it, find what you saw
+`factory doctor`, run in your repository's checkout. If its output does not settle it, find what you saw
 among the headings below: each says what to do, or which page owns the
 fix.
 
@@ -17,6 +17,10 @@ tool's name, then the parts you left off. Each check starts with a mark:
 with ✗ or ? says what to do on the line itself. `doctor` exits 1 when a
 check fails, and changes nothing
 ([Commands](../reference/cli.md#setting-up)).
+
+In the steps below, 12 stands for your ticket's number and 15 for its pull
+request's. A `/factory-...` command is typed in a
+[session](../reference/glossary.md#the-words) of your coding agent.
 
 ## A test or a check fails during a build
 

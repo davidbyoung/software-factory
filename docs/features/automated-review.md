@@ -32,8 +32,10 @@ comments and a "Review verdict" status.
 ## How it works
 
 - **The verdict is required** from the first run after the setup's pull
-  request merges, so a pull request cannot merge until the review passes
-  it. While the review is off, the status passes, reading "The automated
+  request merges, where setup could make it required, so a pull request
+  cannot merge until the review passes it. Where it could not, init lists
+  the step under "Left to do"
+  ([Set up a repository](../setup/repository.md#what-is-left-for-you)). While the review is off, the status passes, reading "The automated
   review is off".
 - **Tell the reviewer about your project** in `.github/review-notes.md`,
   which you write and the factory leaves alone.
@@ -49,9 +51,10 @@ comments and a "Review verdict" status.
 pr-review: {}
 ```
 
-Writing [`pr-review`](../reference/settings/pr-review.md#pr-review) turns the review on, and deleting it turns it off;
-`factory sync` then changes the workflow to match
-([`pr-review`](../reference/settings/pr-review.md)).
+`factory init` writes this line when you check the review. You can also
+write [`pr-review`](../reference/settings/pr-review.md#pr-review)
+yourself, or delete it to turn the review off, and run `factory sync`,
+which changes the workflow to match.
 
 ## When something goes wrong
 

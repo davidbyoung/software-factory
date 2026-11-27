@@ -50,6 +50,17 @@ the second is recorded as blocked by the first, using the ticket system's
 own relationship between tickets. A build never starts on a ticket with an open blocker, and
 starts at the poller's first pass after the blocker closes if the ticket is in Ready.
 
+A session that opens or refines a ticket records its blockers for you. To
+record one yourself, say that ticket 13 waits on ticket 12:
+
+```bash
+factory ticket block 13 --by 12
+```
+
+**It worked when** `factory ticket blockers 13` lists ticket 12.
+`factory ticket unblock 13 --by 12` takes it off
+([Commands run for you](../reference/cli-internal.md#tickets)).
+
 Two tickets touching the same file is not a blocker. That is a merge
 conflict, and the session that owns the pull request resolves it, or a run
 in the cloud.

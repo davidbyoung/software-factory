@@ -1,8 +1,5 @@
 # A monorepo
 
-For a repository with several packages. At the end a change runs only
-the checks of the packages it touches.
-
 This is for a repository that holds several packages, such as Node
 packages under `packages/` and Python services under `services/`. At the
 end, a [session](../reference/glossary.md#the-words) that changes one package runs
@@ -13,7 +10,7 @@ all.
 Set the factory up first, at the repository's root, with the
 [quick start](../get-started/quick-start.md): one `factory init`, one
 `.claude/factory.yaml`, and one board, as for any repository. This
-section changes the commands under [`commands`](../reference/settings/commands.md#commands) in that file, on the
+page changes the commands under [`commands`](../reference/settings/commands.md#commands) in that file, on the
 branch the quick start leaves you on.
 
 **If your monorepo already has Nx, Turborepo, or Pants,** it already
@@ -38,7 +35,7 @@ up your other commands, such as
 [`commands.test-one`](../reference/settings/commands.md#commandstest-one), by package
 ([The other settings](#the-other-settings)).
 
-### 1. Write each package's commands
+## 1. Write each package's commands
 
 Write [`commands.gate`](../reference/settings/commands.md#commandsgate) in
 `.claude/factory.yaml`, replacing the one
@@ -82,7 +79,7 @@ might break. That is what keeps an edit to a root file such as
 will run, such as `cd packages/api && npm test`, each marked `runs` or
 `left out` for the change on your branch.
 
-### 2. Settle what nothing covers
+## 2. Settle what nothing covers
 
 Your repository has files outside every package: CI workflows, scripts,
 and root settings. `factory config check` lists the ones nothing covers.
@@ -136,7 +133,7 @@ factory gate --all
 `factory gate --all` ends with `✓ Every gate command passed.` Commit
 `.claude/factory.yaml` on that branch.
 
-### What runs from then on
+## What runs from then on
 
 A session's `factory gate` compares its branch with the commit the branch
 started from on your default branch, which it reads from `origin/` and
@@ -158,7 +155,7 @@ covers also runs every command, and the first line names it, so you know
 what to add. [Commands for some folders](../reference/settings/commands.md#commands-for-some-folders)
 has every rule.
 
-### The other settings
+## The other settings
 
 Each of these is optional. Split one only when your packages need
 different commands for it.
