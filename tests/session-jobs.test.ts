@@ -17,6 +17,8 @@ import {
   archiveOf,
   isJob,
   publishTicketDeps,
+  quietlyWith,
+  sessionError,
   shown,
 } from "../src/session-jobs.mts";
 import { main as ticketMain, ticketDeps } from "../src/ticket.mts";
@@ -211,5 +213,86 @@ describe("another repository's files, to hand to a session", () => {
     const tar = join(dir, "o.tar");
     expect(archiveOf(join(dir, "work"), null, tar, {}, 100)).toBe(false);
     expect(existsSync(tar)).toBe(false);
+  });
+});
+
+describe("the error a session ends with", () => {
+  const failed = (result: string) => ({
+    type: "result",
+    subtype: "success",
+    is_error: true,
+    result,
+  });
+  const at = (
+    credential: string,
+    kind: string | null = "User",
+    owner = "sam",
+  ) => ({ credential, ownerKind: kind, owner });
+  const REFUSED =
+    "Failed to authenticate. API Error: 401 OAuth token has expired";
+
+  it("names the token, and that a person replaces it with factory init", () => {
+    expect(sessionError(failed(REFUSED), at("CLAUDE_CODE_OAUTH_TOKEN"))).toBe(
+      `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: ${REFUSED}. A Claude token lasts a year: run factory init to store a new one.`,
+    );
+  });
+
+  it("names the organization's owner for an organization's repository", () => {
+    expect(
+      sessionError(
+        failed(REFUSED),
+        at("CLAUDE_CODE_OAUTH_TOKEN", "Organization", "acme"),
+      ),
+    ).toBe(
+      `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: ${REFUSED}. A Claude token lasts a year: an owner of acme runs factory init --org to store a new one.`,
+    );
+  });
+
+  it("names an API key with nothing about a year", () => {
+    expect(
+      sessionError(failed("Invalid API key"), at("ANTHROPIC_API_KEY")),
+    ).toBe("::error::Claude Code refused ANTHROPIC_API_KEY: Invalid API key.");
+  });
+
+  it("gives any other error in Claude Code's own words, on one line", () => {
+    expect(
+      sessionError(
+        failed("Reached the turn limit\nand stopped 100%"),
+        at("CLAUDE_CODE_OAUTH_TOKEN"),
+      ),
+    ).toBe("::error::Claude Code: Reached the turn limit");
+    expect(
+      sessionError(failed("50% done"), at("CLAUDE_CODE_OAUTH_TOKEN")),
+    ).toBe("::error::Claude Code: 50%25 done");
+  });
+
+  it("is nothing for a session that did not end in an error, or one with no words", () => {
+    const ok = { ...failed("Done."), is_error: false };
+    expect(sessionError(ok, at("CLAUDE_CODE_OAUTH_TOKEN"))).toBeNull();
+    expect(sessionError(failed(""), at("CLAUDE_CODE_OAUTH_TOKEN"))).toBeNull();
+    expect(
+      sessionError({ type: "assistant" }, at("CLAUDE_CODE_OAUTH_TOKEN")),
+    ).toBeNull();
+  });
+});
+
+describe("a line held while the runner reads no commands", () => {
+  it("is printed once commands resume, after the token that resumes them", () => {
+    const printed: string[] = [];
+    let exit = () => {};
+    const hold = quietlyWith({
+      actions: true,
+      token: "t0k",
+      out: (l) => printed.push(l),
+      onExit: (f) => (exit = f),
+    });
+    hold("::error::Claude Code: x");
+    expect(printed).toEqual(["::stop-commands::t0k"]);
+    exit();
+    expect(printed).toEqual([
+      "::stop-commands::t0k",
+      "::t0k::",
+      "::error::Claude Code: x",
+    ]);
   });
 });

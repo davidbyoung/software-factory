@@ -313,7 +313,7 @@ function run(
 }
 
 /** What Claude Code says of a credential it will not take. */
-const REFUSAL =
+export const REFUSAL =
   /\b40[13]\b|authenticat|unauthori[sz]ed|invalid (?:bearer )?token|invalid (?:x-)?api.?key|expired|revoked/i;
 
 /** Whether Claude Code takes a credential: one small thing asked with it
