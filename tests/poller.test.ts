@@ -928,6 +928,32 @@ describe("the poller you host", () => {
     expect(logs).toEqual([`not polling: ${reason}`]);
   });
 
+  it("starts nothing with a lock whose columns leave out the ready one, and says why", async () => {
+    const { d, state, logs, dispatches } = host({
+      lock: lockOf().replace("      ready: Ready\n", ""),
+    });
+
+    await hosted(d, state);
+
+    expect(dispatches()).toEqual([]);
+    expect(logs).toEqual([
+      "not polling: .claude/factory.lock on trunk: tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
+    ]);
+  });
+
+  it("reads no lock when the default branch can't be read, and counts it", async () => {
+    const { d, state, logs, calls } = host({
+      repo: { status: 500, statusText: "Server Error" },
+    });
+
+    await hosted(d, state);
+
+    expect(calls.map((c) => c.url)).not.toContain(LOCK_URL);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatch(/^default branch not read: /);
+    expect(state.failuresInARow).toBe(1);
+  });
+
   it("starts nothing with a lock that is not YAML, and gives the parser's first line", async () => {
     const { d, state, logs, dispatches } = host({ lock: "version: [0.2.0\n" });
 
