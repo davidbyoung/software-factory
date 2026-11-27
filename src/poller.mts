@@ -659,7 +659,6 @@ export async function hosted(d: Deps, state: State): Promise<void> {
     d.log(`read failed (${state.failuresInARow} in a row): ${String(error)}`);
     return;
   }
-  state.failuresInARow = 0;
   const read =
     text === null
       ? {
@@ -667,6 +666,9 @@ export async function hosted(d: Deps, state: State): Promise<void> {
         }
       : await hostedSettings(text, branch, d.version ?? ownVersion());
   if ("reason" in read) {
+    // A pass that goes on to poll leaves the count to `tick`, which resets
+    // it only once the board reads.
+    state.failuresInARow = 0;
     if (read.reason !== state.reason) {
       d.log(`not polling: ${read.reason}`);
       state.lastHeartbeat = d.now();

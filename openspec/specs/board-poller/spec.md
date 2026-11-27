@@ -193,7 +193,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 #### Scenario: How the hosted poller logs a reason not to poll
 
 - **WHEN** one of "No lock on the default branch", "A trigger other than own-server", "No board in the settings", and "A setting the hosted poller cannot read" holds
-- **THEN** the hosted poller logs `not polling: REASON` at the first pass where it holds and at each pass where the reason changes, not at every pass, and while it holds the hourly heartbeat reads `heartbeat: not polling: REASON`. A pass that read the lock, whether it then polls or not, resets the count toward the slower retry to 0, so it reads again a minute later and starts at the first pass after the reason clears.
+- **THEN** the hosted poller logs `not polling: REASON` at the first pass where it holds and at each pass where the reason changes, not at every pass, and while it holds the hourly heartbeat reads `heartbeat: not polling: REASON`. A pass that read the lock and polls nothing resets the count toward the slower retry to 0, so it reads again a minute later and starts at the first pass after the reason clears. A pass that goes on to poll leaves the count to the read of the board, as before.
 
 ### Requirement: No settings from an earlier pass
 

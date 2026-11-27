@@ -1078,6 +1078,16 @@ describe("the poller you host", () => {
     ]);
   });
 
+  it("counts a board that keeps failing, past a good read of the lock, and backs off after ten", async () => {
+    const { d, logs } = host({ graphql: { status: 502 } });
+    const waits: number[] = [];
+
+    await serve(d, async (ms) => waits.push(ms), 11);
+
+    expect(waits).toEqual([...Array(9).fill(60_000), 600_000]);
+    expect(logs.at(-1)).toMatch(/^read failed \(11 in a row\): /);
+  });
+
   it("waits a minute between passes, and ten once ten in a row have failed", async () => {
     const { d } = host({}, {});
     const waits: number[] = [];
