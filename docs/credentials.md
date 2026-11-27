@@ -31,12 +31,15 @@ the GitHub ones.
   - what pays for sessions, as the secret `CLAUDE_CODE_OAUTH_TOKEN`, or
     `ANTHROPIC_API_KEY` for an API key.
 
-- **On your own account, you paste two tokens once, and they are kept in
+- **On your own account, you paste two tokens, and they are kept in
   two places.** One is a GitHub access token, which GitHub requires
   there, since a board a person owns refuses an App's token. The other
-  is your Claude token. `factory init` stores both in each repository's
+  is your Claude token, which lasts a year, and the factory warns you
+  in its last month
+  ([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+  `factory init` stores both in each repository's
   secrets, which is where the workflows read them. It also keeps both in
-  a file on your machine, which nothing reads but `factory init` itself,
+  a file on your machine, which only the `factory` command reads,
   to store them in your next repository without asking
   ([The file on your machine](#the-file-on-your-machine)). A second
   person joining your repository needs the two logins and the `factory`
@@ -206,11 +209,85 @@ them.
 
 Run `factory doctor`. **It worked when** it shows
 ✓ on every line, or - for a part you left off. It checks that you are
-signed in, and that each secret your parts read is set. It does not
-check the GitHub access token and the Claude token that `factory init`
-keeps on your machine. When GitHub refuses that access token, or it
-lacks a scope a part needs, `factory init` says so the next time it
-would store it, and asks for a new one.
+signed in, that each secret your parts read is set, and when the Claude
+token expires
+([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+It does not try the GitHub access token or the Claude token that
+`factory init` keeps on your machine. When GitHub refuses that access
+token, or it lacks a scope a part needs, `factory init` says so the next
+time it would store it, and asks for a new one.
+
+### When the Claude token's year is up
+
+For whoever stored the Claude token: you on your own account, or an
+owner of the organization. A token that `claude setup-token` makes lasts
+a year. After that, the automated review, the approval policies' agents,
+and builds in the cloud stop, and each of their runs fails with an error
+that names `CLAUDE_CODE_OAUTH_TOKEN`. If what you stored was an API key
+instead, the secret is named `ANTHROPIC_API_KEY`. A key has no fixed
+life, and nothing here applies to it.
+
+**To see when it ends,** run `factory doctor`. More than a month before
+the day, it prints a line like this one, for a token stored on
+2026-11-16, under `GitHub Actions`:
+
+```text
+✓ CLAUDE_CODE_OAUTH_TOKEN stops working by 2027-11-16, a year after it was stored
+```
+
+It counts from the day the token was stored in the repository, or, when
+your machine holds the day you pasted it and that is earlier, from that
+day. A teammate's line can then give a later day than yours.
+
+In its last 30 days, `factory doctor` and `factory status` print it with
+a `?` instead. It is a warning: nothing has stopped yet. A session shows
+it to you when it starts. For a token stored on 2025-12-10:
+
+```text
+? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it
+```
+
+In a repository an organization owns, it ends
+`An owner of acme runs factory init --org to replace it` instead. Once
+the day has passed, `factory doctor` marks the line ✗ and fails, so a
+script that runs it stops.
+
+**To replace it on your own account,** run `factory init` in the
+repository that printed the line. It asks `Make a new one now?`. Press
+Enter, and it runs `claude setup-token`, which may open your browser to
+sign in to Claude. If the browser gives you a code, that code goes
+to `claude setup-token`, not to `factory init`. Once
+`claude setup-token` has finished, copy the token it printed, the line
+that starts `sk-ant-oat01-`: that is the one `factory init` waits for.
+**It worked when** it prints
+`Stored for sam/notes, and on this machine for your next repository.`
+
+Each of your other repositories still holds the old token, and its
+review and builds stop on the old day. Run `factory init` in each. It
+asks
+`Store the one on this machine, pasted on 2026-11-27, in its place?`,
+which is the token you just made: press Enter, and it stores it with
+nothing to paste. **It worked when** it prints
+`✓ Stored 1 secret for sam/blog from this machine.`
+
+`factory init` never copies a token from your machine into a repository
+once it stops working in 30 days or fewer. It asks you to make a new
+one, as above.
+
+**To replace it in an organization,** an owner of the organization runs
+`factory init --org acme`, signed in to the GitHub CLI as themselves, as
+when they [set it up](github/setup.md#set-an-organization-up-once). It
+asks `Replace it now?`. Press Enter, and it runs `claude setup-token`;
+paste the `sk-ant-oat01-` token it prints, as in the step above. Every
+repository the organization shares the secret with reads the new one
+from then on. **It worked when** `factory doctor`, in any of those
+repositories, prints the ✓ line with a day a year from today.
+
+A developer who is not an owner cannot replace it. The organization's
+owners are listed on its People page on GitHub, under the Owner role.
+
+**A run that failed** because of the old token passes once the new one
+is stored: re-run it from its page on the Actions tab.
 
 ### Replacing the App's key
 
@@ -257,9 +334,17 @@ github:
 claude-code:
   github.com/sam:
     CLAUDE_CODE_OAUTH_TOKEN: sk-ant-oat01-...
+    pasted: 2026-11-27
 ```
 
-They are read from the file alone: a variable of the same name in your
+`pasted` is the day you gave `factory init` the Claude token, which
+`factory doctor` and `factory status` read to tell when its year is up
+([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+A file written by an earlier release has no `pasted` line, so the two
+commands count from the day GitHub gives until you next replace the
+token, which adds it.
+
+The two tokens are read from the file alone: a variable of the same name in your
 environment does not stand in for either. A repository an organization
 owns keeps neither here.
 

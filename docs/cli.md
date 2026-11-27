@@ -90,7 +90,10 @@ each tool's name, such as `GitHub` or `Claude Code`, then the parts you
 left off. Each check starts with a mark: ✓ works, ✗ needs fixing, ?
 worth a look, and - off on purpose. `doctor` exits 1 when a
 check fails. GitHub never lets a secret be read back, so `doctor` checks
-only that each secret your parts read is set. With the automated review
+that each secret your parts read is set, and gives the day the Claude
+token stops working, a year after it was stored
+([When the Claude token's year is up](credentials.md#when-the-claude-tokens-year-is-up)).
+With the automated review
 on, it checks that "Review verdict" is required before a merge to your
 default branch ([Changing it later](github/setup.md#changing-it-later)).
 Before the setup's pull request has merged, that line reads
@@ -101,7 +104,7 @@ says instead that the organization's secrets are not shared with the
 repository, and that the verdict cannot be required there
 ([On GitHub's Free plan](github/setup.md#on-githubs-free-plan)).
 A ticket system's token kept on your machine it checks with the ticket
-system itself. It does not check the GitHub access token and the Claude
+system itself. It does not try the GitHub access token and the Claude
 token that `init` keeps on your machine on your own account.
 
 `board check` prints two blocks, each headed by the setting it shows.
@@ -131,6 +134,10 @@ command exit 1.
 | `factory status --watch` | The same, read again every 15 seconds                   |
 | `factory build N`        | To build ticket N in the cloud. Prints the run's link   |
 | `factory pr watch N`     | To wait until pull request N needs you, and be told why |
+
+In the Claude token's last 30 days, `status` ends with a line that says
+when it stops working
+([When the Claude token's year is up](credentials.md#when-the-claude-tokens-year-is-up)).
 
 ## Now and then
 
