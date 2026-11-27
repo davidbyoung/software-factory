@@ -724,6 +724,23 @@ describe("factory init, the GitHub access token's days", () => {
     expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(NEW);
   });
 
+  it("leaves a token past its day to GitHub's check, which refuses it", async () => {
+    const r = nextRepo();
+    keep(r, { agent: AGENT });
+    writeCredential({
+      tool: "github",
+      site: SITE,
+      values: { token: EXPIRED, pasted: "2026-08-22", expires: "2026-11-20" },
+      env: r.env,
+    });
+    await r.run();
+    expect(r.out).toContain(
+      "GitHub refused the token on this machine for sam. It may have expired.",
+    );
+    expect(r.out.join("\n")).not.toContain("so it is not stored here");
+    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(NEW);
+  });
+
   it("does not copy a token whose file has no expiry when GitHub's check says it is near", async () => {
     const r = nextRepo(dated("2026-12-10"));
     keep(r, { token: GOOD, agent: AGENT });

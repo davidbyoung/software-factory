@@ -2325,7 +2325,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     }
     if (a.step === accessStep?.step) {
       if (accessNear === "new") continue;
-      if (accessNear === null && machineNear) {
+      // A token past its day is left to GitHub's check, which refuses it.
+      if (accessNear === null && machineNear?.stage === "soon") {
         stale.set(a.step, accessNotStoredLine(machineNear));
         continue;
       }
@@ -2338,7 +2339,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
           ? accessDay(served.kept?.expires ?? "", now)
           : null,
       );
-      if (checked) {
+      if (checked?.stage === "soon") {
         stale.set(a.step, accessNotStoredLine(checked));
         continue;
       }
