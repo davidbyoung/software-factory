@@ -241,11 +241,14 @@ export type CodeHost = {
    * NotSignedInError when it is signed in as nobody, or refused. */
   signedInAs(): Promise<string>;
   /** The account a token belongs to, and its scopes: null when the code
-   * host does not say, as for a token with fine-grained permissions.
-   * Rejects a token the code host refuses. */
-  tokenOwner(
-    token: string,
-  ): Promise<{ account: string; scopes: string[] | null }>;
+   * host does not say, as for a token with fine-grained permissions. Also
+   * the day it expires, as `YYYY-MM-DD` in UTC, or `never`. Rejects a token
+   * the code host refuses. */
+  tokenOwner(token: string): Promise<{
+    account: string;
+    scopes: string[] | null;
+    expires: string;
+  }>;
   /** The code host's names for the scopes a token needs to do these. */
   scopesFor(needs: TokenNeed[]): string[];
   /** The page that makes a token with these scopes, noted as `note`. */

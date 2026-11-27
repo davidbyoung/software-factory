@@ -503,7 +503,7 @@ describe("factory init, the access token", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it.",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.",
     );
   });
 
@@ -1029,7 +1029,7 @@ describe("factory init, word for word", () => {
         "Stored for acme/site, and on this machine for your next repository.",
         "",
         "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: acme/site",
-        "Check that push, workflows, and board are ticked, choose an expiry, and generate it.",
+        "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.",
         "? secret: Paste it (leave empty to do this later):",
         "It belongs to dave. Stored for acme/site, and on this machine for your next repository.",
         "",

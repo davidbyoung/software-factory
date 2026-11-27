@@ -616,9 +616,9 @@ export type Source = {
   inField: boolean;
   /** The clones `factory workspace` left on this machine. */
   clones: () => { key: Key; name: string; folder: string }[];
-  /** The line on the coding agent's token, from 30 days before the day it
-   * stops working, and null before then. */
-  token?: () => Promise<say.Line | null>;
+  /** The lines on the tokens, from 30 days before the day each stops
+   * working, and none before then. */
+  token?: () => Promise<say.Line[]>;
 };
 
 /** The open pull requests of each ticket that names several repositories,
@@ -805,8 +805,8 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   // Read once, whatever --watch draws; a failed read says nothing.
   let token: Promise<say.Line[]> | null = null;
   const tokenLines = (source: Source) =>
-    (token ??= (source.token?.() ?? Promise.resolve(null)).then(
-      (line) => (line ? [say.BLANK, line] : []),
+    (token ??= (source.token?.() ?? Promise.resolve([])).then(
+      (lines) => (lines.length ? [say.BLANK, ...lines] : []),
       () => [],
     ));
   if (hook) {
@@ -892,7 +892,7 @@ export function tokenReader(
     env?: Record<string, string | undefined>;
     now?: () => Date;
   } = {},
-): () => Promise<say.Line | null> {
+): () => Promise<say.Line[]> {
   return async () => {
     const [{ tokenWarning }, { TOOLS }, { hasCommand }] = await Promise.all([
       import("./doctor.mts"),

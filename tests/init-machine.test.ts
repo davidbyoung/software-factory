@@ -94,7 +94,9 @@ describe("factory init, a person's first repository", () => {
     expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(GOOD);
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
     expect(load(readFileSync(credentialsPath(r.env), "utf8"))).toEqual({
-      github: { [SITE]: { token: GOOD } },
+      github: {
+        [SITE]: { token: GOOD, pasted: "2026-11-27", expires: "never" },
+      },
       "claude-code": {
         [SITE]: { CLAUDE_CODE_OAUTH_TOKEN: AGENT, pasted: "2026-11-27" },
       },
@@ -257,7 +259,7 @@ describe("factory init, a token on this machine that no longer serves", () => {
       "GitHub refused the token on this machine for sam. It may have expired.",
       "",
       "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: sam/web",
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it.",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.",
       QUESTION,
     ]);
     expect(r.opened).toHaveLength(1);
@@ -511,5 +513,241 @@ describe("factory init, a Claude token in its last 30 days", () => {
     );
     expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([PASTE]);
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
+  });
+});
+
+describe("factory init, the GitHub access token's days", () => {
+  const NEW = "tok_new";
+  const dated = (expires?: string) => ({
+    [GOOD]: {
+      account: "sam",
+      scopes: ["push", "workflows", "board"],
+      ...(expires ? { expires } : {}),
+    },
+    [NEW]: {
+      account: "sam",
+      scopes: ["push", "workflows", "board"],
+      expires: "2027-02-25",
+    },
+  });
+
+  it("writes the day it was pasted and the day it expires beside it", async () => {
+    const r = sam({ tokens: dated("2027-02-25") });
+    await r.run();
+    expect(held(r, "github", "pasted")).toBe("2026-11-27");
+    expect(held(r, "github", "expires")).toBe("2027-02-25");
+  });
+
+  it("writes never for a token GitHub gives no expiry", async () => {
+    const r = sam({ tokens: dated() });
+    await r.run();
+    expect(held(r, "github", "expires")).toBe("never");
+  });
+
+  it("writes the expiry, and no paste day, when it stores a token from the machine that has none", async () => {
+    const r = sam({
+      remote: "git@github.com:sam/web.git",
+      tokens: dated("2027-02-25"),
+      answers: {
+        checkbox: [["board", "cloud"]],
+        select: ["new"],
+        confirm: [true],
+      },
+    });
+    keep(r, { token: GOOD, agent: AGENT });
+    await r.run();
+    expect(held(r, "github", "expires")).toBe("2027-02-25");
+    expect(held(r, "github", "pasted")).toBeNull();
+  });
+
+  it("suggests an expiry where it asks for the token", async () => {
+    const r = sam();
+    await r.run();
+    expect(r.out).toContain(
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.",
+    );
+  });
+
+  /** A repository set up with builds in the cloud, whose token is
+   * stored under FACTORY_BUILD_TOKEN on the day given, and a machine that
+   * holds a token pasted and expiring on the days given. */
+  const rerun = (
+    confirm: boolean[],
+    o: {
+      stored: string;
+      pasted: string;
+      expires: string;
+      secret?: string[];
+    },
+  ) => {
+    const r = sam({
+      settings: `version: 2\nrepository: sam/api\n${CODE_HOST_YAML}\n`,
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: AGENT, FACTORY_BUILD_TOKEN: GOOD },
+      stored: { FACTORY_BUILD_TOKEN: o.stored },
+      tokens: dated("2027-02-25"),
+      answers: { checkbox: [["cloud"]], confirm, secret: o.secret ?? [NEW] },
+    });
+    writeCredential({
+      tool: "github",
+      site: SITE,
+      values: { token: GOOD, pasted: o.pasted, expires: o.expires },
+      env: r.env,
+    });
+    return r;
+  };
+  const MAKE = "confirm: Make a new one now? Press Enter for yes:";
+  const STORE =
+    "confirm: Store the one on this machine in its place? Press Enter for yes:";
+
+  it("says when the token in its last 30 days expires, and asks to make a new one before the other secrets", async () => {
+    const r = rerun([true, false, true], {
+      stored: "2026-10-03T00:00:00Z",
+      pasted: "2026-10-03",
+      expires: "2026-12-10",
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "The GitHub access token expires on 2026-12-10, in 13 days.",
+    );
+    expect(r.asked.filter((q) => q.startsWith("confirm:"))).toEqual([
+      MAKE,
+      "confirm: 1 secret these parts read is already set. Replace it?",
+      "confirm: Go ahead?",
+    ]);
+  });
+
+  it("on yes, stores the new token in the repository and on this machine, with its days", async () => {
+    const r = rerun([true, false, true], {
+      stored: "2026-10-03T00:00:00Z",
+      pasted: "2026-10-03",
+      expires: "2026-12-10",
+    });
+    await r.run();
+    expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(NEW);
+    expect(held(r, "github", "token")).toBe(NEW);
+    expect(held(r, "github", "pasted")).toBe("2026-11-27");
+    expect(held(r, "github", "expires")).toBe("2027-02-25");
+    expect(r.out).toContain(
+      "Each of your other repositories keeps the old token until you run factory init there. It stores this one from your machine.",
+    );
+  });
+
+  it("asks to make a new one when only older secrets are here and the machine's token is near its day", async () => {
+    const r = rerun([true, false, true], {
+      stored: "2026-01-01T00:00:00Z",
+      pasted: "2026-10-03",
+      expires: "2026-12-10",
+    });
+    await r.run();
+    expect(r.asked).toContain(MAKE);
+    expect(r.asked).not.toContain(STORE);
+  });
+
+  const nearNow = (confirm: boolean[]) =>
+    rerun(confirm, {
+      stored: "2026-10-03T00:00:00Z",
+      pasted: "2026-10-03",
+      expires: "2026-12-10",
+      secret: [AGENT],
+    });
+
+  it("replaces nothing on no to making a new one", async () => {
+    // Make a new one: no; Replace it?: no; Go ahead: yes.
+    const r = nearNow([false, false, true]);
+    await r.run();
+    expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(GOOD);
+    expect(r.out.join("\n")).not.toContain("from this machine");
+  });
+
+  it("neither asks for the token nor stores it from the machine on a yes to Replace it? after that no", async () => {
+    // Make a new one: no; Replace it?: yes; Go ahead: yes.
+    const r = nearNow([false, true, true]);
+    await r.run();
+    expect(
+      r.asked.filter((q) => q.startsWith("secret:")).join("\n"),
+    ).not.toContain("Paste it (leave empty");
+    expect(r.out.join("\n")).not.toContain("from this machine");
+  });
+
+  it("offers the machine's newer token in place of an older one here, and stores it with nothing to paste", async () => {
+    const r = rerun([true, false, true], {
+      stored: "2026-10-01T00:00:00Z",
+      pasted: "2026-11-01",
+      expires: "2027-01-30",
+    });
+    await r.run();
+    expect(r.out).toContain(
+      "FACTORY_BUILD_TOKEN here was stored on 2026-10-01, before the GitHub access token on this machine, pasted on 2026-11-01.",
+    );
+    expect(r.asked).toContain(STORE);
+    expect(r.asked.filter((q) => q.startsWith("secret:"))).toEqual([]);
+    expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(GOOD);
+    expect(r.out).toContain("✓ Stored 1 secret for sam/api from this machine.");
+  });
+
+  it("asks nothing about a token far from its day that the repository's secrets hold", async () => {
+    const r = rerun([false, true], {
+      stored: "2026-11-01T00:00:00Z",
+      pasted: "2026-11-01",
+      expires: "2027-01-30",
+    });
+    await r.run();
+    expect(r.asked).not.toContain(MAKE);
+    expect(r.asked).not.toContain(STORE);
+  });
+
+  const nextRepo = (tokens = dated("2027-02-25")) =>
+    sam({
+      remote: "git@github.com:sam/web.git",
+      tokens,
+      answers: {
+        checkbox: [["board", "cloud"]],
+        select: ["new"],
+        confirm: [true],
+        secret: [NEW],
+      },
+    });
+
+  it("does not copy a token near its day from this machine into a new repository", async () => {
+    const r = nextRepo();
+    keep(r, { agent: AGENT });
+    writeCredential({
+      tool: "github",
+      site: SITE,
+      values: { token: GOOD, pasted: "2026-10-03", expires: "2026-12-10" },
+      env: r.env,
+    });
+    await r.run();
+    expect(r.out).toContain(
+      "The GitHub access token on this machine expires on 2026-12-10, in 13 days, so it is not stored here.",
+    );
+    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(NEW);
+  });
+
+  it("leaves a token past its day to GitHub's check, which refuses it", async () => {
+    const r = nextRepo();
+    keep(r, { agent: AGENT });
+    writeCredential({
+      tool: "github",
+      site: SITE,
+      values: { token: EXPIRED, pasted: "2026-08-22", expires: "2026-11-20" },
+      env: r.env,
+    });
+    await r.run();
+    expect(r.out).toContain(
+      "GitHub refused the token on this machine for sam. It may have expired.",
+    );
+    expect(r.out.join("\n")).not.toContain("so it is not stored here");
+    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(NEW);
+  });
+
+  it("does not copy a token whose file has no expiry when GitHub's check says it is near", async () => {
+    const r = nextRepo(dated("2026-12-10"));
+    keep(r, { token: GOOD, agent: AGENT });
+    await r.run();
+    expect(r.out).toContain(
+      "The GitHub access token on this machine expires on 2026-12-10, in 13 days, so it is not stored here.",
+    );
+    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(NEW);
   });
 });

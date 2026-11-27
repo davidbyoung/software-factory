@@ -1,11 +1,13 @@
-// The day the token `claude setup-token` makes stops working, a year after
-// it was made, and the lines `doctor`, `status`, and `init` say it in.
+// The day each token a person keeps on their machine stops working, and
+// the lines `doctor`, `status`, and `init` say it in. The token `claude
+// setup-token` makes stops a year after it was made.
 // GitHub never shows a secret, only the day it was last stored, so the day
 // is counted from that, or from the day `init` wrote beside the token on
 // this machine when that is earlier. A token is made before it is stored,
 // so the day can be early, never late.
 import { AGENT_TOKEN } from "../parts.mts";
 import type { Check } from "../setup.mts";
+import { listed } from "./listed.mts";
 import * as say from "./output.mts";
 
 /** How many days before the day the warning starts. */
@@ -155,3 +157,120 @@ export const notStoredLine = (t: TokenDay): string =>
   t.stage === "over"
     ? `The Claude token on this machine stopped working by ${t.day}, so it is not stored here.`
     : `The Claude token on this machine stops working by ${t.day}, ${when(t.left)}, so it is not stored here.`;
+
+/** The day a GitHub access token expires, from the `expires` `init` wrote
+ * beside it: a day, or `never`. Null for anything else. */
+export type AccessDay =
+  | { day: "never"; left: null; stage: "never" }
+  | { day: string; left: number; stage: Stage };
+
+export function accessDay(expires: string, now: Date): AccessDay | null {
+  if (expires === "never") return { day: "never", left: null, stage: "never" };
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(expires) ? dayOf(expires) : null;
+  if (day === null) return null;
+  const today = Date.parse(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
+  const left = Math.round((Date.parse(`${day}T00:00:00Z`) - today) / DAY_MS);
+  return { day, left, stage: stageOf(left) };
+}
+
+/** Which of the token's secrets set on the repository hold the machine's
+ * token, and which hold an older one, with the earliest day one of those
+ * was stored. One stored on or after the day the token was pasted holds
+ * it, since `init` stores it from the machine; with no such day, each
+ * does. */
+export type Holders = {
+  names: string[];
+  older: string[];
+  oldest: string | null;
+};
+
+export function holders(o: {
+  secrets: { name: string; stored: string }[];
+  names: string[];
+  pasted: string | null;
+}): Holders {
+  const out: Holders = { names: [], older: [], oldest: null };
+  for (const name of o.names) {
+    const set = o.secrets.find((x) => x.name === name);
+    if (!set) continue;
+    const day = dayOf(set.stored);
+    if (o.pasted === null || day === null || day >= o.pasted)
+      out.names.push(name);
+    else {
+      out.older.push(name);
+      if (out.oldest === null || day < out.oldest) out.oldest = day;
+    }
+  }
+  return out;
+}
+
+const ACCESS = "The GitHub access token";
+
+/** The line on secrets that hold an older token than the machine's. */
+const olderText = (t: AccessDay | null, older: string[]) =>
+  `${listed(older)} here ${older.length === 1 ? "is" : "are"} older than the GitHub access token on this machine. ${
+    t !== null && (t.stage === "soon" || t.stage === "over")
+      ? "Run factory init to replace it"
+      : "Run factory init to store that one in its place"
+  }`;
+
+/** `doctor`'s lines on the access token: its day, for the secrets that
+ * hold it, then the secrets that hold an older one. */
+export function accessChecks(t: AccessDay | null, h: Holders): Check[] {
+  const out: Check[] = [];
+  const names = listed(h.names);
+  if (t !== null && h.names.length)
+    out.push(
+      t.stage === "never"
+        ? { state: "pass", text: `${ACCESS} in ${names} has no expiry date` }
+        : t.stage === "fine"
+          ? { state: "pass", text: `${ACCESS} in ${names} expires on ${t.day}` }
+          : t.stage === "soon"
+            ? {
+                state: "unknown",
+                text: `${ACCESS} in ${names} expires on ${t.day}, ${when(t.left)}. Run factory init to replace it`,
+              }
+            : {
+                state: "fail",
+                text: `${ACCESS} in ${names} expired on ${t.day}`,
+                fix: "Run factory init",
+              },
+    );
+  if (h.older.length)
+    out.push({ state: "unknown", text: olderText(t, h.older) });
+  return out;
+}
+
+/** `status`'s lines on the access token: from 30 days before its day, and
+ * for secrets that hold an older one. */
+export function accessStatusLines(t: AccessDay | null, h: Holders): say.Line[] {
+  const out: say.Line[] = [];
+  if (t !== null && h.names.length && t.stage === "soon")
+    out.push(
+      say.mark(
+        "look",
+        `${ACCESS} expires on ${t.day}, ${when(t.left)}. Run factory init to replace it`,
+      ),
+    );
+  if (t !== null && h.names.length && t.stage === "over")
+    out.push(
+      say.mark("fail", `${ACCESS} expired on ${t.day}. Run factory init`),
+    );
+  if (h.older.length) out.push(say.mark("look", olderText(t, h.older)));
+  return out;
+}
+
+/** `init`'s line before it asks for a new access token. */
+export const accessNearLine = (t: AccessDay & { left: number }): string =>
+  t.stage === "over"
+    ? `${ACCESS} expired on ${t.day}.`
+    : `${ACCESS} expires on ${t.day}, ${when(t.left)}.`;
+
+/** `init`'s line before it offers the machine's newer token. */
+export const olderStoredLine = (h: Holders, pasted: string): string =>
+  `${listed(h.older)} here ${h.older.length === 1 ? "was" : "were"} stored on ${h.oldest}, before the GitHub access token on this machine, pasted on ${pasted}.`;
+
+/** `init`'s line for the access token on this machine that it does not
+ * store. */
+export const accessNotStoredLine = (t: AccessDay & { left: number }): string =>
+  `${ACCESS} on this machine expires on ${t.day}, ${when(t.left)}, so it is not stored here.`;

@@ -1015,7 +1015,7 @@ describe("main, near the Claude token's day", () => {
 
   it("ends with the warning, after the rows", async () => {
     const { d, out } = deps(
-      withToken(async () => mark("look", WARNING.slice(2))),
+      withToken(async () => [mark("look", WARNING.slice(2))]),
     );
     expect(await main([], d)).toBe(0);
     expect(out.at(-1)).toBe(WARNING);
@@ -1024,12 +1024,12 @@ describe("main, near the Claude token's day", () => {
 
   it("keeps its exit status when the warning is a failure", async () => {
     const { d, out } = deps(
-      withToken(async () =>
+      withToken(async () => [
         mark(
           "fail",
           "CLAUDE_CODE_OAUTH_TOKEN stopped working by 2026-11-10. Run factory init",
         ),
-      ),
+      ]),
     );
     expect(await main([], d)).toBe(0);
     expect(out.at(-1)).toBe(
@@ -1037,9 +1037,22 @@ describe("main, near the Claude token's day", () => {
     );
   });
 
+  it("ends with each token's line, after one blank line", async () => {
+    const access =
+      "? The GitHub access token expires on 2026-12-10, in 13 days. Run factory init to replace it";
+    const { d, out } = deps(
+      withToken(async () => [
+        mark("look", WARNING.slice(2)),
+        mark("look", access.slice(2)),
+      ]),
+    );
+    await main([], d);
+    expect(out.slice(-3)).toEqual(["", WARNING, access]);
+  });
+
   it("puts it after the hook's closing fence", async () => {
     const { d, out } = deps(
-      withToken(async () => mark("look", WARNING.slice(2))),
+      withToken(async () => [mark("look", WARNING.slice(2))]),
       () => new Promise(() => {}),
     );
     await main(["--hook"], d);
@@ -1047,7 +1060,7 @@ describe("main, near the Claude token's day", () => {
   });
 
   it.each<[string, Source["token"]]>([
-    ["there is no warning", async () => null],
+    ["there is no warning", async () => []],
     ["reading it fails", () => Promise.reject(new Error("gh: HTTP 403"))],
   ])(
     "prints just what it prints without a token when %s",
@@ -1088,13 +1101,13 @@ describe("main, near the Claude token's day", () => {
         now: () => new Date("2026-11-27T12:00:00Z"),
       },
     );
-    expect(plainOf((await read())!)).toBe(
+    expect((await read()).map(plainOf)).toEqual([
       "? CLAUDE_CODE_OAUTH_TOKEN stops working by 2026-12-10, in 13 days. Run factory init to replace it",
-    );
+    ]);
   });
 
   it("reads the token's day once under --watch", async () => {
-    const token = vi.fn(async () => mark("look", WARNING.slice(2)));
+    const token = vi.fn(async () => [mark("look", WARNING.slice(2))]);
     const stop = new Error("stop");
     let slept = 0;
     const { d } = deps(withToken(token), async () => {

@@ -91,8 +91,10 @@ left off. Each check starts with a mark: ✓ works, ✗ needs fixing, ?
 worth a look, and - off on purpose. `doctor` exits 1 when a
 check fails. GitHub never lets a secret be read back, so `doctor` checks
 that each secret your parts read is set, and gives the day the Claude
-token stops working, a year after it was stored
-([When the Claude token's year is up](credentials.md#when-the-claude-tokens-year-is-up)).
+token stops working, a year after it was stored, and, on your own
+account, the day the GitHub access token expires
+([When the Claude token's year is up](credentials.md#when-the-claude-tokens-year-is-up),
+[When the GitHub access token expires](credentials.md#when-the-github-access-token-expires)).
 With the automated review
 on, it checks that "Review verdict" is required before a merge to your
 default branch ([Changing it later](github/setup.md#changing-it-later)).
@@ -135,9 +137,11 @@ command exit 1.
 | `factory build N`        | To build ticket N in the cloud. Prints the run's link   |
 | `factory pr watch N`     | To wait until pull request N needs you, and be told why |
 
-In the Claude token's last 30 days, `status` ends with a line that says
-when it stops working
-([When the Claude token's year is up](credentials.md#when-the-claude-tokens-year-is-up)).
+In the last 30 days before the Claude token or, on your own account, the
+GitHub access token stops working, `status` ends with a line that says
+when
+([When the Claude token's year is up](credentials.md#when-the-claude-tokens-year-is-up),
+[When the GitHub access token expires](credentials.md#when-the-github-access-token-expires)).
 
 ## Now and then
 

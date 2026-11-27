@@ -137,23 +137,34 @@ export function readCredential(o: {
   return { state: "found", source: "file", values };
 }
 
-/** The day `init` wrote beside the token it was given for `tool` at
- * `site`, as `pasted`, or null when there is none or the file cannot be
- * read. It never reads the token. */
-export function pastedDay(o: {
-  tool: string;
-  site: string;
-  env?: Env;
-}): string | null {
+/** The days `init` wrote beside the token it keeps for `tool` at `site`:
+ * `pasted`, and `expires` for a token that expires, each null when there
+ * is none, with whether the file holds the entry at all. Nothing when the
+ * file cannot be read. It never reads the token. */
+export function keptDays(o: { tool: string; site: string; env?: Env }): {
+  held: boolean;
+  pasted: string | null;
+  expires: string | null;
+} {
+  const none = { held: false, pasted: null, expires: null };
   try {
     const doc = load(credentialsPath(o.env ?? process.env));
-    if (doc === null || "unreadable" in doc) return null;
-    const day = doc.getIn([o.tool, o.site, "pasted"]);
-    return typeof day === "string" && day ? day : null;
+    if (doc === null || "unreadable" in doc) return none;
+    const entry = doc.getIn([o.tool, o.site]);
+    if (!isMap(entry)) return none;
+    const day = (key: string) => {
+      const value = entry.get(key);
+      return typeof value === "string" && value ? value : null;
+    };
+    return { held: true, pasted: day("pasted"), expires: day("expires") };
   } catch {
-    return null;
+    return none;
   }
 }
+
+/** The `pasted` day of `keptDays`. */
+export const pastedDay = (o: { tool: string; site: string; env?: Env }) =>
+  keptDays(o).pasted;
 
 /** Whether the file has an entry for `tool` at `site`; null when it
  * cannot be read. */

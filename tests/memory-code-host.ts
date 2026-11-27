@@ -69,7 +69,10 @@ export type MemoryCodeHostOptions = {
    * owner unless given. */
   writers?: string[];
   /** Each token the code host knows: whose it is and its scopes. */
-  tokens?: Record<string, { account: string; scopes: string[] | null }>;
+  tokens?: Record<
+    string,
+    { account: string; scopes: string[] | null; expires?: string }
+  >;
   /** Whether adding a signing key first needs the sign-in's permission,
    * which `grantScope` then gives. */
   signingNeedsScope?: boolean;
@@ -539,7 +542,11 @@ export function memoryCodeHost(
       called("tokenOwner");
       const known = options.tokens?.[token];
       if (!known) throw new Error("The code host refused the token.");
-      return { ...known, scopes: known.scopes && [...known.scopes] };
+      return {
+        ...known,
+        scopes: known.scopes && [...known.scopes],
+        expires: known.expires ?? "never",
+      };
     },
     scopesFor: (needs) => [...needs],
     newTokenPage: (scopes, note) =>

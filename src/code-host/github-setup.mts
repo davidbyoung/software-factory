@@ -157,13 +157,13 @@ export const githubCodeHostSetup: ToolSetup = {
         intro: [
           "",
           `An access token: opening ${page}`,
-          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it.`,
+          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.`,
         ],
         get: { page },
         prompt: "Paste it (leave empty to do this later):",
         skipped: "No token stored.",
         verify: async (value) => {
-          let owned: { account: string; scopes: string[] | null };
+          let owned: Awaited<ReturnType<typeof codeHost.tokenOwner>>;
           try {
             owned = await codeHost.tokenOwner(value);
           } catch (e) {
@@ -180,6 +180,7 @@ export const githubCodeHostSetup: ToolSetup = {
             );
           return {
             account: owned.account,
+            kept: { expires: owned.expires },
             lines:
               owned.scopes === null
                 ? [
@@ -192,7 +193,7 @@ export const githubCodeHostSetup: ToolSetup = {
           `It belongs to ${account}. Stored as ${names.join(", ")}.`,
         machine: {
           serves: async (value, owner) => {
-            let owned: { account: string; scopes: string[] | null };
+            let owned: Awaited<ReturnType<typeof codeHost.tokenOwner>>;
             try {
               owned = await codeHost.tokenOwner(value);
             } catch {
@@ -217,7 +218,10 @@ export const githubCodeHostSetup: ToolSetup = {
                 `The token on this machine for ${owner} lacks ${listed(lacking)}, which ${listed(by)} need${by.length === 1 ? "s" : ""}.`,
               );
             }
-            return { account: owned.account };
+            return {
+              account: owned.account,
+              kept: { expires: owned.expires },
+            };
           },
         },
       },

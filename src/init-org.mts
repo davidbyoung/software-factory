@@ -40,7 +40,7 @@ import { listed } from "./lib/listed.mts";
 import { terminalAsk } from "./lib/prompts.mts";
 import { sameName, STATE_KEYS, type StateKey } from "./lib/work-status.mts";
 import { AGENT_TOKEN, APP_KEY } from "./parts.mts";
-import { tokenDay, when } from "./lib/claude-token.mts";
+import { tokenDay, when } from "./lib/token-day.mts";
 import { parsePreset, PRESET_FILE } from "./preset.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
 import { RULE, type SecretStep } from "./setup.mts";

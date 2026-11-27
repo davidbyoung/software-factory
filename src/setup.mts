@@ -57,7 +57,12 @@ export type SecretStep = {
   verify?: (
     value: string,
     say?: (line: string) => void,
-  ) => Promise<{ lines: string[]; account?: string }>;
+  ) => Promise<{
+    lines: string[];
+    account?: string;
+    /** Values to keep beside it in the file on the machine. */
+    kept?: Record<string, string>;
+  }>;
   /** Another secret that meets the same needs, which a command may offer
    * in this one's place. */
   or?: SecretStep;
@@ -68,7 +73,10 @@ export type SecretStep = {
    * the account the value belongs to, when the tool knows, and rejects
    * with the line to print before asking for another. */
   machine?: {
-    serves?: (value: string, owner: string) => Promise<{ account?: string }>;
+    serves?: (
+      value: string,
+      owner: string,
+    ) => Promise<{ account?: string; kept?: Record<string, string> }>;
   };
 };
 
