@@ -199,12 +199,12 @@ The factory SHALL behave as this line says: When the schedule is chosen, "Left t
 
 ### Requirement: The image to host
 
-The factory SHALL behave as this line says: When the server is chosen, "Left to do" reads "Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:VERSION, where you host it, with:" followed by today's four variables, VERSION being the installed factory's version.
+The factory SHALL behave as this line says: When the server is chosen, "Left to do" reads "Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:VERSION, where you host it, with:" followed by the variables "Init prints the poller's two variables" in board-poller names, VERSION being the installed factory's version.
 
 #### Scenario: The image to host
 
 - **WHEN** the server is chosen
-- **THEN** "Left to do" reads "Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:VERSION, where you host it, with:" followed by today's four variables, VERSION being the installed factory's version.
+- **THEN** "Left to do" reads "Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:VERSION, where you host it, with:" followed by the variables "Init prints the poller's two variables" in board-poller names, VERSION being the installed factory's version.
 
 ### Requirement: The part's description
 

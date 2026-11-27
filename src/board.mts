@@ -27,7 +27,6 @@ import {
   columnsOf,
   fieldNamesOf,
   loadSettings,
-  MAX_PER_HOUR,
   type Settings,
 } from "./config.mts";
 import {
@@ -275,14 +274,12 @@ const KIND_WORDS: Record<string, string> = {
 export function boardRows(
   fields: BoardField[],
   cfg: BoardConfig,
-  settings: Pick<Settings, "builds">,
   columnField: string,
 ): { columns: BoardRow[]; fields: BoardRow[] } {
   const find = (name: string) => fields.find((f) => sameName(f.name, name));
   const status = find(columnField) ?? null;
   const readable = status?.dataType === "SINGLE_SELECT";
   const options = readable ? (status.options ?? []).map((o) => o.name) : [];
-  const ready = cfg.columns.Ready?.[0] ?? null;
 
   const columns: BoardRow[] = (Object.keys(STATE_KEYS) as StateKey[]).map(
     (key) => {
@@ -304,12 +301,6 @@ export function boardRows(
           state: "fail",
           key,
           text: `${joined}: no such column on the board${names.length > 1 ? `: ${missing.join(", ")}` : ""}`,
-        };
-      if (key === "ready" && settings.builds.trigger === "own-server")
-        return {
-          state: "unknown",
-          key,
-          text: `${joined}: the poller needs FACTORY_READY_COLUMN set to "${ready}"`,
         };
       return { state: "pass", key, text: joined };
     },
@@ -385,35 +376,10 @@ export function boardReport(
   number: number,
   board: Board,
   cfg: BoardConfig,
-  settings: Pick<Settings, "builds">,
 ): say.Line[] {
-  const rows = boardRows(board.fields, cfg, settings, board.columnField);
+  const rows = boardRows(board.fields, cfg, board.columnField);
   const row = (r: BoardRow) =>
     say.row(r.key, r.text, { width: 10, mark: MARKS[r.state] });
-  // A poller you host has no settings file, so it is told what differs
-  // from the defaults, as it is told the ready column.
-  const hosted = settings.builds.trigger === "own-server";
-  const poller: say.Line[] = [];
-  if (hosted && cfg.factory !== TICKET_LABELS.factory)
-    poller.push(
-      say.BLANK,
-      say.heading("tickets.labels"),
-      row({
-        state: "unknown",
-        key: "label",
-        text: `${cfg.factory}: the poller needs FACTORY_LABEL set to "${cfg.factory}"`,
-      }),
-    );
-  if (hosted && settings.builds.maxPerHour !== MAX_PER_HOUR)
-    poller.push(
-      say.BLANK,
-      say.heading("builds"),
-      row({
-        state: "unknown",
-        key: "builds",
-        text: `${settings.builds.maxPerHour} an hour: the poller needs FACTORY_MAX_PER_HOUR set to ${settings.builds.maxPerHour}`,
-      }),
-    );
   return [
     board.title
       ? say.text(`Board ${number}, `, say.name(`"${board.title}"`))
@@ -424,7 +390,6 @@ export function boardReport(
     say.BLANK,
     say.heading("tickets.fields"),
     ...rows.fields.map(row),
-    ...poller,
   ];
 }
 
@@ -981,9 +946,8 @@ export async function main(argv: string[], deps: Deps): Promise<number> {
     if (argv[0] === "check") {
       const found = await boardOps.read();
       const number = await projectNumber(deps);
-      for (const line of boardReport(number, found, config, settings))
-        d.out(line);
-      const rows = boardRows(found.fields, config, settings, found.columnField);
+      for (const line of boardReport(number, found, config)) d.out(line);
+      const rows = boardRows(found.fields, config, found.columnField);
       return [...rows.columns, ...rows.fields].some((r) => r.state === "fail")
         ? 1
         : 0;

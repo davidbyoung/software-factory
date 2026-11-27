@@ -13,6 +13,8 @@ import {
   onceSettings,
   presetSettings,
   readConfig,
+  serve,
+  hosted,
   sources,
   selectToStart,
   stamped,
@@ -49,6 +51,8 @@ const ENV = {
 };
 const DISPATCH =
   "https://api.github.com/repos/acme/widgets/actions/workflows/factory.yml/dispatches";
+const LOCK_URL =
+  "https://api.github.com/repos/acme/widgets/contents/.claude/factory.lock";
 
 describe("selectToStart", () => {
   it("starts Ready tickets in key order, letters first and then the number as a number", () => {
@@ -253,6 +257,9 @@ function fakeFetch(answers: {
   boardPage?: unknown;
   /** The repository's page, in place of the recorded one. */
   repoPage?: unknown;
+  /** `.claude/factory.lock` on the default branch: its text, or GitHub's
+   * answer. Not found unless given. */
+  lock?: string | Answer;
 }) {
   const calls: {
     url: string;
@@ -303,6 +310,15 @@ function fakeFetch(answers: {
       return respond(answers.blockers ?? { status: 200, body: [] });
     if (url.endsWith("/comments"))
       return respond(answers.comment ?? { status: 201, body: { id: 1 } });
+    if (url === LOCK_URL)
+      return respond(
+        typeof answers.lock === "string"
+          ? {
+              status: 200,
+              body: { content: Buffer.from(answers.lock).toString("base64") },
+            }
+          : (answers.lock ?? { status: 404, body: { message: "Not Found" } }),
+      );
     throw new Error(`unexpected fetch ${url}`);
   }) as typeof fetch;
   return { run, calls };
@@ -632,6 +648,479 @@ describe("tick", () => {
     await tick(d, state);
 
     expect(logs.join("\n")).not.toMatch(/secret/);
+  });
+});
+
+describe("the poller you host", () => {
+  /** A lock as `factory sync` writes it, written by factory `version`, with
+   * `tickets` and `settings` adding lines under each. */
+  function lockOf(
+    o: {
+      version?: string;
+      ready?: string;
+      label?: string;
+      max?: number;
+      trigger?: string;
+      board?: string;
+      tickets?: string[];
+      settings?: string[];
+    } = {},
+  ) {
+    return [
+      "# Written by `factory sync`. Do not edit.",
+      `version: ${o.version ?? "0.2.0"}`,
+      "presets: []",
+      "settings:",
+      "  version: 2",
+      "  repository: acme/widgets",
+      "  tickets:",
+      "    type: github",
+      // `factory config check` refuses columns with no board.
+      ...(o.board === "none"
+        ? []
+        : [
+            `    board: ${o.board ?? 1}`,
+            "    columns:",
+            "      backlog: Backlog",
+            "      refining: In refinement",
+            `      ready: ${o.ready ?? "Ready"}`,
+            "      building: In progress",
+            "      review: In review",
+            "      done: Done",
+          ]),
+      "    labels:",
+      `      factory: ${o.label ?? "factory"}`,
+      ...(o.tickets ?? []).map((l) => `    ${l}`),
+      "  builds:",
+      `    trigger: ${o.trigger ?? "own-server"}`,
+      `    max-per-hour: ${o.max ?? 20}`,
+      ...(o.settings ?? []).map((l) => `  ${l}`),
+      "",
+    ].join("\n");
+  }
+
+  /** A hosted poller of acme/widgets at 0.2.0. `answers.lock` can be
+   * swapped between passes. */
+  function host(
+    over: Parameters<typeof fakeFetch>[0] = {},
+    env: Deps["env"] = { FACTORY_BOARD_TOKEN: "ghp_secret_github" },
+  ) {
+    const answers: Parameters<typeof fakeFetch>[0] = {
+      lock: lockOf(),
+      ...over,
+    };
+    const s = setup(answers, env);
+    s.d.version = "0.2.0";
+    return { ...s, answers };
+  }
+
+  const SETTINGS_LINE =
+    'settings from .claude/factory.lock on trunk: board 1, ready column "Ready", label "factory", 20 builds an hour';
+  const MANUAL =
+    "not polling: builds.trigger is manual on trunk, not own-server";
+
+  it("starts a card in the ready column the lock names", async () => {
+    const { d, state, dispatches } = host();
+
+    await hosted(d, state);
+
+    expect(dispatches()).toEqual([
+      { ref: "trunk", inputs: { job: "build", ticket: "12" } },
+    ]);
+  });
+
+  it("starts no card in Ready when the lock names another column, whatever FACTORY_READY_COLUMN says", async () => {
+    const { d, state, dispatches } = host(
+      { lock: lockOf({ ready: "Approved" }) },
+      {
+        FACTORY_BOARD_TOKEN: "ghp_secret_github",
+        FACTORY_READY_COLUMN: "Ready",
+      },
+    );
+
+    await hosted(d, state);
+
+    expect(dispatches()).toEqual([]);
+  });
+
+  it("reads the board the lock names, owned by the repository's owner, whatever the old variables say", async () => {
+    const { d, state, calls } = host(
+      { lock: lockOf({ board: "7" }) },
+      {
+        FACTORY_BOARD_TOKEN: "ghp_secret_github",
+        FACTORY_BOARD_OWNER: "someone-else",
+        FACTORY_BOARD_NUMBER: "1",
+      },
+    );
+
+    await hosted(d, state);
+
+    const boards = calls
+      .filter((c) => c.url.endsWith("/graphql"))
+      .map((c) => JSON.parse(c.body))
+      .filter((b) => b.query.includes("projectV2"))
+      .map((b) => [b.variables.owner, b.variables.number]);
+    expect(boards.length).toBeGreaterThan(0);
+    expect(new Set(boards.map(String))).toEqual(new Set(["acme,7"]));
+  });
+
+  it("finds tickets by the label the lock names, whatever FACTORY_LABEL says", async () => {
+    const renamed = JSON.parse(
+      JSON.stringify(repoPages[0]).replaceAll(
+        '{"name":"factory"}',
+        '{"name":"built-by-factory"}',
+      ),
+    );
+    const { d, state, dispatches } = host(
+      { repoPage: renamed, lock: lockOf({ label: "built-by-factory" }) },
+      { FACTORY_BOARD_TOKEN: "ghp_secret_github", FACTORY_LABEL: "factory" },
+    );
+
+    await hosted(d, state);
+
+    expect(dispatches()).toHaveLength(1);
+  });
+
+  it("keeps the hourly cap the lock sets, whatever FACTORY_MAX_PER_HOUR says", async () => {
+    const { d, state, dispatches, logs } = host(
+      {
+        ...withStarts({ ready: 5, started: 0, minutesAgo: 0 }),
+        lock: lockOf({ max: 2 }),
+      },
+      { FACTORY_BOARD_TOKEN: "ghp_secret_github", FACTORY_MAX_PER_HOUR: "20" },
+    );
+
+    await hosted(d, state);
+
+    expect(dispatches()).toHaveLength(2);
+    expect(logs).toContainEqual(
+      expect.stringMatching(/waits: 2 builds started in the last hour/),
+    );
+  });
+
+  it("logs the settings it read once while they stay the same", async () => {
+    const { d, state, logs } = host();
+
+    await hosted(d, state);
+    await hosted(d, state);
+
+    expect(logs.filter((l) => l.startsWith("settings from"))).toEqual([
+      SETTINGS_LINE,
+    ]);
+  });
+
+  it.each([
+    [
+      { ready: "Approved" },
+      'board 1, ready column "Approved", label "factory", 20 builds an hour',
+    ],
+    [
+      { board: "7" },
+      'board 7, ready column "Ready", label "factory", 20 builds an hour',
+    ],
+    [
+      { label: "built" },
+      'board 1, ready column "Ready", label "built", 20 builds an hour',
+    ],
+    [
+      { max: 5 },
+      'board 1, ready column "Ready", label "factory", 5 builds an hour',
+    ],
+  ])("logs the settings again when %o changes", async (change, read) => {
+    const { d, state, logs, answers } = host();
+    await hosted(d, state);
+    answers.lock = lockOf(change);
+
+    await hosted(d, state);
+
+    expect(logs.filter((l) => l.startsWith("settings from"))).toEqual([
+      SETTINGS_LINE,
+      `settings from .claude/factory.lock on trunk: ${read}`,
+    ]);
+  });
+
+  it.each([
+    [
+      { FACTORY_LABEL: "factory" },
+      "FACTORY_LABEL is no longer read: the settings on trunk are. Take it out of the poller's environment.",
+    ],
+    [
+      {
+        FACTORY_MAX_PER_HOUR: "20",
+        FACTORY_BOARD_OWNER: "acme",
+        FACTORY_READY_COLUMN: "Ready",
+        FACTORY_BOARD_NUMBER: " ",
+      },
+      "FACTORY_BOARD_OWNER, FACTORY_READY_COLUMN, FACTORY_MAX_PER_HOUR are no longer read: the settings on trunk are. Take them out of the poller's environment.",
+    ],
+  ])(
+    "names the variables it no longer reads, once, before the settings",
+    async (old, line) => {
+      const { d, state, logs } = host(
+        {},
+        { FACTORY_BOARD_TOKEN: "ghp_secret_github", ...old },
+      );
+
+      await hosted(d, state);
+      await hosted(d, state);
+
+      expect(logs.filter((l) => l.includes("no longer read"))).toEqual([line]);
+      expect(logs.indexOf(line)).toBeLessThan(logs.indexOf(SETTINGS_LINE));
+    },
+  );
+
+  it("names no variable when none of the old ones is set", async () => {
+    const { d, state, logs } = host();
+
+    await hosted(d, state);
+
+    expect(logs.join("\n")).not.toMatch(/no longer read/);
+  });
+
+  it.each([
+    [
+      "no lock on the default branch",
+      { lock: { status: 404, body: { message: "Not Found" } } },
+      "no .claude/factory.lock on trunk yet. Merge the pull request that sets the factory up.",
+    ],
+    [
+      "a manual trigger",
+      { lock: lockOf({ trigger: "manual" }) },
+      "builds.trigger is manual on trunk, not own-server",
+    ],
+    [
+      "a schedule",
+      { lock: lockOf({ trigger: "github-action" }) },
+      "builds.trigger is github-action on trunk, not own-server",
+    ],
+    [
+      "no board",
+      { lock: lockOf({ board: "none" }) },
+      "tickets.board is not set on trunk",
+    ],
+    [
+      "a cap it can't read, from its own release",
+      { lock: lockOf({ max: 0 }) },
+      ".claude/factory.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more",
+    ],
+    [
+      "a cap it can't read, from another release",
+      { lock: lockOf({ max: 0, version: "0.3.0" }) },
+      ".claude/factory.lock on trunk: builds.max-per-hour: must be a whole number, 1 or more (written by factory 0.3.0, and this poller is 0.2.0: run ghcr.io/davidbyoung/software-factory-poller:0.3.0)",
+    ],
+    [
+      "a ready column of none",
+      { lock: lockOf({ ready: "none" }) },
+      ".claude/factory.lock on trunk: tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
+    ],
+    [
+      "a lock with no settings",
+      { lock: "version: 0.1.0\npresets: []\n" },
+      ".claude/factory.lock on trunk: is from an earlier version of the factory. Run: factory sync (written by factory 0.1.0, and this poller is 0.2.0: run ghcr.io/davidbyoung/software-factory-poller:0.1.0)",
+    ],
+  ])("starts nothing with %s, and says why", async (_, answers, reason) => {
+    const { d, state, logs, comments, dispatches } = host(answers);
+
+    await hosted(d, state);
+
+    expect(dispatches()).toEqual([]);
+    expect(comments()).toEqual([]);
+    expect(logs).toEqual([`not polling: ${reason}`]);
+  });
+
+  it("starts nothing with a lock whose columns leave out the ready one, and says why", async () => {
+    const { d, state, logs, dispatches } = host({
+      lock: lockOf().replace("      ready: Ready\n", ""),
+    });
+
+    await hosted(d, state);
+
+    expect(dispatches()).toEqual([]);
+    expect(logs).toEqual([
+      "not polling: .claude/factory.lock on trunk: tickets.columns.ready: no column shows ready, so nothing would start a build: name one, or set builds.trigger to manual",
+    ]);
+  });
+
+  it("reads no lock when the default branch can't be read, and counts it", async () => {
+    const { d, state, logs, calls } = host({
+      repo: { status: 500, statusText: "Server Error" },
+    });
+
+    await hosted(d, state);
+
+    expect(calls.map((c) => c.url)).not.toContain(LOCK_URL);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatch(/^default branch not read: /);
+    expect(state.failuresInARow).toBe(1);
+  });
+
+  it("starts nothing with a lock that is not YAML, and gives the parser's first line", async () => {
+    const { d, state, logs, dispatches } = host({ lock: "version: [0.2.0\n" });
+
+    await hosted(d, state);
+
+    expect(dispatches()).toEqual([]);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatch(
+      /^not polling: \.claude\/factory\.lock on trunk: \S/,
+    );
+    expect(logs[0]).not.toContain("\n");
+  });
+
+  it("names the factory's own version when the test gives none", async () => {
+    const own = JSON.parse(readFileSync("package.json", "utf8")).version;
+    const { d, state, logs } = host({
+      lock: lockOf({ max: 0, version: "9.9.9" }),
+    });
+    delete d.version;
+
+    await hosted(d, state);
+
+    expect(logs[0]).toContain(`and this poller is ${own}:`);
+  });
+
+  it("reads past keys and values it does not use", async () => {
+    const { d, state, dispatches } = host({
+      lock: lockOf({
+        version: "0.3.0",
+        tickets: ["triage: Inbox"],
+        settings: [
+          "  poll-minutes: 7",
+          "commands:",
+          "  gate: 12",
+          "newer-setting: true",
+        ],
+      }),
+    });
+
+    await hosted(d, state);
+
+    expect(dispatches()).toHaveLength(1);
+  });
+
+  it("logs a reason once while it holds", async () => {
+    const { d, state, logs } = host({ lock: lockOf({ trigger: "manual" }) });
+
+    await hosted(d, state);
+    await hosted(d, state);
+
+    expect(logs).toEqual([MANUAL]);
+  });
+
+  it("logs a reason again when it changes to another", async () => {
+    const { d, state, logs, answers } = host({
+      lock: { status: 404, body: { message: "Not Found" } },
+    });
+    await hosted(d, state);
+    answers.lock = lockOf({ trigger: "manual" });
+
+    await hosted(d, state);
+
+    expect(logs).toEqual([
+      "not polling: no .claude/factory.lock on trunk yet. Merge the pull request that sets the factory up.",
+      MANUAL,
+    ]);
+  });
+
+  it("repeats a reason that holds in its hourly heartbeat", async () => {
+    const { d, state, logs } = host({ lock: lockOf({ trigger: "manual" }) });
+    await hosted(d, state);
+    d.now = () => NOW + 3_600_000;
+
+    await hosted(d, state);
+
+    expect(logs).toEqual([
+      MANUAL,
+      "heartbeat: not polling: builds.trigger is manual on trunk, not own-server",
+    ]);
+  });
+
+  it("resets the count of failed reads at a pass that read the lock, even one that polls nothing", async () => {
+    const { d, state } = host({ lock: lockOf({ trigger: "manual" }) });
+    state.failuresInARow = 3;
+
+    await hosted(d, state);
+
+    expect(state.failuresInARow).toBe(0);
+  });
+
+  it("polls again at the first pass after the reason clears", async () => {
+    const { d, state, logs, dispatches, answers } = host({
+      lock: lockOf({ trigger: "manual" }),
+    });
+    await hosted(d, state);
+    answers.lock = lockOf();
+
+    await hosted(d, state);
+
+    expect(dispatches()).toHaveLength(1);
+    expect(logs.slice(0, 2)).toEqual([MANUAL, SETTINGS_LINE]);
+  });
+
+  it("uses nothing it read at an earlier pass once the lock can't be read", async () => {
+    const { d, state, dispatches, answers } = host();
+    await hosted(d, state);
+    const before = dispatches().length;
+    answers.lock = lockOf({ max: 0 });
+
+    await hosted(d, state);
+
+    expect(dispatches()).toHaveLength(before);
+  });
+
+  it("counts a failed read of the lock toward the slower retry", async () => {
+    const { d, state, logs, dispatches } = host({
+      lock: { status: 500, statusText: "Server Error" },
+    });
+
+    await hosted(d, state);
+
+    expect(state.failuresInARow).toBe(1);
+    expect(logs[0]).toMatch(/^read failed \(1 in a row\): /);
+    expect(dispatches()).toEqual([]);
+  });
+
+  it.each([{}, { FACTORY_BOARD_TOKEN: "  " }])(
+    "polls nothing without a token, and counts it",
+    async (env) => {
+      const { d, state, calls, logs } = host({}, env);
+
+      await hosted(d, state);
+
+      expect(calls).toEqual([]);
+      expect(logs).toEqual(["not polling: FACTORY_BOARD_TOKEN not set"]);
+      expect(state.failuresInARow).toBe(1);
+    },
+  );
+
+  it("names its repository when it starts, before its first pass", async () => {
+    const { d, logs } = host({}, {});
+
+    await serve(d, async () => {}, 1);
+
+    expect(logs).toEqual([
+      "ready-poller started for acme/widgets",
+      "not polling: FACTORY_BOARD_TOKEN not set",
+    ]);
+  });
+
+  it("counts a board that keeps failing, past a good read of the lock, and backs off after ten", async () => {
+    const { d, logs } = host({ graphql: { status: 502 } });
+    const waits: number[] = [];
+
+    await serve(d, async (ms) => waits.push(ms), 11);
+
+    expect(waits).toEqual([...Array(9).fill(60_000), 600_000]);
+    expect(logs.at(-1)).toMatch(/^read failed \(11 in a row\): /);
+  });
+
+  it("waits a minute between passes, and ten once ten in a row have failed", async () => {
+    const { d } = host({}, {});
+    const waits: number[] = [];
+
+    await serve(d, async (ms) => waits.push(ms), 11);
+
+    expect(waits).toEqual([...Array(9).fill(60_000), 600_000]);
   });
 });
 
