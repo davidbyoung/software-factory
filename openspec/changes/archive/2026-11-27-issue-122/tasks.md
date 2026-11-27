@@ -22,7 +22,7 @@
 ## 3. Verify
 
 - [x] 3.1 Map each Spec line to its test: 1 to 1.5, 2 to 1.1 and 1.2, 3 to 1.6 and 3.2, 4 to 1.5 and 3.2, 5 to 1.7, 6 to the existing follow-ups rows of "which job an event starts" read through 1.1, and 7 to its push row. Name any line without one and write it.
-- [ ] 3.2 After `factory pr open --draft`, push the branch and run its own workflows by hand, which runs its `run.yml` and the groups it calls: `gh workflow run factory.yml --ref BRANCH -f job=board`, and `gh workflow run factory.yml --ref BRANCH -f job=order -f pr=N` with this pull request's number. Each run must pass, and its jobs must read as Spec 3 and 4 say: `factory / Tickets / Sync the board` and `factory / Pull request / Record the verdict` among the run's jobs, and each other call one skipped row. Put both runs' job lists in the pull request. Verify: `gh run view RUN --json jobs --jq '.jobs[].name'` for each.
+- [x] 3.2 After `factory pr open --draft`, push the branch and run its own workflows by hand, which runs its `run.yml` and the groups it calls: `gh workflow run factory.yml --ref BRANCH -f job=board`, and `gh workflow run factory.yml --ref BRANCH -f job=order -f pr=N` with this pull request's number. Each run must pass, and its jobs must read as Spec 3 and 4 say: `factory / Tickets / Sync the board` and `factory / Pull request / Record the verdict` among the run's jobs, and each other call one skipped row. Put both runs' job lists in the pull request. Verify: `gh run view RUN --json jobs --jq '.jobs[].name'` for each.
 
 ## 4. The gate
 
