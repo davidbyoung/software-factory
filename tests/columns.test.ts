@@ -959,7 +959,7 @@ describe("factory board check", () => {
       "code-host": CODE_HOST,
       ...yaml,
     });
-    return boardReport(7, board, boardConfigOf(s), s).map(plainOf);
+    return boardReport(7, board, boardConfigOf(s)).map(plainOf);
   };
   const rowOf = (lines: string[], key: string) =>
     lines.find((l) => l.slice(4).startsWith(`${key} `) || l.slice(4) === key);
@@ -1025,7 +1025,7 @@ describe("factory board check", () => {
     );
   });
 
-  it("reminds an own-server poller of its ready column, unless the column is missing", () => {
+  it("shows an own-server poller's ready column as any other trigger's, and fails it when missing", () => {
     const yaml = (trigger: string) => ({
       builds: { trigger },
       tickets: {
@@ -1037,9 +1037,6 @@ describe("factory board check", () => {
       SIX.map((c) => (c === "Ready" ? "Ready for dev" : c)),
     );
     expect(rowOf(report(yaml("own-server"), withColumn), "ready")).toBe(
-      '  ? ready      Ready for dev: the poller needs FACTORY_READY_COLUMN set to "Ready for dev"',
-    );
-    expect(rowOf(report(yaml("github-action"), withColumn), "ready")).toBe(
       "  ✓ ready      Ready for dev",
     );
     expect(rowOf(report(yaml("own-server"), fullBoard(SIX)), "ready")).toBe(
@@ -1047,17 +1044,7 @@ describe("factory board check", () => {
     );
   });
 
-  it("reminds an own-server poller of a ready column called Ready too", () => {
-    const yaml = {
-      builds: { trigger: "own-server" },
-      tickets: { board: 7, columns: FACTORY_COLUMNS },
-    };
-    expect(rowOf(report(yaml, fullBoard(SIX)), "ready")).toBe(
-      '  ? ready      Ready: the poller needs FACTORY_READY_COLUMN set to "Ready"',
-    );
-  });
-
-  it("names the poller's label and cap where the settings differ from the defaults", () => {
+  it("names no poller variable, even where the label and cap differ from the defaults", () => {
     const lines = report(
       {
         builds: { trigger: "own-server", "max-per-hour": 40 },
@@ -1069,39 +1056,9 @@ describe("factory board check", () => {
       },
       fullBoard(SIX),
     );
-    expect(lines.slice(-6)).toEqual([
-      "",
-      "tickets.labels",
-      '  ? label      built-by-factory: the poller needs FACTORY_LABEL set to "built-by-factory"',
-      "",
-      "builds",
-      "  ? builds     40 an hour: the poller needs FACTORY_MAX_PER_HOUR set to 40",
-    ]);
-  });
-
-  it("names neither at their defaults, nor without a poller to host", () => {
-    const own = report(
-      {
-        builds: { trigger: "own-server" },
-        tickets: { board: 7, columns: FACTORY_COLUMNS },
-      },
-      fullBoard(SIX),
-    );
-    const scheduled = report(
-      {
-        builds: { trigger: "github-action", "max-per-hour": 40 },
-        tickets: {
-          board: 7,
-          columns: FACTORY_COLUMNS,
-          labels: { factory: "x" },
-        },
-      },
-      fullBoard(SIX),
-    );
-    for (const lines of [own, scheduled]) {
-      expect(lines).not.toContain("tickets.labels");
-      expect(lines).not.toContain("builds");
-    }
+    expect(lines).not.toContain("tickets.labels");
+    expect(lines).not.toContain("builds");
+    expect(lines.join("\n")).not.toMatch(/the poller needs/);
   });
 
   it("fails a missing Status field, prints the states without a mark, and no extra column", async () => {
@@ -1186,7 +1143,7 @@ describe("factory board check", () => {
         fields: { cost: "none" },
       },
     });
-    const report = boardReport(7, stockBoard(), boardConfigOf(s), s).map(look);
+    const report = boardReport(7, stockBoard(), boardConfigOf(s)).map(look);
     expect(report.slice(0, 3)).toEqual([
       'Board 7, {name:"Roadmap"}',
       "",
@@ -1379,7 +1336,6 @@ describe("a state with a list of columns", () => {
         3,
         { ...listBoard([]), fields: [statusField(...names)] },
         CONFIG,
-        LIST,
       ).map(plainOf);
     expect(report(BOARD_NAMES)).toContain("  ✓ review     Code review, QA");
     expect(report(BOARD_NAMES)).toContain(
