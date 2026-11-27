@@ -14,6 +14,7 @@
 // branch's.
 import { SESSION_MINUTES, type SessionKind } from "./config.mts";
 import { PR_LABELS } from "./labels.mts";
+import { FACTORY_REPOSITORY } from "./lib/docs-page.mts";
 
 export const FACTORY_FILE = ".github/workflows/factory.yml";
 export const REVIEW_FILE = ".github/workflows/factory-review.yml";
@@ -31,9 +32,8 @@ export const FACTORY_EVENTS = [
  * read, since it runs with the repository's secrets. */
 export const HELD_EVENT = "pull_request_target";
 
-/** The factory's own repository, and where its workflows are in it, for a
- * repository that calls them. */
-export const FACTORY_REPOSITORY = "davidbyoung/software-factory";
+export { FACTORY_REPOSITORY };
+/** Where the factory's workflows are, for a repository that calls them. */
 const HOME = `${FACTORY_REPOSITORY}/.github/workflows`;
 
 /** The schedules run.yml tells apart by their text. Any other line of the

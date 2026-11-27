@@ -41,6 +41,7 @@ import {
   type Status,
 } from "./lib/work-status.mts";
 import * as say from "./lib/output.mts";
+import { DOCS_PAGES, docsPage, installedVersion } from "./lib/docs-page.mts";
 
 export class SettingsError extends Error {}
 
@@ -1240,7 +1241,7 @@ export function parseSettings(
     if (written.version === 1)
       fail(
         "version",
-        'must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+        `must be 2: this file is version 1, see ${docsPage(installedVersion(), DOCS_PAGES.settingsVersion2)}`,
       );
     if (written.version !== 2) fail("version", "must be 2");
     for (const key of ["before-commit", "build-setup"])

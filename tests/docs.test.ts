@@ -16,6 +16,7 @@ import {
 } from "../src/config.mts";
 import { factoryWorkflow } from "../src/workflow-files.mts";
 import { ROLES as LOOKS } from "../src/lib/output.mts";
+import { DOCS_PAGES } from "../src/lib/docs-page.mts";
 
 const PACKAGE = ".";
 const CLI = "docs/cli.md";
@@ -1137,4 +1138,16 @@ describe("the docs on run.yml's groups", () => {
     ))
       expect(table.None).toContain(job.name);
   });
+});
+
+describe("the pages the commands print", () => {
+  it.each(Object.entries(DOCS_PAGES))(
+    "has the page and the heading %s names",
+    (_, address) => {
+      const [page, anchor] = address.split("#") as [string, string?];
+      expect(existsSync(join(PACKAGE, "docs", page))).toBe(true);
+      if (anchor)
+        expect([...anchorsOf(read(`docs/${page}`))]).toContain(anchor);
+    },
+  );
 });

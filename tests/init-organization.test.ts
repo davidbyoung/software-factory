@@ -120,7 +120,7 @@ describe("factory init, in an organization's repository that is set up", () => {
       "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
       "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
       "The steps in full:",
-      "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/quick-start.md#4-open-a-ticket",
+      "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket",
       "",
       "Checks",
       "  ✓ Every check passed",
@@ -168,7 +168,7 @@ describe("factory init, in an organization's repository that is set up", () => {
       "  {yourTurn:2.} Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
       "  {yourTurn:3.} Refine a ticket with {copy:/factory-refine N}, then build it with {copy:/factory-build N}.",
       "The steps in full:",
-      "     {copy:https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/quick-start.md#4-open-a-ticket}",
+      "     {copy:https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket}",
       "",
       "{heading:Checks}",
       "  {good:✓} Every check passed",
@@ -435,7 +435,7 @@ describe("factory init, in a private repository of an organization whose plan ke
       "✗ The presets turn on a board, the review, and builds that start from the board. They need acme's secrets, and GitHub Free does not share them with a private repository.",
       "Make acme/web public, or move acme to a paid plan. Then run factory init again.",
       "What GitHub Free leaves out:",
-      "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/github/setup.md#on-githubs-free-plan",
+      "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/integrations/github-organizations.md#on-githubs-free-plan",
       "Nothing changed.",
     ]);
   });
@@ -604,7 +604,7 @@ describe("factory init, in an organization's repository its secrets do not reach
   /** Every secret each part the presets turn on reads, by hand. */
   const OWN = { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" };
   const DOCS =
-    "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/github/setup.md#when-the-organizations-secrets-do-not-reach-you";
+    "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/integrations/github-organizations.md#when-the-organizations-secrets-do-not-reach-you";
   const found = (out: string[]) =>
     out.slice(out.indexOf("Found") + 1, out.indexOf(LINE) + 2);
 

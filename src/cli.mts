@@ -8,6 +8,7 @@
 
 import { COMMANDS, type Command } from "./commands-list.mts";
 import * as say from "./lib/output.mts";
+import { DOCS_PAGES, docsPage, installedVersion } from "./lib/docs-page.mts";
 
 /** The commands a person runs, in the groups and words of docs/cli.md. */
 const USAGE: [string, [string, string][]][] = [
@@ -106,8 +107,9 @@ export function usage(): say.Line[] {
   }
   lines.push(
     say.BLANK,
+    say.text("The commands skills, hooks, and workflows run:"),
     say.text(
-      'The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.',
+      `     ${docsPage(installedVersion(), DOCS_PAGES.commandsRunForYou)}`,
     ),
   );
   return lines;

@@ -27,6 +27,7 @@ import {
   askBranchName,
   askSecret,
   boardShape,
+  DOCS_PAGES,
   docsPage,
   giveBoard,
   interactive,
@@ -572,7 +573,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     "The settings every repository shares are yours to edit:",
     `     ${organization.filePage(CONFIG, PRESET_FILE)}`,
     "The steps in full:",
-    `     ${docsPage(d.packageVersion, "github/setup.md#in-an-organization")}`,
+    `     ${docsPage(d.packageVersion, DOCS_PAGES.developerNext)}`,
   ];
   if (!rows.length) {
     d.out(say.text(`✓ ${org} is set up. Nothing to do.`));

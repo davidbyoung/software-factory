@@ -131,9 +131,10 @@ describe("factory's usage", () => {
     expect(r.stderr).toContain(
       "  preset choose KEY PRESET\n                       Record one of those choices without questions",
     );
-    expect(r.stderr.trimEnd().split("\n").at(-1)).toBe(
-      'The commands skills, hooks, and workflows run are under "Run for you" in docs/cli.md.',
-    );
+    expect(r.stderr.trimEnd().split("\n").slice(-2)).toEqual([
+      "The commands skills, hooks, and workflows run:",
+      "     https://github.com/davidbyoung/software-factory/blob/main/docs/reference/cli-internal.md",
+    ]);
   });
 
   it("is in color where it goes to a terminal that takes it", () => {

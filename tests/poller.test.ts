@@ -2168,7 +2168,7 @@ describe("one pass for every repository on an organization's board", () => {
         }),
       ).toBe(1);
       expect(o.logs).toEqual([
-        'factory-preset.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md',
+        "factory-preset.yaml: version: must be 2: this file is version 1, see https://github.com/davidbyoung/software-factory/blob/main/docs/maintain/upgrade-notes.md#moving-to-settings-version-2",
         "factory-preset.yaml could not be read: ENOENT: no such file or directory",
       ]);
       expect(o.calls).toEqual([]);

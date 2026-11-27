@@ -4,7 +4,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
-import { organizationHosts } from "./code-host/index.mts";
 import {
   branchPatternFault,
   columnsOf,
@@ -17,7 +16,6 @@ import { DEFAULT_COLUMNS } from "./lib/work-status.mts";
 import type { CredentialStep, SecretStep } from "./setup.mts";
 import { statusOf } from "./tickets/transport.mts";
 import type { BoardOps, NewField } from "./tickets/types.mts";
-import { FACTORY_REPOSITORY } from "./workflow-files.mts";
 import * as say from "./lib/output.mts";
 
 /** What reading a secret takes of a command's dependencies. */
@@ -223,13 +221,7 @@ export async function giveBoard(
     );
 }
 
-/** A page of the factory's own docs as the installed version has it: at
- * the release's tag, or on `main` for a version that is no release. */
-export function docsPage(version: string, page: string): string {
-  const [owner, name] = FACTORY_REPOSITORY.split("/") as [string, string];
-  const at = /^\d+\.\d+\.\d+$/.test(version) ? `v${version}` : "main";
-  return `${organizationHosts().github!.addressOf(owner)}/${name}/blob/${at}/docs/${page}`;
-}
+export { DOCS_PAGES, docsPage } from "./lib/docs-page.mts";
 
 type Env = Record<string, string | undefined>;
 
