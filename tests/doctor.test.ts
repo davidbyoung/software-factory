@@ -384,7 +384,7 @@ describe("factory doctor, the day the Claude token stops working", () => {
 
   it("gives the day, a year after the secret was stored, right after the line that says it is set", async () => {
     const { run, out } = doctor({
-      raw: { "pr-review": null },
+      raw: { "pr-review": true },
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
       stored: { CLAUDE_CODE_OAUTH_TOKEN: "2026-11-16T14:50:57Z" },
     });
@@ -396,7 +396,7 @@ describe("factory doctor, the day the Claude token stops working", () => {
 
   it("warns in its last 30 days, without failing", async () => {
     const { run, out } = doctor({
-      raw: { "pr-review": null },
+      raw: { "pr-review": true },
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
       stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T14:50:57Z" },
     });
@@ -408,7 +408,7 @@ describe("factory doctor, the day the Claude token stops working", () => {
 
   it("fails once the day has passed", async () => {
     const { run, out } = doctor({
-      raw: { "pr-review": null },
+      raw: { "pr-review": true },
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
       stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
     });
@@ -432,7 +432,7 @@ describe("factory doctor, the day the Claude token stops working", () => {
       env,
     });
     const { run, out } = doctor({
-      raw: { "pr-review": null },
+      raw: { "pr-review": true },
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
       stored: { CLAUDE_CODE_OAUTH_TOKEN: "2026-03-01T00:00:00Z" },
       env,
@@ -445,7 +445,7 @@ describe("factory doctor, the day the Claude token stops working", () => {
 
   it("names the organization that stored it, and who replaces it", async () => {
     const { run, out } = doctor({
-      raw: { "pr-review": null },
+      raw: { "pr-review": true },
       organization: true,
       organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
       stored: { CLAUDE_CODE_OAUTH_TOKEN: "2025-11-10T00:00:00Z" },
@@ -485,7 +485,7 @@ describe("factory doctor, the day the Claude token stops working", () => {
       "✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository: make the repository public, or move acme to a paid plan",
     ],
   ])("gives no day for %s", async (_what, o, instead) => {
-    const { run, out } = doctor({ raw: { "pr-review": null }, ...o });
+    const { run, out } = doctor({ raw: { "pr-review": true }, ...o });
     await run();
     expect(out).toContain(instead);
     expect(out.join("\n")).not.toMatch(/stops working|stopped working/);
@@ -508,7 +508,7 @@ describe("factory doctor, the day the Claude token stops working", () => {
 });
 
 describe("factory doctor, the rule that requires the review's verdict", () => {
-  const REVIEW = { "pr-review": { commands: [] } };
+  const REVIEW = { "pr-review": true };
 
   it("passes when a rule the code host applies to the default branch requires it, the owner's among them", async () => {
     const { run, printed } = doctor({ raw: REVIEW });
@@ -629,7 +629,7 @@ describe("factory doctor, the rule that requires the review's verdict", () => {
 
 describe("factory doctor, what CI's own token may do", () => {
   const on = {
-    raw: { "pr-review": null },
+    raw: { "pr-review": true },
     secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
   };
 
@@ -721,7 +721,7 @@ describe("factory doctor", () => {
   it("prints each secret once, naming every part that reads it, under the runner's name", async () => {
     const { run, printed } = doctor({
       raw: {
-        "pr-review": null,
+        "pr-review": true,
         tickets: { board: 3, columns: FACTORY_COLUMNS },
         builds: { trigger: "own-server" },
         "auto-merge": { allow: ["docs/**"] },
@@ -888,7 +888,7 @@ describe("factory doctor", () => {
 
   it("checks each secret a part that is on reads", async () => {
     const { run, out } = doctor({
-      raw: { "pr-review": null, "auto-merge": { allow: ["docs/**"] } },
+      raw: { "pr-review": true, "auto-merge": { allow: ["docs/**"] } },
       secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
     });
     expect(await run()).toBe(1);
@@ -1178,7 +1178,7 @@ describe("factory doctor", () => {
     describe("on a repository an organization owns", () => {
       it("passes a secret the organization shares, saying so, for any secret the factory reads", async () => {
         const { run, out } = doctor({
-          raw: { "pr-review": null },
+          raw: { "pr-review": true },
           files: { ".npmrc": NPMRC },
           organization: true,
           organizationSecrets: ["NPM_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"],
@@ -1196,7 +1196,7 @@ describe("factory doctor", () => {
 
       it("counts no secret the organization's plan keeps from a private repository as set, and says why", async () => {
         const { run, out } = doctor({
-          raw: { "pr-review": null },
+          raw: { "pr-review": true },
           files: { ".npmrc": NPMRC },
           organization: true,
           organizationSecrets: ["NPM_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"],
@@ -1217,7 +1217,7 @@ describe("factory doctor", () => {
 
       it("counts the repository's own copy as set, whatever the plan keeps back", async () => {
         const { run, out } = doctor({
-          raw: { "pr-review": null },
+          raw: { "pr-review": true },
           organization: true,
           secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x" },
           organizationSecrets: ["CLAUDE_CODE_OAUTH_TOKEN"],
@@ -1622,7 +1622,7 @@ describe("the warning status gives on the Claude token", () => {
     }).runner;
     const tools = memoryTools({ codeHost, runner, tickets });
     const line = await tokenWarning({
-      settings: settings(o.raw ?? { "pr-review": null }, tools),
+      settings: settings(o.raw ?? { "pr-review": true }, tools),
       tools,
       root: "/nowhere",
       hasCommand: () => true,
@@ -1663,7 +1663,7 @@ describe("the warning status gives on the Claude token", () => {
   it("gives the Claude token's line first, then the access token's", async () => {
     expect(
       await warning({
-        raw: { ...AUTOMERGE, "pr-review": null },
+        raw: { ...AUTOMERGE, "pr-review": true },
         secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_AUTOMERGE_TOKEN: "x" },
         stored: {
           CLAUDE_CODE_OAUTH_TOKEN: "2025-12-10T00:00:00Z",

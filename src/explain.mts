@@ -47,7 +47,6 @@ export function markerOf(r: Resolution): Marker {
  * their own mark. */
 const ADDS_UP = new Set([
   "builds.hosts",
-  "pr-review.commands",
   "auto-merge.allow",
   "auto-merge.deny",
   "auto-merge.commands",
@@ -235,11 +234,8 @@ export async function explainLines(
   put(["auto-merge", "deny"], s.autoMerge.deny);
   put(["auto-merge", "commands"], s.autoMerge.commands);
 
-  if (s.prReview === null) comment(0, "pr-review: off");
-  else {
-    block(["pr-review"]);
-    put(["pr-review", "commands"], s.prReview.commands);
-  }
+  if (s.prReview) put(["pr-review"], true);
+  else comment(0, "pr-review: off");
 
   const [site, ...otherSites] = s.sites;
   if (!site) comment(0, "site: off");

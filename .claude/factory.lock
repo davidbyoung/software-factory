@@ -2,7 +2,7 @@
 # settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
 presets: []
-settings-hash: sha256:0e2094aee302c9a0068eabb5316e6571cd95379a293be44c41e4f6c1b2bd4a1a
+settings-hash: sha256:a0fe9762647060074bb70cee2d32393abb39c81189892163f87214cfc62829cf
 npmrc-variables: []
 settings:
   version: 2
@@ -82,8 +82,7 @@ settings:
     allow: []                                                                  # default
     deny: []                                                                   # default
     commands: []                                                               # default
-  pr-review:
-    commands: []                                                               # default
+  pr-review: true
   # site: off
   session-minutes:
     build: 230                                                                 # default

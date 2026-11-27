@@ -1086,7 +1086,7 @@ describe("main, near the Claude token's day", () => {
         version: 2,
         repository: "acme/site",
         "code-host": CODE_HOST,
-        "pr-review": null,
+        "pr-review": true,
       },
       () => true,
       builtOf(tools),

@@ -1568,8 +1568,7 @@ const PRESET = [
   "    building: In progress",
   "    review: In review",
   "    done: Done",
-  "pr-review:",
-  "  commands: []",
+  "pr-review: true",
   "builds:",
   "  trigger: github-action",
   "  poll-minutes: 30",
@@ -1624,7 +1623,7 @@ describe("an organization's preset, as its one poller reads it", () => {
       l === "    ready: Ready" ? "    ready: Ready for dev" : l,
     );
     lines.splice(
-      lines.indexOf("pr-review:"),
+      lines.indexOf("pr-review: true"),
       0,
       "  labels:",
       "    factory: built-by-factory",

@@ -48,13 +48,13 @@ comments and a "Review verdict" status.
 ## Its settings
 
 ```yaml
-pr-review: {}
+pr-review: true
 ```
 
 `factory init` writes this line when you check the review. You can also
 write [`pr-review`](../reference/settings/pr-review.md#pr-review)
-yourself, or delete it to turn the review off, and run `factory sync`,
-which changes the workflow to match.
+yourself, or set it to `false` to turn the review off, and run
+`factory sync`, which changes the workflow to match.
 
 ## When something goes wrong
 

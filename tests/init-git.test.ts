@@ -357,7 +357,7 @@ describe("the files the sync writes, against the real sync and the real git", ()
       "commands:",
       "  gate:",
       "    - test -f .claude/factory.lock",
-      ...(review ? ["pr-review:", "  commands: []"] : []),
+      ...(review ? ["pr-review: true"] : []),
       "",
     ].join("\n");
   const files = (text: string): Files => ({

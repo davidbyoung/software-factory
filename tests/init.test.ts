@@ -80,7 +80,7 @@ describe("factory init, a first run with every part", () => {
       tickets: { board: 1, columns: FACTORY_COLUMNS },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**", "**/*.md"] },
-      "pr-review": { commands: [] },
+      "pr-review": true,
     });
     expect(r.read("package.json")).toBeNull();
     expect(r.read(".gitignore")).toBeNull();
@@ -452,7 +452,7 @@ describe("factory init, run again", () => {
 
   it("takes the review's setting out when the review is turned off, so the sync removes its workflow", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review:\n  commands:\n    - npm test\n`,
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review: true\n`,
       answers: { checkbox: [[]], confirm: [true] },
     });
     await r.run();
@@ -464,13 +464,13 @@ describe("factory init, run again", () => {
     });
   });
 
-  it("keeps the review's commands when the review stays on", async () => {
+  it("writes pr-review: true when the review is turned on over pr-review: false", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review:\n  commands:\n    - npm test\n`,
+      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review: false\n`,
       answers: { checkbox: [["review"]], confirm: [true], secret: [""] },
     });
     await r.run();
-    expect(r.yaml()).toMatchObject({ "pr-review": { commands: ["npm test"] } });
+    expect(r.yaml()).toMatchObject({ "pr-review": true });
   });
 });
 
@@ -1047,8 +1047,7 @@ describe("factory init, word for word", () => {
         "auto-merge:",
         "  allow:",
         "    - docs/**",
-        "pr-review:",
-        "  commands: []",
+        "pr-review: true",
         "specs: none",
         "",
       ].join("\n"),

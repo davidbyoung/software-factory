@@ -528,7 +528,7 @@ async function record(d: PublishDeps, env: Env): Promise<number> {
     answer,
     conclusion: env.CONCLUSION ?? "failure",
     override: settings.codeHost.labels["verdict-override"],
-    reviewOn: settings.prReview !== null,
+    reviewOn: settings.prReview,
     order: (body) => liveOrder(body, out),
     ...(link ? { link } : {}),
     out,

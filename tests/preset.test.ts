@@ -25,6 +25,7 @@ import {
   deps,
   install,
   installAcme,
+  NODE_SETTINGS,
   lockPin,
   NODE,
   own,
@@ -171,12 +172,24 @@ describe("combining presets", () => {
   });
 
   it("adds up every layer's list of values, each once, in layer order", async () => {
-    acme([ACME, NODE], ["pr-review:", "  commands: [node, npm audit]"]);
-    expect((await resolveAt(root)).settings.prReview?.commands).toEqual([
-      "npm audit",
+    acme([ACME, NODE], ["auto-merge:", "  deny: [node, package-lock.json]"]);
+    expect((await resolveAt(root)).settings.autoMerge.deny).toEqual([
+      "package-lock.json",
       "node",
     ]);
   });
+
+  it.each([
+    [[], true],
+    [["pr-review: false"], false],
+  ])(
+    "takes a preset's pr-review: true unless the repository's %j says otherwise",
+    async (body, on) => {
+      root = repo(own([ACME, NODE], body));
+      installAcme(root, undefined, `${NODE_SETTINGS}pr-review: true\n`);
+      expect((await resolveAt(root)).settings.prReview).toBe(on);
+    },
+  );
 
   it("adds up every layer's builds.hosts, each once", async () => {
     root = repo(
@@ -705,10 +718,10 @@ describe("factory config explain with presets", () => {
   });
 
   it("marks each item of a list that adds up with the layer it came from", async () => {
-    acme([ACME, NODE], ["pr-review:", "  commands: [node]"]);
+    acme([ACME, NODE], ["auto-merge:", "  deny: [node]"]);
     const { out } = await explain();
-    expect(lineOf(out, "- npm audit")).toMatch(
-      /^- npm audit +# acme\/factory-config\/\/node$/,
+    expect(lineOf(out, "- package-lock.json")).toMatch(
+      /^- package-lock.json +# acme\/factory-config\/\/node$/,
     );
     expect(lineOf(out, "- node")).toBe("- node");
     expect(lineOf(out, "- agent: acme-security-reviewer")).toMatch(

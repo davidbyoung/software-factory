@@ -217,7 +217,7 @@ describe("factory sync", () => {
     ["no part on", {}],
     [
       "every part on",
-      { ...FULL, "pr-review": null, builds: { trigger: "github-action" } },
+      { ...FULL, "pr-review": true, builds: { trigger: "github-action" } },
     ],
   ])("writes both workflow files, and locks them, with %s", async (_, raw) => {
     const r = await sync([], settings(raw));
@@ -506,7 +506,7 @@ describe("factory sync", () => {
   });
 
   it.each([
-    ["review", "pr-review is written", { "pr-review": null }],
+    ["review", "pr-review is written", { "pr-review": true }],
     ["board", "tickets.board is set", BOARD],
     [
       "auto-merge",
@@ -542,7 +542,7 @@ describe("factory sync", () => {
         builds: { trigger: "github-action" },
         "auto-merge": { allow: ["docs/**"] },
         ...BOARD,
-        "pr-review": null,
+        "pr-review": true,
       }),
     );
 
@@ -1190,7 +1190,7 @@ describe("factory sync: the ticket system in the workflow files", () => {
   };
   const EVERY = settings({
     ...FULL,
-    "pr-review": { commands: [] },
+    "pr-review": true,
     builds: { trigger: "github-action" },
   });
   /** The text of the two workflow files, by path. */

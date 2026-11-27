@@ -27,7 +27,7 @@ const PRESETS: Record<string, FakePreset> = {
       tickets: { board: 12, columns: FACTORY_COLUMNS },
       "code-host": { "branch-name": "{user}/{ticket}" },
       specs: "none",
-      "pr-review": { commands: [] },
+      "pr-review": true,
       builds: { trigger: "github-action" },
     },
   },
@@ -279,7 +279,7 @@ describe("factory init, in an organization's repository that is set up", () => {
     });
 
     it("name only the review when that is all a preset turns on, and offer the rest", async () => {
-      const r = one({ "pr-review": { commands: [] } });
+      const r = one({ "pr-review": true });
       await r.run();
       expect(row(r.out)).toBe("  Parts            the review");
       expect(r.checkboxes[0]!.names).toEqual([
@@ -502,7 +502,7 @@ describe("factory init, in a private repository of an organization whose plan ke
 
   it("leaves alone a part the repository's own settings turn on", async () => {
     const r = free({
-      settings: `version: 2\nrepository: acme/web\npresets:\n  - ${NODE}\n${CODE_HOST_YAML}\nspecs: none\npr-review: {}\n`,
+      settings: `version: 2\nrepository: acme/web\npresets:\n  - ${NODE}\n${CODE_HOST_YAML}\nspecs: none\npr-review: true\n`,
       answers: { confirm: [false] },
     });
     await r.run();
@@ -667,7 +667,7 @@ describe("factory init, in an organization's repository its secrets do not reach
     [
       "the repository's own settings turn the review on",
       {
-        settings: `version: 2\nrepository: acme/web\n${CODE_HOST_YAML}\nspecs: none\npr-review: {}\n`,
+        settings: `version: 2\nrepository: acme/web\n${CODE_HOST_YAML}\nspecs: none\npr-review: true\n`,
       },
     ],
     [
@@ -843,7 +843,7 @@ describe("factory init, in an organization's repository its secrets do not reach
       it("does not count a part the repository's own settings turn on", async () => {
         const r = at({
           argv: [],
-          settings: `version: 2\nrepository: acme/web\npresets:\n  - ${NODE}\n${CODE_HOST_YAML}\nspecs: none\npr-review: {}\n`,
+          settings: `version: 2\nrepository: acme/web\npresets:\n  - ${NODE}\n${CODE_HOST_YAML}\nspecs: none\npr-review: true\n`,
           answers: { confirm: [false] },
         });
         await r.run();

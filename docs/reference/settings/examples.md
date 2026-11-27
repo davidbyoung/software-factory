@@ -80,7 +80,7 @@ auto-merge:
   commands:
     - node scripts/public-api-changed.mjs
 
-pr-review: {}
+pr-review: true
 ```
 
 ## A small website

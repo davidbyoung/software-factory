@@ -1621,7 +1621,7 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     from !== null &&
     settings !== null &&
     (part === "review"
-      ? from.gives("pr-review")
+      ? from.gives("pr-review") && settings.prReview
       : part === "board"
         ? from.gives("tickets.board") && settings.tickets.board !== null
         : part === "from-board"
@@ -2078,11 +2078,9 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
     remove(doc, ["builds", "poll-minutes"]);
   if (parts.has("auto-merge")) doc.setIn(["auto-merge", "allow"], allow);
   else remove(doc, ["auto-merge", "allow"]);
-  // The review is on while its setting is written; the sync writes its
-  // workflow then, and removes it once the setting is gone.
-  if (parts.has("review") && !given("pr-review"))
-    doc.setIn(["pr-review", "commands"], []);
-  if (!parts.has("review")) doc.delete("pr-review");
+  if (parts.has("review") && !presetOn("review")) doc.set("pr-review", true);
+  if (!parts.has("review") && doc.get("pr-review") !== false)
+    doc.delete("pr-review");
 
   // The ticket system's own values: asked for once, and taken out with
   // the part that needed them.

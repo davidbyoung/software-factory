@@ -77,7 +77,8 @@
       "$ref": "#/definitions/auto-merge"
     },
     "pr-review": {
-      "$ref": "#/definitions/pr-review"
+      "type": "boolean",
+      "description": "The automated review of every pull request: on with true."
     },
     "site": {
       "description": "How the factory looks at your website, or a list of sites, one for each web app, each with in.",
@@ -876,22 +877,6 @@
             "minLength": 1
           },
           "description": "Your own checks. Each is run once for a pull request and can veto it."
-        }
-      }
-    },
-    "pr-review": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "description": "The automated review of every pull request: on when this is written, even with nothing under it.",
-      "properties": {
-        "commands": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[^,()\"]+$"
-          },
-          "description": "Commands the review may run, as prefixes, beside the factory's own, such as your tests."
         }
       }
     },

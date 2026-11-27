@@ -133,7 +133,7 @@ file. On a branch:
 | A plugin with `role: mockups`                                                            | The one block [`plugins.refine.mockups`](../reference/settings/plugins.md#pluginsrefine)                     |
 | A plugin with `role: builder`                                                            | An item of the list [`plugins.build.builders`](../reference/settings/plugins.md#pluginsbuild)                |
 | A plugin with `role: reviewer`                                                           | An item of the list `plugins.build.reviewers`                                                                |
-| `ci-review`                                                                              | [`pr-review`](../reference/settings/pr-review.md#pr-review), the same block under a new name                 |
+| `ci-review`                                                                              | [`pr-review: true`](../reference/settings/pr-review.md#pr-review), in place of the block                     |
 | [`specs`](../reference/settings/specs.md#specs), one word                                | Still one word. It is now also a block, with `type` and [`check`](../reference/settings/specs.md#specscheck) |
 
 Every other key keeps its name, its place, and its meaning.

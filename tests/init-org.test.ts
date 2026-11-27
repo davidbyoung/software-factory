@@ -181,8 +181,7 @@ tickets:
 code-host:
   type: github
   branch-name: "{ticket}"
-pr-review:
-  commands: []
+pr-review: true
 builds:
   trigger: github-action
   poll-minutes: 30
