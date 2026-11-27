@@ -12,8 +12,10 @@ import { spawnSync } from "node:child_process";
 import { loadSettings, repoRoot, type ApprovalPolicy } from "./config.mts";
 import { gitIn } from "./lib/default-branch.mts";
 import {
+  changedFiles,
   checkName,
   checksOf,
+  type Git,
   type Check,
   type Outcome,
 } from "./approval-policies.mts";
@@ -36,15 +38,30 @@ export type ChangedFile = {
   status?: string;
 };
 
-/** The code host's changed files under those names. */
-export const inGithubNames = (
-  files: { path: string; previousPath?: string; status: string }[],
-): ChangedFile[] =>
-  files.map(({ path, previousPath, status }) => ({
-    filename: path,
-    previous_filename: previousPath,
-    status,
-  }));
+/** The pull request's change at `head`, read from git, since the code host's
+ * list of a pull request's files stops at 3000: every changed file, and the
+ * merge base they are read against. Null when it can't be read. */
+export function readChange(
+  git: Git,
+  pr: number,
+  base: string,
+  head: string,
+): { mergeBase: string; files: ChangedFile[] } | null {
+  const fetched = git([
+    "fetch",
+    "--no-tags",
+    "--quiet",
+    "origin",
+    `+refs/pull/${pr}/head:refs/factory/head`,
+    `+refs/heads/${base}:refs/factory/base`,
+  ]);
+  if (!fetched.ok) return null;
+  const found = git(["merge-base", "refs/factory/base", head]);
+  const mergeBase = found.out.trim();
+  const files =
+    found.ok && mergeBase ? changedFiles(git, mergeBase, head) : null;
+  return files && { mergeBase, files };
+}
 
 /** The keys of the two merge labels. The merge-policy workflow applies one
  * and removes the other; only the automatic one turns auto-merge on. */
@@ -197,7 +214,8 @@ export async function agentReasons(
 /** Who merges a pull request: by its files, the ticket it is part of, the
  * approval policies with an agent, and each command's answer. */
 export async function judge(d: {
-  files: ChangedFile[];
+  /** Null when they could not be read. */
+  files: ChangedFile[] | null;
   body: string;
   policy: Policy;
   across: Parameters<typeof acrossReasons>[1];
@@ -207,6 +225,8 @@ export async function judge(d: {
   /** Runs an approval policy's command, for its agent's hold. */
   ran?: (check: Check) => Promise<Outcome>;
 }): Promise<Risk> {
+  if (d.files === null)
+    return { risk: MANUAL, reasons: ["the changed files could not be read"] };
   const paths = classify(d.files, d.policy);
   const spans = await acrossReasons(d.body, d.across);
   const agents = await agentReasons(d.approvalPolicies ?? [], d.files, d.ran);
@@ -268,14 +288,14 @@ async function main(argv: string[]) {
   const { autoMerge } = settings;
   const pulls = openCodeHost(repo, settings.codeHost.type);
   const pull = await pulls.get(Number(pr));
-  const mergeBase = await pulls.mergeBase(pull.base.sha, pull.head.sha);
-  const files = inGithubNames(await pulls.files(Number(pr)));
+  const git = gitIn(repoRoot());
+  const change = readChange(git, Number(pr), pull.base.branch, pull.head.sha);
   const { tickets } = await openTickets(settings, {
     repository: repo,
     board: settings.tickets.board,
   });
   const risk = await judge({
-    files,
+    files: change?.files ?? null,
     body: pull.body,
     policy: autoMerge,
     across: { tickets, repository: repo },
@@ -283,7 +303,7 @@ async function main(argv: string[]) {
     ran: async (check) => {
       const { policyRun } = await import("./approval-job.mts");
       return policyRun(check, {
-        git: gitIn(repoRoot()),
+        git,
         pr: Number(pr),
         base: pull.base.branch,
         head: pull.head.sha,
@@ -299,9 +319,9 @@ async function main(argv: string[]) {
           runCommand(command, {
             repository: repo,
             pull: Number(pr),
-            base: mergeBase,
+            base: change!.mergeBase,
             head: pull.head.sha,
-            files,
+            files: change!.files,
           }),
         ),
       ),

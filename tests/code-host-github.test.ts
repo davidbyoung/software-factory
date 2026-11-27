@@ -120,31 +120,6 @@ describe("pull request reads", () => {
     expect(calls).toHaveLength(3);
   });
 
-  it("reads the files a pull request changes, with a renamed file's path before", async () => {
-    const { p } = pulls([
-      [
-        /pulls\/5\/files/,
-        [
-          [
-            { filename: "a.ts", status: "modified" },
-            { filename: "c.ts", previous_filename: "b.ts", status: "renamed" },
-          ],
-        ],
-      ],
-    ]);
-    expect(await p.files(5)).toEqual([
-      { path: "a.ts", status: "modified" },
-      { path: "c.ts", previousPath: "b.ts", status: "renamed" },
-    ]);
-  });
-
-  it("reads the merge base of two commits", async () => {
-    const { p } = pulls([
-      [/compare\/b\.\.\.h$/, { merge_base_commit: { sha: "mb" } }],
-    ]);
-    expect(await p.mergeBase("b", "h")).toBe("mb");
-  });
-
   it("reads a commit's check runs, each with its link and the ID its run shares", async () => {
     const { p } = pulls([
       [

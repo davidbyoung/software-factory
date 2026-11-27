@@ -1,43 +1,32 @@
 import type { Outcome } from "../src/approval-policies.mts";
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { PR_LABELS } from "../src/labels.mts";
 import { load } from "js-yaml";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { gitIn } from "../src/lib/default-branch.mts";
 import {
   acrossReasons,
+  type ChangedFile,
   classify,
   commandReasons,
   decide,
-  inGithubNames,
   judge,
+  readChange,
   runCommand,
   statusLine,
   workflowOutput,
 } from "../src/merge-policy.mts";
 import { memoryTickets } from "./memory-tickets";
 import { SECTION } from "./network";
-
-describe("inGithubNames", () => {
-  it("hands a command each changed file as filename, previous_filename, and status", () => {
-    expect(
-      inGithubNames([
-        { path: "docs/a.md", status: "modified" },
-        { path: "docs/c.md", previousPath: "docs/b.md", status: "renamed" },
-      ]),
-    ).toEqual([
-      {
-        filename: "docs/a.md",
-        previous_filename: undefined,
-        status: "modified",
-      },
-      {
-        filename: "docs/c.md",
-        previous_filename: "docs/b.md",
-        status: "renamed",
-      },
-    ]);
-  });
-});
 
 // A made-up policy: the decision's own rules, whatever a repository lists.
 const POLICY = { allow: ["docs/**", "site/**"], deny: ["site/checkout/**"] };
@@ -336,7 +325,7 @@ describe("judge", () => {
   );
   const judged = (
     body: string,
-    files = [{ filename: "docs/a.md" }],
+    files: ChangedFile[] | null = [{ filename: "docs/a.md" }],
     held: () => string[] = () => [],
   ) =>
     judge({
@@ -444,5 +433,81 @@ describe("judge", () => {
       throw new Error("asked");
     });
     expect(found.reasons).toEqual(["no changed files"]);
+  });
+
+  it("holds one whose changed files could not be read, and asks no command", async () => {
+    const found = await judged("Closes #7", null, () => {
+      throw new Error("asked");
+    });
+    expect(found).toEqual({
+      risk: "merge-manual",
+      reasons: ["the changed files could not be read"],
+    });
+  });
+});
+
+describe("readChange", () => {
+  let world = "";
+  afterEach(() => rmSync(world, { recursive: true, force: true }));
+
+  const sh = (cwd: string, ...args: string[]) => {
+    const r = spawnSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_CONFIG_NOSYSTEM: "1",
+        GIT_AUTHOR_NAME: "t",
+        GIT_AUTHOR_EMAIL: "t@t",
+        GIT_COMMITTER_NAME: "t",
+        GIT_COMMITTER_EMAIL: "t@t",
+      },
+    });
+    if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
+    return r.stdout.trim();
+  };
+
+  /** A checkout of an origin whose refs/pull/7/head adds `paths` to main. */
+  function pull(paths: string[]) {
+    world = mkdtempSync(join(tmpdir(), "merge-policy-"));
+    const origin = join(world, "origin");
+    mkdirSync(origin);
+    sh(origin, "init", "-q", "-b", "main");
+    writeFileSync(join(origin, "README.md"), "base\n");
+    sh(origin, "add", "-A");
+    sh(origin, "commit", "-qm", "base");
+    sh(origin, "checkout", "-qb", "feature");
+    for (const path of paths) {
+      mkdirSync(dirname(join(origin, path)), { recursive: true });
+      writeFileSync(join(origin, path), "x\n");
+    }
+    sh(origin, "add", "-A");
+    sh(origin, "commit", "-qm", "change");
+    const head = sh(origin, "rev-parse", "HEAD");
+    sh(origin, "update-ref", "refs/pull/7/head", head);
+    sh(origin, "checkout", "-q", "main");
+    const checkout = join(world, "checkout");
+    sh(world, "clone", "-q", origin, checkout);
+    return { git: gitIn(checkout), head };
+  }
+
+  it("reads a deny file past the 3000 files GitHub lists", () => {
+    const many = Array.from(
+      { length: 3000 },
+      (_, i) => `docs/${String(i).padStart(4, "0")}.md`,
+    );
+    const { git, head } = pull([...many, "site/checkout/pay.ts"]);
+    const change = readChange(git, 7, "main", head);
+    expect(change?.files).toHaveLength(3001);
+    expect(classify(change!.files, POLICY)).toEqual({
+      risk: "merge-manual",
+      reasons: ["site/checkout/pay.ts: held by auto-merge.deny"],
+    });
+  });
+
+  it("can't read a head commit the fetch did not bring", () => {
+    const { git } = pull(["docs/a.md"]);
+    expect(readChange(git, 7, "main", "0".repeat(40))).toBeNull();
   });
 });
