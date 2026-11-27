@@ -628,4 +628,28 @@ describe("the presets as init reads and pins them", () => {
       }),
     ).toBeNull();
   });
+
+  it("keeps the repository's pr-review: false when the review is left off", async () => {
+    const root = mkdtempSync(join(tmpdir(), "init-presets-"));
+    lockPin(root, {
+      name: ROOT,
+      commit: "1".repeat(40),
+      poller: false,
+      settings: { "pr-review": true },
+      files: {},
+    });
+    const r = web({
+      settings: `version: 2\nrepository: acme/web\npresets:\n  - ${ROOT}\n${CODE_HOST_YAML}\npr-review: false\n`,
+    });
+    r.d.presets = {
+      ...source(root),
+      combined: (files) =>
+        source(root).combined({
+          ...files,
+          lock: read(root, ".claude/factory.lock"),
+        }),
+    };
+    expect(await r.run()).toBe(0);
+    expect(r.yaml()).toMatchObject({ "pr-review": false });
+  });
 });

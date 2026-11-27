@@ -2079,7 +2079,8 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
   if (parts.has("auto-merge")) doc.setIn(["auto-merge", "allow"], allow);
   else remove(doc, ["auto-merge", "allow"]);
   if (parts.has("review") && !presetOn("review")) doc.set("pr-review", true);
-  if (!parts.has("review")) doc.delete("pr-review");
+  if (!parts.has("review") && doc.get("pr-review") !== false)
+    doc.delete("pr-review");
 
   // The ticket system's own values: asked for once, and taken out with
   // the part that needed them.
