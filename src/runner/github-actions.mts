@@ -5,7 +5,7 @@
 // calls GitHub.
 import type { GhIn } from "../lib/gh.mts";
 import { statusOf, type Transport } from "../tickets/transport.mts";
-import type { FailedJob, Run, Runner } from "./types.mts";
+import type { FailedJob, Run, Runner, StoredSecret } from "./types.mts";
 
 /** The workflow file every job judged from the default branch runs in: a
  * build, the board sync, and the poller among them. */
@@ -40,6 +40,12 @@ const ESCAPES = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 /** How a job ended without passing. */
 const FAILED = ["failure", "timed_out", "startup_failure"];
 
+/** Each secret a listing names, with when it was last stored. */
+const stored = (
+  listed: { name: string; updated_at?: string }[],
+): StoredSecret[] =>
+  listed.map((x) => ({ name: x.name, stored: x.updated_at ?? "" }));
+
 /** The name the workflow gives an answer's run. */
 export const answerName = (pull: number) => `Answer #${pull}`;
 
@@ -55,10 +61,11 @@ export function githubActionsRunner(o: {
   /** Every secret a listing names, page by page: the list is an object,
    * not an array, so it is paged by hand. */
   const secretsAt = async (path: string) => {
-    const all: { name: string; visibility?: string }[] = [];
+    const all: { name: string; visibility?: string; updated_at?: string }[] =
+      [];
     for (let page = 1; ; page++) {
       const listed = await t.rest<{
-        secrets: { name: string; visibility?: string }[];
+        secrets: { name: string; visibility?: string; updated_at?: string }[];
       }>("GET", `${path}?per_page=100&page=${page}`);
       all.push(...listed.secrets);
       if (listed.secrets.length < 100) return all;
@@ -273,6 +280,7 @@ export function githubActionsRunner(o: {
     },
     secretNames: async () =>
       (await secretsAt(`${API}/actions/secrets`)).map((x) => x.name),
+    secrets: async () => stored(await secretsAt(`${API}/actions/secrets`)),
     async setSecret(name, value) {
       if (!o.cli) throw new Error("Storing a secret needs the GitHub CLI.");
       await o.cli(["secret", "set", name, "--repo", o.repository], value);
@@ -290,6 +298,8 @@ export function githubActionsRunner(o: {
       (await secretsAt(`${API}/actions/organization-secrets`)).map(
         (x) => x.name,
       ),
+    organizationSecrets: async () =>
+      stored(await secretsAt(`${API}/actions/organization-secrets`)),
     async organizationVariableNames() {
       // GitHub gives at most 30 variables a page, whatever it is asked for.
       const most = 30;

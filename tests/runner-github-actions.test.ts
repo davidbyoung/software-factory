@@ -546,3 +546,47 @@ describe("the run that kept an artifact", () => {
     expect(await r.keptBy("approval-policies-7-abc", "factory.yml")).toBeNull();
   });
 });
+
+describe("the secrets, with the day each was stored", () => {
+  const secret = (name: string, updated: string) => ({
+    name,
+    created_at: "2020-01-01T00:00:00Z",
+    updated_at: updated,
+  });
+
+  it("keeps the day GitHub last stored each, on every page", async () => {
+    const first = Array.from({ length: 100 }, (_, i) =>
+      secret(`S${i}`, "2026-01-01T00:00:00Z"),
+    );
+    const { r } = runner([
+      [/actions\/secrets\?per_page=100&page=1$/, { secrets: first }],
+      [
+        /actions\/secrets\?per_page=100&page=2$/,
+        {
+          secrets: [secret("CLAUDE_CODE_OAUTH_TOKEN", "2025-12-10T14:50:57Z")],
+        },
+      ],
+    ]);
+    const all = await r.secrets();
+    expect(all).toHaveLength(101);
+    expect(all.at(-1)).toEqual({
+      name: "CLAUDE_CODE_OAUTH_TOKEN",
+      stored: "2025-12-10T14:50:57Z",
+    });
+    expect((await r.secretNames()).at(-1)).toBe("CLAUDE_CODE_OAUTH_TOKEN");
+  });
+
+  it("keeps it for the organization's secrets shared with the repository", async () => {
+    const { r } = runner([
+      [
+        /repos\/acme\/widgets\/actions\/organization-secrets\?per_page=100&page=1$/,
+        {
+          secrets: [secret("CLAUDE_CODE_OAUTH_TOKEN", "2026-11-25T00:05:23Z")],
+        },
+      ],
+    ]);
+    expect(await r.organizationSecrets()).toEqual([
+      { name: "CLAUDE_CODE_OAUTH_TOKEN", stored: "2026-11-25T00:05:23Z" },
+    ]);
+  });
+});

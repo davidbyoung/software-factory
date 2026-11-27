@@ -29,6 +29,9 @@ export type ThisRun = {
   startedBy?: string;
 };
 
+/** A secret's name, and when it was last stored, as an ISO time. */
+export type StoredSecret = { name: string; stored: string };
+
 /** A job that failed, and everything it printed. */
 export type FailedJob = { name: string; log: string };
 
@@ -88,6 +91,8 @@ export type Runner = {
   workflowState(file: string): Promise<"active" | "disabled" | "missing">;
   /** The names of the secrets the runner's jobs can read. */
   secretNames(): Promise<string[]>;
+  /** The same secrets, each with when it was last stored. */
+  secrets(): Promise<StoredSecret[]>;
   /** Stores a secret the runner's jobs can read. The value never appears
    * in a command's arguments or its output. */
   setSecret(name: string, value: string): Promise<void>;
@@ -99,6 +104,8 @@ export type Runner = {
   /** The names of the secrets the repository's organization shares with
    * it. Not called on a repository a person owns. */
   organizationSecretNames(): Promise<string[]>;
+  /** The same secrets, each with when it was last stored. */
+  organizationSecrets(): Promise<StoredSecret[]>;
   /** The names of the variables the repository's organization shares
    * with it. Not called on a repository a person owns. */
   organizationVariableNames(): Promise<string[]>;

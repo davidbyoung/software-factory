@@ -213,6 +213,9 @@ type Seed = {
     { isPrivate: boolean; files: Record<string, string> }
   >;
   secrets: string[];
+  /** When each secret was last stored, by name; a day in 2026 unless
+   * given. */
+  stored?: Record<string, string>;
   variables: Record<string, string>;
   rules: string[];
   /** The app's installation as the run finds it at its start. */
@@ -294,6 +297,13 @@ function memoryOrganization(
     async secretNames() {
       called("secretNames");
       return [...seed.secrets];
+    },
+    async secrets() {
+      called("secrets");
+      return seed.secrets.map((name) => ({
+        name,
+        stored: seed.stored?.[name] ?? "2026-11-16T14:50:57Z",
+      }));
     },
     async setSecret(secret, value) {
       called("setSecret", secret);

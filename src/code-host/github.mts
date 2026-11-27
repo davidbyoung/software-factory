@@ -1349,6 +1349,13 @@ export function githubOrganization(o: {
       (await paged<{ name: string }>(`${ORG}/actions/secrets`, "secrets")).map(
         (x) => x.name,
       ),
+    secrets: async () =>
+      (
+        await paged<{ name: string; updated_at?: string }>(
+          `${ORG}/actions/secrets`,
+          "secrets",
+        )
+      ).map((x) => ({ name: x.name, stored: x.updated_at ?? "" })),
     setSecret: (name, value) => store("secret", name, value),
     async variable(name) {
       const found = await absent(

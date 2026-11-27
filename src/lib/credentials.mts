@@ -137,6 +137,24 @@ export function readCredential(o: {
   return { state: "found", source: "file", values };
 }
 
+/** The day `init` wrote beside the token it was given for `tool` at
+ * `site`, as `pasted`, or null when there is none or the file cannot be
+ * read. It never reads the token. */
+export function pastedDay(o: {
+  tool: string;
+  site: string;
+  env?: Env;
+}): string | null {
+  try {
+    const doc = load(credentialsPath(o.env ?? process.env));
+    if (doc === null || "unreadable" in doc) return null;
+    const day = doc.getIn([o.tool, o.site, "pasted"]);
+    return typeof day === "string" && day ? day : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether the file has an entry for `tool` at `site`; null when it
  * cannot be read. */
 export function hasEntry(tool: string, site: string, env: Env = process.env) {
