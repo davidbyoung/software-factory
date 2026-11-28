@@ -89,9 +89,9 @@ Lunamill SHALL behave as this line says: When Publish opens a pull request for s
 
 ### Requirement: A repository the run cannot reach
 
-Lunamill SHALL behave as this line says: When the App is not installed on one of the repositories, or a token cannot see one, the build stops the ticket with `lunamill's app for acme is not installed on acme/web`, or `The build token can't see acme/web`.
+Lunamill SHALL behave as this line says: When the App is not installed on one of the repositories, or a token cannot see one, the build stops the ticket with `Lunamill's app for acme is not installed on acme/web`, or `The build token can't see acme/web`.
 
 #### Scenario: A repository the run cannot reach
 
 - **WHEN** the App is not installed on one of the repositories, or a token cannot see one
-- **THEN** the build stops the ticket with `lunamill's app for acme is not installed on acme/web`, or `The build token can't see acme/web`.
+- **THEN** the build stops the ticket with `Lunamill's app for acme is not installed on acme/web`, or `The build token can't see acme/web`.

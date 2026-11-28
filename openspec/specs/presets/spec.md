@@ -107,12 +107,12 @@ Lunamill SHALL behave as this line says: When `off: true` leaves a role's list e
 
 ### Requirement: Lunamill's own file stays
 
-Lunamill SHALL behave as this line says: When a preset ships an agent or a skill at the path of one of Lunamill's own files, `lunamill sync` writes Lunamill's and prints `kept PATH, lunamill's own, over NAME`.
+Lunamill SHALL behave as this line says: When a preset ships an agent or a skill at the path of one of Lunamill's own files, `lunamill sync` writes Lunamill's and prints `kept PATH, Lunamill's own, over NAME`.
 
 #### Scenario: Lunamill's own file stays
 
 - **WHEN** a preset ships an agent or a skill at the path of one of Lunamill's own files
-- **THEN** `lunamill sync` writes Lunamill's and prints `kept PATH, lunamill's own, over NAME`.
+- **THEN** `lunamill sync` writes Lunamill's and prints `kept PATH, Lunamill's own, over NAME`.
 
 ### Requirement: Settings a preset can't set
 

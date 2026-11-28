@@ -8,12 +8,12 @@ The Actions policy a public repository on GitHub needs before `.github/workflows
 
 ### Requirement: Init adds the policy
 
-Lunamill SHALL behave as this line says: When `lunamill init` runs for a public repository on GitHub with no Actions policy that lets `.github/workflows/lunamill.yml` run on `pull_request_target`, its plan has the `policy` row, reading `Let .github/workflows/lunamill.yml run on pull_request_target, as the policy "lunamill"`, and after "Go ahead?" it adds the policy and prints `✓ Allowed pull_request_target for .github/workflows/lunamill.yml.`
+Lunamill SHALL behave as this line says: When `lunamill init` runs for a public repository on GitHub with no Actions policy that lets `.github/workflows/lunamill.yml` run on `pull_request_target`, its plan has the `policy` row, reading `Let .github/workflows/lunamill.yml run on pull_request_target, as the policy "Lunamill"`, and after "Go ahead?" it adds the policy and prints `✓ Allowed pull_request_target for .github/workflows/lunamill.yml.`
 
 #### Scenario: Init adds the policy
 
 - **WHEN** `lunamill init` runs for a public repository on GitHub with no Actions policy that lets `.github/workflows/lunamill.yml` run on `pull_request_target`
-- **THEN** its plan has the `policy` row, reading `Let .github/workflows/lunamill.yml run on pull_request_target, as the policy "lunamill"`, and after "Go ahead?" it adds the policy and prints `✓ Allowed pull_request_target for .github/workflows/lunamill.yml.`
+- **THEN** its plan has the `policy` row, reading `Let .github/workflows/lunamill.yml run on pull_request_target, as the policy "Lunamill"`, and after "Go ahead?" it adds the policy and prints `✓ Allowed pull_request_target for .github/workflows/lunamill.yml.`
 
 ### Requirement: A policy init cannot add
 

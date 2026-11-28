@@ -143,12 +143,12 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: No lock on the default branch
 
-Lunamill SHALL behave as this line says: When the default branch has no `.claude/lunamill.lock`, the hosted poller starts nothing and its reason is `no .claude/lunamill.lock on BRANCH yet. Merge the pull request that sets lunamill up.`
+Lunamill SHALL behave as this line says: When the default branch has no `.claude/lunamill.lock`, the hosted poller starts nothing and its reason is `no .claude/lunamill.lock on BRANCH yet. Merge the pull request that sets Lunamill up.`
 
 #### Scenario: No lock on the default branch
 
 - **WHEN** the default branch has no `.claude/lunamill.lock`
-- **THEN** the hosted poller starts nothing and its reason is `no .claude/lunamill.lock on BRANCH yet. Merge the pull request that sets lunamill up.`
+- **THEN** the hosted poller starts nothing and its reason is `no .claude/lunamill.lock on BRANCH yet. Merge the pull request that sets Lunamill up.`
 
 ### Requirement: A trigger other than own-server
 

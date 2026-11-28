@@ -138,7 +138,7 @@ discovering it at push time.
 - **An issue is built in GitHub Actions by moving its card to Ready** on
   the board, the GitHub Project whose number
   `lunamill config get tickets.board` prints: the
-  poller starts a build, a run of the "lunamill" workflow, within about a minute
+  poller starts a build, a run of the "Lunamill" workflow, within about a minute
   when you host it (`builds.trigger: own-server`) or at its next scheduled
   pass (`github-action`), the same run that
   `lunamill build N` starts by hand. A local build starts by telling a session to work the

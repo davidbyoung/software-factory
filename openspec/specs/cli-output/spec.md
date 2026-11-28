@@ -35,30 +35,30 @@ Lunamill SHALL behave as this line says: The usage lists exactly the commands `d
 
 ### Requirement: Sync says when nothing changed
 
-Lunamill SHALL behave as this line says: When a person's `lunamill sync` writes and deletes nothing, it prints `lunamill's files already match the settings. Nothing changed.`
+Lunamill SHALL behave as this line says: When a person's `lunamill sync` writes and deletes nothing, it prints `Lunamill's files already match the settings. Nothing changed.`
 
 #### Scenario: Sync says when nothing changed
 
 - **WHEN** a person's `lunamill sync` writes and deletes nothing
-- **THEN** it prints `lunamill's files already match the settings. Nothing changed.`
+- **THEN** it prints `Lunamill's files already match the settings. Nothing changed.`
 
 ### Requirement: Sync check passes in a line
 
-Lunamill SHALL behave as this line says: When `lunamill sync --check` finds every file matches, it prints `✓ lunamill's files match the settings.` and exits 0.
+Lunamill SHALL behave as this line says: When `lunamill sync --check` finds every file matches, it prints `✓ Lunamill's files match the settings.` and exits 0.
 
 #### Scenario: Sync check passes in a line
 
 - **WHEN** `lunamill sync --check` finds every file matches
-- **THEN** it prints `✓ lunamill's files match the settings.` and exits 0.
+- **THEN** it prints `✓ Lunamill's files match the settings.` and exits 0.
 
 ### Requirement: Sync check names the files that differ
 
-Lunamill SHALL behave as this line says: When `lunamill sync --check` finds files that differ, it prints on standard error `✗ N of lunamill's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run lunamill sync and commit what it writes.`, and exits 1.
+Lunamill SHALL behave as this line says: When `lunamill sync --check` finds files that differ, it prints on standard error `✗ N of Lunamill's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run lunamill sync and commit what it writes.`, and exits 1.
 
 #### Scenario: Sync check names the files that differ
 
 - **WHEN** `lunamill sync --check` finds files that differ
-- **THEN** it prints on standard error `✗ N of lunamill's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run lunamill sync and commit what it writes.`, and exits 1.
+- **THEN** it prints on standard error `✗ N of Lunamill's files don't match the settings:`, with `doesn't` when N is 1, each path on its own line indented two spaces, then `Run lunamill sync and commit what it writes.`, and exits 1.
 
 ### Requirement: Config check passes in a line
 
@@ -188,12 +188,12 @@ Lunamill SHALL behave as this line says: When `lunamill doctor` sorts its checks
 
 ### Requirement: A check under its tool's name
 
-Lunamill SHALL behave as this line says: When a check sits under a tool's name, its text does not start with that name and a colon: `✓ CLAUDE.md imports lunamill's rules`, not `✓ Claude Code: CLAUDE.md imports lunamill's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
+Lunamill SHALL behave as this line says: When a check sits under a tool's name, its text does not start with that name and a colon: `✓ CLAUDE.md imports Lunamill's rules`, not `✓ Claude Code: CLAUDE.md imports Lunamill's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
 
 #### Scenario: A check under its tool's name
 
 - **WHEN** a check sits under a tool's name
-- **THEN** its text does not start with that name and a colon: `✓ CLAUDE.md imports lunamill's rules`, not `✓ Claude Code: CLAUDE.md imports lunamill's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
+- **THEN** its text does not start with that name and a colon: `✓ CLAUDE.md imports Lunamill's rules`, not `✓ Claude Code: CLAUDE.md imports Lunamill's rules`. A sentence whose subject is the tool's name, such as `GitHub Issues has no ticket fields, which tickets.fields names`, keeps it.
 
 ### Requirement: Parts that are off
 

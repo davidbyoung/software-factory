@@ -69,7 +69,7 @@ const READ = [
 const SCRIPTS = ["src", "bin"];
 
 describe("the package", () => {
-  it("is @lunamill-ai/lunamill, from lunamill-ai/lunamill, with the one command Lunamill", () => {
+  it("is @lunamill-ai/lunamill, from lunamill-ai/lunamill, with the one command lunamill", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
       name: string;
       bin: Record<string, string>;
@@ -107,6 +107,31 @@ describe("the product's name", () => {
       .flatMap((f) => oldNames(literals(f)).map((name) => `${f}: ${name}`));
     expect(found).toEqual([]);
   });
+
+  it(
+    "is quoted in the specs and the docs as each command prints it",
+    { timeout: 30_000 },
+    () => {
+      const printed = SCRIPTS.flatMap(files)
+        .filter((f) => /\.(m?ts|m?js)$/.test(f) && !/\.test\./.test(f))
+        .filter((f) => readFileSync(f, "utf8").includes("Lunamill"))
+        .flatMap((f) => literals(f).split("\n"))
+        .map((piece) => piece.trim())
+        .filter((piece) => piece.includes("Lunamill") && piece.length >= 16);
+      const quotes = ["README.md", "docs", "openspec"]
+        .flatMap(files)
+        .filter((f) => f.endsWith(".md"));
+      const found = quotes.flatMap((f) => {
+        const text = readFileSync(f, "utf8");
+        return [...new Set(printed)]
+          .filter((piece) =>
+            text.includes(piece.replaceAll("Lunamill", "lunamill")),
+          )
+          .map((piece) => `${f}: ${piece}`);
+      });
+      expect(found).toEqual([]);
+    },
+  );
 
   it("is capitalized in the prose of every page, skill, agent, and rule", () => {
     const found = READ.flatMap(files)

@@ -44,12 +44,12 @@ Lunamill SHALL behave as this line says: When `lunamill ticket open`, `lunamill 
 
 ### Requirement: Naming a ticket adopts it
 
-Lunamill SHALL behave as this line says: When `lunamill ticket refining N`, `lunamill ticket claim N`, or `lunamill ticket ready N` runs on a ticket without the label, it adds the label and prints `REF had no lunamill label: added it, so lunamill now tracks REF` before its own output, REF being the ticket's written form. Every other command writes to an unlabeled ticket as today.
+Lunamill SHALL behave as this line says: When `lunamill ticket refining N`, `lunamill ticket claim N`, or `lunamill ticket ready N` runs on a ticket without the label, it adds the label and prints `REF had no lunamill label: added it, so Lunamill now tracks REF` before its own output, REF being the ticket's written form. Every other command writes to an unlabeled ticket as today.
 
 #### Scenario: Naming a ticket adopts it
 
 - **WHEN** `lunamill ticket refining N`, `lunamill ticket claim N`, or `lunamill ticket ready N` runs on a ticket without the label
-- **THEN** it adds the label and prints `REF had no lunamill label: added it, so lunamill now tracks REF` before its own output, REF being the ticket's written form. Every other command writes to an unlabeled ticket as today.
+- **THEN** it adds the label and prints `REF had no lunamill label: added it, so Lunamill now tracks REF` before its own output, REF being the ticket's written form. Every other command writes to an unlabeled ticket as today.
 
 ### Requirement: The label is created before use
 

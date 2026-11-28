@@ -94,7 +94,7 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 #### Scenario: Init asks for a token
 
 - **WHEN** a name other than `GITHUB_TOKEN` is set neither as an Actions secret nor as a Dependabot secret
-- **THEN** `init`'s plan has a `secrets` row of its own for each such name, after the tools' row and any `store` row, reading `NAME for Actions and for Dependabot`; for a name that needs one copy, `NAME for Actions` or `NAME for Dependabot`, a Dependabot copy it cannot see (line 12) counting as needed. After "Go ahead?" it prints `.npmrc reads NAME for ADDRESS.` and `lunamill's workflows install with it. Use a token that can only read.`, reads the value in a masked prompt `Paste it (leave empty to do this later):`, stores it as both, and prints `Stored NAME for Actions and for Dependabot.`
+- **THEN** `init`'s plan has a `secrets` row of its own for each such name, after the tools' row and any `store` row, reading `NAME for Actions and for Dependabot`; for a name that needs one copy, `NAME for Actions` or `NAME for Dependabot`, a Dependabot copy it cannot see (line 12) counting as needed. After "Go ahead?" it prints `.npmrc reads NAME for ADDRESS.` and `Lunamill's workflows install with it. Use a token that can only read.`, reads the value in a masked prompt `Paste it (leave empty to do this later):`, stores it as both, and prints `Stored NAME for Actions and for Dependabot.`
 
 ### Requirement: The address init names
 
@@ -125,12 +125,12 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: A token left for later
 
-Lunamill SHALL behave as this line says: When nothing is pasted for a name, `init` stores nothing for it and prints `No NAME stored. lunamill's workflows fail at npm ci until it is. Run lunamill init again to add it.`
+Lunamill SHALL behave as this line says: When nothing is pasted for a name, `init` stores nothing for it and prints `No NAME stored. Lunamill's workflows fail at npm ci until it is. Run lunamill init again to add it.`
 
 #### Scenario: A token left for later
 
 - **WHEN** nothing is pasted for a name
-- **THEN** `init` stores nothing for it and prints `No NAME stored. lunamill's workflows fail at npm ci until it is. Run lunamill init again to add it.`
+- **THEN** `init` stores nothing for it and prints `No NAME stored. Lunamill's workflows fail at npm ci until it is. Run lunamill init again to add it.`
 
 ### Requirement: Both copies set
 

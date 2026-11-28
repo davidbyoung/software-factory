@@ -118,7 +118,7 @@ browser. What it does not say:
   [Tokens and secrets](../security/credentials.md#who-handles-a-token) names.
 - The repository `acme/lunamill-config`, with the organization's preset
   and its one poller.
-- The rule "lunamill", which requires "Review verdict" in each
+- The rule "Lunamill", which requires "Review verdict" in each
   repository set up with Lunamill.
 - A board with Lunamill's columns and fields, or the board you chose,
   with its own columns and whatever it lacked.

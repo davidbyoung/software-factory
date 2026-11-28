@@ -80,7 +80,7 @@ Lunamill SHALL behave as this line says: No Lunamill command puts a credential's
 
 ### Requirement: The guard refuses the credentials file
 
-Lunamill SHALL refuse a session's call that reads the credentials file, with the reason `lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the lunamill command you need, such as lunamill ticket view.`, and let through one that only mentions it. It SHALL do so in every repository `lunamill sync` writes its hooks into, whatever the ticket system, since the file also holds a person's GitHub token and coding agent's credential.
+Lunamill SHALL refuse a session's call that reads the credentials file, with the reason `Lunamill's credentials file is not for sessions to read. Its commands read it themselves: run the Lunamill command you need, such as lunamill ticket view.`, and let through one that only mentions it. It SHALL do so in every repository `lunamill sync` writes its hooks into, whatever the ticket system, since the file also holds a person's GitHub token and coding agent's credential.
 
 #### Scenario: The guard refuses the credentials file
 

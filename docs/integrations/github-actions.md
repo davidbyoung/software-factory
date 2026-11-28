@@ -391,7 +391,7 @@ The steps `lunamill init` takes for the review and for builds in the cloud, done
 
 ### Starting a job by hand
 
-On the Actions tab, open the "lunamill" workflow and choose "Run
+On the Actions tab, open the "Lunamill" workflow and choose "Run
 workflow". The form has four fields. The first, the job, names what to
 run, and the others say what to run it on:
 

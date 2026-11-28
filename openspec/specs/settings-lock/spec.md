@@ -44,12 +44,12 @@ Lunamill SHALL behave as this line says: When `.claude/lunamill.lock` can't be r
 
 ### Requirement: A lock from an earlier release
 
-Lunamill SHALL behave as this line says: When `.claude/lunamill.lock` has no `settings`, as a lock from an earlier release has none, those commands print `.claude/lunamill.lock is from an earlier version of lunamill. Run: lunamill sync` and exit 1.
+Lunamill SHALL behave as this line says: When `.claude/lunamill.lock` has no `settings`, as a lock from an earlier release has none, those commands print `.claude/lunamill.lock is from an earlier version of Lunamill. Run: lunamill sync` and exit 1.
 
 #### Scenario: A lock from an earlier release
 
 - **WHEN** `.claude/lunamill.lock` has no `settings`
-- **THEN** as a lock from an earlier release has none, those commands print `.claude/lunamill.lock is from an earlier version of lunamill. Run: lunamill sync` and exit 1.
+- **THEN** as a lock from an earlier release has none, those commands print `.claude/lunamill.lock is from an earlier version of Lunamill. Run: lunamill sync` and exit 1.
 
 ### Requirement: The commit hook on a stale lock
 

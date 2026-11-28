@@ -112,7 +112,7 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 #### Scenario: The property and the rule
 
 - **WHEN** `lunamill init --org ADDRESS` comes to the rule
-- **THEN** Where ORG's plan has organization-wide rules, it defines the property `lunamill` for ORG's repositories, with the values `on` and `off`, and an organization rule named "lunamill" that requires "Review verdict", posted by GitHub Actions, before a merge to the default branch of each repository where the property is `on`. It prints the draft's ✓ line. On GitHub Free, or when GitHub refuses the rule, it prints the `- rule` line and carries on: the App cannot make a repository's rule, so an admin of each repository does, as lines 46 and 49 say.
+- **THEN** Where ORG's plan has organization-wide rules, it defines the property `lunamill` for ORG's repositories, with the values `on` and `off`, and an organization rule named "Lunamill" that requires "Review verdict", posted by GitHub Actions, before a merge to the default branch of each repository where the property is `on`. It prints the draft's ✓ line. On GitHub Free, or when GitHub refuses the rule, it prints the `- rule` line and carries on: the App cannot make a repository's rule, so an admin of each repository does, as lines 46 and 49 say.
 
 ### Requirement: The last line
 

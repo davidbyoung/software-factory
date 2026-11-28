@@ -979,7 +979,7 @@ describe("apply", () => {
   });
 });
 
-describe("Lunamill review verdict", () => {
+describe("lunamill review verdict", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -990,7 +990,7 @@ describe("Lunamill review verdict", () => {
 
     expect(await run()).toBe(1);
     expect(error).toHaveBeenCalledWith(
-      "Lunamill review verdict reads pull_request_target, not workflow_run: a review's run posts its own verdict.",
+      "lunamill review verdict reads pull_request_target, not workflow_run: a review's run posts its own verdict.",
     );
   });
 });

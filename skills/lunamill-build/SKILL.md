@@ -31,7 +31,7 @@ the ticket system writes it in prose, such as `#12`, which
 - **GitHub Actions:** where a poller runs (`builds.trigger` is not
   `manual`), the owner moves the issue's card to Ready on the
   board, and the poller posts a start comment and starts a build, a run
-  of the "lunamill" workflow, with the issue's key; or a person runs
+  of the "Lunamill" workflow, with the issue's key; or a person runs
   `lunamill build N`, or "Run workflow" on the Actions
   tab. The two are the same run. The run's prompt says so. There is no
   start check, since only someone with write access can dispatch a

@@ -41,7 +41,7 @@ slash command, such as `/lunamill-refine 12`. [Skills and agents](skills.md) lis
 masked prompt. [Which setup is yours](../setup/README.md) shows what each
 form asks and prints.
 
-`sync --check` ends with `✓ lunamill's files match the settings.`,
+`sync --check` ends with `✓ Lunamill's files match the settings.`,
 and `config check` with `✓ The settings are valid.`, when there is
 nothing to fix.
 

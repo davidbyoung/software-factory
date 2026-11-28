@@ -43,7 +43,7 @@ lists them in the order to delete them.
 | The secret `LUNAMILL_APP_PRIVATE_KEY`, the variable `LUNAMILL_APP_CLIENT_ID`, and the secret `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`, each for every repository | The organization's Settings, Secrets and variables, Actions                           |
 | The repository `acme/lunamill-config`, with `lunamill-preset.yaml`, `.github/workflows/lunamill-poller.yml`, and a `README.md`                                            | Among the organization's repositories                                                 |
 | The property `lunamill`, with the values `on` and `off`, which the first workflow run after a repository's setup merges sets to `on` for it                               | The organization's Settings, Custom properties                                        |
-| The rule "lunamill", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                                       | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
+| The rule "Lunamill", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                                       | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
 | A board, or whichever of Lunamill's columns and fields the board the owner chose still lacked                                                                             | The organization's Projects                                                           |
 
 ## Tokens and secrets

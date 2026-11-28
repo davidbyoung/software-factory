@@ -31,7 +31,7 @@ files in your repository,
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
   the tickets it opened; and, on a public repository, the policy named
-  "lunamill", which lets Lunamill's workflow run where the code
+  "Lunamill", which lets Lunamill's workflow run where the code
   host needs one ([GitHub](../integrations/github.md#a-public-repository)).
 - **On your code host, once for an organization,** when an owner set it
   up with `lunamill init --org`: the organization's App, which its
@@ -93,7 +93,7 @@ Ask an owner of acme to set the Lunamill property to "off" for acme/web: until t
 It commits nothing. Review the changes, commit them on a branch, and
 merge.
 
-It does not name the "lunamill" policy that `lunamill init` adds
+It does not name the "Lunamill" policy that `lunamill init` adds
 on a public repository. Delete that one by hand too, from where
 [GitHub's A public repository, under By hand](../integrations/github.md#a-public-repository-1)
 says it is added.

@@ -50,7 +50,7 @@ of `.github/workflows/lunamill.yml`. Commit what it changed with the
 settings, from your computer, open a pull request, and merge it.
 
 Where no policy is left on, also take **Approval policies** out of the
-ruleset "lunamill", under your repository's Settings, Rules,
+ruleset "Lunamill", under your repository's Settings, Rules,
 Rulesets: nothing posts the status any more, so a pull request would
 wait on it forever.
 

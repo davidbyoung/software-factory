@@ -8,12 +8,12 @@ Each tool's own configuration in the repository, and how `lunamill doctor` check
 
 ### Requirement: Claude Code's configuration lines
 
-Lunamill SHALL behave as this line says: `lunamill doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports lunamill's rules`, `.claude/settings.json has lunamill's hooks`, and `The claude command is installed`.
+Lunamill SHALL behave as this line says: `lunamill doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports Lunamill's rules`, `.claude/settings.json has Lunamill's hooks`, and `The claude command is installed`.
 
 #### Scenario: Claude Code's configuration lines
 
 - **WHEN** `lunamill doctor` runs with Claude Code
-- **THEN** `lunamill doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports lunamill's rules`, `.claude/settings.json has lunamill's hooks`, and `The claude command is installed`.
+- **THEN** `lunamill doctor` prints one line for each piece of Claude Code's configuration under the `Claude Code` heading: `CLAUDE.md imports Lunamill's rules`, `.claude/settings.json has Lunamill's hooks`, and `The claude command is installed`.
 
 ### Requirement: Claude Code's files are missing
 

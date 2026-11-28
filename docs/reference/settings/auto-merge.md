@@ -61,7 +61,7 @@ it:
 
 | The status says                        | Why                                             |
 | -------------------------------------- | ----------------------------------------------- |
-| `PATH: lunamill's own files`           | The file is one of Lunamill's, listed above     |
+| `PATH: Lunamill's own files`           | The file is one of Lunamill's, listed above     |
 | `PATH: held by auto-merge.deny`        | The file matches `deny`                         |
 | `PATH: not in auto-merge.allow`        | The file matches nothing in `allow`             |
 | What your command printed              | Your command exited with something other than 0 |

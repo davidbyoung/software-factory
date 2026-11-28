@@ -31,7 +31,7 @@ Lunamill SHALL behave as this line says: When an optional part is off, or a sett
 #### Scenario: Parts that are off and empty defaults print as comments
 
 - **WHEN** an optional part is off (`pr-review` or `site`), or a setting's default is no value (`tickets.board`, `site.pages`, `site.design-guide`, `commands.test-one`, `commands.end-to-end`, `commands.coverage`, or a mockups plugin where there is none)
-- **THEN** it prints a comment line in its place: `# pr-review: off`, `# board: none (default)`, `# pages: found by lunamill (default)`, `# design-guide: none (default)`, `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`, or `# mockups: none (default)`.
+- **THEN** it prints a comment line in its place: `# pr-review: off`, `# board: none (default)`, `# pages: found by Lunamill (default)`, `# design-guide: none (default)`, `# test-one: none (default)`, `# end-to-end: none (default)`, `# coverage: none (default)`, or `# mockups: none (default)`.
 
 ### Requirement: The output is a valid settings file
 

@@ -26,12 +26,12 @@ Lunamill SHALL behave as this line says: When the ticket system lacks the `field
 
 ### Requirement: Init asks the agent for fields once
 
-Lunamill SHALL behave as this line says: After line 1, init prints `Asking <label> which of them should hold each of lunamill's fields...` and asks the agent once. It sends only the text fields' names and descriptions and what each Lunamill field holds, and tells the agent to answer the description for a Lunamill field no ticket field clearly fits.
+Lunamill SHALL behave as this line says: After line 1, init prints `Asking <label> which of them should hold each of Lunamill's fields...` and asks the agent once. It sends only the text fields' names and descriptions and what each Lunamill field holds, and tells the agent to answer the description for a Lunamill field no ticket field clearly fits.
 
 #### Scenario: Init asks the agent for fields once
 
 - **WHEN** init has named the tickets' text fields
-- **THEN** After line 1, init prints `Asking <label> which of them should hold each of lunamill's fields...` and asks the agent once. It sends only the text fields' names and descriptions and what each Lunamill field holds, and tells the agent to answer the description for a Lunamill field no ticket field clearly fits.
+- **THEN** After line 1, init prints `Asking <label> which of them should hold each of Lunamill's fields...` and asks the agent once. It sends only the text fields' names and descriptions and what each Lunamill field holds, and tells the agent to answer the description for a Lunamill field no ticket field clearly fits.
 
 ### Requirement: The field suggestion's table
 
@@ -94,7 +94,7 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 #### Scenario: A field answer that can't be used
 
 - **WHEN** the answer can't be used
-- **THEN** Init does not stop: it prints `<label>'s answer could not be used: <reason>.`, with the reason worded as today, then `Choose where each of lunamill's fields goes yourself.` It does not print `Run lunamill init again, or write tickets.fields in .claude/lunamill.yaml yourself.` or `Nothing changed.`, and it does not ask the agent again.
+- **THEN** Init does not stop: it prints `<label>'s answer could not be used: <reason>.`, with the reason worded as today, then `Choose where each of Lunamill's fields goes yourself.` It does not print `Run lunamill init again, or write tickets.fields in .claude/lunamill.yaml yourself.` or `Nothing changed.`, and it does not ask the agent again.
 
 ### Requirement: Each field reason has its own wording
 

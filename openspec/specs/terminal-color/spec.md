@@ -161,12 +161,12 @@ Lunamill SHALL behave as this line says: When a question is asked in color, its 
 
 ### Requirement: The name a command is about
 
-Lunamill SHALL behave as this line says: When a command's first line names the organization, repository, preset, or board it is about, that name is bold in color: `acme` in `Setting up lunamill for the organization acme`, and `"TITLE"` in `Board 12, "TITLE"`. So are the pull request in `✓ Opened`, and the preset in `✓ Added` and `✓ Removed`.
+Lunamill SHALL behave as this line says: When a command's first line names the organization, repository, preset, or board it is about, that name is bold in color: `acme` in `Setting up Lunamill for the organization acme`, and `"TITLE"` in `Board 12, "TITLE"`. So are the pull request in `✓ Opened`, and the preset in `✓ Added` and `✓ Removed`.
 
 #### Scenario: The name a command is about
 
 - **WHEN** a command's first line names the organization, repository, preset, or board it is about
-- **THEN** that name is bold in color: `acme` in `Setting up lunamill for the organization acme`, and `"TITLE"` in `Board 12, "TITLE"`. So are the pull request in `✓ Opened`, and the preset in `✓ Added` and `✓ Removed`.
+- **THEN** that name is bold in color: `acme` in `Setting up Lunamill for the organization acme`, and `"TITLE"` in `Board 12, "TITLE"`. So are the pull request in `✓ Opened`, and the preset in `✓ Added` and `✓ Removed`.
 
 ### Requirement: Lunamill's commands
 
@@ -220,7 +220,7 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 #### Scenario: What the person does
 
 - **WHEN** a list of what the person does prints in color
-- **THEN** the line that heads it and each step's number are yellow, and a step's words are plain but for lines 10 to 13. Such a line is `Merge it to finish.` with what follows on its line, `Nothing else is left to do.` included, since merging is the person's, `Left to do:`, `After it merges:`, `After it merges, come back to BRANCH and bring it up to date:`, `Next, in each repository you want lunamill in:`, the line `Registering the ... Two steps, both in your browser.`, `Choose:`, and `Nothing is committed. Left for you to do by hand:`.
+- **THEN** the line that heads it and each step's number are yellow, and a step's words are plain but for lines 10 to 13. Such a line is `Merge it to finish.` with what follows on its line, `Nothing else is left to do.` included, since merging is the person's, `Left to do:`, `After it merges:`, `After it merges, come back to BRANCH and bring it up to date:`, `Next, in each repository you want Lunamill in:`, the line `Registering the ... Two steps, both in your browser.`, `Choose:`, and `Nothing is committed. Left for you to do by hand:`.
 
 ### Requirement: What the person adds by hand
 

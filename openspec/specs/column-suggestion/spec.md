@@ -26,12 +26,12 @@ Lunamill SHALL behave as this line says: When the settings have every state unde
 
 ### Requirement: Init asks the agent once
 
-Lunamill SHALL behave as this line says: When the coding agent's command is installed, init prints `Asking <label> which of them shows each of lunamill's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
+Lunamill SHALL behave as this line says: When the coding agent's command is installed, init prints `Asking <label> which of them shows each of Lunamill's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
 
 #### Scenario: Init asks the agent once
 
 - **WHEN** the coding agent's command is installed
-- **THEN** init prints `Asking <label> which of them shows each of lunamill's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
+- **THEN** init prints `Asking <label> which of them shows each of Lunamill's six states...` and asks the agent once. It sends only the board's column names, each state's key and meaning, and whether builds start from the board.
 
 ### Requirement: The suggestion's table
 
@@ -80,12 +80,12 @@ Lunamill SHALL behave as this line says: Each reason an answer can't be used has
 
 ### Requirement: Use these columns
 
-Lunamill SHALL behave as this line says: After the table, init asks `Use these columns?` with `Yes`, `Change some`, and `No: add lunamill's columns instead`. `Yes` is selected first.
+Lunamill SHALL behave as this line says: After the table, init asks `Use these columns?` with `Yes`, `Change some`, and `No: add Lunamill's columns instead`. `Yes` is selected first.
 
 #### Scenario: Use these columns
 
 - **WHEN** init has printed the table
-- **THEN** it asks `Use these columns?` with `Yes`, `Change some`, and `No: add lunamill's columns instead`. `Yes` is selected first.
+- **THEN** it asks `Use these columns?` with `Yes`, `Change some`, and `No: add Lunamill's columns instead`. `Yes` is selected first.
 
 ### Requirement: Change some
 
@@ -112,11 +112,11 @@ Lunamill SHALL behave as this line says: When a column picked for a state alread
 
 ### Requirement: No adds Lunamill's columns
 
-Lunamill SHALL behave as this line says: When you choose `No: add lunamill's columns instead`, init writes all six states with Lunamill's names, and the board gains each of those columns it lacks.
+Lunamill SHALL behave as this line says: When you choose `No: add Lunamill's columns instead`, init writes all six states with Lunamill's names, and the board gains each of those columns it lacks.
 
 #### Scenario: No adds Lunamill's columns
 
-- **WHEN** you choose `No: add lunamill's columns instead`
+- **WHEN** you choose `No: add Lunamill's columns instead`
 - **THEN** init writes all six states with Lunamill's names, and the board gains each of those columns it lacks.
 
 ### Requirement: Only the columns the mapping needs are added
@@ -157,12 +157,12 @@ Lunamill SHALL behave as this line says: When `lunamill init` creates the board,
 
 ### Requirement: Init saves a board that has every column
 
-Lunamill SHALL behave as this line says: When init will use an existing board whose Status field has a column of each of Lunamill's six names, ignoring capitals, and the settings have no `tickets.columns`, init asks nothing about columns. It prints `Board N has a column for each of lunamill's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
+Lunamill SHALL behave as this line says: When init will use an existing board whose Status field has a column of each of Lunamill's six names, ignoring capitals, and the settings have no `tickets.columns`, init asks nothing about columns. It prints `Board N has a column for each of Lunamill's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
 
 #### Scenario: Init saves a board that has every column
 
 - **WHEN** init will use an existing board whose Status field has a column of each of Lunamill's six names, ignoring capitals, and the settings have no `tickets.columns`
-- **THEN** init asks nothing about columns. It prints `Board N has a column for each of lunamill's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
+- **THEN** init asks nothing about columns. It prints `Board N has a column for each of Lunamill's six states:`, a blank line, and the `State      Column` table with a row per state, in the board's spelling, and writes all six states under `tickets.columns` in the board's spelling.
 
 ### Requirement: Yes writes all six states
 
@@ -202,12 +202,12 @@ Lunamill SHALL behave as this line says: When a re-run finds `tickets.columns` w
 
 ### Requirement: A re-run that asks nothing
 
-Lunamill SHALL behave as this line says: When line 14 fills in every missing state, init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of lunamill's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
+Lunamill SHALL behave as this line says: When line 14 fills in every missing state, init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of Lunamill's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
 
 #### Scenario: A re-run that asks nothing
 
 - **WHEN** line 14 fills in every missing state
-- **THEN** init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of lunamill's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
+- **THEN** init asks nothing. It prints `Your settings give no column to STATES.`, STATES joined as in line 2 but with `or` (`building or done`), then `Board N has a column of Lunamill's name for each:`, a blank line, and the `State      Column` table of all six states as they will be written, and writes them.
 
 ### Requirement: A re-run asks for a state it cannot fill
 

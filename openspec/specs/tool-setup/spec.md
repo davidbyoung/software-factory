@@ -289,12 +289,12 @@ Lunamill SHALL behave as this line says: When a check's state is unknown, `docto
 
 ### Requirement: Init requires the coding agent
 
-Lunamill SHALL behave as this line says: When `lunamill init` runs and the coding agent's command isn't installed, init prints `Setting up lunamill for <repository>`, a blank line, then `lunamill runs in a coding agent, and <label> is not installed.`, `Install it and run lunamill init again.`, and `Nothing changed.`, and exits 1. It asks nothing but which repository, where the remotes leave that open, writes no file, and changes no board and no secret.
+Lunamill SHALL behave as this line says: When `lunamill init` runs and the coding agent's command isn't installed, init prints `Setting up Lunamill for <repository>`, a blank line, then `Lunamill runs in a coding agent, and <label> is not installed.`, `Install it and run lunamill init again.`, and `Nothing changed.`, and exits 1. It asks nothing but which repository, where the remotes leave that open, writes no file, and changes no board and no secret.
 
 #### Scenario: Init requires the coding agent
 
 - **WHEN** `lunamill init` runs and the coding agent's command isn't installed
-- **THEN** Init prints `Setting up lunamill for <repository>`, a blank line, then `lunamill runs in a coding agent, and <label> is not installed.`, `Install it and run lunamill init again.`, and `Nothing changed.`, and exits 1. It asks nothing but which repository, where the remotes leave that open, writes no file, and changes no board and no secret.
+- **THEN** Init prints `Setting up Lunamill for <repository>`, a blank line, then `Lunamill runs in a coding agent, and <label> is not installed.`, `Install it and run lunamill init again.`, and `Nothing changed.`, and exits 1. It asks nothing but which repository, where the remotes leave that open, writes no file, and changes no board and no secret.
 
 ### Requirement: Init asks for the branch name
 

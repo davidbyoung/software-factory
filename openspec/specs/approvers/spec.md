@@ -26,12 +26,12 @@ Lunamill SHALL behave as this line says: When the review's author is not an appr
 
 ### Requirement: Lunamill's own reply
 
-Lunamill SHALL behave as this line says: When the review is an approver's and everything in it carries the agent mark, it prints `nothing to do: review REVIEW is lunamill's own reply: nothing of an approver's in it` and exits 1.
+Lunamill SHALL behave as this line says: When the review is an approver's and everything in it carries the agent mark, it prints `nothing to do: review REVIEW is Lunamill's own reply: nothing of an approver's in it` and exits 1.
 
 #### Scenario: Lunamill's own reply
 
 - **WHEN** the review is an approver's and everything in it carries the agent mark
-- **THEN** it prints `nothing to do: review REVIEW is lunamill's own reply: nothing of an approver's in it` and exits 1.
+- **THEN** it prints `nothing to do: review REVIEW is Lunamill's own reply: nothing of an approver's in it` and exits 1.
 
 ### Requirement: Review-pending cannot ask
 

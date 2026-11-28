@@ -2,12 +2,12 @@
 
 ### Requirement: The workflow files
 
-Lunamill SHALL behave as this line says: When `lunamill sync` writes the workflow files, they are `.github/workflows/lunamill.yml`, titled `lunamill` with the job id `lunamill`, and `.github/workflows/lunamill-review.yml`, titled `lunamill review`. Each calls `lunamill-ai/lunamill/.github/workflows/FILE@vVERSION` and passes the secrets and variables whose names start `LUNAMILL_` in place of `FACTORY_`. `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` keep their names.
+Lunamill SHALL behave as this line says: When `lunamill sync` writes the workflow files, they are `.github/workflows/lunamill.yml`, titled `Lunamill` with the job id `lunamill`, and `.github/workflows/lunamill-review.yml`, titled `Lunamill review`. Each calls `lunamill-ai/lunamill/.github/workflows/FILE@vVERSION` and passes the secrets and variables whose names start `LUNAMILL_` in place of `FACTORY_`. `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` keep their names.
 
 #### Scenario: The workflow files
 
 - **WHEN** `lunamill sync` writes the workflow files
-- **THEN** they are `.github/workflows/lunamill.yml`, titled `lunamill` with the job id `lunamill`, and `.github/workflows/lunamill-review.yml`, titled `lunamill review`. Each calls `lunamill-ai/lunamill/.github/workflows/FILE@vVERSION` and passes the secrets and variables whose names start `LUNAMILL_` in place of `FACTORY_`. `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` keep their names.
+- **THEN** they are `.github/workflows/lunamill.yml`, titled `Lunamill` with the job id `lunamill`, and `.github/workflows/lunamill-review.yml`, titled `Lunamill review`. Each calls `lunamill-ai/lunamill/.github/workflows/FILE@vVERSION` and passes the secrets and variables whose names start `LUNAMILL_` in place of `FACTORY_`. `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` keep their names.
 
 ### Requirement: The checks' names
 
