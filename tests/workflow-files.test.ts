@@ -252,7 +252,7 @@ describe("lunamill-poller.yml", () => {
         "# The one poller for acme's board. The cron line is yours to change, with",
         "# builds.poll-minutes in lunamill-preset.yaml: lunamill preset check fails",
         "# when the two differ.",
-        "name: lunamill poller",
+        "name: Lunamill poller",
         "on:",
         "  schedule:",
         '    - cron: "*/30 * * * *" # the poller',
