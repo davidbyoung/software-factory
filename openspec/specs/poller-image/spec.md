@@ -8,25 +8,25 @@ The container image each release publishes, so a repository that hosts the polle
 
 ### Requirement: The image is published
 
-The factory SHALL behave as this line says: When a version is released, the release workflow publishes `ghcr.io/davidbyoung/software-factory-poller` tagged with the version and `latest`, after the npm package publishes, and built from that published version.
+kodor SHALL behave as this line says: When a version is released, the release workflow publishes `ghcr.io/kodor-ai/kodor-poller` tagged with the version and `latest`, after the npm package publishes, and built from that published version.
 
 #### Scenario: The image is published
 
 - **WHEN** a version is released
-- **THEN** the release workflow publishes `ghcr.io/davidbyoung/software-factory-poller` tagged with the version and `latest`, after the npm package publishes, and built from that published version.
+- **THEN** the release workflow publishes `ghcr.io/kodor-ai/kodor-poller` tagged with the version and `latest`, after the npm package publishes, and built from that published version.
 
 ### Requirement: The image runs the poller
 
-The factory SHALL behave as this line says: When the image runs with `FACTORY_REPOSITORY` and `FACTORY_BOARD_TOKEN`, it runs that version's hosted poller.
+kodor SHALL behave as this line says: When the image runs with `KODOR_REPOSITORY` and `KODOR_BOARD_TOKEN`, it runs that version's hosted poller.
 
 #### Scenario: The image runs the poller
 
-- **WHEN** the image runs with `FACTORY_REPOSITORY` and `FACTORY_BOARD_TOKEN`
+- **WHEN** the image runs with `KODOR_REPOSITORY` and `KODOR_BOARD_TOKEN`
 - **THEN** it runs that version's hosted poller.
 
 ### Requirement: The image is public
 
-The factory SHALL behave as this line says: When anyone pulls the image, no sign-in is needed.
+kodor SHALL behave as this line says: When anyone pulls the image, no sign-in is needed.
 
 #### Scenario: The image is public
 
@@ -35,9 +35,18 @@ The factory SHALL behave as this line says: When anyone pulls the image, no sign
 
 ### Requirement: The image names its source
 
-The factory SHALL behave as this line says: The image carries the `org.opencontainers.image.source` label naming this repository, so Dependabot can read its versions.
+kodor SHALL behave as this line says: The image carries the `org.opencontainers.image.source` label naming this repository, so Dependabot can read its versions.
 
 #### Scenario: The image names its source
 
 - **WHEN** the image is built
 - **THEN** The image carries the `org.opencontainers.image.source` label naming this repository, so Dependabot can read its versions.
+
+### Requirement: The poller's image
+
+kodor SHALL behave as this line says: When a release publishes the poller's image, it is `ghcr.io/kodor-ai/kodor-poller:VERSION` and `:latest`, and the poller reads `KODOR_REPOSITORY` and `KODOR_BOARD_TOKEN`.
+
+#### Scenario: The poller's image
+
+- **WHEN** a release publishes the poller's image
+- **THEN** it is `ghcr.io/kodor-ai/kodor-poller:VERSION` and `:latest`, and the poller reads `KODOR_REPOSITORY` and `KODOR_BOARD_TOKEN`.

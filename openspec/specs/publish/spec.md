@@ -8,16 +8,16 @@ What the last job of a run in the cloud checks, refuses, and does on the code ho
 
 ### Requirement: Running nothing
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Running nothing
 
 - **WHEN** Publish reads what a session left
-- **THEN** `factory session publish` never checks out or runs anything from the bundle, and reads git with hooks and the machine's git settings off.
+- **THEN** `kodor session publish` never checks out or runs anything from the bundle, and reads git with hooks and the machine's git settings off.
 
 ### Requirement: A bundle it refuses
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A bundle it refuses
 
@@ -26,7 +26,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: What it pushes
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What it pushes
 
@@ -35,7 +35,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: The pull request it opens
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The pull request it opens
 
@@ -44,34 +44,34 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: Marking ready
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Marking ready
 
 - **WHEN** CI has finished on what Publish pushed
-- **THEN** It marks a pull request a build opened ready only when every check finished on its newest commit and none failed. One opened with `factory pr open --draft` stays a draft for its owner to mark ready. When no check has started after ten minutes, or CI has not finished after an hour, it says so there. It asks the code host what a build's pull request would close once it is opened and again before it is marked ready, and where that is another ticket it says so and does nothing more with it.
+- **THEN** It marks a pull request a build opened ready only when every check finished on its newest commit and none failed. One opened with `kodor pr open --draft` stays a draft for its owner to mark ready. When no check has started after ten minutes, or CI has not finished after an hour, it says so there. It asks the code host what a build's pull request would close once it is opened and again before it is marked ready, and where that is another ticket it says so and does nothing more with it.
 
 ### Requirement: What it may be asked
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What it may be asked
 
 - **WHEN** a session asked for writes
-- **THEN** It replies to and resolves only threads of this run's pull request, and comments on, edits, stops, or ends only this run's ticket and pull request. It also lists a follow-up in the pull request this run opened or answers, as `factory follow-up` does, every box unticked, and refuses one from a build that opened none, or from any other run, naming it in the run's log. It opens a ticket from a Conflict or a Dependency run, and asks for the review again. When what the session left did not arrive, when a build left nothing, or when the session did not finish and left no commits, it says so there, with the run's address.
+- **THEN** It replies to and resolves only threads of this run's pull request, and comments on, edits, stops, or ends only this run's ticket and pull request. It also lists a follow-up in the pull request this run opened or answers, as `kodor follow-up` does, every box unticked, and refuses one from a build that opened none, or from any other run, naming it in the run's log. It opens a ticket from a Conflict or a Dependency run, and asks for the review again. When what the session left did not arrive, when a build left nothing, or when the session did not finish and left no commits, it says so there, with the run's address.
 
 ### Requirement: Markers
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Markers
 
 - **WHEN** Publish posts what a session wrote
-- **THEN** Everything it posts carries the agent's mark, and any other marker of the factory's in it is removed, except the one the request itself is for.
+- **THEN** Everything it posts carries the agent's mark, and any other marker of kodor's in it is removed, except the one the request itself is for.
 
 ### Requirement: What it never does
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What it never does
 
@@ -80,7 +80,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: Its token
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Its token
 

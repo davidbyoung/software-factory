@@ -8,7 +8,7 @@ Which run starts next on a pull request, and when a person is waited for.
 
 ### Requirement: The next answer
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The next answer
 
@@ -17,7 +17,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: A person's review
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A person's review
 
@@ -26,7 +26,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: Conflicts and Dependabot's pull requests
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+kodor SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Conflicts and Dependabot's pull requests
 
