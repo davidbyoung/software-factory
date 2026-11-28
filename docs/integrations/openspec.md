@@ -43,6 +43,10 @@ A build runs `factory specs new`, `check`, and `finish` itself.
 to read before changing what one describes
 ([Your repository's commands](../reference/cli.md#your-repositorys-commands)).
 
+OpenSpec collects usage statistics unless `DO_NOT_TRACK=1` is set, so the
+factory sets it whenever it runs
+[`specs.check`](../reference/settings/specs.md#specscheck).
+
 ## Limits that come from OpenSpec
 
 None the factory adds to.

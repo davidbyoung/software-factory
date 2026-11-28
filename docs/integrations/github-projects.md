@@ -59,7 +59,11 @@ ones a board lacks.
 
 ## Limits that come from GitHub
 
-None the factory adds to.
+A field you add to a Project, which shows as a column of its table, holds
+at most 1,024 characters, so it can't hold a factory field such as a Spec,
+which is often several thousand. Use an
+[issue field](github-issues.md#set-it-up) instead
+([Your tickets already have fields](../features/board.md#your-tickets-already-have-fields)).
 
 ## When something goes wrong
 

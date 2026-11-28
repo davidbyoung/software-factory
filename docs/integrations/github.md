@@ -19,7 +19,8 @@ GitHub through the GitHub CLI you signed in with.
 - **The GitHub CLI, signed in.** Check it with `gh auth status`, which
   names the account you are signed in as. If it is not installed or not
   signed in, install it from [cli.github.com](https://cli.github.com) and
-  run `gh auth login`.
+  run `gh auth login`. Your sessions use its sign-in, so a teammate who
+  joins the repository needs it too.
 
 ## Set it up
 
@@ -91,6 +92,9 @@ organization's ([In an organization](github-organizations.md#what-setup-adds)).
 Every secret the factory reads is listed in
 [Secrets](../security/credentials.md#secrets). The one that expires, and that
 you replace, is the GitHub access token you make on your own account.
+
+On your own account the factory needs that access token in place of an
+App, because a board a person owns refuses an App's token.
 
 ### When the GitHub access token expires
 
@@ -170,9 +174,48 @@ never merges a pull request, nor adds the `verdict-override` or
 itself only when [the merge policy](../features/auto-merge.md) turns on
 its auto-merge, and every other one waits for you.
 
+For certain people to review every change to certain files, use a
+`CODEOWNERS` file, with "Require review from Code Owners" in your branch
+rules: GitHub waits for one of them, and the factory isn't involved
+([Is it an approval policy?](../features/approval-policies.md#is-it-an-approval-policy)).
+[Waiting for you on every change to a workflow](#waiting-for-you-on-every-change-to-a-workflow)
+uses one for the workflow files.
+
+### Dependabot
+
+The dependency bot is Dependabot, and its settings file is
+`.github/dependabot.yml`. The
+[`factory-deps`](../features/dependency-updates.md#factory-deps) skill is
+written, and its jobs run, only in a repository that has that file. A
+security update GitHub opens in a repository without it waits for you:
+nothing moves it along or lets it merge itself.
+
 ## Limits that come from GitHub
 
-The ones the factory meets are its workflows', under
+- **GitHub never lets a secret be read back,** so `factory doctor` checks
+  only that each secret your parts read is set, not what it holds. A
+  wrong one shows when the first run that needs it fails, naming it.
+- **A workflow that a Dependabot pull request starts can read only
+  Dependabot's secrets,** so it has no coding agent's token, as a fork's
+  pull request has none. An approval policy's agent, such as
+  `factory-credentials-reader`, can't run on either: you read the lines
+  the **Approval policies** status's Details lists yourself, then add
+  `policy-override`
+  ([When `credentials` makes a pull request wait](../features/credentials-policy.md#when-credentials-makes-a-pull-request-wait)).
+- **GitHub Free can't require a status on a private repository.** There,
+  a waiting approval policy shows on the pull request, but nothing stops a
+  merge past it. Making the repository public, or moving to a paid plan,
+  lets the **Approval policies** status be required.
+- **GitHub won't let you approve a pull request of your own,** so where
+  you are the only writer, the `policy-override` label is how you approve
+  what an approval policy found
+  ([When a pull request waits](../features/approval-policies.md#when-a-pull-request-waits)).
+- **GitHub serves most of Composer's packages, and a session in the cloud
+  can't reach GitHub at all,** so it can't download them. Install them in
+  [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup)
+  instead, as that setting's entry shows for `composer install`.
+
+The limits of the factory's workflows are under
 [Limits that come from GitHub](github-actions.md#limits-that-come-from-github)
 on the GitHub Actions page.
 
@@ -185,7 +228,7 @@ usually mean the access token expired
 
 ## By hand
 
-Every step `factory init` takes on GitHub, for someone who wants to take them without it.
+Every step `factory init` takes on GitHub, for someone who wants to take them without it, and the steps on GitHub it leaves to you.
 
 ### Choose what you want
 
@@ -362,6 +405,60 @@ public key from the account ends its use.
 
 **It worked when** the commits of the next update's pull request show as
 "Verified".
+
+### Waiting for you on every change to a workflow
+
+Where several people can write to your repository, have GitHub wait for
+you on every change to a workflow:
+
+1. Add a `CODEOWNERS` file, such as `.github/CODEOWNERS`, with this line,
+   with your own username:
+
+   ```text
+   /.github/ @your-username
+   ```
+
+2. Turn on "Require review from Code Owners" in your branch rules:
+   Settings, then Rules or Branches.
+
+**It worked when** a pull request that changes a file under `.github/`
+lists you as a required reviewer.
+
+### Dependabot and the factory's updates
+
+`.github/dependabot.yml` needs no group for the factory
+([Dependency bots](../features/dependency-updates.md#dependency-bots) says
+why). If yours has one from an earlier version, delete it, with its name
+in any other group's `exclude-patterns`.
+
+If Dependabot updates your workflow files, have it leave the factory's
+alone, with this entry in `.github/dependabot.yml`:
+
+```yaml
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "davidbyoung/software-factory*"
+```
+
+### Dependabot and the poller's image
+
+A host that builds the poller from a Dockerfile in your repository, such
+as `poller/Dockerfile`
+([Hosting the poller](../features/hosting-the-poller.md#hosting-the-poller-own-server)),
+gets a pull request for each new version of the image from this entry in
+`.github/dependabot.yml`. That pull request waits for you, as the
+factory's own [update](../maintain/updating.md) does:
+
+```yaml
+- package-ecosystem: docker
+  directory: /poller
+  schedule:
+    interval: weekly
+```
 
 ### Checking it
 

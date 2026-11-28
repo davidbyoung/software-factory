@@ -58,7 +58,7 @@ FROM ghcr.io/davidbyoung/software-factory-poller:0.2.0
 and an entry for your dependency bot, so it opens a pull request for each
 new version of the image, which waits for you as the factory's own
 [update](../maintain/updating.md) does.
-[GitHub](../integrations/github.md#by-hand) has the entry.
+[GitHub](../integrations/github.md#dependabot-and-the-pollers-image) has the entry.
 
 As an example, one setup runs it as a worker on DigitalOcean's App
 Platform, in the same app as the site it builds, for about $5 a month. Its

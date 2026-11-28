@@ -17,6 +17,11 @@ An owner of the organization, with the GitHub CLI signed in, Claude
 Code, and the `factory` command
 ([Set an organization up, once](../setup/organization.md#set-an-organization-up-once)).
 
+`factory init --org` needs three permissions for the GitHub CLI that a
+plain sign-in lacks: `admin:org`, `project`, and `workflow`. When one is
+missing, its first question is whether to open your browser so you can
+grant it.
+
 ## Set it up
 
 An owner runs `factory init --org` once, as
@@ -80,7 +85,25 @@ Nothing beyond what [What setup adds](#what-setup-adds) lists: the App
 is installed only on the repositories the owner chose, and the rule
 applies only to a repository whose `software-factory` property is `on`.
 
+A build's commits under the App are not signed, so GitHub shows no
+"Verified" on them.
+
 ## Limits that come from GitHub
+
+- **An organization is set up on github.com only.** GitHub Enterprise
+  Server is not supported: its servers cannot call the factory's
+  workflows on github.com. `factory init --org` refuses any other
+  address.
+- **Dependabot's pull requests do not merge themselves under the App, as
+  set up.** The job that turns auto-merge on for one reads Dependabot's
+  secrets, not the Actions ones, and `factory init --org` stores the
+  App's key for Actions alone. An owner who wants it makes a new key, as
+  [Replacing the App's key](#replacing-the-apps-key) shows, and stores it
+  a second time for Dependabot, with `--app dependabot` added to that
+  section's `gh secret set` line.
+- **The organization-wide rule is untested,** since it needs GitHub's
+  Team plan. The rest of `factory init --org` has run once, in an
+  organization on the Free plan.
 
 ### On GitHub's Free plan
 
@@ -125,6 +148,10 @@ repositories:
   ```
 
 ## When something goes wrong
+
+When a later release of the factory needs a new permission for the App,
+GitHub shows a request to review beside the App, in the organization's
+Settings, GitHub Apps. An owner accepts it.
 
 ### When the organization's secrets do not reach you
 
@@ -171,4 +198,23 @@ two choices:
 
 ## By hand
 
-Nothing: only `factory init --org` sets an organization up.
+Only `factory init --org` sets an organization up. The two tasks below
+are done on GitHub's site instead.
+
+### Limiting who can use the App's key
+
+- To install the App only on chosen repositories, open the organization's
+  Settings, GitHub Apps, and the App's "Configure" page, and change its
+  repository access.
+- To narrow each secret to chosen repositories, open the organization's
+  Settings, Secrets and variables, Actions. To give a repository access
+  again, pick a choice that includes it under "Repository access".
+
+### Taking the App out
+
+In the organization's Settings, under GitHub Apps, uninstall the App
+whose name starts "Software Factory for". Then, under Developer settings,
+GitHub Apps, delete it. Do this only once each repository has had
+`factory remove` run and merged, as
+[Taking an organization's setup out](../maintain/removing.md#taking-an-organizations-setup-out)
+orders the steps.

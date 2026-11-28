@@ -87,6 +87,12 @@ cloud read a Claude token from a secret, `CLAUDE_CODE_OAUTH_TOKEN`, or an
 API key as `ANTHROPIC_API_KEY`. Sessions on your machine use your own
 sign-in.
 
+What pays for builds in the cloud is a Claude subscription or an API
+key, and `factory init --org` asks which. For a subscription it runs
+`claude setup-token`, and you paste the token it prints, the line that
+starts `sk-ant-oat01-`, which is stored as `CLAUDE_CODE_OAUTH_TOKEN`. An
+API key you paste, and it is stored as `ANTHROPIC_API_KEY`.
+
 ### When the Claude token's year is up
 
 For whoever stored the Claude token: you on your own account, or an
@@ -192,8 +198,17 @@ you set yourself alone.
 
 ## Limits that come from Claude Code
 
-A token that `claude setup-token` makes lasts a year
-([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+- **A token that `claude setup-token` makes lasts a year**
+  ([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+- **Claude Code's sandbox is not a complete isolation boundary.** Its
+  documentation says: "Sandboxing reduces risk but is not a complete
+  isolation boundary."
+- **Untested: whether `claude setup-token` ends Claude Code's own
+  sign-in.** Once, Claude Code's sign-in on the machine expired within an
+  hour of `claude setup-token`, which both setup commands run when a
+  subscription pays for sessions. Claude Code's documentation does not
+  say whether one affects the other. If a later step says the session
+  expired, run `claude` and sign in again.
 
 ## When something goes wrong
 

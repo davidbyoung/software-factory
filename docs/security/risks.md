@@ -85,7 +85,7 @@ adds can pass them:
 
 Where several people can write to your repository, have the code host
 wait for you on every change to a workflow
-([GitHub](../integrations/github.md#by-hand) has the steps).
+([GitHub](../integrations/github.md#waiting-for-you-on-every-change-to-a-workflow) has the steps).
 
 ## Risks that do not go away
 

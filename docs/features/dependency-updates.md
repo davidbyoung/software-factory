@@ -34,7 +34,7 @@ Add your dependency bot's settings file to your repository. `factory-deps`
 is written, and its jobs run, only in a repository that has one; a
 dependency pull request in a repository without it waits for you, and
 nothing moves it along or lets it merge itself.
-[GitHub](../integrations/github.md#what-the-factory-can-and-cannot-do-there)
+[GitHub](../integrations/github.md#dependabot)
 names the file.
 
 ## How it works
@@ -46,13 +46,13 @@ Your dependency bot does not update the factory, or a
 `package.json`, and the factory's own update job opens those pull requests
 ([Updating](../maintain/updating.md)). So the bot's settings need nothing
 for the factory, and an entry an earlier version had can go
-([GitHub](../integrations/github.md#by-hand) says which).
+([GitHub](../integrations/github.md#dependabot-and-the-factorys-updates) says which).
 
 If your dependency bot updates your workflow files, have it leave the
 factory's alone. The update job raises the version in the two workflow
 files together with the files that version writes, and a pull request of
 the bot's that raised the version alone would fail the "Factory files in
-step" check. [GitHub](../integrations/github.md#by-hand) has the entry
+step" check. [GitHub](../integrations/github.md#dependabot-and-the-factorys-updates) has the entry
 that does it.
 
 The factory's auto-merge job for the dependency bot's pull requests never

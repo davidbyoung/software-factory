@@ -347,6 +347,19 @@ factory.
   ([A public repository](github.md#a-public-repository)). A private
   repository needs nothing.
 - Public repositories are not billed for Actions minutes.
+- **On a plan that bills Actions minutes, GitHub rounds each job up to a
+  whole minute.** So a cloud run, which is three jobs, is billed at least
+  three minutes
+  ([What a run costs](../features/cloud-builds.md#what-a-run-costs)). The
+  approval policies run three jobs on each push too, so in a private
+  repository each push they read is billed at least three minutes
+  ([What it costs](../features/credentials-policy.md#what-it-costs)).
+- **In a private repository, each run of the poller bills at least one
+  Actions minute,** whether it is a repository's own schedule, with
+  [`builds.trigger: github-action`](../reference/settings/builds.md#builds),
+  or an organization's in its `factory-config`. That is why
+  `factory init --org` asks how often the poller reads the board when
+  `factory-config` is private.
 - **GitHub switches off a workflow with a schedule in a public
   repository with no activity for 60 days.** `factory.yml` has
   schedules, so every job it starts stops with it, the review's verdict
@@ -363,6 +376,10 @@ factory.
 - **A workflow in another owner's repository takes a secret only by a
   name it declares,** which is why your own secrets reach the factory's
   jobs through one line of `factory.yml`, not a line for each job.
+- **GitHub's default for a workflow's own token is read for a new
+  repository, and can be write for an older one.** The review's verdict
+  is trusted from that token's account, and the code in a pull request
+  runs beside it, so `factory doctor` checks it.
 - **Every review event costs a minute of Actions,** including the
   factory's own replies, which start a Prepare that finds nothing to do.
 - **A run's artifacts are kept on GitHub:** one day for what Prepare handed
