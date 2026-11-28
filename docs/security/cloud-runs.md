@@ -51,7 +51,7 @@ says what is left.
 | Review     | A pull request marked ready, each push to it after, and a change of its base branch, with [`pr-review`](../reference/settings/pr-review.md#pr-review) on  | Reads the pull request, and answers with findings and a verdict. Publish posts them          |
 | Answer     | CI failing, or the review asking for changes, on a pull request a build in the cloud opened. A review you submit, on any pull request from the repository | Works what is open with `factory-address-review`                                             |
 | Conflict   | A push to your default branch, and nightly, once for each pull request that conflicts                                                                     | Merges your default branch into it, with `factory-resolve-conflicts`                         |
-| Dependency | Three times a day, once for each pull request Dependabot has open                                                                                         | Moves it toward merged, with `factory-deps`, in a repository with a `.github/dependabot.yml` |
+| Dependency | Three times a day, once for each pull request a dependency bot has open                                                                                   | Moves it toward merged, with `factory-deps`, in a repository with a `.github/dependabot.yml` |
 
 Every run but a review acts as the account a build does. A review posts
 as `github-actions`.
@@ -125,8 +125,8 @@ in an organization and on your own account alike:
 | Session | Yes, confined to the agent's sandbox | What pays for the session, which is kept from every command it runs, and the repository's own secrets, such as the one your `.npmrc` reads, which its commands can read |
 | Publish | No                                   | The App's key, or your build token. In a review's run it also has the workflow's own token, which posts the threads and the verdict                                     |
 
-No key or token of yours for GitHub reaches the session's job. GitHub gives
-every job a workflow token of its own: this job's can only read packages,
+No key or token of yours for the code host reaches the session's job. The
+cloud runner gives every job a workflow token of its own: this job's can only read packages,
 and reaches one step, which installs your default branch's dependencies
 before the session starts. Prepare and
 Publish run nothing from the branch the session works on.
@@ -134,7 +134,8 @@ Publish run nothing from the branch the session works on.
 The App's key also reaches the jobs that run no session: the verdict, for a
 pull request that is part of a ticket, telling the other repositories, who
 merges, the board sync, the poller, requiring the verdict, finding the conflicts and
-Dependabot's pull requests, Dependabot's auto-merge, and the updates. Each
+a dependency bot's pull requests, turning auto-merge on for them, and the
+updates. Each
 makes a token that lasts an hour, for the run's repository and the
 organization's [preset](../customize/presets.md) repositories it follows. For a ticket
 that names [other repositories](../workflow/across-repositories.md), a job also makes one
@@ -143,8 +144,8 @@ tickets, and start its runs, and can't push to it. The verdict's and the
 board sync's can only read. The one
 exception is the organization's poller, whose token reaches every
 repository the App is installed on, since it starts builds in each.
-`factory-review.yml`, the one workflow file that GitHub runs from a pull
-request's own copy on every push, is given no secret.
+`factory-review.yml`, the one workflow file that the cloud runner runs from a
+pull request's own copy on every push, is given no secret.
 
 Publish holds the key for as long as it runs, because waiting for CI can
 outlast a token, and it then signs in again.

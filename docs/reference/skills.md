@@ -8,8 +8,8 @@ entry on the page about the work it does.
 
 You call a skill by typing its name as a slash command in a session, with
 the ticket or pull request number after it: `/factory-refine 12`. Slash
-commands are how Claude Code, the one coding agent the factory supports
-today, calls a skill. Asking in
+commands are how [Claude Code](../integrations/claude-code.md#skills-in-claude-code),
+the one coding agent the factory supports today, calls a skill. Asking in
 plain words, such as "refine ticket 12", usually calls the same skill, but
 the session decides which one fits, so the command is the sure way.
 

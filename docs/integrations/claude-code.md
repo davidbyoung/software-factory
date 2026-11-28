@@ -3,6 +3,53 @@
 The coding agent: what runs each session, on your machine and in the
 cloud.
 
+## What the factory uses it for
+
+Every session runs in Claude Code: the ones you start on your machine,
+and the automated review, the approval policies' agents, and builds in
+the cloud. They run the factory's skills and agents.
+
+### Skills in Claude Code
+
+In Claude Code each skill is a slash command, such as `/factory-refine 12`.
+[Skills and agents](../reference/skills.md#at-a-glance) lists every one with what it does.
+
+**Where the files live.** `sync` writes the factory's skills to
+`.claude/skills/factory-*/` and its agents to
+`.claude/agents/factory-*.md`. Your own skills go in
+`.claude/skills/NAME/SKILL.md` and your own agents in
+`.claude/agents/NAME.md`, as for any Claude Code project. A plugin names
+one under [`plugins`](../reference/settings/plugins.md#plugins) in
+`.claude/factory.yaml`, with `skill:` for a folder in `.claude/skills/`
+and `agent:` for a file in `.claude/agents/`. An agent's description is
+the `description` in its file's front matter.
+
+A colon, as in `/factory:refine`, is something Claude Code adds to a
+skill that comes from a plugin. Plain skill files get plain names, so the
+prefix `factory-` is part of the name. It also shows, in `.claude/skills/`,
+which files an update will overwrite and which are yours. The package is
+still laid out as a valid Claude Code plugin, so loading the skills from
+it instead of copying them stays possible.
+
+**Your project's instructions** are its `CLAUDE.md` files: the one at the
+root, and any beside the code they govern. The skills read the rules for
+each area from them. How to check a change is not there: it is
+[`commands.gate`](../reference/settings/commands.md#commandsgate) in your settings.
+`sync` adds one line to the root `CLAUDE.md`, which loads the factory's
+rules.
+
+## You need
+
+Claude Code, signed in. Check it with `claude --version`, which prints
+its version. If it is not ready,
+[install it](https://claude.com/claude-code), run `claude`, and sign in.
+
+## Set it up
+
+`factory init` writes everything under [What setup adds](#what-setup-adds),
+and asks for the Claude token when you turn on the automated review or
+builds in the cloud ([Tokens and secrets](#tokens-and-secrets)).
+
 ## What setup adds
 
 Everything the factory adds, and what
@@ -33,65 +80,14 @@ Nothing of the factory's own is installed in the repository: no
 `factory` command is installed once on each machine
 ([Which version runs](../get-started/install.md#which-version-runs)).
 
-## Hooks
+## Tokens and secrets
 
-`sync` adds six hooks to `.claude/settings.json`. They run inside Claude
-Code sessions in this repository on a machine, not in your own terminal, and
-not in a session in the cloud, where no hook runs. Each runs the `factory`
-command installed on the machine. On a machine without it, the hooks before
-a shell command and before a file is read block the call, and they and the
-hook at a session's start say how to install it ([Which version
-runs](../get-started/install.md#which-version-runs)).
+The automated review, the approval policies' agents, and builds in the
+cloud read a Claude token from a secret, `CLAUDE_CODE_OAUTH_TOKEN`, or an
+API key as `ANTHROPIC_API_KEY`. Sessions on your machine use your own
+sign-in.
 
-| Hook                                                      | What it does                                                                                                                                                                                       |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../reference/settings/commands.md#commandsbefore-commit) commands before a commit     |
-| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                                                 |
-| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                                              |
-| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                                           |
-| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                                             |
-| Before a file is read, searched, or listed                | Refuses a call that opens the factory's credentials file on your machine, which only the factory's commands read ([The file on your machine](../security/credentials.md#the-file-on-your-machine)) |
-
-The fourth hook has nothing to approve while no hook runs in a session in
-the cloud. A change under `.claude/` in any pull request still waits for
-your merge, since no [`auto-merge`](../reference/settings/auto-merge.md#auto-merge) rule allows it, and a session in the
-cloud follows your default branch's copy of those files until then.
-
-`sync` also sets `attribution` in `.claude/settings.json` to leave out
-Claude Code's own "Co-Authored-By" and "Generated with" lines, so a
-session's commits and pull requests carry only the person's name. It leaves an `attribution`
-you set yourself alone.
-
-## Skills in Claude Code
-
-In Claude Code each skill is a slash command, such as `/factory-refine 12`.
-[Skills and agents](../reference/skills.md#at-a-glance) lists every one with what it does.
-
-**Where the files live.** `sync` writes the factory's skills to
-`.claude/skills/factory-*/` and its agents to
-`.claude/agents/factory-*.md`. Your own skills go in
-`.claude/skills/NAME/SKILL.md` and your own agents in
-`.claude/agents/NAME.md`, as for any Claude Code project. A plugin names
-one under [`plugins`](../reference/settings/plugins.md#plugins) in
-`.claude/factory.yaml`, with `skill:` for a folder in `.claude/skills/`
-and `agent:` for a file in `.claude/agents/`. An agent's description is
-the `description` in its file's front matter.
-
-A colon, as in `/factory:refine`, is something Claude Code adds to a
-skill that comes from a plugin. Plain skill files get plain names, so the
-prefix `factory-` is part of the name. It also shows, in `.claude/skills/`,
-which files an update will overwrite and which are yours. The package is
-still laid out as a valid Claude Code plugin, so loading the skills from
-it instead of copying them stays possible.
-
-**Your project's instructions** are its `CLAUDE.md` files: the one at the
-root, and any beside the code they govern. The skills read the rules for
-each area from them. How to check a change is not there: it is
-[`commands.gate`](../reference/settings/commands.md#commandsgate) in your settings.
-`sync` adds one line to the root `CLAUDE.md`, which loads the factory's
-rules.
-
-## When the Claude token's year is up
+### When the Claude token's year is up
 
 For whoever stored the Claude token: you on your own account, or an
 owner of the organization. A token that `claude setup-token` makes lasts
@@ -162,3 +158,54 @@ owners are listed on its People page on GitHub, under the Owner role.
 
 **A run that failed** because of the old token passes once the new one
 is stored: re-run it from its page on the Actions tab.
+
+## What the factory can and cannot do there
+
+### Hooks
+
+`sync` adds six hooks to `.claude/settings.json`. They run inside Claude
+Code sessions in this repository on a machine, not in your own terminal, and
+not in a session in the cloud, where no hook runs. Each runs the `factory`
+command installed on the machine. On a machine without it, the hooks before
+a shell command and before a file is read block the call, and they and the
+hook at a session's start say how to install it ([Which version
+runs](../get-started/install.md#which-version-runs)).
+
+| Hook                                                      | What it does                                                                                                                                                                                       |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before a shell command                                    | Blocks a commit on your default branch, a push to it, and a force push. Runs your [`commands.before-commit`](../reference/settings/commands.md#commandsbefore-commit) commands before a commit     |
+| Before posting ticket text                                | Refuses text with a bare `<tag>`, which GitHub would silently drop                                                                                                                                 |
+| When a reviewer starts or stops                           | Records the run on the ticket, so its cost is counted                                                                                                                                              |
+| Before an unattended build writes a file under `.claude/` | Approves the write, when the run is one the factory started and the file is not `.claude/settings.json` or `.claude/settings.local.json`                                                           |
+| When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                                             |
+| Before a file is read, searched, or listed                | Refuses a call that opens the factory's credentials file on your machine, which only the factory's commands read ([The file on your machine](../security/credentials.md#the-file-on-your-machine)) |
+
+The fourth hook has nothing to approve while no hook runs in a session in
+the cloud. A change under `.claude/` in any pull request still waits for
+your merge, since no [`auto-merge`](../reference/settings/auto-merge.md#auto-merge) rule allows it, and a session in the
+cloud follows your default branch's copy of those files until then.
+
+`sync` also sets `attribution` in `.claude/settings.json` to leave out
+Claude Code's own "Co-Authored-By" and "Generated with" lines, so a
+session's commits and pull requests carry only the person's name. It leaves an `attribution`
+you set yourself alone.
+
+## Limits that come from Claude Code
+
+A token that `claude setup-token` makes lasts a year
+([When the Claude token's year is up](#when-the-claude-tokens-year-is-up)).
+
+## When something goes wrong
+
+A run in the cloud that fails with an error naming
+`CLAUDE_CODE_OAUTH_TOKEN`: its token's year is up. Replace it as
+[When the Claude token's year is up](#when-the-claude-tokens-year-is-up)
+says, then re-run it.
+
+A session on your machine that blocks every shell command and file read,
+and says how to install the `factory` command: the command is not
+installed on that machine ([Hooks](#hooks)).
+
+## By hand
+
+Nothing: `factory sync` writes every file and hook above.

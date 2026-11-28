@@ -49,10 +49,11 @@ nothing to fix.
 each tool's name, such as `GitHub` or `Claude Code`, then the parts you
 left off. Each check starts with a mark: ✓ works, ✗ needs fixing, ?
 worth a look, and - off on purpose. `doctor` exits 1 when a
-check fails. GitHub never lets a secret be read back, so `doctor` checks
-that each secret your parts read is set, and gives the day the Claude
-token stops working, a year after it was stored, and, on your own
-account, the day the GitHub access token expires
+check fails. A secret cannot be read back from the code host
+([GitHub](../integrations/github.md#limits-that-come-from-github)), so
+`doctor` checks that each secret your parts read is set, and gives the
+day the coding agent's token stops working and, on your own account, the
+day the code host's access token expires
 ([When the Claude token's year is up](../integrations/claude-code.md#when-the-claude-tokens-year-is-up),
 [When the GitHub access token expires](../integrations/github.md#when-the-github-access-token-expires)).
 With the automated review
@@ -61,13 +62,13 @@ default branch ([Changing it later](../setup/repository.md#changing-it-later)).
 Before the setup's pull request has merged, that line reads
 `- "Review verdict" is not required yet: the rule is made once the setup's pull request merges`,
 and is no failure.
-In a private repository of an organization on GitHub's Free plan, it
-says instead that the organization's secrets are not shared with the
-repository, and that the verdict cannot be required there
+Where the code host's plan does not share an organization's secrets with
+a private repository, it says so instead, and that the verdict cannot be
+required there
 ([On GitHub's Free plan](../integrations/github-organizations.md#on-githubs-free-plan)).
 A ticket system's token kept on your machine it checks with the ticket
-system itself. It does not try the GitHub access token and the Claude
-token that `init` keeps on your machine on your own account.
+system itself. It does not try the code host's access token and the
+coding agent's token that `init` keeps on your machine on your own account.
 
 `board check` prints two blocks, each headed by the setting it shows.
 Under [`tickets.columns`](settings/tickets.md#ticketscolumns) is a row for
@@ -97,8 +98,8 @@ command exit 1.
 | `factory build N`        | To build ticket N in the cloud. Prints the run's link   |
 | `factory pr watch N`     | To wait until pull request N needs you, and be told why |
 
-In the last 30 days before the Claude token or, on your own account, the
-GitHub access token stops working, `status` ends with a line that says
+In the last 30 days before the coding agent's token or, on your own
+account, the code host's access token stops working, `status` ends with a line that says
 when
 ([When the Claude token's year is up](../integrations/claude-code.md#when-the-claude-tokens-year-is-up),
 [When the GitHub access token expires](../integrations/github.md#when-the-github-access-token-expires)).
@@ -166,9 +167,9 @@ You can run them too.
 | `factory relock [--dry-run \| --all]`        | Runs the [`commands.relock`](settings/commands.md#commandsrelock) commands set off by the files that differ from the default branch, or every one with `--all`, to rebuild lock files after a conflict in one                                                                                                                                                                                                                                                                                                                                              |
 | `factory build-setup [--dry-run]`            | Runs every [`commands.build-setup`](settings/commands.md#commandsbuild-setup) command, each in its folders, as a build in the cloud does before its session starts                                                                                                                                                                                                                                                                                                                                                                                         |
 | `factory specs list`                         | Prints each spec your spec tool keeps, one per line with its file, or `none yet`                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `factory specs new N`                        | Starts ticket N's spec: with OpenSpec, it creates `openspec/changes/issue-N/`. Then it prints each file to write or update there, which part of the ticket goes in it, and, last, the command to run once they are written. It writes none of them itself, and run again, it prints them again                                                                                                                                                                                                                                                             |
+| `factory specs new N`                        | Starts ticket N's spec: with `specs: openspec`, it creates `openspec/changes/issue-N/`. Then it prints each file to write or update there, which part of the ticket goes in it, and, last, the command to run once they are written. It writes none of them itself, and run again, it prints them again                                                                                                                                                                                                                                                    |
 | `factory specs check`                        | Runs [`specs.check`](settings/specs.md#specscheck), the check of your written specs, ending with `✓ The specs check passed.` or `✗ The specs check failed.`                                                                                                                                                                                                                                                                                                                                                                                                |
-| `factory specs finish N`                     | With OpenSpec, folds ticket N's spec into `openspec/specs/`, ending with `✓ Folded ticket N's spec into openspec/specs/.` It changes files and commits nothing                                                                                                                                                                                                                                                                                                                                                                                             |
+| `factory specs finish N`                     | With `specs: openspec`, folds ticket N's spec into `openspec/specs/`, ending with `✓ Folded ticket N's spec into openspec/specs/.` It changes files and commits nothing                                                                                                                                                                                                                                                                                                                                                                                    |
 | `factory default-branch`                     | Prints the name of your repository's default branch, which nothing in the factory assumes is `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `factory approval-policies check [--pull N]` | Runs your [approval policies](../features/approval-policies.md) against what your branch changes since the default branch, uncommitted and untracked files included, or against pull request N, and posts nothing. Prints `? NAME: N waiting for approval` and each finding, `✓ NAME: nothing to approve`, or `- No approval policy applies to this change`. Exits 1 only when a check fails                                                                                                                                                               |
 

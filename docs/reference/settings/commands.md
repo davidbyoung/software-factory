@@ -164,8 +164,9 @@ your `CLAUDE.md` or the project's files say, so list the registry they
 come from under [`builds.hosts`](builds.md#builds), such as `pypi.org` and
 `files.pythonhosted.org` for pip.
 
-A package that GitHub itself serves, as it does most of Composer's, can't
-be downloaded by a session, since GitHub is never reachable there. Run
+A package that the code host itself serves, as
+[GitHub](../../integrations/github.md#limits-that-come-from-github) serves most of Composer's, can't be
+downloaded by a session, since the code host is never reachable there. Run
 `composer install` here, and have your `CLAUDE.md` say to copy what it
 installed into the branch's copy, with `cp -R vendor ../work/`.
 

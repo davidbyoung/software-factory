@@ -17,7 +17,9 @@ what it does. **If a pull request of yours waits on it,** start at
 [When `credentials` makes a pull request wait](credentials-policy.md#when-credentials-makes-a-pull-request-wait),
 and to stop it, see [Turning it off](credentials-policy.md#turning-it-off).
 
-## Is it an approval policy?
+## What you get
+
+### Is it an approval policy?
 
 Ask whether a person could reasonably say "yes, anyway" to what the check
 finds. If never, it is a command in the gate, which every change must
@@ -25,15 +27,35 @@ pass. If the session may decide, it is a plugin, an agent of yours whose
 advice the session weighs. If only a person may, it is an approval
 policy.
 
-| What you want                                                                    | What to use                                                                      | What happens when it finds something                                             |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| A check with no exceptions, such as formatting, or tests that pass               | A command in [`commands.gate`](../reference/settings/commands.md#commandsgate)   | It fails, and the session fixes the change until it passes                       |
-| Advice the session weighs, such as an accessibility reviewer                     | A [plugin](../customize/plugins.md)                                              | The session reads what it says, and decides                                      |
-| Certain people to review every change to certain files                           | A `CODEOWNERS` file, with "Require review from Code Owners" in your branch rules | GitHub waits for one of them. The factory isn't involved                         |
-| Changes to some files never merging by themselves                                | [`auto-merge.deny`](../reference/settings/auto-merge.md#auto-merge)              | The pull request waits for you                                                   |
-| A person's yes on something a check finds inside a change, such as a new license | An approval policy                                                               | The pull request waits until someone who can write to the repository approves it |
+| What you want                                                                    | What to use                                                                                                           | What happens when it finds something                                             |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| A check with no exceptions, such as formatting, or tests that pass               | A command in [`commands.gate`](../reference/settings/commands.md#commandsgate)                                        | It fails, and the session fixes the change until it passes                       |
+| Advice the session weighs, such as an accessibility reviewer                     | A [plugin](../customize/plugins.md)                                                                                   | The session reads what it says, and decides                                      |
+| Certain people to review every change to certain files                           | Your code host's own rule for it, as [GitHub](../integrations/github.md#what-the-factory-can-and-cannot-do-there) has | The code host waits for one of them. The factory isn't involved                  |
+| Changes to some files never merging by themselves                                | [`auto-merge.deny`](../reference/settings/auto-merge.md#auto-merge)                                                   | The pull request waits for you                                                   |
+| A person's yes on something a check finds inside a change, such as a new license | An approval policy                                                                                                    | The pull request waits until someone who can write to the repository approves it |
 
-## Add your first policy
+### What an approval policy is not
+
+- **[The merge policy](../workflow/merge.md#who-merges),** which decides whether a pull request may merge
+  without you once it can merge at all. An approval policy decides
+  whether it can.
+- **A review of the design.** A policy reads code on a pull request.
+  What should be weighed before code is written belongs in refining the
+  ticket.
+- **A check that needs a credential,** such as a cloud cost estimate, or
+  one that runs the change, such as accessibility in a browser. Those
+  belong in your CI.
+
+## What it needs
+
+A check of your own, which the factory's jobs run on the cloud runner,
+with Node. A policy with an agent also needs the coding agent's token
+([Checking with an agent](#checking-with-an-agent)).
+
+## Turn it on
+
+### Add your first policy
 
 This example makes a pull request wait when it adds a dependency whose
 license you have not allowed. Do it on your computer, since step 4
@@ -140,59 +162,55 @@ $ factory doctor
 
 If it prints `? "Approval policies" is not required before a merge to
 main`, the factory's token couldn't change your branch rules, and an
-admin of the repository runs `factory init`, which requires it. GitHub
-Free can't require a status on a private repository: there, a waiting
-policy shows on the pull request, but nothing stops a merge past it.
-Making the repository public, or a paid plan, lets it be required.
+admin of the repository runs `factory init`, which requires it. On some
+code hosts' plans a private repository can't require a status: there, a
+waiting policy shows on the pull request, but nothing stops a merge past
+it. [GitHub](../integrations/github.md#limits-that-come-from-github) says
+which plans, and what lifts the limit.
 
 **It worked when** the next pull request shows **Approval policies**
 among its checks.
 
-## The settings
+### Trying a policy
 
-Each policy under [`approval-policies`](../reference/settings/approval-policies.md#approval-policies) has a name and a check, and says
-which changes set it off. In a repository of several packages, it can
-apply to each package on its own:
+`factory approval-policies check` posts nothing, and an agent it runs
+signs in as you, as your sessions do. Besides your branch, as in
+[step 3](#add-your-first-policy), it can run your policies on a pull
+request already merged, to see what a new one would have done:
 
-```yaml
-approval-policies:
-  - name: migrations
-    agent: rollback-checker
-    in: services/* # each folder under services/, checked on its own
-    files: ["./db/migrations/**"] # ./ is each of those folders
+```console
+$ factory approval-policies check --pull 212
+approval-policies: 1 applies, for the 2 files #212 changed
+? licenses: 1 waiting for approval
+  package-lock.json  A dependency is GPL-3.0, which is not allowed
 ```
 
-| Key     | What it says                                                                                   | Required or default                  |
-| ------- | ---------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `name`  | What the status calls the policy                                                               | Required                             |
-| `run`   | A command that checks a change, run from the root                                              | One of `run` and `agent` is required |
-| `agent` | An agent that checks it, [below](#checking-with-an-agent)                                      | One of `run` and `agent` is required |
-| `in`    | The folders it applies to, such as `services/*`, which includes a folder the pull request adds | The whole repository                 |
-| `files` | The changed files that set it off, as patterns such as `db/**`                                 | Every file in its folders            |
-| `off`   | `true` turns off a policy of the same name a preset adds                                       | Not set                              |
+When the change touches no file a policy applies to, it says so:
 
-`in` and `files` work as they do for a
-[command for some folders](../reference/settings/commands.md#commands-for-some-folders),
-except that a check always runs from the root.
+```console
+$ factory approval-policies check
+- No approval policy applies to this change
+```
 
-- **A policy needs `in`, `files`, or both,** or `factory config check`
-  refuses it. Write `files: ["**"]` when every change should set it off,
-  and let the check decide what matters.
-- **What a folder's check finds names the folder,** as
-  `migrations in services/orders`.
-- **[`commands.ignore`](../reference/settings/commands.md#commandsignore) doesn't reach a
-  policy.** A file it lists still sets off any policy whose `files` match
-  it.
-- **A change to a policy takes effect once it merges.** The pull request
-  that makes it is checked by the policies as they were.
-- **`factory config explain`** shows the policies in effect, and which
-  preset each came from.
+When a check fails, the command says how, and exits 1:
 
-## What a check reads and prints
+```console
+$ factory approval-policies check
+✗ licenses: node .claude/approval-policies/licenses/check.mjs failed (exit 1). Fix it, then run: factory approval-policies check
+  TypeError: Cannot read properties of undefined (reading 'split')
+      at check.mjs:9:30
+```
 
-A check runs in GitHub Actions, from the root of a checkout of your
+A policy waiting for approval isn't a failure: the command exits 0, so a
+script can tell a broken check from one that found something.
+
+## How it works
+
+### What a check reads and prints
+
+A check runs on the cloud runner, from the root of a checkout of your
 default branch, never the pull request's, so a pull request can't change
-how it is judged. It has no GitHub token, and an agent runs in a job of
+how it is judged. It has no token for the code host, and an agent runs in a job of
 its own, with tools that only read and no web access. It reads one JSON
 object on standard input:
 
@@ -217,7 +235,7 @@ object on standard input:
   its old name and its new one. If git can't read them, every policy
   waits for approval.
 - **`in`** is null for a policy without it, and **`ticket`** is null for
-  a pull request with none, such as Dependabot's.
+  a pull request with none, such as a dependency bot's.
 - **Whoever wrote the pull request chose `ticket`,** a session included,
   and a session writes its own ticket. So a `## Rollback` heading a check
   looks for there may have been written by the session it is checking:
@@ -236,7 +254,7 @@ applies to waits for approval. Fix the check on your default branch, then
 open the status's **Details** and use **Re-run all jobs** to check
 again.
 
-## Checking with an agent
+### Checking with an agent
 
 Some things a script can't judge, such as whether a migration's ticket
 says how to roll it back. An agent can. `agent: rollback-checker` names
@@ -285,64 +303,49 @@ the agent finds nothing, the Approval policies status says the agent
 cleared it, not a person, and its **Details** list the lines it was
 handed, for whoever merges.
 
-## When a pull request waits
+## Its settings
 
-**Approval policies** is a status on every pull request, beside
-[**Review verdict**](../workflow/merge.md#who-merges), the automated review's.
-Its **Details** link lists each finding with its file and line.
+### The settings
 
-| What the status shows                                                                                                     | When it shows it                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `Nothing to approve`                                                                                                      | No policy applies, or each one's command found nothing                                                |
-| `migrations: cleared by rollback-checker, not a person`                                                                   | An agent found nothing, or cleared everything its command found                                       |
-| `Checks when the pull request is marked ready`                                                                            | The pull request is a draft                                                                           |
-| `licenses: 1 waiting for approval. To accept it, add the policy-override label`                                           | A check found something                                                                               |
-| `2 policies waiting for approval: licenses, migrations in services/orders. To accept them, add the policy-override label` | More than one did                                                                                     |
-| `licenses: the check failed, so everything it applies to waits for approval`                                              | The check couldn't answer                                                                             |
-| `The change couldn't be read, so every policy waits for approval`                                                         | Git couldn't compare the pull request with where it branched                                          |
-| `migrations: rollback-checker can't run here, so everything it applies to waits for approval`                             | An agent, on a pull request from a fork, on Dependabot's, or where the coding agent's token isn't set |
-| `Approved by @lead at 9f2c1e0`                                                                                            | Someone added the label on this commit                                                                |
+Each policy under [`approval-policies`](../reference/settings/approval-policies.md#approval-policies) has a name and a check, and says
+which changes set it off. In a repository of several packages, it can
+apply to each package on its own:
 
-While anything waits, the status is pending, so the pull request can't
-merge. A session leaves it alone: it doesn't rename or move a file, or
-edit the ticket, to stop a policy applying. A failed check, and a change
-that couldn't be read, check again with **Re-run all jobs** once their
-cause is fixed, or with the next push.
+```yaml
+approval-policies:
+  - name: migrations
+    agent: rollback-checker
+    in: services/* # each folder under services/, checked on its own
+    files: ["./db/migrations/**"] # ./ is each of those folders
+```
 
-| What you do                                                          | What happens                                                                                                          |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Add the `policy-override` label, from **Labels** on the pull request | What was waiting on the commit the pull request was at is approved, and the factory comments what it approved         |
-| Comment with what to fix                                             | A session fixes it, as for any comment of yours, and each policy checks again on its push                             |
-| Push again, or change the pull request's base branch                 | The label comes off, since the change is unread, and anything still found waits for it again                          |
-| Approve the pull request on GitHub                                   | Your review counts as usual on GitHub, but the policy still waits, and the factory comments once to say add the label |
+| Key     | What it says                                                                                   | Required or default                  |
+| ------- | ---------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `name`  | What the status calls the policy                                                               | Required                             |
+| `run`   | A command that checks a change, run from the root                                              | One of `run` and `agent` is required |
+| `agent` | An agent that checks it, [below](#checking-with-an-agent)                                      | One of `run` and `agent` is required |
+| `in`    | The folders it applies to, such as `services/*`, which includes a folder the pull request adds | The whole repository                 |
+| `files` | The changed files that set it off, as patterns such as `db/**`                                 | Every file in its folders            |
+| `off`   | `true` turns off a policy of the same name a preset adds                                       | Not set                              |
 
-The factory creates the `policy-override` label the first time a policy
-waits, so it is in the **Labels** list from then on.
+`in` and `files` work as they do for a
+[command for some folders](../reference/settings/commands.md#commands-for-some-folders),
+except that a check always runs from the root.
 
-- **Where you are the only writer, this is how you approve.** GitHub
-  won't let you approve a pull request of your own, and a pull request a
-  session opens on your computer is opened as you. Anyone who can write
-  to the repository may add the label, the pull request's author
-  included.
-- **The approval is the label itself.** GitHub records who added it, and
-  the commit the pull request was at, and the factory checks that they
-  can write to the repository. It approves only what was waiting on that
-  commit, so a push that lands as you add it approves nothing new. Its
-  comment is for people to read; it never reads one back.
-- **A session doesn't add it.** `factory pr label` and
-  `factory ticket label` refuse it, and the factory's hooks stop the
-  ordinary ways around them. On your computer a session uses your
-  account, so it could still add the label some other way: look at what
-  it did before you merge, as
-  [for `verdict-override`](../security/risks.md#risks-that-do-not-go-away), the
-  label that passes the automated review's verdict.
-- **`policy-override` passes no Review verdict, and `verdict-override`
-  passes no policy.** Nothing skips a policy:
-  Dependabot's pull requests, and a repository with
-  [`pr-review`](../reference/settings/pr-review.md#pr-review) off, are checked like any
-  other.
+- **A policy needs `in`, `files`, or both,** or `factory config check`
+  refuses it. Write `files: ["**"]` when every change should set it off,
+  and let the check decide what matters.
+- **What a folder's check finds names the folder,** as
+  `migrations in services/orders`.
+- **[`commands.ignore`](../reference/settings/commands.md#commandsignore) doesn't reach a
+  policy.** A file it lists still sets off any policy whose `files` match
+  it.
+- **A change to a policy takes effect once it merges.** The pull request
+  that makes it is checked by the policies as they were.
+- **`factory config explain`** shows the policies in effect, and which
+  preset each came from.
 
-## Ship a policy in a preset
+### Ship a policy in a preset
 
 A company can ship the same policy to every repository through a
 [preset](../customize/presets.md). Put its files in `approval-policies/NAME/` beside
@@ -365,50 +368,66 @@ approval-policies:
     off: true
 ```
 
-## Trying a policy
+## When something goes wrong
 
-`factory approval-policies check` posts nothing, and an agent it runs
-signs in as you, as your sessions do. Besides your branch, as in
-[step 3](#add-your-first-policy), it can run your policies on a pull
-request already merged, to see what a new one would have done:
+### When a pull request waits
 
-```console
-$ factory approval-policies check --pull 212
-approval-policies: 1 applies, for the 2 files #212 changed
-? licenses: 1 waiting for approval
-  package-lock.json  A dependency is GPL-3.0, which is not allowed
-```
+**Approval policies** is a status on every pull request, beside
+[**Review verdict**](../workflow/merge.md#who-merges), the automated review's.
+Its **Details** link lists each finding with its file and line.
 
-When the change touches no file a policy applies to, it says so:
+| What the status shows                                                                                                     | When it shows it                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Nothing to approve`                                                                                                      | No policy applies, or each one's command found nothing                                                                                                                                                          |
+| `migrations: cleared by rollback-checker, not a person`                                                                   | An agent found nothing, or cleared everything its command found                                                                                                                                                 |
+| `Checks when the pull request is marked ready`                                                                            | The pull request is a draft                                                                                                                                                                                     |
+| `licenses: 1 waiting for approval. To accept it, add the policy-override label`                                           | A check found something                                                                                                                                                                                         |
+| `2 policies waiting for approval: licenses, migrations in services/orders. To accept them, add the policy-override label` | More than one did                                                                                                                                                                                               |
+| `licenses: the check failed, so everything it applies to waits for approval`                                              | The check couldn't answer                                                                                                                                                                                       |
+| `The change couldn't be read, so every policy waits for approval`                                                         | Git couldn't compare the pull request with where it branched                                                                                                                                                    |
+| `migrations: rollback-checker can't run here, so everything it applies to waits for approval`                             | An agent, on a pull request from a fork, on one from a dependency bot whose runs get no secrets ([GitHub](../integrations/github.md#limits-that-come-from-github)), or where the coding agent's token isn't set |
+| `Approved by @lead at 9f2c1e0`                                                                                            | Someone added the label on this commit                                                                                                                                                                          |
 
-```console
-$ factory approval-policies check
-- No approval policy applies to this change
-```
+While anything waits, the status is pending, so the pull request can't
+merge. A session leaves it alone: it doesn't rename or move a file, or
+edit the ticket, to stop a policy applying. A failed check, and a change
+that couldn't be read, check again with **Re-run all jobs** once their
+cause is fixed, or with the next push.
 
-When a check fails, the command says how, and exits 1:
+| What you do                                                          | What happens                                                                                                      |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Add the `policy-override` label, from **Labels** on the pull request | What was waiting on the commit the pull request was at is approved, and the factory comments what it approved     |
+| Comment with what to fix                                             | A session fixes it, as for any comment of yours, and each policy checks again on its push                         |
+| Push again, or change the pull request's base branch                 | The label comes off, since the change is unread, and anything still found waits for it again                      |
+| Approve the pull request on the code host                            | Your review counts as usual there, but the policy still waits, and the factory comments once to say add the label |
 
-```console
-$ factory approval-policies check
-✗ licenses: node .claude/approval-policies/licenses/check.mjs failed (exit 1). Fix it, then run: factory approval-policies check
-  TypeError: Cannot read properties of undefined (reading 'split')
-      at check.mjs:9:30
-```
+The factory creates the `policy-override` label the first time a policy
+waits, so it is in the **Labels** list from then on.
 
-A policy waiting for approval isn't a failure: the command exits 0, so a
-script can tell a broken check from one that found something.
-
-## What an approval policy is not
-
-- **[The merge policy](../workflow/merge.md#who-merges),** which decides whether a pull request may merge
-  without you once it can merge at all. An approval policy decides
-  whether it can.
-- **A review of the design.** A policy reads code on a pull request.
-  What should be weighed before code is written belongs in refining the
-  ticket.
-- **A check that needs a credential,** such as a cloud cost estimate, or
-  one that runs the change, such as accessibility in a browser. Those
-  belong in your CI.
+- **Where you are the only writer, this is how you approve.** A code
+  host may not let you approve a pull request of your own, as
+  [GitHub](../integrations/github.md#limits-that-come-from-github) does
+  not, and a pull request a session opens on your computer is opened as
+  you. Anyone who can write
+  to the repository may add the label, the pull request's author
+  included.
+- **The approval is the label itself.** The code host records who added it, and
+  the commit the pull request was at, and the factory checks that they
+  can write to the repository. It approves only what was waiting on that
+  commit, so a push that lands as you add it approves nothing new. Its
+  comment is for people to read; it never reads one back.
+- **A session doesn't add it.** `factory pr label` and
+  `factory ticket label` refuse it, and the factory's hooks stop the
+  ordinary ways around them. On your computer a session uses your
+  account, so it could still add the label some other way: look at what
+  it did before you merge, as
+  [for `verdict-override`](../security/risks.md#risks-that-do-not-go-away), the
+  label that passes the automated review's verdict.
+- **`policy-override` passes no Review verdict, and `verdict-override`
+  passes no policy.** Nothing skips a policy:
+  a dependency bot's pull requests, and a repository with
+  [`pr-review`](../reference/settings/pr-review.md#pr-review) off, are checked like any
+  other.
 
 ## On your tools
 

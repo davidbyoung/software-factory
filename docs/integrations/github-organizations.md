@@ -3,6 +3,26 @@
 What `factory init --org` does on GitHub for an organization, and what to
 do when an organization's secrets do not reach a repository.
 
+## What the factory uses it for
+
+One setup that every repository of the organization shares: a GitHub
+App, the Claude token, a preset of settings, a board, and a rule that
+requires "Review verdict" before a merge. A developer then sets a
+repository up with one command, and the repository reads the
+organization's secrets.
+
+## You need
+
+An owner of the organization, with the GitHub CLI signed in, Claude
+Code, and the `factory` command
+([Set an organization up, once](../setup/organization.md#set-an-organization-up-once)).
+
+## Set it up
+
+An owner runs `factory init --org` once, as
+[Set an organization up, once](../setup/organization.md#set-an-organization-up-once)
+says.
+
 ## What setup adds
 
 What [`factory init --org`](../setup/organization.md#set-an-organization-up-once) adds,
@@ -19,7 +39,50 @@ lists them in the order to delete them.
 | The rule "Software factory", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                             | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
 | A board, or whichever of the factory's columns and fields the board the owner chose still lacked                                                                        | The organization's Projects                                                           |
 
-## On GitHub's Free plan
+## Tokens and secrets
+
+The App's private key is the secret `FACTORY_APP_PRIVATE_KEY`, its
+client ID the variable `FACTORY_APP_CLIENT_ID`, and the Claude token the
+secret `CLAUDE_CODE_OAUTH_TOKEN`, or an API key as `ANTHROPIC_API_KEY`,
+each stored for every repository ([What setup adds](#what-setup-adds)).
+[Claude Code](claude-code.md#when-the-claude-tokens-year-is-up) says how
+an owner replaces the Claude token.
+
+### Replacing the App's key
+
+For an owner of the organization, when the key may have leaked. The
+GitHub CLI needs the `admin:org` permission for step 2, which
+`gh auth refresh -s admin:org` grants.
+
+1. On GitHub, open the organization's Settings, Developer settings,
+   GitHub Apps, then the App's own page, and press "Generate a private
+   key". GitHub downloads the key as a `.pem` file.
+2. Store it in place of the old one, with your organization's name and
+   the file's:
+
+   ```bash
+   gh secret set FACTORY_APP_PRIVATE_KEY --org acme --visibility all < FILE.pem
+   ```
+
+   If you had narrowed the secret to chosen repositories, write
+   `--repos NAME,NAME` in place of `--visibility all`, so it stays
+   narrowed.
+
+3. Delete the old key on the App's page, then delete the file.
+
+**It worked when** a build you start with `factory build N`, for a
+ticket that is ready, gets past the step "Sign in" of its Prepare job. A
+wrong key fails the run at that step.
+
+## What the factory can and cannot do there
+
+Nothing beyond what [What setup adds](#what-setup-adds) lists: the App
+is installed only on the repositories the owner chose, and the rule
+applies only to a repository whose `software-factory` property is `on`.
+
+## Limits that come from GitHub
+
+### On GitHub's Free plan
 
 The `Plan` row, in the list the command prints first, headed `Found`,
 says when the organization is on it. Then
@@ -61,7 +124,9 @@ repositories:
   - "Review verdict" cannot be required here: GitHub Free has no branch rules for a private repository
   ```
 
-## When the organization's secrets do not reach you
+## When something goes wrong
+
+### When the organization's secrets do not reach you
 
 You need an owner of the organization for this. If init stopped, send them
 what it printed, which lists only what your repository lacks:
@@ -104,28 +169,6 @@ two choices:
   command that stores it. It worked when `factory init` asks "Go ahead?"
   with the presets checked.
 
-## Replacing the App's key
+## By hand
 
-For an owner of the organization, when the key may have leaked. The
-GitHub CLI needs the `admin:org` permission for step 2, which
-`gh auth refresh -s admin:org` grants.
-
-1. On GitHub, open the organization's Settings, Developer settings,
-   GitHub Apps, then the App's own page, and press "Generate a private
-   key". GitHub downloads the key as a `.pem` file.
-2. Store it in place of the old one, with your organization's name and
-   the file's:
-
-   ```bash
-   gh secret set FACTORY_APP_PRIVATE_KEY --org acme --visibility all < FILE.pem
-   ```
-
-   If you had narrowed the secret to chosen repositories, write
-   `--repos NAME,NAME` in place of `--visibility all`, so it stays
-   narrowed.
-
-3. Delete the old key on the App's page, then delete the file.
-
-**It worked when** a build you start with `factory build N`, for a
-ticket that is ready, gets past the step "Sign in" of its Prepare job. A
-wrong key fails the run at that step.
+Nothing: only `factory init --org` sets an organization up.

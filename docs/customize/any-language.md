@@ -12,7 +12,8 @@ Python, or Go repository that means:
 
 - **Nothing of Node's goes in the repository.** The factory adds no
   `package.json`, no `package-lock.json`, and no `node_modules/`. The one
-  exception is a spec tool that npm installs, such as OpenSpec, if you
+  exception is a spec tool that npm installs, such as
+  [OpenSpec](../integrations/openspec.md), if you
   choose one ([`specs`](../reference/settings/specs.md#specs)): `factory init` then
   writes a small private `package.json` for it, and ignores
   `node_modules/`.

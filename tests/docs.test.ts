@@ -1140,7 +1140,7 @@ describe("the docs on spec tools", () => {
   it("give every visible change a Spec, a design, and tasks, whatever the tool", () => {
     const workflow = flat(
       "docs/features/specs.md",
-      "## A change your users will see",
+      "### A change your users will see",
     );
     for (const part of ["- **Spec:**", "- **Design:**", "- **Tasks:**"])
       expect(workflow).toContain(part);
@@ -1217,7 +1217,7 @@ describe("the docs on the factory's own approval policy", () => {
   it("name the example of a script and an agent together raw-sql, so copying it can't replace credentials", () => {
     const agent = sectionOf(
       read("docs/features/approval-policies.md"),
-      "## Checking with an agent",
+      "### Checking with an agent",
     );
     expect(agent).toContain("  - name: raw-sql\n");
     expect(agent).not.toContain("name: credentials");
@@ -1254,7 +1254,9 @@ describe("the docs on run.yml's groups", () => {
   const run = workflow("run.yml");
   /** The reference page's table of groups, by its first cell. */
   const table = Object.fromEntries(
-    rows(sectionOf(read("docs/integrations/github-actions.md"), "### The jobs"))
+    rows(
+      sectionOf(read("docs/integrations/github-actions.md"), "#### The jobs"),
+    )
       .filter(([group]) => group === "None" || group?.startsWith("`"))
       .map(([group, jobs]) => [group!.replaceAll("`", ""), flat(jobs!)]),
   );

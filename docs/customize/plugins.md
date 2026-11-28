@@ -104,10 +104,12 @@ refiner that leaves one out leaves a ticket that cannot be built.
   | Without `spec` | `## Decisions`, and `## Acceptance criteria` with at least one list item                                                                                                                         |
   | With `spec`    | `## Decisions`; `## Spec`, with a `### NAME (new)` or `### NAME (modified)` heading for each capability and numbered lines under it; and `## For the builder`, with `### Design` and `### Tasks` |
 
-  On a `spec` ticket the build copies these into an OpenSpec change, so
-  they keep its shape: each numbered Spec line is one "When this, then
-  that" sentence, which becomes one requirement, and Tasks are numbered
-  groups of checkboxes, as OpenSpec's `tasks.md` has them.
+  On a `spec` ticket, with
+  [`specs: openspec`](../reference/settings/specs.md#specs), the build
+  copies these into a change of the spec tool's, so they keep its shape:
+  each numbered Spec line is one "When this, then that" sentence, which
+  becomes one requirement, and Tasks are numbered groups of checkboxes,
+  as its `tasks.md` has them.
 
 **The check is a script's.** `factory ticket refined N` refuses to post
 its marker on a body missing one of those sections, for the factory's own

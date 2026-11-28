@@ -3,26 +3,31 @@
 The code host: the repository, its pull requests, the checks on each
 commit, and the secrets the cloud runner reads.
 
-## What setup adds
+## What the factory uses it for
 
-| What                                                                                                                                                                                                                                                                    | Added when                                                                                                                                                                 | To undo                                                                                   |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Secrets and variables named `FACTORY_...`                                                                                                                                                                                                                               | You create them                                                                                                                                                            | Delete them                                                                               |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                                                               | You create it, for the automated review and builds in the cloud                                                                                                            | Delete it, unless another workflow uses it                                                |
-| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                                                                    | `init`, when you paste them                                                                                                                                                | Leave them if your own CI uses them; otherwise delete both copies                         |
-| Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `policy-override`, `spec`, `factory`, or the names under [`tickets.labels`](../reference/settings/tickets.md#ticketslabels) and [`code-host.labels`](../reference/settings/code-host.md#code-hostlabels) | First use; `verdict-override`, the first time "Review verdict" is posted on a pull request with the review on                                                              | Delete them. Deleting a label removes it from every ticket                                |
-| A CI check that the factory's files are in step                                                                                                                                                                                                                         | Setup                                                                                                                                                                      | Goes with `factory-review.yml`                                                            |
-| An Actions policy named "Software factory", on a public repository, which lets `factory.yml` start on `pull_request_target`                                                                                                                                             | `init`, on a public repository; or you, [by hand](#a-public-repository-1)                                                                                                  | Delete it, under Settings, Actions, Policies                                              |
-| A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                                                                    | With the review on, the first workflow run after the setup's pull request merges; `init`, when your default branch already has `factory.yml`; or you, in your branch rules | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
-| Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                                                               | Each pull request                                                                                                                                                          | They stay in history                                                                      |
-| A ticket for each [follow-up](../workflow/follow-ups.md) ticked in a pull request                                                                                                                                                                                       | The merge                                                                                                                                                                  |
-| Comments on tickets the factory worked                                                                                                                                                                                                                                  | Each refinement and build                                                                                                                                                  | They stay. They hold the ticket's history                                                 |
+Your repository is on GitHub. A build opens its pull request there, the
+review's verdict and who merges are statuses on each commit, labels mark
+each ticket and pull request the factory handles, and the secrets the
+cloud runner reads are stored there. On your machine the factory reaches
+GitHub through the GitHub CLI you signed in with.
 
-In an organization's repository, the organization's own rule requires
-"Review verdict" in place of that ruleset, and the secrets are the
-organization's ([In an organization](github-organizations.md#what-setup-adds)).
+## You need
 
-## A public repository
+- **A GitHub repository, with Issues on.** Check that the repository has
+  an Issues tab. If it has none, turn Issues on: on GitHub, Settings,
+  General, Features, check "Issues".
+- **The GitHub CLI, signed in.** Check it with `gh auth status`, which
+  names the account you are signed in as. If it is not installed or not
+  signed in, install it from [cli.github.com](https://cli.github.com) and
+  run `gh auth login`.
+
+## Set it up
+
+`factory init` sets the repository up
+([Run `factory init`](../setup/repository.md#run-factory-init)). A public
+repository needs one more thing of GitHub, which `init` also adds.
+
+### A public repository
 
 For a repository anyone can read. A private repository needs nothing
 here.
@@ -62,7 +67,32 @@ When `init` cannot add the policy, it says so and puts the step under
 "Left to do". [A public repository](#a-public-repository-1), under
 "By hand", has each field to fill in.
 
-## When the GitHub access token expires
+## What setup adds
+
+| What                                                                                                                                                                                                                                                                    | Added when                                                                                                                                                                 | To undo                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Secrets and variables named `FACTORY_...`                                                                                                                                                                                                                               | You create them                                                                                                                                                            | Delete them                                                                               |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                                                               | You create it, for the automated review and builds in the cloud                                                                                                            | Delete it, unless another workflow uses it                                                |
+| The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                                                                    | `init`, when you paste them                                                                                                                                                | Leave them if your own CI uses them; otherwise delete both copies                         |
+| Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `policy-override`, `spec`, `factory`, or the names under [`tickets.labels`](../reference/settings/tickets.md#ticketslabels) and [`code-host.labels`](../reference/settings/code-host.md#code-hostlabels) | First use; `verdict-override`, the first time "Review verdict" is posted on a pull request with the review on                                                              | Delete them. Deleting a label removes it from every ticket                                |
+| A CI check that the factory's files are in step                                                                                                                                                                                                                         | Setup                                                                                                                                                                      | Goes with `factory-review.yml`                                                            |
+| An Actions policy named "Software factory", on a public repository, which lets `factory.yml` start on `pull_request_target`                                                                                                                                             | `init`, on a public repository; or you, [by hand](#a-public-repository-1)                                                                                                  | Delete it, under Settings, Actions, Policies                                              |
+| A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                                                                    | With the review on, the first workflow run after the setup's pull request merges; `init`, when your default branch already has `factory.yml`; or you, in your branch rules | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
+| Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                                                               | Each pull request                                                                                                                                                          | They stay in history                                                                      |
+| A ticket for each [follow-up](../workflow/follow-ups.md) ticked in a pull request                                                                                                                                                                                       | The merge                                                                                                                                                                  |
+| Comments on tickets the factory worked                                                                                                                                                                                                                                  | Each refinement and build                                                                                                                                                  | They stay. They hold the ticket's history                                                 |
+
+In an organization's repository, the organization's own rule requires
+"Review verdict" in place of that ruleset, and the secrets are the
+organization's ([In an organization](github-organizations.md#what-setup-adds)).
+
+## Tokens and secrets
+
+Every secret the factory reads is listed in
+[Secrets](../security/credentials.md#secrets). The one that expires, and that
+you replace, is the GitHub access token you make on your own account.
+
+### When the GitHub access token expires
 
 For you, on your own GitHub account. In an organization the App makes a
 token for each run, and nothing here applies.
@@ -131,6 +161,27 @@ steps above.
 
 **A run that failed** because the token expired passes once the new one
 is stored: re-run it from its page on the Actions tab.
+
+## What the factory can and cannot do there
+
+It opens pull requests, labels them, and posts their statuses. A session
+never merges a pull request, nor adds the `verdict-override` or
+`policy-override` label, which are a person's. A pull request merges
+itself only when [the merge policy](../features/auto-merge.md) turns on
+its auto-merge, and every other one waits for you.
+
+## Limits that come from GitHub
+
+The ones the factory meets are its workflows', under
+[Limits that come from GitHub](github-actions.md#limits-that-come-from-github)
+on the GitHub Actions page.
+
+## When something goes wrong
+
+Run `factory doctor`, which marks what is wrong with ✗
+([Checking it](#checking-it)). Runs that fail with GitHub's `Bad credentials`
+usually mean the access token expired
+([When the GitHub access token expires](#when-the-github-access-token-expires)).
 
 ## By hand
 

@@ -5,7 +5,19 @@ a page is pictured before and after, in a browser the factory drives, and
 read by a UI reviewer: an agent that looks at those pictures for
 usability and design.
 
-## The UI reviewer
+## What you get
+
+Before you see a visible change, its pages are pictured before and after,
+measured, and read by the UI reviewer.
+
+## What it needs
+
+The [`site`](../reference/settings/site.md#site) settings, which say how
+to start the website.
+
+## Turn it on
+
+### The UI reviewer
 
 `factory-ui-reviewer` ships with the factory and is written to any repository
 with [`site`](../reference/settings/site.md#site) in its settings, but runs only where it is listed:
@@ -20,9 +32,9 @@ plugins:
           - public/**
 ```
 
-It needs the `site` settings, which say how to start the website.
+## How it works
 
-## `factory-design`
+### `factory-design`
 
 **What it does.** Designs a visible change to a website as a designer
 would: one recommended design in real content, built from your site and
@@ -41,7 +53,7 @@ does not get it at all.
 or one made by editing a running page instead of building it. Leave a
 scratch worktree behind.
 
-## `factory site`
+### `factory site`
 
 `factory site compare` starts the working tree with
 [`site.start`](../reference/settings/site.md#site), starts the default branch from a
@@ -88,6 +100,18 @@ not do its job.
   worktree.
 - `--before URL --after URL` compares two sites that are already running and
   starts nothing. One without the other is refused.
+
+## Its settings
+
+[`site`](../reference/settings/site.md#site) says how to start the website
+and what `factory site compare` measures, and
+[`plugins`](../reference/settings/plugins.md#plugins) lists the UI reviewer.
+
+## When something goes wrong
+
+`factory site compare` exits non-zero only when it could not do its job.
+What got worse on a page is not a failure: it prints as a `measured:`
+line.
 
 ## On your tools
 

@@ -9,20 +9,28 @@ is today.
 
 **Code host.** Where your repository lives, with its pull requests, their
 reviews, the checks on each commit, and the secrets your CI reads. Today:
-GitHub. [`code-host.type`](settings/code-host.md#code-host) names it.
+[GitHub](../integrations/github.md). [`code-host.type`](settings/code-host.md#code-host) names it.
 
-**Ticket system.** Where your tickets live. Today: GitHub Issues.
+**Ticket system.** Where your tickets live. Today:
+[GitHub Issues](../integrations/github-issues.md).
 [`tickets.type`](settings/tickets.md#tickets) names it.
 
 **Board.** A view of every ticket's state, one column per state, which the
-factory keeps up to date. Optional. Today: a GitHub Project.
+factory keeps up to date. Optional. Today:
+[GitHub Projects](../integrations/github-projects.md).
 
 **Cloud runner.** Where work runs with no one at a keyboard: cloud builds,
 the automated review, the board sync, and the factory's other CI jobs.
-Today: GitHub Actions. [`builds.runner`](settings/builds.md#builds) names it.
+Today: [GitHub Actions](../integrations/github-actions.md).
+[`builds.runner`](settings/builds.md#builds) names it.
 
 **Coding agent.** The AI tool that runs sessions: it reads your code,
-follows the factory's skills, and writes the change. Today: Claude Code.
+follows the factory's skills, and writes the change. Today:
+[Claude Code](../integrations/claude-code.md).
+
+**Spec tool.** Keeps each ticket's Spec in your repository, as well as in
+the ticket. Optional. Today: [OpenSpec](../integrations/openspec.md).
+[`specs`](settings/specs.md#specs) names it.
 
 ## The words
 
@@ -97,9 +105,6 @@ You commit it and never edit it.
 **Marker.** A hidden line in a comment the factory posts on a ticket,
 recording what happened. The board is worked out from these.
 
-**OpenSpec.** A tool that keeps a written description of what a project
-does, in the repository. Optional.
-
 **Plugin.** One of your own skills or agents, given a role in the work.
 
 **Poller.** A small program that watches your board and starts a cloud
@@ -139,8 +144,8 @@ such as `/factory-refine 12`.
 
 **Spec.** A written statement of what a change must do. A change your
 users will see gets a Spec section of "When this, then that" lines in
-its ticket; every other ticket has acceptance criteria. With OpenSpec
-turned on, the Spec is also kept in the repository.
+its ticket; every other ticket has acceptance criteria. With a
+[spec tool](#the-tools) turned on, the Spec is also kept in the repository.
 
 **Ticket.** One item in the ticket system: a piece of work, with what,
 why, and when it is done.

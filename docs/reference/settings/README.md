@@ -10,15 +10,15 @@ and look up any other setting under [Every setting](#every-setting).
 
 ## Words this page uses
 
-- **Session:** one conversation with the coding agent, such as Claude
-  Code, working in your repository. A session on your own machine is a
+- **Session:** one conversation with the
+  [coding agent](../glossary.md#the-tools) working in your repository. A session on your own machine is a
   local session. One that runs in the cloud with nobody at the keyboard is
   an unattended session.
 - **Build:** a session taking one approved ticket to a pull request.
 - **The cloud runner:** where the factory's unattended work runs. Today
-  that is GitHub Actions.
-- **The board:** a GitHub Project showing each ticket's state as a column.
-  It is optional.
+  that is [GitHub Actions](../../integrations/github-actions.md).
+- **The board:** a view showing each ticket's state as a column, today a
+  [GitHub Project](../../integrations/github-projects.md). It is optional.
 - **The board sync:** a job on the cloud runner that moves each ticket to
   its column on the board and fills in its fields. It is the only thing
   that writes to the board.
@@ -101,7 +101,8 @@ commands:
   [`code-host.branch-name`](code-host.md#code-host) are required by every command,
   and `factory init` writes all three. Without one, every command stops
   and names it. `"{ticket}"` is a pattern: ticket 12 is built on a branch
-  named `12`. The code host is GitHub unless you say otherwise.
+  named `12`. The code host is [GitHub](../../integrations/github.md) unless you say
+  otherwise.
 - [`commands.gate`](commands.md#commandsgate) is how a session checks a change, such
   as your tests and linter. `factory init` asks for one command and
   writes it. Left empty, it lists the gate under "Left to do", and you
@@ -114,7 +115,7 @@ without you, and there is no board.
 
 **With a board,** two more settings are required. Skip this part if you
 have none:
-[`tickets.board`](tickets.md#tickets), your GitHub Project's number, and
+[`tickets.board`](tickets.md#tickets), your board's number, and
 [`tickets.columns`](tickets.md#ticketscolumns), which of its columns shows each of
 the six [states](../../workflow/README.md#the-six-states) a ticket goes through.
 `factory init` writes both from the board you choose:
@@ -149,7 +150,7 @@ when you confirm the ticket fields it suggests. None of it is required.
 - **Quick checks before every commit:** your formatter and the other
   checks that take a few seconds, under
   [`commands.before-commit`](commands.md#commandsbefore-commit).
-- **A board:** your GitHub Project's number, under
+- **A board:** your board's number, under
   [`tickets.board`](tickets.md#tickets).
 - **What may merge without you:** for example your docs, under
   [`auto-merge.allow`](auto-merge.md#auto-merge).

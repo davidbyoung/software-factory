@@ -3,7 +3,29 @@
 The cloud runner: the workflows that run the automated review, the board
 sync, builds in the cloud, and the factory's other jobs.
 
-## Workflows
+## What the factory uses it for
+
+Every run that does not need your machine: the automated review and its
+verdict, who merges, the board sync, the poller, builds in the cloud, the
+answers to a review, the conflict sweep, dependency updates, and the
+factory's own updates ([The jobs](#the-jobs)).
+
+## You need
+
+A GitHub repository ([You need](github.md#you-need), on the GitHub page).
+The jobs run on GitHub's own runners, so there is nothing to install.
+
+## Set it up
+
+`factory sync` writes the two workflow files, and `factory init` stores
+the secrets each part needs
+([Run `factory init`](../setup/repository.md#run-factory-init)).
+[By hand](#by-hand) has the steps for the review and for builds in the
+cloud.
+
+## What setup adds
+
+### Workflows
 
 `factory sync` writes two workflow files under `.github/workflows/`,
 always, whichever parts are on:
@@ -22,7 +44,7 @@ two files comes from your
 settings: your default branch, which parts are on, the poller's
 schedule, each session's minutes, and the names of your own secrets.
 
-### The jobs
+#### The jobs
 
 A job whose part is off is skipped, and starts no machine. Every time is
 UTC.
@@ -158,17 +180,7 @@ poller you host reads once when it starts, and a scheduled pass on each
 run. The run does no start check of its own: only someone with write
 access can start a workflow.
 
-A review you submit on a pull request that conflicts with the default
-branch starts no run, since GitHub starts no workflow for a pull request it
-cannot merge. A Conflict run clears the conflict. Then start the answer by
-hand, with the pull request's and the review's numbers.
-
-GitHub runs `factory.yml` as the pull request leaves it when you submit a
-review, and as your default branch has it on every other event. A session
-can't change that file ([A change to a workflow
-file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
-
-### With a part off
+#### With a part off
 
 The two files are written whichever parts you chose, so a part that is
 off shows as a skipped job, or as one that passes having done nothing.
@@ -208,7 +220,7 @@ off shows as a skipped job, or as one that passes having done nothing.
   No build token is set, so no update's pull request is opened. factory doctor shows when you are behind.
   ```
 
-### What a job installs
+#### What a job installs
 
 Each job installs the version of the factory your repository names. The
 Session job also installs your default branch's own dependencies, with
@@ -223,6 +235,8 @@ A secret of your own, such as one your `.npmrc` reads
 Session job through one line `factory sync` writes under `secrets` in
 `factory.yml`, which passes each by name. The board sync, the poller, and
 the job that opens the ticked tickets get it too.
+
+## Tokens and secrets
 
 ### What each job can read and do
 
@@ -250,7 +264,7 @@ do not carry it, and Publish refuses a session's change to one.
 
 A cloud session acts as one of two things, by whether the key of an
 organization's GitHub App reaches its run.
-[Tokens and secrets](../security/credentials.md#on-github) says who
+[Who handles a token](../security/credentials.md#who-handles-a-token) says who
 stores what.
 
 **When the App's key reaches the run, it acts as the organization's App.**
@@ -302,15 +316,16 @@ pull request is squash merged, the commit on your default branch names
 the person who opened it as its author, and GitHub adds a
 `Co-authored-by: Claude` line for the build's commits.
 
-When a build cannot start, the poller's comment on the ticket reads "Could
-not start a build in GitHub Actions ... answered 403": give the token the
-scopes [Secrets](../security/credentials.md#secrets) names. An organization's poller
-posts no such comment for a repository its App is not installed on: its
-run in `factory-config` shows a warning that names the repository, and
-goes on to the next. A failed board sync arrives as an email from
-GitHub.
+## What the factory can and cannot do there
 
-## Limits
+GitHub runs `factory.yml` as the pull request leaves it when you submit a
+review, and as your default branch has it on every other event. A session
+can't change that file ([A change to a workflow
+file](../features/cloud-builds.md#a-change-to-a-workflow-file)).
+
+## Limits that come from GitHub
+
+### Limits
 
 These come from GitHub, GitHub Actions, or Claude Code, not from the
 factory.
@@ -374,6 +389,21 @@ factory.
   organization's projects, which an organization's settings can refuse.
 - **Untested: GitHub's built-in board automations,** such as moving a
   closed issue to Done. They may fight the board sync.
+
+## When something goes wrong
+
+When a build cannot start, the poller's comment on the ticket reads "Could
+not start a build in GitHub Actions ... answered 403": give the token the
+scopes [Secrets](../security/credentials.md#secrets) names. An organization's poller
+posts no such comment for a repository its App is not installed on: its
+run in `factory-config` shows a warning that names the repository, and
+goes on to the next. A failed board sync arrives as an email from
+GitHub.
+
+A review you submit on a pull request that conflicts with the default
+branch starts no run, since GitHub starts no workflow for a pull request it
+cannot merge. A Conflict run clears the conflict. Then start the answer by
+hand, with the pull request's and the review's numbers.
 
 ## By hand
 

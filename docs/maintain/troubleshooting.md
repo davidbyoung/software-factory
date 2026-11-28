@@ -71,8 +71,8 @@ says how to tell, and how to replace it.
 
 ## `factory status` says a token stops working soon
 
-On your own account, the GitHub access token expires on the day you chose
-when you made it
+On your own account, the code host's access token expires on the day
+you chose when you made it
 ([GitHub](../integrations/github.md#when-the-github-access-token-expires)).
 The coding agent's token lasts a year
 ([Claude Code](../integrations/claude-code.md#when-the-claude-tokens-year-is-up)).

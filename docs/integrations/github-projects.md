@@ -2,18 +2,9 @@
 
 The board: a GitHub Project with a column for each of a ticket's states.
 
-## What setup adds
+## What the factory uses it for
 
-| What                                                                                                                                  | To undo                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Up to six columns, if yours lacked them and `factory init` added them                                                                 | Delete the ones you do not want              |
-| Three fields, Session, Runs in, and Cost, if yours lacked them and `init` added them. The sync also sets the board's own Status field | Delete the three                             |
-| A Project `init` created, linked to the repository                                                                                    | Delete it, or keep it as an ordinary Project |
-
-A board the factory created for you is an ordinary GitHub Project. Keep
-it or delete it.
-
-## The board
+### The board
 
 A GitHub Project, owned by the account or the organization that owns the
 repository. The sync sets its Status field to the ticket's column and
@@ -29,6 +20,51 @@ them:
 
 Anything typed into the last three is overwritten on the next sync. Its
 number, the last part of its address, is [`tickets.board`](../reference/settings/tickets.md#tickets) in your settings.
+
+## You need
+
+A repository on GitHub. `factory init` makes the Project, or uses one
+you already have.
+
+## Set it up
+
+Run `factory init` and check "A board", as
+[Turn it on](../features/board.md#turn-it-on) says. It asks for a GitHub
+access token on your own account
+([Tokens and secrets](#tokens-and-secrets)).
+
+## What setup adds
+
+| What                                                                                                                                  | To undo                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Up to six columns, if yours lacked them and `factory init` added them                                                                 | Delete the ones you do not want              |
+| Three fields, Session, Runs in, and Cost, if yours lacked them and `init` added them. The sync also sets the board's own Status field | Delete the three                             |
+| A Project `init` created, linked to the repository                                                                                    | Delete it, or keep it as an ordinary Project |
+
+A board the factory created for you is an ordinary GitHub Project. Keep
+it or delete it.
+
+## Tokens and secrets
+
+The board sync writes with a GitHub access token stored as
+`FACTORY_BOARD_TOKEN`. [Secrets](../security/credentials.md#secrets) has
+the one to make, and [GitHub](github.md#when-the-github-access-token-expires)
+says what to do when it expires.
+
+## What the factory can and cannot do there
+
+The sync sets each ticket's column and writes its three fields. It never
+creates, renames, or removes a column or field: `factory init` adds the
+ones a board lacks.
+
+## Limits that come from GitHub
+
+None the factory adds to.
+
+## When something goes wrong
+
+A board that does not show a ticket where you expect: run
+`factory board check`, which lists the column it reads for each state.
 
 ## By hand
 

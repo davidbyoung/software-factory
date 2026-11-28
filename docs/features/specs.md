@@ -4,7 +4,23 @@ For someone deciding how a change their users will see is specified. At
 the end you know when a ticket gets a Spec, and whether your repository
 keeps a copy of each.
 
-## A change your users will see
+## What you get
+
+Each change your users will see is built from a Spec in its ticket, and
+its pull request names the test that checks each Spec line.
+
+## What it needs
+
+Nothing: a spec tool is optional.
+
+## Turn it on
+
+Nothing to turn on: refinement writes a Spec into each ticket that gets
+the `spec` label.
+
+## How it works
+
+### A change your users will see
 
 A change that adds or alters behavior someone can see, and is not
 [small](../workflow/build.md#sizing-the-work-to-the-change), gets the `spec` label, which
@@ -25,12 +41,19 @@ you can read the Spec and approve the ticket as you approve any other
 from the ticket alone, and its pull request's description lists the
 test that checks each Spec line.
 
-A [spec tool](../reference/settings/specs.md#specs), such as OpenSpec, also keeps the
-Spec in your repository.
-
 Every other ticket, such as a bug fix, a copy change, or a small change,
 has a list of acceptance criteria instead: what must be true for it to
 be done.
+
+## Its settings
+
+A [spec tool](../reference/settings/specs.md#specs) also keeps the Spec in your
+repository. Without one, the ticket is the only copy.
+
+## When something goes wrong
+
+What fails is the spec tool's step: its page says what to do, under
+[When something goes wrong](../integrations/openspec.md#when-something-goes-wrong).
 
 ## On your tools
 

@@ -23,9 +23,11 @@ The three triggers:
   once a minute and starts a cloud build for each ticket in Ready.
   [Hosting the poller](../../features/hosting-the-poller.md#hosting-the-poller-own-server) shows how
   to run it.
-- **`github-action`:** a schedule on GitHub Actions does the same every
+- **`github-action`:** a schedule on the cloud runner does the same every
   `poll-minutes` minutes, with nothing for you to host. On a private
-  repository, each check is billed as at least one Actions minute.
+  repository, each check may be billed
+  ([GitHub Actions](../../integrations/github-actions.md#limits-that-come-from-github)
+  says how).
   `factory sync` writes its schedule into
   `.github/workflows/factory.yml`, with one exception: a repository that
   follows a [preset](../../customize/presets.md) whose repository runs the poller, as an

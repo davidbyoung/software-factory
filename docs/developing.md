@@ -803,6 +803,23 @@ this repository's own reviewer, reads a changed page as that person.
   `/factory-refine 12`, with nothing more. The one table of each coding
   agent's form is on the Integrations overview, so a second agent adds a
   row there and changes no other page.
+- **Outside `docs/integrations/` and the README, a page names the kind of
+  tool, never the product:** code host, ticket system, board, cloud
+  runner, coding agent, or spec tool. What only one tool has, such as a
+  button to click or a plan's limit, goes on that tool's page, and the
+  page links it. A link to an integration page may name its tool. A test
+  fails on a page that names one, and says which line.
+- **A feature page has these `##` headings, in order:** What you get;
+  What it needs; Turn it on; How it works; Its settings; When something
+  goes wrong; On your tools. Its own sections are `###` under them. "On
+  your tools" links each integration page the feature uses, and holds no
+  step of that tool's own.
+- **An integration page has these `##` headings, in order:** What the
+  factory uses it for; You need; Set it up; What setup adds; Tokens and
+  secrets; What the factory can and cannot do there; Limits that come
+  from the tool, named for it; When something goes wrong; By hand.
+- **A heading a page has nothing for stays, with one line** that says
+  so. A test fails on a page whose headings are not its list.
 - **A setting links to its entry on its page under
   `docs/reference/settings/` where a page first names it,** such as
   `reference/settings/tickets.md#ticketsfields`. A test fails on one that

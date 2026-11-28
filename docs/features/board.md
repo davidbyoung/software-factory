@@ -3,6 +3,30 @@
 For someone who wants every ticket's state in one view. At the end your
 board has a column for each state, and the factory keeps it up to date.
 
+## What you get
+
+A column for each of a ticket's six states, and four fields the factory
+keeps up to date ([The fields the sync writes](#the-fields-the-sync-writes)).
+`factory status` prints the same picture in a terminal.
+
+## What it needs
+
+A board, and a token that can write to it, which init asks for on your
+own account ([GitHub Projects](../integrations/github-projects.md)).
+
+## Turn it on
+
+Run `factory init` and check "A board". It asks which board to use: a new
+one, made with the factory's columns, or one you already have, whose
+columns it reads ([You already have a board](#you-already-have-a-board)).
+
+**It worked when** `factory doctor` shows ✓ beside the board, and the
+board shows your open tickets that carry the factory's label.
+
+## How it works
+
+### The fields the sync writes
+
 The factory writes four fields of the board: its Status, and three of its
 own, Session, Runs in, and Cost. Anything you type into those three is
 overwritten on the next sync.
@@ -17,26 +41,12 @@ overwritten on the next sync.
 Sessions never write the board directly. They record what they did on
 the ticket, such as claiming it or what it cost, and then start the
 **board sync**, a workflow in your repository's CI that reads what is
-recorded on every labeled ticket and sets the board to match. On GitHub
-what they record is comments on the ticket. The sync also runs when a
+recorded on every labeled ticket and sets the board to match. The sync also runs when a
 pull request opens, closes, or merges, and once a night to catch
 anything else, such as a ticket you closed by hand. Because the record is
 on the ticket, its history survives even if the board is rebuilt.
 
-`factory status` prints the same picture in a terminal.
-
-## Turn it on
-
-Run `factory init` and check "A board". It asks which board to use: a new
-one, made with the factory's columns, or one you already have, whose
-columns it reads ([You already have a board](#you-already-have-a-board)).
-A board needs a token that can write to it, which init asks for on your
-own account ([GitHub Projects](../integrations/github-projects.md)).
-
-**It worked when** `factory doctor` shows ✓ beside the board, and the
-board shows your open tickets that carry the factory's label.
-
-## You already have a board
+### You already have a board
 
 A ticket is always in one of six [states](../workflow/README.md#the-six-states),
 and the factory shows each state as a column of your board. The settings
@@ -76,10 +86,10 @@ Board 3 has a column for each of the factory's six states:
   done       Done
 ```
 
-If it lacks any, init asks your coding agent, Claude Code, which of your
-columns shows each state, and shows you the answer before it changes
-anything. This is one short request with no tools, made with the sign-in
-Claude Code already has, and it sends your column names and nothing else.
+If it lacks any, init asks your coding agent which of your columns shows
+each state, and shows you the answer before it changes anything. This is
+one short request with no tools, made with the sign-in the coding agent
+already has, and it sends your column names and nothing else.
 On a board with the columns Todo, In Progress, Code review, and Done:
 
 ```text
@@ -142,8 +152,8 @@ Checks
 ```
 
 **When init can't get an answer, it asks you instead.** That happens
-when Claude Code isn't signed in, or when its answer can't be used, such
-as one column for two states. Init prints Claude Code's own reason, then
+when the coding agent isn't signed in, or when its answer can't be used,
+such as one column for two states. Init prints the agent's own reason, then
 asks for each state's column in turn, offering your columns, no column,
 or a new column with the factory's name, and shows you the table to
 confirm as above:
@@ -191,7 +201,7 @@ To see what the factory will do with your board at any time, run
 does, and each field the sync fills in, and marks a problem with ✗ on its
 row, such as a column your settings name that the board lacks.
 
-## Your tickets already have fields
+### Your tickets already have fields
 
 If your tickets have text fields of their own, such as an "Acceptance
 criteria" field your team fills in by hand, the factory can write what
@@ -217,18 +227,16 @@ a Spec when the change is one
 Acceptance criteria otherwise.
 
 This page calls a field of yours that is set on the ticket itself a
-ticket field. On GitHub, a ticket field is an
-[issue field](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/managing-issue-fields-in-your-organization),
-shown beside the issue, which you create in your account's or
-organization's settings, under Issue fields. A field you add to your
-board, which shows as a column of the board's table, can't hold a
-factory field: GitHub limits it to 1,024 characters, and a Spec is often
-several thousand. Create the issue field before you run init, since init
-offers only ticket fields that exist.
+ticket field. A field you add to your board can't hold a factory field,
+since a Spec is often several thousand characters, more than a board's
+field holds ([GitHub Projects](../integrations/github-projects.md#limits-that-come-from-github)
+gives its limit). Create the ticket field before you run init, since
+init offers only ticket fields that exist
+([GitHub Issues](../integrations/github-issues.md#set-it-up) says where).
 
 When you run `factory init`, step 2 of the
 [quick start](../get-started/quick-start.md#2-set-it-up), it finds your text ticket
-fields and asks your coding agent, Claude Code, which of them should hold
+fields and asks your coding agent which of them should hold
 each factory field. If you already ran init, run it again after creating
 the field: it keeps what your settings say and asks only about ticket
 fields. As for your board's columns, this is one short request with no
@@ -289,16 +297,16 @@ Checks
   ✓ acme/shop's tickets have every field the settings name
 ```
 
-Then refine a ticket and open it on GitHub. Here, its Spec or
-Acceptance criteria shows in the Acceptance criteria field beside the
-issue, and its design and tasks in Design notes. GitHub shows a field's
-text as typed, so a list reads as written, with its numbers and dashes,
-and a table shows its `|` marks. You and your coding agent see no other
+Then refine a ticket and open it in your ticket system. Here, its Spec
+or Acceptance criteria shows in the Acceptance criteria field, and its
+design and tasks in Design notes.
+[GitHub Issues](../integrations/github-issues.md#limits-that-come-from-github)
+says how it shows a field's text. You and your coding agent see no other
 difference: the agent still reads the whole ticket, fields included.
 
 **When init can't get an answer, it asks you instead.** That happens
-when Claude Code isn't signed in, or when its answer can't be used, such
-as a ticket field your tickets don't have. Init prints Claude Code's own
+when the coding agent isn't signed in, or when its answer can't be used,
+such as a ticket field your tickets don't have. Init prints the agent's own
 reason and what each factory field holds, then asks where each one goes,
 offering the description, which is selected, and your ticket fields. It
 shows you the table to confirm as above:
@@ -308,8 +316,9 @@ Claude Code's answer could not be used: it failed: Failed to authenticate: OAuth
 Choose where each of the factory's fields goes yourself.
 ```
 
-To have Claude Code suggest them instead, press Ctrl-C, sign in by
-running `claude` once, and run `factory init` again. To be asked nothing,
+To have the coding agent suggest them instead, press Ctrl-C, sign it in
+([Claude Code](../integrations/claude-code.md#you-need) says how), and run
+`factory init` again. To be asked nothing,
 write the four lines above in `.claude/factory.yaml` yourself before you
 run `factory init`, as
 [`tickets.fields`](../reference/settings/tickets.md#ticketsfields) describes.
@@ -326,6 +335,21 @@ now say, and leaves your own text as it is.
 
 A heading of your own, such as one your own refiner writes, can go in a
 ticket field too: see [`tickets.fields`](../reference/settings/tickets.md#ticketsfields).
+
+## Its settings
+
+[`tickets.board`](../reference/settings/tickets.md#tickets) names the
+board, [`tickets.columns`](../reference/settings/tickets.md#ticketscolumns)
+the column that shows each state, and
+[`tickets.fields`](../reference/settings/tickets.md#ticketsfields) the
+ticket field that holds each factory field. `factory init` writes all
+three.
+
+## When something goes wrong
+
+Run `factory board check`: it marks a problem with ✗ on its row, such as
+a column your settings name that the board lacks
+([You already have a board](#you-already-have-a-board)).
 
 ## On your tools
 

@@ -9,7 +9,8 @@ version.
 
 - **Each person signs in as themselves.** A teammate who clones the
   repository needs their own logins, and, with a ticket system of its own
-  ([planned](../developing.md#what-is-built), such as Jira), runs
+  ([planned](../developing.md#what-is-built), such as
+  [Jira](../integrations/jira.md)), runs
   `factory init` once for their own token.
   [Tokens and secrets](../security/credentials.md) says what to do.
 - **A person's own session acts as that person.** A commit made by a
@@ -18,8 +19,8 @@ version.
   yours, or an account you create for the team's builds
   ([Secrets](../security/credentials.md#secrets)). In an organization whose
   owner has run `factory init --org`, a cloud build acts as the
-  organization's own GitHub App
-  ([Tokens and secrets](../security/credentials.md#on-github)).
+  organization's own App
+  ([Tokens and secrets](../security/credentials.md#who-handles-a-token)).
 - **Anyone who can write to the repository is obeyed.** A session takes
   instructions from a review or a comment by an account with write
   access, and from nobody else. There is nothing to list: give a
@@ -61,8 +62,9 @@ agent, and the repository's settings and secrets are already there, so
 there is nothing to set up.
 
 **It worked when** `factory doctor` shows ✓ on every line, or `-` for a
-part that is off. A ticket system with a token of its own, such as Jira,
-asks each person for theirs: [Jira](../integrations/jira.md) says how.
+part that is off. A ticket system with a token of its own, such as
+[Jira](../integrations/jira.md), asks each person for theirs, and its
+page says how.
 
 ## In a session on another machine
 

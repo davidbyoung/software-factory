@@ -87,8 +87,8 @@ files that change with every release. The two files hold only what is
 your repository's own: its default branch, which parts are on, the
 poller's schedule, and the names of its secrets.
 
-There are two files and not one because GitHub runs a `pull_request`
-workflow from the pull request's copy, and what decides a merge must run
+There are two files and not one because the cloud runner runs a
+`pull_request` workflow from the pull request's copy, and what decides a merge must run
 from the default branch's copy, where a pull request cannot change how
 it is judged. The one that runs from the pull request's copy is given no
 secret.
@@ -153,7 +153,8 @@ After that it is an ordinary setting, read the same way every time.
 
 A state can already take a list of column names.
 [_Planned_](../developing.md#what-is-built): other ticket systems, which
-name their states differently and fit the same setting. Jira lets each kind of ticket, such
+name their states differently and fit the same setting.
+[Jira](../integrations/jira.md) lets each kind of ticket, such
 as a bug or a story, follow its own sequence of states; the factory
 would move a ticket to the first listed name that its own sequence has.
 Linear gives each team one sequence, which works as a board does. If a
@@ -165,7 +166,7 @@ Refinement writes each factory field into a ticket field of yours, or
 into the description, by the ticket field's name, with no setting for
 each kind of ticket. A ticket whose kind can't hold the ticket field
 keeps that factory field in its description.
-[_Planned_](../developing.md#what-is-built): on Jira, where a kind of
+[_Planned_](../developing.md#what-is-built): on [Jira](../integrations/jira.md), where a kind of
 ticket can leave a field out, a factory field could name a list of
 ticket fields, `spec: [Acceptance criteria, AC]`, and go in the first
 the ticket can hold, as a state does with columns. A `fields-by-type`
