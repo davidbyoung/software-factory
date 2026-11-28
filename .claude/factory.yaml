@@ -1,7 +1,7 @@
 # Settings for the software factory in its own repository. Every key is
 # explained under docs/reference/settings/.
 version: 2
-repository: davidbyoung/software-factory
+repository: kodor-ai/kodor
 
 # Where tickets live. This repository shares the board of the one the
 # factory was drawn out of: each repository's sync and status read only
