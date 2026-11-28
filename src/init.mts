@@ -137,7 +137,10 @@ import {
   type FetchDeps,
 } from "./preset-fetch.mts";
 import { CONTEXT as REVIEW_VERDICT } from "./review-verdict.mts";
-import { CONTEXT as APPROVAL_POLICIES } from "./approval-policies.mts";
+import {
+  CONTEXT as APPROVAL_POLICIES,
+  LABEL_LOOK as POLICY_LABEL_LOOK,
+} from "./approval-policies.mts";
 import {
   FACTORY_EVENTS,
   FACTORY_FILE,
@@ -2817,6 +2820,18 @@ export async function main(argv: string[], deps: InitDeps): Promise<number> {
           ),
         ),
       );
+  if (standingNow?.approvalPolicies.length) {
+    const label = standingNow.codeHost.labels["policy-override"];
+    await codeHost
+      .ensureLabel(label, POLICY_LABEL_LOOK)
+      .catch((e) =>
+        d.out(
+          say.text(
+            `Could not make the ${label} label: ${message(e)}. Carrying on.`,
+          ),
+        ),
+      );
+  }
   // As the verdict's rule, only once the workflow that posts it is on the
   // default branch.
   if (

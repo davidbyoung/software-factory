@@ -18,6 +18,7 @@ import {
   type Result,
 } from "../src/approval-policies.mts";
 import type { ApprovalPolicy } from "../src/config.mts";
+import { gitIn } from "../src/lib/default-branch.mts";
 
 const policy = (
   o: Partial<ApprovalPolicy> & { name: string },
@@ -152,6 +153,22 @@ describe("the change, from git", () => {
     ]);
     expect(diff).toContain('+{"license": "MIT"}');
     expect(diff).not.toContain("+changed");
+  });
+
+  it("reads a change over 1 MiB through the jobs' git", () => {
+    const base = start();
+    const big = Array.from(
+      { length: 50_000 },
+      (_, i) => `line ${i} of a long file`,
+    );
+    write("big.txt", `${big.join("\n")}\n`);
+    const head = commit("change");
+    const jobs = gitIn(dir);
+    const files = changedFiles(jobs, base, head)!;
+    const diff = diffOf(jobs, base, head, files);
+
+    expect(diff?.length).toBeGreaterThan(1 << 20);
+    expect(diff).toContain("+line 49999 of a long file");
   });
 
   it("diffs a renamed file as a rename, from its old name", () => {
