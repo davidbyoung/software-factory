@@ -921,3 +921,29 @@ describe("factory init, the rule that requires the review's verdict", () => {
     });
   });
 });
+
+describe("factory init, the policy-override label", () => {
+  const setUp = (over: Partial<Setup> = {}) =>
+    init({
+      answers: { checkbox: [["review"]], confirm: [true], secret: [AGENT] },
+      ...over,
+    });
+
+  it("makes the label an approval policy waits for, where the code host lacks it", async () => {
+    const r = setUp();
+    expect(await r.run()).toBe(0);
+    expect(Object.keys(r.host.settings.labels)).toContain("policy-override");
+  });
+
+  it("says it could not make the label, and carries on", async () => {
+    const r = setUp({
+      codeHostFails: {
+        ensureLabel: new Error("HTTP 403: Resource not accessible"),
+      },
+    });
+    expect(await r.run()).toBe(0);
+    expect(r.out).toContain(
+      "Could not make the policy-override label: HTTP 403: Resource not accessible. Carrying on.",
+    );
+  });
+});
