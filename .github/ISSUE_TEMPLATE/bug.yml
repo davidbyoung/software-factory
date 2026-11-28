@@ -7,7 +7,7 @@ body:
     attributes:
       label: Where
       description: The command, skill, agent, or workflow it happens in.
-      placeholder: lunamill sync, lunamill-build, or factory-claude-review.yml
+      placeholder: lunamill sync, lunamill-build, or lunamill-review.yml
     validations:
       required: true
   - type: input

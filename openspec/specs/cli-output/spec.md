@@ -17,12 +17,12 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: Usage for a command it does not have
 
-Lunamill SHALL behave as this line says: When `lunamill` runs with words that name no command, it prints `factory has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `lunamill --help` and `factory -h` print what line 1 says.
+Lunamill SHALL behave as this line says: When `lunamill` runs with words that name no command, it prints `Lunamill has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `lunamill --help` and `lunamill -h` print what line 1 says.
 
 #### Scenario: Usage for a command it does not have
 
 - **WHEN** `lunamill` runs with words that name no command
-- **THEN** it prints `factory has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `lunamill --help` and `factory -h` print what line 1 says.
+- **THEN** it prints `Lunamill has no command "WORDS".`, WORDS being every argument joined by spaces, and a blank line before the same text, and exits 2. `lunamill --help` and `lunamill -h` print what line 1 says.
 
 ### Requirement: Usage lists a person's commands
 
@@ -213,14 +213,14 @@ Lunamill SHALL behave as this line says: When several parts need one secret, `do
 - **WHEN** several parts need one secret
 - **THEN** `doctor` prints one line for it: `NAME is set, for A and B` with the parts joined as a sentence lists them, or `NAME is not set, for A and B. Run lunamill init`.
 
-### Requirement: Fixes name factory commands
+### Requirement: Fixes name lunamill commands
 
 Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
-#### Scenario: Fixes name factory commands
+#### Scenario: Fixes name lunamill commands
 
 - **WHEN** `doctor`, `init`, `sync --check`, `config check`, or a preset command prints a message that names a Lunamill command
-- **THEN** it names it `factory X`, not `npx --no-install lunamill X`: `doctor`'s and `init`'s fixes (`Run lunamill sync`, `Run lunamill init`), `init`'s `run lunamill init again` messages, `config check`'s design-skill warning, `sync --check`'s last line, and the preset commands' `Run: lunamill init`. The stale-lock messages and `.npmrc`'s sync errors name it `lunamill sync` too.
+- **THEN** it names it `lunamill X`, not `npx --no-install lunamill X`: `doctor`'s and `init`'s fixes (`Run lunamill sync`, `Run lunamill init`), `init`'s `run lunamill init again` messages, `config check`'s design-skill warning, `sync --check`'s last line, and the preset commands' `Run: lunamill init`. The stale-lock messages and `.npmrc`'s sync errors name it `lunamill sync` too.
 
 ### Requirement: Init's closing checks
 

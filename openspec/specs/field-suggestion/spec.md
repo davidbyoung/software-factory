@@ -60,23 +60,23 @@ Lunamill SHALL behave as this line says: When you choose `Yes`, init writes all 
 - **WHEN** you choose `Yes`
 - **THEN** Init writes all four keys under `tickets.fields`: the ticket field's name, or `none` for the description. Comments already in the file are kept.
 
-### Requirement: Change some factory fields
+### Requirement: Change some Lunamill fields
 
-Lunamill SHALL behave as this line says: When you choose `Change some`, init asks `Which factory fields do you want to change?`, listing each as `<heading> The scenario gives the whole behavior.
+Lunamill SHALL behave as this line says: When you choose `Change some`, init asks `Which Lunamill fields do you want to change?`, listing each as `<heading> The scenario gives the whole behavior.
 
-#### Scenario: Change some factory fields
+#### Scenario: Change some Lunamill fields
 
 - **WHEN** you choose `Change some`
-- **THEN** Init asks `Which factory fields do you want to change?`, listing each as `<heading>: <its ticket field, or the description>`. No factory field starts picked, and picking none goes back to the table and `Use these ticket fields?`. For each one picked, in table order, it asks `Where does <heading> go?`, with the current choice selected, offering `The description` and then the text fields in the ticket system's order. Then it shows the table and asks `Use these ticket fields?` again.
+- **THEN** Init asks `Which Lunamill fields do you want to change?`, listing each as `<heading>: <its ticket field, or the description>`. No Lunamill field starts picked, and picking none goes back to the table and `Use these ticket fields?`. For each one picked, in table order, it asks `Where does <heading> go?`, with the current choice selected, offering `The description` and then the text fields in the ticket system's order. Then it shows the table and asks `Use these ticket fields?` again.
 
 ### Requirement: One ticket field for two Lunamill fields
 
-Lunamill SHALL behave as this line says: When a ticket field picked for a Lunamill field already holds another in the table as it stands, init prints `<field> already holds <other heading>. Pick another ticket field for <heading>.`. It keeps that Lunamill field's earlier choice and the choices made before it in the same pass, then asks `Which factory fields do you want to change?` again with every Lunamill field still picked. Spec and Acceptance criteria in one ticket field is not a clash.
+Lunamill SHALL behave as this line says: When a ticket field picked for a Lunamill field already holds another in the table as it stands, init prints `<field> already holds <other heading>. Pick another ticket field for <heading>.`. It keeps that Lunamill field's earlier choice and the choices made before it in the same pass, then asks `Which Lunamill fields do you want to change?` again with every Lunamill field still picked. Spec and Acceptance criteria in one ticket field is not a clash.
 
 #### Scenario: One ticket field for two Lunamill fields
 
 - **WHEN** a ticket field picked for a Lunamill field already holds another in the table as it stands
-- **THEN** Init prints `<field> already holds <other heading>. Pick another ticket field for <heading>.`. It keeps that Lunamill field's earlier choice and the choices made before it in the same pass, then asks `Which factory fields do you want to change?` again with every Lunamill field still picked. Spec and Acceptance criteria in one ticket field is not a clash.
+- **THEN** Init prints `<field> already holds <other heading>. Pick another ticket field for <heading>.`. It keeps that Lunamill field's earlier choice and the choices made before it in the same pass, then asks `Which Lunamill fields do you want to change?` again with every Lunamill field still picked. Spec and Acceptance criteria in one ticket field is not a clash.
 
 ### Requirement: No keeps everything in the description
 

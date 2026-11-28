@@ -42,11 +42,11 @@ Lunamill SHALL behave as this line says: When the repository has no lock there, 
 - **WHEN** the repository has no lock there
 - **THEN** its line is `✗ acme/web   not set up: run lunamill init in acme/web before building`.
 
-### Requirement: A factory too old
+### Requirement: A Lunamill too old
 
 Lunamill SHALL behave as this line says: When its lock has no such key, its line is `✗ acme/web   on Lunamill 0.9.0, which can't build a ticket from another repository: run lunamill update in acme/web`, with the lock's version.
 
-#### Scenario: A factory too old
+#### Scenario: A Lunamill too old
 
 - **WHEN** its lock has no such key
 - **THEN** its line is `✗ acme/web   on Lunamill 0.9.0, which can't build a ticket from another repository: run lunamill update in acme/web`, with the lock's version.
@@ -157,7 +157,7 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 #### Scenario: A claim on a ticket not ready
 
 - **WHEN** `lunamill ticket claim N` runs and a repository's line is not `✓`
-- **THEN** it posts nothing and prints `✗ #12 names acme/web, which is not set up: run lunamill init in acme/web`, or for line 5's case `✗ #12 names acme/web, whose factory is too old: run lunamill update in acme/web`, or for line 9's `✗ #12 names acme/web, which was not found, or you can't see it`, and exits 1. In a run in the cloud it stops the ticket with the same words as the reason.
+- **THEN** it posts nothing and prints `✗ #12 names acme/web, which is not set up: run lunamill init in acme/web`, or for line 5's case `✗ #12 names acme/web, whose Lunamill is too old: run lunamill update in acme/web`, or for line 9's `✗ #12 names acme/web, which was not found, or you can't see it`, and exits 1. In a run in the cloud it stops the ticket with the same words as the reason.
 
 ### Requirement: A claim from another checkout
 

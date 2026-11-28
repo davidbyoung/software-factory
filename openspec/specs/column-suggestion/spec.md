@@ -35,14 +35,14 @@ Lunamill SHALL behave as this line says: When the coding agent's command is inst
 
 ### Requirement: The suggestion's table
 
-Lunamill SHALL behave as this line says: When the agent's answer is usable, init prints a table headed `State      Column`, with one row per state in the order backlog, refining, ready, building, review, done. Each row shows the board's column, as the board spells it; `<factory name>, which init adds`; or, for no column, what `lunamill board check` prints: `none, shows in <column>`, or for ready, `none`.
+Lunamill SHALL behave as this line says: When the agent's answer is usable, init prints a table headed `State      Column`, with one row per state in the order backlog, refining, ready, building, review, done. Each row shows the board's column, as the board spells it; `<Lunamill name>, which init adds`; or, for no column, what `lunamill board check` prints: `none, shows in <column>`, or for ready, `none`.
 
 #### Scenario: The suggestion's table
 
 - **WHEN** the agent's answer is usable
 - **THEN** init prints a table headed `State      Column`, with one row per state in the order backlog, refining, ready, building, review, done. Each row shows one of these:
   - the board's column, as the board spells it;
-  - `<factory name>, which init adds`;
+  - `<Lunamill name>, which init adds`;
   - for no column, what `lunamill board check` prints: `none, shows in <column>`, or for ready, `none`.
 
 ### Requirement: An answer that can't be used
@@ -97,7 +97,7 @@ Lunamill SHALL behave as this line says: When you choose `Change some`, init ask
 - **THEN** init asks `Which states do you want to change?`, listing each state as `<key>: <its column, as the table shows it>`. Then, for each state picked, in table order, it asks `Which column shows <key>?`, with the current choice selected, offering:
   - the board's columns, in board order;
   - `No column: <where a ticket goes>`. This is `a ticket being refined shows in <column>` for refining, `builds start only when you ask` for ready, `a ticket being built shows in <column>` for building, `a ticket in review shows in <column>` for review, and `a ticket that is done shows in <column>` for done. It is not offered for backlog, nor for ready when `builds.trigger` isn't `manual`;
-  - `Add a column called "<factory name>"`, offered only when the board has no column of that name, ignoring capitals. When it has one, that column is in the list above. Each state can add only its own factory name, so two states can't add the same column.
+  - `Add a column called "<Lunamill name>"`, offered only when the board has no column of that name, ignoring capitals. When it has one, that column is in the list above. Each state can add only its own Lunamill name, so two states can't add the same column.
 
   Then it shows the table and asks `Use these columns?` again.
 

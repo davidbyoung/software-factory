@@ -80,12 +80,12 @@ Lunamill SHALL behave as this line says: `docs/reference/cli.md` and `docs/refer
 
 ### Requirement: No migrate row
 
-Lunamill SHALL behave as this line says: "What is built" in `docs/developing.md` has no `factory migrate` row.
+Lunamill SHALL behave as this line says: "What is built" in `docs/developing.md` has no `lunamill migrate` row.
 
 #### Scenario: No migrate row
 
 - **WHEN** a reader opens the docs
-- **THEN** "What is built" in `docs/developing.md` has no `factory migrate` row.
+- **THEN** "What is built" in `docs/developing.md` has no `lunamill migrate` row.
 
 ### Requirement: What a plugin can replace
 

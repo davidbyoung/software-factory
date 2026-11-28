@@ -39,7 +39,7 @@ Lunamill SHALL behave as this line says: Every command that reads one ticket rea
 
 #### Scenario: Commands read the joined ticket
 
-- **WHEN** a command reads one ticket whose factory fields sit in ticket fields
+- **WHEN** a command reads one ticket whose Lunamill fields sit in ticket fields
 - **THEN** Every command that reads one ticket reads it as `view` prints it, so `lunamill ticket refined N` passes a ticket whose Decisions, Spec, or For the builder sit in ticket fields.
 
 ### Requirement: A named ticket field that doesn't exist

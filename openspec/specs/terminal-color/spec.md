@@ -188,11 +188,11 @@ Lunamill SHALL behave as this line says: When a line holds an `http` or `https` 
 
 ### Requirement: Skills
 
-Lunamill SHALL behave as this line says: When a line holds a `/factory-` skill, the skill and the argument after it are cyan in color, such as `/lunamill-refine N`.
+Lunamill SHALL behave as this line says: When a line holds a `/lunamill-` skill, the skill and the argument after it are cyan in color, such as `/lunamill-refine N`.
 
 #### Scenario: Skills
 
-- **WHEN** a line holds a `/factory-` skill
+- **WHEN** a line holds a `/lunamill-` skill
 - **THEN** the skill and the argument after it are cyan in color, such as `/lunamill-refine N`.
 
 ### Requirement: Another tool's commands

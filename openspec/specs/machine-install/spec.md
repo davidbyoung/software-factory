@@ -42,11 +42,11 @@ Lunamill SHALL behave as this line says: When the repository has no lock, or the
 - **WHEN** the repository has no lock, or there is no repository
 - **THEN** it runs the installed version; in Lunamill's own repository, the source, as today. `lunamill update` starts in the installed version everywhere else.
 
-### Requirement: The hooks run the machine's factory
+### Requirement: The hooks run the machine's lunamill
 
 Lunamill SHALL behave as this line says: When `lunamill sync` writes `.claude/settings.json` outside Lunamill's own repository, each hook runs `lunamill` from the machine's `PATH`. Where it is not there, the hook before a command and the hook before a file read block the call, and they and the session-start hook print `lunamill is not installed on this machine. Install it once: npm install -g @lunamill-ai/lunamill`. The other hooks do nothing there.
 
-#### Scenario: The hooks run the machine's factory
+#### Scenario: The hooks run the machine's lunamill
 
 - **WHEN** `lunamill sync` writes `.claude/settings.json` outside Lunamill's own repository
 - **THEN** each hook runs `lunamill` from the machine's `PATH`. Where it is not there, the hook before a command and the hook before a file read block the call, and they and the session-start hook print `lunamill is not installed on this machine. Install it once: npm install -g @lunamill-ai/lunamill`. The other hooks do nothing there.

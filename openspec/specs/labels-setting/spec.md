@@ -152,11 +152,11 @@ Lunamill SHALL behave as this line says: When `tickets.labels.lunamill` is set, 
 
 ### Requirement: Label commands take Lunamill key
 
-Lunamill SHALL behave as this line says: When `lunamill ticket label N --add factory` or `--remove factory` is given the key `lunamill`, it acts on the name `tickets.labels.lunamill` gives, as it does for `spec`.
+Lunamill SHALL behave as this line says: When `lunamill ticket label N --add lunamill` or `--remove lunamill` is given the key `lunamill`, it acts on the name `tickets.labels.lunamill` gives, as it does for `spec`.
 
 #### Scenario: Label commands take Lunamill key
 
-- **WHEN** `lunamill ticket label N --add factory` or `--remove factory` is given the key `lunamill`
+- **WHEN** `lunamill ticket label N --add lunamill` or `--remove lunamill` is given the key `lunamill`
 - **THEN** it acts on the name `tickets.labels.lunamill` gives, as it does for `spec`.
 
 ### Requirement: The policy override's name in the workflow

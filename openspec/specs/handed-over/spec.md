@@ -22,7 +22,7 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 #### Scenario: A write in a session
 
 - **WHEN** a session in the cloud writes through a `lunamill` command
-- **THEN** Each write there is added to `request.json` as the command it is, and prints `Asked: factory ` and the command. One this run may not make is refused at once, `✗ Can't ask for this. ` and the reason. `lunamill pr open` prints the branch in place of the number. Nor is a text the ticket system or the code host would refuse, or a pull request that links another ticket, asked for.
+- **THEN** Each write there is added to `request.json` as the command it is, and prints `Asked: lunamill ` and the command. One this run may not make is refused at once, `✗ Can't ask for this. ` and the reason. `lunamill pr open` prints the branch in place of the number. Nor is a text the ticket system or the code host would refuse, or a pull request that links another ticket, asked for.
 
 ### Requirement: Handing commits over
 

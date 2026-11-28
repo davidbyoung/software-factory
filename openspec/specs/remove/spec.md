@@ -122,12 +122,12 @@ Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 ### Requirement: GitHub Issues' leftovers
 
-Lunamill SHALL behave as this line says: When the ticket system is GitHub's, its group holds `Delete whichever of the labels spec and factory exist, if you do not want their history: deleting one takes it off every ticket`, then the board's fields line it has today. Each name is the one `tickets.labels` gives.
+Lunamill SHALL behave as this line says: When the ticket system is GitHub's, its group holds `Delete whichever of the labels spec and lunamill exist, if you do not want their history: deleting one takes it off every ticket`, then the board's fields line it has today. Each name is the one `tickets.labels` gives.
 
 #### Scenario: GitHub Issues' leftovers
 
 - **WHEN** the ticket system is GitHub's
-- **THEN** its group holds `Delete whichever of the labels spec and factory exist, if you do not want their history: deleting one takes it off every ticket`, then the board's fields line it has today. Each name is the one `tickets.labels` gives.
+- **THEN** its group holds `Delete whichever of the labels spec and lunamill exist, if you do not want their history: deleting one takes it off every ticket`, then the board's fields line it has today. Each name is the one `tickets.labels` gives.
 
 ### Requirement: The credential's leftovers
 

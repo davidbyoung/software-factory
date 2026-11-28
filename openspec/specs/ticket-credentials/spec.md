@@ -71,12 +71,12 @@ Lunamill SHALL behave as this line says: When the session-start hook would print
 
 ### Requirement: A credential is never passed on or printed
 
-Lunamill SHALL behave as this line says: No factory command puts a credential's value in the environment of a process it starts, or prints it. In GitHub Actions the job's `env` holds it, as it holds `GH_TOKEN` (Decisions).
+Lunamill SHALL behave as this line says: No Lunamill command puts a credential's value in the environment of a process it starts, or prints it. In GitHub Actions the job's `env` holds it, as it holds `GH_TOKEN` (Decisions).
 
 #### Scenario: A credential is never passed on or printed
 
 - **WHEN** a Lunamill command starts a process or prints output
-- **THEN** No factory command puts a credential's value in the environment of a process it starts, or prints it. In GitHub Actions the job's `env` holds it, as it holds `GH_TOKEN` (Decisions).
+- **THEN** No Lunamill command puts a credential's value in the environment of a process it starts, or prints it. In GitHub Actions the job's `env` holds it, as it holds `GH_TOKEN` (Decisions).
 
 ### Requirement: The guard refuses the credentials file
 
