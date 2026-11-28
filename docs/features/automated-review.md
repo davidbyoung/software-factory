@@ -21,7 +21,7 @@ is used.
 
 ## Turn it on
 
-Run `factory init` and check "An automated review of every pull request".
+Run `lunamill init` and check "An automated review of every pull request".
 It asks for the coding agent's token on your own account, stores it, and
 opens a pull request with the change
 ([Set up a repository](../setup/repository.md)).
@@ -33,13 +33,13 @@ comments and a "Review verdict" status.
 
 - **The verdict is required** from the first run after the setup's pull
   request merges, so a pull request cannot merge until the review passes
-  it. `factory init` makes it required where its token can. Where it
+  it. `lunamill init` makes it required where its token can. Where it
   can't, init's "Left to do" says how to make it required yourself
   ([What is left for you](../setup/repository.md#what-is-left-for-you)).
   While the review is off, the status passes, reading "The automated
   review is off".
 - **Tell the reviewer about your project** in `.github/review-notes.md`,
-  which you write and the factory leaves alone.
+  which you write and Lunamill leaves alone.
 - **Override a verdict for one commit** with the `verdict-override`
   label, which only a person adds ([Merge](../workflow/merge.md)).
 - **Each push to a pull request marked ready is reviewed again,** so a
@@ -52,10 +52,10 @@ comments and a "Review verdict" status.
 pr-review: true
 ```
 
-`factory init` writes this line when you check the review. You can also
+`lunamill init` writes this line when you check the review. You can also
 write [`pr-review`](../reference/settings/pr-review.md#pr-review)
 yourself, or set it to `false` to turn the review off, and run
-`factory sync`, which changes the workflow to match.
+`lunamill sync`, which changes the workflow to match.
 
 ## When something goes wrong
 

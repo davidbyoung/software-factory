@@ -1,6 +1,6 @@
-// `factory remove`: what it deletes, what it changes and keeps, and what it
+// `lunamill remove`: what it deletes, what it changes and keeps, and what it
 // leaves for you to remove by hand, run against a checkout laid out as
-// `factory sync` leaves one and the in-memory tools.
+// `lunamill sync` leaves one and the in-memory tools.
 import {
   chmodSync,
   existsSync,
@@ -23,43 +23,43 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 import { memoryTools } from "./memory-tools";
-import { FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { LUNAMILL_COLUMNS_YAML } from "./lunamill-columns";
 import { CODE_HOST_YAML } from "./settings-fixture";
 import { into } from "./printed";
 
-const LAUNCHER = "node_modules/@davidbyoung/software-factory/bin/factory.js";
+const LAUNCHER = "node_modules/@lunamill-ai/lunamill/bin/lunamill.js";
 const SETTINGS = [
-  "version: 2",
+  "version: 1",
   "repository: acme/site",
   CODE_HOST_YAML,
   "tickets:",
   "  board: 3",
-  FACTORY_COLUMNS_YAML,
+  LUNAMILL_COLUMNS_YAML,
   "pr-review: true",
   "",
 ].join("\n");
 
-/** A user's own hook, beside the factory's. */
+/** A user's own hook, beside lunamill's. */
 const OWN_HOOK = {
   matcher: "Bash",
   hooks: [{ type: "command", command: "echo mine" }],
 };
 
-/** A checkout as `factory sync` leaves one with every part on, with the
- * user's own files beside the factory's. */
+/** A checkout as `lunamill sync` leaves one with every part on, with the
+ * user's own files beside lunamill's. */
 const SYNCED: Record<string, string> = {
-  ".claude/factory.yaml": SETTINGS,
-  ".claude/factory.lock": "version: 0.2.0\nfiles:\n",
-  ".claude/factory/rules.md": "# Rules\n",
-  ".claude/skills/factory-build/SKILL.md": "build\n",
+  ".claude/lunamill.yaml": SETTINGS,
+  ".claude/lunamill.lock": "version: 0.2.0\nfiles:\n",
+  ".claude/lunamill/rules.md": "# Rules\n",
+  ".claude/skills/lunamill-build/SKILL.md": "build\n",
   ".claude/skills/mine/SKILL.md": "mine\n",
-  ".claude/agents/factory-ui-reviewer.md": "reviewer\n",
+  ".claude/agents/lunamill-ui-reviewer.md": "reviewer\n",
   ".claude/agents/mine.md": "mine\n",
-  ".github/workflows/factory-review.yml": "on: pull_request\n",
-  ".github/workflows/factory.yml": "on: push\n",
+  ".github/workflows/lunamill-review.yml": "on: pull_request\n",
+  ".github/workflows/lunamill.yml": "on: push\n",
   ".github/workflows/ci.yml": "on: push\n",
-  ".github/factory-review.md": "review\n",
-  ".github/actions/factory-agent/action.yml": "runs:\n",
+  ".github/lunamill-review.md": "review\n",
+  ".github/actions/lunamill-agent/action.yml": "runs:\n",
   ".github/review-notes.md": "notes\n",
   "CLAUDE.md": `# Our project\n\nUse tabs.\n\n${IMPORT_LINE}\n`,
   ".claude/settings.json": (() => {
@@ -126,22 +126,22 @@ function remove(o: {
 }
 
 const DELETED = [
-  ".claude/factory.yaml",
-  ".claude/factory.lock",
-  ".claude/factory",
-  ".claude/skills/factory-build",
-  ".claude/agents/factory-ui-reviewer.md",
-  ".github/workflows/factory-review.yml",
-  ".github/workflows/factory.yml",
-  ".github/factory-review.md",
-  ".github/actions/factory-agent",
+  ".claude/lunamill.yaml",
+  ".claude/lunamill.lock",
+  ".claude/lunamill",
+  ".claude/skills/lunamill-build",
+  ".claude/agents/lunamill-ui-reviewer.md",
+  ".github/workflows/lunamill-review.yml",
+  ".github/workflows/lunamill.yml",
+  ".github/lunamill-review.md",
+  ".github/actions/lunamill-agent",
 ];
 
-describe("factory remove with presets", () => {
+describe("lunamill remove with presets", () => {
   const LOCK = [
     "version: 0.5.0",
     "presets:",
-    "  - name: acme/factory-config",
+    "  - name: acme/lunamill-config",
     "    commit: 3f9c2e1a7b4d5c6e8f9012a3b4c5d6e7f8091a2b",
     "    settings: {}",
     "    files:",
@@ -149,10 +149,10 @@ describe("factory remove with presets", () => {
     "      .claude/skills/acme-refine/SKILL.md: sha256:1",
     "settings-hash: sha256:0",
     "settings:",
-    "  version: 2",
+    "  version: 1",
     "overridden: {}",
     "files:",
-    "  - .claude/skills/factory-build/SKILL.md",
+    "  - .claude/skills/lunamill-build/SKILL.md",
     "  - .claude/agents/acme-security-reviewer.md",
     "  - .claude/skills/acme-refine/SKILL.md",
     "",
@@ -161,9 +161,9 @@ describe("factory remove with presets", () => {
     remove({
       files: {
         ...SYNCED,
-        ".claude/factory.lock": LOCK,
-        ".claude/factory.choices.yaml":
-          "rules.review-rounds: acme/factory-config\n",
+        ".claude/lunamill.lock": LOCK,
+        ".claude/lunamill.choices.yaml":
+          "rules.review-rounds: acme/lunamill-config\n",
         ".claude/agents/acme-security-reviewer.md": "security\n",
         ".claude/skills/acme-refine/SKILL.md": "refine\n",
       },
@@ -173,7 +173,7 @@ describe("factory remove with presets", () => {
     const r = withPresets();
     await r.run();
     for (const path of [
-      ".claude/factory.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       ".claude/agents/acme-security-reviewer.md",
       ".claude/skills/acme-refine",
     ])
@@ -181,28 +181,28 @@ describe("factory remove with presets", () => {
     expect(r.has(".claude/agents/mine.md")).toBe(true);
   });
 
-  it("leaves no npm uninstall line, for the factory or for a preset", async () => {
+  it("leaves no npm uninstall line, for Lunamill or for a preset", async () => {
     const r = withPresets();
     await r.run();
     expect(r.out.filter((l) => l.includes("npm uninstall"))).toEqual([]);
   });
 });
 
-describe("factory remove", () => {
+describe("lunamill remove", () => {
   it("shows every file it will delete or change, then asks", async () => {
     const r = remove({ go: false });
     expect(await r.run()).toBe(0);
     expect(r.out).toEqual([
       "This is everything remove will do:",
-      "  Delete   .claude/factory.yaml",
-      "  Delete   .claude/factory.lock",
-      "  Delete   .claude/factory",
-      "  Delete   .claude/skills/factory-build",
-      "  Delete   .claude/agents/factory-ui-reviewer.md",
-      "  Delete   .github/workflows/factory-review.yml",
-      "  Delete   .github/workflows/factory.yml",
-      "  Delete   .github/factory-review.md",
-      "  Delete   .github/actions/factory-agent",
+      "  Delete   .claude/lunamill.yaml",
+      "  Delete   .claude/lunamill.lock",
+      "  Delete   .claude/lunamill",
+      "  Delete   .claude/skills/lunamill-build",
+      "  Delete   .claude/agents/lunamill-ui-reviewer.md",
+      "  Delete   .github/workflows/lunamill-review.yml",
+      "  Delete   .github/workflows/lunamill.yml",
+      "  Delete   .github/lunamill-review.md",
+      "  Delete   .github/actions/lunamill-agent",
       "  Change   .claude/settings.json",
       "  Change   CLAUDE.md",
       "Nothing changed.",
@@ -215,13 +215,13 @@ describe("factory remove", () => {
     );
   });
 
-  it("deletes the factory's files", async () => {
+  it("deletes Lunamill's files", async () => {
     const r = remove({});
     await r.run();
     for (const path of DELETED) expect(r.has(path)).toBe(false);
   });
 
-  it("takes out the factory's hooks and import, keeping everything else", async () => {
+  it("takes out Lunamill's hooks and import, keeping everything else", async () => {
     const r = remove({});
     await r.run();
     expect(JSON.parse(r.read(".claude/settings.json"))).toEqual({
@@ -235,7 +235,7 @@ describe("factory remove", () => {
   it("deletes a folder its deletions emptied, and keeps one that holds yours", async () => {
     const r = remove({});
     await r.run();
-    for (const path of [".github/actions", ".claude/factory"])
+    for (const path of [".github/actions", ".claude/lunamill"])
       expect(r.has(path)).toBe(false);
     for (const path of [
       ".claude/skills",
@@ -276,9 +276,9 @@ describe("factory remove", () => {
     const r = remove({
       secrets: {
         CLAUDE_CODE_OAUTH_TOKEN: "x",
-        FACTORY_BOARD_TOKEN: "x",
-        FACTORY_AUTOMERGE_TOKEN: "x",
-        FACTORY_SIGNING_KEY: "x",
+        LUNAMILL_BOARD_TOKEN: "x",
+        LUNAMILL_AUTOMERGE_TOKEN: "x",
+        LUNAMILL_SIGNING_KEY: "x",
       },
     });
     expect(await r.run()).toBe(0);
@@ -287,12 +287,12 @@ describe("factory remove", () => {
       "Nothing is committed. Left for you to do by hand:",
       "",
       "  GitHub",
-      '  1. Delete the "Software factory" ruleset first, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
-      "  2. Delete the secrets FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, and FACTORY_SIGNING_KEY.",
+      '  1. Delete the "Lunamill" ruleset first, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
+      "  2. Delete the secrets LUNAMILL_BOARD_TOKEN, LUNAMILL_AUTOMERGE_TOKEN, and LUNAMILL_SIGNING_KEY.",
       "  3. Delete whichever of the labels merge-automatic, merge-manual, and verdict-override exist, if you do not want their history: deleting one takes it off every pull request.",
       "",
       "  GitHub Issues",
-      "  4. Delete whichever of the labels spec and factory exist, if you do not want their history: deleting one takes it off every ticket.",
+      "  4. Delete whichever of the labels spec and lunamill exist, if you do not want their history: deleting one takes it off every ticket.",
       "  5. Delete the Session, Runs in, and Cost fields from board 3, if you do not want them.",
       "",
       "  Claude Code",
@@ -306,7 +306,7 @@ describe("factory remove", () => {
   it("names each label by the name the settings give it", async () => {
     const r = remove({
       files: {
-        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner-pass\ntickets:\n  labels:\n    spec: needs-spec\n`,
+        ".claude/lunamill.yaml": `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\n  labels:\n    verdict-override: owner-pass\ntickets:\n  labels:\n    spec: needs-spec\n`,
       },
     });
     expect(await r.run()).toBe(0);
@@ -314,7 +314,7 @@ describe("factory remove", () => {
       "the labels merge-automatic, merge-manual, and owner-pass exist",
     );
     expect(r.out.join("\n")).toContain(
-      "the labels needs-spec and factory exist",
+      "the labels needs-spec and lunamill exist",
     );
   });
 
@@ -322,7 +322,7 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
+        ".claude/lunamill.yaml": `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
       },
     });
     await r.run();
@@ -333,12 +333,12 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
+        ".claude/lunamill.yaml": `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
       },
     });
     await r.run();
     expect(r.out).toContain(
-      '  1. Delete the "Software factory" ruleset first, if there is one, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
+      '  1. Delete the "Lunamill" ruleset first, if there is one, under Settings, Rules: until then every pull request waits on its "Review verdict" check.',
     );
   });
 
@@ -346,7 +346,7 @@ describe("factory remove", () => {
     const r = remove({
       files: {
         ...SYNCED,
-        ".claude/factory.yaml": `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: https://tickets.example\n`,
+        ".claude/lunamill.yaml": `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: https://tickets.example\n`,
       },
       tools: (b, t) => withFakeTickets(b, t),
     });
@@ -356,30 +356,30 @@ describe("factory remove", () => {
     );
   });
 
-  it("says so when nothing of the factory's is here", async () => {
+  it("says so when nothing of Lunamill's is here", async () => {
     const r = remove({
       files: { "package.json": "{}\n", "CLAUDE.md": "# Ours\n" },
     });
     expect(await r.run()).toBe(0);
-    expect(r.out).toEqual(["Nothing of the factory's is here."]);
+    expect(r.out).toEqual(["Nothing of Lunamill's is here."]);
     expect(r.asked).toEqual([]);
   });
 
   it("removes what is left of a removal half done by hand", async () => {
     const r = remove({
       files: {
-        ".claude/factory/rules.md": "# Rules\n",
+        ".claude/lunamill/rules.md": "# Rules\n",
         "CLAUDE.md": `# Ours\n\n${IMPORT_LINE}\n`,
       },
     });
     expect(await r.run()).toBe(0);
     expect(r.out.slice(0, 4)).toEqual([
-      "Could not read .claude/factory.yaml: there is none. Naming what Claude Code, GitHub, GitHub Issues, and GitHub Actions leave behind.",
+      "Could not read .claude/lunamill.yaml: there is none. Naming what Claude Code, GitHub, GitHub Issues, and GitHub Actions leave behind.",
       "This is everything remove will do:",
-      "  Delete   .claude/factory",
+      "  Delete   .claude/lunamill",
       "  Change   CLAUDE.md",
     ]);
-    expect(r.has(".claude/factory")).toBe(false);
+    expect(r.has(".claude/lunamill")).toBe(false);
     expect(r.read("CLAUDE.md")).toBe("# Ours\n");
     expect(r.out).toContain(
       "Nothing is committed. Left for you to do by hand:",
@@ -388,21 +388,21 @@ describe("factory remove", () => {
 
   it("names every secret today's tools store when the settings cannot be read", async () => {
     const r = remove({
-      files: { ...SYNCED, ".claude/factory.yaml": "version: 3\n" },
+      files: { ...SYNCED, ".claude/lunamill.yaml": "version: 3\n" },
     });
     expect(await r.run()).toBe(0);
     expect(r.out[0]).toBe(
-      "Could not read .claude/factory.yaml: .claude/factory.yaml: version: must be 2. Naming what Claude Code, GitHub, GitHub Issues, and GitHub Actions leave behind.",
+      "Could not read .claude/lunamill.yaml: .claude/lunamill.yaml: version: must be 1. Naming what Claude Code, GitHub, GitHub Issues, and GitHub Actions leave behind.",
     );
     expect(r.out).toContain(
-      "  2. Delete the secrets FACTORY_BOARD_TOKEN, FACTORY_BUILD_TOKEN, FACTORY_AUTOMERGE_TOKEN, and FACTORY_SIGNING_KEY if set.",
+      "  2. Delete the secrets LUNAMILL_BOARD_TOKEN, LUNAMILL_BUILD_TOKEN, LUNAMILL_AUTOMERGE_TOKEN, and LUNAMILL_SIGNING_KEY if set.",
     );
     expect(r.out).toContain(
       "  5. Delete the secrets CLAUDE_CODE_OAUTH_TOKEN and ANTHROPIC_API_KEY if set, unless another workflow uses them.",
     );
   });
 
-  it("deletes a settings file the factory's hooks were all it held", async () => {
+  it("deletes a settings file Lunamill's hooks were all it held", async () => {
     const onlyFactory = JSON.parse(withHooks(null, LAUNCHER));
     delete onlyFactory.attribution;
     const r = remove({
@@ -435,7 +435,7 @@ describe("factory remove", () => {
     delete onlyFactory.attribution;
     const r = remove({
       files: {
-        ".claude/factory.yaml": SETTINGS,
+        ".claude/lunamill.yaml": SETTINGS,
         ".claude/settings.json": JSON.stringify(onlyFactory),
       },
     });
@@ -463,9 +463,9 @@ describe("factory remove", () => {
   });
 });
 
-describe("factory remove, a credential kept on the machine", () => {
+describe("lunamill remove, a credential kept on the machine", () => {
   const SITE = "acme.example";
-  const FAKE_SETTINGS = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE}\n`;
+  const FAKE_SETTINGS = `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE}\n`;
   const fake = (b: Registry, t: Tickets) =>
     withFakeTickets(b, t, true, { credential: true });
   const group = (out: string[]) => {
@@ -492,7 +492,10 @@ describe("factory remove, a credential kept on the machine", () => {
       });
     if (o.spoil) chmodSync(credentialsPath(env), 0o644);
     const r = remove({
-      files: { ...SYNCED, ".claude/factory.yaml": o.settings ?? FAKE_SETTINGS },
+      files: {
+        ...SYNCED,
+        ".claude/lunamill.yaml": o.settings ?? FAKE_SETTINGS,
+      },
       secrets: o.secrets,
       tools: fake,
       env,
@@ -526,13 +529,13 @@ describe("factory remove, a credential kept on the machine", () => {
 
   it("names no entry when the settings cannot be read, since they name the site", async () => {
     const r = await run({ settings: "version: 3\n", machine: true });
-    expect(r.out[0]).toMatch(/^Could not read \.claude\/factory\.yaml/);
+    expect(r.out[0]).toMatch(/^Could not read \.claude\/lunamill\.yaml/);
     expect(r.out).toContain("  Fake Tickets");
     expect(r.out.join("\n")).not.toContain(r.path);
   });
 });
 
-describe("factory remove, a person's tokens kept on the machine", () => {
+describe("lunamill remove, a person's tokens kept on the machine", () => {
   const config = () => ({
     XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), "remove-config-")),
   });
@@ -583,12 +586,12 @@ describe("factory remove, a person's tokens kept on the machine", () => {
   });
 });
 
-describe("factory remove, in an organization's repository that is set up", () => {
+describe("lunamill remove, in an organization's repository that is set up", () => {
   const ASK =
-    '  1. Ask an owner of acme to set the software-factory property to "off" for acme/site: until then every pull request waits on its "Review verdict" check.';
+    '  1. Ask an owner of acme to set the lunamill property to "off" for acme/site: until then every pull request waits on its "Review verdict" check.';
 
   it("lists asking an owner to turn the property off, first under the code host", async () => {
-    const r = remove({ properties: { "software-factory": "on" } });
+    const r = remove({ properties: { lunamill: "on" } });
     expect(await r.run()).toBe(0);
     expect(r.out[r.out.indexOf("  GitHub") + 1]).toBe(ASK);
   });
@@ -596,7 +599,7 @@ describe("factory remove, in an organization's repository that is set up", () =>
   it.each([["off"], [null]])(
     "lists no such step where the property is %s",
     async (value) => {
-      const r = remove({ properties: { "software-factory": value } });
+      const r = remove({ properties: { lunamill: value } });
       expect(await r.run()).toBe(0);
       expect(r.out.join("\n")).not.toContain("Ask an owner");
     },

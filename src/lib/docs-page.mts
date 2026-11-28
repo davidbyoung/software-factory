@@ -1,4 +1,4 @@
-// The address of a page of the factory's own docs. The docs are not in
+// The address of a page of Lunamill's own docs. The docs are not in
 // the package or in a user's repository, so a command that names a page
 // prints its address on the code host.
 
@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { organizationHosts } from "../code-host/index.mts";
 
-export const FACTORY_REPOSITORY = "davidbyoung/software-factory";
+export const LUNAMILL_REPOSITORY = "lunamill-ai/lunamill";
 
 /** Each page and heading a command prints, under `docs/`. A test fails
  * when one is missing. */
@@ -17,14 +17,14 @@ export const DOCS_PAGES = {
   secretsDoNotReach:
     "integrations/github-organizations.md#when-the-organizations-secrets-do-not-reach-you",
   developerNext: "setup/organization.md#what-each-developer-does-next",
-  settingsVersion2: "maintain/upgrade-notes.md#moving-to-settings-version-2",
+  movingToLunamill: "maintain/upgrade-notes.md#moving-to-lunamill",
   commandsRunForYou: "reference/cli-internal.md",
 } as const;
 
-/** A page of the factory's own docs as the installed version has it: at
+/** A page of Lunamill's own docs as the installed version has it: at
  * the release's tag, or on `main` for a version that is no release. */
 export function docsPage(version: string, page: string): string {
-  const [owner, name] = FACTORY_REPOSITORY.split("/") as [string, string];
+  const [owner, name] = LUNAMILL_REPOSITORY.split("/") as [string, string];
   const at = /^\d+\.\d+\.\d+$/.test(version) ? `v${version}` : "main";
   return `${organizationHosts().github!.addressOf(owner)}/${name}/blob/${at}/docs/${page}`;
 }

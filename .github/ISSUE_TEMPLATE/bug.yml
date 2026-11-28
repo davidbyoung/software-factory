@@ -1,5 +1,5 @@
 name: Bug
-description: Something the factory does not do as it should.
+description: Something lunamill does not do as it should.
 labels: [bug]
 body:
   - type: input
@@ -7,14 +7,14 @@ body:
     attributes:
       label: Where
       description: The command, skill, agent, or workflow it happens in.
-      placeholder: factory sync, factory-build, or factory-claude-review.yml
+      placeholder: lunamill sync, lunamill-build, or lunamill-review.yml
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: Version
-      description: The factory version, from `.claude/factory.lock` or `npm ls @davidbyoung/software-factory` in the repository it ran in.
+      description: The lunamill version, from `.claude/lunamill.lock` or `npm ls @lunamill-ai/lunamill` in the repository it ran in.
       placeholder: 0.1.2
     validations:
       required: true
@@ -35,8 +35,8 @@ body:
       label: What you did
       description: Steps to make it happen again, and the kind of repository it ran in.
       placeholder: |
-        1. Run factory sync in a repository with no board
-        2. Run factory sync --check
+        1. Run lunamill sync in a repository with no board
+        2. Run lunamill sync --check
     validations:
       required: true
   - type: textarea

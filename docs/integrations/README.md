@@ -1,12 +1,12 @@
 # Integrations
 
-For someone who wants to know which tools the factory works with, or
-what one of them needs. The factory works through six kinds of tool,
+For someone who wants to know which tools Lunamill works with, or
+what one of them needs. Lunamill works through six kinds of tool,
 and the other sections of these docs name only the kind. This section
 names the product: one page for each, all on the same headings, Jira's
 aside until it is built.
 
-| Kind of tool  | What the factory uses it for                                               | Supported today                                                                        | Needed for                                                                                                                                                            |
+| Kind of tool  | What Lunamill uses it for                                                  | Supported today                                                                        | Needed for                                                                                                                                                            |
 | ------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Code host     | Your repository, its pull requests, the checks on each commit, and secrets | [GitHub](github.md)                                                                    | Everything                                                                                                                                                            |
 | Ticket system | Your tickets, their labels, and which one waits on another                 | [GitHub Issues](github-issues.md). Jira is _[Planned](../developing.md#what-is-built)_ | Everything                                                                                                                                                            |
@@ -19,15 +19,15 @@ Two more pages cover what is not a kind of tool:
 
 - [GitHub organizations](github-organizations.md): what an
   organization's owner sets up once, for every repository in it.
-- [Private npm registries](private-npm.md): letting the factory's jobs
+- [Private npm registries](private-npm.md): letting Lunamill's jobs
   in the cloud install your private packages.
 
 ## How each coding agent runs a skill
 
 A skill is a set of instructions a session follows, such as
-`factory-refine`. These docs write one the way Claude Code runs it,
-`/factory-refine 12`, and this table gives each coding agent's way:
+`lunamill-refine`. These docs write one the way Claude Code runs it,
+`/lunamill-refine 12`, and this table gives each coding agent's way:
 
-| Coding agent | How you run a skill  |
-| ------------ | -------------------- |
-| Claude Code  | `/factory-refine 12` |
+| Coding agent | How you run a skill   |
+| ------------ | --------------------- |
+| Claude Code  | `/lunamill-refine 12` |

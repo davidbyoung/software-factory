@@ -1,7 +1,7 @@
-// The PermissionRequest hook, run as `factory guard permission`. Claude Code
+// The PermissionRequest hook, run as `lunamill guard permission`. Claude Code
 // protects `.claude/`, and an unattended `claude -p` run denies any write
-// there that nothing approves. In a run the factory's action started
-// (`FACTORY_UNATTENDED=1`), this approves a write to the repository's own
+// there that nothing approves. In a run Lunamill's action started
+// (`LUNAMILL_UNATTENDED=1`), this approves a write to the repository's own
 // files under `.claude/`, and says nothing otherwise, so a person at a
 // keyboard is still asked, and so is any other workflow that runs Claude.
 import { readFileSync } from "node:fs";
@@ -36,7 +36,7 @@ export function permission(
   input: PermissionInput,
   env: Record<string, string | undefined>,
 ): string | null {
-  if (env.FACTORY_UNATTENDED !== "1") return null;
+  if (env.LUNAMILL_UNATTENDED !== "1") return null;
   const file = input.tool_input?.file_path;
   if (!input.tool_name || !WRITES.has(input.tool_name) || !file) return null;
   const projectDir = env.CLAUDE_PROJECT_DIR || input.cwd;

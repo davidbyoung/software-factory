@@ -11,7 +11,7 @@ import type { Tickets } from "./tickets/types.mts";
 
 /** The repository rule that requires the review's verdict, by name, so
  * removing it is deleting that one rule. */
-export const RULE = "Software factory";
+export const RULE = "Lunamill";
 
 export type Check = {
   /** `unknown`: the check can't be made from the repository, and fails
@@ -146,7 +146,7 @@ export type SetupContext = {
 /** The secrets set, or null when the runner could not list them. */
 export type WithSecrets = SetupContext & { secrets: string[] | null };
 
-/** A file of the tool's own, as it reads with the factory's part taken
+/** A file of the tool's own, as it reads with Lunamill's part taken
  * out: null to delete it. */
 export type Unconfigured = { path: string; text: string | null };
 
@@ -163,7 +163,7 @@ export type ToolSetup = {
   checks?(c: WithSecrets): Promise<Check[]>;
   /** What `remove` prints as left to remove by hand. */
   leftovers?(c: WithSecrets): string[];
-  /** Its own files with the factory's part taken out, for `remove`: only
-   * those the factory's part is in. */
+  /** Its own files with Lunamill's part taken out, for `remove`: only
+   * those Lunamill's part is in. */
   unconfigure?(c: SetupContext): Unconfigured[];
 };

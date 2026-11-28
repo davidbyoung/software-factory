@@ -84,7 +84,7 @@ jobs:
         env:
           VERSION: ${{ steps.next.outputs.version }}
         run: |
-          if curl -fs -o /dev/null "https://registry.npmjs.org/@davidbyoung%2fsoftware-factory/$VERSION"; then
+          if curl -fs -o /dev/null "https://registry.npmjs.org/@lunamill-ai%2flunamill/$VERSION"; then
             echo "npm already has $VERSION. Re-run the failed jobs of the run that published it. Nothing was published."
             exit 1
           fi
@@ -127,7 +127,7 @@ jobs:
       - name: Publish
         id: publish
         run: |
-          if curl -fs -o /dev/null "https://registry.npmjs.org/@davidbyoung%2fsoftware-factory/$VERSION"; then
+          if curl -fs -o /dev/null "https://registry.npmjs.org/@lunamill-ai%2flunamill/$VERSION"; then
             echo "npm already has $VERSION, so it was not published again."
             exit 0
           fi
@@ -154,7 +154,7 @@ jobs:
       - name: Wait for the version on npm
         run: |
           for _ in $(seq 1 90); do
-            curl -fs -o /dev/null "https://registry.npmjs.org/@davidbyoung/software-factory/-/software-factory-$VERSION.tgz" && exit 0
+            curl -fs -o /dev/null "https://registry.npmjs.org/@lunamill-ai/lunamill/-/lunamill-$VERSION.tgz" && exit 0
             sleep 10
           done
           echo "npm did not serve $VERSION within fifteen minutes. No image was published."
@@ -168,10 +168,10 @@ jobs:
       - name: Build and push
         run: |
           docker build -f poller.Dockerfile --build-arg VERSION="$VERSION" \
-            -t "ghcr.io/davidbyoung/software-factory-poller:$VERSION" \
-            -t "ghcr.io/davidbyoung/software-factory-poller:latest" .
-          docker push "ghcr.io/davidbyoung/software-factory-poller:$VERSION"
-          docker push "ghcr.io/davidbyoung/software-factory-poller:latest"
+            -t "ghcr.io/lunamill-ai/lunamill-poller:$VERSION" \
+            -t "ghcr.io/lunamill-ai/lunamill-poller:latest" .
+          docker push "ghcr.io/lunamill-ai/lunamill-poller:$VERSION"
+          docker push "ghcr.io/lunamill-ai/lunamill-poller:latest"
 
   release:
     name: Tag and create the GitHub Release

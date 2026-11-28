@@ -1,0 +1,37 @@
+## ADDED Requirements
+
+### Requirement: The workflow files
+
+Lunamill SHALL behave as this line says: When `lunamill sync` writes the workflow files, they are `.github/workflows/lunamill.yml`, titled `Lunamill` with the job id `lunamill`, and `.github/workflows/lunamill-review.yml`, titled `Lunamill review`. Each calls `lunamill-ai/lunamill/.github/workflows/FILE@vVERSION` and passes the secrets and variables whose names start `LUNAMILL_` in place of `FACTORY_`. `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` keep their names.
+
+#### Scenario: The workflow files
+
+- **WHEN** `lunamill sync` writes the workflow files
+- **THEN** they are `.github/workflows/lunamill.yml`, titled `Lunamill` with the job id `lunamill`, and `.github/workflows/lunamill-review.yml`, titled `Lunamill review`. Each calls `lunamill-ai/lunamill/.github/workflows/FILE@vVERSION` and passes the secrets and variables whose names start `LUNAMILL_` in place of `FACTORY_`. `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` keep their names.
+
+### Requirement: The checks' names
+
+Lunamill SHALL behave as this line says: When a pull request's checks run, the job "Factory files in step" is named "Lunamill files in step", so its check reads `review / Lunamill files in step`, and each check of a group starts `lunamill /`, as in `lunamill / Pull request / Record the verdict`.
+
+#### Scenario: The checks' names
+
+- **WHEN** a pull request's checks run
+- **THEN** the job "Factory files in step" is named "Lunamill files in step", so its check reads `review / Lunamill files in step`, and each check of a group starts `lunamill /`, as in `lunamill / Pull request / Record the verdict`.
+
+### Requirement: The workflows' own variables
+
+Lunamill SHALL behave as this line says: When a workflow sets an environment variable for Lunamill itself, its name starts `LUNAMILL_`.
+
+#### Scenario: The workflows' own variables
+
+- **WHEN** a workflow sets an environment variable for Lunamill itself
+- **THEN** its name starts `LUNAMILL_`.
+
+### Requirement: The organization's poller file
+
+Lunamill SHALL behave as this line says: When `lunamill init --org` writes an organization's poller, its file is `.github/workflows/lunamill-poller.yml`.
+
+#### Scenario: The organization's poller file
+
+- **WHEN** `lunamill init --org` writes an organization's poller
+- **THEN** its file is `.github/workflows/lunamill-poller.yml`.

@@ -1,5 +1,5 @@
-// Which of the factory's optional parts a repository has on, and what each
-// needs: the rules `factory init` and `factory doctor` share.
+// Which of lunamill's optional parts a repository has on, and what each
+// needs: the rules `lunamill init` and `lunamill doctor` share.
 import { describe, expect, it } from "vitest";
 import { parseSettings } from "../src/config.mts";
 import {
@@ -13,12 +13,12 @@ import { secretSteps, TOOLS } from "../src/tools.mts";
 import { memoryContext } from "./memory-tools";
 import { memoryTickets } from "./memory-tickets";
 import { withFakeTickets } from "./fake-tools";
-import { FACTORY_COLUMNS } from "./factory-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 
 const settings = (raw: Record<string, unknown> = {}) =>
   parseSettings(
-    { version: 2, repository: "acme/site", "code-host": CODE_HOST, ...raw },
+    { version: 1, repository: "acme/site", "code-host": CODE_HOST, ...raw },
     () => true,
   );
 const set = (...parts: Part[]) => new Set<Part>(parts);
@@ -34,7 +34,7 @@ describe("partsOn", () => {
 
   it("reads a board, builds from the board, and auto-merge from the settings", () => {
     const s = settings({
-      tickets: { board: 3, columns: FACTORY_COLUMNS },
+      tickets: { board: 3, columns: LUNAMILL_COLUMNS },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**"] },
     });
@@ -49,8 +49,8 @@ describe("partsOn", () => {
         settings({ "pr-review": true }),
         [
           "CLAUDE_CODE_OAUTH_TOKEN",
-          "FACTORY_BUILD_TOKEN",
-          "FACTORY_SIGNING_KEY",
+          "LUNAMILL_BUILD_TOKEN",
+          "LUNAMILL_SIGNING_KEY",
         ],
         cloud,
       ),
@@ -69,8 +69,8 @@ describe("partsOn", () => {
         settings(),
         [
           "CLAUDE_CODE_OAUTH_TOKEN",
-          "FACTORY_APP_PRIVATE_KEY",
-          "FACTORY_SIGNING_KEY",
+          "LUNAMILL_APP_PRIVATE_KEY",
+          "LUNAMILL_SIGNING_KEY",
         ],
         cloud,
       ),
@@ -114,7 +114,7 @@ describe("what the parts need", () => {
   const needed = (...parts: Part[]) =>
     neededSecrets(set(...parts), secretSteps(TOOLS, memoryContext(parts)));
 
-  const APP_KEY = "FACTORY_APP_PRIVATE_KEY";
+  const APP_KEY = "LUNAMILL_APP_PRIVATE_KEY";
 
   it("names the secrets each part reads, any one of a pair doing", () => {
     const own = needed("review", "cloud", "auto-merge").map((n) => ({
@@ -134,12 +134,12 @@ describe("what the parts need", () => {
       },
       {
         part: "cloud",
-        anyOf: ["FACTORY_BUILD_TOKEN", "FACTORY_BOARD_TOKEN"],
+        anyOf: ["LUNAMILL_BUILD_TOKEN", "LUNAMILL_BOARD_TOKEN"],
         tool: "GitHub",
       },
       {
         part: "auto-merge",
-        anyOf: ["FACTORY_AUTOMERGE_TOKEN"],
+        anyOf: ["LUNAMILL_AUTOMERGE_TOKEN"],
         tool: "GitHub",
       },
     ]);
@@ -157,9 +157,9 @@ describe("what the parts need", () => {
     ]);
   });
 
-  it("adds the signing key, which is the factory's own", () => {
+  it("adds the signing key, which is Lunamill's own", () => {
     expect(needed("signing")).toEqual([
-      { part: "signing", anyOf: ["FACTORY_SIGNING_KEY"], tool: "factory" },
+      { part: "signing", anyOf: ["LUNAMILL_SIGNING_KEY"], tool: "lunamill" },
     ]);
   });
 });
@@ -182,10 +182,10 @@ describe("GitHub's one access token", () => {
 
   it("stores the token under each name the parts read", () => {
     expect(token(["board", "cloud", "auto-merge"])?.storeAs).toEqual([
-      "FACTORY_BOARD_TOKEN",
-      "FACTORY_AUTOMERGE_TOKEN",
+      "LUNAMILL_BOARD_TOKEN",
+      "LUNAMILL_AUTOMERGE_TOKEN",
     ]);
-    expect(token(["cloud"])?.storeAs).toEqual(["FACTORY_BUILD_TOKEN"]);
+    expect(token(["cloud"])?.storeAs).toEqual(["LUNAMILL_BUILD_TOKEN"]);
     expect(token(["review"])).toBeUndefined();
   });
 

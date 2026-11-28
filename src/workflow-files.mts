@@ -1,12 +1,12 @@
-// The two workflow files `factory sync` writes into a repository. Each has
-// one job, which calls a workflow in the factory's own repository at the
+// The two workflow files `lunamill sync` writes into a repository. Each has
+// one job, which calls a workflow in Lunamill's own repository at the
 // version the repository's lock names, so a release changes one line of
 // each. They hold only what the repository decides: its default branch,
 // which parts are on, the poller's schedule, and the names of its secrets.
 //
-//   .github/workflows/factory.yml          everything judged from the
+//   .github/workflows/lunamill.yml          everything judged from the
 //                                          default branch's copy (run.yml)
-//   .github/workflows/factory-review.yml   what reads a pull request's own
+//   .github/workflows/lunamill-review.yml   what reads a pull request's own
 //                                          code, with no secret (review.yml)
 //
 // There are two because GitHub runs a `pull_request` workflow from the pull
@@ -14,14 +14,14 @@
 // branch's.
 import { SESSION_MINUTES, type SessionKind } from "./config.mts";
 import { PR_LABELS } from "./labels.mts";
-import { FACTORY_REPOSITORY } from "./lib/docs-page.mts";
+import { LUNAMILL_REPOSITORY } from "./lib/docs-page.mts";
 
-export const FACTORY_FILE = ".github/workflows/factory.yml";
-export const REVIEW_FILE = ".github/workflows/factory-review.yml";
+export const LUNAMILL_FILE = ".github/workflows/lunamill.yml";
+export const REVIEW_FILE = ".github/workflows/lunamill-review.yml";
 
-/** Every event factory.yml starts on. A code host's policy for the file
+/** Every event lunamill.yml starts on. A code host's policy for the file
  * lists them all, since such a policy lets through only what it lists. */
-export const FACTORY_EVENTS = [
+export const LUNAMILL_EVENTS = [
   "pull_request_target",
   "pull_request_review",
   "push",
@@ -32,9 +32,9 @@ export const FACTORY_EVENTS = [
  * read, since it runs with the repository's secrets. */
 export const HELD_EVENT = "pull_request_target";
 
-export { FACTORY_REPOSITORY };
-/** Where the factory's workflows are, for a repository that calls them. */
-const HOME = `${FACTORY_REPOSITORY}/.github/workflows`;
+export { LUNAMILL_REPOSITORY };
+/** Where Lunamill's workflows are, for a repository that calls them. */
+const HOME = `${LUNAMILL_REPOSITORY}/.github/workflows`;
 
 /** The schedules run.yml tells apart by their text. Any other line of the
  * file is the poller's. */
@@ -66,7 +66,7 @@ export type Part =
   | "approval-policies";
 
 export type WorkflowOptions = {
-  /** The factory's version, or null in the factory's own repository, whose
+  /** Lunamill's version, or null in Lunamill's own repository, whose
    * files call the copies in the same commit. */
   version: string | null;
   /** The default branch, which a push trigger cannot ask for. */
@@ -75,7 +75,7 @@ export type WorkflowOptions = {
   /** How often the poller's pass runs, or null when it runs elsewhere. */
   pollMinutes: number | null;
   /** How the ticket system writes a ticket, such as `#12`, for the name
-   * `factory build` finds its run by. */
+   * `lunamill build` finds its run by. */
   ref: (key: string) => string;
   minutes: Record<SessionKind, number>;
   /** The override label's name, as `code-host.labels` gives it. */
@@ -112,11 +112,11 @@ function extra(secrets: string[]): string[] {
 }
 
 const HEADER = [
-  "# Written by `factory sync`. Do not edit: change .claude/factory.yaml and",
+  "# Written by `lunamill sync`. Do not edit: change .claude/lunamill.yaml and",
   "# run it again.",
 ];
 
-/** `.github/workflows/factory.yml`. */
+/** `.github/workflows/lunamill.yml`. */
 export function factoryWorkflow(o: WorkflowOptions): string {
   const quoted = (text: string) => `'${text.replaceAll("'", "''")}'`;
   const own = quoted(`Build ${o.ref("{0}")}`);
@@ -142,12 +142,12 @@ export function factoryWorkflow(o: WorkflowOptions): string {
   return `${[
     ...HEADER,
     "#",
-    "# Everything the factory runs from the default branch's copy: the",
+    "# Everything Lunamill runs from the default branch's copy: the",
     "# review's verdict, who merges, the board sync, the poller, a build, an",
     "# answer to a review, the conflict sweep, Dependabot's pull requests, and",
-    "# updates. The jobs are in the factory's own repository, at the version",
+    "# updates. The jobs are in Lunamill's own repository, at the version",
     "# below. A job whose part is off in the settings is skipped.",
-    "name: Factory",
+    "name: Lunamill",
     `run-name: ${JSON.stringify(`\${{ inputs.ticket && format(${name}, inputs.ticket) || inputs.job == 'answer' && format('Answer #{0}', inputs.pr) || github.event_name == 'pull_request_target' && format('#{0} at {1}', github.event.pull_request.number, github.event.pull_request.head.sha) || '' }}`)}`,
     "",
     "on:",
@@ -193,7 +193,7 @@ export function factoryWorkflow(o: WorkflowOptions): string {
     "  statuses: write",
     "",
     "jobs:",
-    "  factory:",
+    "  lunamill:",
     `    uses: ${uses(o, "run.yml")}`,
     "    with:",
     `      parts: ${JSON.stringify(o.parts.join(" "))}`,
@@ -209,27 +209,27 @@ export function factoryWorkflow(o: WorkflowOptions): string {
       ? []
       : [`      policy-label: ${JSON.stringify(o.policyLabel)}`]),
     "    secrets:",
-    "      build-token: ${{ secrets.FACTORY_BUILD_TOKEN || secrets.FACTORY_BOARD_TOKEN }}",
-    "      board-token: ${{ secrets.FACTORY_BOARD_TOKEN }}",
-    "      automerge-token: ${{ secrets.FACTORY_AUTOMERGE_TOKEN }}",
-    "      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
-    "      signing-key: ${{ secrets.FACTORY_SIGNING_KEY }}",
+    "      build-token: ${{ secrets.LUNAMILL_BUILD_TOKEN || secrets.LUNAMILL_BOARD_TOKEN }}",
+    "      board-token: ${{ secrets.LUNAMILL_BOARD_TOKEN }}",
+    "      automerge-token: ${{ secrets.LUNAMILL_AUTOMERGE_TOKEN }}",
+    "      app-key: ${{ secrets.LUNAMILL_APP_PRIVATE_KEY }}",
+    "      signing-key: ${{ secrets.LUNAMILL_SIGNING_KEY }}",
     "      claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
     "      claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}",
     ...extra(o.secrets),
   ].join("\n")}\n`;
 }
 
-/** `.github/workflows/factory-review.yml`. */
+/** `.github/workflows/lunamill-review.yml`. */
 export function reviewWorkflow(o: WorkflowOptions): string {
   return `${[
     ...HEADER,
     "#",
     "# What has to read a pull request's own code: the check that the",
-    "# factory's files match the settings. The job is in the factory's own",
+    "# Lunamill's files match the settings. The job is in Lunamill's own",
     "# repository, at the version below. GitHub runs this file from the pull",
     "# request's copy, so it is given no secret, and may only read.",
-    "name: Factory review",
+    "name: Lunamill review",
     "",
     "on:",
     "  pull_request:",
@@ -245,13 +245,13 @@ export function reviewWorkflow(o: WorkflowOptions): string {
   ].join("\n")}\n`;
 }
 
-export const POLLER_FILE = ".github/workflows/factory-poller.yml";
+export const POLLER_FILE = ".github/workflows/lunamill-poller.yml";
 
 /** The updates' schedule in the poller's file, which poller.yml tells from
  * the poller's own by its text. */
 const POLLER_UPDATES = "0 1 * * *";
 
-/** `.github/workflows/factory-poller.yml`, in the repository that holds an
+/** `.github/workflows/lunamill-poller.yml`, in the repository that holds an
  * organization's preset. It is that repository's to edit, so nothing
  * writes it again but an update of the version it names. */
 export function pollerWorkflow(o: {
@@ -261,11 +261,11 @@ export function pollerWorkflow(o: {
   pollMinutes: number;
 }): string {
   return `${[
-    `# ${POLLER_FILE}, written by factory init --org.`,
+    `# ${POLLER_FILE}, written by lunamill init --org.`,
     `# The one poller for ${o.owner}'s board. The cron line is yours to change, with`,
-    "# builds.poll-minutes in factory-preset.yaml: factory preset check fails",
+    "# builds.poll-minutes in lunamill-preset.yaml: lunamill preset check fails",
     "# when the two differ.",
-    "name: Factory poller",
+    "name: Lunamill poller",
     "on:",
     "  schedule:",
     `    - cron: "${pollerCron(o.pollMinutes)}" # the poller`,
@@ -277,6 +277,6 @@ export function pollerWorkflow(o: {
     "  poller:",
     `    uses: ${HOME}/poller.yml@v${o.version}`,
     "    secrets:",
-    "      app-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}",
+    "      app-key: ${{ secrets.LUNAMILL_APP_PRIVATE_KEY }}",
   ].join("\n")}\n`;
 }

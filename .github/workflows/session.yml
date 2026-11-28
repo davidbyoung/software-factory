@@ -1,6 +1,6 @@
 # One unattended session, for the jobs of run.yml that start one: a build, a
 # review, an answer, a conflict, and a dependency. A repository's own
-# factory.yml reaches it through run.yml, so everything here runs in that
+# lunamill.yml reaches it through run.yml, so everything here runs in that
 # repository, from its default branch's copy.
 #
 # It is three jobs, each on a machine of its own, so that the AI and a
@@ -11,10 +11,10 @@
 #   publish   has the sign-in: checks what the session left, and does it
 #
 # The sign-in is a token of the organization's own GitHub App, where its key
-# and the variable FACTORY_APP_CLIENT_ID both reach the run, and otherwise
+# and the variable LUNAMILL_APP_CLIENT_ID both reach the run, and otherwise
 # the build token. The workflow's own token is never used to push or to open
 # a pull request, since GitHub starts no CI for what that token does.
-name: Factory session
+name: Lunamill session
 
 on:
   workflow_call:
@@ -87,32 +87,32 @@ jobs:
           node-version: 22
 
       - &install
-        name: Install the factory
+        name: Install Lunamill
         run: |
-          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci --ignore-scripts
             npm link
           else
-            version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
+            version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/factory.lock names no release of the factory. Run factory sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
-            npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
+            npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
           fi
 
       - name: Check whether there is work, then the tokens
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
-          FACTORY_BUILD_TOKEN_SET: ${{ secrets.build-token != '' }}
-          FACTORY_APP_KEY_SET: ${{ secrets.app-key != '' && vars.FACTORY_APP_CLIENT_ID != '' }}
-          FACTORY_CLAUDE_SET: ${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}
+          LUNAMILL_BUILD_TOKEN_SET: ${{ secrets.build-token != '' }}
+          LUNAMILL_APP_KEY_SET: ${{ secrets.app-key != '' && vars.LUNAMILL_APP_CLIENT_ID != '' }}
+          LUNAMILL_CLAUDE_SET: ${{ secrets.claude-token != '' || secrets.claude-api-key != '' }}
           KIND: ${{ inputs.kind }}
           ID: ${{ inputs.id }}
           REVIEW: ${{ inputs.review }}
         # REVIEW is empty or a number, and an empty word is not passed on.
-        run: factory session ready "$KIND" "$ID" ${REVIEW:+"$REVIEW"}
+        run: lunamill session ready "$KIND" "$ID" ${REVIEW:+"$REVIEW"}
 
       # Under the app, its token signs the GitHub CLI and git in for the rest
       # of this job. A person's token is given to each step that uses it, and
@@ -122,11 +122,11 @@ jobs:
         id: app
         if: steps.gate.outputs.ran == 'true'
         env:
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ secrets.app-key }}
         run: |
-          if [ -n "$FACTORY_APP_CLIENT_ID" ] && [ -n "$FACTORY_APP_PRIVATE_KEY" ]; then
-            factory session token
+          if [ -n "$LUNAMILL_APP_CLIENT_ID" ] && [ -n "$LUNAMILL_APP_PRIVATE_KEY" ]; then
+            lunamill session token
           else
             gh auth setup-git --hostname github.com --force
           fi
@@ -137,7 +137,7 @@ jobs:
         if: steps.gate.outputs.ran == 'true'
         env:
           # A review reads, so the workflow's own token will do for it.
-          GH_TOKEN: &person ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && (secrets.build-token || (inputs.kind == 'review' && github.token)) || '' }}
+          GH_TOKEN: &person ${{ (secrets.app-key == '' || vars.LUNAMILL_APP_CLIENT_ID == '') && (secrets.build-token || (inputs.kind == 'review' && github.token)) || '' }}
           APP_SLUG: ${{ steps.app.outputs.slug }}
           KIND: ${{ inputs.kind }}
         run: |
@@ -153,24 +153,24 @@ jobs:
             name="$(jq -r '.name // .login' <<< "$user")"
             email="$(jq -r '"\(.id)+\(.login)@users.noreply.github.com"' <<< "$user")"
           fi
-          { echo "FACTORY_COMMITTER_NAME=${name//$'\n'/ }"; echo "FACTORY_COMMITTER_EMAIL=$email"; } >> "$GITHUB_ENV"
+          { echo "LUNAMILL_COMMITTER_NAME=${name//$'\n'/ }"; echo "LUNAMILL_COMMITTER_EMAIL=$email"; } >> "$GITHUB_ENV"
 
-      # The presets the lock names are handed over too, in the cache the
-      # factory reads them from.
+      # The presets the lock names are handed over too, in the cache
+      # Lunamill reads them from.
       - name: Hand over what the session works from
         id: prepare
         if: steps.gate.outputs.ran == 'true'
         env:
           GH_TOKEN: *person
-          FACTORY_RUN: ${{ runner.temp }}/factory
-          FACTORY_APP_SLUG: ${{ steps.app.outputs.slug }}
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          LUNAMILL_RUN: ${{ runner.temp }}/factory
+          LUNAMILL_APP_SLUG: ${{ steps.app.outputs.slug }}
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           KIND: ${{ inputs.kind }}
           ID: ${{ inputs.id }}
         run: |
-          XDG_CACHE_HOME="$FACTORY_RUN/in/cache" factory sync --check > /dev/null || true
-          factory session prepare "$KIND" "$ID"
+          XDG_CACHE_HOME="$LUNAMILL_RUN/in/cache" lunamill sync --check > /dev/null || true
+          lunamill session prepare "$KIND" "$ID"
 
       - name: Hand it to the session
         if: steps.prepare.outputs.ran == 'true'
@@ -186,11 +186,11 @@ jobs:
       - name: Release the ticket
         if: (failure() || cancelled()) && inputs.kind == 'build' && steps.gate.outputs.ran == 'true'
         env:
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           GH_TOKEN: *person
           ID: ${{ inputs.id }}
-        run: factory ticket end "$ID"
+        run: lunamill ticket end "$ID"
 
   session:
     name: Session
@@ -204,7 +204,7 @@ jobs:
       packages: read
     cache-mode: none
     env:
-      FACTORY_RUN: ${{ github.workspace }}
+      LUNAMILL_RUN: ${{ github.workspace }}
       # A file Git LFS holds stays its pointer: there is no sign-in here to
       # fetch it with, and a branch may name any server to fetch it from.
       GIT_LFS_SKIP_SMUDGE: "1"
@@ -252,21 +252,21 @@ jobs:
           node-version-file: ${{ steps.node.outputs.file }}
           node-version: ${{ steps.node.outputs.file == '' && '22' || '' }}
 
-      - name: Install the factory
+      - name: Install Lunamill
         working-directory: home
         run: |
-          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@davidbyoung/software-factory" ]; then
+          if [ "$(jq -r '.name // empty' package.json 2> /dev/null)" = "@lunamill-ai/lunamill" ]; then
             npm ci
             npm link
-            echo "FACTORY_INSTALL=$PWD:$(npm root --global)" >> "$GITHUB_ENV"
+            echo "LUNAMILL_INSTALL=$PWD:$(npm root --global)" >> "$GITHUB_ENV"
           else
-            version="$(sed -n 's/^version: *//p' .claude/factory.lock | head -n 1)"
+            version="$(sed -n 's/^version: *//p' .claude/lunamill.lock | head -n 1)"
             if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::.claude/factory.lock names no release of the factory. Run factory sync, and commit what it writes."
+              echo "::error::.claude/lunamill.lock names no release of Lunamill. Run lunamill sync, and commit what it writes."
               exit 1
             fi
-            npm install --global --no-audit --no-fund "@davidbyoung/software-factory@$version"
-            echo "FACTORY_INSTALL=$(npm root --global)" >> "$GITHUB_ENV"
+            npm install --global --no-audit --no-fund "@lunamill-ai/lunamill@$version"
+            echo "LUNAMILL_INSTALL=$(npm root --global)" >> "$GITHUB_ENV"
           fi
 
       - name: Take the repository's own secrets
@@ -274,7 +274,7 @@ jobs:
           EXTRA: ${{ secrets.extra }}
         run: |
           [ -n "$EXTRA" ] || exit 0
-          end="FACTORY_$(openssl rand -hex 8)"
+          end="LUNAMILL_$(openssl rand -hex 8)"
           for name in $(jq -r 'to_entries[] | select(.value != "") | .key' <<< "$EXTRA"); do
             value="$(jq -r --arg name "$name" '.[$name]' <<< "$EXTRA")"
             while IFS= read -r line; do
@@ -292,7 +292,7 @@ jobs:
 
       - name: Run the build's setup commands
         working-directory: home
-        run: factory build-setup < /dev/null
+        run: lunamill build-setup < /dev/null
 
       # Claude Code's sandbox needs these, and Ubuntu lets bubblewrap make a
       # user namespace only with a profile that says so
@@ -315,7 +315,7 @@ jobs:
           printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' 'profile bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' '  include if exists <local/bwrap>' '}' | sudo tee /etc/apparmor.d/bwrap > /dev/null
           sudo systemctl reload apparmor
 
-      # A factory release changes this pin.
+      # A Lunamill release changes this pin.
       - name: Install Claude Code
         run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
 
@@ -328,7 +328,7 @@ jobs:
         env:
           MINUTES: ${{ inputs.minutes }}
           PROMPT: ${{ inputs.prompt }}
-          MODEL: ${{ vars.FACTORY_BUILD_MODEL }}
+          MODEL: ${{ vars.LUNAMILL_BUILD_MODEL }}
           OAUTH_TOKEN_INPUT: ${{ secrets.claude-token }}
           API_KEY_INPUT: ${{ secrets.claude-api-key }}
         run: |
@@ -338,9 +338,9 @@ jobs:
             export ANTHROPIC_API_KEY="$API_KEY_INPUT"
           fi
           unset OAUTH_TOKEN_INPUT API_KEY_INPUT
-          factory session run
+          lunamill session run
 
-      # What `factory session run` kept, and nothing the session named. A
+      # What `lunamill session run` kept, and nothing the session named. A
       # build that is refused keeps its commits here.
       - name: Hand on what the session left
         if: always() && steps.session.outcome != 'skipped'
@@ -382,7 +382,7 @@ jobs:
 
       # A job's own `env` cannot read the runner's folder.
       - name: Name the run's folder
-        run: echo "FACTORY_RUN=$RUNNER_TEMP/factory" >> "$GITHUB_ENV"
+        run: echo "LUNAMILL_RUN=$RUNNER_TEMP/factory" >> "$GITHUB_ENV"
 
       - name: Take what was handed over
         uses: actions/download-artifact@v7
@@ -420,12 +420,12 @@ jobs:
         if: inputs.kind == 'review'
         env:
           GH_TOKEN: ${{ github.token }}
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ contains(github.event.pull_request.body || '', 'Part of ') && secrets.app-key || '' }}
-          FACTORY_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
-          FACTORY_ACROSS: read
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ contains(github.event.pull_request.body || '', 'Part of ') && secrets.app-key || '' }}
+          LUNAMILL_BUILD_TOKEN: ${{ (secrets.app-key == '' || vars.LUNAMILL_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          LUNAMILL_ACROSS: read
           CONCLUSION: ${{ needs.session.result }}
-        run: factory session publish
+        run: lunamill session publish
 
       - name: Sign in
         id: app
@@ -433,12 +433,12 @@ jobs:
           (success() && (inputs.kind != 'review' || steps.record.outputs.next == 'true')) ||
           (!success() && inputs.kind == 'build')
         env:
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           BUILD_TOKEN_SET: ${{ secrets.build-token != '' }}
         run: |
-          if [ -n "$FACTORY_APP_CLIENT_ID" ] && [ -n "$FACTORY_APP_PRIVATE_KEY" ]; then
-            factory session token
+          if [ -n "$LUNAMILL_APP_CLIENT_ID" ] && [ -n "$LUNAMILL_APP_PRIVATE_KEY" ]; then
+            lunamill session token
           elif [ "$BUILD_TOKEN_SET" = true ]; then
             gh auth setup-git --hostname github.com --force
           else
@@ -450,9 +450,9 @@ jobs:
       - name: Start the next answer
         if: inputs.kind == 'review' && steps.app.outputs.signed == 'true'
         env:
-          GH_TOKEN: &publisher ${{ (secrets.app-key == '' || vars.FACTORY_APP_CLIENT_ID == '') && secrets.build-token || '' }}
+          GH_TOKEN: &publisher ${{ (secrets.app-key == '' || vars.LUNAMILL_APP_CLIENT_ID == '') && secrets.build-token || '' }}
           ID: ${{ inputs.id }}
-        run: factory session next "$ID"
+        run: lunamill session next "$ID"
 
       # The app's key is here to sign in again: waiting for CI can outlast
       # its token. Nothing the session made runs in this job.
@@ -460,18 +460,18 @@ jobs:
         if: inputs.kind != 'review'
         env:
           GH_TOKEN: *publisher
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           CONCLUSION: ${{ needs.session.result }}
-        run: factory session publish
+        run: lunamill session publish
 
       # Whatever happened above. It keeps the claim of a ticket whose pull
       # request is open.
       - name: Release the ticket
         if: always() && inputs.kind == 'build' && steps.app.outputs.signed == 'true'
         env:
-          FACTORY_APP_CLIENT_ID: ${{ vars.FACTORY_APP_CLIENT_ID }}
-          FACTORY_APP_PRIVATE_KEY: ${{ secrets.app-key }}
+          LUNAMILL_APP_CLIENT_ID: ${{ vars.LUNAMILL_APP_CLIENT_ID }}
+          LUNAMILL_APP_PRIVATE_KEY: ${{ secrets.app-key }}
           GH_TOKEN: *publisher
           ID: ${{ inputs.id }}
-        run: factory ticket end "$ID"
+        run: lunamill ticket end "$ID"

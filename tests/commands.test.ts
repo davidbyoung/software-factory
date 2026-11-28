@@ -80,7 +80,7 @@ function deps(
     root: ROOT,
     settings: async () =>
       parseSettings(
-        { version: 2, repository: "o/r", "code-host": CODE_HOST, ...raw },
+        { version: 1, repository: "o/r", "code-host": CODE_HOST, ...raw },
         () => true,
       ),
     exec: (command, cwd, env) => {
@@ -109,7 +109,7 @@ function deps(
 
 const GATE = { commands: { gate: ["npm run lint", "npm test"] } };
 
-describe("factory gate", () => {
+describe("lunamill gate", () => {
   it("runs each command in order from the root, prints `$ COMMAND` before each, and exits 0 when all pass", async () => {
     const { d, ran, out, err } = deps(GATE);
 
@@ -144,7 +144,7 @@ describe("factory gate", () => {
 
     expect(await main(["gate"], d)).toBe(1);
     expect(err).toEqual([
-      "commands.gate is not set: add the commands that check a change to .claude/factory.yaml",
+      "commands.gate is not set: add the commands that check a change to .claude/lunamill.yaml",
     ]);
     expect(out).toEqual([]);
     expect(ran).toEqual([]);
@@ -154,14 +154,14 @@ describe("factory gate", () => {
     const { d, ran, err } = deps(GATE);
 
     expect(await main(["gate", "--fast"], d)).toBe(2);
-    expect(err).toEqual(["Usage: factory gate [--dry-run | --all]"]);
+    expect(err).toEqual(["Usage: lunamill gate [--dry-run | --all]"]);
     expect(ran).toEqual([]);
   });
 });
 
 const TEST_ONE = { commands: { "test-one": 'runner $FILE -t "$NAME"' } };
 
-describe("factory test-one", () => {
+describe("lunamill test-one", () => {
   it("runs the command from the root with FILE and NAME in its environment, and exits with its status", async () => {
     const { d, ran, err } = deps(TEST_ONE, [7]);
 
@@ -207,14 +207,14 @@ describe("factory test-one", () => {
     const { d, ran, err } = deps(TEST_ONE);
 
     expect(await main(["test-one", ...args], d)).toBe(2);
-    expect(err).toEqual(["Usage: factory test-one FILE [NAME]"]);
+    expect(err).toEqual(["Usage: lunamill test-one FILE [NAME]"]);
     expect(ran).toEqual([]);
   });
 });
 
 const E2E = { commands: { "end-to-end": "browser-tests $FILE" } };
 
-describe("factory end-to-end", () => {
+describe("lunamill end-to-end", () => {
   it("runs the command once from the root with FILE in its environment, and exits with its status", async () => {
     const { d, ran, err } = deps(E2E, [4]);
 
@@ -278,12 +278,12 @@ describe("factory end-to-end", () => {
     const { d, ran, err } = deps(E2E);
 
     expect(await main(["end-to-end", ...args], d)).toBe(2);
-    expect(err).toEqual(["Usage: factory end-to-end FILE [--times K]"]);
+    expect(err).toEqual(["Usage: lunamill end-to-end FILE [--times K]"]);
     expect(ran).toEqual([]);
   });
 });
 
-describe("factory specs check", () => {
+describe("lunamill specs check", () => {
   it("runs specs.check from the root with DO_NOT_TRACK=1, and exits with its status", async () => {
     const { d, ran, out, err } = deps(
       { specs: { type: "openspec", check: "check-the-specs --all" } },
@@ -335,7 +335,7 @@ describe("factory specs check", () => {
     const { d, ran, err } = deps({ specs: "openspec" });
 
     expect(await main(["specs-check", "--strict"], d)).toBe(2);
-    expect(err).toEqual(["Usage: factory specs check"]);
+    expect(err).toEqual(["Usage: lunamill specs check"]);
     expect(ran).toEqual([]);
   });
 });
@@ -391,7 +391,7 @@ const SPEC_FILES = [
   "  new  tasks.md                  Tasks, under For the builder",
 ];
 
-describe("factory specs with no spec tool", () => {
+describe("lunamill specs with no spec tool", () => {
   it.each([[["specs-list"]], [["specs-new", "37"]], [["specs-finish", "37"]]])(
     "%j says there is no spec tool and exits 0",
     async (argv) => {
@@ -411,7 +411,7 @@ describe("factory specs with no spec tool", () => {
   });
 });
 
-describe("factory specs list", () => {
+describe("lunamill specs list", () => {
   let at: ReturnType<typeof openspecAt>;
   afterEach(() => rmSync(at.root, { recursive: true, force: true }));
 
@@ -441,7 +441,7 @@ describe("factory specs list", () => {
   });
 });
 
-describe("factory specs new", () => {
+describe("lunamill specs new", () => {
   let at: ReturnType<typeof openspecAt>;
   afterEach(() => rmSync(at.root, { recursive: true, force: true }));
 
@@ -454,7 +454,7 @@ describe("factory specs new", () => {
       "Started ticket 37's spec in openspec/changes/issue-37/",
       "Write each file from ticket 37's body:",
       ...SPEC_FILES,
-      "Then: factory specs check",
+      "Then: lunamill specs check",
     ]);
     expect(err).toEqual([]);
     expect(at.runs.map((r) => r.argv)).toEqual([
@@ -495,7 +495,7 @@ describe("factory specs new", () => {
     expect(out.slice(1)).toEqual([
       "Write each file from ticket 37's body:",
       ...SPEC_FILES,
-      "Then: factory specs check",
+      "Then: lunamill specs check",
     ]);
     expect(at.runs.map((r) => r.argv)).toEqual([["--version"]]);
   });
@@ -508,7 +508,7 @@ describe("factory specs new", () => {
     expect(await main(["specs-new", "37"], d)).toBe(1);
     expect(out).toEqual([]);
     expect(err).toEqual([
-      "✗ OpenSpec is not installed: run factory init, which installs it.",
+      "✗ OpenSpec is not installed: run lunamill init, which installs it.",
     ]);
     expect(at.runs.map((r) => r.argv)).toEqual([["--version"]]);
   });
@@ -534,13 +534,13 @@ describe("factory specs new", () => {
   });
 });
 
-describe("factory specs new, with a spec tool that is not OpenSpec", () => {
+describe("lunamill specs new, with a spec tool that is not OpenSpec", () => {
   it("lists the files it updates and writes, and ends with the tool's own next step", async () => {
     const { d, out } = deps({ specs: "pages" });
     d.settings = async () =>
       parseSettings(
         {
-          version: 2,
+          version: 1,
           repository: "o/r",
           "code-host": CODE_HOST,
           specs: "pages",
@@ -561,7 +561,7 @@ describe("factory specs new, with a spec tool that is not OpenSpec", () => {
   });
 });
 
-describe("factory specs finish", () => {
+describe("lunamill specs finish", () => {
   let at: ReturnType<typeof openspecAt>;
   afterEach(() => rmSync(at.root, { recursive: true, force: true }));
 
@@ -601,7 +601,7 @@ describe("factory specs finish", () => {
 
     expect(await main(["specs-finish", "37"], d)).toBe(1);
     expect(err).toEqual([
-      "✗ Ticket 37 has no spec started: run factory specs new 37 first.",
+      "✗ Ticket 37 has no spec started: run lunamill specs new 37 first.",
     ]);
   });
 
@@ -651,10 +651,10 @@ describe("the spec commands' ticket", () => {
 
 describe("the spec commands' arguments", () => {
   it.each([
-    ["specs-new", [], "Usage: factory specs new N"],
-    ["specs-new", ["--all"], "Usage: factory specs new N"],
-    ["specs-finish", ["37", "38"], "Usage: factory specs finish N"],
-    ["specs-list", ["--all"], "Usage: factory specs list"],
+    ["specs-new", [], "Usage: lunamill specs new N"],
+    ["specs-new", ["--all"], "Usage: lunamill specs new N"],
+    ["specs-finish", ["37", "38"], "Usage: lunamill specs finish N"],
+    ["specs-list", ["--all"], "Usage: lunamill specs list"],
   ])(
     "%s %j prints its usage and exits 2, even with no spec tool",
     async (name, args, usage) => {
@@ -671,11 +671,11 @@ describe("the four commands", () => {
   it("print the settings' error and exit 1 when the settings cannot be read", async () => {
     const { d, err } = deps();
     d.settings = async () => {
-      throw new SettingsError(".claude/factory.yaml: version: must be 2");
+      throw new SettingsError(".claude/lunamill.yaml: version: must be 1");
     };
 
     expect(await main(["gate"], d)).toBe(1);
-    expect(err).toEqual([".claude/factory.yaml: version: must be 2"]);
+    expect(err).toEqual([".claude/lunamill.yaml: version: must be 1"]);
   });
 });
 
@@ -698,7 +698,7 @@ describe("the commands' own runner", () => {
     mkdirSync(join(repo, "src/deep"), { recursive: true });
     writeSettings(
       repo,
-      `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n${settings}`,
+      `version: 1\nrepository: o/r\n${CODE_HOST_YAML}\n${settings}`,
     );
     return spawnSync("node", [CLI, ...args], {
       cwd: join(repo, from),
@@ -814,7 +814,7 @@ const MONO = {
 const mono = (changed: string[], statuses: number[] = [], extra: Repo = {}) =>
   deps(MONO, statuses, { files: MONO_FILES, changed, ...extra });
 
-describe("factory gate by path", () => {
+describe("lunamill gate by path", () => {
   it("runs the commands a changed file sets off, each in its folder, after its plan", async () => {
     const { d, ran, out } = mono(["packages/api/src/orders.ts"]);
 
@@ -827,7 +827,7 @@ describe("factory gate by path", () => {
       "commands.gate: 2 of 5 run, for the 1 file changed since origin/main",
       "  npm run -s format:check      every change",
       "  cd packages/api && npm test  packages/api/src/orders.ts",
-      "- 3 left out, since this change touches none of their files: factory gate --dry-run lists each",
+      "- 3 left out, since this change touches none of their files: lunamill gate --dry-run lists each",
       "",
       "$ npm run -s format:check",
       "(ran npm run -s format:check)",
@@ -873,7 +873,7 @@ describe("factory gate by path", () => {
     expect(await main(["gate"], run.d)).toBe(0);
     expect(run.out.slice(1, 12)).toEqual([
       ...twelve.slice(0, 10).map((f) => `  ${f}`),
-      "  and 2 more: factory gate --dry-run lists each",
+      "  and 2 more: lunamill gate --dry-run lists each",
     ]);
     const dry = mono(twelve);
     expect(await main(["gate", "--dry-run"], dry.d)).toBe(0);
@@ -881,12 +881,12 @@ describe("factory gate by path", () => {
   });
 
   it("runs every command when the settings changed", async () => {
-    const { d, ran, out } = mono([".claude/factory.yaml"]);
+    const { d, ran, out } = mono([".claude/lunamill.yaml"]);
 
     expect(await main(["gate"], d)).toBe(0);
     expect(ran).toHaveLength(5);
     expect(out[0]).toBe(
-      "commands.gate: all 5 run, since .claude/factory.yaml changed",
+      "commands.gate: all 5 run, since .claude/lunamill.yaml changed",
     );
   });
 
@@ -1070,7 +1070,7 @@ describe("factory gate by path", () => {
   });
 });
 
-describe("factory test-one and end-to-end with a list", () => {
+describe("lunamill test-one and end-to-end with a list", () => {
   const LIST = {
     commands: {
       "test-one": [
@@ -1105,7 +1105,7 @@ describe("factory test-one and end-to-end with a list", () => {
     expect(await main(["test-one", "docs/guide.test.ts"], d)).toBe(1);
     expect(ran).toEqual([]);
     expect(err).toEqual([
-      "✗ No commands.test-one command covers docs/guide.test.ts: add one whose files cover it to .claude/factory.yaml",
+      "✗ No commands.test-one command covers docs/guide.test.ts: add one whose files cover it to .claude/lunamill.yaml",
     ]);
   });
 
@@ -1122,7 +1122,7 @@ describe("factory test-one and end-to-end with a list", () => {
   });
 });
 
-describe("factory coverage", () => {
+describe("lunamill coverage", () => {
   const COV = {
     commands: {
       coverage: [
@@ -1230,7 +1230,7 @@ describe("factory coverage", () => {
   });
 });
 
-describe("factory relock and build-setup", () => {
+describe("lunamill relock and build-setup", () => {
   const RELOCK = {
     commands: {
       gate: [{ run: "pytest", in: "services/*" }],

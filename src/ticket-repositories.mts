@@ -1,9 +1,9 @@
-// `factory ticket repositories`, and what the other ticket commands ask of
+// `lunamill ticket repositories`, and what the other ticket commands ask of
 // a ticket that names more than its own repository.
 //
-//   factory ticket repositories N
-//   factory ticket repositories N --set REPO... [--after LATER=EARLIER]...
-//   factory ticket repositories N --add REPO... [--after LATER=EARLIER]...
+//   lunamill ticket repositories N
+//   lunamill ticket repositories N --set REPO... [--after LATER=EARLIER]...
+//   lunamill ticket repositories N --add REPO... [--after LATER=EARLIER]...
 import {
   confirmedList,
   homeOf,
@@ -43,7 +43,7 @@ export type RepositoriesDeps = {
 };
 
 const USAGE =
-  "Usage: factory ticket repositories N [--set REPO...|--add REPO...] [--after LATER=EARLIER]...";
+  "Usage: lunamill ticket repositories N [--set REPO...|--add REPO...] [--after LATER=EARLIER]...";
 
 type Asked = { set: string[] | null; add: string[]; after: [string, string][] };
 
@@ -82,9 +82,9 @@ function said(setUp: SetUp, name: string): string {
     case "ready":
       return "set up";
     case "missing":
-      return `not set up: run factory init in ${name} before building`;
+      return `not set up: run lunamill init in ${name} before building`;
     case "old":
-      return `on factory ${setUp.version}, which can't build a ticket from another repository: run factory update in ${name}`;
+      return `on Lunamill ${setUp.version}, which can't build a ticket from another repository: run lunamill update in ${name}`;
     case "unseen":
       return "not found, or you can't see it";
   }
@@ -292,7 +292,7 @@ async function record(
 const counts = async (ticket: Ticket, list: Listed[], d: { reach: Reach }) =>
   (await confirmedList(ticket, list, d.reach)).counts;
 
-/** `factory ticket repositories`. */
+/** `lunamill ticket repositories`. */
 export async function repositories(
   key: Key,
   args: string[],
@@ -333,9 +333,9 @@ export async function notBuildable(
   for (const { name } of list) {
     const setUp = await setUpOf(await d.reach(name));
     if (setUp.state === "missing")
-      return `${ref} names ${name}, which is not set up: run factory init in ${name}`;
+      return `${ref} names ${name}, which is not set up: run lunamill init in ${name}`;
     if (setUp.state === "old")
-      return `${ref} names ${name}, whose factory is too old: run factory update in ${name}`;
+      return `${ref} names ${name}, whose Lunamill is too old: run lunamill update in ${name}`;
     if (setUp.state === "unseen")
       return `${ref} names ${name}, which was not found, or you can't see it`;
   }

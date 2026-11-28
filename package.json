@@ -1,18 +1,18 @@
 {
-  "name": "@davidbyoung/software-factory",
+  "name": "@lunamill-ai/lunamill",
   "version": "0.0.0-development",
   "description": "Refines, builds, and reviews tickets with Claude Code sessions, from a board to a merged pull request.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/davidbyoung/software-factory.git"
+    "url": "git+https://github.com/lunamill-ai/lunamill.git"
   },
   "type": "module",
   "engines": {
     "node": ">=22.18"
   },
   "bin": {
-    "factory": "bin/factory.js"
+    "lunamill": "bin/lunamill.js"
   },
   "files": [
     "bin",
@@ -33,7 +33,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "prettier --check . && tsc --noEmit && npm run -s spec:validate && node bin/factory.js sync --check && node bin/factory.js config check && vitest run --coverage",
+    "check": "prettier --check . && tsc --noEmit && npm run -s spec:validate && node bin/lunamill.js sync --check && node bin/lunamill.js config check && vitest run --coverage",
     "prepack": "tsc -p tsconfig.build.json",
     "pack-check": "node tests/pack-check.mts",
     "site-check": "node --test tests/site-check.mts",

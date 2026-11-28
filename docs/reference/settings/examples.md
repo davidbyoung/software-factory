@@ -1,18 +1,18 @@
 # Example settings files
 
 The skills, agents, and scripts these files name are examples. Yours would
-have to exist in your repository for `factory config check` to pass.
+have to exist in your repository for `lunamill config check` to pass.
 
 ## A web application with its own reviewers
 
 An online store with a board, a skill of its own for building new API
-endpoints, two reviewers of its own, and the factory's UI reviewer.
+endpoints, two reviewers of its own, and Lunamill's UI reviewer.
 Changes to components, styles, docs, and tests merge unread, except
 anything touching checkout or consent.
 
 ```yaml
-# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
-version: 2
+# $schema: https://raw.githubusercontent.com/lunamill-ai/lunamill/main/settings.schema.json
+version: 1
 repository: harbor-goods/storefront
 
 tickets:
@@ -58,7 +58,7 @@ plugins:
       - agent: accessibility-reviewer
         files:
           - src/components/**
-      - agent: factory-ui-reviewer
+      - agent: lunamill-ui-reviewer
         files:
           - src/components/**
           - src/styles/**
@@ -89,8 +89,8 @@ A marketing site with a board and nothing else changed. Builds start when
 someone asks a session, since `builds.trigger` defaults to `manual`.
 
 ```yaml
-# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
-version: 2
+# $schema: https://raw.githubusercontent.com/lunamill-ai/lunamill/main/settings.schema.json
+version: 1
 repository: riverbend-studio/site
 
 tickets:
@@ -124,8 +124,8 @@ the cloud copies the dependencies installed before it started, as its
 changes to its public API.
 
 ```yaml
-# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
-version: 2
+# $schema: https://raw.githubusercontent.com/lunamill-ai/lunamill/main/settings.schema.json
+version: 1
 repository: northwind-php/ledger
 
 tickets:

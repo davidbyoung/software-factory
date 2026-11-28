@@ -1,6 +1,6 @@
 // The one interface every code host's implementation fills: pull requests,
 // their comments, reviews, and threads, and the checks and statuses on a
-// commit. The factory's commands reach a pull request only through it, so a
+// commit. Lunamill's commands reach a pull request only through it, so a
 // second code host is an implementation added beside `github.mts`, not a
 // rewrite of the commands. Where a build runs is the runner's
 // (`runner/types.mts`).
@@ -454,7 +454,7 @@ export type OrganizationHost = {
   organization(name: string): Organization;
 };
 
-/** What a token for the factory's jobs may need to do: push a branch,
+/** What a token for Lunamill's jobs may need to do: push a branch,
  * change a workflow's file, and write the board. */
 export type TokenNeed = "push" | "workflows" | "board";
 

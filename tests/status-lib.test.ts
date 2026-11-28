@@ -900,7 +900,7 @@ describe("commentBody", () => {
         issue: SEVEN,
         reason: "blocked by #3",
       },
-      "Stopped without a pull request: blocked by #3. The card stays In progress, waiting on you. Run `factory build 7` to try again, or move it to Ready.",
+      "Stopped without a pull request: blocked by #3. The card stays In progress, waiting on you. Run `lunamill build 7` to try again, or move it to Ready.",
       "released",
     ],
     [
@@ -945,7 +945,7 @@ describe("commentBody", () => {
         issue: key,
         reason: "x",
       }),
-    ).toContain("Run `factory build web-7` to try again");
+    ).toContain("Run `lunamill build web-7` to try again");
     expect(
       commentBody({ kind: "stopped", where: "local", issue: key, reason: "x" }),
     ).toContain("Tell a session to work WEB 7 again");
@@ -954,7 +954,7 @@ describe("commentBody", () => {
         { kind: "pull-closed", issue: key, pull: 9 },
         { ...DEFAULT_COLUMNS, Ready: null },
       ),
-    ).toContain("Tell a session to build WEB 7, or run `factory build web-7`");
+    ).toContain("Tell a session to build WEB 7, or run `lunamill build web-7`");
   });
 
   it("puts a closing comment's own text before the refined sentence", () => {
@@ -1365,7 +1365,7 @@ describe("issueCost", () => {
 describe("parseRuns", () => {
   const run = {
     id: "a1",
-    reviewer: "factory-test-reviewer",
+    reviewer: "lunamill-test-reviewer",
     model: "Sonnet",
     start: at(1),
     result: "passed",
@@ -1437,7 +1437,7 @@ describe("when a ticket became done", () => {
     ).toEqual([]);
   });
 
-  it("takes a merge the factory recorded over the card's time", () => {
+  it("takes a merge Lunamill recorded over the card's time", () => {
     const merged = issue({ comments: [said(50, "merged")] });
     expect(doneAt(merged, { status: "Done", updatedAt: at(1) })).toBe(at(50));
   });

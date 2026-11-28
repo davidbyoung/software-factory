@@ -110,14 +110,14 @@ describe("the registry a sign-in line is for", () => {
 describe("a name that can't come from a secret", () => {
   it("refuses a GITHUB_ name other than GITHUB_TOKEN", () => {
     expect(refusal("GITHUB_PACKAGES_TOKEN")).toBe(
-      ".npmrc reads ${GITHUB_PACKAGES_TOKEN} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: factory sync",
+      ".npmrc reads ${GITHUB_PACKAGES_TOKEN} to sign in, and GitHub refuses a secret whose name starts with GITHUB_. Rename it in .npmrc, then run: lunamill sync",
     );
     expect(refusal("GITHUB_TOKEN")).toBeNull();
   });
 
   it("refuses a name the runner sets for itself", () => {
     expect(refusal("HOME")).toBe(
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: factory sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: lunamill sync",
     );
     for (const name of ["PATH", "CI", "RUNNER_TEMP", "ACTIONS_CACHE_URL"])
       expect(refusal(name)).not.toBeNull();

@@ -6,9 +6,9 @@ import { runsOf, setsOff, type Run } from "./paths.mts";
 
 /** The settings files: a change to one can add or change any command. */
 export const SETTINGS_PATHS = [
-  ".claude/factory.yaml",
-  ".claude/factory.lock",
-  ".claude/factory.choices.yaml",
+  ".claude/lunamill.yaml",
+  ".claude/lunamill.lock",
+  ".claude/lunamill.choices.yaml",
 ];
 
 /** Why every command runs, when they all do. */

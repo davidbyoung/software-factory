@@ -1,4 +1,4 @@
-// `factory init`, presets first: how it learns which presets a repository
+// `lunamill init`, presets first: how it learns which presets a repository
 // follows, how it pins them, what they answer so it does not ask, and the
 // one gate command it asks for when nothing names any.
 import { mkdtempSync } from "node:fs";
@@ -18,7 +18,7 @@ import {
 import { presetsPath, rememberPresets } from "../src/lib/credentials.mts";
 import { pinsOf } from "../src/preset.mts";
 import { TOOLS } from "../src/tools.mts";
-import { FACTORY_COLUMNS } from "./factory-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST_YAML } from "./settings-fixture";
 import {
   GATE_QUESTION,
@@ -30,14 +30,14 @@ import {
 import { fetching, lockPin, publish, read } from "./preset-fixture";
 import { into } from "./printed";
 
-const ROOT = "acme/factory-config";
+const ROOT = "acme/lunamill-config";
 const NODE = `${ROOT}//node`;
 const OTHER = "acme/platform-settings";
 const PRESETS: Record<string, FakePreset> = {
   [ROOT]: {
     about: "The preset for every acme repository.",
     settings: {
-      tickets: { board: 12, columns: FACTORY_COLUMNS },
+      tickets: { board: 12, columns: LUNAMILL_COLUMNS },
       "code-host": { "branch-name": "{user}/{ticket}" },
       specs: "none",
       "pr-review": true,
@@ -69,7 +69,7 @@ const SITE = "code.example/acme";
 /** Each token a part the root preset turns on reads, left for later. */
 const LATER = ["", ""];
 
-describe("factory init --preset", () => {
+describe("lunamill init --preset", () => {
   it("reads each name after --preset, in order, and none from a flag with no name", () => {
     expect(presetArgs(["--preset", ROOT, "--preset", NODE])).toEqual([
       ROOT,
@@ -84,7 +84,7 @@ describe("factory init --preset", () => {
     const r = web({ argv: ["--preset"] });
     expect(await r.run()).toBe(2);
     expect(r.out).toEqual([
-      "Usage: factory init [--preset NAME]... [--org ADDRESS]",
+      "Usage: lunamill init [--preset NAME]... [--org ADDRESS]",
     ]);
   });
 
@@ -101,7 +101,7 @@ describe("factory init --preset", () => {
   });
 });
 
-describe("factory init, the owner's factory-config", () => {
+describe("lunamill init, the owner's lunamill-config", () => {
   const found = (over: Partial<Setup> = {}) =>
     web({
       config: [ROOT, NODE],
@@ -112,13 +112,13 @@ describe("factory init, the owner's factory-config", () => {
   it("looks for it by name under the repository's owner, with no --preset and no presets in the settings", async () => {
     const r = found();
     await r.run();
-    expect(r.looked).toEqual(["acme/factory-config"]);
+    expect(r.looked).toEqual(["acme/lunamill-config"]);
   });
 
   it("says how many presets it holds, under Found", async () => {
     const r = found();
     await r.run();
-    expect(r.out).toContain("  Presets        acme/factory-config holds 2");
+    expect(r.out).toContain("  Presets        acme/lunamill-config holds 2");
   });
 
   it("asks which the repository follows, each by its name and its file's first comment line, the one at the root checked", async () => {
@@ -127,8 +127,8 @@ describe("factory init, the owner's factory-config", () => {
     expect(r.asked[0]).toBe(QUESTION);
     expect(r.checkboxes[0]).toEqual({
       names: [
-        "acme/factory-config        The preset for every acme repository.",
-        "acme/factory-config//node  The preset for acme's Node repositories.",
+        "acme/lunamill-config        The preset for every acme repository.",
+        "acme/lunamill-config//node  The preset for acme's Node repositories.",
       ],
       checked: [ROOT],
     });
@@ -136,7 +136,7 @@ describe("factory init, the owner's factory-config", () => {
 
   it("looks for none when the settings list presets already", async () => {
     const r = found({
-      settings: `version: 2\nrepository: acme/web\npresets:\n  - ${OTHER}\n${CODE_HOST_YAML}\n`,
+      settings: `version: 1\nrepository: acme/web\npresets:\n  - ${OTHER}\n${CODE_HOST_YAML}\n`,
       answers: { checkbox: [[]], confirm: [true] },
     });
     expect(await r.run()).toBe(0);
@@ -146,7 +146,7 @@ describe("factory init, the owner's factory-config", () => {
   });
 });
 
-describe("factory init, the presets this machine last used for the owner", () => {
+describe("lunamill init, the presets this machine last used for the owner", () => {
   const ASKED =
     "confirm: acme's other repositories on this machine follow acme/platform-settings. Follow it here?";
   const second = (follow: boolean, over: Partial<Setup> = {}) => {
@@ -158,7 +158,7 @@ describe("factory init, the presets this machine last used for the owner", () =>
     return r;
   };
 
-  it("offers them, with yes for Enter, when the owner has no factory-config", async () => {
+  it("offers them, with yes for Enter, when the owner has no lunamill-config", async () => {
     const r = second(true);
     expect(await r.run()).toBe(0);
     expect(r.asked[0]).toBe(ASKED);
@@ -177,11 +177,11 @@ describe("factory init, the presets this machine last used for the owner", () =>
     rememberPresets(SITE, [OTHER, NODE], r.env);
     await r.run();
     expect(r.asked[0]).toBe(
-      "confirm: acme's other repositories on this machine follow acme/platform-settings and acme/factory-config//node. Follow them here?",
+      "confirm: acme's other repositories on this machine follow acme/platform-settings and acme/lunamill-config//node. Follow them here?",
     );
   });
 
-  it("offers none when the owner has a factory-config", async () => {
+  it("offers none when the owner has a lunamill-config", async () => {
     const r = second(true, {
       config: [ROOT],
       answers: { checkbox: [[], []], confirm: [true] },
@@ -198,7 +198,7 @@ describe("factory init, the presets this machine last used for the owner", () =>
   });
 });
 
-describe("factory init, pinning the presets chosen", () => {
+describe("lunamill init, pinning the presets chosen", () => {
   const chosen = (over: Partial<Setup> = {}) =>
     web({
       config: [ROOT, NODE],
@@ -210,7 +210,7 @@ describe("factory init, pinning the presets chosen", () => {
       ...over,
     });
 
-  it("prints factory preset add's summary for each, after the question and before what the presets answer", async () => {
+  it("prints lunamill preset add's summary for each, after the question and before what the presets answer", async () => {
     const r = chosen();
     await r.run();
     const at = r.transcript.indexOf(`? ${QUESTION}`);
@@ -226,13 +226,13 @@ describe("factory init, pinning the presets chosen", () => {
       answers: { checkbox: [[ROOT, NODE], []], confirm: [false] },
     });
     await no.run();
-    expect(no.read(".claude/factory.yaml")).toBeNull();
-    expect(no.read(".claude/factory.lock")).toBeNull();
+    expect(no.read(".claude/lunamill.yaml")).toBeNull();
+    expect(no.read(".claude/lunamill.lock")).toBeNull();
 
     const yes = chosen();
     await yes.run();
     expect(yes.yaml().presets).toEqual([ROOT, NODE]);
-    expect(yes.read(".claude/factory.lock")).toBe(
+    expect(yes.read(".claude/lunamill.lock")).toBe(
       `# pins ${ROOT}\n# pins ${NODE}\n`,
     );
   });
@@ -248,7 +248,7 @@ describe("factory init, pinning the presets chosen", () => {
     expect(await r.run()).toBe(1);
     expect(r.out.slice(-2)).toEqual([REFUSAL, "Nothing changed."]);
     expect(r.asked).toEqual([]);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
   });
 
   it("records the choice for the owner on this machine once told to go ahead, and not before", async () => {
@@ -299,7 +299,7 @@ describe("factory init, pinning the presets chosen", () => {
   });
 });
 
-describe("factory init, what the presets answer", () => {
+describe("lunamill init, what the presets answer", () => {
   const follows = (over: Partial<Setup> = {}) =>
     web({
       argv: ["--preset", ROOT, "--preset", NODE],
@@ -340,7 +340,7 @@ describe("factory init, what the presets answer", () => {
     expect(r.checkboxes[0]!.names).toEqual([
       "Builds in the cloud",
       "Pull requests that merge themselves",
-      "Signed commits on the factory's updates",
+      "Signed commits on Lunamill's updates",
     ]);
     expect(r.out.join("\n")).not.toContain("turn off");
   });
@@ -410,10 +410,10 @@ describe("factory init, what the presets answer", () => {
   });
 });
 
-describe("factory init, the gate", () => {
+describe("lunamill init, the gate", () => {
   const ASKED = `input: ${GATE_QUESTION}`;
   const LEFT =
-    "Add the commands that check a change, under commands.gate in .claude/factory.yaml";
+    "Add the commands that check a change, under commands.gate in .claude/lunamill.yaml";
 
   it("asks for the command that checks a change when nothing sets one, and writes it as the one gate command", async () => {
     const r = web({
@@ -434,7 +434,7 @@ describe("factory init, the gate", () => {
 
   it("does not ask when the settings set one", async () => {
     const r = web({
-      settings: `version: 2\nrepository: acme/web\n${CODE_HOST_YAML}\ncommands:\n  gate:\n    - make check\n`,
+      settings: `version: 1\nrepository: acme/web\n${CODE_HOST_YAML}\ncommands:\n  gate:\n    - make check\n`,
     });
     await r.run();
     expect(r.asked).not.toContain(ASKED);
@@ -459,18 +459,18 @@ describe("the presets as init reads and pins them", () => {
     publish(ROOT, {
       "": {
         settings:
-          "# The preset for every acme repository.\n# Yours to edit.\nversion: 2\ntickets:\n  board: 12\n",
+          "# The preset for every acme repository.\n# Yours to edit.\nversion: 1\ntickets:\n  board: 12\n",
         agents: { "acme-reviewer": "review\n" },
       },
       node: {
-        settings: "version: 2\ncommands:\n  gate: [npm run check]\n",
+        settings: "version: 1\ncommands:\n  gate: [npm run check]\n",
       },
       "docs/site": {
-        settings: "#The preset for a docs site.\nversion: 2\nspecs: none\n",
+        settings: "#The preset for a docs site.\nversion: 1\nspecs: none\n",
       },
     });
   const DRAFT: Files = {
-    settings: `version: 2\nrepository: ${REPOSITORY}\n`,
+    settings: `version: 1\nrepository: ${REPOSITORY}\n`,
     choices: null,
     lock: null,
   };
@@ -484,7 +484,7 @@ describe("the presets as init reads and pins them", () => {
     };
   };
 
-  it("lists each factory-preset.yaml a repository holds, the root's first, by its name and first comment line", async () => {
+  it("lists each lunamill-preset.yaml a repository holds, the root's first, by its name and first comment line", async () => {
     publishAcme();
     const root = mkdtempSync(join(tmpdir(), "init-presets-"));
     expect(await source(root).held(ROOT, "github", REPOSITORY)).toEqual([
@@ -501,7 +501,7 @@ describe("the presets as init reads and pins them", () => {
     ).toBeNull();
   });
 
-  it("pins a preset as factory preset add does, printing its summary and writing nothing", async () => {
+  it("pins a preset as lunamill preset add does, printing its summary and writing nothing", async () => {
     const commit = publishAcme();
     const root = mkdtempSync(join(tmpdir(), "init-presets-"));
     const { out, d } = io();
@@ -536,7 +536,7 @@ describe("the presets as init reads and pins them", () => {
     const root = mkdtempSync(join(tmpdir(), "init-presets-"));
     const { out, d } = io();
     expect(await source(root).add(`${ROOT}//rust`, DRAFT, d)).toBeNull();
-    expect(out.join("\n")).toContain("no rust/factory-preset.yaml");
+    expect(out.join("\n")).toContain("no rust/lunamill-preset.yaml");
   });
 
   it("says what the presets give, which keys are theirs, and what they ship", async () => {
@@ -576,14 +576,14 @@ describe("the presets as init reads and pins them", () => {
         files: {},
       });
       const r = web({
-        settings: `version: 2\nrepository: acme/web\npresets:\n  - ${ROOT}\n${CODE_HOST_YAML}\n${body}`,
+        settings: `version: 1\nrepository: acme/web\npresets:\n  - ${ROOT}\n${CODE_HOST_YAML}\n${body}`,
       });
       r.d.presets = {
         ...source(root),
         combined: (files) =>
           source(root).combined({
             ...files,
-            lock: read(root, ".claude/factory.lock"),
+            lock: read(root, ".claude/lunamill.lock"),
           }),
       };
       return { code: await r.run(), out: r.out, asked: r.asked };
@@ -596,11 +596,11 @@ describe("the presets as init reads and pins them", () => {
         "",
       ],
       [
-        ".claude/factory.yaml: site: is required to list factory-ui-reviewer",
+        ".claude/lunamill.yaml: site: is required to list lunamill-ui-reviewer",
         {
           plugins: {
             build: {
-              reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+              reviewers: [{ agent: "lunamill-ui-reviewer", files: ["src/**"] }],
             },
           },
         },
@@ -639,14 +639,14 @@ describe("the presets as init reads and pins them", () => {
       files: {},
     });
     const r = web({
-      settings: `version: 2\nrepository: acme/web\npresets:\n  - ${ROOT}\n${CODE_HOST_YAML}\npr-review: false\n`,
+      settings: `version: 1\nrepository: acme/web\npresets:\n  - ${ROOT}\n${CODE_HOST_YAML}\npr-review: false\n`,
     });
     r.d.presets = {
       ...source(root),
       combined: (files) =>
         source(root).combined({
           ...files,
-          lock: read(root, ".claude/factory.lock"),
+          lock: read(root, ".claude/lunamill.lock"),
         }),
     };
     expect(await r.run()).toBe(0);

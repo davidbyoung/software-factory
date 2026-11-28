@@ -5,14 +5,14 @@ description: Keep the open tickets' blocked-by relationships complete, and show 
 
 # The order to work tickets in
 
-`factory ticket claim` stops only on a recorded blocker, so a build order
+`lunamill ticket claim` stops only on a recorded blocker, so a build order
 written only in a ticket's text is one nothing reads. This skill finds the
 blockers that are missing, records the ones the owner approves, and shows
 which tickets can start now, those that unblock the most first.
 
-Every ticket is read and written through `factory ticket`,
+Every ticket is read and written through `lunamill ticket`,
 never `gh` or a ticket system's API, so the skill works with any ticket
-system the factory has an adapter for. It never reads or writes the
+system Lunamill has an adapter for. It never reads or writes the
 board's Priority field: that is the owner's business priority, not a
 build order.
 
@@ -22,7 +22,7 @@ tickets.
 ## 0. Can the ticket system record blockers?
 
 ```bash
-factory ticket supports blockers
+lunamill ticket supports blockers
 ```
 
 When it prints `no`, say the ticket system records no blockers, and stop.
@@ -47,13 +47,13 @@ Read each open ticket's title and body, and its comments where they say
 why it waits on another:
 
 ```bash
-factory ticket list --json
-factory ticket view M
+lunamill ticket list --json
+lunamill ticket view M
 ```
 
 A ticket waits on another when building it first would break it, or
 would mean redoing work, as "Issues that wait on another" in
-`.claude/factory/rules.md` says. Touching the same file is not one: that
+`.claude/lunamill/rules.md` says. Touching the same file is not one: that
 is a merge conflict, and the conflict sweep resolves those. Read the code
 a ticket would change when its text alone does not settle it.
 
@@ -81,19 +81,19 @@ in a message when there are more, answered with the numbers to keep.
 For each kept proposal, record it, then say why:
 
 ```bash
-factory ticket block N --by M     # or: unblock N --by M
+lunamill ticket block N --by M     # or: unblock N --by M
 ```
 
 The reason is one line: "#N waits on #M: reason." or "#N no longer waits
 on #M: reason." When this session opened either ticket, the reason goes
 in that ticket's body, as "Issues that wait on another" in
-`.claude/factory/rules.md` asks of whoever opens an issue: under
+`.claude/lunamill/rules.md` asks of whoever opens an issue: under
 `## Decisions` when it has one, and otherwise as a line at the end.
 Otherwise it is a comment on the waiting ticket, and the body is left
 alone, since the owner may already have approved it:
 
 ```bash
-factory ticket comment N --body-file reason.md
+lunamill ticket comment N --body-file reason.md
 ```
 
 ## 4. Report

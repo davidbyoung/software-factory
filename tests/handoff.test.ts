@@ -27,7 +27,7 @@ import { memoryCodeHost } from "./memory-code-host";
 import { memoryRunner } from "./memory-runner";
 import { memoryTickets } from "./memory-tickets";
 
-const LAUNCHER = fileURLToPath(new URL("../bin/factory.js", import.meta.url));
+const LAUNCHER = fileURLToPath(new URL("../bin/lunamill.js", import.meta.url));
 const RUN: RunFile = {
   version: 1,
   kind: "answer",
@@ -57,7 +57,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-/** A `factory` command as a session in the cloud runs it, on a machine
+/** A `lunamill` command as a session in the cloud runs it, on a machine
  * whose GitHub CLI is not found. */
 const factory = (...args: string[]) =>
   spawnSync(process.execPath, [LAUNCHER, ...args], {
@@ -76,13 +76,13 @@ const build = () => {
 const asked = () =>
   readRequests(readFileSync(join(dir, "out/request.json"), "utf8"));
 
-describe("a factory command in a session in the cloud", () => {
+describe("a Lunamill command in a session in the cloud", () => {
   it("is asked for when it would write, with its file's text", () => {
     writeFileSync(join(dir, "r.md"), "Fixed.");
     const first = factory("pr", "reply", "31", "901", "--body-file", "r.md");
     factory("pr", "resolve", "31", "901");
 
-    expect(first.stdout).toBe("Asked: factory pr reply 31\n");
+    expect(first.stdout).toBe("Asked: lunamill pr reply 31\n");
     expect(asked()).toEqual([
       {
         argv: ["pr", "reply", "31", "901", "--body-file", "r.md"],
@@ -96,7 +96,7 @@ describe("a factory command in a session in the cloud", () => {
     const wrong = factory("pr", "resolve", "31", "901", "902");
     expect(wrong.status).toBe(1);
     expect(wrong.stdout).toBe(
-      "✗ Can't ask for this. factory pr resolve 31: it takes fewer words\n",
+      "✗ Can't ask for this. lunamill pr resolve 31: it takes fewer words\n",
     );
     expect(factory("ticket", "label", "12", "--add", "spec").status).toBe(1);
     expect(() => asked()).toThrow();
@@ -122,7 +122,7 @@ describe("a factory command in a session in the cloud", () => {
     );
     expect(code).toBe(1);
     expect(out).toEqual([
-      "✗ Can't ask for this. factory pr open: it links #13",
+      "✗ Can't ask for this. lunamill pr open: it links #13",
     ]);
   });
 
@@ -140,7 +140,7 @@ describe("a factory command in a session in the cloud", () => {
     expect(ask("A <slug>.", "Text.")).toBe(1);
     expect(ask("A title.", "Text.")).toBe(0);
     expect(out[0]).toBe(
-      "✗ Can't ask for this. factory follow-up: it links #13",
+      "✗ Can't ask for this. lunamill follow-up: it links #13",
     );
     expect(out[1]).toContain("<slug>");
     expect(asked()).toEqual([
@@ -184,7 +184,7 @@ describe("a factory command in a session in the cloud", () => {
   });
 });
 
-describe("factory pr push and pull", () => {
+describe("lunamill pr push and pull", () => {
   const git = (cwd: string, ...args: string[]) =>
     execFileSync(
       "git",
@@ -376,7 +376,7 @@ describe("an adapter in a session in the cloud", () => {
 
     expect(await host.forBranch("b")).toBe(31);
     await expect(host.get(40)).rejects.toThrow(
-      "✗ The code host's get of 40 was not handed to this run. Go on without it, or stop with: factory ticket stop 12 \"needs the code host's get of 40\"",
+      "✗ The code host's get of 40 was not handed to this run. Go on without it, or stop with: lunamill ticket stop 12 \"needs the code host's get of 40\"",
     );
   });
 });

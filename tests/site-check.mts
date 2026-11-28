@@ -1,4 +1,4 @@
-// Proves `factory site compare` with a real browser, against the sample sites
+// Proves `lunamill site compare` with a real browser, against the sample sites
 // in tests/sites/, each served twice as a "before" and an "after".
 //
 //   npm run site-check

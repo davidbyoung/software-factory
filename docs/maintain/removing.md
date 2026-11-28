@@ -1,6 +1,6 @@
 # What it changes, and removing it
 
-What the factory adds to your repository, your code host, and your board,
+What Lunamill adds to your repository, your code host, and your board,
 and how to undo it. Read this before you set it up, and again if you
 decide to take it out. Each tool's page lists what setup adds there:
 [Claude Code](../integrations/claude-code.md#what-setup-adds) for the
@@ -11,72 +11,72 @@ files in your repository,
 
 ## What it adds
 
-- **In your repository:** its settings file, `.claude/factory.yaml`, and a
+- **In your repository:** its settings file, `.claude/lunamill.yaml`, and a
   lock file beside it; its own skills, agents, and rules, all named
-  `factory-...`; two CI workflow files, `factory.yml` and
-  `factory-review.yml`; one line in your agent's instructions file that
+  `lunamill-...`; two CI workflow files, `lunamill.yml` and
+  `lunamill-review.yml`; one line in your agent's instructions file that
   imports its rules; and, in your agent's settings, a few hooks that guard
   every session and the folder a ticket's other repositories are cloned
   into. Nothing is installed there: no `package.json` entry and
   no `node_modules/`.
-- **On your machine:** the `factory` command, installed once, and the
-  versions of the factory it downloads, in `~/.cache/software-factory/`.
-  In `~/.local/share/software-factory/work/`, the clones of a ticket's other
-  repositories, until `factory workspace N --remove` removes them.
-  In `~/.config/software-factory/`, on your own account, the access
-  token and the coding agent's token that `factory init` also stored in
+- **On your machine:** the `lunamill` command, installed once, and the
+  versions of Lunamill it downloads, in `~/.cache/lunamill/`.
+  In `~/.local/share/lunamill/work/`, the clones of a ticket's other
+  repositories, until `lunamill workspace N --remove` removes them.
+  In `~/.config/lunamill/`, on your own account, the access
+  token and the coding agent's token that `lunamill init` also stored in
   your repository's secrets, and, for any account, the presets you last
   followed ([The file on your machine](../security/credentials.md#the-file-on-your-machine)).
 - **On your code host:** the secrets you create for the parts you turn on;
   the labels and statuses that say who merges a pull request and whether
   the automated review found it ready; comments on the tickets it works;
   the tickets it opened; and, on a public repository, the policy named
-  "Software factory", which lets the factory's workflow run where the code
+  "Lunamill", which lets Lunamill's workflow run where the code
   host needs one ([GitHub](../integrations/github.md#a-public-repository)).
 - **On your code host, once for an organization,** when an owner set it
-  up with `factory init --org`: the organization's App, which its
+  up with `lunamill init --org`: the organization's App, which its
   cloud builds act as; the App's key and the coding agent's token, as
   secrets, and a variable that names the App; a repository named
-  `factory-config`, for the settings its repositories share; a property
-  named `software-factory`, a value the organization keeps for each
+  `lunamill-config`, for the settings its repositories share; a property
+  named `lunamill`, a value the organization keeps for each
   repository; and a rule that requires the review's verdict wherever
   that property is "on".
   [Taking an organization's setup out](#taking-an-organizations-setup-out)
   lists them.
 - **On your board,** if you have one: three fields, Session, Runs in, and
-  Cost, which `factory init` adds when the board lacks
+  Cost, which `lunamill init` adds when the board lacks
   them, and the board's own Status, which
   [the board sync](../features/board.md) sets. `init` adds the
   columns your settings name that the board lacked.
 - **Outside both,** only if you host the poller: the poller, wherever you
-  host it. `factory remove` names it in what is left by hand.
+  host it. `lunamill remove` names it in what is left by hand.
 
 ## On your machine
 
-| What                                                                                                         | Added when                                                                                                                   | To undo                                                                   |
-| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| The `factory` command, and each version it downloads, in `~/.cache/software-factory/`                        | You install it, and a repository names a version                                                                             | `npm uninstall -g @davidbyoung/software-factory`, and delete the folder   |
-| The code host's access token and the coding agent's token, in `~/.config/software-factory/credentials.yaml`  | `init`, on your own account, when you paste them ([Tokens and secrets](../security/credentials.md#the-file-on-your-machine)) | Delete your account's entries from the file, which `factory remove` names |
-| The presets you last followed for each account or organization, in `~/.config/software-factory/presets.yaml` | `init`, when you follow a preset                                                                                             | Delete the file                                                           |
+| What                                                                                                 | Added when                                                                                                                   | To undo                                                                    |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| The `lunamill` command, and each version it downloads, in `~/.cache/lunamill/`                       | You install it, and a repository names a version                                                                             | `npm uninstall -g @lunamill-ai/lunamill`, and delete the folder            |
+| The code host's access token and the coding agent's token, in `~/.config/lunamill/credentials.yaml`  | `init`, on your own account, when you paste them ([Tokens and secrets](../security/credentials.md#the-file-on-your-machine)) | Delete your account's entries from the file, which `lunamill remove` names |
+| The presets you last followed for each account or organization, in `~/.config/lunamill/presets.yaml` | `init`, when you follow a preset                                                                                             | Delete the file                                                            |
 
 ## What it never touches
 
 Your code, your tickets, and your pull requests. Your own skills, agents,
-plugins, and CI workflows, which the factory never writes to.
+plugins, and CI workflows, which Lunamill never writes to.
 
-One file belongs to you, and removing the factory leaves it: the review
+One file belongs to you, and removing Lunamill leaves it: the review
 notes you write for the automated review. The two workflow files are
-the factory's: every sync rewrites them, and removing the factory
+Lunamill's: every sync rewrites them, and removing Lunamill
 deletes them.
 
 ## Removing it
 
 ```bash
-factory remove
+lunamill remove
 ```
 
 It shows every file it will delete or change and asks
-before changing anything. It then deletes the factory's files, takes its
+before changing anything. It then deletes Lunamill's files, takes its
 hooks and its import line out of the files it shares with your coding
 agent, and prints what is left outside the repository for you to remove by
 hand, grouped by the tool it belongs to: secrets, the rule that requires
@@ -87,13 +87,13 @@ In a repository of an organization that is set up, the list starts with
 the one thing only an owner can do:
 
 ```text
-Ask an owner of acme to set the software-factory property to "off" for acme/web: until then every pull request waits on its "Review verdict" check
+Ask an owner of acme to set the Lunamill property to "off" for acme/web: until then every pull request waits on its "Review verdict" check
 ```
 
 It commits nothing. Review the changes, commit them on a branch, and
 merge.
 
-It does not name the "Software factory" policy that `factory init` adds
+It does not name the "Lunamill" policy that `lunamill init` adds
 on a public repository. Delete that one by hand too, from where
 [GitHub's A public repository, under By hand](../integrations/github.md#a-public-repository-1)
 says it is added.
@@ -108,14 +108,14 @@ installed a spec tool with npm, it also leaves that tool's
 `package.json` entry and the `node_modules/` line in your `.gitignore`:
 remove them with npm if nothing else uses them.
 
-The `factory` command stays on your machine, for your other
+The `lunamill` command stays on your machine, for your other
 repositories. If you no longer want it anywhere:
 
 ```bash
-npm uninstall -g @davidbyoung/software-factory
+npm uninstall -g @lunamill-ai/lunamill
 ```
 
-Then delete `~/.cache/software-factory/`, where it kept each version it
+Then delete `~/.cache/lunamill/`, where it kept each version it
 downloaded.
 
 ## Before you remove it
@@ -125,9 +125,9 @@ downloaded.
 - **If you made the review's verdict a required check** on your default
   branch, remove that requirement first, or every pull request waits on it
   forever.
-- **If an owner set your organization up** with `factory init --org`,
+- **If an owner set your organization up** with `lunamill init --org`,
   the organization's rule requires that check, in every repository
-  whose `software-factory` property is "on". Ask an owner to set that
+  whose `lunamill` property is "on". Ask an owner to set that
   property to "off" for your repository first, under the organization's
   Settings, Custom properties.
 - **Deleting a label removes it from every ticket.** Keep the labels if
@@ -138,29 +138,29 @@ downloaded.
 ## Taking an organization's setup out
 
 For an owner of an organization that was set up with
-`factory init --org`. No command does this: each step is by hand, on
+`lunamill init --org`. No command does this: each step is by hand, on
 the code host, in this order.
 
 1. **Delete the rule, then the property.** In the organization's
-   Settings, under Rules, delete the rule "Software factory". Then,
-   under Custom properties, delete the property `software-factory`. With
+   Settings, under Rules, delete the rule "Lunamill". Then,
+   under Custom properties, delete the property `lunamill`. With
    the rule gone, no pull request waits on "Review verdict", so the next
    step's pull requests can merge.
-2. **Take the factory out of each repository.** Run `factory remove`
+2. **Take Lunamill out of each repository.** Run `lunamill remove`
    there, as [Removing it](#removing-it) shows, and merge what it
    changed. Do this before step 4: once the app is gone, a repository
-   that still has the factory's workflows fails its runs.
-3. **Delete the repository `factory-config`.** That stops the
+   that still has Lunamill's workflows fails its runs.
+3. **Delete the repository `lunamill-config`.** That stops the
    organization's one [poller](../features/builds-from-the-board.md#the-poller), which starts
    builds from the board.
 4. **Uninstall the app, then delete it.** Uninstall the app whose name
-   starts "Software Factory for", then delete it, as
+   starts "Lunamill for", then delete it, as
    [By hand on GitHub organizations](../integrations/github-organizations.md#by-hand)
    shows.
 5. **Delete the secrets and the variable.** In the organization's
    Settings, under Secrets and variables, Actions, delete the secrets
-   `FACTORY_APP_PRIVATE_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`, or
-   `ANTHROPIC_API_KEY`, and the variable `FACTORY_APP_CLIENT_ID`. Leave the
+   `LUNAMILL_APP_PRIVATE_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`, or
+   `ANTHROPIC_API_KEY`, and the variable `LUNAMILL_APP_CLIENT_ID`. Leave the
    coding agent's secret if another workflow of yours reads it.
 6. **Keep the board, or delete it,** in the organization's Projects. It
    is an ordinary Project.
@@ -171,10 +171,10 @@ merge with no "Review verdict" check listed as required.
 ## Undoing one part, not all of it
 
 Each optional part can be turned off by itself. Remove its key from
-`.claude/factory.yaml`, then:
+`.claude/lunamill.yaml`, then:
 
 ```bash
-factory sync
+lunamill sync
 ```
 
 That turns the part's job off in the two workflow files. Delete its

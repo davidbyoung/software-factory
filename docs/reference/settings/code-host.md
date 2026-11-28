@@ -15,18 +15,18 @@ code-host:
   [GitHub](../../integrations/github.md), is the only one so far, and it
   is the default.
 - **`branch-name`** is the pattern for the branch's name. It has no
-  default: [`factory init`](../../setup/README.md) asks for it and offers
+  default: [`lunamill init`](../../setup/README.md) asks for it and offers
   `{ticket}`, so ticket 12 is built on a branch named `12`. A
   [preset](presets.md#presets) can set it for every repository that follows it,
-  and in an organization `factory init --org` asks for it once and
+  and in an organization `lunamill init --org` asks for it once and
   writes it in the preset.
 - **`labels`** renames the labels on pull requests: see
   [`code-host.labels`](#code-hostlabels). Most repositories leave it out.
 
-Without `branch-name`, `factory config check` stops:
+Without `branch-name`, `lunamill config check` stops:
 
 ```text
-.claude/factory.yaml: code-host.branch-name: is required. Run factory init to set it, or add it, such as branch-name: "{ticket}"
+.claude/lunamill.yaml: code-host.branch-name: is required. Run lunamill init to set it, or add it, such as branch-name: "{ticket}"
 ```
 
 A pattern uses these placeholders. It must have `{ticket}`; `{user}` is
@@ -45,11 +45,11 @@ the [token the build runs with](../../integrations/github-actions.md#workflows),
 whoever approved the ticket, so with a shared bot account every branch
 built in the cloud carries the bot's name. Where a build acts as an
 organization's App, `{user}` is the App's name as the code host writes it
-in an address, such as `software-factory-for-acme`.
+in an address, such as `lunamill-acme`.
 
 Keep the quotes, as in the examples. YAML reads an unquoted
 `branch-name: {ticket}` as a map rather than as text, and
-`factory config check` stops and says to quote it.
+`lunamill config check` stops and says to quote it.
 
 `{ticket}` gives each ticket its own branch, and the same branch every
 time. So a ticket built a second time, such as a
@@ -60,7 +60,7 @@ that branch's newest pull request:
 - **Merged, with nothing pushed to the branch since:** the build deletes
   the old branch and starts fresh, since its work is already merged.
 - **Open:** the build stops before it starts and names the pull request.
-  Work that one instead, with `/factory-address-review N` for pull
+  Work that one instead, with `/lunamill-address-review N` for pull
   request N.
 - **Anything else:** closed without merging, no pull request at all, or
   merged with commits pushed since. The build stops before it starts, so
@@ -72,21 +72,21 @@ that branch's newest pull request:
 
   A build that stopped partway pushes its branch so its work is kept. To
   keep it, open a pull request from the branch on the code host. Otherwise
-  delete the branch, and build the ticket again with `/factory-build 12`.
+  delete the branch, and build the ticket again with `/lunamill-build 12`.
 
-Once you change the pattern, run `factory config check`, then
-`factory sync` (every setting needs it, as
+Once you change the pattern, run `lunamill config check`, then
+`lunamill sync` (every setting needs it, as
 [How the file works](README.md#how-the-file-works) says), then see what the
 pattern gives one ticket:
 
 ```console
-$ factory config check
+$ lunamill config check
 ✓ The settings are valid.
-$ factory ticket branch 12
+$ lunamill ticket branch 12
 feature/octocat/12
 ```
 
-`factory config check` stops on a placeholder it doesn't know, a pattern
+`lunamill config check` stops on a placeholder it doesn't know, a pattern
 without `{ticket}`, and a pattern git can't use as a branch name. Git
 refuses a name that:
 
@@ -99,10 +99,10 @@ Anything else is fine, `#` and `_` included. The check names the first
 fault it finds:
 
 ```text
-.claude/factory.yaml: code-host.branch-name: feature//{ticket} can't be a git branch name: it has //
+.claude/lunamill.yaml: code-host.branch-name: feature//{ticket} can't be a git branch name: it has //
 ```
 
-Commit `.claude/factory.yaml` and `.claude/factory.lock`. The next build
+Commit `.claude/lunamill.yaml` and `.claude/lunamill.lock`. The next build
 uses the new pattern; branches already pushed keep their names.
 
 ## `code-host.labels`
@@ -134,7 +134,7 @@ code-host:
 - **The override matters only with [`pr-review`](pr-review.md#pr-review) on**, since
   that review gives the verdict, and `policy-override` only with
   [`approval-policies`](approval-policies.md#approval-policies).
-- **You don't create these labels either.** The factory creates each merge
+- **You don't create these labels either.** Lunamill creates each merge
   label the first time it adds it, and `verdict-override` the first time
   it posts "Review verdict" on a pull request, and `policy-override` the
   first time an approval policy waits. Only a person adds either to one.
@@ -147,23 +147,23 @@ code-host:
 The rules under [`tickets.labels`](tickets.md#ticketslabels) hold here too: write
 only the keys you change, give each label its own name, quote a name
 with `: ` in it, and rename the label you have on the code host yourself.
-Do that before the new name merges: after it, the factory creates a label
+Do that before the new name merges: after it, Lunamill creates a label
 of that name, and the code host won't give a second one the same name. Then check
 the file and sync:
 
 ```console
-$ factory config check
+$ lunamill config check
 ✓ The settings are valid.
-$ factory sync
-wrote .claude/factory.lock
-wrote .github/workflows/factory.yml
+$ lunamill sync
+wrote .claude/lunamill.lock
+wrote .github/workflows/lunamill.yml
 ```
 
 The second `wrote` line appears only when you rename `verdict-override`:
 that workflow file names the label, so the sync rewrites it.
-Commit `.claude/factory.yaml`, the lock, and any workflow `factory sync`
+Commit `.claude/lunamill.yaml`, the lock, and any workflow `lunamill sync`
 wrote, and merge them.
 
-**It worked when** `factory config explain` shows your names under
+**It worked when** `lunamill config explain` shows your names under
 `code-host.labels`, without `# default` after them, and once merged, the
 next pull request the merge policy labels gets your name.

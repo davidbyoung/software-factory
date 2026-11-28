@@ -1,4 +1,4 @@
-// The labels the factory adds to tickets and pull requests. Each has a key,
+// The labels lunamill adds to tickets and pull requests. Each has a key,
 // which the skills, rules, and commands use, and a name, which the ticket
 // system or code host shows: the key unless `tickets.labels` or
 // `code-host.labels` sets another. It imports nothing that imports the
@@ -7,7 +7,7 @@
 /** The labels on tickets, each key with its default name. */
 export const TICKET_LABELS = {
   spec: "spec",
-  factory: "factory",
+  lunamill: "lunamill",
 } as const;
 
 /** The labels on pull requests, each key with its default name. */

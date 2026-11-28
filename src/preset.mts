@@ -1,8 +1,8 @@
 // Presets: folders of settings, agents, and skills, each in a repository
-// on the code host, that several repositories share. `.claude/factory.yaml`
+// on the code host, that several repositories share. `.claude/lunamill.yaml`
 // names them under `presets`, and the lock pins each to one commit, with
-// its settings and a hash of each file it ships. `factory sync` combines
-// the factory's defaults, each preset in the order listed, and the
+// its settings and a hash of each file it ships. `lunamill sync` combines
+// Lunamill's defaults, each preset in the order listed, and the
 // repository's own settings into the lock, with where each value came
 // from. Every other command reads the lock.
 import { createHash } from "node:crypto";
@@ -11,7 +11,7 @@ import { join, relative, sep } from "node:path";
 import { DEFAULT_CODE_HOST } from "./code-host/index.mts";
 import {
   DEFAULT_RELOCK,
-  FACTORY_POLICY,
+  LUNAMILL_POLICY,
   parseSettings,
   readYaml,
   ROLE_SHAPE,
@@ -25,12 +25,12 @@ import {
 import { BUILT } from "./tool-names.mts";
 import { NPMRC, refusal } from "./npmrc.mts";
 
-export const PRESET_FILE = "factory-preset.yaml";
-export const CHOICES_FILE = ".claude/factory.choices.yaml";
-export const LOCK_FILE = ".claude/factory.lock";
+export const PRESET_FILE = "lunamill-preset.yaml";
+export const CHOICES_FILE = ".claude/lunamill.choices.yaml";
+export const LOCK_FILE = ".claude/lunamill.lock";
 /** The layer name of the repository's own settings. */
 export const OWN = SETTINGS_FILE;
-export const SYNC = "factory sync";
+export const SYNC = "lunamill sync";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
@@ -52,7 +52,7 @@ export function stable(v: unknown): string {
 
 export class PresetError extends Error {}
 
-/** A name that is no preset's, which `factory sync` prints with its mark. */
+/** A name that is no preset's, which `lunamill sync` prints with its mark. */
 export class PresetNameError extends PresetError {}
 
 const SEGMENT = /^(?!\.{1,2}$)[\w.-]+$/;
@@ -63,7 +63,7 @@ const SEGMENT = /^(?!\.{1,2}$)[\w.-]+$/;
 export function parseName(name: string): { repo: string; folder: string } {
   if (name.startsWith("@"))
     throw new PresetNameError(
-      `presets: ${JSON.stringify(name)} is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.`,
+      `presets: ${JSON.stringify(name)} is an npm package, and a preset now comes from a repository. Name the repository, such as acme/lunamill-config.`,
     );
   const at = name.indexOf("//");
   const repo = at < 0 ? name : name.slice(0, at);
@@ -236,7 +236,7 @@ export type PresetFault = {
 
 /** Everything wrong with a preset's settings by themselves: what only a
  * preset is refused for, then the first fault of the rules it shares with
- * `.claude/factory.yaml`. */
+ * `.claude/lunamill.yaml`. */
 export function presetFaults(raw: unknown): PresetFault[] {
   const faults: PresetFault[] = [];
   if (!isObj(raw)) return sharedFault(raw);
@@ -266,7 +266,7 @@ export function presetFaults(raw: unknown): PresetFault[] {
       list.forEach((item, i) => {
         if (!isObj(item) || !("off" in item)) return;
         faults.push({
-          text: `${path}[${i}]: off: only .claude/factory.yaml can leave a plugin out`,
+          text: `${path}[${i}]: off: only .claude/lunamill.yaml can leave a plugin out`,
           kind: "off",
         });
         item.off = true;
@@ -291,7 +291,7 @@ export function parsePreset(
 /** The faults of a preset as the lock pins it, which leaves its version
  * out. */
 export const pinnedFaults = (pin: Pick<Pinned, "settings">) =>
-  presetFaults({ version: 2, ...pin.settings });
+  presetFaults({ version: 1, ...pin.settings });
 
 /** The first fault of the rules a preset shares with the repository's own
  * file, or none. The agents and skills it names may be a repository's. */
@@ -321,7 +321,7 @@ function get(raw: unknown, path: string): unknown {
 
 // ---------------------------------------------------------------- Combining
 
-/** One layer's settings: a preset's, or `.claude/factory.yaml`'s. */
+/** One layer's settings: a preset's, or `.claude/lunamill.yaml`'s. */
 /** One layer of the settings: a preset, or the repository's own. A preset
  * for some folders has them, and its place in `presets`. */
 export type Layer = {
@@ -408,7 +408,7 @@ type Entry = { layer: string; value: unknown };
 export type Combine = {
   layers: Layer[];
   choices: Record<string, string>;
-  /** Whether a path is one of the factory's own files. */
+  /** Whether a path is one of Lunamill's own files. */
   factoryFile?: (path: string) => boolean;
   /** Whether a path is a file the repository wrote itself. */
   ownFile?: (path: string) => boolean;
@@ -418,7 +418,7 @@ export type Combine = {
 };
 
 /** The layers combined, the later over the earlier, with
- * `.claude/factory.yaml` last. */
+ * `.claude/lunamill.yaml` last. */
 export function combine(c: Combine): Resolution {
   const r: Resolution = {
     raw: {},
@@ -585,7 +585,7 @@ export function combine(c: Combine): Resolution {
         isObj(own.value) &&
         own.value.off === true &&
         group.length === 1 &&
-        !(NAMED.has(path) && name === FACTORY_POLICY.name)
+        !(NAMED.has(path) && name === LUNAMILL_POLICY.name)
       )
         throw new PresetError(`${path}: ${name}: off, but no preset names it`);
       out.push(single(`${path}.${name}`, group).value);
@@ -604,7 +604,7 @@ export function combine(c: Combine): Resolution {
   for (const l of c.layers)
     if (l.folders) addForFolders(r, l, l.folders, forFolders);
 
-  // The files the presets ship: the factory's own and the repository's own
+  // The files the presets ship: Lunamill's own and the repository's own
   // stay, and two presets' files are chosen as a single value is. A file
   // is shown as its path in its preset's repository.
   const byPath = new Map<string, Entry[]>();
@@ -617,7 +617,7 @@ export function combine(c: Combine): Resolution {
   for (const [to, es] of byPath) {
     const last = es.at(-1)!.layer;
     if (c.factoryFile?.(to)) {
-      r.kept.push(`kept ${to}, the factory's own, over ${last}`);
+      r.kept.push(`kept ${to}, Lunamill's own, over ${last}`);
       continue;
     }
     if (c.ownFile?.(to)) {
@@ -749,10 +749,10 @@ function addForFolders(
         const inPhase: Obj = isObj(plugins[phase]) ? plugins[phase] : {};
         plugins[phase] = inPhase;
         // Only the repository's own list of test reviewers replaces the
-        // factory's.
+        // lunamill's.
         const list = (
           path === "plugins.test.reviewers" && inPhase[key] === undefined
-            ? [{ agent: "factory-test-reviewer" }]
+            ? [{ agent: "lunamill-test-reviewer" }]
             : asList(inPhase[key])
         ) as Obj[];
         for (const item of asList(value)) {
@@ -778,8 +778,8 @@ function addForFolders(
     }
 }
 
-/** The mark `factory config explain` gives a value from `source`, or null
- * for none: a value only `.claude/factory.yaml` sets has none. */
+/** The mark `lunamill config explain` gives a value from `source`, or null
+ * for none: a value only `.claude/lunamill.yaml` sets has none. */
 export function markText(source: Source | undefined): string | null {
   if (!source) return "default";
   if (source.from === "") return null;
@@ -794,9 +794,9 @@ export function markText(source: Source | undefined): string | null {
 // ---------------------------------------------------------------- Choices
 
 export const CHOICES_HEADER = [
-  "# Written by `factory preset add`, `remove`, and `choices`: which preset",
+  "# Written by `lunamill preset add`, `remove`, and `choices`: which preset",
   "# wins where two presets set the same thing. Change it with",
-  "# `factory preset choices`.",
+  "# `lunamill preset choices`.",
 ];
 
 /** The choices file's text, or null when it holds no choice. */
@@ -840,7 +840,7 @@ export function settingsHash(own: string | null, choices: string | null) {
 
 export const staleMessages = {
   missing: `${LOCK_FILE} is missing. Run: ${SYNC}`,
-  earlier: `${LOCK_FILE} is from an earlier version of the factory. Run: ${SYNC}`,
+  earlier: `${LOCK_FILE} is from an earlier version of Lunamill. Run: ${SYNC}`,
   changed: (file: string) =>
     `${file} changed since the last sync. Run: ${SYNC}`,
   unreadable: `${LOCK_FILE} can't be read. Run: ${SYNC}`,
@@ -910,7 +910,7 @@ function firstSides(text: string): string {
     .join("\n");
 }
 
-/** The version of the factory a lock names, or null when it names none. */
+/** The version of lunamill a lock names, or null when it names none. */
 export const lockedVersion = (lock: string | null): string | null =>
   /^version: *(\S+) *$/m.exec(lock ?? "")?.[1] ?? null;
 
@@ -986,7 +986,7 @@ export function pinLines(
 }
 
 /** A lock's text with `pins` as the presets it pins and everything else
- * as it was, for `factory sync` to bring the rest in step with. */
+ * as it was, for `lunamill sync` to bring the rest in step with. */
 export function withPins(
   text: string | null,
   pins: Pinned[],

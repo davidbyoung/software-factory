@@ -1,6 +1,6 @@
 // Reading a preset's repository with git: the newest commit of its default
 // branch, and one commit downloaded into the cache on the machine. Only
-// `factory preset add`, `factory update`, the check of a pull request that
+// `lunamill preset add`, `lunamill update`, the check of a pull request that
 // moves a pin, and a sync that has to restore a copy come here. Every other
 // command reads the lock and the copies in the repository.
 import { execFileSync, spawnSync } from "node:child_process";
@@ -102,13 +102,13 @@ export class FetchError extends Error {}
 export const sameOwner = (repo: string, repository: string) =>
   repo.split("/")[0]!.toLowerCase() === repository.split("/")[0]!.toLowerCase();
 
-/** Why `repo` could not be read, as `factory update` says it mid-sentence. */
+/** Why `repo` could not be read, as `lunamill update` says it mid-sentence. */
 export const whyUnread = (e: unknown, repo: string, repository: string) =>
   sameOwner(repo, repository)
     ? (e instanceof Error ? e.message : String(e)).replace(/\.+$/, "")
     : "not found, or private";
 
-const TOKEN = "FACTORY_PRESET_TOKEN";
+const TOKEN = "LUNAMILL_PRESET_TOKEN";
 
 /** The environment git reads a preset's repository with. One of the same
  * owner is read with `GH_TOKEN` or `GITHUB_TOKEN` as the password, as a run
@@ -292,7 +292,7 @@ export function shippedText(
   }
 }
 
-/** Whether a preset's own files, its `factory-preset.yaml` and everything
+/** Whether a preset's own files, its `lunamill-preset.yaml` and everything
  * under the `agents/` and `skills/` beside it, differ between two commits
  * of its repository. Both are downloaded when the cache lacks them. */
 export function presetDiffers(
@@ -328,9 +328,9 @@ export function pinFaults(
       return same(was, pin)
         ? []
         : [
-            `${LOCK_FILE}: the settings or files recorded for ${pin.name} changed, and its commit did not. Restore the lock from the default branch, then run: factory sync`,
+            `${LOCK_FILE}: the settings or files recorded for ${pin.name} changed, and its commit did not. Restore the lock from the default branch, then run: lunamill sync`,
           ];
-    const differs = `${LOCK_FILE}: ${pin.name} at ${short(pin.commit)} does not match what that commit holds. Run: factory update`;
+    const differs = `${LOCK_FILE}: ${pin.name} at ${short(pin.commit)} does not match what that commit holds. Run: lunamill update`;
     try {
       const held = pinAt(d, pin.name, pin.commit, load, { valid: false });
       return same(held, pin) ? [] : [differs];
@@ -367,7 +367,7 @@ export function fileAt(root: string, ref: string, path: string) {
  * `root` to its commit, with its settings and hashes as that commit holds
  * them, adding the pin when the lock has none for it. Nothing is written
  * when one of them can't be pinned. The lock's other parts stay as they
- * were until the next `factory sync`. */
+ * were until the next `lunamill sync`. */
 export async function movePins(
   root: string,
   moves: PinMove[],

@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 // A pull request's fixed steps, through GitHub's GraphQL and REST APIs.
 //
-//   factory pr state [N] [--wait]   # what factory-address-review steps 0 to 1b read
-//   factory pr threads N [--all]    # unresolved review threads, or every one
-//   factory pr reply N COMMENT_ID --body-file FILE
-//   factory pr resolve N COMMENT_ID
-//   factory pr ready N              # refuses an unverified commit when git signs
-//   factory pr closes N             # the tickets the pull request closes, by key
-//   factory pr cost N               # notes this session's cost on the pull request
-//   factory pr wait-checks N        # every check on HEAD
-//   factory pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
-//   factory pr conflicts            # the pull requests the conflict sweep takes
-//   factory pr open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft]
-//   factory pr view N --field FIELD # one field of a pull request
-//   factory pr review N REVIEW      # a review's author, body, and line comments
-//   factory pr comments N [--from-approvers]  # conversation comments, or only an approver's
-//   factory pr unverified N         # the commits not shown as signed
-//   factory pr failed N             # each failed job's log, and a failed check's own report
-//   factory pr review-again N       # a fresh review of the same commit
-//   factory pr push                 # this branch, or its commits handed over
-//   factory pr pull                 # the remote's commits on this branch
+//   lunamill pr state [N] [--wait]   # what lunamill-address-review steps 0 to 1b read
+//   lunamill pr threads N [--all]    # unresolved review threads, or every one
+//   lunamill pr reply N COMMENT_ID --body-file FILE
+//   lunamill pr resolve N COMMENT_ID
+//   lunamill pr ready N              # refuses an unverified commit when git signs
+//   lunamill pr closes N             # the tickets the pull request closes, by key
+//   lunamill pr cost N               # notes this session's cost on the pull request
+//   lunamill pr wait-checks N        # every check on HEAD
+//   lunamill pr review-pending N REVIEW  # exits 0 when an approver's review needs an answer
+//   lunamill pr conflicts            # the pull requests the conflict sweep takes
+//   lunamill pr open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft]
+//   lunamill pr view N --field FIELD # one field of a pull request
+//   lunamill pr review N REVIEW      # a review's author, body, and line comments
+//   lunamill pr comments N [--from-approvers]  # conversation comments, or only an approver's
+//   lunamill pr unverified N         # the commits not shown as signed
+//   lunamill pr failed N             # each failed job's log, and a failed check's own report
+//   lunamill pr review-again N       # a fresh review of the same commit
+//   lunamill pr push                 # this branch, or its commits handed over
+//   lunamill pr pull                 # the remote's commits on this branch
 //
 // COMMENT_ID is a thread's first comment, as `threads` prints it. A failed
 // read exits 1 with the error; `review-pending` and `conflicts`, which a
@@ -55,7 +55,7 @@ import { takeCost, type CostDeps } from "./ticket.mts";
 import * as say from "./lib/output.mts";
 
 export type Deps = {
-  /** The repository, as owner/name, from the factory's settings. */
+  /** The repository, as owner/name, from Lunamill's settings. */
   repository: string;
   codeHost: CodeHost;
   runner: Runner;
@@ -76,14 +76,14 @@ export type Deps = {
   tickets?: () => Promise<{ tickets: Tickets; own: boolean }>;
   /** The session's cost clock, for `cost`. */
   cost?: CostDeps;
-  /** The name of each label the factory puts on pull requests, for
+  /** The name of each label lunamill puts on pull requests, for
    * `label`; the defaults without it. */
   labels?: () => Promise<Labels["codeHost"]>;
   /** Whether the settings have the automated review on; on without it. */
   reviewOn?: () => Promise<boolean>;
 };
 
-/** The tickets a pull request builds, as the factory counts them. */
+/** The tickets a pull request builds, as lunamill counts them. */
 export async function pullTickets(d: Deps, pr: number) {
   if (!d.tickets) throw new Error("No ticket system to read links with.");
   const { tickets, own } = await d.tickets();
@@ -276,7 +276,7 @@ const POLL_MS = 30_000;
  * repository runs no CI on this commit. */
 export const NO_CHECKS_MS = 120_000;
 
-/** The events whose runs `wait-checks` waits on. The factory's own
+/** The events whose runs `wait-checks` waits on. Lunamill's own
  * workflows start on pull_request_target and workflow_run, and a failed
  * board sync should not stop a pull request being marked ready. */
 const WAITED_EVENTS = ["pull_request", "push"];
@@ -346,7 +346,7 @@ const FIELDS: Record<string, (pull: Pull) => string> = {
 /** How many lines of a failed job's log `failed` prints, from its end. */
 const LOG_TAIL = 200;
 
-const USAGE = `Usage: factory pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
+const USAGE = `Usage: lunamill pr state [N] [--wait] | threads N [--all] | reply N COMMENT_ID --body-file FILE | resolve N COMMENT_ID | ready N | closes N | cost N | for-branch BRANCH | wait-checks N | comments N [--author LOGIN] [--contains TEXT] [--from-approvers] [--json] | comment N --body-file FILE | comment-view ID | label N --add LABEL | --remove LABEL | review-pending N REVIEW | conflicts | open --title TITLE --body-file FILE [--base BRANCH] [--ready|--draft] | view N --field ${Object.keys(FIELDS).join("|")} | review N REVIEW | unverified N | uncovered [BASE] [LCOV] | failed N | review-again N`;
 
 function option(args: string[], name: string): string | undefined {
   const at = args.indexOf(name);
@@ -382,8 +382,8 @@ function gitSigns(d: Deps): boolean {
 }
 
 /** Whether an approver's review has something in it to work, and if not,
- * why: "closed", "not an approver's", or "the factory's own reply". An
- * empty body counts for nothing, since the factory's reply is a review with
+ * why: "closed", "not an approver's", or "Lunamill's own reply". An
+ * empty body counts for nothing, since Lunamill's reply is a review with
  * an empty body and one comment carrying the marker. */
 export async function reviewPending(
   p: CodeHost,
@@ -408,7 +408,7 @@ export async function reviewPending(
     return { pending: true };
   return {
     pending: false,
-    why: `review ${reviewId} is the factory's own reply: nothing of an approver's in it`,
+    why: `review ${reviewId} is Lunamill's own reply: nothing of an approver's in it`,
   };
 }
 
@@ -825,7 +825,7 @@ export async function main(argv: string[], d: Deps): Promise<number> {
   }
 }
 
-/** `factory pr ...`. */
+/** `lunamill pr ...`. */
 export async function run(argv: string[]): Promise<number> {
   const { repository, codeHost, runner } = await reachOf(process.env);
   return main(argv, prDeps(repository, codeHost, runner));

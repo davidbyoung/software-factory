@@ -1,12 +1,12 @@
 name: Change
-description: A new feature, or a change to how the factory works.
+description: A new feature, or a change to how lunamill works.
 labels: [enhancement]
 body:
   - type: textarea
     id: change
     attributes:
       label: What and why
-      description: The change, and the problem it solves for someone using the factory or setting it up.
+      description: The change, and the problem it solves for someone using lunamill or setting it up.
     validations:
       required: true
   - type: textarea
@@ -15,11 +15,11 @@ body:
       label: Done when
       description: >-
         What you will see once it is finished: a command's output, a setting,
-        or what the factory writes into a repository. This is how the change
+        or what lunamill writes into a repository. This is how the change
         will be judged done.
       placeholder: |
-        - factory init asks which model the CI review uses
-        - A repository set up with init has FACTORY_BUILD_MODEL set
+        - lunamill init asks which model the CI review uses
+        - A repository set up with init has LUNAMILL_BUILD_MODEL set
     validations:
       required: true
   - type: input

@@ -1,4 +1,4 @@
-// The factory's registry with each built tool opening an in-memory fake, so
+// lunamill's registry with each built tool opening an in-memory fake, so
 // `init`, `doctor`, and `remove` run their real setups with no network. A
 // test adds a tool of its own by spreading the result.
 import { claudeCodeSetupWith, type Spawn } from "../src/agent/claude-code.mts";

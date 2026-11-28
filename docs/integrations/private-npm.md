@@ -1,11 +1,11 @@
 # Private npm registries
 
 For a repository whose own dependencies include a package from a private
-registry, such as your company's own packages. At the end, the factory's
+registry, such as your company's own packages. At the end, Lunamill's
 jobs that install your dependencies install it as your machine does, and
 Dependabot offers its new versions.
 
-## What the factory uses it for
+## What Lunamill uses it for
 
 The jobs that install your repository's dependencies, with `npm ci`, sign
 in to your registry with a token you store, and Dependabot reads the
@@ -14,8 +14,7 @@ registry for your packages' new versions.
 ### Private npm packages
 
 This page is for your repository's own private packages, the ones its
-`package-lock.json` installs from a registry that needs a token. The
-factory itself needs none of it. It comes from the public npm
+`package-lock.json` installs from a registry that needs a token. Lunamill itself needs none of it. It comes from the public npm
 registry, onto each machine and each job, and a
 [preset](../customize/presets.md#who-can-read-a-preset) comes from a repository on
 your code host, read with the access you already have. A repository with
@@ -42,7 +41,7 @@ one that reads the token from an environment variable:
 ```
 
 Your registry's documentation gives both lines with its own address. The
-variable can have any name; the factory stores the token as a secret of
+variable can have any name; Lunamill stores the token as a secret of
 the same name, so wherever this page says `NPM_TOKEN`, use yours. On
 your machine, set the variable in your shell's profile, such as
 `export NPM_TOKEN=...`. If the token line is only in your own
@@ -75,14 +74,14 @@ works, and it reads tickets and pull requests that anyone with access to the
 repository can write, so a read-only token is all that text could ever lead
 one to give away.
 
-### 3. Store it with `factory init`
+### 3. Store it with `lunamill init`
 
 ```bash
-factory init
+lunamill init
 ```
 
 Under "Found", `init` lists `.npmrc` and the variable it reads. Then it
-asks you to paste the token, rewrites the factory's two workflow files
+asks you to paste the token, rewrites Lunamill's two workflow files
 under `.github/workflows/` to pass the secret to the jobs that install,
 and stores it twice: as an
 Actions secret, and as a Dependabot secret, since a workflow that
@@ -124,7 +123,7 @@ updates:
 
 ### 5. Check it, and merge
 
-Run `factory doctor`. **It worked when** it shows:
+Run `lunamill doctor`. **It worked when** it shows:
 
 ```text
 ✓ NPM_TOKEN is set, for installing what .npmrc names
@@ -141,7 +140,7 @@ organization admin can see. It fails nothing.
 branch of the pull request it opened. Commit `.npmrc` on that branch. A
 session in the cloud installs the packages itself, so also list your
 registry's host there, under [`builds.hosts`](../reference/settings/builds.md#builds)
-in `.claude/factory.yaml`, and run `factory sync`:
+in `.claude/lunamill.yaml`, and run `lunamill sync`:
 
 ```yaml
 builds:
@@ -159,8 +158,8 @@ repository's dependencies" step passes once the job can sign in.
 ## What setup adds
 
 The token, stored twice, as an Actions secret and a Dependabot secret, and
-the factory's two workflow files rewritten to pass it to the jobs that
-install ([3. Store it with `factory init`](#3-store-it-with-factory-init)).
+Lunamill's two workflow files rewritten to pass it to the jobs that
+install ([3. Store it with `lunamill init`](#3-store-it-with-lunamill-init)).
 
 ## Tokens and secrets
 
@@ -175,15 +174,15 @@ gh secret set NPM_TOKEN
 gh secret set NPM_TOKEN --app dependabot
 ```
 
-or run `factory init` and answer yes when it asks to replace the secrets
+or run `lunamill init` and answer yes when it asks to replace the secrets
 already set. An organization admin runs the two commands in step 3
 again instead.
 
-If you rename the variable in `.npmrc`, the factory's commands stop and
-say to run `factory sync`, which rewrites the two workflow files for the
+If you rename the variable in `.npmrc`, Lunamill's commands stop and
+say to run `lunamill sync`, which rewrites the two workflow files for the
 new name.
 
-## What the factory can and cannot do there
+## What Lunamill can and cannot do there
 
 It installs your packages, and nothing more: the token can only read.
 
@@ -202,12 +201,12 @@ It installs your packages, and nothing more: the token can only read.
 A job that fails at `npm ci` with a 401: the token expired
 ([Replacing the token](#replacing-the-token)). An `.npmrc` that `init`
 does not list under "Found" has no token line
-([3. Store it with `factory init`](#3-store-it-with-factory-init)).
+([3. Store it with `lunamill init`](#3-store-it-with-lunamill-init)).
 
 ## By hand
 
 Steps 1, 2, 4, and 5 under [Set it up](#set-it-up) are yours already.
 Step 3 is `init`'s: to take it yourself, run the two `gh secret set`
 commands under [Replacing the token](#replacing-the-token), then
-`factory sync`, which rewrites the two workflow files for the variable
+`lunamill sync`, which rewrites the two workflow files for the variable
 your `.npmrc` reads.

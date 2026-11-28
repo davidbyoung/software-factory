@@ -1,14 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Settings for the software factory",
-  "description": "The settings file, .claude/factory.yaml. An editor's help: `factory config check` is the check that counts.",
+  "title": "Settings for Lunamill",
+  "description": "The settings file, .claude/lunamill.yaml. An editor's help: `lunamill config check` is the check that counts.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "repository"],
   "properties": {
     "version": {
-      "const": 2,
-      "description": "The shape of this file, not the factory's version. Must be 2."
+      "const": 1,
+      "description": "The shape of this file, not Lunamill's version. Must be 1."
     },
     "repository": {
       "type": "string",
@@ -29,7 +29,7 @@
           }
         ]
       },
-      "description": "The presets this repository follows, each a repository on its code host written OWNER/NAME, or a folder of one written OWNER/NAME//FOLDER, holding a factory-preset.yaml. Later ones win over earlier ones, and this file wins over them all."
+      "description": "The presets this repository follows, each a repository on its code host written OWNER/NAME, or a folder of one written OWNER/NAME//FOLDER, holding a lunamill-preset.yaml. Later ones win over earlier ones, and this file wins over them all."
     },
     "tickets": {
       "description": "Where tickets live and how their state is shown.",
@@ -81,7 +81,7 @@
       "description": "The automated review of every pull request: on with true."
     },
     "site": {
-      "description": "How the factory looks at your website, or a list of sites, one for each web app, each with in.",
+      "description": "How Lunamill looks at your website, or a list of sites, one for each web app, each with in.",
       "anyOf": [
         {
           "$ref": "#/definitions/site"
@@ -144,7 +144,7 @@
     },
     "tickets.labels": {
       "type": "object",
-      "description": "Your own names for the labels the factory puts on tickets. A key left out keeps its default name.",
+      "description": "Your own names for the labels Lunamill puts on tickets. A key left out keeps its default name.",
       "additionalProperties": false,
       "properties": {
         "spec": {
@@ -152,10 +152,10 @@
           "minLength": 1,
           "description": "The label on a change your users will see, which refinement writes a Spec into. Default: spec."
         },
-        "factory": {
+        "lunamill": {
           "type": "string",
           "minLength": 1,
-          "description": "The label on every ticket the factory works on: it acts on no other. Default: factory."
+          "description": "The label on every ticket Lunamill works on: it acts on no other. Default: Lunamill."
         }
       }
     },
@@ -258,7 +258,7 @@
     },
     "tickets.fields": {
       "type": "object",
-      "description": "Which of your fields holds each of the factory's fields: on the board, session, runs-in, and cost, which need a board; on the ticket, decisions, spec, acceptance-criteria, for-the-builder, repositories, and any heading of your own.",
+      "description": "Which of your fields holds each of Lunamill's fields: on the board, session, runs-in, and cost, which need a board; on the ticket, decisions, spec, acceptance-criteria, for-the-builder, repositories, and any heading of your own.",
       "additionalProperties": false,
       "properties": {
         "session": {
@@ -322,7 +322,7 @@
         "branch-name": {
           "type": "string",
           "minLength": 1,
-          "description": "The pattern a build names its branch by: {ticket}, the ticket's number, which it must have, and {user}, the code host account the build runs as. Quote it, as \"{ticket}\" or \"feature/{user}/{ticket}\". No default: factory init asks for it."
+          "description": "The pattern a build names its branch by: {ticket}, the ticket's number, which it must have, and {user}, the code host account the build runs as. Quote it, as \"{ticket}\" or \"feature/{user}/{ticket}\". No default: lunamill init asks for it."
         },
         "labels": {
           "$ref": "#/definitions/code-host.labels"
@@ -661,7 +661,7 @@
         },
         "reviewers": {
           "type": "array",
-          "description": "The whole list of agents that read a change's tests. Default: factory-test-reviewer alone.",
+          "description": "The whole list of agents that read a change's tests. Default: lunamill-test-reviewer alone.",
           "items": {
             "$ref": "#/definitions/plugins.test.reviewers[]"
           }
@@ -684,7 +684,7 @@
     },
     "plugins.refine.refiner": {
       "type": "object",
-      "description": "The skill that refines a ticket, in place of factory-refine.",
+      "description": "The skill that refines a ticket, in place of lunamill-refine.",
       "additionalProperties": false,
       "properties": {
         "skill": {
@@ -778,7 +778,7 @@
     },
     "plugins.test.prover": {
       "type": "object",
-      "description": "The skill that proves a new test can fail, in place of factory-mutate.",
+      "description": "The skill that proves a new test can fail, in place of lunamill-mutate.",
       "additionalProperties": false,
       "properties": {
         "skill": {
@@ -882,7 +882,7 @@
     },
     "site": {
       "type": "object",
-      "description": "How the factory looks at your website.",
+      "description": "How Lunamill looks at your website.",
       "additionalProperties": false,
       "properties": {
         "in": {

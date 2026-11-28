@@ -1,4 +1,4 @@
-// Presets combined with the factory's defaults and the repository's own
+// Presets combined with lunamill's defaults and the repository's own
 // settings, the refusals, explain's marks, and reading the settings from
 // the lock.
 import { rmSync } from "node:fs";
@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   defaultDeps,
-  FACTORY_POLICY,
+  LUNAMILL_POLICY,
   loadSettings,
   main as config,
   pluginsOf,
@@ -48,7 +48,7 @@ const acme = (presets = [ACME, NODE], body: string[] = []) => {
   return root;
 };
 
-/** What `factory config explain` prints, read from the files. */
+/** What `lunamill config explain` prints, read from the files. */
 const explain = async () => {
   const r = deps(root);
   const code = await config(["explain"], r.d);
@@ -59,7 +59,7 @@ const lineOf = (lines: string[], start: string) =>
   lines.find((l) => l.trimStart().startsWith(start))?.trim();
 
 describe("combining presets", () => {
-  it("applies the defaults, then each preset in the order listed, then .claude/factory.yaml", async () => {
+  it("applies the defaults, then each preset in the order listed, then .claude/lunamill.yaml", async () => {
     acme([ACME, NODE], ["rules:", "  review-rounds: 5"]);
     const { settings } = await resolveAt(root);
     expect(settings.rules.smallChangeLines).toBe(30);
@@ -72,17 +72,17 @@ describe("combining presets", () => {
     expect((await resolveAt(root)).settings.rules.smallChangeLines).toBe(30);
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: "${ACME}"\n`,
     );
     expect((await resolveAt(root)).settings.rules.smallChangeLines).toBe(40);
   });
 
-  it("takes .claude/factory.yaml's value over every preset's, whatever is chosen", async () => {
+  it("takes .claude/lunamill.yaml's value over every preset's, whatever is chosen", async () => {
     acme([ACME, NODE], ["rules:", "  small-change-lines: 50"]);
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: "${ACME}"\n`,
     );
     expect((await resolveAt(root)).settings.rules.smallChangeLines).toBe(50);
@@ -92,14 +92,14 @@ describe("combining presets", () => {
     acme();
     install(root, "acme/more", {
       "": {
-        settings: "version: 2\ncommands:\n  gate: [npm run lint, npm test]\n",
+        settings: "version: 1\ncommands:\n  gate: [npm run lint, npm test]\n",
       },
     });
-    put(root, ".claude/factory.yaml", own([NODE, "acme/more"]));
+    put(root, ".claude/lunamill.yaml", own([NODE, "acme/more"]));
     expect(
       (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
     ).toEqual(["npm run lint", "npm test"]);
-    put(root, ".claude/factory.choices.yaml", `commands.gate: "${NODE}"\n`);
+    put(root, ".claude/lunamill.choices.yaml", `commands.gate: "${NODE}"\n`);
     expect(
       (await resolveAt(root)).settings.commands.gate.map((c) => c.run),
     ).toEqual(["npm test"]);
@@ -129,7 +129,7 @@ describe("combining presets", () => {
     ]);
   });
 
-  it("leaves out a plugin .claude/factory.yaml marks off, so factory plugins does not list it", async () => {
+  it("leaves out a plugin .claude/lunamill.yaml marks off, so lunamill plugins does not list it", async () => {
     acme(
       [ACME, NODE],
       [
@@ -161,7 +161,7 @@ describe("combining presets", () => {
     install(root, ACME, {
       "": {
         settings:
-          "version: 2\nplugins:\n  test:\n    reviewers:\n      - agent: acme-tester\n",
+          "version: 1\nplugins:\n  test:\n    reviewers:\n      - agent: acme-tester\n",
         agents: { "acme-tester": "t\n" },
       },
     });
@@ -197,7 +197,7 @@ describe("combining presets", () => {
     );
     installAcme(
       root,
-      "version: 2\nbuilds:\n  hosts: [acme.example, shared.example]\n",
+      "version: 1\nbuilds:\n  hosts: [acme.example, shared.example]\n",
     );
     expect((await resolveAt(root)).settings.builds.hosts).toEqual([
       "acme.example",
@@ -211,7 +211,7 @@ describe("combining presets", () => {
     install(root, ACME, {
       "": {
         settings:
-          "version: 2\nspecs:\n  type: openspec\n  check: openspec validate\n",
+          "version: 1\nspecs:\n  type: openspec\n  check: openspec validate\n",
       },
     });
     const { settings } = await resolveAt(root);
@@ -223,8 +223,8 @@ describe("combining presets", () => {
     root = repo(own([ACME, NODE], ["session-minutes:", "  conflicts: 70"]));
     installAcme(
       root,
-      "version: 2\nsession-minutes:\n  build: 100\n  review: 20\n",
-      "version: 2\nsession-minutes:\n  review: 30\n",
+      "version: 1\nsession-minutes:\n  build: 100\n  review: 20\n",
+      "version: 1\nsession-minutes:\n  review: 30\n",
     );
     expect((await resolveAt(root)).settings.sessionMinutes).toEqual({
       build: 100,
@@ -239,11 +239,11 @@ describe("the agents and skills presets ship", () => {
   const two = () => {
     root = repo(own([ACME, "other/preset"]));
     install(root, ACME, {
-      "": { settings: "version: 2\n", agents: { shared: "acme\n" } },
+      "": { settings: "version: 1\n", agents: { shared: "acme\n" } },
     });
     install(root, "other/preset", {
       "": {
-        settings: "version: 2\n",
+        settings: "version: 1\n",
         agents: { shared: "other\n" },
         skills: { tidy: "tidy\n" },
       },
@@ -259,7 +259,7 @@ describe("the agents and skills presets ship", () => {
     );
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `.claude/agents/shared.md: "${ACME}"\n`,
     );
     files = (await resolveAt(root)).resolution.files;
@@ -276,10 +276,18 @@ describe("the agents and skills presets ship", () => {
 
 describe("a name under presets", () => {
   it.each([
-    ["acme/factory-config", "acme/factory-config", ""],
-    ["acme/factory-config//node", "acme/factory-config", "node"],
-    ["acme/factory-config//stacks/node", "acme/factory-config", "stacks/node"],
-    ["acme/platform/factory-config//go", "acme/platform/factory-config", "go"],
+    ["acme/lunamill-config", "acme/lunamill-config", ""],
+    ["acme/lunamill-config//node", "acme/lunamill-config", "node"],
+    [
+      "acme/lunamill-config//stacks/node",
+      "acme/lunamill-config",
+      "stacks/node",
+    ],
+    [
+      "acme/platform/lunamill-config//go",
+      "acme/platform/lunamill-config",
+      "go",
+    ],
   ])("%s is the repository %s and the folder %j", (name, repo, folder) => {
     expect(parseName(name)).toEqual({ repo, folder });
   });
@@ -287,21 +295,21 @@ describe("a name under presets", () => {
   it("is told it is an npm package when it starts with @", () => {
     expect(() => parseName("@acme/factory-preset")).toThrow(
       new PresetNameError(
-        'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.',
+        'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/lunamill-config.',
       ),
     );
   });
 
   it.each([
-    "factory-config",
+    "lunamill-config",
     "acme/",
-    "/factory-config",
-    "acme/factory-config//",
-    "acme/factory-config/node//",
-    "acme/../factory-config",
-    "acme/factory-config//../node",
-    "acme/factory config",
-    "https://github.com/acme/factory-config",
+    "/lunamill-config",
+    "acme/lunamill-config//",
+    "acme/lunamill-config/node//",
+    "acme/../lunamill-config",
+    "acme/lunamill-config//../node",
+    "acme/lunamill config",
+    "https://github.com/acme/lunamill-config",
   ])("is refused as %j, which names no repository", (name) => {
     expect(() => parseName(name)).toThrow(
       new PresetNameError(
@@ -313,11 +321,11 @@ describe("a name under presets", () => {
   it.each([
     [
       '"@acme/factory-preset"',
-      'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/factory-config.',
+      'presets: "@acme/factory-preset" is an npm package, and a preset now comes from a repository. Name the repository, such as acme/lunamill-config.',
     ],
     [
-      "factory-config",
-      'presets: "factory-config" is not a preset\'s name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER',
+      "lunamill-config",
+      'presets: "lunamill-config" is not a preset\'s name. Write its repository, as OWNER/NAME or OWNER/NAME//FOLDER',
     ],
   ])("stops config check when it is %s", async (name, message) => {
     root = repo(own([name]));
@@ -328,11 +336,11 @@ describe("a name under presets", () => {
 
   it("stops config check, naming preset add, when the lock does not pin it", async () => {
     root = repo(own([ACME, NODE]));
-    install(root, ACME, { "": { settings: "version: 2\n" } });
+    install(root, ACME, { "": { settings: "version: 1\n" } });
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([
-      `presets: ${NODE} is not pinned yet. Run: factory preset add ${NODE}`,
+      `presets: ${NODE} is not pinned yet. Run: lunamill preset add ${NODE}`,
     ]);
   });
 });
@@ -376,11 +384,11 @@ describe("what a preset can't do", () => {
   it("refuses a preset that leaves a plugin out", async () => {
     await refused(
       { plugins: { build: { reviewers: [{ agent: "x", off: true }] } } },
-      `${ACME}: plugins.build.reviewers[0]: off: only .claude/factory.yaml can leave a plugin out`,
+      `${ACME}: plugins.build.reviewers[0]: off: only .claude/lunamill.yaml can leave a plugin out`,
     );
   });
 
-  it("refuses a key the factory doesn't know in a plugin the repository's own file replaces", async () => {
+  it("refuses a key Lunamill doesn't know in a plugin the repository's own file replaces", async () => {
     root = repo(
       own(
         [ACME],
@@ -411,7 +419,7 @@ describe("what a preset can't do", () => {
     ]);
   });
 
-  it("refuses a preset with a key the factory doesn't know, as config check words it", async () => {
+  it("refuses a preset with a key Lunamill doesn't know, as config check words it", async () => {
     await refused(
       { rules: { "small-change-lnes": 3 } },
       `${ACME}: rules.small-change-lnes: unknown key`,
@@ -428,7 +436,7 @@ describe("what a preset can't do", () => {
     async (path) => {
       await refused(
         {},
-        `.claude/factory.lock: ${ACME}: ${path} is not an agent's, a skill's, or an approval policy's path`,
+        `.claude/lunamill.lock: ${ACME}: ${path} is not an agent's, a skill's, or an approval policy's path`,
         { [path]: "sha256:0" },
       );
     },
@@ -439,7 +447,7 @@ describe("what a preset can't do", () => {
     install(root, ACME, {
       "": {
         settings:
-          "version: 2\ntickets:\n  fields:\n    proposed-docs: Docs draft\n",
+          "version: 1\ntickets:\n  fields:\n    proposed-docs: Docs draft\n",
       },
     });
     const r = deps(root);
@@ -449,7 +457,7 @@ describe("what a preset can't do", () => {
 
   it("refuses a preset listed twice", async () => {
     root = repo(own([ACME, ACME]));
-    install(root, ACME, { "": { settings: "version: 2\n" } });
+    install(root, ACME, { "": { settings: "version: 1\n" } });
     const r = deps(root);
     expect(await config(["check"], r.d)).toBe(1);
     expect(r.err).toEqual([`presets: ${ACME} is listed twice`]);
@@ -560,12 +568,12 @@ describe("a pinned preset's values", () => {
     const r = await checked({
       plugins: {
         build: {
-          reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+          reviewers: [{ agent: "lunamill-ui-reviewer", files: ["src/**"] }],
         },
       },
     });
     expect(r.err).toEqual([
-      ".claude/factory.yaml: site: is required to list factory-ui-reviewer",
+      ".claude/lunamill.yaml: site: is required to list lunamill-ui-reviewer",
     ]);
     expect(r.code).toBe(1);
   });
@@ -576,14 +584,14 @@ describe("a pinned preset's values", () => {
         rules: { "review-rounds": "zero" },
         plugins: {
           build: {
-            reviewers: [{ agent: "factory-ui-reviewer", files: ["src/**"] }],
+            reviewers: [{ agent: "lunamill-ui-reviewer", files: ["src/**"] }],
           },
         },
       },
       ["rules:", "  review-rounds: 3"],
     );
     expect(r.err).toEqual([
-      ".claude/factory.yaml: site: is required to list factory-ui-reviewer",
+      ".claude/lunamill.yaml: site: is required to list lunamill-ui-reviewer",
     ]);
   });
 
@@ -593,7 +601,7 @@ describe("a pinned preset's values", () => {
       "  review-rounds: none",
     ]);
     expect(r.err).toEqual([
-      ".claude/factory.yaml: rules.review-rounds: must be a whole number above zero",
+      ".claude/lunamill.yaml: rules.review-rounds: must be a whole number above zero",
     ]);
   });
 });
@@ -602,16 +610,16 @@ describe("a spec tool a preset names", () => {
   const installPreset = (specs: string) => {
     root = repo(
       [
-        "version: 2",
+        "version: 1",
         "repository: acme/billing",
         "presets:",
         `  - "${ACME}"`,
         "",
       ].join("\n"),
     );
-    installAcme(root, `version: 2\n${specs}`);
+    installAcme(root, `version: 1\n${specs}`);
   };
-  const text = `version: 2\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
+  const text = `version: 1\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
 
   it("is what init finds, none included, so it asks nothing", async () => {
     installPreset("specs: none\n");
@@ -631,7 +639,7 @@ describe("a spec tool a preset names", () => {
 
 describe("a branch name a preset supplies", () => {
   const preset = [
-    "version: 2",
+    "version: 1",
     "code-host:",
     "  type: github",
     '  branch-name: "feature/{user}/{ticket}"',
@@ -640,7 +648,7 @@ describe("a branch name a preset supplies", () => {
   const withoutOwn = () => {
     root = repo(
       [
-        "version: 2",
+        "version: 1",
         "repository: acme/billing",
         "presets:",
         `  - "${ACME}"`,
@@ -659,7 +667,7 @@ describe("a branch name a preset supplies", () => {
   it("is what init finds, so it asks nothing", async () => {
     withoutOwn();
     const text =
-      "version: 2\nrepository: acme/billing\npresets:\n" + `  - "${ACME}"\n`;
+      "version: 1\nrepository: acme/billing\npresets:\n" + `  - "${ACME}"\n`;
     expect(await presetBranchNameAt(root)(text)).toBe(
       "feature/{user}/{ticket}",
     );
@@ -667,7 +675,7 @@ describe("a branch name a preset supplies", () => {
 
   it("is none to init when the presets listed set none", async () => {
     acme([ACME]);
-    const text = `version: 2\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
+    const text = `version: 1\nrepository: acme/billing\npresets:\n  - "${ACME}"\n`;
     expect(await presetBranchNameAt(root)(text)).toBeNull();
   });
 
@@ -675,7 +683,7 @@ describe("a branch name a preset supplies", () => {
     withoutOwn();
     expect(
       await presetBranchNameAt(root)(
-        "version: 2\nrepository: acme/billing\npresets:\n  - acme/missing\n",
+        "version: 1\nrepository: acme/billing\npresets:\n  - acme/missing\n",
       ),
     ).toBeNull();
   });
@@ -684,35 +692,35 @@ describe("a branch name a preset supplies", () => {
     withoutOwn();
     const { out } = await explain();
     expect(lineOf(out, "branch-name:")).toMatch(
-      /^branch-name: "feature\/\{user\}\/\{ticket\}" +# acme\/factory-config$/,
+      /^branch-name: "feature\/\{user\}\/\{ticket\}" +# acme\/lunamill-config$/,
     );
   });
 });
 
-describe("factory config explain with presets", () => {
+describe("lunamill config explain with presets", () => {
   it("marks a value from a preset with its name, and a disagreement with whether it is chosen", async () => {
     acme();
     let { out } = await explain();
     expect(lineOf(out, "review-rounds:")).toMatch(
-      /^review-rounds: 3 +# acme\/factory-config\/\/node, not chosen yet$/,
+      /^review-rounds: 3 +# acme\/lunamill-config\/\/node, not chosen yet$/,
     );
     put(
       root,
-      ".claude/factory.choices.yaml",
+      ".claude/lunamill.choices.yaml",
       `rules.small-change-lines: "${NODE}"\n`,
     );
     ({ out } = await explain());
     expect(lineOf(out, "small-change-lines:")).toMatch(
-      /^small-change-lines: 30 +# acme\/factory-config\/\/node, chosen over acme\/factory-config$/,
+      /^small-change-lines: 30 +# acme\/lunamill-config\/\/node, chosen over acme\/lunamill-config$/,
     );
     expect(lineOf(out, "relock:")).toMatch(/^relock: npm install +# default$/);
   });
 
-  it("marks a value of .claude/factory.yaml that replaces a preset's, and leaves its own unmarked", async () => {
+  it("marks a value of .claude/lunamill.yaml that replaces a preset's, and leaves its own unmarked", async () => {
     acme([ACME, NODE], ["rules:", "  small-change-lines: 50"]);
     const { out } = await explain();
     expect(lineOf(out, "small-change-lines:")).toMatch(
-      /^small-change-lines: 50 +# over acme\/factory-config and acme\/factory-config\/\/node$/,
+      /^small-change-lines: 50 +# over acme\/lunamill-config and acme\/lunamill-config\/\/node$/,
     );
     expect(lineOf(out, "repository:")).toBe("repository: acme/billing");
   });
@@ -721,34 +729,34 @@ describe("factory config explain with presets", () => {
     acme([ACME, NODE], ["auto-merge:", "  deny: [node]"]);
     const { out } = await explain();
     expect(lineOf(out, "- package-lock.json")).toMatch(
-      /^- package-lock.json +# acme\/factory-config\/\/node$/,
+      /^- package-lock.json +# acme\/lunamill-config\/\/node$/,
     );
     expect(lineOf(out, "- node")).toBe("- node");
     expect(lineOf(out, "- agent: acme-security-reviewer")).toMatch(
-      /# acme\/factory-config$/,
+      /# acme\/lunamill-config$/,
     );
   });
 
   it("marks each of builds.hosts with the layer it came from, a wildcard in quotes", async () => {
     root = repo(own([ACME], ["builds:", '  hosts: ["*.own.example"]']));
-    installAcme(root, "version: 2\nbuilds:\n  hosts: [acme.example]\n");
+    installAcme(root, "version: 1\nbuilds:\n  hosts: [acme.example]\n");
     const { out } = await explain();
     expect(lineOf(out, "- acme.example")).toMatch(
-      /^- acme\.example +# acme\/factory-config$/,
+      /^- acme\.example +# acme\/lunamill-config$/,
     );
     expect(lineOf(out, '- "*.own')).toBe('- "*.own.example"');
   });
 });
 
 describe("reading the settings from the lock", () => {
-  const settings = `version: 2\nrepository: o/r\n${CODE_HOST_YAML}\n`;
+  const settings = `version: 1\nrepository: o/r\n${CODE_HOST_YAML}\n`;
   const lock = (over: Record<string, string> = {}) =>
     [
       "version: 1.0.0",
       over.presets ?? "presets: []",
       `settings-hash: ${over.hash ?? settingsHash(settings, null)}`,
       over.settings ??
-        'settings:\n  version: 2\n  repository: o/r\n  code-host:\n    type: github\n    branch-name: "{ticket}"\n  rules:\n    review-rounds: 7  # @x/y',
+        'settings:\n  version: 1\n  repository: o/r\n  code-host:\n    type: github\n    branch-name: "{ticket}"\n  rules:\n    review-rounds: 7  # @x/y',
       "overridden: {}",
       "files: []",
       "",
@@ -761,7 +769,7 @@ describe("reading the settings from the lock", () => {
     });
   };
 
-  it("reads every setting from the lock's settings, not .claude/factory.yaml", async () => {
+  it("reads every setting from the lock's settings, not .claude/lunamill.yaml", async () => {
     const { d } = lockDeps(lock());
     expect((await loadSettings(d)).rules.reviewRounds).toBe(7);
   });
@@ -770,9 +778,9 @@ describe("reading the settings from the lock", () => {
     const r = lockDeps(lock());
     expect(await config(["explain"], r.d)).toBe(0);
     expect(r.out).toEqual([
-      '# The settings in effect. "# default" marks the factory\'s own value,',
+      '# The settings in effect. "# default" marks lunamill\'s own value,',
       "# a preset's name marks that preset's, and an unmarked line is yours.",
-      "version: 2",
+      "version: 1",
       "repository: o/r",
       ...CODE_HOST_YAML.split("\n"),
       "rules:",
@@ -796,22 +804,22 @@ describe("reading the settings from the lock", () => {
     expect(err).toEqual([message]);
   };
 
-  it("stops, naming sync, when .claude/factory.yaml changed since the last sync", async () => {
+  it("stops, naming sync, when .claude/lunamill.yaml changed since the last sync", async () => {
     const { d } = lockDeps(lock({ hash: settingsHash("old", null) }));
     await stops(
       d,
-      ".claude/factory.yaml changed since the last sync. Run: factory sync",
+      ".claude/lunamill.yaml changed since the last sync. Run: lunamill sync",
     );
   });
 
   it("names the choices file when it is the one that changed", async () => {
     const { d } = lockDeps(lock(), {
       readChoices: () => 'a: "b"\n',
-      changed: () => [".claude/factory.choices.yaml"],
+      changed: () => [".claude/lunamill.choices.yaml"],
     });
     await stops(
       d,
-      ".claude/factory.choices.yaml changed since the last sync. Run: factory sync",
+      ".claude/lunamill.choices.yaml changed since the last sync. Run: lunamill sync",
     );
   });
 
@@ -819,20 +827,20 @@ describe("reading the settings from the lock", () => {
     const { d } = lockDeps(
       "settings:\n<<<<<<< HEAD\n  a: 1\n=======\n  a: 2\n>>>>>>> b\n",
     );
-    await stops(d, ".claude/factory.lock can't be read. Run: factory sync");
+    await stops(d, ".claude/lunamill.lock can't be read. Run: lunamill sync");
   });
 
   it("stops on a lock from an earlier release, which has no settings", async () => {
     const { d } = lockDeps("# old\nversion: 0.4.0\nfiles:\n  - a\n");
     await stops(
       d,
-      ".claude/factory.lock is from an earlier version of the factory. Run: factory sync",
+      ".claude/lunamill.lock is from an earlier version of Lunamill. Run: lunamill sync",
     );
   });
 
   it("stops when there is no lock", async () => {
     const { d } = lockDeps(null);
-    await stops(d, ".claude/factory.lock is missing. Run: factory sync");
+    await stops(d, ".claude/lunamill.lock is missing. Run: lunamill sync");
   });
 
   it("names the first reason in order: missing, earlier, changed", () => {
@@ -870,39 +878,39 @@ describe("reading the settings from the lock", () => {
     ).toBeNull();
   });
 
-  it("reads the lock FACTORY_LOCK names without checking it is current", async () => {
+  it("reads the lock LUNAMILL_LOCK names without checking it is current", async () => {
     root = repo(settings);
     put(root, "base.lock", lock({ hash: settingsHash("anything else", null) }));
-    const d = defaultDeps(root, { FACTORY_LOCK: join(root, "base.lock") });
+    const d = defaultDeps(root, { LUNAMILL_LOCK: join(root, "base.lock") });
     expect((await loadSettings(d)).rules.reviewRounds).toBe(7);
   });
 
-  it("reads the file FACTORY_SETTINGS names, with no lock", async () => {
+  it("reads the file LUNAMILL_SETTINGS names, with no lock", async () => {
     root = repo(settings);
     put(root, "try.yaml", own([], ["rules:", "  review-rounds: 6"]));
-    const d = defaultDeps(root, { FACTORY_SETTINGS: join(root, "try.yaml") });
+    const d = defaultDeps(root, { LUNAMILL_SETTINGS: join(root, "try.yaml") });
     expect((await loadSettings(d)).rules.reviewRounds).toBe(6);
   });
 
-  it("stops on a file FACTORY_SETTINGS names that lists presets, even ones the lock pins", async () => {
+  it("stops on a file LUNAMILL_SETTINGS names that lists presets, even ones the lock pins", async () => {
     root = repo(settings);
     installAcme(root);
     put(root, "try.yaml", own([NODE]));
-    const d = defaultDeps(root, { FACTORY_SETTINGS: join(root, "try.yaml") });
+    const d = defaultDeps(root, { LUNAMILL_SETTINGS: join(root, "try.yaml") });
     await expect(loadSettings(d)).rejects.toThrow(
-      "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
+      "LUNAMILL_SETTINGS: presets are read through the lock. Use LUNAMILL_LOCK",
     );
     const err: string[] = [];
     expect(await config(["get", "repository"], { ...d, err: into(err) })).toBe(
       1,
     );
     expect(err).toEqual([
-      "FACTORY_SETTINGS: presets are read through the lock. Use FACTORY_LOCK",
+      "LUNAMILL_SETTINGS: presets are read through the lock. Use LUNAMILL_LOCK",
     ]);
   });
 });
 
-describe("the version of the factory a lock names", () => {
+describe("the version of Lunamill a lock names", () => {
   it("is its version line, whatever follows it", () => {
     expect(lockedVersion("# a comment\nversion: 0.3.0\npresets: []\n")).toBe(
       "0.3.0",
@@ -911,14 +919,14 @@ describe("the version of the factory a lock names", () => {
 
   it("is none for a lock that is missing or names none", () => {
     expect(lockedVersion(null)).toBeNull();
-    expect(lockedVersion("presets: []\n  version: 2\n")).toBeNull();
+    expect(lockedVersion("presets: []\n  version: 1\n")).toBeNull();
   });
 });
 
 describe("a preset for some folders", () => {
   const PY = "acme/python";
   const python = (settings: string) => {
-    install(root, PY, { "": { settings: `version: 2\n${settings}` } });
+    install(root, PY, { "": { settings: `version: 1\n${settings}` } });
   };
   const forServices = (body: string[] = [], also: string[] = []) => {
     root = repo(own([...also, `{name: ${PY}, in: services/*}`], body));
@@ -973,8 +981,8 @@ describe("a preset for some folders", () => {
     put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
     put(
       root,
-      ".claude/agents/factory-test-reviewer.md",
-      "---\nname: factory-test-reviewer\n---\n",
+      ".claude/agents/lunamill-test-reviewer.md",
+      "---\nname: lunamill-test-reviewer\n---\n",
     );
     python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
     const reviewers = (await resolveAt(root)).settings.plugins.filter(
@@ -1004,13 +1012,13 @@ describe("a preset for some folders", () => {
     ]);
   });
 
-  it("keeps the factory's test reviewer for the rest of the repository when it adds one", async () => {
+  it("keeps Lunamill's test reviewer for the rest of the repository when it adds one", async () => {
     forServices();
     put(root, ".claude/agents/py-reviewer.md", "---\nname: py-reviewer\n---\n");
     put(
       root,
-      ".claude/agents/factory-test-reviewer.md",
-      "---\nname: factory-test-reviewer\n---\n",
+      ".claude/agents/lunamill-test-reviewer.md",
+      "---\nname: lunamill-test-reviewer\n---\n",
     );
     python("plugins:\n  test:\n    reviewers:\n      - agent: py-reviewer\n");
     const { settings } = await resolveAt(root);
@@ -1019,7 +1027,7 @@ describe("a preset for some folders", () => {
         .filter((p) => p.role === "test-reviewer")
         .map((p) => [p.name, p.files]),
     ).toEqual([
-      ["factory-test-reviewer", []],
+      ["lunamill-test-reviewer", []],
       ["py-reviewer", ["services/*/**"]],
     ]);
   });
@@ -1057,7 +1065,7 @@ describe("approval policies from presets", () => {
     root = repo(own([ACME]));
     install(root, ACME, {
       "": {
-        settings: `version: 2\n${POLICY}`,
+        settings: `version: 1\n${POLICY}`,
         others: { "approval-policies/licenses/check.mjs": "check\n" },
       },
     });
@@ -1074,11 +1082,11 @@ describe("approval policies from presets", () => {
 
   it("replaces an earlier preset's policy with a later one of the same name", async () => {
     root = repo(own([ACME, "other/preset"]));
-    install(root, ACME, { "": { settings: `version: 2\n${POLICY}` } });
+    install(root, ACME, { "": { settings: `version: 1\n${POLICY}` } });
     install(root, "other/preset", {
       "": {
         settings: [
-          "version: 2",
+          "version: 1",
           "approval-policies:",
           "  - name: licenses",
           "    run: node strict.mjs",
@@ -1090,7 +1098,7 @@ describe("approval policies from presets", () => {
     const { settings } = await resolveAt(root);
     expect(settings.approvalPolicies.map((p) => p.run)).toEqual([
       "node strict.mjs",
-      FACTORY_POLICY.run,
+      LUNAMILL_POLICY.run,
     ]);
     const { out } = await explain();
     expect(lineOf(out, "- name: licenses")).toMatch(
@@ -1106,26 +1114,26 @@ describe("approval policies from presets", () => {
       ),
     );
     const both = `${POLICY}  - name: migrations\n    run: node m.mjs\n    files: [db/**]\n`;
-    install(root, ACME, { "": { settings: `version: 2\n${both}` } });
+    install(root, ACME, { "": { settings: `version: 1\n${both}` } });
     expect(
       (await resolveAt(root)).settings.approvalPolicies.map((p) => p.name),
     ).toEqual(["migrations", "credentials"]);
   });
 
-  it("turns the factory's own credentials policy off with off: true in your own file, which no preset names", async () => {
+  it("turns Lunamill's own credentials policy off with off: true in your own file, which no preset names", async () => {
     root = repo(
       own(
         [ACME],
         ["approval-policies:", "  - name: credentials", "    off: true"],
       ),
     );
-    install(root, ACME, { "": { settings: "version: 2\n" } });
+    install(root, ACME, { "": { settings: "version: 1\n" } });
     expect((await resolveAt(root)).settings.approvalPolicies).toEqual([]);
   });
 
   it("gives a preset's policies only its folders when it is added with --in", async () => {
     root = repo(own([`{name: ${ACME}, in: services/*}`]));
-    install(root, ACME, { "": { settings: `version: 2\n${POLICY}` } });
+    install(root, ACME, { "": { settings: `version: 1\n${POLICY}` } });
     expect((await resolveAt(root)).settings.approvalPolicies).toEqual([
       {
         name: "licenses",
@@ -1134,7 +1142,7 @@ describe("approval policies from presets", () => {
         in: ["services/*"],
         files: ["./package-lock.json"],
       },
-      FACTORY_POLICY,
+      LUNAMILL_POLICY,
     ]);
   });
 });

@@ -7,12 +7,12 @@ migration with no way back. By the end you will have an
 pull request, makes one wait when it finds something, and lets you
 approve it with a label.
 
-A session, the coding agent the factory runs, can fix what a check
+A session, the coding agent Lunamill runs, can fix what a check
 finds, but it can never be the one to say "yes, anyway". An approval
 policy is for when that yes is sometimes right.
 
-Every repository already has one, which the factory ships, called
-`credentials`. [The factory's own policy](credentials-policy.md#the-factorys-own-policy) says
+Every repository already has one, which Lunamill ships, called
+`credentials`. [Lunamill's own policy](credentials-policy.md#lunamills-own-policy) says
 what it does. **If a pull request of yours waits on it,** start at
 [When `credentials` makes a pull request wait](credentials-policy.md#when-credentials-makes-a-pull-request-wait),
 and to stop it, see [Turning it off](credentials-policy.md#turning-it-off).
@@ -32,13 +32,13 @@ pass. If the session may decide, it is a plugin, an agent of yours whose
 advice the session weighs. If only a person may, it is an approval
 policy.
 
-| What you want                                                                    | What to use                                                                                                           | What happens when it finds something                                             |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| A check with no exceptions, such as formatting, or tests that pass               | A command in [`commands.gate`](../reference/settings/commands.md#commandsgate)                                        | It fails, and the session fixes the change until it passes                       |
-| Advice the session weighs, such as an accessibility reviewer                     | A [plugin](../customize/plugins.md)                                                                                   | The session reads what it says, and decides                                      |
-| Certain people to review every change to certain files                           | Your code host's own rule for it, as [GitHub](../integrations/github.md#what-the-factory-can-and-cannot-do-there) has | The code host waits for one of them. The factory isn't involved                  |
-| Changes to some files never merging by themselves                                | [`auto-merge.deny`](../reference/settings/auto-merge.md#auto-merge)                                                   | The pull request waits for you                                                   |
-| A person's yes on something a check finds inside a change, such as a new license | An approval policy                                                                                                    | The pull request waits until someone who can write to the repository approves it |
+| What you want                                                                    | What to use                                                                                                        | What happens when it finds something                                             |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| A check with no exceptions, such as formatting, or tests that pass               | A command in [`commands.gate`](../reference/settings/commands.md#commandsgate)                                     | It fails, and the session fixes the change until it passes                       |
+| Advice the session weighs, such as an accessibility reviewer                     | A [plugin](../customize/plugins.md)                                                                                | The session reads what it says, and decides                                      |
+| Certain people to review every change to certain files                           | Your code host's own rule for it, as [GitHub](../integrations/github.md#what-lunamill-can-and-cannot-do-there) has | The code host waits for one of them. Lunamill isn't involved                     |
+| Changes to some files never merging by themselves                                | [`auto-merge.deny`](../reference/settings/auto-merge.md#auto-merge)                                                | The pull request waits for you                                                   |
+| A person's yes on something a check finds inside a change, such as a new license | An approval policy                                                                                                 | The pull request waits until someone who can write to the repository approves it |
 
 ### What an approval policy is not
 
@@ -54,7 +54,7 @@ policy.
 
 ## What it needs
 
-A check of your own, which the factory's jobs run on the cloud runner,
+A check of your own, which Lunamill's jobs run on the cloud runner,
 with Node. A policy with an agent also needs the coding agent's token
 ([Checking with an agent](#checking-with-an-agent)).
 
@@ -70,7 +70,7 @@ changes a workflow file, which a build in the cloud can't commit.
 JSON on its standard input and prints what it found, in the shape
 [What a check reads and prints](#what-a-check-reads-and-prints) gives.
 Make the folder `.claude/approval-policies/licenses/`, and save this in
-it as `check.mjs`. It runs with Node, which the factory's jobs have:
+it as `check.mjs`. It runs with Node, which Lunamill's jobs have:
 
 ```js
 import { readFileSync } from "node:fs";
@@ -102,7 +102,7 @@ needs a check of its own. Save the licenses you allow beside it, as
 ["MIT", "Apache-2.0", "BSD-3-Clause", "ISC"]
 ```
 
-**2. Add the policy** to `.claude/factory.yaml`:
+**2. Add the policy** to `.claude/lunamill.yaml`:
 
 ```yaml
 approval-policies:
@@ -114,18 +114,18 @@ approval-policies:
 Then check the file:
 
 ```console
-$ factory config check
+$ lunamill config check
 ✓ The settings are valid.
 ```
 
-**3. Try it.** `factory approval-policies check` runs your policies
+**3. Try it.** `lunamill approval-policies check` runs your policies
 against what your branch changes since your default branch on `origin`,
 and reads them from your working folder, so nothing needs committing
 yet. On a branch where you have added a dependency, take its license out
 of `allowed.json` for a moment, and run it:
 
 ```console
-$ factory approval-policies check
+$ lunamill approval-policies check
 approval-policies: 1 applies, for the 2 files changed since origin/main
 ? licenses: 1 waiting for approval
   package-lock.json  A dependency is MIT, which is not allowed
@@ -136,17 +136,16 @@ approval-policies: 1 applies, for the 2 files changed since origin/main
 what it prints when a check fails, and how to try a past pull request.
 
 **4. Turn it on.** If you turned `credentials` off, so this is your
-only policy, sync first. It adds the job that runs your policies to the
-factory's workflow file:
+only policy, sync first. It adds the job that runs your policies to Lunamill's workflow file:
 
 ```console
-$ factory sync
-wrote .claude/factory.lock
-wrote .github/workflows/factory.yml
+$ lunamill sync
+wrote .claude/lunamill.lock
+wrote .github/workflows/lunamill.yml
 ```
 
 Otherwise there is nothing to sync: the workflow already runs your
-policies, since it runs [the factory's own](credentials-policy.md#the-factorys-own-policy).
+policies, since it runs [Lunamill's own](credentials-policy.md#lunamills-own-policy).
 
 Commit the policy, its folder, and anything sync wrote, open a pull
 request, and merge it. A pull request is checked by the policies on your
@@ -155,19 +154,19 @@ next pull request that changes `package-lock.json` shows `licenses` in
 its **Approval policies** status.
 
 **5. Check it is required,** so that nothing merges while a policy
-waits. The factory requires the **Approval policies** status on your
+waits. Lunamill requires the **Approval policies** status on your
 default branch, where its token can, once any policy is on there. Pull
 your default branch and check that it did:
 
 ```console
-$ factory doctor
+$ lunamill doctor
 ...
 ✓ "Approval policies" is required before a merge to main
 ```
 
 If it prints `? "Approval policies" is not required before a merge to
-main`, the factory's token couldn't change your branch rules, and an
-admin of the repository runs `factory init`, which requires it. On some
+main`, Lunamill's token couldn't change your branch rules, and an
+admin of the repository runs `lunamill init`, which requires it. On some
 code hosts' plans a private repository can't require a status: there, a
 waiting policy shows on the pull request, but nothing stops a merge past
 it. [GitHub](../integrations/github.md#limits-that-come-from-github) says
@@ -178,13 +177,13 @@ among its checks.
 
 ### Trying a policy
 
-`factory approval-policies check` posts nothing, and an agent it runs
+`lunamill approval-policies check` posts nothing, and an agent it runs
 signs in as you, as your sessions do. Besides your branch, as in
 [step 3](#add-your-first-policy), it can run your policies on a pull
 request already merged, to see what a new one would have done:
 
 ```console
-$ factory approval-policies check --pull 212
+$ lunamill approval-policies check --pull 212
 approval-policies: 1 applies, for the 2 files #212 changed
 ? licenses: 1 waiting for approval
   package-lock.json  A dependency is GPL-3.0, which is not allowed
@@ -193,15 +192,15 @@ approval-policies: 1 applies, for the 2 files #212 changed
 When the change touches no file a policy applies to, it says so:
 
 ```console
-$ factory approval-policies check
+$ lunamill approval-policies check
 - No approval policy applies to this change
 ```
 
 When a check fails, the command says how, and exits 1:
 
 ```console
-$ factory approval-policies check
-✗ licenses: node .claude/approval-policies/licenses/check.mjs failed (exit 1). Fix it, then run: factory approval-policies check
+$ lunamill approval-policies check
+✗ licenses: node .claude/approval-policies/licenses/check.mjs failed (exit 1). Fix it, then run: lunamill approval-policies check
   TypeError: Cannot read properties of undefined (reading 'split')
       at check.mjs:9:30
 ```
@@ -264,7 +263,7 @@ again.
 Some things a script can't judge, such as whether a migration's ticket
 says how to roll it back. An agent can. `agent: rollback-checker` names
 an agent file in `.claude/agents/`, written as for a [plugin](../customize/plugins.md).
-The factory hands it the same JSON and tells it the shape to answer in,
+Lunamill hands it the same JSON and tells it the shape to answer in,
 so its file says only what to look for:
 
 ```markdown
@@ -281,7 +280,7 @@ to roll it back, or whose rollback would lose data.
 It signs in with the coding agent's token, the `CLAUDE_CODE_OAUTH_TOKEN`
 or `ANTHROPIC_API_KEY` secret the
 [automated review](../reference/settings/pr-review.md#pr-review) uses.
-`factory doctor` says whether your repository has it, and `factory init`
+`lunamill doctor` says whether your repository has it, and `lunamill init`
 sets it.
 
 **A script and an agent together:** with both `run` and `agent`, the
@@ -337,7 +336,7 @@ approval-policies:
 [command for some folders](../reference/settings/commands.md#commands-for-some-folders),
 except that a check always runs from the root.
 
-- **A policy needs `in`, `files`, or both,** or `factory config check`
+- **A policy needs `in`, `files`, or both,** or `lunamill config check`
   refuses it. Write `files: ["**"]` when every change should set it off,
   and let the check decide what matters.
 - **What a folder's check finds names the folder,** as
@@ -347,22 +346,22 @@ except that a check always runs from the root.
   it.
 - **A change to a policy takes effect once it merges.** The pull request
   that makes it is checked by the policies as they were.
-- **`factory config explain`** shows the policies in effect, and which
+- **`lunamill config explain`** shows the policies in effect, and which
   preset each came from.
 
 ### Ship a policy in a preset
 
 A company can ship the same policy to every repository through a
 [preset](../customize/presets.md). Put its files in `approval-policies/NAME/` beside
-`factory-preset.yaml`, and the policy itself in the preset's settings.
-`factory sync` copies the folder into each repository's
+`lunamill-preset.yaml`, and the policy itself in the preset's settings.
+`lunamill sync` copies the folder into each repository's
 `.claude/approval-policies/`, as it copies the preset's agents
 ([Write a preset](../customize/writing-a-preset.md)).
 
 - **A preset added with `--in`** gives its policies only those folders,
   as it does its commands.
 - **A policy of the same name** in a later preset, or in a repository's
-  own `factory.yaml`, replaces it, and `off: true` turns one off, as for
+  own `lunamill.yaml`, replaces it, and `off: true` turns one off, as for
   a [plugin](../reference/settings/plugins.md#plugins).
 
 A repository turns off a preset's policy this way:
@@ -399,14 +398,14 @@ edit the ticket, to stop a policy applying. A failed check, and a change
 that couldn't be read, check again with **Re-run all jobs** once their
 cause is fixed, or with the next push.
 
-| What you do                                                          | What happens                                                                                                      |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Add the `policy-override` label, from **Labels** on the pull request | What was waiting on the commit the pull request was at is approved, and the factory comments what it approved     |
-| Comment with what to fix                                             | A session fixes it, as for any comment of yours, and each policy checks again on its push                         |
-| Push again, or change the pull request's base branch                 | The label comes off, since the change is unread, and anything still found waits for it again                      |
-| Approve the pull request on the code host                            | Your review counts as usual there, but the policy still waits, and the factory comments once to say add the label |
+| What you do                                                          | What happens                                                                                                   |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Add the `policy-override` label, from **Labels** on the pull request | What was waiting on the commit the pull request was at is approved, and Lunamill comments what it approved     |
+| Comment with what to fix                                             | A session fixes it, as for any comment of yours, and each policy checks again on its push                      |
+| Push again, or change the pull request's base branch                 | The label comes off, since the change is unread, and anything still found waits for it again                   |
+| Approve the pull request on the code host                            | Your review counts as usual there, but the policy still waits, and Lunamill comments once to say add the label |
 
-The factory creates the `policy-override` label the first time a policy
+Lunamill creates the `policy-override` label the first time a policy
 waits, so it is in the **Labels** list from then on.
 
 - **Where you are the only writer, this is how you approve.** A code
@@ -417,12 +416,12 @@ waits, so it is in the **Labels** list from then on.
   to the repository may add the label, the pull request's author
   included.
 - **The approval is the label itself.** The code host records who added it, and
-  the commit the pull request was at, and the factory checks that they
+  the commit the pull request was at, and Lunamill checks that they
   can write to the repository. It approves only what was waiting on that
   commit, so a push that lands as you add it approves nothing new. Its
   comment is for people to read; it never reads one back.
-- **A session doesn't add it.** `factory pr label` and
-  `factory ticket label` refuse it, and the factory's hooks stop the
+- **A session doesn't add it.** `lunamill pr label` and
+  `lunamill ticket label` refuse it, and Lunamill's hooks stop the
   ordinary ways around them. On your computer a session uses your
   account, so it could still add the label some other way: look at what
   it did before you merge, as

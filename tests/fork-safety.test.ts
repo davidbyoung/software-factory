@@ -2,13 +2,13 @@
 // fork. A job that starts on `pull_request_target` or `workflow_run` runs
 // with the repository's secrets and a write token even for a fork's pull
 // request, so it must never check out the pull request's own code: the
-// factory's verdict, merge policy, board sync, review, and Dependabot's
+// lunamill's verdict, merge policy, board sync, review, and Dependabot's
 // auto-merge start on these events, and check out the default branch or
 // nothing.
 //
-// The factory's own workflows are called, not started: run.yml by the
-// factory.yml `factory sync` writes into a repository, review.yml by its
-// factory-review.yml, and session.yml by run.yml. So a job is judged by the
+// lunamill's own workflows are called, not started: run.yml by the
+// lunamill.yml `lunamill sync` writes into a repository, review.yml by its
+// lunamill-review.yml, and session.yml by run.yml. So a job is judged by the
 // events its caller starts on and its own `if` does not rule out.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,7 +16,7 @@ import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { SESSION_MINUTES } from "../src/config.mts";
 import {
-  FACTORY_FILE,
+  LUNAMILL_FILE,
   factoryWorkflow,
   REVIEW_FILE,
   reviewWorkflow,
@@ -458,7 +458,7 @@ describe("hazardsIn", () => {
   const caller = yaml([
     "on: [pull_request_target, push]",
     "jobs:",
-    "  factory:",
+    "  lunamill:",
     "    uses: ./.github/workflows/run.yml",
   ]);
   /** A called workflow whose job `session` calls a third, on `event`. */
@@ -481,7 +481,7 @@ describe("hazardsIn", () => {
   it("follows each call, and finds a job two calls away that a fork's pull request starts", () => {
     expect(
       hazardsIn(
-        new Map([["factory.yml", caller]]),
+        new Map([["lunamill.yml", caller]]),
         files("pull_request_target"),
       ),
     ).toEqual([
@@ -491,7 +491,7 @@ describe("hazardsIn", () => {
 
   it("lets through the same job when the job that calls it starts only on a push", () => {
     expect(
-      hazardsIn(new Map([["factory.yml", caller]]), files("push")),
+      hazardsIn(new Map([["lunamill.yml", caller]]), files("push")),
     ).toEqual([]);
   });
 });
@@ -500,7 +500,7 @@ describe("this repository's workflows", () => {
   const ROOT = new URL("..", import.meta.url).pathname;
   const DIR = ".github/workflows";
   const open = (path: string) => readFileSync(join(ROOT, path), "utf8");
-  // The two files as `factory sync` writes them into the factory's own
+  // The two files as `lunamill sync` writes them into lunamill's own
   // repository, where they call the copies in the same commit.
   const OPTIONS: WorkflowOptions = {
     version: null,
@@ -514,7 +514,7 @@ describe("this repository's workflows", () => {
     secrets: [],
   };
   const written = new Map([
-    [`${FACTORY_FILE}, as sync writes it`, factoryWorkflow(OPTIONS)],
+    [`${LUNAMILL_FILE}, as sync writes it`, factoryWorkflow(OPTIONS)],
     [`${REVIEW_FILE}, as sync writes it`, reviewWorkflow(OPTIONS)],
   ]);
   const files = readdirSync(join(ROOT, DIR))
@@ -536,7 +536,7 @@ describe("this repository's workflows", () => {
     ...groupCalls.flatMap(([file, on]) => jobsWithSecrets(open(file), on)),
   ];
 
-  it("finds the workflows to scan, and the factory's own behind the two files sync writes", () => {
+  it("finds the workflows to scan, and Lunamill's own behind the two files sync writes", () => {
     expect(files).toContain(`${DIR}/release.yml`);
     expect(calls(factoryWorkflow(OPTIONS))).toEqual([
       [`${DIR}/run.yml`, factoryEvents],

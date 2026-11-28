@@ -1,9 +1,9 @@
 # GitHub organizations
 
-What `factory init --org` does on GitHub for an organization, and what to
+What `lunamill init --org` does on GitHub for an organization, and what to
 do when an organization's secrets do not reach a repository.
 
-## What the factory uses it for
+## What Lunamill uses it for
 
 One setup that every repository of the organization shares: a GitHub
 App, the Claude token, a preset of settings, a board, and a rule that
@@ -14,42 +14,42 @@ organization's secrets.
 ## You need
 
 An owner of the organization, with the GitHub CLI signed in, Claude
-Code, and the `factory` command
+Code, and the `lunamill` command
 ([Set an organization up, once](../setup/organization.md#set-an-organization-up-once)).
 
-`factory init --org` needs three permissions for the GitHub CLI that a
+`lunamill init --org` needs three permissions for the GitHub CLI that a
 plain sign-in lacks: `admin:org`, `project`, and `workflow`. When one is
 missing, its first question is whether to open your browser so you can
 grant it.
 
 ## Set it up
 
-An owner runs `factory init --org` once, as
+An owner runs `lunamill init --org` once, as
 [Set an organization up, once](../setup/organization.md#set-an-organization-up-once)
 says.
 
 ## What setup adds
 
-What [`factory init --org`](../setup/organization.md#set-an-organization-up-once) adds,
+What [`lunamill init --org`](../setup/organization.md#set-an-organization-up-once) adds,
 once, for every repository of the organization. The table, and the
 commands on this page, use `acme` as the example organization: write
 your own organization's name in its place. No command takes these
 out: [Removing it](../maintain/removing.md#taking-an-organizations-setup-out)
 lists them in the order to delete them.
 
-| What `factory init --org` adds                                                                                                                                          | Where to find it                                                                      |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| The GitHub App "Software Factory for acme", registered by the organization and installed on the repositories its owner chose                                            | The organization's Settings, Developer settings, GitHub Apps                          |
-| The secret `FACTORY_APP_PRIVATE_KEY`, the variable `FACTORY_APP_CLIENT_ID`, and the secret `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`, each for every repository | The organization's Settings, Secrets and variables, Actions                           |
-| The repository `acme/factory-config`, with `factory-preset.yaml`, `.github/workflows/factory-poller.yml`, and a `README.md`                                             | Among the organization's repositories                                                 |
-| The property `software-factory`, with the values `on` and `off`, which the first workflow run after a repository's setup merges sets to `on` for it                     | The organization's Settings, Custom properties                                        |
-| The rule "Software factory", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                             | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
-| A board, or whichever of the factory's columns and fields the board the owner chose still lacked                                                                        | The organization's Projects                                                           |
+| What `lunamill init --org` adds                                                                                                                                           | Where to find it                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| The GitHub App "Lunamill for acme", registered by the organization and installed on the repositories its owner chose                                                      | The organization's Settings, Developer settings, GitHub Apps                          |
+| The secret `LUNAMILL_APP_PRIVATE_KEY`, the variable `LUNAMILL_APP_CLIENT_ID`, and the secret `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`, each for every repository | The organization's Settings, Secrets and variables, Actions                           |
+| The repository `acme/lunamill-config`, with `lunamill-preset.yaml`, `.github/workflows/lunamill-poller.yml`, and a `README.md`                                            | Among the organization's repositories                                                 |
+| The property `lunamill`, with the values `on` and `off`, which the first workflow run after a repository's setup merges sets to `on` for it                               | The organization's Settings, Custom properties                                        |
+| The rule "Lunamill", which requires "Review verdict" before a merge to the default branch of each repository whose property is `on`                                       | The organization's Settings, Rules. Not on GitHub's Free plan, which has no such rule |
+| A board, or whichever of Lunamill's columns and fields the board the owner chose still lacked                                                                             | The organization's Projects                                                           |
 
 ## Tokens and secrets
 
-The App's private key is the secret `FACTORY_APP_PRIVATE_KEY`, its
-client ID the variable `FACTORY_APP_CLIENT_ID`, and the Claude token the
+The App's private key is the secret `LUNAMILL_APP_PRIVATE_KEY`, its
+client ID the variable `LUNAMILL_APP_CLIENT_ID`, and the Claude token the
 secret `CLAUDE_CODE_OAUTH_TOKEN`, or an API key as `ANTHROPIC_API_KEY`,
 each stored for every repository ([What setup adds](#what-setup-adds)).
 [Claude Code](claude-code.md#when-the-claude-tokens-year-is-up) says how
@@ -68,7 +68,7 @@ GitHub CLI needs the `admin:org` permission for step 2, which
    the file's:
 
    ```bash
-   gh secret set FACTORY_APP_PRIVATE_KEY --org acme --visibility all < FILE.pem
+   gh secret set LUNAMILL_APP_PRIVATE_KEY --org acme --visibility all < FILE.pem
    ```
 
    If you had narrowed the secret to chosen repositories, write
@@ -77,28 +77,28 @@ GitHub CLI needs the `admin:org` permission for step 2, which
 
 3. Delete the old key on the App's page, then delete the file.
 
-**It worked when** a build you start with `factory build N`, for a
+**It worked when** a build you start with `lunamill build N`, for a
 ticket that is ready, gets past the step "Sign in" of its Prepare job. A
 wrong key fails the run at that step.
 
-## What the factory can and cannot do there
+## What Lunamill can and cannot do there
 
 Each job that needs a token makes one from the App's key, and the token
 lasts an hour. It reaches only the repositories the App is installed on,
 which are the ones the owner chose, and a session's token can't change a
 workflow file or set a repository's properties. The rule that requires
-"Review verdict" applies only to a repository whose `software-factory`
+"Review verdict" applies only to a repository whose `lunamill`
 property is `on` ([What setup adds](#what-setup-adds)).
 
 ## Limits that come from GitHub
 
 - **An organization is set up on github.com only.** GitHub Enterprise
-  Server is not supported: its servers cannot call the factory's
-  workflows on github.com. `factory init --org` refuses any other
+  Server is not supported: its servers cannot call Lunamill's
+  workflows on github.com. `lunamill init --org` refuses any other
   address.
 - **Dependabot's pull requests do not merge themselves under the App, as
   set up.** The job that turns auto-merge on for one reads Dependabot's
-  secrets, not the Actions ones, and `factory init --org` stores the
+  secrets, not the Actions ones, and `lunamill init --org` stores the
   App's key for Actions alone. An owner who wants it makes a new key, as
   [Replacing the App's key](#replacing-the-apps-key) shows, and stores it
   a second time for Dependabot, with `--app dependabot` added to that
@@ -106,33 +106,33 @@ property is `on` ([What setup adds](#what-setup-adds)).
 - **A build's commits under the App are not signed,** so GitHub shows no
   "Verified" on them.
 - **The organization-wide rule is untested,** since it needs GitHub's
-  Team plan. The rest of `factory init --org` has run once, in an
+  Team plan. The rest of `lunamill init --org` has run once, in an
   organization on the Free plan.
 
 ### On GitHub's Free plan
 
 GitHub Free shares an organization's secrets only with its public
 repositories, and has no organization-wide rules. The `Plan` row, in the
-list `factory init --org` prints first, headed `Found`, says when the
-organization is on it. On that plan, `factory init --org` makes
-`factory-config` a public repository, so anyone can read the shared
+list `lunamill init --org` prints first, headed `Found`, says when the
+organization is on it. On that plan, `lunamill init --org` makes
+`lunamill-config` a public repository, so anyone can read the shared
 settings in it. What follows differs for the organization's public and private
 repositories:
 
 - **A public repository** gets the review and builds in the cloud. There
   is no organization-wide rule, so once its setup merges, an admin of
-  that repository runs `factory init` again, which requires "Review
+  that repository runs `lunamill init` again, which requires "Review
   verdict" there. The command's closing lines list that as a third
   step:
 
   ```text
-    3. Once that pull request merges, an admin of the repository runs factory init there
+    3. Once that pull request merges, an admin of the repository runs lunamill init there
        again, to require "Review verdict". GitHub Free has no organization-wide rules.
   ```
 
 - **A private repository** can't use a [preset](../customize/presets.md) that turns
   on a board, the review, or builds that start from the board, since the
-  plan does not share the organization's secrets with it. `factory init`
+  plan does not share the organization's secrets with it. `lunamill init`
   there stops, changes nothing, and names them:
 
   ```text
@@ -140,13 +140,13 @@ repositories:
   ```
 
   Make the repository public, or move the organization to a paid plan, and
-  run `factory init` again. To build only on your machine, run it and leave
-  that preset unchecked. The preset `factory init --org` writes turns on
+  run `lunamill init` again. To build only on your machine, run it and leave
+  that preset unchecked. The preset `lunamill init --org` writes turns on
   all three.
 
   The plan has no branch rules for a private repository either, so "Review
   verdict" cannot be required there. Where such a preset was already
-  followed, `factory doctor` shows a line for each:
+  followed, `lunamill doctor` shows a line for each:
 
   ```text
   ✗ CLAUDE_CODE_OAUTH_TOKEN is stored for acme, and GitHub Free does not share it with a private repository: make the repository public, or move acme to a paid plan
@@ -155,7 +155,7 @@ repositories:
 
 ## When something goes wrong
 
-When a later release of the factory needs a new permission for the App,
+When a later release of Lunamill needs a new permission for the App,
 GitHub shows a request to review beside the App, in the organization's
 Settings, GitHub Apps. An owner accepts it.
 
@@ -166,10 +166,10 @@ what it printed, which lists only what your repository lacks:
 
 ```text
 ✗ The presets turn on a board, the review, and builds that start from the board. They need acme's secrets, and those do not reach acme/web.
-An owner of acme gives acme/web access to each of these, under "Repository access". Then run factory init again.
-  Secrets: FACTORY_APP_PRIVATE_KEY, and CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+An owner of acme gives acme/web access to each of these, under "Repository access". Then run lunamill init again.
+  Secrets: LUNAMILL_APP_PRIVATE_KEY, and CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
      https://github.com/organizations/acme/settings/secrets/actions
-  Variable: FACTORY_APP_CLIENT_ID
+  Variable: LUNAMILL_APP_CLIENT_ID
      https://github.com/organizations/acme/settings/variables/actions
 ```
 
@@ -186,25 +186,25 @@ the organization stored is there. If one is missing from the page, the
 owner first [sets the organization up](../setup/organization.md#set-an-organization-up-once).
 
 **It worked when** the `Organization` row says the app's key and the
-Claude token are stored, once you run `factory init` again.
+Claude token are stored, once you run `lunamill init` again.
 
 If the owner keeps the secrets from your repository on purpose, you have
 two choices:
 
-- **Build only on your machine.** Run `factory init` and leave the presets
-  that turn those parts on unchecked. If `.claude/factory.yaml` lists one
+- **Build only on your machine.** Run `lunamill init` and leave the presets
+  that turn those parts on unchecked. If `.claude/lunamill.yaml` lists one
   under [`presets`](../reference/settings/presets.md#presets), take its line out first.
   It worked when init asks "Go ahead?".
 - **Store tokens on the repository in place of the organization's
-  secrets.** You need two, a GitHub token as `FACTORY_BOARD_TOKEN` and a
+  secrets.** You need two, a GitHub token as `LUNAMILL_BOARD_TOKEN` and a
   Claude token as `CLAUDE_CODE_OAUTH_TOKEN`, and neither of the App's
   values. [Secrets](../security/credentials.md#secrets) says how to make each, and the
-  command that stores it. It worked when `factory init` asks "Go ahead?"
+  command that stores it. It worked when `lunamill init` asks "Go ahead?"
   with the presets checked.
 
 ## By hand
 
-Only `factory init --org` sets an organization up. The two tasks below
+Only `lunamill init --org` sets an organization up. The two tasks below
 are done on GitHub's site instead.
 
 ### Limiting who can use the App's key
@@ -219,8 +219,8 @@ are done on GitHub's site instead.
 ### Taking the App out
 
 In the organization's Settings, under GitHub Apps, uninstall the App
-whose name starts "Software Factory for". Then, under Developer settings,
+whose name starts "Lunamill for". Then, under Developer settings,
 GitHub Apps, delete it. Do this only once each repository has had
-`factory remove` run and merged, as
+`lunamill remove` run and merged, as
 [Taking an organization's setup out](../maintain/removing.md#taking-an-organizations-setup-out)
 orders the steps.

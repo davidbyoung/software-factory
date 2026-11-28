@@ -8,7 +8,7 @@ import {
   TRIGGERS,
   parseSettings,
 } from "../src/config.mts";
-import { FACTORY_COLUMNS } from "./factory-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { CODE_HOST } from "./settings-fixture";
 
 type Block = { properties: Record<string, unknown>; enum?: string[] };
@@ -109,7 +109,7 @@ describe("the schema and parseSettings agree on whole files", () => {
 
   it("both accept the one-word forms", () => {
     const raw = {
-      version: 2,
+      version: 1,
       repository: "a/b",
       "code-host": CODE_HOST,
       tickets: "github",
@@ -119,7 +119,7 @@ describe("the schema and parseSettings agree on whole files", () => {
   });
 
   const base = {
-    version: 2,
+    version: 1,
     repository: "owner/name",
     "code-host": CODE_HOST,
   };
@@ -160,7 +160,7 @@ describe("the schema and parseSettings agree on whole files", () => {
       tickets: {
         board: 3,
         columns: {
-          ...FACTORY_COLUMNS,
+          ...LUNAMILL_COLUMNS,
           backlog: "Todo",
           review: ["Code review", "QA"],
         },
@@ -186,7 +186,7 @@ describe("the schema and parseSettings agree on whole files", () => {
   });
 
   const wrong: Record<string, unknown> = {
-    "a version 1 file": { ...base, version: 1 },
+    "a version 2 file": { ...base, version: 2 },
     "a command at the top level, where version 1 had it": {
       ...base,
       "before-commit": ["npm test"],

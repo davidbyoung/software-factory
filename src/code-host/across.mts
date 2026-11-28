@@ -22,8 +22,8 @@ const kept = new Map<string, { at: number; token: string }>();
 /** Whether a run has anything to reach another repository with. */
 export const reachesOthers = (env: Env): boolean =>
   Boolean(
-    (env.FACTORY_APP_CLIENT_ID && env.FACTORY_APP_PRIVATE_KEY) ||
-    env.FACTORY_BUILD_TOKEN,
+    (env.LUNAMILL_APP_CLIENT_ID && env.LUNAMILL_APP_PRIVATE_KEY) ||
+    env.LUNAMILL_BUILD_TOKEN,
   );
 
 type Clock = { fetch: typeof fetch; now: () => number };
@@ -37,10 +37,10 @@ async function tokenFor(
   o: Clock,
 ): Promise<string | null> {
   // A step that only reads says so, whatever its code asks for.
-  const may = env.FACTORY_ACROSS === "read" ? "read" : access;
-  const clientId = env.FACTORY_APP_CLIENT_ID;
-  const key = env.FACTORY_APP_PRIVATE_KEY;
-  if (!clientId || !key) return env.FACTORY_BUILD_TOKEN ?? null;
+  const may = env.LUNAMILL_ACROSS === "read" ? "read" : access;
+  const clientId = env.LUNAMILL_APP_CLIENT_ID;
+  const key = env.LUNAMILL_APP_PRIVATE_KEY;
+  if (!clientId || !key) return env.LUNAMILL_BUILD_TOKEN ?? null;
   const name = `${may} ${repository}`;
   const had = kept.get(name);
   if (had && o.now() - had.at < KEPT_MS) return had.token;

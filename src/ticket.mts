@@ -3,37 +3,37 @@
 // it, check the claim still holds, stop, post a refinement marker, and note
 // what the session spent.
 //
-//   factory ticket claim N
-//   factory ticket still-live N
-//   factory ticket stop N "one-line reason"
-//   factory ticket end N
-//   factory ticket refining|waiting N
-//   factory ticket refined N [--check] [--before-file FILE]
-//   factory ticket ready N
-//   factory ticket cost N
+//   lunamill ticket claim N
+//   lunamill ticket still-live N
+//   lunamill ticket stop N "one-line reason"
+//   lunamill ticket end N
+//   lunamill ticket refining|waiting N
+//   lunamill ticket refined N [--check] [--before-file FILE]
+//   lunamill ticket ready N
+//   lunamill ticket cost N
 //
 // And the reads and writes the skills make, through the ticket interface
 // (`tickets/`), so no skill calls a ticket system itself:
 //
-//   factory ticket view N [--field title|state|labels|body|ref] [--json]
-//   factory ticket answers N   # the comments that count as answers
-//   factory ticket list [--label LABEL] [--title "TITLE"] [--json]
-//   factory ticket edit N [--title TITLE] [--body-file FILE [--attach FILE]...]
-//   factory ticket comment N --body-file FILE [--attach FILE]...
-//   factory ticket open --title TITLE --body-file FILE [--label LABEL]...
-//   factory ticket label N --add LABEL | --remove LABEL | --was-removed LABEL
-//   factory ticket link N [--part]
-//   factory ticket blockers N
-//   factory ticket block N --by M
-//   factory ticket unblock N --by M
-//   factory ticket supports GROUP
+//   lunamill ticket view N [--field title|state|labels|body|ref] [--json]
+//   lunamill ticket answers N   # the comments that count as answers
+//   lunamill ticket list [--label LABEL] [--title "TITLE"] [--json]
+//   lunamill ticket edit N [--title TITLE] [--body-file FILE [--attach FILE]...]
+//   lunamill ticket comment N --body-file FILE [--attach FILE]...
+//   lunamill ticket open --title TITLE --body-file FILE [--label LABEL]...
+//   lunamill ticket label N --add LABEL | --remove LABEL | --was-removed LABEL
+//   lunamill ticket link N [--part]
+//   lunamill ticket blockers N
+//   lunamill ticket block N --by M
+//   lunamill ticket unblock N --by M
+//   lunamill ticket supports GROUP
 //
 // The cost clock: `claim` and `refining` start the session's clock on N.
 // `waiting`, `refined`, `stop`, and `cost` post what the session and its
 // subagents spent, as a share of the subscription and at API list prices,
 // since the clock started, or since the
 // session started when it has none, then restart it. `cost` posts to ticket
-// N; `factory pr cost` posts to a pull request. The clock is keyed by
+// N; `lunamill pr cost` posts to a pull request. The clock is keyed by
 // CLAUDE_CODE_SESSION_ID, the ID the
 // hooks receive and the transcript's file name.
 //
@@ -149,7 +149,7 @@ export type Deps = {
   fromCloudSession?: boolean;
   /** Starts the board sync on the default branch, through the runner. */
   startSync: (repository: string, settings: Settings) => Promise<void>;
-  /** The factory's settings, read once when the command starts. */
+  /** Lunamill's settings, read once when the command starts. */
   settings: () => Promise<Settings>;
   env: Record<string, string | undefined>;
   sleep: (ms: number) => Promise<unknown>;
@@ -191,7 +191,7 @@ type Ctx = Deps & {
   /** Whether the code host's own links say which tickets a pull request
    * closes (`lib/pull-tickets.mts`). */
   own: boolean;
-  /** The name of each label the factory adds. */
+  /** The name of each label lunamill adds. */
   labels: Labels;
 };
 
@@ -294,7 +294,7 @@ export async function openBlockers(
   return blockers.filter((b) => b.state === "open").map((b) => b.key);
 }
 
-/** The outcome of a claim, as `factory-build` reads it. */
+/** The outcome of a claim, as `lunamill-build` reads it. */
 export function claimOutcome(
   comments: Entry[],
   mine: string,
@@ -411,39 +411,39 @@ async function end(
   return "released";
 }
 
-/** Adds the factory label to the ticket, creating the label first where
+/** Adds the lunamill label to the ticket, creating the label first where
  * the ticket system needs that. */
 async function labelFactory(c: Ctx, issue: Key) {
-  const name = c.labels.tickets.factory;
+  const name = c.labels.tickets.lunamill;
   await c.tickets.ensureLabel(name);
   await c.tickets.addLabel(issue, name);
 }
 
-/** A ticket named to a session becomes the factory's: it gets the label,
+/** A ticket named to a session becomes lunamill's: it gets the label,
  * and the session says so. */
 async function adoptNamed(c: Ctx, issue: Key) {
   const ticket = await c.tickets.read(issue);
-  if (ticket.labels.includes(c.labels.tickets.factory)) return;
+  if (ticket.labels.includes(c.labels.tickets.lunamill)) return;
   await labelFactory(c, issue);
   const ref = c.tickets.ref(issue);
   c.out(
-    `${ref} had no factory label: added it, so the factory now tracks ${ref}`,
+    `${ref} had no lunamill label: added it, so Lunamill now tracks ${ref}`,
   );
 }
 
 const ADOPT_USAGE =
-  "Usage: factory ticket adopt N... | factory ticket adopt --all-open [--since-lock FILE]";
+  "Usage: lunamill ticket adopt N... | lunamill ticket adopt --all-open [--since-lock FILE]";
 
-/** Whether the lock an update replaces already has the factory label's
+/** Whether the lock an update replaces already has the lunamill label's
  * setting, which every version before the label lacks. */
 function lockHasLabel(text: string): boolean {
   const lock = parseYaml(text) as {
     settings?: { tickets?: { labels?: Record<string, unknown> } };
   } | null;
-  return lock?.settings?.tickets?.labels?.factory !== undefined;
+  return lock?.settings?.tickets?.labels?.lunamill !== undefined;
 }
 
-/** `factory ticket adopt`: labels the tickets named, or every one not
+/** `lunamill ticket adopt`: labels the tickets named, or every one not
  * finished, and prints those it labeled and how many carry the label. */
 async function adopt(args: string[], c: Ctx): Promise<number> {
   const all = args.includes("--all-open");
@@ -455,7 +455,7 @@ async function adopt(args: string[], c: Ctx): Promise<number> {
     say.plainError(ADOPT_USAGE);
     return 2;
   }
-  const name = c.labels.tickets.factory;
+  const name = c.labels.tickets.lunamill;
   if (all && lock !== undefined) {
     let text: string | null = null;
     try {
@@ -464,7 +464,7 @@ async function adopt(args: string[], c: Ctx): Promise<number> {
       text = null;
     }
     if (text !== null && lockHasLabel(text)) {
-      c.out(`✓ nothing to label: ${lock} already has tickets.labels.factory`);
+      c.out(`✓ nothing to label: ${lock} already has tickets.labels.lunamill`);
       return 0;
     }
   }
@@ -497,7 +497,7 @@ async function moveToReady(issue: Key, d: Ctx) {
   const ready = d.config.columns.Ready?.[0] ?? null;
   if (ready === null)
     throw new Error(
-      `This board has no column for ready. Tell a session to build ${ref}, or run factory build ${issue}.`,
+      `This board has no column for ready. Tell a session to build ${ref}, or run lunamill build ${issue}.`,
     );
   const board = need(d.tickets, "board");
   const read = await board.read();
@@ -608,7 +608,7 @@ const READS_AND_WRITES = new Set([
 
 /** The branch a build of `ticket` pushes, from `code-host.branch-name`.
  * In a run under an organization's app the user is the app, by the slug
- * FACTORY_APP_SLUG holds: the code host tells an app's token nothing of
+ * LUNAMILL_APP_SLUG holds: the code host tells an app's token nothing of
  * who is signed in. */
 export async function branchName(
   ticket: Key,
@@ -616,7 +616,7 @@ export async function branchName(
   signedInAs: () => Promise<string>,
   env: Record<string, string | undefined> = process.env,
 ): Promise<string> {
-  let user = env.FACTORY_APP_SLUG ?? "";
+  let user = env.LUNAMILL_APP_SLUG ?? "";
   if (!user && pattern.includes("{user}"))
     try {
       user = await signedInAs();
@@ -766,7 +766,7 @@ async function ticketCommand(
       const labels = [
         ...new Set([
           ...options(args, "--label").map((l) => labelOf(names, l)),
-          names.factory,
+          names.lunamill,
         ]),
       ];
       for (const l of labels) await t.ensureLabel(l);
@@ -854,7 +854,7 @@ const STEPS = new Set([
 ]);
 
 const USAGE =
-  "Usage: factory ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|repositories|blockers|block|unblock|supports ...";
+  "Usage: lunamill ticket claim|still-live|stop|end|refining|waiting|refined|ready|cost|adopt|view|answers|list|edit|comment|open|label|link|branch|repositories|blockers|block|unblock|supports ...";
 
 /** The commands that record something on a ticket, after each of which
  * the board sync runs, since no ticket system tells the code host. */
@@ -1148,7 +1148,7 @@ export function ticketDeps(): Deps {
   };
 }
 
-/** `factory ticket ...`. */
+/** `lunamill ticket ...`. */
 export async function run(argv: string[]): Promise<number> {
   return main(argv, ticketDeps());
 }

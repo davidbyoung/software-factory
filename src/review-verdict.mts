@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Post the "Review verdict" commit status.
 //
-//   factory review verdict    # reads GITHUB_EVENT_NAME and _PATH
-//   factory review verdict --pr N   # again, for a pull request
+//   lunamill review verdict    # reads GITHUB_EVENT_NAME and _PATH
+//   lunamill review verdict --pr N   # again, for a pull request
 //
 // It is posted on two occasions: a review ending, by the review's own run
 // (`review-record.mts`), and an event of the pull request itself
@@ -33,7 +33,7 @@ export const CONTEXT = "Review verdict";
 export const REVIEW = "Automated review";
 /** The override's name when the settings give it no other. */
 export const OVERRIDE = PR_LABELS["verdict-override"];
-/** How the override looks where the factory creates it. */
+/** How the override looks where lunamill creates it. */
 const OVERRIDE_LOOK = {
   color: "b60205",
   description:
@@ -415,17 +415,17 @@ export async function apply(
 }
 
 // Only run as a CLI. Importing this module for tests must not call GitHub.
-/** `factory review verdict`. */
+/** `lunamill review verdict`. */
 export async function run(argv: string[] = []): Promise<number> {
   const repo = process.env.GITHUB_REPOSITORY!;
   try {
     const eventName = process.env.GITHUB_EVENT_NAME;
     const again = argv[0] === "--pr" ? Number(argv[1]) : null;
     if (again !== null && !(Number.isInteger(again) && again > 0))
-      throw new Error("Usage: factory review verdict [--pr N]");
+      throw new Error("Usage: lunamill review verdict [--pr N]");
     if (again === null && eventName !== "pull_request_target")
       throw new Error(
-        `factory review verdict reads pull_request_target, not ${eventName}: a review's run posts its own verdict.`,
+        `lunamill review verdict reads pull_request_target, not ${eventName}: a review's run posts its own verdict.`,
       );
     const settings = await loadSettings();
     await apply({

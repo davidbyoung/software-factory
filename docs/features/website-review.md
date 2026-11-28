@@ -1,7 +1,7 @@
 # Website review
 
 For a repository that is a website. At the end each change that affects
-a page is pictured before and after, in a browser the factory drives, and
+a page is pictured before and after, in a browser Lunamill drives, and
 read by a UI reviewer: an agent that looks at those pictures for
 usability and design.
 
@@ -13,39 +13,39 @@ measured, and read by the UI reviewer.
 ## What it needs
 
 The [`site`](../reference/settings/site.md#site) settings, which say how
-to start the website, and a browser for the factory to drive, which
+to start the website, and a browser for Lunamill to drive, which
 `npm install -D playwright` installs in your repository. Until it is
-installed, `factory config check` fails on settings with `site`.
+installed, `lunamill config check` fails on settings with `site`.
 
 ## Turn it on
 
 Write [`site`](../reference/settings/site.md#site) in
-`.claude/factory.yaml`. Most sites need two lines: the command that
-builds and serves the site on the port the factory gives it, and the
+`.claude/lunamill.yaml`. Most sites need two lines: the command that
+builds and serves the site on the port Lunamill gives it, and the
 address it serves at:
 
 ```yaml
 site:
   start: npm run build && npx serve out -p $PORT # build the site, and serve it on $PORT
-  url: http://localhost:$PORT # where the factory opens it
+  url: http://localhost:$PORT # where lunamill opens it
 ```
 
-Then run `factory sync`, which writes the UI reviewer and
-`factory-design` into your repository.
+Then run `lunamill sync`, which writes the UI reviewer and
+`lunamill-design` into your repository.
 
-**It worked when** `factory site compare` starts your branch and the
+**It worked when** `lunamill site compare` starts your branch and the
 default branch, takes the pictures, and prints where it saved them.
 
 ### The UI reviewer
 
-`factory-ui-reviewer` ships with the factory and is copied into any repository
+`lunamill-ui-reviewer` ships with Lunamill and is copied into any repository
 with [`site`](../reference/settings/site.md#site) in its settings, but runs only where it is listed:
 
 ```yaml
 plugins:
   build:
     reviewers:
-      - agent: factory-ui-reviewer
+      - agent: lunamill-ui-reviewer
         files:
           - src/**
           - public/**
@@ -53,17 +53,17 @@ plugins:
 
 ## How it works
 
-### `factory-design`
+### `lunamill-design`
 
 **What it does.** Designs a visible change to a website as a designer
 would: one recommended design in real content, built from your site and
-pictured by `factory site compare` at your widths in light and dark,
-reviewed by `factory-ui-reviewer` before you see it, and shown beside the
+pictured by `lunamill site compare` at your widths in light and dark,
+reviewed by `lunamill-ui-reviewer` before you see it, and shown beside the
 page as it is. It reads your `design-guide` when you wrote one, and who
 your visitors are from your project's own instructions.
 
 **When to use it.** When asked to redesign or restyle a page, and from
-`factory-refine` when a decision changes how something looks. A
+`lunamill-refine` when a decision changes how something looks. A
 repository with `site` in its settings gets it as its
 [`mockups` plugin](../customize/plugins.md) without listing it; one without `site`
 does not get it at all.
@@ -72,14 +72,14 @@ does not get it at all.
 or one made by editing a running page instead of building it. Leave a
 scratch worktree behind.
 
-### `factory site`
+### `lunamill site`
 
-`factory site compare` starts the working tree with
+`lunamill site compare` starts the working tree with
 [`site.start`](../reference/settings/site.md#site), starts the default branch from a
 temporary git worktree on another port, shoots each page at each width in
 light and dark, and prints the pages that changed, with the pixels and
 rows. It writes the pictures before, after, and with what changed
-outlined, and `report.json`, under `node_modules/.cache/factory/site/`. It
+outlined, and `report.json`, under `node_modules/.cache/lunamill/site/`. It
 exits 0 whether or not anything changed, and non-zero only when it could
 not do its job.
 
@@ -109,7 +109,7 @@ not do its job.
   compares each site the branch's change touches, one after another, after
   a line that says which and why, and saves each site's pictures in a
   folder of its own, named for the site's folder, inside that run's
-  folder under `node_modules/.cache/factory/site/`, which is named for the
+  folder under `node_modules/.cache/lunamill/site/`, which is named for the
   time the run started. `--site FOLDER` compares the
   one site in that folder, whatever changed. With several sites, `--keep`, `--before`, and
   `--after` need `--site FOLDER`.
@@ -117,7 +117,7 @@ not do its job.
   of it new.
 - `--base REF` compares against something other than the default branch.
 - `--keep` leaves both sites running and prints their addresses, for a state
-  that takes a click to reach. `factory site stop` ends them and removes the
+  that takes a click to reach. `lunamill site stop` ends them and removes the
   worktree.
 - `--before URL --after URL` compares two sites that are already running and
   starts nothing. One without the other is refused.
@@ -125,12 +125,12 @@ not do its job.
 ## Its settings
 
 [`site`](../reference/settings/site.md#site) says how to start the website
-and what `factory site compare` measures, and
+and what `lunamill site compare` measures, and
 [`plugins`](../reference/settings/plugins.md#plugins) lists the UI reviewer.
 
 ## When something goes wrong
 
-`factory site compare` exits non-zero only when it could not do its job.
+`lunamill site compare` exits non-zero only when it could not do its job.
 What got worse on a page is not a failure: it prints as a `measured:`
 line.
 

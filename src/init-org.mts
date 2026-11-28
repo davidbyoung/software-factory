@@ -1,4 +1,4 @@
-// `factory init --org ADDRESS`: sets an organization up once. It reads no
+// `lunamill init --org ADDRESS`: sets an organization up once. It reads no
 // git remote and needs no repository. It says what it found, asks what
 // nothing has decided, shows everything it will do, and once told to go
 // ahead makes the board, the repository that holds the organization's
@@ -19,7 +19,7 @@ import { organizationHosts } from "./code-host/index.mts";
 import type { Organization, OrganizationHost } from "./code-host/types.mts";
 import {
   everyColumn,
-  FACTORY_LINES,
+  LUNAMILL_LINES,
   suggestColumns,
 } from "./columns-suggest.mts";
 import { POLL_MINUTES } from "./config.mts";
@@ -66,12 +66,12 @@ export type InitOrgDeps = Terminal & {
 
 /** The variable that holds the app's client ID, which the workflows make a
  * run's token from with the key in the secret `APP_KEY` names. */
-export const APP_CLIENT_ID = "FACTORY_APP_CLIENT_ID";
-/** The property a repository set up with the factory has `on`, and the
+export const APP_CLIENT_ID = "LUNAMILL_APP_CLIENT_ID";
+/** The property a repository set up with lunamill has `on`, and the
  * repository that holds the organization's preset and poller. */
-export const PROPERTY = "software-factory";
-export const CONFIG = "factory-config";
-const BOARD_TITLE = "Software factory";
+export const PROPERTY = "lunamill";
+export const CONFIG = "lunamill-config";
+const BOARD_TITLE = "Lunamill";
 /** The two ways to pay for sessions in the cloud, as the question names
  * them. */
 const SUBSCRIPTION = "A Claude subscription";
@@ -81,7 +81,7 @@ const FILES = [README, PRESET_FILE, POLLER_FILE];
 const NOTHING = "Nothing changed.";
 const NO_RULE = say.row(
   "rule",
-  "Each repository's own: once its setup merges, an admin of it runs factory init",
+  "Each repository's own: once its setup merges, an admin of it runs lunamill init",
   { width: 9, indent: 0, mark: "off" },
 );
 /** A month of runs at each interval the scheduled poller allows. */
@@ -109,12 +109,12 @@ const readme = (org: string) =>
   [
     `# ${CONFIG}`,
     "",
-    `The software factory's settings for every ${org} repository, written by`,
-    "`factory init --org`. Both files are yours to edit.",
+    `Lunamill's settings for every ${org} repository, written by`,
+    "`lunamill init --org`. Both files are yours to edit.",
     "",
     `- \`${PRESET_FILE}\` is ${org}'s preset: the ticket system, the board, its`,
     "  columns, and how builds name their branches. A repository follows it once",
-    "  a developer runs `factory init` there.",
+    "  a developer runs `lunamill init` there.",
     `- \`${POLLER_FILE}\` is the one poller for ${org}'s`,
     "  board. It starts a build in each repository with a ticket in the ready",
     "  column.",
@@ -133,8 +133,8 @@ const presetText = (o: {
 }) =>
   `${[
     `# The preset for every ${o.org} repository.`,
-    `# ${PRESET_FILE}, written by factory init --org. It is yours to edit.`,
-    "version: 2",
+    `# ${PRESET_FILE}, written by lunamill init --org. It is yours to edit.`,
+    "version: 1",
     "tickets:",
     `  type: ${o.tickets}`,
     `  board: ${o.board}`,
@@ -191,7 +191,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     return stop(
       word
         ? `✗ Which code host is ${address} on? Give its address, such as ${firstHost.addressOf(word)}.`
-        : `✗ factory init --org takes an organization's address, such as ${firstHost.addressOf("acme")}.`,
+        : `✗ lunamill init --org takes an organization's address, such as ${firstHost.addressOf("acme")}.`,
       NOTHING,
     );
   }
@@ -200,7 +200,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   );
   if (!hostName)
     return stop(
-      `✗ ${url.host} is not a code host the factory supports: ${listed(Object.values(d.hosts).map((h) => h.label))}.`,
+      `✗ ${url.host} is not a code host Lunamill supports: ${listed(Object.values(d.hosts).map((h) => h.label))}.`,
       NOTHING,
     );
   const host = d.hosts[hostName]!;
@@ -212,14 +212,14 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       NOTHING,
     );
   }
-  const command = `factory init --org ${host.addressOf(org)}`;
+  const command = `lunamill init --org ${host.addressOf(org)}`;
   const carryOn = `Run ${command} again: it carries on from here.`;
 
   const agentName = Object.keys(d.tools.agent)[0]!;
   const agent = d.tools.agent[agentName]!;
   if (!agent.agent.installed(d.hasCommand))
     return stop(
-      `The factory runs in a coding agent, and ${agent.label} is not installed.`,
+      `Lunamill runs in a coding agent, and ${agent.label} is not installed.`,
       `Install it and run ${command} again.`,
       NOTHING,
     );
@@ -236,7 +236,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     if (kind === "person")
       return stop(
         `✗ ${org} is a personal account, which has nothing to set up once: no shared secrets, and a board that refuses an app's token.`,
-        `Run factory init in each repository. ${NOTHING}`,
+        `Run lunamill init in each repository. ${NOTHING}`,
       );
     if ((await organization.role()) !== "owner")
       return stop(
@@ -260,12 +260,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     await d.interactive(lacks.fix);
   }
 
-  d.out(
-    say.text(
-      "Setting up the software factory for the organization ",
-      say.name(org),
-    ),
-  );
+  d.out(say.text("Setting up Lunamill for the organization ", say.name(org)));
   d.out(say.BLANK);
 
   const ticketNames = Object.keys(d.tools.tickets);
@@ -395,7 +390,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       return stop(`Could not reach the code host: ${message(e)}`);
     }
     const choice = await d.ask.select("Which board?", [
-      { name: "A new one, made with the factory's columns", value: "new" },
+      { name: "A new one, made with Lunamill's columns", value: "new" },
       ...existing.map((b) => ({
         name: `${b.number}  ${b.title}`,
         value: String(b.number),
@@ -406,7 +401,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
 
   // An existing board keeps its own columns: the coding agent suggests
   // which shows each state, and only what is still missing is added.
-  let columnLines = FACTORY_LINES;
+  let columnLines = LUNAMILL_LINES;
   let adds: string[] = [];
   if (typeof board === "number" && tickets?.board) {
     let names: string[];
@@ -554,13 +549,10 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   if (plan.rules && !ruled)
     rows.push([
       "rule",
-      `Require "${REVIEW_VERDICT}" on repositories set up with the factory`,
+      `Require "${REVIEW_VERDICT}" on repositories set up with Lunamill`,
     ]);
   if (board === "new")
-    rows.push([
-      "board",
-      "Create a board with the factory's columns and fields",
-    ]);
+    rows.push(["board", "Create a board with Lunamill's columns and fields"]);
   else if (board !== null)
     rows.push([
       "board",
@@ -607,7 +599,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
       await step(`create ${repository}`, () =>
         organization.createRepository(CONFIG, {
           isPrivate,
-          description: `The software factory's settings for every ${org} repository`,
+          description: `Lunamill's settings for every ${org} repository`,
         }),
       );
     if (board !== null) {
@@ -851,11 +843,11 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
   d.out(say.BLANK);
   d.out(say.text(`✓ ${org} is set up.`));
   d.out(say.BLANK);
-  d.out(say.action("Next, in each repository you want the factory in:"));
-  d.out(say.step(1, "A developer installs the factory once on their machine:"));
+  d.out(say.action("Next, in each repository you want Lunamill in:"));
+  d.out(say.step(1, "A developer installs Lunamill once on their machine:"));
   d.out(say.text("       ", say.copy(`npm install -g ${d.packageName}`)));
   d.out(say.step(2, "In the repository's checkout, they run:"));
-  d.out(say.text("       factory init"));
+  d.out(say.text("       lunamill init"));
   d.out(
     say.text(
       "     It asks them for no token, and opens the pull request that sets the repository up.",
@@ -865,7 +857,7 @@ export async function main(argv: string[], d: InitOrgDeps): Promise<number> {
     d.out(
       say.step(
         3,
-        "Once that pull request merges, an admin of the repository runs factory init there",
+        "Once that pull request merges, an admin of the repository runs lunamill init there",
       ),
     );
     d.out(say.text(`     again, to require "${REVIEW_VERDICT}". ${unruled}`));

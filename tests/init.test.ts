@@ -1,4 +1,4 @@
-// `factory init`: what it finds, what it asks, the plan it shows, and what
+// `lunamill init`: what it finds, what it asks, the plan it shows, and what
 // it does once told to go ahead, run against the in-memory code host,
 // runner, and ticket system with scripted answers. No test reaches GitHub.
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -25,7 +25,7 @@ import { ADD, NONE } from "../src/columns-suggest.mts";
 import type { Registry } from "../src/tools.mts";
 import type { Agent } from "../src/agent/types.mts";
 import type { Group, TicketField, Tickets } from "../src/tickets/types.mts";
-import { FACTORY_COLUMNS, FACTORY_COLUMNS_YAML } from "./factory-columns";
+import { LUNAMILL_COLUMNS, LUNAMILL_COLUMNS_YAML } from "./lunamill-columns";
 import { CODE_HOST, CODE_HOST_YAML } from "./settings-fixture";
 import {
   AGENT,
@@ -43,7 +43,7 @@ import {
 } from "./init-harness";
 import * as say from "../src/lib/output.mts";
 
-describe("factory init, a first run with every part", () => {
+describe("lunamill init, a first run with every part", () => {
   const firstSetup = (): Setup => ({
     packageJson: false,
     answers: {
@@ -61,7 +61,7 @@ describe("factory init, a first run with every part", () => {
     await r.run();
     const start = r.out.indexOf("Found");
     const found = r.out.slice(0, r.out.indexOf("", start)).join("\n");
-    expect(found).toContain("Setting up the software factory for acme/site");
+    expect(found).toContain("Setting up Lunamill for acme/site");
     expect(found).toMatch(/Code host +GitHub \(from your git remote\)/);
     expect(found).toMatch(/Tickets +GitHub Issues/);
     expect(found).toMatch(/Coding agent +Claude Code/);
@@ -74,10 +74,10 @@ describe("factory init, a first run with every part", () => {
     expect(await r.run()).toBe(0);
     expect(r.yaml()).toEqual({
       specs: "none",
-      version: 2,
+      version: 1,
       repository: "acme/site",
       "code-host": CODE_HOST,
-      tickets: { board: 1, columns: FACTORY_COLUMNS },
+      tickets: { board: 1, columns: LUNAMILL_COLUMNS },
       builds: { trigger: "own-server" },
       "auto-merge": { allow: ["docs/**", "**/*.md"] },
       "pr-review": true,
@@ -87,7 +87,7 @@ describe("factory init, a first run with every part", () => {
     expect(r.synced()).toBe(1);
   });
 
-  it("creates the board with the factory's columns and fields, keeping a column that matches whatever its case", async () => {
+  it("creates the board with Lunamill's columns and fields, keeping a column that matches whatever its case", async () => {
     const r = first();
     await r.run();
     expect(r.tickets.boards).toEqual([
@@ -106,7 +106,7 @@ describe("factory init, a first run with every part", () => {
         fields: ["Session", "Runs in", "Cost"],
       },
     ]);
-    expect(r.columns()).toEqual(FACTORY_COLUMNS);
+    expect(r.columns()).toEqual(LUNAMILL_COLUMNS);
   });
 
   it("stores the agent's token, the one access token under each name, and the signing key", async () => {
@@ -115,9 +115,9 @@ describe("factory init, a first run with every part", () => {
     expect(r.ran).toContainEqual(["claude", "setup-token"]);
     expect(Object.fromEntries(r.runner.secrets)).toEqual({
       CLAUDE_CODE_OAUTH_TOKEN: AGENT,
-      FACTORY_BOARD_TOKEN: GOOD,
-      FACTORY_AUTOMERGE_TOKEN: GOOD,
-      FACTORY_SIGNING_KEY: PRIVATE_KEY,
+      LUNAMILL_BOARD_TOKEN: GOOD,
+      LUNAMILL_AUTOMERGE_TOKEN: GOOD,
+      LUNAMILL_SIGNING_KEY: PRIVATE_KEY,
     });
   });
 
@@ -130,14 +130,14 @@ describe("factory init, a first run with every part", () => {
     const r = init(setup);
     await r.run();
     expect(r.runner.secrets.get("CLAUDE_CODE_OAUTH_TOKEN")).toBe(AGENT);
-    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(GOOD);
   });
 
   it("opens the page that makes the token, with the scopes the parts need", async () => {
     const r = first();
     await r.run();
     expect(r.opened).toEqual([
-      "https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: acme/site",
+      "https://code.example/tokens/new?scopes=push,workflows,board&note=lunamill: acme/site",
     ]);
   });
 
@@ -145,7 +145,7 @@ describe("factory init, a first run with every part", () => {
     const r = first();
     await r.run();
     expect(r.host.settings.signingKeys).toEqual([
-      { title: "software factory builds", key: "ssh-ed25519 PUBLIC" },
+      { title: "Lunamill builds", key: "ssh-ed25519 PUBLIC" },
     ]);
   });
 
@@ -161,8 +161,8 @@ describe("factory init, a first run with every part", () => {
     await r.run();
     const text = r.out.join("\n");
     expect(text).not.toContain("Install the app");
-    expect(text).toContain("FACTORY_REPOSITORY=acme/site");
-    expect(text).toContain("FACTORY_BOARD_TOKEN=");
+    expect(text).toContain("LUNAMILL_REPOSITORY=acme/site");
+    expect(text).toContain("LUNAMILL_BOARD_TOKEN=");
     expect(text).toContain("Every check passed");
     expect(text).toContain("Merge it to finish. Left to do:");
     printsNoSecret(r.out);
@@ -173,7 +173,7 @@ describe("factory init, a first run with every part", () => {
     await r.run();
     const left = r.out.slice(r.out.indexOf("Merge it to finish. Left to do:"));
     expect(left.slice(2, 4)).toEqual([
-      "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+      "  2. Add the commands that check a change, under commands.gate in .claude/lunamill.yaml",
       "",
     ]);
   });
@@ -198,7 +198,7 @@ describe("factory init, a first run with every part", () => {
         },
         {
           state: "pass",
-          text: "CLAUDE.md imports the factory's rules",
+          text: "CLAUDE.md imports Lunamill's rules",
           group: "Claude Code",
         },
         { state: "off", text: "A board", group: "Parts that are off" },
@@ -210,7 +210,7 @@ describe("factory init, a first run with every part", () => {
       "    ✓ The settings are valid",
       "",
       "  Claude Code",
-      "    ✓ CLAUDE.md imports the factory's rules",
+      "    ✓ CLAUDE.md imports Lunamill's rules",
       "",
       "  Parts that are off",
       "    - A board",
@@ -224,12 +224,10 @@ describe("factory init, a first run with every part", () => {
       r.out.findIndex((l) => l.startsWith("This is everything")),
     );
     const text = plan.join("\n");
-    expect(text).toContain(".claude/factory.yaml");
+    expect(text).toContain(".claude/lunamill.yaml");
     expect(text).not.toContain("package.json");
-    expect(text).toContain(
-      "Copy the factory's skills, agents, rules, and guards",
-    );
-    expect(text).toContain("FACTORY_BOARD_TOKEN");
+    expect(text).toContain("Copy Lunamill's skills, agents, rules, and guards");
+    expect(text).toContain("LUNAMILL_BOARD_TOKEN");
     expect(text).toContain('Require "Review verdict"');
     const go = r.asked.indexOf("confirm: Go ahead?");
     expect(go).toBeGreaterThan(-1);
@@ -239,7 +237,7 @@ describe("factory init, a first run with every part", () => {
   });
 });
 
-describe("factory init, told not to go ahead", () => {
+describe("lunamill init, told not to go ahead", () => {
   it("changes nothing", async () => {
     const r = init({
       answers: {
@@ -250,7 +248,7 @@ describe("factory init, told not to go ahead", () => {
       },
     });
     expect(await r.run()).toBe(0);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
     expect(r.synced()).toBe(0);
     expect(r.runner.secrets.size).toBe(0);
     expect(r.tickets.boards).toEqual([]);
@@ -260,7 +258,7 @@ describe("factory init, told not to go ahead", () => {
   });
 });
 
-describe("factory init, the default branch the sync writes", () => {
+describe("lunamill init, the default branch the sync writes", () => {
   const answers = {
     checkbox: [EVERY],
     select: ["new", "own-server"],
@@ -283,15 +281,15 @@ describe("factory init, the default branch the sync writes", () => {
     expect(r.out.at(-1)).toBe(
       "Could not tell the default branch. Run: git remote set-head origin --auto",
     );
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
     expect(r.synced()).toBe(0);
   });
 });
 
-describe("factory init, run again", () => {
+describe("lunamill init, run again", () => {
   const SETTINGS = [
     "# Our settings.",
-    "version: 2",
+    "version: 1",
     "repository: acme/site",
     CODE_HOST_YAML,
     "tickets:",
@@ -305,8 +303,8 @@ describe("factory init, run again", () => {
     "",
   ].join("\n");
   const SET = {
-    FACTORY_BOARD_TOKEN: "x",
-    FACTORY_AUTOMERGE_TOKEN: "x",
+    LUNAMILL_BOARD_TOKEN: "x",
+    LUNAMILL_AUTOMERGE_TOKEN: "x",
   };
 
   it("starts from the parts already on, and does not ask for a secret already set", async () => {
@@ -348,7 +346,7 @@ describe("factory init, run again", () => {
       answers: { checkbox: [["board", "auto-merge"]], confirm: [false, true] },
     });
   const GATE_STEP =
-    "Add the commands that check a change, under commands.gate in .claude/factory.yaml";
+    "Add the commands that check a change, under commands.gate in .claude/lunamill.yaml";
 
   it("leaves the gate's commands to add when the settings have none", async () => {
     const r = rerun(SETTINGS);
@@ -377,13 +375,13 @@ describe("factory init, run again", () => {
       answers: { checkbox: [["board"]], confirm: [false, true] },
     });
     await r.run();
-    const text = r.read(".claude/factory.yaml")!;
+    const text = r.read(".claude/lunamill.yaml")!;
     expect(text).toContain("# Our settings.");
     expect(text).toContain("board: 3 # the roadmap");
     expect(text).toContain("npm run lint");
     expect(text).not.toContain("auto-merge");
     expect(r.out.join("\n")).toContain(
-      "You can now delete these secrets: FACTORY_AUTOMERGE_TOKEN",
+      "You can now delete these secrets: LUNAMILL_AUTOMERGE_TOKEN",
     );
   });
 
@@ -399,14 +397,14 @@ describe("factory init, run again", () => {
       },
     });
     await r.run();
-    expect(r.runner.secrets.get("FACTORY_BOARD_TOKEN")).toBe(GOOD);
-    expect(r.runner.secrets.get("FACTORY_AUTOMERGE_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BOARD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_AUTOMERGE_TOKEN")).toBe(GOOD);
     printsNoSecret(r.out);
   });
 
   it("gives a board the columns the settings name, not the defaults they rename", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n`,
+      settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n`,
       boards: [
         {
           number: 3,
@@ -421,7 +419,7 @@ describe("factory init, run again", () => {
           ],
         },
       ],
-      secrets: { FACTORY_BOARD_TOKEN: "x" },
+      secrets: { LUNAMILL_BOARD_TOKEN: "x" },
       answers: { checkbox: [["board"]], confirm: [false, true] },
     });
     await r.run();
@@ -437,14 +435,14 @@ describe("factory init, run again", () => {
 
   it("turns off a board whose columns the settings rename, leaving valid settings", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n`,
-      secrets: { FACTORY_BOARD_TOKEN: "x" },
+      settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  board: 3\n  columns:\n    backlog: Todo\n  fields:\n    cost: none\n`,
+      secrets: { LUNAMILL_BOARD_TOKEN: "x" },
       answers: { checkbox: [[]], confirm: [true] },
     });
     expect(await r.run()).toBe(0);
     expect(r.yaml()).toEqual({
       specs: "none",
-      version: 2,
+      version: 1,
       repository: "acme/site",
       "code-host": CODE_HOST,
     });
@@ -452,13 +450,13 @@ describe("factory init, run again", () => {
 
   it("takes the review's setting out when the review is turned off, so the sync removes its workflow", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review: true\n`,
+      settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review: true\n`,
       answers: { checkbox: [[]], confirm: [true] },
     });
     await r.run();
     expect(r.yaml()).toEqual({
       specs: "none",
-      version: 2,
+      version: 1,
       repository: "acme/site",
       "code-host": CODE_HOST,
     });
@@ -466,7 +464,7 @@ describe("factory init, run again", () => {
 
   it("writes pr-review: true when the review is turned on over pr-review: false", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review: false\n`,
+      settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\npr-review: false\n`,
       answers: { checkbox: [["review"]], confirm: [true], secret: [""] },
     });
     await r.run();
@@ -474,7 +472,7 @@ describe("factory init, run again", () => {
   });
 });
 
-describe("factory init, the access token", () => {
+describe("lunamill init, the access token", () => {
   it("refuses a token that lacks a scope, naming it, and takes the next", async () => {
     const r = init({
       answers: {
@@ -487,7 +485,7 @@ describe("factory init, the access token", () => {
     expect(r.out).toContain(
       "That token lacks workflows. Make one with every scope checked, and paste it.",
     );
-    expect(r.runner.secrets.get("FACTORY_BUILD_TOKEN")).toBe(GOOD);
+    expect(r.runner.secrets.get("LUNAMILL_BUILD_TOKEN")).toBe(GOOD);
     printsNoSecret(r.out);
   });
 
@@ -502,7 +500,7 @@ describe("factory init, the access token", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.",
+      "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.",
     );
   });
 
@@ -527,9 +525,9 @@ describe("factory init, the access token", () => {
       answers: { checkbox: [["cloud"]], confirm: [true], secret: [AGENT, ""] },
     });
     await r.run();
-    expect(r.runner.secrets.has("FACTORY_BUILD_TOKEN")).toBe(false);
+    expect(r.runner.secrets.has("LUNAMILL_BUILD_TOKEN")).toBe(false);
     expect(r.out.join("\n")).toContain(
-      "No token stored. Run factory init again to add it.",
+      "No token stored. Run lunamill init again to add it.",
     );
   });
 
@@ -541,20 +539,20 @@ describe("factory init, the access token", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "Setting up the software factory for acme/site",
+      "Setting up Lunamill for acme/site",
       "",
-      "The factory runs in a coding agent, and Claude Code is not installed.",
-      "Install it and run factory init again.",
+      "Lunamill runs in a coding agent, and Claude Code is not installed.",
+      "Install it and run lunamill init again.",
       "Nothing changed.",
     ]);
     expect(r.asked).toEqual([]);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
     expect(r.runner.secrets.size).toBe(0);
     expect(r.tickets.boards[0].columns).toEqual(["Todo"]);
   });
 });
 
-describe("factory init, the signing key", () => {
+describe("lunamill init, the signing key", () => {
   it("asks for the permission a signing key needs, then adds it", async () => {
     const r = init({
       signingNeedsScope: true,
@@ -587,12 +585,12 @@ describe("factory init, the signing key", () => {
     expect(r.looks).toContainEqual(
       expect.stringMatching(/^ {2}\{copy:ssh-ed25519 PUBLIC.*\}$/),
     );
-    expect(r.runner.secrets.get("FACTORY_SIGNING_KEY")).toBe(PRIVATE_KEY);
+    expect(r.runner.secrets.get("LUNAMILL_SIGNING_KEY")).toBe(PRIVATE_KEY);
     printsNoSecret(r.out);
   });
 });
 
-describe("factory init, the board", () => {
+describe("lunamill init, the board", () => {
   it("offers the owner's boards, and gives a chosen one what it lacks", async () => {
     const r = init({
       boards: [{ number: 4, title: "Roadmap", columns: ["Todo", "Done"] }],
@@ -617,7 +615,7 @@ describe("factory init, the board", () => {
     });
     await r.run();
     printsNoSecret(r.out);
-    expect(r.yaml().tickets).toEqual({ board: 4, columns: FACTORY_COLUMNS });
+    expect(r.yaml().tickets).toEqual({ board: 4, columns: LUNAMILL_COLUMNS });
     expect(r.tickets.boards[0].columns.slice(0, 6)).toEqual([
       "Backlog",
       "In refinement",
@@ -644,7 +642,7 @@ describe("factory init, the board", () => {
     expect(r.out.join("\n")).toContain(
       "Could not create a board: Projects are turned off for this organization",
     );
-    expect(r.yaml().tickets).toEqual({ board: 4, columns: FACTORY_COLUMNS });
+    expect(r.yaml().tickets).toEqual({ board: 4, columns: LUNAMILL_COLUMNS });
   });
 
   it("goes on without a board when it cannot make one and there is no other", async () => {
@@ -659,11 +657,11 @@ describe("factory init, the board", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out.join("\n")).toContain(
-      "No board to use instead: create one on the code host, then run factory init again.",
+      "No board to use instead: create one on the code host, then run lunamill init again.",
     );
     expect(r.yaml()).toEqual({
       specs: "none",
-      version: 2,
+      version: 1,
       repository: "acme/site",
       "code-host": CODE_HOST,
     });
@@ -683,11 +681,11 @@ describe("factory init, the board", () => {
     expect(r.out).toContain(
       "Builds that start from the board need a board, so that is on too.",
     );
-    expect(r.yaml().tickets).toEqual({ board: 1, columns: FACTORY_COLUMNS });
+    expect(r.yaml().tickets).toEqual({ board: 1, columns: LUNAMILL_COLUMNS });
   });
 });
 
-describe("factory init, where the poller runs", () => {
+describe("lunamill init, where the poller runs", () => {
   const WHERE = "select: Where does the poller run?";
   const HOW_OFTEN = "select: How often?";
   const chosen = (where: string, more: Partial<Setup> = {}, often?: string) =>
@@ -780,9 +778,9 @@ describe("factory init, where the poller runs", () => {
 
     expect(r.out).toContain(
       [
-        "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:",
-        "       FACTORY_REPOSITORY=acme/site",
-        "       FACTORY_BOARD_TOKEN=the access token you just made",
+        "  1. Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:0.2.0, where you host it, with:",
+        "       LUNAMILL_REPOSITORY=acme/site",
+        "       LUNAMILL_BOARD_TOKEN=the access token you just made",
         "     It reads the rest from your settings once this pull request merges.",
       ].join("\n"),
     );
@@ -794,8 +792,8 @@ describe("factory init, where the poller runs", () => {
     const left = r.looks.find((l) => l.includes("Run the poller's image"));
     expect(left).toMatch(/^ {2}\{yourTurn:1\.\} Run the poller's image/);
     expect(left!.split("\n").slice(1)).toEqual([
-      "       {copy:FACTORY_REPOSITORY=acme/site}",
-      "       {copy:FACTORY_BOARD_TOKEN=the access token you just made}",
+      "       {copy:LUNAMILL_REPOSITORY=acme/site}",
+      "       {copy:LUNAMILL_BOARD_TOKEN=the access token you just made}",
       "     It reads the rest from your settings once this pull request merges.",
     ]);
   });
@@ -818,7 +816,7 @@ describe("factory init, where the poller runs", () => {
       const r = init({
         private: true,
         settings: [
-          "version: 2",
+          "version: 1",
           "repository: acme/site",
           CODE_HOST_YAML,
           "tickets:",
@@ -827,7 +825,7 @@ describe("factory init, where the poller runs", () => {
           `  trigger: ${trigger}`,
           "",
         ].join("\n"),
-        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+        secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", LUNAMILL_BOARD_TOKEN: "x" },
         boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
         answers: {
           checkbox: [["board", "cloud", "from-board"]],
@@ -845,7 +843,7 @@ describe("factory init, where the poller runs", () => {
   it("takes out the interval with the part", async () => {
     const r = init({
       settings: [
-        "version: 2",
+        "version: 1",
         "repository: acme/site",
         CODE_HOST_YAML,
         "tickets:",
@@ -855,7 +853,7 @@ describe("factory init, where the poller runs", () => {
         "  poll-minutes: 30",
         "",
       ].join("\n"),
-      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", LUNAMILL_BOARD_TOKEN: "x" },
       boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
       answers: { checkbox: [["board", "cloud"]], confirm: [false, true] },
     });
@@ -865,11 +863,11 @@ describe("factory init, where the poller runs", () => {
   });
 });
 
-describe("factory init, repository rules", () => {
+describe("lunamill init, repository rules", () => {
   it("says so when the plan allows no rule, and carries on", async () => {
     const r = init({
       rulesRefused: "Upgrade to GitHub Pro or make this repository public",
-      workflows: { "factory.yml": "active" },
+      workflows: { "lunamill.yml": "active" },
       answers: { checkbox: [["review"]], confirm: [true], secret: [AGENT] },
     });
     expect(await r.run()).toBe(0);
@@ -880,7 +878,7 @@ describe("factory init, repository rules", () => {
   });
 });
 
-describe("factory init, what CI's own token may do", () => {
+describe("lunamill init, what CI's own token may do", () => {
   const LEFT =
     "Set CI's own token to read, since code in a pull request could pass \"Review verdict\" with it: your repository's Settings, Actions, General, Workflow permissions. A workflow of yours that writes then says so under its own permissions";
   const answers = (parts: string[]) => ({
@@ -900,9 +898,9 @@ describe("factory init, what CI's own token may do", () => {
   });
 });
 
-describe("factory init, the events the factory's workflow starts on", () => {
+describe("lunamill init, the events Lunamill's workflow starts on", () => {
   const ROW =
-    '  policy        Let .github/workflows/factory.yml run on pull_request_target, as the policy "Software factory"';
+    '  policy        Let .github/workflows/lunamill.yml run on pull_request_target, as the policy "Lunamill"';
   const answers = { checkbox: [[]], confirm: [true] };
 
   it("plans the policy and adds it where the code host holds the event back", async () => {
@@ -910,16 +908,16 @@ describe("factory init, the events the factory's workflow starts on", () => {
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(ROW);
     expect(r.out).toContain(
-      "✓ Allowed pull_request_target for .github/workflows/factory.yml.",
+      "✓ Allowed pull_request_target for .github/workflows/lunamill.yml.",
     );
     expect(r.out.indexOf(ROW)).toBeLessThan(
       r.out.indexOf(
-        "✓ Allowed pull_request_target for .github/workflows/factory.yml.",
+        "✓ Allowed pull_request_target for .github/workflows/lunamill.yml.",
       ),
     );
     expect(
       await r.host.codeHost.eventAllowed(
-        ".github/workflows/factory.yml",
+        ".github/workflows/lunamill.yml",
         "pull_request_review",
       ),
     ).toBe("allowed");
@@ -934,7 +932,7 @@ describe("factory init, the events the factory's workflow starts on", () => {
     expect(await r.run()).toBe(0);
     expect(r.out.join("\n")).not.toContain("✓ Allowed pull_request_target");
     expect(r.out.join("\n")).toMatch(
-      /\d+\. Let \.github\/workflows\/factory\.yml run on pull_request_target: your repository's Settings, Actions, Policies/,
+      /\d+\. Let \.github\/workflows\/lunamill\.yml run on pull_request_target: your repository's Settings, Actions, Policies/,
     );
   });
 
@@ -946,7 +944,7 @@ describe("factory init, the events the factory's workflow starts on", () => {
   });
 });
 
-describe("factory init, word for word", () => {
+describe("lunamill init, word for word", () => {
   /** The transcript, with this test's config folder as a person's own. */
   const shown = (r: ReturnType<typeof init>) =>
     r.transcript.map((l) => l.replace(r.env.XDG_CONFIG_HOME, "~/.config"));
@@ -965,7 +963,7 @@ describe("factory init, word for word", () => {
     expect(await r.run()).toBe(0);
     expect(shown(r)).toMatchInlineSnapshot(`
       [
-        "Setting up the software factory for acme/site",
+        "Setting up Lunamill for acme/site",
         "",
         "Found",
         "  Code host      GitHub (from your git remote)",
@@ -986,14 +984,14 @@ describe("factory init, word for word", () => {
         "? input: Which command checks a change here, such as npm test? (leave empty to add it later)",
         "",
         "This is everything setup will do:",
-        "  settings      Write .claude/factory.yaml",
-        "  files         Copy the factory's skills, agents, rules, and guards",
-        "  create        board "site" under acme, linked to the repository, with the factory's columns and fields",
-        "  secrets       CLAUDE_CODE_OAUTH_TOKEN, FACTORY_BOARD_TOKEN, FACTORY_AUTOMERGE_TOKEN, FACTORY_SIGNING_KEY",
-        "  store         your GitHub token and your Claude token on this machine, in ~/.config/software-factory/credentials.yaml",
+        "  settings      Write .claude/lunamill.yaml",
+        "  files         Copy Lunamill's skills, agents, rules, and guards",
+        "  create        board "site" under acme, linked to the repository, with Lunamill's columns and fields",
+        "  secrets       CLAUDE_CODE_OAUTH_TOKEN, LUNAMILL_BOARD_TOKEN, LUNAMILL_AUTOMERGE_TOKEN, LUNAMILL_SIGNING_KEY",
+        "  store         your GitHub token and your Claude token on this machine, in ~/.config/lunamill/credentials.yaml",
         "  repository    allow auto-merge on the repository",
-        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Software factory", once this pull request merges",
-        "  pull request  Push the branch set-up-factory and open a pull request",
+        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Lunamill", once this pull request merges",
+        "  pull request  Push the branch set-up-lunamill and open a pull request",
         "? confirm: Go ahead?",
         "Created board 1, "site".",
         "Added to board 1: Backlog, In refinement, Ready, In review, Session, Runs in, Cost.",
@@ -1003,29 +1001,29 @@ describe("factory init, word for word", () => {
         "Trying the token...",
         "Stored for acme/site, and on this machine for your next repository.",
         "",
-        "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=software factory: acme/site",
-        "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.",
+        "An access token: opening https://code.example/tokens/new?scopes=push,workflows,board&note=lunamill: acme/site",
+        "Check that push, workflows, and board are ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.",
         "? secret: Paste it (leave empty to do this later):",
         "It belongs to dave. Stored for acme/site, and on this machine for your next repository.",
         "",
-        "Made a signing key and stored it as FACTORY_SIGNING_KEY.",
+        "Made a signing key and stored it as LUNAMILL_SIGNING_KEY.",
         "Added its public half to dave as a signing key.",
         "",
-        "✓ Opened acme/site#1, "Set up the software factory".",
+        "✓ Opened acme/site#1, "Set up Lunamill".",
         "Merge it to finish. Left to do:",
-        "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
-             FACTORY_REPOSITORY=acme/site
-             FACTORY_BOARD_TOKEN=the access token you just made
+        "  1. Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:0.2.0, where you host it, with:
+             LUNAMILL_REPOSITORY=acme/site
+             LUNAMILL_BOARD_TOKEN=the access token you just made
            It reads the rest from your settings once this pull request merges.",
-        "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+        "  2. Add the commands that check a change, under commands.gate in .claude/lunamill.yaml",
         "",
         "After it merges:",
         "  1. Come back to main and bring it up to date:",
         "       git switch main && git pull",
-        "  2. Start a new session of your coding agent here. It loads the factory from the files now in your repository.",
-        "  3. Refine a ticket with /factory-refine N, then build it with /factory-build N.",
+        "  2. Start a new session of your coding agent here. It loads Lunamill from the files now in your repository.",
+        "  3. Refine a ticket with /lunamill-refine N, then build it with /lunamill-build N.",
         "The steps in full:",
-        "     https://github.com/davidbyoung/software-factory/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket",
+        "     https://github.com/lunamill-ai/lunamill/blob/v0.2.0/docs/get-started/quick-start.md#4-open-a-ticket",
         "",
         "Checks",
         "  ✓ Every check passed",
@@ -1036,12 +1034,12 @@ describe("factory init, word for word", () => {
   it("prints and asks the same on a re-run with every part on and every secret set", async () => {
     const r = init({
       settings: [
-        "version: 2",
+        "version: 1",
         "repository: acme/site",
         CODE_HOST_YAML,
         "tickets:",
         "  board: 3",
-        FACTORY_COLUMNS_YAML,
+        LUNAMILL_COLUMNS_YAML,
         "builds:",
         "  trigger: own-server",
         "auto-merge:",
@@ -1053,18 +1051,18 @@ describe("factory init, word for word", () => {
       ].join("\n"),
       secrets: {
         CLAUDE_CODE_OAUTH_TOKEN: "x",
-        FACTORY_BOARD_TOKEN: "x",
-        FACTORY_AUTOMERGE_TOKEN: "x",
-        FACTORY_SIGNING_KEY: "x",
+        LUNAMILL_BOARD_TOKEN: "x",
+        LUNAMILL_AUTOMERGE_TOKEN: "x",
+        LUNAMILL_SIGNING_KEY: "x",
       },
       boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }],
-      workflows: { "factory.yml": "active" },
+      workflows: { "lunamill.yml": "active" },
       answers: { checkbox: [EVERY], confirm: [false, true] },
     });
     expect(await r.run()).toBe(0);
     expect(shown(r)).toMatchInlineSnapshot(`
       [
-        "Setting up the software factory for acme/site",
+        "Setting up Lunamill for acme/site",
         "",
         "Found",
         "  Code host      GitHub (from your git remote)",
@@ -1072,7 +1070,7 @@ describe("factory init, word for word", () => {
         "  Tickets        GitHub Issues",
         "  Coding agent   Claude Code",
         "  Cloud builds   GitHub Actions",
-        "  Settings       .claude/factory.yaml",
+        "  Settings       .claude/lunamill.yaml",
         "  Board          3, from your settings",
         "  This machine   no GitHub token for cloud runs",
         "",
@@ -1081,21 +1079,21 @@ describe("factory init, word for word", () => {
         "? confirm: 4 secrets these parts read are already set. Replace them?",
         "",
         "This is everything setup will do:",
-        "  files         Copy the factory's skills, agents, rules, and guards",
-        "  board         give board 3 any of the factory's columns and fields it lacks",
+        "  files         Copy Lunamill's skills, agents, rules, and guards",
+        "  board         give board 3 any of Lunamill's columns and fields it lacks",
         "  repository    allow auto-merge on the repository",
-        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Software factory"",
-        "  pull request  Push the branch set-up-factory and open a pull request",
+        "  rules         Require "Review verdict" before a merge to the default branch, as the rule "Lunamill"",
+        "  pull request  Push the branch set-up-lunamill and open a pull request",
         "? confirm: Go ahead?",
         "Added to board 3: Session, Runs in, Cost.",
         "",
-        "✓ Opened acme/site#1, "Change the software factory's settings".",
+        "✓ Opened acme/site#1, "Change Lunamill's settings".",
         "Merge it to finish. Left to do:",
-        "  1. Run the poller's image, ghcr.io/davidbyoung/software-factory-poller:0.2.0, where you host it, with:
-             FACTORY_REPOSITORY=acme/site
-             FACTORY_BOARD_TOKEN=the access token you just made
+        "  1. Run the poller's image, ghcr.io/lunamill-ai/lunamill-poller:0.2.0, where you host it, with:
+             LUNAMILL_REPOSITORY=acme/site
+             LUNAMILL_BOARD_TOKEN=the access token you just made
            It reads the rest from your settings once this pull request merges.",
-        "  2. Add the commands that check a change, under commands.gate in .claude/factory.yaml",
+        "  2. Add the commands that check a change, under commands.gate in .claude/lunamill.yaml",
         "",
         "After it merges, come back to main and bring it up to date: git switch main && git pull",
         "",
@@ -1106,11 +1104,11 @@ describe("factory init, word for word", () => {
   });
 });
 
-describe("factory init, a secret met another way", () => {
+describe("lunamill init, a secret met another way", () => {
   it("asks for no token for cloud builds when the board's token, which they also read, is set", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
-      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", FACTORY_BOARD_TOKEN: "x" },
+      settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
+      secrets: { CLAUDE_CODE_OAUTH_TOKEN: "x", LUNAMILL_BOARD_TOKEN: "x" },
       answers: { checkbox: [["cloud"]], confirm: [false, true] },
     });
     expect(await r.run()).toBe(0);
@@ -1125,10 +1123,10 @@ describe("factory init, a secret met another way", () => {
   });
 });
 
-describe("factory init, a tool's own setup", () => {
+describe("lunamill init, a tool's own setup", () => {
   /** Fake Tickets as the only ticket system. */
   const fakeOnly = (b: Registry, t: Tickets) => withFakeTickets(b, t, true);
-  const FAKE = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n`;
+  const FAKE = `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n`;
 
   it("asks for the value the ticket system needs, and writes it under tickets", async () => {
     const r = init({
@@ -1151,7 +1149,7 @@ describe("factory init, a tool's own setup", () => {
       type: "fake",
       site: "https://tickets.example",
     });
-    expect(r.out).toContain("  settings      Write .claude/factory.yaml");
+    expect(r.out).toContain("  settings      Write .claude/lunamill.yaml");
   });
 
   it("does not ask again for a value already in the settings", async () => {
@@ -1206,7 +1204,7 @@ describe("factory init, a tool's own setup", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
-      "No Fake Tickets token stored. Run factory init again to add it.",
+      "No Fake Tickets token stored. Run lunamill init again to add it.",
     );
     expect(r.runner.secrets.has(FAKE_TOKEN)).toBe(false);
   });
@@ -1240,7 +1238,7 @@ describe("factory init, a tool's own setup", () => {
   });
 });
 
-describe("factory init, the branch name", () => {
+describe("lunamill init, the branch name", () => {
   const ASKED = `input: ${BRANCH_QUESTION}`;
   const quick = (over: Partial<Setup> = {}) =>
     init({ answers: { checkbox: [[]], confirm: [true] }, ...over });
@@ -1266,7 +1264,7 @@ describe("factory init, the branch name", () => {
   it("writes the pattern it offers, quoted, in a code-host block", async () => {
     const r = quick();
     await r.run();
-    expect(r.read(".claude/factory.yaml")).toContain(
+    expect(r.read(".claude/lunamill.yaml")).toContain(
       'code-host:\n  type: github\n  branch-name: "{ticket}"\n',
     );
   });
@@ -1280,7 +1278,7 @@ describe("factory init, the branch name", () => {
       },
     });
     await r.run();
-    expect(r.read(".claude/factory.yaml")).toContain(
+    expect(r.read(".claude/lunamill.yaml")).toContain(
       'code-host:\n  type: github\n  branch-name: "feature/{user}/{ticket}"\n',
     );
   });
@@ -1309,7 +1307,7 @@ describe("factory init, the branch name", () => {
 
   it("asks nothing on a re-run whose settings have it, and keeps it", async () => {
     const settings = [
-      "version: 2",
+      "version: 1",
       "repository: acme/site",
       "code-host:",
       "  type: github",
@@ -1327,7 +1325,7 @@ describe("factory init, the branch name", () => {
 
   it("asks nothing when a preset in effect supplies it, and writes none", async () => {
     const r = quick({
-      settings: "version: 2\nrepository: acme/site\n",
+      settings: "version: 1\nrepository: acme/site\n",
       presetBranchName: "feature/{user}/{ticket}",
     });
     expect(await r.run()).toBe(0);
@@ -1338,17 +1336,17 @@ describe("factory init, the branch name", () => {
   it("adds it to a code-host block that has only a type, keeping the block", async () => {
     const r = quick({
       settings:
-        "version: 2\nrepository: acme/site\ncode-host:\n  # ours\n  type: github\n",
+        "version: 1\nrepository: acme/site\ncode-host:\n  # ours\n  type: github\n",
     });
     expect(await r.run()).toBe(0);
-    expect(r.read(".claude/factory.yaml")).toContain(
+    expect(r.read(".claude/lunamill.yaml")).toContain(
       'code-host:\n  # ours\n  type: github\n  branch-name: "{ticket}"\n',
     );
   });
 
   it("reads a file set up before it was required, asks for it, and writes the block", async () => {
     const r = quick({
-      settings: "version: 2\nrepository: acme/site\ncode-host: github\n",
+      settings: "version: 1\nrepository: acme/site\ncode-host: github\n",
     });
     expect(await r.run()).toBe(0);
     expect(r.out).not.toContain("Fix it, then run init again.");
@@ -1360,7 +1358,7 @@ describe("factory init, the branch name", () => {
   });
 });
 
-describe("factory init, the spec tool", () => {
+describe("lunamill init, the spec tool", () => {
   const NONE_CHOICE = "None: each ticket holds its own spec";
   const OPENSPEC_CHOICE =
     "OpenSpec: each ticket holds its spec, and each build also keeps it in openspec/specs/";
@@ -1368,7 +1366,7 @@ describe("factory init, the spec tool", () => {
     "  install       @fission-ai/openspec, with npm install --save-dev";
   const plain = { checkbox: [[]], confirm: [true] };
   const withSpecs = (specs: string) =>
-    `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n${specs}\n`;
+    `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\n${specs}\n`;
 
   it("asks which spec tool right after the branch name, offering None first and choosing it on Enter", async () => {
     const r = init({ answers: plain });
@@ -1543,7 +1541,7 @@ describe("factory init, the spec tool", () => {
   });
 });
 
-describe("factory init, with more than one tool of a kind", () => {
+describe("lunamill init, with more than one tool of a kind", () => {
   const both = (b: Registry, t: Tickets) => withFakeTickets(b, t);
 
   it("asks which ticket system right after Found, and writes the choice", async () => {
@@ -1567,7 +1565,7 @@ describe("factory init, with more than one tool of a kind", () => {
   it("offers the one the settings name first", async () => {
     const r = init({
       tools: both,
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: https://tickets.example\n`,
+      settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: https://tickets.example\n`,
       secrets: { [FAKE_TOKEN]: "x" },
       answers: { select: ["fake"], checkbox: [[]], confirm: [false, true] },
     });
@@ -1597,19 +1595,19 @@ describe("factory init, with more than one tool of a kind", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host the factory supports: GitHub, Elsewhere, and Yonder.",
+      "The origin remote, https://gitlab.com/acme/site.git, is not on a code host Lunamill supports: GitHub, Elsewhere, and Yonder.",
     ]);
   });
 });
 
-describe("factory init, where it cannot start", () => {
+describe("lunamill init, where it cannot start", () => {
   it.each([null, "https://gitlab.com/acme/site.git"])(
     "refuses with the remote %s, asking and changing nothing",
     async (remote) => {
       const r = init({ remote, answers: {} });
       expect(await r.run()).toBe(1);
       expect(r.asked).toEqual([]);
-      expect(r.read(".claude/factory.yaml")).toBeNull();
+      expect(r.read(".claude/lunamill.yaml")).toBeNull();
     },
   );
 });
@@ -1630,7 +1628,7 @@ describe("parseRemote", () => {
   });
 });
 
-describe("factory init, the column step", () => {
+describe("lunamill init, the column step", () => {
   const SHOP_COLUMNS = ["Todo", "In Progress", "Code review", "Done"];
   const SHOP = () => [
     { number: 3, title: "Shop board", columns: [...SHOP_COLUMNS] },
@@ -1645,8 +1643,8 @@ describe("factory init, the column step", () => {
     done: "Done",
   };
   const ALL_SET = {
-    FACTORY_BOARD_TOKEN: "x",
-    FACTORY_BUILD_TOKEN: "x",
+    LUNAMILL_BOARD_TOKEN: "x",
+    LUNAMILL_BUILD_TOKEN: "x",
     CLAUDE_CODE_OAUTH_TOKEN: "x",
   };
   /** A first run that picks the Shop board, then answers `select` in turn. */
@@ -1701,7 +1699,7 @@ describe("factory init, the column step", () => {
   const STEP_LINES = [
     "",
     "Board 3 has the columns Todo, In Progress, Code review, and Done.",
-    "Asking Claude Code which of them shows each of the factory's six states...",
+    "Asking Claude Code which of them shows each of Lunamill's six states...",
     "",
     "  State      Column",
     "  backlog    Todo",
@@ -1725,7 +1723,7 @@ describe("factory init, the column step", () => {
       r.transcript.indexOf("This is everything setup will do:"),
     ).toBeGreaterThan(at + STEP_LINES.length);
     expect(selectOf(r, "Use these columns?")).toEqual({
-      names: ["Yes", "Change some", "No: add the factory's columns instead"],
+      names: ["Yes", "Change some", "No: add Lunamill's columns instead"],
       fallback: "yes",
     });
   });
@@ -1741,7 +1739,7 @@ describe("factory init, the column step", () => {
   it("on Yes writes all six states, and adds only the fields", async () => {
     const r = shop({ select: ["yes"] });
     await r.run();
-    expect(r.read(".claude/factory.yaml")).toContain(
+    expect(r.read(".claude/lunamill.yaml")).toContain(
       [
         "tickets:",
         "  board: 3",
@@ -1874,10 +1872,10 @@ describe("factory init, the column step", () => {
     });
   });
 
-  it("adds the factory's columns it lacks and writes the factory's six on No", async () => {
+  it("adds Lunamill's columns it lacks and writes Lunamill's six on No", async () => {
     const r = shop({ select: ["no"] });
     expect(await r.run()).toBe(0);
-    expect(r.yaml().tickets).toEqual({ board: 3, columns: FACTORY_COLUMNS });
+    expect(r.yaml().tickets).toEqual({ board: 3, columns: LUNAMILL_COLUMNS });
     expect(r.out).toContain(
       "Added to board 3: Backlog, In refinement, Ready, In review, Session, Runs in, Cost.",
     );
@@ -1923,7 +1921,7 @@ describe("factory init, the column step", () => {
       expect(at).toBeGreaterThan(-1);
       expect(r.out[at + 1]).toBe("Choose the column for each state yourself.");
       expect(r.out.join("\n")).not.toMatch(
-        /write tickets\.columns in \.claude\/factory\.yaml yourself|Nothing changed/,
+        /write tickets\.columns in \.claude\/lunamill\.yaml yourself|Nothing changed/,
       );
       expect(
         r.asked.filter((q) => q.startsWith("select: Which column shows")),
@@ -1957,7 +1955,7 @@ describe("factory init, the column step", () => {
     const to = r.transcript.indexOf("? select: Use these columns?");
     expect(r.transcript.slice(from, to + 1)).toEqual([
       "Board 3 has the columns Todo, In Progress, Code review, and Done.",
-      "Asking Claude Code which of them shows each of the factory's six states...",
+      "Asking Claude Code which of them shows each of Lunamill's six states...",
       "Claude Code's answer could not be used: it failed: Invalid API key · Please run /login.",
       "Choose the column for each state yourself.",
       "? select: Which column shows backlog?",
@@ -1982,34 +1980,34 @@ describe("factory init, the column step", () => {
 
   it.each([
     [
-      "a board with the factory's six columns",
+      "a board with Lunamill's six columns",
       { boards: [{ number: 3, title: "Roadmap", columns: SIX_COLUMNS }] },
       ["3"],
-      FACTORY_COLUMNS,
+      LUNAMILL_COLUMNS,
     ],
-    ["a new board", { boards: SHOP() }, ["new"], FACTORY_COLUMNS],
+    ["a new board", { boards: SHOP() }, ["new"], LUNAMILL_COLUMNS],
     [
       "a board with no columns",
       { boards: [{ number: 3, title: "Roadmap", columns: [] }] },
       ["3"],
-      FACTORY_COLUMNS,
+      LUNAMILL_COLUMNS,
     ],
     [
       "settings that name every column",
       {
         boards: SHOP(),
         settings: [
-          "version: 2",
+          "version: 1",
           "repository: acme/site",
           CODE_HOST_YAML,
           "tickets:",
           "  board: 3",
-          FACTORY_COLUMNS_YAML.replace("Backlog", "Todo"),
+          LUNAMILL_COLUMNS_YAML.replace("Backlog", "Todo"),
           "",
         ].join("\n"),
       },
       [],
-      { ...FACTORY_COLUMNS, backlog: "Todo" },
+      { ...LUNAMILL_COLUMNS, backlog: "Todo" },
     ],
   ])(
     "asks nothing about columns with %s, and writes all six",
@@ -2029,7 +2027,7 @@ describe("factory init, the column step", () => {
     },
   );
 
-  it("says a board has the factory's six columns, and saves them as the board spells them", async () => {
+  it("says a board has Lunamill's six columns, and saves them as the board spells them", async () => {
     const spelled = SIX_COLUMNS.map((c) =>
       c === "In progress" ? "In Progress" : c,
     );
@@ -2043,7 +2041,7 @@ describe("factory init, the column step", () => {
     const at = r.transcript.indexOf("? select: Which board?");
     expect(r.transcript.slice(at + 1, at + 11)).toEqual([
       "",
-      "Board 3 has a column for each of the factory's six states:",
+      "Board 3 has a column for each of Lunamill's six states:",
       "",
       "  State      Column",
       "  backlog    Backlog",
@@ -2054,7 +2052,7 @@ describe("factory init, the column step", () => {
       "  done       Done",
     ]);
     expect(r.columns()).toEqual({
-      ...FACTORY_COLUMNS,
+      ...LUNAMILL_COLUMNS,
       building: "In Progress",
     });
   });
@@ -2095,7 +2093,7 @@ describe("factory init, the column step", () => {
 
   describe("turning on builds from the board with ready: none", () => {
     const SETTINGS = [
-      "version: 2",
+      "version: 1",
       "repository: acme/site",
       CODE_HOST_YAML,
       "tickets:",
@@ -2179,7 +2177,7 @@ describe("factory init, the column step", () => {
     });
     expect(await r.run()).toBe(0);
     expect(r.out).toContain(
-      "Asking Fake Agent which of them shows each of the factory's six states...",
+      "Asking Fake Agent which of them shows each of Lunamill's six states...",
     );
     expect(r.out.join("\n")).not.toContain("Claude Code");
     const missing = shop({
@@ -2187,21 +2185,21 @@ describe("factory init, the column step", () => {
     });
     expect(await missing.run()).toBe(1);
     expect(missing.out).toContain(
-      "The factory runs in a coding agent, and Fake Agent is not installed.",
+      "Lunamill runs in a coding agent, and Fake Agent is not installed.",
     );
   });
 });
 
-describe("factory init, a block that leaves states out", () => {
+describe("lunamill init, a block that leaves states out", () => {
   const ALL_SET = {
-    FACTORY_BOARD_TOKEN: "x",
-    FACTORY_BUILD_TOKEN: "x",
+    LUNAMILL_BOARD_TOKEN: "x",
+    LUNAMILL_BUILD_TOKEN: "x",
     CLAUDE_CODE_OAUTH_TOKEN: "x",
   };
   const SHOP_COLUMNS = ["Todo", "In Progress", "Code review", "Done"];
   const settings = (columns: string[]) =>
     [
-      "version: 2",
+      "version: 1",
       "repository: acme/site",
       CODE_HOST_YAML,
       "tickets:",
@@ -2270,7 +2268,7 @@ describe("factory init, a block that leaves states out", () => {
     expect(Object.keys(r.columns() as object)).toHaveLength(6);
   });
 
-  it("fills in each state left out from the board's column of the factory's name, asking nothing", async () => {
+  it("fills in each state left out from the board's column of Lunamill's name, asking nothing", async () => {
     const r = rerun(SHOP_PARTIAL);
     expect(await r.run()).toBe(0);
     const at = r.transcript.indexOf(
@@ -2278,7 +2276,7 @@ describe("factory init, a block that leaves states out", () => {
     );
     expect(r.transcript.slice(at, at + 10)).toEqual([
       "Your settings give no column to building or done.",
-      "Board 3 has a column of the factory's name for each:",
+      "Board 3 has a column of Lunamill's name for each:",
       "",
       "  State      Column",
       "  backlog    Todo",
@@ -2481,7 +2479,7 @@ describe("factory init, a block that leaves states out", () => {
 describe("a re-run where the settings are not valid", () => {
   const rerun = async (...lines: string[]) => {
     const r = init({
-      settings: ["version: 2", "repository: acme/site", ...lines, ""].join(
+      settings: ["version: 1", "repository: acme/site", ...lines, ""].join(
         "\n",
       ),
       answers: {},
@@ -2492,7 +2490,7 @@ describe("a re-run where the settings are not valid", () => {
   it("prints the line config check prints, naming the file once", async () => {
     const r = await rerun("rules:", "  review-rounds: zero");
     expect(r.out).toEqual([
-      ".claude/factory.yaml: rules.review-rounds: must be a whole number above zero",
+      ".claude/lunamill.yaml: rules.review-rounds: must be a whole number above zero",
       "Fix it, then run init again.",
     ]);
     expect(r.code).toBe(1);
@@ -2502,7 +2500,7 @@ describe("a re-run where the settings are not valid", () => {
   it("says so of a file that is not YAML before it looks at anything else", async () => {
     const r = await rerun("repository: acme/other: x");
     expect(r.out).toEqual([
-      '.claude/factory.yaml: line 3: repository: acme/other: x needs quotes around the name, such as repository: "acme/other: x"',
+      '.claude/lunamill.yaml: line 3: repository: acme/other: x needs quotes around the name, such as repository: "acme/other: x"',
       "Fix it, then run init again.",
     ]);
     expect(r.code).toBe(1);
@@ -2518,7 +2516,7 @@ describe("the tokens .npmrc reads", () => {
   const INTRO = [
     "",
     `.npmrc reads NPM_TOKEN for ${JFROG}.`,
-    "The factory's workflows install with it. Use a token that can only read.",
+    "Lunamill's workflows install with it. Use a token that can only read.",
   ];
   const UNSEEN =
     "NPM_TOKEN isn't set for Dependabot on this repository, and only an organization admin can see whether your organization sets it. If it does, leave this empty.";
@@ -2638,7 +2636,7 @@ describe("the tokens .npmrc reads", () => {
     });
     await r.run();
     expect(r.out).toContain(
-      "No NPM_TOKEN stored. The factory's workflows fail at npm ci until it is. Run factory init again to add it.",
+      "No NPM_TOKEN stored. Lunamill's workflows fail at npm ci until it is. Run lunamill init again to add it.",
     );
     expect(r.runner.secrets.has("NPM_TOKEN")).toBe(false);
     expect(r.runner.dependabotSecrets.has("NPM_TOKEN")).toBe(false);
@@ -2687,9 +2685,9 @@ describe("the tokens .npmrc reads", () => {
       "  Board          none yet",
       "  This machine   no GitHub token for cloud runs",
       "",
-      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: factory sync",
+      ".npmrc reads ${HOME} to sign in, and the runner sets HOME for itself. Rename it in .npmrc, then run: lunamill sync",
     ]);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
   });
 
   it("stops when the Dependabot secrets can't be listed", async () => {
@@ -2721,16 +2719,16 @@ describe("the tokens .npmrc reads", () => {
     it.each([
       [
         "its own",
-        { FACTORY_BOARD_TOKEN: "x", FACTORY_AUTOMERGE_TOKEN: "x" },
+        { LUNAMILL_BOARD_TOKEN: "x", LUNAMILL_AUTOMERGE_TOKEN: "x" },
         true,
       ],
-      ["the organization's", { FACTORY_BOARD_TOKEN: "x" }, false],
+      ["the organization's", { LUNAMILL_BOARD_TOKEN: "x" }, false],
     ])(
       "offers to delete a secret a part read when it goes only when it is the repository's own: %s",
       async (_, secrets, offered) => {
         const r = init({
           settings: [
-            "version: 2",
+            "version: 1",
             "repository: acme/site",
             CODE_HOST_YAML,
             "tickets:",
@@ -2742,7 +2740,7 @@ describe("the tokens .npmrc reads", () => {
           ].join("\n"),
           secrets,
           organization: true,
-          organizationSecrets: ["FACTORY_AUTOMERGE_TOKEN"],
+          organizationSecrets: ["LUNAMILL_AUTOMERGE_TOKEN"],
           boards: [{ number: 3, title: "Roadmap", columns: [] }],
           answers: { checkbox: [["board"]], confirm: [true] },
         });
@@ -2751,7 +2749,7 @@ describe("the tokens .npmrc reads", () => {
           r.out
             .join("\n")
             .includes(
-              "You can now delete these secrets: FACTORY_AUTOMERGE_TOKEN",
+              "You can now delete these secrets: LUNAMILL_AUTOMERGE_TOKEN",
             ),
         ).toBe(offered);
       },
@@ -2759,7 +2757,7 @@ describe("the tokens .npmrc reads", () => {
   });
 });
 
-describe("factory init, the field step", () => {
+describe("lunamill init, the field step", () => {
   const FIELDS: TicketField[] = [
     { name: "Priority", description: null, text: false },
     {
@@ -2820,19 +2818,19 @@ describe("factory init, the field step", () => {
       out.indexOf("This is everything setup will do:"),
     );
   const FOUR = (d: string, s: string, a: string, f: string) =>
-    `version: 2\nrepository: acme/site\ntickets:\n  fields:\n    decisions: ${d}\n    spec: ${s}\n    acceptance-criteria: ${a}\n    for-the-builder: ${f}\n${CODE_HOST_YAML}\nspecs: none\n`;
+    `version: 1\nrepository: acme/site\ntickets:\n  fields:\n    decisions: ${d}\n    spec: ${s}\n    acceptance-criteria: ${a}\n    for-the-builder: ${f}\n${CODE_HOST_YAML}\nspecs: none\n`;
 
   it("names the text fields and shows the suggestion as a table, before the plan", async () => {
     const r = fielded({ select: ["yes"] });
     expect(await r.run()).toBe(0);
     expect(r.looks).toContain(
-      "{skip:Asking Claude Code which of them should hold each of the factory's fields...}",
+      "{skip:Asking Claude Code which of them should hold each of Lunamill's fields...}",
     );
     expect(step(r.out)).toEqual([
       "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
-      "Asking Claude Code which of them should hold each of the factory's fields...",
+      "Asking Claude Code which of them should hold each of Lunamill's fields...",
       "",
-      "  Factory field         Ticket field",
+      "  Lunamill field        Ticket field",
       "  Decisions             the description",
       "  Spec                  Acceptance criteria",
       "  Acceptance criteria   Acceptance criteria",
@@ -2859,10 +2857,10 @@ describe("factory init, the field step", () => {
     expect(q.prompt).toContain("__description__");
   });
 
-  it("Yes writes all four factory fields, none for the description", async () => {
+  it("Yes writes all four Lunamill fields, none for the description", async () => {
     const r = fielded({ select: ["yes"] });
     expect(await r.run()).toBe(0);
-    expect(r.read(".claude/factory.yaml")).toBe(
+    expect(r.read(".claude/lunamill.yaml")).toBe(
       FOUR(
         "none",
         "Acceptance criteria",
@@ -2874,22 +2872,22 @@ describe("factory init, the field step", () => {
 
   it("keeps a file's comments when it writes the four lines", async () => {
     const r = fielded({
-      settings: "# ours\nversion: 2\nrepository: acme/site\n",
+      settings: "# ours\nversion: 1\nrepository: acme/site\n",
       select: ["yes"],
     });
     expect(await r.run()).toBe(0);
-    expect(r.read(".claude/factory.yaml")).toContain("# ours");
+    expect(r.read(".claude/lunamill.yaml")).toContain("# ours");
   });
 
   it("No keeps everything in the description, writing all four as none", async () => {
     const r = fielded({ select: ["no"] });
     expect(await r.run()).toBe(0);
-    expect(r.read(".claude/factory.yaml")).toBe(
+    expect(r.read(".claude/lunamill.yaml")).toBe(
       FOUR("none", "none", "none", "none"),
     );
   });
 
-  it("Change some asks only about the factory fields you pick, then shows the table again", async () => {
+  it("Change some asks only about Lunamill fields you pick, then shows the table again", async () => {
     const r = fielded({
       checkbox: [["decisions"]],
       select: ["change", "field:Customer", "yes"],
@@ -2914,7 +2912,7 @@ describe("factory init, the field step", () => {
       fallback: "__description__",
     });
     expect(r.out).toContain("  Decisions             Customer");
-    expect(r.read(".claude/factory.yaml")).toBe(
+    expect(r.read(".claude/lunamill.yaml")).toBe(
       FOUR(
         "Customer",
         "Acceptance criteria",
@@ -2932,7 +2930,7 @@ describe("factory init, the field step", () => {
     ).toHaveLength(2);
   });
 
-  it("refuses one ticket field for two factory fields, and asks which to change again", async () => {
+  it("refuses one ticket field for two Lunamill fields, and asks which to change again", async () => {
     const r = fielded({
       checkbox: [["decisions"], ["decisions"]],
       select: ["change", "field:Design notes", "field:Customer", "yes"],
@@ -3006,7 +3004,7 @@ describe("factory init, the field step", () => {
     );
     expect(at).toBeGreaterThan(-1);
     expect(r.out[at + 1]).toBe(
-      "Choose where each of the factory's fields goes yourself.",
+      "Choose where each of Lunamill's fields goes yourself.",
     );
   });
 
@@ -3014,7 +3012,7 @@ describe("factory init, the field step", () => {
     const r = byHand(BY_HAND);
     expect(await r.run()).toBe(0);
     expect(r.asked).toContain("confirm: Go ahead?");
-    expect(r.read(".claude/factory.yaml")).toBe(
+    expect(r.read(".claude/lunamill.yaml")).toBe(
       FOUR(
         "none",
         "Acceptance criteria",
@@ -3028,7 +3026,7 @@ describe("factory init, the field step", () => {
     const r = byHand(BY_HAND);
     await r.run();
     expect(r.out.join("\n")).not.toMatch(
-      /write tickets\.fields in \.claude\/factory\.yaml yourself|Nothing changed/,
+      /write tickets\.fields in \.claude\/lunamill\.yaml yourself|Nothing changed/,
     );
   });
 
@@ -3045,11 +3043,11 @@ describe("factory init, the field step", () => {
     const to = r.transcript.indexOf("? select: Use these ticket fields?");
     expect(r.transcript.slice(from, to + 1)).toEqual([
       "acme/site's tickets have the text fields Acceptance criteria, Design notes, and Customer.",
-      "Asking Claude Code which of them should hold each of the factory's fields...",
+      "Asking Claude Code which of them should hold each of Lunamill's fields...",
       "Claude Code's answer could not be used: it failed: Invalid API key.",
-      "Choose where each of the factory's fields goes yourself.",
+      "Choose where each of Lunamill's fields goes yourself.",
       "",
-      "  Factory field         What it holds",
+      "  Lunamill field        What it holds",
       "  Decisions             the questions refinement settled, and what was chosen",
       "  Spec                  what a change users will notice must do, line by line",
       "  Acceptance criteria   what must be true for any other ticket to be done",
@@ -3062,7 +3060,7 @@ describe("factory init, the field step", () => {
       "? select: Where does Acceptance criteria go?",
       "? select: Where does For the builder go?",
       "",
-      "  Factory field         Ticket field",
+      "  Lunamill field        Ticket field",
       "  Decisions             the description",
       "  Spec                  Acceptance criteria",
       "  Acceptance criteria   Acceptance criteria",
@@ -3115,7 +3113,7 @@ describe("factory init, the field step", () => {
       "? select: Where does For the builder go?",
     ]);
     expect(r.selects[4]!.fallback).toBe("__description__");
-    expect(r.read(".claude/factory.yaml")).toBe(
+    expect(r.read(".claude/lunamill.yaml")).toBe(
       FOUR("Design notes", "none", "none", "Customer"),
     );
   });
@@ -3132,16 +3130,16 @@ describe("factory init, the field step", () => {
     });
   });
 
-  it("underlines the column names and bolds the factory fields in what each holds", async () => {
+  it("underlines the column names and bolds Lunamill fields in what each holds", async () => {
     const r = byHand(BY_HAND);
     await r.run();
     const at = r.looks.findIndex((l) => l.includes("What it holds"));
     expect(r.looks.slice(at, at + 2)).toEqual([
-      "  {heading:Factory field}         {heading:What it holds}",
+      "  {heading:Lunamill field}        {heading:What it holds}",
       "  {name:Decisions}             the questions refinement settled, and what was chosen",
     ]);
     expect(r.looks).toContain(
-      "Choose where each of the factory's fields goes yourself.",
+      "Choose where each of Lunamill's fields goes yourself.",
     );
     expect(r.looks).toContain(
       "A ticket has a Spec or Acceptance criteria, never both, so the two can share a ticket field.",
@@ -3157,7 +3155,7 @@ describe("factory init, the field step", () => {
     [
       "settings that name one of the four",
       {
-        settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  fields:\n    decisions: none\n`,
+        settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  fields:\n    decisions: none\n`,
       },
     ],
   ])("asks nothing about ticket fields with %s", async (_name, extra) => {
@@ -3185,7 +3183,7 @@ describe("factory init, the field step", () => {
       "Could not read acme/site's ticket fields: Server Error (HTTP 500)",
       "Nothing changed.",
     ]);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
   });
 
   it("names the agent and the ticket system by their registered labels", async () => {
@@ -3200,7 +3198,7 @@ describe("factory init, the field step", () => {
     expect(await r.run()).toBe(0);
     const lines = step(r.out).join("\n");
     expect(lines).toContain(
-      "Asking Fake Agent which of them should hold each of the factory's fields...",
+      "Asking Fake Agent which of them should hold each of Lunamill's fields...",
     );
     expect(lines).toContain(
       "Fake Tickets shows a field's text as typed, without Markdown formatting.",
@@ -3226,7 +3224,7 @@ describe("factory init, the field step", () => {
   });
 });
 
-describe("factory init, a credential kept on the machine", () => {
+describe("lunamill init, a credential kept on the machine", () => {
   const SITE = "acme.example";
   const EMAIL = "dana@acme.example";
   const TOKEN = "t0k3n-dana";
@@ -3243,7 +3241,7 @@ describe("factory init, a credential kept on the machine", () => {
       names: [FAKE_EMAIL, FAKE_TOKEN],
       env,
     });
-  const SET_UP = `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE}\n`;
+  const SET_UP = `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\ntickets:\n  type: fake\n  site: ${SITE}\n`;
 
   describe("on a first setup", () => {
     const first = (o: Partial<Setup> = {}) =>
@@ -3336,7 +3334,7 @@ describe("factory init, a credential kept on the machine", () => {
       });
       expect(await r.run()).toBe(0);
       expect(r.out).toContain(
-        "No Fake Tickets credential stored. Run factory init again to add it.",
+        "No Fake Tickets credential stored. Run lunamill init again to add it.",
       );
       expect(r.runner.secrets.size).toBe(0);
       expect(stored(r.env)).toEqual({ state: "missing" });
@@ -3405,7 +3403,7 @@ describe("factory init, a credential kept on the machine", () => {
       ]);
       expect(stored(r.env)).toMatchObject({ values: GOOD_PAIR });
       expect(r.runner.secrets.get(FAKE_TOKEN)).toBe("ci");
-      expect(r.read(".claude/factory.yaml")).toBe(SET_UP);
+      expect(r.read(".claude/lunamill.yaml")).toBe(SET_UP);
       expect(r.synced()).toBe(0);
     });
 
@@ -3427,7 +3425,7 @@ describe("factory init, a credential kept on the machine", () => {
       });
       expect(await r.run()).toBe(0);
       expect(r.out).toContain(
-        "Fake Tickets refused FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN for acme.example (401 Unauthorized). They may have expired. Run factory init, and replace them.",
+        "Fake Tickets refused FAKE_TICKETS_EMAIL and FAKE_TICKETS_TOKEN for acme.example (401 Unauthorized). They may have expired. Run lunamill init, and replace them.",
       );
       expect(r.asked).not.toContain(TOKEN_Q);
       expect(r.asked).not.toContain("confirm: Change which parts are on?");
@@ -3453,7 +3451,7 @@ describe("factory init, a credential kept on the machine", () => {
       const r = again({ answers: { input: [""], confirm: [false] } });
       expect(await r.run()).toBe(0);
       expect(r.out).toContain(
-        "No Fake Tickets credential stored. Run factory init again to add it.",
+        "No Fake Tickets credential stored. Run lunamill init again to add it.",
       );
       expect(r.asked).toContain("confirm: Change which parts are on?");
     });
@@ -3499,7 +3497,7 @@ describe("factory init, a credential kept on the machine", () => {
       [
         "not YAML",
         (path: string) => writeFileSync(path, "fake: ["),
-        /is not valid YAML: .*\. Fix or delete it, then run factory init again\.$/,
+        /is not valid YAML: .*\. Fix or delete it, then run lunamill init again\.$/,
       ],
     ])(
       "stops right after Found, asking nothing, when the file is %s",
@@ -3516,7 +3514,7 @@ describe("factory init, a credential kept on the machine", () => {
 
   it("shows no ticket credential's This machine row and asks no such question with GitHub's tickets", async () => {
     const r = init({
-      settings: `version: 2\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
+      settings: `version: 1\nrepository: acme/site\n${CODE_HOST_YAML}\n`,
       answers: { checkbox: [[]], confirm: [true] },
     });
     expect(await r.run()).toBe(0);

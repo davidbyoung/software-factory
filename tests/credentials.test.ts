@@ -46,13 +46,13 @@ afterEach(() => rmSync(env.XDG_CONFIG_HOME!, { recursive: true, force: true }));
 describe("where a credential is read from", () => {
   it("is under XDG_CONFIG_HOME when that is set", () => {
     expect(credentialsPath(env)).toBe(
-      join(env.XDG_CONFIG_HOME!, "software-factory", "credentials.yaml"),
+      join(env.XDG_CONFIG_HOME!, "lunamill", "credentials.yaml"),
     );
   });
 
   it("is under ~/.config otherwise", () => {
     expect(credentialsPath({})).toBe(
-      join(homedir(), ".config", "software-factory", "credentials.yaml"),
+      join(homedir(), ".config", "lunamill", "credentials.yaml"),
     );
   });
 
@@ -97,7 +97,7 @@ describe("where a credential is read from", () => {
   });
 
   it("refuses a file that is not YAML", () => {
-    mkdirSync(join(env.XDG_CONFIG_HOME!, "software-factory"));
+    mkdirSync(join(env.XDG_CONFIG_HOME!, "lunamill"));
     writeFileSync(credentialsPath(env), "fake: [", { mode: 0o600 });
     expect(() => read()).toThrow(/is not valid YAML: .*\. Fix or delete it/);
   });
@@ -107,14 +107,14 @@ describe("writing the file", () => {
   it("makes the folder 700 and the file 600", () => {
     write({ FAKE_TICKETS_EMAIL: "a", FAKE_TICKETS_TOKEN: "b" });
     expect(mode(credentialsPath(env))).toBe(0o600);
-    expect(mode(join(env.XDG_CONFIG_HOME!, "software-factory"))).toBe(0o700);
+    expect(mode(join(env.XDG_CONFIG_HOME!, "lunamill"))).toBe(0o700);
     expect(readFileSync(credentialsPath(env), "utf8")).toMatch(
-      /^# Written by factory init\. Readable only by you\.\n/,
+      /^# Written by lunamill init\. Readable only by you\.\n/,
     );
   });
 
   it("tightens a looser folder", () => {
-    const dir = join(env.XDG_CONFIG_HOME!, "software-factory");
+    const dir = join(env.XDG_CONFIG_HOME!, "lunamill");
     mkdirSync(dir, { mode: 0o755 });
     chmodSync(dir, 0o755);
     write({ FAKE_TICKETS_EMAIL: "a", FAKE_TICKETS_TOKEN: "b" });
@@ -235,10 +235,10 @@ describe("the presets this machine last chose for an owner", () => {
   });
 
   it("records an owner's presets beside the credentials file, at mode 600, keeping every other owner's", () => {
-    rememberPresets("github.com/sam", ["sam/factory-config"], env);
+    rememberPresets("github.com/sam", ["sam/lunamill-config"], env);
     rememberPresets(SITE, ["acme/platform", "acme/platform//node"], env);
     expect(presetsPath(env)).toBe(
-      join(env.XDG_CONFIG_HOME!, "software-factory", "presets.yaml"),
+      join(env.XDG_CONFIG_HOME!, "lunamill", "presets.yaml"),
     );
     expect(mode(presetsPath(env))).toBe(0o600);
     expect(rememberedPresets(SITE, env)).toEqual([
@@ -246,7 +246,7 @@ describe("the presets this machine last chose for an owner", () => {
       "acme/platform//node",
     ]);
     expect(rememberedPresets("github.com/sam", env)).toEqual([
-      "sam/factory-config",
+      "sam/lunamill-config",
     ]);
   });
 
@@ -257,7 +257,7 @@ describe("the presets this machine last chose for an owner", () => {
   });
 
   it("remembers none from a file that is not YAML, and writes over it", () => {
-    mkdirSync(join(env.XDG_CONFIG_HOME!, "software-factory"));
+    mkdirSync(join(env.XDG_CONFIG_HOME!, "lunamill"));
     writeFileSync(presetsPath(env), "{ not yaml");
     expect(rememberedPresets(SITE, env)).toEqual([]);
     rememberPresets(SITE, ["acme/platform"], env);

@@ -1,6 +1,6 @@
 // GitHub as the code host: the remotes it recognizes, the one access token
-// the factory's jobs use, the signed-in check, and what removing the
-// factory leaves on it.
+// Lunamill's jobs use, the signed-in check, and what removing
+// Lunamill leaves on it.
 import { gh, type Gh } from "../lib/gh.mts";
 import { listed } from "../lib/listed.mts";
 import {
@@ -20,7 +20,7 @@ import {
   type SetupContext,
   type ToolSetup,
 } from "../setup.mts";
-import { FACTORY_FILE, HELD_EVENT } from "../workflow-files.mts";
+import { LUNAMILL_FILE, HELD_EVENT } from "../workflow-files.mts";
 import type { TokenNeed } from "./types.mts";
 
 /** The repository a remote's address names, or null for one not on
@@ -106,14 +106,14 @@ const NEEDED_BY: Record<TokenNeed, string> = {
   board: "a board",
 };
 
-/** Whether the factory's workflow may start on the event GitHub holds back
+/** Whether Lunamill's workflow may start on the event GitHub holds back
  * in a public repository: a line for a public one, and none for a private
  * one, where nothing is held back. */
 async function eventsCheck(c: SetupContext): Promise<Check[]> {
-  const subject = `${HELD_EVENT} is allowed for ${FACTORY_FILE}`;
+  const subject = `${HELD_EVENT} is allowed for ${LUNAMILL_FILE}`;
   try {
     const answer = await c.opened.codeHost.eventAllowed(
-      FACTORY_FILE,
+      LUNAMILL_FILE,
       HELD_EVENT,
     );
     if (answer === "open") return [];
@@ -122,8 +122,8 @@ async function eventsCheck(c: SetupContext): Promise<Check[]> {
       : [
           {
             state: "fail",
-            text: `${HELD_EVENT} is not allowed for ${FACTORY_FILE}, so GitHub runs no verdict, merge policy, or board sync on a pull request`,
-            fix: "Run factory init",
+            text: `${HELD_EVENT} is not allowed for ${LUNAMILL_FILE}, so GitHub runs no verdict, merge policy, or board sync on a pull request`,
+            fix: "Run lunamill init",
           },
         ];
   } catch (e) {
@@ -145,10 +145,7 @@ export const githubCodeHostSetup: ToolSetup = {
     const codeHost = c.opened.codeHost;
     const wants = tokenNeeds(c);
     const scopes = codeHost.scopesFor(wants);
-    const page = codeHost.newTokenPage(
-      scopes,
-      `software factory: ${c.repository}`,
-    );
+    const page = codeHost.newTokenPage(scopes, `lunamill: ${c.repository}`);
     return [
       {
         kind: "secret",
@@ -157,7 +154,7 @@ export const githubCodeHostSetup: ToolSetup = {
         intro: [
           "",
           `An access token: opening ${page}`,
-          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it. 90 days is a good balance: the factory warns you 30 days before it.`,
+          `Check that ${listed(scopes)} ${scopes.length === 1 ? "is" : "are"} ticked, choose an expiry, and generate it. 90 days is a good balance: Lunamill warns you 30 days before it.`,
         ],
         get: { page },
         prompt: "Paste it (leave empty to do this later):",

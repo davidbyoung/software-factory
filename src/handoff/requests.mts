@@ -1,4 +1,4 @@
-// What a session in the cloud asks for. It has no sign-in, so a `factory`
+// What a session in the cloud asks for. It has no sign-in, so a `lunamill`
 // command of its that would write is kept, with the files it names, and a
 // job with no AI runs it later. That job runs only what is listed here, and
 // only on this run's own ticket and pull request: a session that was talked
@@ -102,7 +102,7 @@ export function ask(argv: string[], readFile: (path: string) => string): Asked {
   return { argv, files };
 }
 
-/** The text with the factory's hidden markers, which are HTML comments,
+/** The text with Lunamill's hidden markers, which are HTML comments,
  * taken out, so a session cannot post one that a command takes as a record.
  * One in code stays readable and stops being a comment. */
 export function withoutMarkers(text: string): string {
@@ -176,7 +176,7 @@ const oneLine = (word: string, most = WORD) =>
 /** The command as Publish may run it, or why it may not. */
 export function allow(asked: Asked, run: ThisRun): Asked | { refused: string } {
   const shown = asked.argv.slice(0, 3).join(" ");
-  const refuse = (why: string) => ({ refused: `factory ${shown}: ${why}` });
+  const refuse = (why: string) => ({ refused: `lunamill ${shown}: ${why}` });
   const name =
     asked.argv[0] === "follow-up"
       ? "follow-up"

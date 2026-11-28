@@ -8,7 +8,7 @@ How a review run gives its verdict, and what may pass "Review verdict" without o
 
 ### Requirement: The review's answer
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The review's answer
 
@@ -17,7 +17,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: When the status passes
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: When the status passes
 
@@ -26,7 +26,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: No comment changes it
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: No comment changes it
 
@@ -35,7 +35,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: Dependabot's pass
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Dependabot's pass
 
@@ -44,7 +44,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: Waiting on merge order
 
-The factory SHALL behave as this line says: When "Review verdict" would be a success, with an override or with the review off too, and "Merge order" is pending, it is pending with "Merge order"'s words.
+Lunamill SHALL behave as this line says: When "Review verdict" would be a success, with an override or with the review off too, and "Merge order" is pending, it is pending with "Merge order"'s words.
 
 #### Scenario: Waiting on merge order
 
@@ -53,9 +53,9 @@ The factory SHALL behave as this line says: When "Review verdict" would be a suc
 
 ### Requirement: Finding a commit's review runs
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Finding a commit's review runs
 
-- **WHEN** the factory reads a commit's review runs
-- **THEN** it asks for the runs of `factory.yml` started by `pull_request_target` with that `head_sha`, not the newest 50, and keeps today's filter on each run's title.
+- **WHEN** Lunamill reads a commit's review runs
+- **THEN** it asks for the runs of `lunamill.yml` started by `pull_request_target` with that `head_sha`, not the newest 50, and keeps today's filter on each run's title.

@@ -1,12 +1,12 @@
-// Which copy of the factory the `factory` command runs, decided from the
+// Which copy of lunamill the `lunamill` command runs, decided from the
 // folders, the repository's lock, and the environment alone: the launcher
-// in bin/factory.js only carries it out.
+// in bin/lunamill.js only carries it out.
 import { describe, expect, it } from "vitest";
 import { chooseEntry, install, lastNpmError } from "../bin/launch.js";
 
 const NAME = "@acme/factory";
 const GLOBAL = "/usr/lib/node_modules/@acme/factory";
-const CACHE = "/home/sam/.cache/software-factory";
+const CACHE = "/home/sam/.cache/lunamill";
 
 /** A file system holding only `files`, each path absolute, and the text of
  * those in `texts`. */
@@ -22,7 +22,7 @@ function fs(files: string[], texts: Record<string, string> = {}) {
 }
 
 const lock = (version: string) =>
-  `# Written by \`factory sync\`.\nversion: ${version}\npresets: []\n`;
+  `# Written by \`lunamill sync\`.\nversion: ${version}\npresets: []\n`;
 
 function choose(o: {
   cwd: string;
@@ -49,12 +49,12 @@ const cached = (version: string) =>
   `${CACHE}/versions/${version}/node_modules/${NAME}/dist/cli.mjs`;
 
 describe("chooseEntry", () => {
-  it("runs the factory's own source in the factory's repository, from a global install", () => {
+  it("runs Lunamill's own source in Lunamill's repository, from a global install", () => {
     expect(
       choose({
         cwd: "/repo/src",
         files: ["/repo/.git", "/repo/package.json", "/repo/src/cli.mts"],
-        texts: { "/repo/.claude/factory.lock": lock("0.0.0-development") },
+        texts: { "/repo/.claude/lunamill.lock": lock("0.0.0-development") },
       }),
     ).toEqual({ run: "/repo/src/cli.mts" });
   });
@@ -80,7 +80,7 @@ describe("chooseEntry", () => {
       choose({
         cwd: "/repo/src",
         files: ["/repo/.git"],
-        texts: { "/repo/.claude/factory.lock": lock("0.3.0") },
+        texts: { "/repo/.claude/lunamill.lock": lock("0.3.0") },
       }),
     ).toEqual(SELF);
   });
@@ -90,7 +90,7 @@ describe("chooseEntry", () => {
       choose({
         cwd: "/repo",
         files: ["/repo/.git", cached("0.2.0")],
-        texts: { "/repo/.claude/factory.lock": lock("0.2.0") },
+        texts: { "/repo/.claude/lunamill.lock": lock("0.2.0") },
       }),
     ).toEqual({ run: cached("0.2.0") });
   });
@@ -100,7 +100,7 @@ describe("chooseEntry", () => {
       choose({
         cwd: "/repo",
         files: ["/repo/.git"],
-        texts: { "/repo/.claude/factory.lock": lock("0.2.0") },
+        texts: { "/repo/.claude/lunamill.lock": lock("0.2.0") },
       }),
     ).toEqual({
       download: {
@@ -116,11 +116,11 @@ describe("chooseEntry", () => {
       choose({
         cwd: "/repo",
         files: ["/repo/.git"],
-        texts: { "/repo/.claude/factory.lock": lock("0.0.0-development") },
+        texts: { "/repo/.claude/lunamill.lock": lock("0.0.0-development") },
       }),
     ).toEqual({
       fault:
-        "✗ .claude/factory.lock names the factory 0.0.0-development, which is not a release. Run: factory update",
+        "✗ .claude/lunamill.lock names Lunamill 0.0.0-development, which is not a release. Run: lunamill update",
     });
   });
 
@@ -132,25 +132,25 @@ describe("chooseEntry", () => {
     expect(choose({ cwd: "/app" })).toEqual(SELF);
   });
 
-  it("starts factory update in the installed version, whatever the lock names", () => {
+  it("starts lunamill update in the installed version, whatever the lock names", () => {
     expect(
       choose({
         cwd: "/repo",
         command: "update",
         files: ["/repo/.git"],
-        texts: { "/repo/.claude/factory.lock": lock("0.1.15") },
+        texts: { "/repo/.claude/lunamill.lock": lock("0.1.15") },
       }),
     ).toEqual(SELF);
   });
 
-  it("takes the version from FACTORY_VERSION over the lock, as update's sync does", () => {
+  it("takes the version from LUNAMILL_VERSION over the lock, as update's sync does", () => {
     expect(
       choose({
         cwd: "/repo",
         command: "sync",
-        env: { FACTORY_VERSION: "0.4.0" },
+        env: { LUNAMILL_VERSION: "0.4.0" },
         files: ["/repo/.git", cached("0.4.0")],
-        texts: { "/repo/.claude/factory.lock": lock("0.2.0") },
+        texts: { "/repo/.claude/lunamill.lock": lock("0.2.0") },
       }),
     ).toEqual({ run: cached("0.4.0") });
   });

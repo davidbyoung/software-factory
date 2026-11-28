@@ -1,5 +1,5 @@
 // The ticket commands on a ticket that names more than its own repository:
-// `factory ticket repositories`, and what claim, link, branch, edit, end,
+// `lunamill ticket repositories`, and what claim, link, branch, edit, end,
 // and refined ask of one.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseSettings } from "../src/config.mts";
@@ -7,7 +7,7 @@ import { listIn, markedList } from "../src/lib/repositories.mts";
 import type { PullRequest } from "../src/lib/work-status.mts";
 import { main, type Deps } from "../src/ticket.mts";
 import { entryOf } from "../src/tickets/record-comments.mts";
-import { FACTORY_COLUMNS } from "./factory-columns";
+import { LUNAMILL_COLUMNS } from "./lunamill-columns";
 import { memoryTickets, type Seed } from "./memory-tickets";
 import {
   API,
@@ -43,7 +43,7 @@ function world(w: World = {}) {
   const here = w.here ?? "acme/api";
   const key = here === "acme/api" ? "12" : "acme/api#12";
   const memory = memoryTickets(
-    [{ key, labels: ["factory"], body: "The ask.\n", ...w.ticket } as Seed],
+    [{ key, labels: ["lunamill"], body: "The ask.\n", ...w.ticket } as Seed],
     { repository: here, owner: "dev", now: () => "2026-11-09T12:59:00Z" },
   );
   const places = w.places ?? { "acme/api": {}, "acme/web": {} };
@@ -67,10 +67,10 @@ function world(w: World = {}) {
     settings: async () =>
       parseSettings(
         {
-          version: 2,
+          version: 1,
           repository: here,
           "code-host": { type: "github", "branch-name": "{user}/{ticket}" },
-          tickets: { board: 1, columns: FACTORY_COLUMNS },
+          tickets: { board: 1, columns: LUNAMILL_COLUMNS },
         },
         () => true,
       ),
@@ -134,7 +134,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe("factory ticket repositories N", () => {
+describe("lunamill ticket repositories N", () => {
   it("prints each repository in the section's order, and exits 0", async () => {
     const w = world({ ticket: two() });
     expect(await w.run("repositories", "12")).toBe(0);
@@ -156,12 +156,12 @@ describe("factory ticket repositories N", () => {
     [
       "has no lock",
       { lock: null },
-      "not set up: run factory init in acme/web before building",
+      "not set up: run lunamill init in acme/web before building",
     ],
     [
       "has an older factory",
       { lock: OLD_LOCK },
-      "on factory 0.5.0, which can't build a ticket from another repository: run factory update in acme/web",
+      "on Lunamill 0.5.0, which can't build a ticket from another repository: run lunamill update in acme/web",
     ],
     ["cannot be seen", { unseen: true }, "not found, or you can't see it"],
   ])("marks a repository that %s, and exits 1", async (_, place, text) => {
@@ -177,7 +177,7 @@ describe("factory ticket repositories N", () => {
     const w = world({ ticket: two({ comments: [] }) });
     expect(await w.run("repositories", "12")).toBe(1);
     expect(w.out.at(-1)).toBe(
-      "✗ #12's repositories were not confirmed by someone who can write to acme/api: run factory ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api",
+      "✗ #12's repositories were not confirmed by someone who can write to acme/api: run lunamill ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api",
     );
   });
 
@@ -190,7 +190,7 @@ describe("factory ticket repositories N", () => {
   });
 });
 
-describe("factory ticket repositories N --set", () => {
+describe("lunamill ticket repositories N --set", () => {
   const SET = [
     "repositories",
     "12",
@@ -207,7 +207,7 @@ describe("factory ticket repositories N --set", () => {
     expect(w.out).toEqual([
       "#12 repositories",
       "  ✓ acme/api   set up",
-      "  ✗ acme/web   not set up: run factory init in acme/web before building",
+      "  ✗ acme/web   not set up: run lunamill init in acme/web before building",
       "Recorded on #12. acme/web merges after acme/api.",
     ]);
     expect(listIn(w.body())).toEqual([API, WEB]);
@@ -352,7 +352,7 @@ describe("factory ticket repositories N --set", () => {
   });
 });
 
-describe("what factory ticket repositories refuses to read", () => {
+describe("what lunamill ticket repositories refuses to read", () => {
   it.each([
     ["--set"],
     ["--set", "acme/api", "--add", "acme/web"],
@@ -364,7 +364,7 @@ describe("what factory ticket repositories refuses to read", () => {
   ])("%s %s %s %s", async (...argv) => {
     const w = world();
     expect(await w.run("repositories", "12", ...argv)).toBe(1);
-    expect(errors[0]).toMatch(/^Usage: factory ticket repositories N/);
+    expect(errors[0]).toMatch(/^Usage: lunamill ticket repositories N/);
     expect(w.comments()).toEqual([]);
   });
 
@@ -375,7 +375,7 @@ describe("what factory ticket repositories refuses to read", () => {
   });
 });
 
-describe("factory ticket repositories N --add", () => {
+describe("lunamill ticket repositories N --add", () => {
   const MOBILE: Place = {};
 
   it("adds to the list, keeping its order", async () => {
@@ -432,7 +432,7 @@ describe("factory ticket repositories N --add", () => {
   });
 });
 
-describe("factory ticket claim", () => {
+describe("lunamill ticket claim", () => {
   it("claims a ticket whose repositories are ready", async () => {
     const w = world({ ticket: two() });
     expect(await w.run("claim", "12")).toBe(0);
@@ -443,12 +443,12 @@ describe("factory ticket claim", () => {
     [
       "one is not set up",
       { places: { "acme/api": {}, "acme/web": { lock: null } } },
-      "#12 names acme/web, which is not set up: run factory init in acme/web",
+      "#12 names acme/web, which is not set up: run lunamill init in acme/web",
     ],
     [
       "one's factory is too old",
       { places: { "acme/api": {}, "acme/web": { lock: OLD_LOCK } } },
-      "#12 names acme/web, whose factory is too old: run factory update in acme/web",
+      "#12 names acme/web, whose Lunamill is too old: run lunamill update in acme/web",
     ],
     [
       "one cannot be seen",
@@ -463,7 +463,7 @@ describe("factory ticket claim", () => {
     [
       "the list was changed by hand",
       { ticket: two({ body: "## Repositories\n\n- acme/api\n- acme/web\n" }) },
-      "#12's repositories were not confirmed by someone who can write to acme/api: run factory ticket repositories 12 --set acme/api acme/web",
+      "#12's repositories were not confirmed by someone who can write to acme/api: run lunamill ticket repositories 12 --set acme/api acme/web",
     ],
     [
       "whoever confirmed it cannot write to one",
@@ -471,7 +471,7 @@ describe("factory ticket claim", () => {
         ticket: two(),
         places: { "acme/api": {}, "acme/web": { writers: ["ann"] } },
       },
-      "#12's repositories were not confirmed by someone who can write to acme/web: run factory ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api",
+      "#12's repositories were not confirmed by someone who can write to acme/web: run lunamill ticket repositories 12 --set acme/api acme/web --after acme/web=acme/api",
     ],
   ])("posts nothing when %s", async (_, o, why) => {
     const w = world({ ticket: two(), ...o });
@@ -489,7 +489,7 @@ describe("factory ticket claim", () => {
     });
     expect(await w.run("claim", "12")).toBe(1);
     expect(w.comments().at(-1)!.body).toContain(
-      "Stopped without a pull request: #12 names acme/web, which is not set up: run factory init in acme/web.",
+      "Stopped without a pull request: #12 names acme/web, which is not set up: run lunamill init in acme/web.",
     );
   });
 
@@ -516,7 +516,7 @@ describe("factory ticket claim", () => {
   });
 });
 
-describe("factory ticket link", () => {
+describe("lunamill ticket link", () => {
   it("closes a ticket that names only its own repository", async () => {
     const w = world();
     await w.run("link", "12");
@@ -567,7 +567,7 @@ describe("factory ticket link", () => {
   });
 });
 
-describe("factory ticket branch", () => {
+describe("lunamill ticket branch", () => {
   it("names another repository's ticket by its repository and number", async () => {
     const w = world({ here: "acme/web", ticket: two() });
     await w.run("branch", "acme/api#12");
@@ -575,7 +575,7 @@ describe("factory ticket branch", () => {
   });
 });
 
-describe("factory ticket edit", () => {
+describe("lunamill ticket edit", () => {
   it("keeps the section a new body lacks", async () => {
     const w = world({ ticket: two() });
     await w.run("edit", "12", "--body-file", "b.md");
@@ -602,7 +602,7 @@ describe("factory ticket edit", () => {
   });
 });
 
-describe("factory ticket end", () => {
+describe("lunamill ticket end", () => {
   const claimed = [confirming([API, WEB]), marked("claim local s1")];
 
   it("keeps the claim while this repository has a pull request for it", async () => {
@@ -625,7 +625,7 @@ describe("factory ticket end", () => {
   });
 });
 
-describe("factory ticket refined --check", () => {
+describe("lunamill ticket refined --check", () => {
   it("names a section it cannot read among what is missing", async () => {
     const w = world({
       ticket: {

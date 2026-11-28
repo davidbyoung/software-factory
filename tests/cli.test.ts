@@ -19,7 +19,7 @@ import { COMMANDS } from "../src/commands-list.mts";
 import { marked } from "./printed";
 
 const PACKAGE = fileURLToPath(new URL("..", import.meta.url));
-const LAUNCHER = join(PACKAGE, "bin/factory.js");
+const LAUNCHER = join(PACKAGE, "bin/lunamill.js");
 const NAME = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8"))
   .name as string;
 
@@ -45,7 +45,7 @@ describe("the commands the router knows", () => {
           .flatMap((step) => (step.run ?? "").split("\n"))
           .flatMap(
             (line) =>
-              /^\s*(?:\w+="?\$\(|[A-Z_]+="[^"]*" )?factory ([a-z][^|>&)]*)/.exec(
+              /^\s*(?:\w+="?\$\(|[A-Z_]+="[^"]*" )?lunamill ([a-z][^|>&)]*)/.exec(
                 line,
               )?.[1] ?? [],
           )
@@ -56,7 +56,7 @@ describe("the commands the router knows", () => {
     expect(
       run
         .filter(({ command }) => !resolveCommand(command.split(/\s+/)))
-        .map(({ file, command }) => `${file}: factory ${command}`),
+        .map(({ file, command }) => `${file}: lunamill ${command}`),
     ).toEqual([]);
   });
 
@@ -82,9 +82,9 @@ describe("the commands the router knows", () => {
       .map((page) => readFileSync(join(PACKAGE, page), "utf8"))
       .join("\n")
       .split("\n")
-      .filter((line) => /^\| `(?:npx --no-install )?factory/.test(line))
+      .filter((line) => /^\| `(?:npx --no-install )?lunamill/.test(line))
       .filter((line) => !/\|\s*Planned\s*\|\s*$/.test(line))
-      .map((line) => /`(?:npx --no-install )?factory ([^`]*)`/.exec(line)![1])
+      .map((line) => /`(?:npx --no-install )?lunamill ([^`]*)`/.exec(line)![1])
       .map((command) => {
         const words = command.split(" ");
         const args = words.findIndex((w) => !/^[a-z][a-z-]*$/.test(w));
@@ -100,7 +100,7 @@ describe("the commands the router knows", () => {
   });
 });
 
-describe("factory's usage", () => {
+describe("Lunamill's usage", () => {
   /** The commands docs/reference/cli.md lists under a heading, by their
    * words. */
   const documented = (heading: string) => {
@@ -112,8 +112,8 @@ describe("factory's usage", () => {
     const end = lines.findIndex((l, i) => i > start && /^#{2,3} /.test(l));
     return lines
       .slice(start, end)
-      .filter((l) => /^\| `factory /.test(l))
-      .map((l) => /`factory ([^`]*)`/.exec(l)![1])
+      .filter((l) => /^\| `lunamill /.test(l))
+      .map((l) => /`lunamill ([^`]*)`/.exec(l)![1])
       .map((c) =>
         c
           .split(" ")
@@ -127,7 +127,7 @@ describe("factory's usage", () => {
 
     expect(r.status).toBe(2);
     expect(r.stderr.split("\n").slice(0, 4)).toEqual([
-      "Usage: factory COMMAND",
+      "Usage: lunamill COMMAND",
       "",
       "Setting up",
       "  init                 Set a repository up, or turn a part on or off",
@@ -137,7 +137,7 @@ describe("factory's usage", () => {
     );
     expect(r.stderr.trimEnd().split("\n").slice(-2)).toEqual([
       "The commands skills, hooks, and workflows run:",
-      "     https://github.com/davidbyoung/software-factory/blob/main/docs/reference/cli-internal.md",
+      "     https://github.com/lunamill-ai/lunamill/blob/main/docs/reference/cli-internal.md",
     ]);
   });
 
@@ -147,7 +147,7 @@ describe("factory's usage", () => {
       env: { ...process.env, FORCE_COLOR: "1" },
     });
     const [usage, , group, first] = r.stderr.split("\n").map(marked);
-    expect(usage).toBe("Usage: {copy:factory COMMAND}");
+    expect(usage).toBe("Usage: {copy:lunamill COMMAND}");
     expect(group).toBe("{heading:Setting up}");
     expect(first).toBe(
       "  {copy:init}                 Set a repository up, or turn a part on or off",
@@ -221,9 +221,9 @@ describe("factory's usage", () => {
 
     expect(r.status).toBe(2);
     expect(r.stderr.split("\n").slice(0, 3)).toEqual([
-      'factory has no command "ticket nonesuch".',
+      'Lunamill has no command "ticket nonesuch".',
       "",
-      "Usage: factory COMMAND",
+      "Usage: lunamill COMMAND",
     ]);
   });
 
@@ -231,11 +231,11 @@ describe("factory's usage", () => {
     const r = factory([flag]);
 
     expect(r.status).toBe(2);
-    expect(r.stderr.split("\n")[0]).toBe("Usage: factory COMMAND");
+    expect(r.stderr.split("\n")[0]).toBe("Usage: lunamill COMMAND");
   });
 });
 
-// Three folders, each with a package of the factory's name whose cli prints
+// Three folders, each with a package of lunamill's name whose cli prints
 // which copy ran.
 describe("the launcher", () => {
   let dir: string;
@@ -243,7 +243,7 @@ describe("the launcher", () => {
   /** A package folder at `at` whose entry, at `entry`, prints `says`. */
   function fakePackage(at: string, entry: string | null, says: string) {
     mkdirSync(join(at, "bin"), { recursive: true });
-    copyFileSync(LAUNCHER, join(at, "bin/factory.js"));
+    copyFileSync(LAUNCHER, join(at, "bin/lunamill.js"));
     copyFileSync(join(PACKAGE, "bin/launch.js"), join(at, "bin/launch.js"));
     writeFileSync(
       join(at, "package.json"),
@@ -270,7 +270,7 @@ describe("the launcher", () => {
     fakePackage(worktree, "src/cli.mts", "worktree");
     writeFileSync(join(worktree, ".git"), "gitdir: elsewhere\n");
 
-    const out = execFileSync("node", [join(main, "bin/factory.js")], {
+    const out = execFileSync("node", [join(main, "bin/lunamill.js")], {
       cwd: join(worktree, "src"),
       encoding: "utf8",
     });
@@ -284,7 +284,7 @@ describe("the launcher", () => {
     mkdirSync(join(repo, ".git"), { recursive: true });
     mkdirSync(join(repo, ".claude"));
     writeFileSync(
-      join(repo, ".claude/factory.lock"),
+      join(repo, ".claude/lunamill.lock"),
       `version: ${version}\npresets: []\n`,
     );
     return repo;
@@ -295,15 +295,15 @@ describe("the launcher", () => {
     fakePackage(global, "dist/cli.mjs", "the machine's 0.3.0");
     const cache = join(dir, "cache");
     fakePackage(
-      join(cache, "software-factory/versions/0.2.0/node_modules", NAME),
+      join(cache, "lunamill/versions/0.2.0/node_modules", NAME),
       "dist/cli.mjs",
       "cached 0.2.0",
     );
 
-    const out = execFileSync("node", [join(global, "bin/factory.js")], {
+    const out = execFileSync("node", [join(global, "bin/lunamill.js")], {
       cwd: repository("0.2.0"),
       encoding: "utf8",
-      env: { ...process.env, XDG_CACHE_HOME: cache, FACTORY_VERSION: "" },
+      env: { ...process.env, XDG_CACHE_HOME: cache, LUNAMILL_VERSION: "" },
     });
 
     expect(out.trim()).toBe("cached 0.2.0");
@@ -313,10 +313,10 @@ describe("the launcher", () => {
     const global = join(dir, "global");
     fakePackage(global, "dist/cli.mjs", "the machine's 0.3.0");
 
-    const out = execFileSync("node", [join(global, "bin/factory.js")], {
+    const out = execFileSync("node", [join(global, "bin/lunamill.js")], {
       cwd: repository("0.3.0"),
       encoding: "utf8",
-      env: { ...process.env, FACTORY_VERSION: "" },
+      env: { ...process.env, LUNAMILL_VERSION: "" },
     });
 
     expect(out.trim()).toBe("the machine's 0.3.0");
@@ -326,16 +326,16 @@ describe("the launcher", () => {
     const global = join(dir, "global");
     fakePackage(global, "dist/cli.mjs", "the machine's 0.3.0");
 
-    const r = spawnSync("node", [join(global, "bin/factory.js")], {
+    const r = spawnSync("node", [join(global, "bin/lunamill.js")], {
       cwd: repository("banana"),
       encoding: "utf8",
-      env: { ...process.env, FACTORY_VERSION: "" },
+      env: { ...process.env, LUNAMILL_VERSION: "" },
     });
 
     expect(r.status).toBe(1);
     expect(r.stdout).toBe("");
     expect(r.stderr.trim()).toBe(
-      "✗ .claude/factory.lock names the factory banana, which is not a release. Run: factory update",
+      "✗ .claude/lunamill.lock names Lunamill banana, which is not a release. Run: lunamill update",
     );
   });
 
@@ -355,18 +355,18 @@ describe("the launcher", () => {
     const at = repository("banana");
     const lines = (version: string) => {
       writeFileSync(
-        join(at, ".claude/factory.lock"),
-        readFileSync(join(at, ".claude/factory.lock"), "utf8").replace(
+        join(at, ".claude/lunamill.lock"),
+        readFileSync(join(at, ".claude/lunamill.lock"), "utf8").replace(
           /banana|9\.9\.9/,
           version,
         ),
       );
-      return spawnSync("node", [join(global, "bin/factory.js")], {
+      return spawnSync("node", [join(global, "bin/lunamill.js")], {
         cwd: at,
         encoding: "utf8",
         env: {
           ...process.env,
-          FACTORY_VERSION: "",
+          LUNAMILL_VERSION: "",
           FORCE_COLOR: "1",
           PATH: `${bin}:${process.env.PATH}`,
           XDG_CACHE_HOME: join(dir, "cache"),
@@ -378,11 +378,11 @@ describe("the launcher", () => {
     };
 
     expect(lines("banana")).toEqual([
-      "{bad:✗} .claude/factory.lock names the factory banana, which is not a release. Run: factory update",
+      "{bad:✗} .claude/lunamill.lock names Lunamill banana, which is not a release. Run: lunamill update",
     ]);
     expect(lines("9.9.9")).toEqual([
-      "{skip:Downloading the factory 9.9.9, which this repository names. This happens once.}",
-      "{bad:✗} This repository names the factory 9.9.9, and it could not be downloaded: npm error no",
+      "{skip:Downloading Lunamill 9.9.9, which this repository names. This happens once.}",
+      "{bad:✗} This repository names Lunamill 9.9.9, and it could not be downloaded: npm error no",
     ]);
   });
 
@@ -391,7 +391,7 @@ describe("the launcher", () => {
     fakePackage(pkg, "dist/cli.mjs", "compiled");
     mkdirSync(join(dir, ".git"));
 
-    const out = execFileSync("node", [join(pkg, "bin/factory.js")], {
+    const out = execFileSync("node", [join(pkg, "bin/lunamill.js")], {
       cwd: dir,
       encoding: "utf8",
     });
@@ -404,7 +404,7 @@ describe("the launcher", () => {
 const call = (command: string, cwd: string) =>
   JSON.stringify({ cwd, tool_input: { command } });
 
-describe("factory guard", () => {
+describe("lunamill guard", () => {
   let repo: string;
 
   beforeEach(() => {
@@ -419,7 +419,7 @@ describe("factory guard", () => {
     });
 
     expect(r.status).toBe(2);
-    expect(r.stderr).toContain("Blocked by factory guard commit: force push");
+    expect(r.stderr).toContain("Blocked by lunamill guard commit: force push");
   });
 
   it("blocks what the ticket-text guard blocks", () => {
@@ -428,7 +428,7 @@ describe("factory guard", () => {
     });
 
     expect(r.status).toBe(2);
-    expect(r.stderr).toContain("Blocked by factory guard ticket-text");
+    expect(r.stderr).toContain("Blocked by lunamill guard ticket-text");
   });
 
   it("lets a call neither guard objects to through", () => {
@@ -449,8 +449,8 @@ function files(dir: string): string[] {
   });
 }
 
-describe("the factory's own files and messages", () => {
-  // The factory is installed once on a machine, so nothing it writes into a
+describe("Lunamill's own files and messages", () => {
+  // lunamill is installed once on a machine, so nothing it writes into a
   // repository, and nothing it prints, runs it through `npx`: there is no
   // copy in the repository for `npx --no-install` to find, and a bare
   // `npx factory` downloads another package of that name.
@@ -483,14 +483,14 @@ describe("the commands that ask questions", () => {
     (command) => {
       const cwd = mkdtempSync(join(tmpdir(), "no-terminal-"));
       try {
-        writeFileSync(join(cwd, "CLAUDE.md"), "@.claude/factory/rules.md\n");
+        writeFileSync(join(cwd, "CLAUDE.md"), "@.claude/lunamill/rules.md\n");
         const r = factory([command], { cwd, input: "" });
         expect(r.status).toBe(1);
         expect(r.stdout).toBe(
-          `factory ${command} asks its questions in a terminal: run it in one.\n`,
+          `lunamill ${command} asks its questions in a terminal: run it in one.\n`,
         );
         expect(readFileSync(join(cwd, "CLAUDE.md"), "utf8")).toBe(
-          "@.claude/factory/rules.md\n",
+          "@.claude/lunamill/rules.md\n",
         );
       } finally {
         rmSync(cwd, { recursive: true, force: true });

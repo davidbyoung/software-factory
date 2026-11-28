@@ -1,4 +1,4 @@
-// What `factory pr uncovered` prints: the lines a branch added or changed
+// What `lunamill pr uncovered` prints: the lines a branch added or changed
 // that its coverage report shows no test ran, or a branch never taken.
 import { relative, resolve } from "node:path";
 

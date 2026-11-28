@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// PreToolUse hook for Bash, run as `factory guard ticket-text` or within
-// `factory guard`. Refuses `gh issue create`,
+// PreToolUse hook for Bash, run as `lunamill guard ticket-text` or within
+// `lunamill guard`. Refuses `gh issue create`,
 // `gh issue edit`, and `gh issue comment` when the text they post holds a
 // bare tag-like `<word>` outside code spans, code fences, and HTML
 // comments. GitHub drops an unknown tag, so `/study/guides/<slug>/` shows as
@@ -262,7 +262,7 @@ function apiBody(
 export function refusal(tags: BareTag[]): string {
   const lines = tags.map((t) => `  ${t.tag} in: ${t.line.trim()}`);
   return [
-    "Blocked by factory guard ticket-text: this ticket text has a bare tag-like",
+    "Blocked by lunamill guard ticket-text: this ticket text has a bare tag-like",
     "<word> that GitHub drops or renders as HTML. Put each placeholder or tag",
     "name in backticks, then post again:",
     ...lines,
@@ -289,7 +289,7 @@ export function checkTicketText(input: {
 }
 
 /** Throws the refusal when a body a command is about to post has a bare
- * tag, so `factory ticket` and `factory pr comment` post nothing. */
+ * tag, so `lunamill ticket` and `lunamill pr comment` post nothing. */
 export function refuseBareTags(text: string): void {
   const tags = bareTags(text);
   if (tags.length > 0) throw new Error(refusal(tags));

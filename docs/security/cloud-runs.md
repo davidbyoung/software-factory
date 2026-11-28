@@ -12,7 +12,7 @@ never on the same one:
 
 ```mermaid
 flowchart TB
-    build["Build: you move a card to Ready, or run factory build N"]
+    build["Build: you move a card to Ready, or run lunamill build N"]
     review["Review: a pull request is ready, or gets a commit"]
     answer["Answer: CI fails, the review asks for changes, or you review"]
     conflict["Conflict: a pull request conflicts with your default branch"]
@@ -45,13 +45,13 @@ reach which job, and
 [what a hijacked session could still do](risks.md#what-a-hijacked-session-could-still-do)
 says what is left.
 
-| Run        | What starts it                                                                                                                                            | What its session does                                                                        |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Build      | The [poller](../features/builds-from-the-board.md#the-poller), or `factory build N`                                                                       | Builds a ticket with `factory-build`                                                         |
-| Review     | A pull request marked ready, each push to it after, and a change of its base branch, with [`pr-review`](../reference/settings/pr-review.md#pr-review) on  | Reads the pull request, and answers with findings and a verdict. Publish posts them          |
-| Answer     | CI failing, or the review asking for changes, on a pull request a build in the cloud opened. A review you submit, on any pull request from the repository | Works what is open with `factory-address-review`                                             |
-| Conflict   | A push to your default branch, and nightly, once for each pull request that conflicts                                                                     | Merges your default branch into it, with `factory-resolve-conflicts`                         |
-| Dependency | Three times a day, once for each pull request a dependency bot has open                                                                                   | Moves it toward merged, with `factory-deps`, in a repository with a `.github/dependabot.yml` |
+| Run        | What starts it                                                                                                                                            | What its session does                                                                         |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Build      | The [poller](../features/builds-from-the-board.md#the-poller), or `lunamill build N`                                                                      | Builds a ticket with `lunamill-build`                                                         |
+| Review     | A pull request marked ready, each push to it after, and a change of its base branch, with [`pr-review`](../reference/settings/pr-review.md#pr-review) on  | Reads the pull request, and answers with findings and a verdict. Publish posts them           |
+| Answer     | CI failing, or the review asking for changes, on a pull request a build in the cloud opened. A review you submit, on any pull request from the repository | Works what is open with `lunamill-address-review`                                             |
+| Conflict   | A push to your default branch, and nightly, once for each pull request that conflicts                                                                     | Merges your default branch into it, with `lunamill-resolve-conflicts`                         |
+| Dependency | Three times a day, once for each pull request a dependency bot has open                                                                                   | Moves it toward merged, with `lunamill-deps`, in a repository with a `.github/dependabot.yml` |
 
 Every run but a review acts as the account a build does. A review posts
 as `github-actions`.
@@ -64,7 +64,7 @@ waits for CI and the review. In the cloud it ends, and says:
 This run ends here. The next one starts when CI and the review have finished.
 ```
 
-**What a session asks for is done after it ends.** In the cloud, a `factory`
+**What a session asks for is done after it ends.** In the cloud, a `lunamill`
 command that would write prints `Asked:` and is kept. Publish runs only a
 short list of them, and only on the run's own ticket and pull request:
 
@@ -81,16 +81,16 @@ short list of them, and only on the run's own ticket and pull request:
 - From a Conflict or a Dependency run, open a ticket.
 
 Anything else, such as a label or a merge, is refused as the session asks for
-it, with the reason. A `factory` command that reads something Prepare did not hand over says so:
+it, with the reason. A `lunamill` command that reads something Prepare did not hand over says so:
 
 ```text
-✗ Ticket 40 was not handed to this run. Go on without it, or stop with: factory ticket stop 12 "needs ticket 40"
+✗ Ticket 40 was not handed to this run. Go on without it, or stop with: lunamill ticket stop 12 "needs ticket 40"
 ```
 
 **After it pushes, Publish waits for CI,** for up to an hour, and says on
 the pull request when CI has not finished by then. When CI passes, it marks
 a draft ready, which starts the review, unless the session opened it with
-`factory pr open --draft` for you to mark ready yourself, or no build in the
+`lunamill pr open --draft` for you to mark ready yourself, or no build in the
 cloud opened it. When CI fails, or the review asks
 for changes, the next answer starts by itself, if a build in the cloud
 opened the pull request. Two reviews that asked for changes are answered
@@ -144,7 +144,7 @@ tickets, and start its runs, and can't push to it. The verdict's and the
 board sync's can only read. The one
 exception is the organization's poller, whose token reaches every
 repository the App is installed on, since it starts builds in each.
-`factory-review.yml`, the one workflow file that the cloud runner runs from a
+`lunamill-review.yml`, the one workflow file that the cloud runner runs from a
 pull request's own copy on every push, is given no secret.
 
 Publish holds the key for as long as it runs, because waiting for CI can

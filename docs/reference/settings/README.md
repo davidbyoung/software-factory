@@ -1,9 +1,9 @@
 # Settings
 
-This page and the ones it lists are for changing what the factory does in
+This page and the ones it lists are for changing what Lunamill does in
 your repository once it is set up. Everything you can change is in one file,
-`.claude/factory.yaml`, which [`factory init`](../../setup/README.md) writes when
-you set the factory up. You don't need to read this page top to bottom:
+`.claude/lunamill.yaml`, which [`lunamill init`](../../setup/README.md) writes when
+you set Lunamill up. You don't need to read this page top to bottom:
 start with
 [the settings most repositories change](#the-settings-most-repositories-change),
 and look up any other setting under [Every setting](#every-setting).
@@ -15,17 +15,17 @@ and look up any other setting under [Every setting](#every-setting).
   local session. One that runs in the cloud with nobody at the keyboard is
   an unattended session.
 - **Build:** a session taking one approved ticket to a pull request.
-- **The cloud runner:** where the factory's unattended work runs. Today
+- **The cloud runner:** where Lunamill's unattended work runs. Today
   that is [GitHub Actions](../../integrations/github-actions.md).
 - **The board:** a view showing each ticket's state as a column, today a
   [GitHub Project](../../integrations/github-projects.md). It is optional.
 - **The board sync:** a job on the cloud runner that moves each ticket to
   its column on the board and fills in its fields. It is the only thing
   that writes to the board.
-- **`factory sync`:** a command you run. It copies the factory's skills,
+- **`lunamill sync`:** a command you run. It copies Lunamill's skills,
   agents, and rules into your repository, choosing which ones from this
   file, writes its two workflow files, and writes the settings in effect
-  into `.claude/factory.lock`. It has nothing to do with the board sync.
+  into `.claude/lunamill.lock`. It has nothing to do with the board sync.
 - **Skill and agent:** a skill is a set of instructions a session follows,
   and an agent is a separate reviewer a session launches to read something
   and report back.
@@ -36,7 +36,7 @@ The [glossary](../glossary.md) has the rest.
 
 - **Three settings are required, and a fourth before any build.** Every
   file has [`version`](#version), [`repository`](#repository), and
-  [`code-host.branch-name`](code-host.md#code-host), which `factory init` writes for
+  [`code-host.branch-name`](code-host.md#code-host), which `lunamill init` writes for
   you, and a session can't build a ticket until you set
   [`commands.gate`](commands.md#commandsgate). Every other setting has a default, and
   you write it only when you want something else.
@@ -65,30 +65,30 @@ The [glossary](../glossary.md) has the rest.
     type: openspec
   ```
 
-- **Your comments are kept.** `factory init` writes a comment above each
+- **Your comments are kept.** `lunamill init` writes a comment above each
   section, and updates never remove yours.
-- **Every command reads the lock, not this file.** `factory sync` combines
-  the factory's defaults, any [`presets`](presets.md#presets) you list, and this
-  file, and writes every setting the factory will use, defaults included,
-  into `.claude/factory.lock`, which you commit and never edit. Until you
+- **Every command reads the lock, not this file.** `lunamill sync` combines
+  Lunamill's defaults, any [`presets`](presets.md#presets) you list, and this
+  file, and writes every setting Lunamill will use, defaults included,
+  into `.claude/lunamill.lock`, which you commit and never edit. Until you
   sync after a change, every command stops and says so, but the ones that
-  fix or report it: `factory sync`, `factory doctor`,
-  `factory config check`, and the `factory preset` commands.
+  fix or report it: `lunamill sync`, `lunamill doctor`,
+  `lunamill config check`, and the `lunamill preset` commands.
 
   ```text
-  .claude/factory.yaml changed since the last sync. Run: factory sync
+  .claude/lunamill.yaml changed since the last sync. Run: lunamill sync
   ```
 
-  [`factory config explain`](../cli.md) prints the settings in effect, each
+  [`lunamill config explain`](../cli.md) prints the settings in effect, each
   marked with where its value came from.
 
 ## The shortest file
 
-These are the settings the factory needs before a session can build a
+These are the settings Lunamill needs before a session can build a
 ticket. Every other setting has a default.
 
 ```yaml
-version: 2
+version: 1
 repository: your-name/your-repo
 code-host:
   branch-name: "{ticket}"
@@ -99,18 +99,18 @@ commands:
 
 - [`version`](#version), [`repository`](#repository), and
   [`code-host.branch-name`](code-host.md#code-host) are required by every command,
-  and `factory init` writes all three. Without one, every command stops
+  and `lunamill init` writes all three. Without one, every command stops
   and names it. `"{ticket}"` is a pattern: ticket 12 is built on a branch
   named `12`. The code host is [GitHub](../../integrations/github.md) unless you say
   otherwise.
 - [`commands.gate`](commands.md#commandsgate) is how a session checks a change, such
-  as your tests and linter. `factory init` asks for one command and
+  as your tests and linter. `lunamill init` asks for one command and
   writes it. Left empty, it lists the gate under "Left to do", and you
-  add it. Without it the factory still [refines](../../workflow/README.md) tickets,
+  add it. Without it Lunamill still [refines](../../workflow/README.md) tickets,
   but a session can't build one.
 
-With these, the factory refines a ticket when you run `/factory-refine N`
-in a session, builds it when you run `/factory-build N`, nothing merges
+With these, Lunamill refines a ticket when you run `/lunamill-refine N`
+in a session, builds it when you run `/lunamill-build N`, nothing merges
 without you, and there is no board.
 
 **With a board,** two more settings are required. Skip this part if you
@@ -118,7 +118,7 @@ have none:
 [`tickets.board`](tickets.md#tickets), your board's number, and
 [`tickets.columns`](tickets.md#ticketscolumns), which of its columns shows each of
 the six [states](../../workflow/README.md#the-six-states) a ticket goes through.
-`factory init` writes both from the board you choose:
+`lunamill init` writes both from the board you choose:
 
 ```yaml
 tickets:
@@ -137,10 +137,10 @@ write `none` as its column. By default nothing starts a build when a
 ticket reaches Ready ([`builds.trigger`](builds.md#builds) is `manual`); if you
 set it to `own-server` or `github-action`, `ready` must name a column.
 
-`factory init` may write more, such as [`tickets.fields`](tickets.md#ticketsfields)
+`lunamill init` may write more, such as [`tickets.fields`](tickets.md#ticketsfields)
 when you confirm the ticket fields it suggests. None of it is required.
 
-**It worked when** `factory config check` prints
+**It worked when** `lunamill config check` prints
 `✓ The settings are valid.`
 
 ## The settings most repositories change
@@ -162,12 +162,12 @@ when you confirm the ticket fields it suggests. None of it is required.
 **After you change the file,** run:
 
 ```bash
-factory config check
-factory sync
+lunamill config check
+lunamill sync
 ```
 
-`factory config check` prints `✓ The settings are valid.` when the file
-is valid, and names the setting when it is not. `factory sync` then rewrites the lock and the
+`lunamill config check` prints `✓ The settings are valid.` when the file
+is valid, and names the setting when it is not. `lunamill sync` then rewrites the lock and the
 copied files that depend on what you changed, and lists each file it
 wrote. Every change needs it, one under `plugins` included, as
 [How the file works](#how-the-file-works) says.
@@ -190,18 +190,18 @@ own:
 | [`site`](site.md)                           | A website's pages, for the website review                     |
 | [`auto-merge`](auto-merge.md)               | The pull requests that merge themselves                       |
 | [`pr-review`](pr-review.md)                 | The automated review                                          |
-| [`rules`](rules.md)                         | The factory's rules, tuned for your repository                |
+| [`rules`](rules.md)                         | Lunamill's rules, tuned for your repository                   |
 | [`approval-policies`](approval-policies.md) | The checks a person approves                                  |
 
 [Example settings files](examples.md) shows three whole files.
 
 ### `version`
 
-Which layout of this file you are using. It is not the factory's version.
+Which layout of this file you are using. It is not Lunamill's version.
 Write `2`.
 
-- **Default:** none. `factory init` writes it.
-- **If it is wrong,** every factory command that reads this file stops
+- **Default:** none. `lunamill init` writes it.
+- **If it is wrong,** every Lunamill command that reads this file stops
   with `version: must be 2`. For a version 1 file, it also says where
   [Upgrade notes](../../maintain/upgrade-notes.md#moving-to-settings-version-2) shows each setting
   that moved.
@@ -210,26 +210,26 @@ Write `2`.
 
 Your repository, as `owner/name`, such as `harbor-goods/storefront`.
 
-- **Default:** none. `factory init` writes it. It proposes the
+- **Default:** none. `lunamill init` writes it. It proposes the
   repository from your checkout's remotes, whatever each is called, and
   asks which one you are setting up when they name a fork or more than
   one repository. Once the line is written, nothing works it out again.
 - **If it is wrong,** commands read and write another repository's
   tickets, or fail because it does not exist. A command that reads the
-  default branch, such as `factory sync`, stops when no remote of your
+  default branch, such as `lunamill sync`, stops when no remote of your
   checkout is that repository:
 
   ```text
-  ✗ repository: .claude/factory.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run factory sync.
+  ✗ repository: .claude/lunamill.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run lunamill sync.
   ```
 
 - **In a run in the cloud too, commands take the repository from this
   line,** and not from the run. After you rename a repository, change the
-  line: the "Factory files in step" check fails on each pull request until
+  line: the "Lunamill files in step" check fails on each pull request until
   you do, with both names:
 
   ```text
-  ✗ repository: .claude/factory.yaml says acme/web, and this pull request is in acme/website. Change the line and run factory sync.
+  ✗ repository: .claude/lunamill.yaml says acme/web, and this pull request is in acme/website. Change the line and run lunamill sync.
   ```
 
 It is written down rather than worked out from your checkout, because the
@@ -238,20 +238,20 @@ needs it too.
 
 ## Checking the file
 
-| Command or tool          | What it does                                                                                         |
-| ------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Your editor              | Flags a misspelled setting as you type, using the schema named on the file's first line              |
-| `factory config check`   | Stops on anything the factory can't use, and warns about patterns that match nothing. CI runs it     |
-| `factory config explain` | Prints the whole file as the factory reads it, with every default written out and marked `# default` |
-| `factory doctor`         | Checks the file against your real board, and that each secret the factory needs is set               |
+| Command or tool           | What it does                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| Your editor               | Flags a misspelled setting as you type, using the schema named on the file's first line           |
+| `lunamill config check`   | Stops on anything Lunamill can't use, and warns about patterns that match nothing. CI runs it     |
+| `lunamill config explain` | Prints the whole file as Lunamill reads it, with every default written out and marked `# default` |
+| `lunamill doctor`         | Checks the file against your real board, and that each secret Lunamill needs is set               |
 
 A first line like this one is optional. It points your editor at the
-schema, in the factory's own repository:
+schema, in Lunamill's own repository:
 
 ```yaml
-# $schema: https://raw.githubusercontent.com/davidbyoung/software-factory/main/settings.schema.json
+# $schema: https://raw.githubusercontent.com/lunamill-ai/lunamill/main/settings.schema.json
 ```
 
 JetBrains editors and Visual Studio Code's YAML extension both read it.
 The editor's check is only a help: it accepts some things
-`factory config check` refuses, such as a plugin whose file doesn't exist.
+`lunamill config check` refuses, such as a plugin whose file doesn't exist.

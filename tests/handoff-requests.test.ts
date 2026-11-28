@@ -223,7 +223,7 @@ describe("what Publish runs of it", () => {
       build,
     ],
     [
-      "a command that is not the factory's to ask",
+      "a command that is not Lunamill's to ask",
       "a session can't ask for this",
       asked("sync"),
       build,
@@ -339,7 +339,7 @@ describe("what Publish runs of it", () => {
     ["--title", ["ticket", "open", "--body-file", "b.md"], conflict],
   ] as [string, string[], ThisRun][])("needs %s in %j", (flag, argv, run) => {
     expect(allow({ argv, files: { "b.md": "b" } }, run)).toEqual({
-      refused: `factory ${argv.slice(0, 3).join(" ")}: it needs ${flag}`,
+      refused: `lunamill ${argv.slice(0, 3).join(" ")}: it needs ${flag}`,
     });
   });
 
@@ -422,7 +422,7 @@ describe("a ticket's repositories", () => {
       },
     );
     expect(found).toEqual({
-      refused: "factory ticket repositories 12: a session can't ask for this",
+      refused: "lunamill ticket repositories 12: a session can't ask for this",
     });
   });
 });

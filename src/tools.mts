@@ -1,4 +1,4 @@
-// Every tool the factory has built, by kind and by the name a setting gives
+// Every tool lunamill has built, by kind and by the name a setting gives
 // it: how to open it, and its setup (`setup.mts`). `init`, `doctor`, and
 // `remove` take this as a parameter, so a test adds a tool of its own.
 import { spawn } from "node:child_process";

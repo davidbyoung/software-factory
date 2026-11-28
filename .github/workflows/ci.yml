@@ -52,8 +52,8 @@ jobs:
           fail_ci_if_error: false
 
       # Packs the package, installs the tarball into an empty repository,
-      # runs it there, and fails when a packed file names the repository the
-      # factory was drawn out of.
+      # runs it there, and fails when a packed file names the repository
+      # Lunamill was drawn out of.
       - name: Check the packed package
         run: npm run pack-check
 

@@ -3,14 +3,14 @@
 // is signed in with a token of the app's, and git asks the CLI. No session
 // runs in a job that does this.
 //
-//   factory session token
+//   lunamill session token
 //
 // It fails where the app is not installed, and writes `slug=` and the app's
 // slug to GITHUB_OUTPUT. A token lasts an hour, so a job that waits for
 // longer does this again.
 //
-// The app's client ID and key are read from FACTORY_APP_CLIENT_ID and
-// FACTORY_APP_PRIVATE_KEY. Neither the key nor a token is printed, and a
+// The app's client ID and key are read from LUNAMILL_APP_CLIENT_ID and
+// LUNAMILL_APP_PRIVATE_KEY. Neither the key nor a token is printed, and a
 // token reaches the CLI on standard input alone.
 import { appendFileSync } from "node:fs";
 import { runToken, signIn } from "./code-host/index.mts";
@@ -37,7 +37,7 @@ export type World = {
 const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-/** `factory session token`. */
+/** `lunamill session token`. */
 export async function main(w: World): Promise<number> {
   const clientId = w.env[APP_CLIENT_ID];
   const key = w.env[APP_KEY];

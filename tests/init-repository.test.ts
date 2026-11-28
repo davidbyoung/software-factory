@@ -1,4 +1,4 @@
-// `factory init`, which repository: the settings' line, or the one the
+// `lunamill init`, which repository: the settings' line, or the one the
 // remotes name, a fork's parent among the choices, and whether the checkout
 // can hold the setup's commit.
 import { describe, expect, it } from "vitest";
@@ -12,10 +12,10 @@ const QUESTION = "select: Which repository are you setting up?";
 const quick = (over: Partial<Setup> = {}) =>
   init({ answers: { checkbox: [[]], confirm: [true] }, ...over });
 const FIRST_LINE = (repository: string) =>
-  `Setting up the software factory for ${repository}`;
+  `Setting up Lunamill for ${repository}`;
 
-describe("factory init, a repository line in the settings", () => {
-  const SETTINGS = `version: 2\nrepository: acme/web\n${CODE_HOST_YAML}\n`;
+describe("lunamill init, a repository line in the settings", () => {
+  const SETTINGS = `version: 1\nrepository: acme/web\n${CODE_HOST_YAML}\n`;
   const FORK = [
     { name: "origin", url: "git@github.com:dev/web.git" },
     { name: "upstream", url: "git@github.com:acme/web.git" },
@@ -42,7 +42,7 @@ describe("factory init, a repository line in the settings", () => {
       "--quiet",
       "--set-upstream",
       "upstream",
-      "set-up-factory",
+      "set-up-lunamill",
     ]);
   });
 
@@ -50,13 +50,13 @@ describe("factory init, a repository line in the settings", () => {
     const r = quick({ settings: SETTINGS, remotes: [FORK[0]!] });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "✗ repository: .claude/factory.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run factory sync.",
+      "✗ repository: .claude/lunamill.yaml says acme/web, and no remote here is acme/web. origin is dev/web. Add the remote, or change the line and run lunamill sync.",
     ]);
     expect(r.asked).toEqual([]);
   });
 });
 
-describe("factory init, the repository its remotes name", () => {
+describe("lunamill init, the repository its remotes name", () => {
   it("uses the one repository among them when it is no fork, and asks nothing", async () => {
     const r = quick({
       remotes: [{ name: "github", url: "https://github.com/acme/web.git" }],
@@ -141,7 +141,7 @@ describe("factory init, the repository its remotes name", () => {
   });
 });
 
-describe("factory init, a repository chosen that is no remote yet", () => {
+describe("lunamill init, a repository chosen that is no remote yet", () => {
   const fork = (over: Partial<Setup> = {}) =>
     init({
       remotes: [{ name: "origin", url: "git@github.com:dev/web.git" }],
@@ -228,8 +228,8 @@ describe("factory init, a repository chosen that is no remote yet", () => {
     expect(r.out).toEqual([
       FIRST_LINE("acme/web"),
       "",
-      "The factory runs in a coding agent, and Claude Code is not installed.",
-      "Install it and run factory init again.",
+      "Lunamill runs in a coding agent, and Claude Code is not installed.",
+      "Install it and run lunamill init again.",
       "Nothing changed.",
     ]);
     expect(added(r)).toEqual([]);
@@ -273,13 +273,13 @@ describe("factory init, a repository chosen that is no remote yet", () => {
       "✗ Could not add the remote upstream: error: remote upstream already exists.",
       "Nothing changed.",
     ]);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
     expect(r.tickets.boards).toEqual([]);
     expect(r.synced()).toBe(0);
   });
 });
 
-describe("factory init, with no remote on a code host it supports", () => {
+describe("lunamill init, with no remote on a code host it supports", () => {
   it("stops, naming the code hosts, when several remotes are all elsewhere", async () => {
     const r = quick({
       remotes: [
@@ -289,7 +289,7 @@ describe("factory init, with no remote on a code host it supports", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "No remote here is on a code host the factory supports: GitHub.",
+      "No remote here is on a code host Lunamill supports: GitHub.",
     ]);
   });
 
@@ -302,7 +302,7 @@ describe("factory init, with no remote on a code host it supports", () => {
   });
 });
 
-describe("factory init, a checkout that cannot hold the setup's commit", () => {
+describe("lunamill init, a checkout that cannot hold the setup's commit", () => {
   const ahead = (branch: string) => (args: string[]) =>
     args[0] === "rev-list"
       ? { stdout: "2\n" }
@@ -325,18 +325,18 @@ describe("factory init, a checkout that cannot hold the setup's commit", () => {
     const r = quick({ git: ahead("cart-fix") });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "✗ This checkout is on the branch cart-fix, which has commits main does not. Switch to main, then run factory init again.",
+      "✗ This checkout is on the branch cart-fix, which has commits main does not. Switch to main, then run lunamill init again.",
       "Nothing changed.",
     ]);
     expect(r.asked).toEqual([]);
-    expect(r.read(".claude/factory.yaml")).toBeNull();
+    expect(r.read(".claude/lunamill.yaml")).toBeNull();
   });
 
   it("stops the same way on the default branch itself, when it is ahead", async () => {
     const r = quick({ git: ahead("main") });
     expect(await r.run()).toBe(1);
     expect(r.out[0]).toBe(
-      "✗ This checkout is on the branch main, which has commits main does not. Switch to main, then run factory init again.",
+      "✗ This checkout is on the branch main, which has commits main does not. Switch to main, then run lunamill init again.",
     );
   });
 
@@ -344,7 +344,7 @@ describe("factory init, a checkout that cannot hold the setup's commit", () => {
     const r = quick({ git: ahead("HEAD") });
     expect(await r.run()).toBe(1);
     expect(r.out[0]).toBe(
-      "✗ This checkout has commits main does not. Switch to main, then run factory init again.",
+      "✗ This checkout has commits main does not. Switch to main, then run lunamill init again.",
     );
   });
 
@@ -425,7 +425,7 @@ describe("whether a repository on GitHub is a fork", () => {
   });
 });
 
-describe("factory init, a repository with no commits yet", () => {
+describe("lunamill init, a repository with no commits yet", () => {
   const NOTHING_YET =
     "acme/site has no commits yet, so a pull request has nothing to merge into.";
   const FIRST = `confirm: ${NOTHING_YET} Make a first, empty commit on trunk and push it?`;
@@ -474,7 +474,7 @@ describe("factory init, a repository with no commits yet", () => {
       expect.arrayContaining(["--set-upstream", "origin", "trunk"]),
     );
     expect(r.out[0]).toBe("✓ Pushed a first commit to trunk.");
-    expect(r.out[1]).toBe("Setting up the software factory for acme/site");
+    expect(r.out[1]).toBe("Setting up Lunamill for acme/site");
   });
 
   it("carries on with that branch as the default branch", async () => {
@@ -483,7 +483,7 @@ describe("factory init, a repository with no commits yet", () => {
     expect(r.git).toContainEqual(["fetch", "--quiet", "origin", "trunk"]);
     expect(r.branchAsked).toEqual(["trunk"]);
     expect(await r.host.codeHost.get(1)).toMatchObject({
-      head: { branch: "set-up-factory" },
+      head: { branch: "set-up-lunamill" },
       base: { branch: "trunk" },
     });
     expect(r.out.join("\n")).toContain("git switch trunk && git pull");
@@ -493,7 +493,7 @@ describe("factory init, a repository with no commits yet", () => {
     const r = unborn({ answers: { confirm: [false] } });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      'Push a first commit, then run factory init again: git commit --allow-empty -m "Start the repository" && git push -u origin trunk',
+      'Push a first commit, then run lunamill init again: git commit --allow-empty -m "Start the repository" && git push -u origin trunk',
       "Nothing changed.",
     ]);
     expect(ran(r, "commit")).toEqual([]);
@@ -530,7 +530,7 @@ describe("factory init, a repository with no commits yet", () => {
     });
     expect(await r.run()).toBe(1);
     expect(r.out).toEqual([
-      "Push trunk, then run factory init again: git push -u origin trunk",
+      "Push trunk, then run lunamill init again: git push -u origin trunk",
       "Nothing changed.",
     ]);
     expect(ran(r, "push")).toEqual([]);

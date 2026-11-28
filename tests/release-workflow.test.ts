@@ -277,7 +277,7 @@ describe("the poller's image", () => {
     expect(calls).toHaveLength(3);
     for (const call of calls)
       expect(call).toContain(
-        "https://registry.npmjs.org/@davidbyoung/software-factory/-/software-factory-0.2.0.tgz",
+        "https://registry.npmjs.org/@lunamill-ai/lunamill/-/lunamill-0.2.0.tgz",
       );
   });
 
@@ -291,10 +291,10 @@ describe("the poller's image", () => {
 
   it("pushes the version's tag and latest", () => {
     expect(steps).toContain(
-      'docker push "ghcr.io/davidbyoung/software-factory-poller:$VERSION"',
+      'docker push "ghcr.io/lunamill-ai/lunamill-poller:$VERSION"',
     );
     expect(steps).toContain(
-      'docker push "ghcr.io/davidbyoung/software-factory-poller:latest"',
+      'docker push "ghcr.io/lunamill-ai/lunamill-poller:latest"',
     );
   });
 });

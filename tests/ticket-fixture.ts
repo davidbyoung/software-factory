@@ -1,4 +1,4 @@
-// A ticket as a test writes it: open or closed, with the factory's record
+// A ticket as a test writes it: open or closed, with lunamill's record
 // in its comments, as GitHub keeps both. `asIssue` turns it into the ticket
 // the rules read, with the record and when it finished.
 import type { Issue } from "../src/lib/work-status.mts";

@@ -1,4 +1,4 @@
-// What `factory site compare` prints for its report.
+// What `lunamill site compare` prints for its report.
 import { expect, it } from "vitest";
 import { table, type Report } from "../src/site.mts";
 import { look, plainOf } from "./printed";

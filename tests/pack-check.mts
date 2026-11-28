@@ -1,13 +1,13 @@
 // The proof the package works outside the repository it is developed in:
 // packs this folder, installs the tarball once on a machine, as a person
-// does, and runs the factory in an empty repository in a temporary folder.
+// does, and runs lunamill in an empty repository in a temporary folder.
 //
 //   npm run pack-check
 //
 // It fails when a command exits non-zero, when the sync wrote no skill or
 // either workflow file, when it left a package.json or node_modules in the
-// repository, when a hook entry does not run the machine's factory, or
-// when a packed file names the repository the factory was drawn out of
+// repository, when a hook entry does not run the machine's lunamill, or
+// when a packed file names the repository lunamill was drawn out of
 // (`host-names.mts`). That last check stands between the package and
 // publishing.
 import { execFileSync } from "node:child_process";
@@ -35,7 +35,7 @@ const { name } = JSON.parse(
 const REPOSITORY = "your-name/your-repo";
 
 /** The shortest settings file the configuration page gives. */
-const SETTINGS = `version: 2\nrepository: ${REPOSITORY}\n${CODE_HOST_YAML}\n`;
+const SETTINGS = `version: 1\nrepository: ${REPOSITORY}\n${CODE_HOST_YAML}\n`;
 
 function run(cmd: string, args: string[], cwd: string): string {
   console.log(`$ ${[cmd, ...args].join(" ")}`);
@@ -89,7 +89,7 @@ try {
     ],
     dir,
   );
-  const factory = join(prefix, "bin", "factory");
+  const factory = join(prefix, "bin", "lunamill");
   const repo = join(dir, "scratch");
   mkdirSync(join(repo, ".claude"), { recursive: true });
   run("git", ["init", "-q"], repo);
@@ -105,7 +105,7 @@ try {
     ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
     repo,
   );
-  writeFileSync(join(repo, ".claude/factory.yaml"), SETTINGS);
+  writeFileSync(join(repo, ".claude/lunamill.yaml"), SETTINGS);
 
   for (const args of [
     ["sync"],
@@ -116,13 +116,13 @@ try {
     try {
       run(factory, args, repo);
     } catch {
-      fail(`factory ${args.join(" ")} exited non-zero`);
+      fail(`lunamill ${args.join(" ")} exited non-zero`);
     }
   }
   for (const left of ["package.json", "node_modules", ".github/actions"])
     if (existsSync(join(repo, left)))
       fail(`the sync left ${left} in the repository`);
-  for (const file of ["factory.yml", "factory-review.yml"])
+  for (const file of ["lunamill.yml", "lunamill-review.yml"])
     if (!existsSync(join(repo, ".github/workflows", file)))
       fail(`the sync wrote no .github/workflows/${file}`);
 
@@ -153,10 +153,10 @@ try {
   const commands = Object.values(hooks).flatMap((groups) =>
     groups.flatMap((g) => g.hooks.map((h) => h.command)),
   );
-  const outside = commands.filter((c) => !/(^|; |\| )factory [a-z]/.test(c));
+  const outside = commands.filter((c) => !/(^|; |\| )lunamill [a-z]/.test(c));
   if (commands.length !== 6 || outside.length > 0)
     fail(
-      `a hook entry does not run the machine's factory: ${outside.join("; ")}`,
+      `a hook entry does not run the machine's lunamill: ${outside.join("; ")}`,
     );
 
   console.log(

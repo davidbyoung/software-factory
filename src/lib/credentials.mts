@@ -6,7 +6,7 @@
 //
 // The file also holds a person's code host token and coding agent's
 // credential, filed by tool and then by `HOST/OWNER`, which only
-// `factory init` reads, and never from the environment. Beside it,
+// `lunamill init` reads, and never from the environment. Beside it,
 // `presets.yaml` records the presets last chosen for each owner.
 import {
   chmodSync,
@@ -29,7 +29,7 @@ import { listed } from "./listed.mts";
 type Env = Record<string, string | undefined>;
 
 const HEADER = [
-  "# Written by factory init. Readable only by you.",
+  "# Written by lunamill init. Readable only by you.",
   "# For a ticket system, an environment variable of the same name takes",
   "# priority over a value here.",
 ];
@@ -37,7 +37,7 @@ const HEADER = [
 /** The file, under `$XDG_CONFIG_HOME` when it is set, else `~/.config`. */
 export function credentialsPath(env: Env = process.env): string {
   const base = env.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config");
-  return join(base, "software-factory", "credentials.yaml");
+  return join(base, "lunamill", "credentials.yaml");
 }
 
 /** A path as a person would type it: from `~` when it is under home. */
@@ -49,16 +49,16 @@ export function shownPath(path: string): string {
 }
 
 export const missingLine = (label: string, site: string, names: string[]) =>
-  `No ${label} credential for ${site}. Set ${listed(names)}, or run: factory init`;
+  `No ${label} credential for ${site}. Set ${listed(names)}, or run: lunamill init`;
 
 export const looseLine = (path: string) =>
   `${shownPath(path)} can be read by others, so it was not read. Run: chmod 600 ${shownPath(path)}`;
 
 export const invalidLine = (path: string, reason: string) =>
-  `${shownPath(path)} is not valid YAML: ${reason}. Fix or delete it, then run factory init again.`;
+  `${shownPath(path)} is not valid YAML: ${reason}. Fix or delete it, then run lunamill init again.`;
 
 export const refusedFileLine = (label: string, site: string, reason: string) =>
-  `${label} refused the credential on this machine for ${site} (${reason}). It may have expired. Run: factory init`;
+  `${label} refused the credential on this machine for ${site} (${reason}). It may have expired. Run: lunamill init`;
 
 export const refusedEnvLine = (
   label: string,
@@ -67,7 +67,7 @@ export const refusedEnvLine = (
   reason: string,
   env: Env = process.env,
 ) =>
-  `${env.GITHUB_ACTIONS === "true" ? "::error::" : ""}${label} refused ${listed(names)} for ${site} (${reason}). They may have expired. Run factory init, and replace them.`;
+  `${env.GITHUB_ACTIONS === "true" ? "::error::" : ""}${label} refused ${listed(names)} for ${site} (${reason}). They may have expired. Run lunamill init, and replace them.`;
 
 /** Why a file cannot be read: it is open to others, or not YAML. */
 export type Unreadable = {
@@ -263,7 +263,7 @@ export function rememberPresets(
   const doc =
     old && !old.errors.length && isMap(old.contents)
       ? old
-      : emptyDocument(["# Written by factory init."]);
+      : emptyDocument(["# Written by lunamill init."]);
   doc.set(site, names);
   writeOwned(path, String(doc));
 }

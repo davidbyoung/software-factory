@@ -6,8 +6,8 @@
 // are opaque text, as Jira and Linear give them.
 // A test that needs `fake-gh` for a ticket is a sign the command went
 // around the interface.
-// Plain, it keeps the factory's record in comments, as GitHub does. Strict,
-// it keeps the record apart and holds the factory to what Jira and Linear
+// Plain, it keeps lunamill's record in comments, as GitHub does. Strict,
+// it keeps the record apart and holds lunamill to what Jira and Linear
 // allow: a status in place of open or closed, moves only along `moves`, no
 // hidden text in a comment, and no label used before it is created.
 import { recordOf, renderEntry } from "../src/tickets/record-comments.mts";

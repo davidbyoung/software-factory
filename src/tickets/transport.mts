@@ -39,7 +39,7 @@ export type Transport = {
 
 /** A call GitHub answered with an HTTP error. */
 export class HttpError extends Error {
-  // A plain field, not a parameter property: the factory runs its source
+  // A plain field, not a parameter property: lunamill runs its source
   // unbuilt, and Node's type stripping refuses parameter properties.
   readonly status: number;
   /** What GitHub said was wrong: the `message` in its answer, or the status
@@ -90,7 +90,7 @@ export function ghTransport(run: Gh): Transport {
       options: RestOptions = {},
     ): Promise<T> {
       if (options.body !== undefined) {
-        const dir = mkdtempSync(join(tmpdir(), "factory-body-"));
+        const dir = mkdtempSync(join(tmpdir(), "lunamill-body-"));
         const file = join(dir, "body.json");
         writeFileSync(file, JSON.stringify(options.body));
         try {
@@ -171,7 +171,7 @@ export function fetchTransport(options: {
       headers: {
         Authorization: `Bearer ${options.token}`,
         Accept: "application/vnd.github+json",
-        "User-Agent": options.userAgent ?? "software-factory",
+        "User-Agent": options.userAgent ?? "lunamill",
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(options.timeoutMs ?? 30_000),

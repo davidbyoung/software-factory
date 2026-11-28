@@ -27,7 +27,7 @@ import {
 } from "../src/approval-job.mts";
 import { runCommand, type Input, type Ran } from "../src/approval-policies.mts";
 import {
-  FACTORY_POLICY,
+  LUNAMILL_POLICY,
   parseSettings,
   type ApprovalPolicy,
 } from "../src/config.mts";
@@ -113,7 +113,7 @@ function setup(
 ) {
   const settings = parseSettings(
     {
-      version: 2,
+      version: 1,
       repository: "acme/widgets",
       "code-host": CODE_HOST,
       "approval-policies": withoutCredentials(o.policies ?? POLICIES),
@@ -415,14 +415,14 @@ describe("running the checks", () => {
     expect(s.answer).toEqual({ kind: "nothing" });
   });
 
-  it("runs no agent on a one-sentence change to a docs page, under the factory's own policy", async () => {
+  it("runs no agent on a one-sentence change to a docs page, under Lunamill's own policy", async () => {
     const r = repository(false);
     put(
       r.checkout,
       ".claude/approval-policies/credentials/find.mts",
       readFileSync("approval-policies/credentials/find.mts", "utf8"),
     );
-    const { in: _, ...credentials } = FACTORY_POLICY;
+    const { in: _, ...credentials } = LUNAMILL_POLICY;
     const s = setup(
       { policies: [credentials], env: { CLAUDE_CODE_OAUTH_TOKEN: "t" } },
       r,
@@ -793,7 +793,7 @@ describe("the run that kept an artifact", () => {
   });
 });
 
-describe("factory approval-policies check", () => {
+describe("lunamill approval-policies check", () => {
   /** The checkout on a branch whose working folder changes `files`. */
   function local(
     files: Record<string, string>,
@@ -911,7 +911,7 @@ describe("factory approval-policies check", () => {
       }),
     ).toBe(1);
     expect(l.err).toEqual([
-      "✗ licenses: node check.mjs failed (exit 1). Fix it, then run: factory approval-policies check",
+      "✗ licenses: node check.mjs failed (exit 1). Fix it, then run: lunamill approval-policies check",
       "  TypeError: boom",
       "      at check.mjs:9:30",
     ]);
@@ -924,7 +924,7 @@ describe("factory approval-policies check", () => {
       {
         settings: parseSettings(
           {
-            version: 2,
+            version: 1,
             repository: "acme/widgets",
             "code-host": { "branch-name": "{ticket}" },
             "approval-policies": [POLICIES[0]],

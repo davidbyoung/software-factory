@@ -8,7 +8,7 @@ How a run that uses AI is split into three jobs, so the AI and a sign-in to the 
 
 ### Requirement: Three jobs
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Three jobs
 
@@ -17,7 +17,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: The sandbox
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: The sandbox
 
@@ -26,25 +26,25 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: Where the session starts
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Where the session starts
 
 - **WHEN** the session's job lays out its folders
-- **THEN** The session starts in a copy of the default branch, from which its `CLAUDE.md`, skills, agents, and settings are read, with the work copy beside it. That copy, the factory's install, and what was handed over are read-only to it.
+- **THEN** The session starts in a copy of the default branch, from which its `CLAUDE.md`, skills, agents, and settings are read, with the work copy beside it. That copy, Lunamill's install, and what was handed over are read-only to it.
 
 ### Requirement: Setup before the session
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: Setup before the session
 
 - **WHEN** When the session's job prepares the repository
-- **THEN** `commands.build-setup` is the default branch's, and `factory build-setup` runs it in its copy before any step holds a credential. The work copy's own dependencies are installed by the session, in the sandbox.
+- **THEN** `commands.build-setup` is the default branch's, and `lunamill build-setup` runs it in its copy before any step holds a credential. The work copy's own dependencies are installed by the session, in the sandbox.
 
 ### Requirement: After the session
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: After the session
 
@@ -53,7 +53,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: What a run keeps
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: What a run keeps
 
@@ -62,7 +62,7 @@ The factory SHALL behave as the scenario below says, in the Spec line's own word
 
 ### Requirement: A session that ends in an error
 
-The factory SHALL behave as this line says: When Claude Code ends a cloud session with a result marked as an error and its result has text, the session's job prints, once the session has ended and the runner reads its commands again, `::error::Claude Code: WORDS`, where WORDS is the first line of that result, so it shows as an error on the run. With no text in the result, it prints only today's `Finished (...)` line.
+Lunamill SHALL behave as this line says: When Claude Code ends a cloud session with a result marked as an error and its result has text, the session's job prints, once the session has ended and the runner reads its commands again, `::error::Claude Code: WORDS`, where WORDS is the first line of that result, so it shows as an error on the run. With no text in the result, it prints only today's `Finished (...)` line.
 
 #### Scenario: A session that ends in an error
 
@@ -71,16 +71,16 @@ The factory SHALL behave as this line says: When Claude Code ends a cloud sessio
 
 ### Requirement: A refused Claude token
 
-The factory SHALL behave as the scenario below says, in the Spec line's own words.
+Lunamill SHALL behave as the scenario below says, in the Spec line's own words.
 
 #### Scenario: A refused Claude token
 
-- **WHEN** WORDS reads as a refusal of the credential, by the pattern `factory init` uses to try a pasted one, and the session read `CLAUDE_CODE_OAUTH_TOKEN`
-- **THEN** the line is instead `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: WORDS. A Claude token lasts a year: run factory init to store a new one.` in a repository a person owns, and `... A Claude token lasts a year: an owner of ORG runs factory init --org to store a new one.` in one an organization owns, told from the run's event, with ORG the repository's owner.
+- **WHEN** WORDS reads as a refusal of the credential, by the pattern `lunamill init` uses to try a pasted one, and the session read `CLAUDE_CODE_OAUTH_TOKEN`
+- **THEN** the line is instead `::error::Claude Code refused CLAUDE_CODE_OAUTH_TOKEN: WORDS. A Claude token lasts a year: run lunamill init to store a new one.` in a repository a person owns, and `... A Claude token lasts a year: an owner of ORG runs lunamill init --org to store a new one.` in one an organization owns, told from the run's event, with ORG the repository's owner.
 
 ### Requirement: A refused API key
 
-The factory SHALL behave as this line says: When WORDS reads as a refusal and the session read `ANTHROPIC_API_KEY`, the line is `::error::Claude Code refused ANTHROPIC_API_KEY: WORDS.`
+Lunamill SHALL behave as this line says: When WORDS reads as a refusal and the session read `ANTHROPIC_API_KEY`, the line is `::error::Claude Code refused ANTHROPIC_API_KEY: WORDS.`
 
 #### Scenario: A refused API key
 

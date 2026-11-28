@@ -79,8 +79,8 @@ const ending = (t: TokenDay) =>
 
 const replace = (t: TokenDay) =>
   t.org !== null
-    ? `An owner of ${t.org} runs factory init --org to replace it`
-    : "Run factory init to replace it";
+    ? `An owner of ${t.org} runs lunamill init --org to replace it`
+    : "Run lunamill init to replace it";
 
 /** `doctor`'s line, after the one that says the token is set. */
 export function doctorCheck(t: TokenDay): Check {
@@ -101,8 +101,8 @@ export function doctorCheck(t: TokenDay): Check {
         text: `${AGENT_TOKEN} stopped working by ${t.day}, ${ending(t)}`,
         fix:
           t.org !== null
-            ? `an owner of ${t.org} runs factory init --org`
-            : "Run factory init",
+            ? `an owner of ${t.org} runs lunamill init --org`
+            : "Run lunamill init",
       };
   }
 }
@@ -118,7 +118,7 @@ export function statusLine(t: TokenDay): say.Line | null {
       )
     : say.mark(
         "fail",
-        `${AGENT_TOKEN} stopped working by ${t.day}. ${fix ?? "Run factory init"}`,
+        `${AGENT_TOKEN} stopped working by ${t.day}. ${fix ?? "Run lunamill init"}`,
       );
 }
 
@@ -210,8 +210,8 @@ const ACCESS = "The GitHub access token";
 const olderText = (t: AccessDay | null, older: string[]) =>
   `${listed(older)} here ${older.length === 1 ? "is" : "are"} older than the GitHub access token on this machine. ${
     t !== null && (t.stage === "soon" || t.stage === "over")
-      ? "Run factory init to replace it"
-      : "Run factory init to store that one in its place"
+      ? "Run lunamill init to replace it"
+      : "Run lunamill init to store that one in its place"
   }`;
 
 /** `doctor`'s lines on the access token: its day, for the secrets that
@@ -228,12 +228,12 @@ export function accessChecks(t: AccessDay | null, h: Holders): Check[] {
           : t.stage === "soon"
             ? {
                 state: "unknown",
-                text: `${ACCESS} in ${names} expires on ${t.day}, ${when(t.left)}. Run factory init to replace it`,
+                text: `${ACCESS} in ${names} expires on ${t.day}, ${when(t.left)}. Run lunamill init to replace it`,
               }
             : {
                 state: "fail",
                 text: `${ACCESS} in ${names} expired on ${t.day}`,
-                fix: "Run factory init",
+                fix: "Run lunamill init",
               },
     );
   if (h.older.length)
@@ -249,12 +249,12 @@ export function accessStatusLines(t: AccessDay | null, h: Holders): say.Line[] {
     out.push(
       say.mark(
         "look",
-        `${ACCESS} expires on ${t.day}, ${when(t.left)}. Run factory init to replace it`,
+        `${ACCESS} expires on ${t.day}, ${when(t.left)}. Run lunamill init to replace it`,
       ),
     );
   if (t !== null && h.names.length && t.stage === "over")
     out.push(
-      say.mark("fail", `${ACCESS} expired on ${t.day}. Run factory init`),
+      say.mark("fail", `${ACCESS} expired on ${t.day}. Run lunamill init`),
     );
   if (h.older.length) out.push(say.mark("look", olderText(t, h.older)));
   return out;
