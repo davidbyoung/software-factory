@@ -21,10 +21,10 @@ are worth reading. One more,
 [Cloud runs in three jobs](upgrade-notes.md#cloud-runs-in-three-jobs), asks you to pass one
 pull request's verdict by hand.
 
-A repository coming from an old release takes them in order. Move to one
-install first. If `factory update` then stops with a settings error, the
-section for that error says what to add, and then you run
-`factory update` again.
+A repository coming from an old release moves to one install first.
+Then it takes the rest oldest first, from the bottom of the upgrade notes
+up. If `factory update` then stops with a settings error, the section for
+that error says what to add, and then you run `factory update` again.
 
 ## What happens
 

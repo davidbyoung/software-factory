@@ -1177,3 +1177,26 @@ describe("the pages the commands print", () => {
     },
   );
 });
+
+describe("the upgrade notes", () => {
+  it("list each release's steps newest first", () => {
+    const headings = read("docs/maintain/upgrade-notes.md")
+      .split("\n")
+      .filter((line) => line.startsWith("## "))
+      .map((line) => line.slice(3));
+
+    expect(headings).toEqual([
+      "Grouped checks",
+      "The poller reads your settings",
+      "Follow-ups in the pull request",
+      "Tickets across repositories",
+      "Cloud runs in three jobs",
+      "Moving to one install on your machine",
+      "Labeling your open tickets",
+      "A spec for every visible change",
+      "Naming build branches",
+      "Naming every column",
+      "Moving to settings version 2",
+    ]);
+  });
+});
