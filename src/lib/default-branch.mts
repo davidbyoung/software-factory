@@ -25,7 +25,8 @@ import * as say from "./output.mts";
 /** A git command's exit, and what it printed. */
 export type Git = (args: string[]) => { ok: boolean; out: string };
 
-/** Git, run in `cwd`, with its errors dropped. */
+/** Git, run in `cwd`, with its errors dropped. A diff can run past
+ * spawnSync's 1 MiB default, which would read as git failing. */
 export const gitIn =
   (cwd: string): Git =>
   (args) => {
@@ -33,6 +34,7 @@ export const gitIn =
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: 256 << 20,
     });
     return { ok: r.status === 0, out: r.stdout ?? "" };
   };

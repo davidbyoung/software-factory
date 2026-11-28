@@ -847,6 +847,47 @@ describe("factory approval-policies check", () => {
     expect(l.out.at(-1)).toBe("✓ licenses: nothing to approve");
   });
 
+  it("stops when a policy's diff can't be read, and runs no policy", async () => {
+    const r = repository();
+    sh(r.checkout, "checkout", "-qb", "12");
+    put(r.checkout, "package-lock.json", "x\n");
+    const { d } = setup({ policies: [POLICIES[0]] }, r);
+    const err: string[] = [];
+    let ran = 0;
+    const code = await check(
+      {
+        settings: d.settings,
+        // The list of files reads; the diff a policy reads does not.
+        git: (args) =>
+          args[0] === "diff" && args.includes("--")
+            ? { ok: false, out: "" }
+            : d.git(args),
+        defaultBranch: async () => "main",
+        pull: async () => ({ body: "", head: r.head, base: "main" }),
+        tickets: { ...d.tickets, key: (k: string) => k } as never,
+        runCommand: async () => {
+          ran++;
+          return {
+            status: 0,
+            stdout: '{"findings":[]}',
+            stderr: "",
+            timedOut: false,
+          };
+        },
+        runAgent: d.runAgent,
+        out: into([]),
+        err: into(err),
+      },
+      [],
+    );
+
+    expect(code).toBe(1);
+    expect(err).toEqual([
+      "✗ The change couldn't be read: git can't compare it with where it branched.",
+    ]);
+    expect(ran).toBe(0);
+  });
+
   it("says when no policy applies", async () => {
     const l = local({ "README.md": "x\n" });
     expect(await l.run()).toBe(0);
