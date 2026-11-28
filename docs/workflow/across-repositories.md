@@ -214,7 +214,7 @@ every file in it is listed there. You merge it.
 The ticket is [In review](README.md#the-six-states) once every repository
 has a pull request open or merged. It closes when the last one merges.
 
-```text
+```console
 $ factory status
 In review  1
   #12  Add gift cards to checkout              2h   $3.10   local 502d66cf

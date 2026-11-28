@@ -405,7 +405,7 @@ Any public repository that holds a `factory-preset.yaml` is a preset.
 Nothing is published and nobody registers anything: you add it by its
 address.
 
-```text
+```console
 $ factory preset add foo/presets//bar
 foo/presets//bar is public, and foo is not this repository's owner.
 foo/presets//bar at 3f9c2e1, from November 20, would change these settings here:
@@ -444,7 +444,7 @@ What stands between another owner's preset and your repository:
 A private preset of another owner can't be followed, since a run in your
 repository has no way to read it:
 
-```text
+```console
 $ factory preset add foo/private-presets
 ✗ foo/private-presets: not found, or private. A preset of another owner has to be public. To follow a private one, keep a copy under acme and add the copy.
 ```

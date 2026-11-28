@@ -86,7 +86,7 @@ and root settings. `factory config check` lists the ones nothing covers.
 A folder with nothing covered in it is one line, with how many files it
 holds:
 
-```
+```console
 $ factory config check
 ? 4 paths are in no gate command's files and not in commands.ignore, so a change to one runs every command:
     .github/             6 files
@@ -141,7 +141,7 @@ the default branch's name, and runs each command a changed file sets
 off. With fifty packages and twenty services, and `main` as the default
 branch:
 
-```
+```console
 $ factory gate
 commands.gate: 2 of 71 run, for the 3 files changed since origin/main
   npm run -s format:check          every change

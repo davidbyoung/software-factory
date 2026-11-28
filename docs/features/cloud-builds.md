@@ -68,7 +68,7 @@ and running `factory build N` work whatever the trigger.
 
 ### What a build in the cloud does
 
-```text
+```console
 $ factory build 12
 Started a build of ticket 12 in the cloud:
 https://your-code-host/your-name/your-repo/runs/123456789
