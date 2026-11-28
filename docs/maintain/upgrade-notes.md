@@ -56,12 +56,16 @@ deletes them.
 
 3. In `.claude/lunamill.yaml`, change the first line, `version: 2`, to
    `version: 1`: Lunamill counts its settings versions from 1 again, and the
-   shape is the same. Until you do, every `lunamill` command that reads the
-   settings stops with:
+   shape is the same. Until you do, the update in step 5 stops with:
 
    ```text
    .claude/lunamill.yaml: version: must be 1: this file is version 2, see https://github.com/lunamill-ai/lunamill/blob/v0.2.0/docs/maintain/upgrade-notes.md#moving-to-lunamill
    ```
+
+   No other `lunamill` command works until that update has run: each one
+   first downloads the release `.claude/lunamill.lock` names, which was
+   published under the old package's name, so it stops with
+   `could not be downloaded`.
 
    If it names your ticket label under
    [`tickets.labels`](../reference/settings/tickets.md#ticketslabels), rename the key

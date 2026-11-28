@@ -63,7 +63,7 @@ A session's hooks run the same command. On a machine without it, they
 stop each command the session tries to run, and print:
 
 ```text
-Lunamill is not installed on this machine. Install it once: npm install -g @lunamill-ai/lunamill
+lunamill is not installed on this machine. Install it once: npm install -g @lunamill-ai/lunamill
 ```
 
 Next: [Quick start](quick-start.md).

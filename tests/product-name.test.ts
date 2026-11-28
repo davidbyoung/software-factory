@@ -114,19 +114,17 @@ describe("the product's name", () => {
     () => {
       const printed = SCRIPTS.flatMap(files)
         .filter((f) => /\.(m?ts|m?js)$/.test(f) && !/\.test\./.test(f))
-        .filter((f) => readFileSync(f, "utf8").includes("Lunamill"))
+        .filter((f) => /lunamill/i.test(readFileSync(f, "utf8")))
         .flatMap((f) => literals(f).split("\n"))
         .map((piece) => piece.trim())
-        .filter((piece) => piece.includes("Lunamill") && piece.length >= 16);
+        .filter((piece) => /lunamill/i.test(piece) && piece.length >= 16);
       const quotes = ["README.md", "docs", "openspec"]
         .flatMap(files)
         .filter((f) => f.endsWith(".md"));
       const found = quotes.flatMap((f) => {
         const text = readFileSync(f, "utf8");
         return [...new Set(printed)]
-          .filter((piece) =>
-            text.includes(piece.replaceAll("Lunamill", "lunamill")),
-          )
+          .filter((piece) => misquotes(piece).some((m) => text.includes(m)))
           .map((piece) => `${f}: ${piece}`);
       });
       expect(found).toEqual([]);
@@ -158,6 +156,16 @@ describe("the product's name", () => {
     ).toEqual(["Install lunamill once, and lunamill's hooks run."]);
   });
 });
+
+/** A printed line with one of its names in the other case: Lunamill where
+ * it prints lunamill, or lunamill where it prints Lunamill. */
+const misquotes = (piece: string) =>
+  [...piece.matchAll(/lunamill/gi)].map(
+    (m) =>
+      piece.slice(0, m.index) +
+      (m[0] === "Lunamill" ? "lunamill" : "Lunamill") +
+      piece.slice(m.index + m[0].length),
+  );
 
 /** The commands that follow the name where it is typed, not said. */
 const COMMANDS = new Set(
