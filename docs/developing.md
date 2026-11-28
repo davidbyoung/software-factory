@@ -779,6 +779,14 @@ drawn out of.
   to differ.
 - **Examples carry the reason for a rule, without the host's private
   history.**
+- **A code block's tag says what it holds:** `bash` for commands to run,
+  `console` for a command and what it printed, each command after a `$ `
+  prompt, `text` for output alone, and the file's language for a file. The
+  docs site, https://kodor.ai, gives a block its Copy button by its tag:
+  whole for a command or a file, the commands alone for `console`, and
+  none for `text`. A test
+  fails on a `$` prompt in a block not tagged `console`, and on a `console`
+  block without one.
 
 ### A page a reader follows
 

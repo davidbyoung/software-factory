@@ -2,11 +2,11 @@
 # settings in effect, and the files it wrote. Do not edit.
 version: 0.0.0-development
 presets: []
-settings-hash: sha256:a0fe9762647060074bb70cee2d32393abb39c81189892163f87214cfc62829cf
+settings-hash: sha256:5700b2b5f93215097d7d301d09a353fb2926e5ea38cd8163fc50e13b0d65c38c
 npmrc-variables: []
 settings:
   version: 2
-  repository: davidbyoung/software-factory
+  repository: kodor-ai/kodor
   tickets:
     type: github
     board: 1

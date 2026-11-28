@@ -189,6 +189,37 @@ export function npxLines(text: string): string[] {
     .map((line) => line.trim());
 }
 
+/** Each code block whose tag does not match whether it shows a `$` prompt,
+ * by its first line. A block with a prompt is a command and what it
+ * printed, tagged `console`, and the docs site copies only its commands; a
+ * block tagged `text`, or not at all, is output, and gets no Copy button. */
+export function mistaggedTranscripts(text: string): string[] {
+  const found: string[] = [];
+  let open: { tag: string; fence: string; lines: string[] } | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    const mark = /^\s*(`{3,}|~{3,})\s*([^\s`]*)/.exec(line);
+    if (open === null) {
+      if (mark) open = { tag: mark[2], fence: mark[1], lines: [] };
+      continue;
+    }
+    const closes =
+      mark &&
+      mark[1][0] === open.fence[0] &&
+      mark[1].length >= open.fence.length &&
+      mark[2] === "";
+    if (!closes) {
+      open.lines.push(line.trim());
+      continue;
+    }
+    const prompt = open.lines.some((l) => l.startsWith("$ "));
+    if (prompt !== (open.tag === "console")) {
+      found.push(`${open.tag || "(no tag)"}: ${open.lines[0] ?? ""}`);
+    }
+    open = null;
+  }
+  return found;
+}
+
 /** Each settings key `text` names in backticks whose first mention is not a
  * link to its entry on its settings page. A key is named alone, by a
  * path under it, or with a value, as `builds.trigger: manual`, and its entry
@@ -518,6 +549,38 @@ describe("npxLines", () => {
   });
 });
 
+describe("mistaggedTranscripts", () => {
+  it("finds a prompt outside a console block, and a console block without one", () => {
+    const page = [
+      "```console",
+      "$ factory sync",
+      "wrote .claude/factory.lock",
+      "```",
+      "",
+      "```text",
+      "$ factory status",
+      "```",
+      "",
+      "```",
+      "$ factory gate",
+      "```",
+      "",
+      "```console",
+      "✓ The settings are valid.",
+      "```",
+      "",
+      "```text",
+      "✓ The settings are valid.",
+      "```",
+    ].join("\n");
+    expect(mistaggedTranscripts(page)).toEqual([
+      "text: $ factory status",
+      "(no tag): $ factory gate",
+      "console: ✓ The settings are valid.",
+    ]);
+  });
+});
+
 describe("unlinkedSettings", () => {
   const entries = ["tickets", "tickets.columns", "pr-review", "rules"];
 
@@ -760,6 +823,13 @@ describe("the docs", () => {
   it("name the command factory, never through npx", () => {
     const found = pages().flatMap((page) =>
       npxLines(read(page)).map((line) => `${page}: ${line}`),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("tag a block with a $ prompt console, and only such a block", () => {
+    const found = pages().flatMap((page) =>
+      mistaggedTranscripts(read(page)).map((block) => `${page}: ${block}`),
     );
     expect(found).toEqual([]);
   });
