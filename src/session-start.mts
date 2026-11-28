@@ -119,7 +119,7 @@ export type Deps = {
   /** Prints each ticket's state, and gives the hook's exit. */
   tickets: () => Promise<number>;
   /** Why the lock is stale, or null when it is current or there is no
-   * factory here. */
+   * Lunamill here. */
   stale?: () => Promise<string | null>;
 };
 

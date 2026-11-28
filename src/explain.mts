@@ -56,8 +56,8 @@ const ADDS_UP = new Set([
   "site.hide",
 ]);
 
-/** `exists` says whether a path from the root exists, for the plugins the
- * factory uses where the settings name none. */
+/** `exists` says whether a path from the root exists, for the plugins
+ * Lunamill uses where the settings name none. */
 export async function explainLines(
   s: Settings,
   marks: Marker,

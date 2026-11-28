@@ -155,8 +155,8 @@ jobs:
           fi
           { echo "LUNAMILL_COMMITTER_NAME=${name//$'\n'/ }"; echo "LUNAMILL_COMMITTER_EMAIL=$email"; } >> "$GITHUB_ENV"
 
-      # The presets the lock names are handed over too, in the cache the
-      # factory reads them from.
+      # The presets the lock names are handed over too, in the cache
+      # Lunamill reads them from.
       - name: Hand over what the session works from
         id: prepare
         if: steps.gate.outputs.ran == 'true'
@@ -315,7 +315,7 @@ jobs:
           printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' 'profile bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' '  include if exists <local/bwrap>' '}' | sudo tee /etc/apparmor.d/bwrap > /dev/null
           sudo systemctl reload apparmor
 
-      # A factory release changes this pin.
+      # A Lunamill release changes this pin.
       - name: Install Claude Code
         run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.325
 

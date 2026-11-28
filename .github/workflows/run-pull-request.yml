@@ -103,7 +103,7 @@ jobs:
   # git and writes each check's input; `commands` runs each policy's command
   # with no token; `agent` runs each policy's agent on its own, with tools
   # that only read; and `status` posts "Approval policies" and keeps what
-  # was found, as an artifact, for the label's run. `factory
+  # was found, as an artifact, for the label's run. `lunamill
   # approval-policies` holds every rule. Each commit and base's checks run
   # one at a time, and none cancels another.
   approval-prepare:
@@ -467,8 +467,8 @@ jobs:
           fi
 
   # Lets one of Dependabot's pull requests merge itself. Never a major,
-  # whose migration the owner reads first, and never one that names the
-  # factory, as a raised version in a workflow file would: that changes the
+  # whose migration the owner reads first, and never one that names
+  # Lunamill, as a raised version in a workflow file would: that changes the
   # instructions every session follows. Auto-merge still waits for every
   # required check and for every review thread to be resolved.
   #

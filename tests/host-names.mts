@@ -1,7 +1,7 @@
 // The words that name the repository lunamill was drawn out of: its
 // name, its owner's sites, its paths, its own plugins, and its subject.
-// Nothing the package ships, and none of its tests, may use them, so the
-// factory tells no story from that repository's private issues. The
+// Nothing the package ships, and none of its tests, may use them, so
+// Lunamill tells no story from that repository's private issues. The
 // boundary test reads the folder with this list, and `pack-check` the
 // packed tarball.
 //

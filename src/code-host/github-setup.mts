@@ -1,6 +1,6 @@
 // GitHub as the code host: the remotes it recognizes, the one access token
-// Lunamill's jobs use, the signed-in check, and what removing the
-// factory leaves on it.
+// Lunamill's jobs use, the signed-in check, and what removing
+// Lunamill leaves on it.
 import { gh, type Gh } from "../lib/gh.mts";
 import { listed } from "../lib/listed.mts";
 import {

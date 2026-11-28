@@ -340,8 +340,8 @@ export type PullRequest = {
   createdAt: string;
   body: string;
   /** The tickets it closes when it merges. The code host fills it with its
-   * own links, and `linkPulls` (`lib/pull-tickets.mts`) with what the
-   * factory counts. */
+   * own links, and `linkPulls` (`lib/pull-tickets.mts`) with what
+   * Lunamill counts. */
   closes: Key[];
   /** The tickets its body says it builds part of, once `linkPulls` has
    * read it; empty before. */

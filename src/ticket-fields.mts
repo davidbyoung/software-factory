@@ -431,8 +431,8 @@ async function changeSome(
   }
 }
 
-/** The field step: the four lunamill fields' lines to write under
- * `tickets.fields`. An answer that can't be used leaves each factory
+/** The field step: the four Lunamill fields' lines to write under
+ * `tickets.fields`. An answer that can't be used leaves each Lunamill
  * field's place to be chosen by hand. */
 export async function suggestFields(
   d: FieldStepDeps,

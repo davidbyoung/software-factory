@@ -131,7 +131,7 @@ export function check(
 }
 
 /** The columns a mapping gives each state, a column init adds by its
- * factory name. */
+ * Lunamill name. */
 export function toColumns(mapping: Mapping): Columns {
   return Object.fromEntries(
     KEYS.map((k) => {
@@ -165,7 +165,7 @@ export function table(mapping: Mapping): say.Line[] {
 }
 
 /** What `Yes` writes under `tickets.columns`: every state, a column init
- * adds by its factory name. */
+ * adds by its Lunamill name. */
 export function written(mapping: Mapping): [StateKey, string][] {
   return KEYS.map((k) => {
     const c = mapping[k];
@@ -478,7 +478,7 @@ export function everyColumn(
 }
 
 /** A re-run's column step for a block that leaves states out. Each state
- * left out takes the board's column of its factory name, when the board
+ * left out takes the board's column of its Lunamill name, when the board
  * has one no written state names, since that is the column lunamill
  * read for it; any other is asked for. The lines to write for the states
  * left out. */

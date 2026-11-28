@@ -8,8 +8,8 @@
 //
 // REMOTE is the remote whose address is the repository the settings'
 // `repository` line names, whatever that remote is called, or `origin`
-// where no remote's is and `origin`'s address names no repository the
-// factory can read. A checkout whose settings name a repository no remote
+// where no remote's is and `origin`'s address names no repository
+// Lunamill can read. A checkout whose settings name a repository no remote
 // has stops with the line that says so. A checkout with no settings reads
 // `origin`, and with no `origin` remote it has nobody to ask, and takes
 // git's own default: `init.defaultBranch`, or `main`. With a remote and no
@@ -82,8 +82,8 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 /** The name of the remote whose address names `repository`, whatever
  * address it has. Where several do, `origin` is the one, and otherwise the
  * first. Where none does, it is `origin` when that remote's address names
- * no repository, as an SSH host alias or a proxy's address does not: the
- * factory cannot tell which repository that is. Otherwise null. */
+ * no repository, as an SSH host alias or a proxy's address does not:
+ * Lunamill cannot tell which repository that is. Otherwise null. */
 export function remoteFor(
   repository: string,
   remotes: Remote[],
