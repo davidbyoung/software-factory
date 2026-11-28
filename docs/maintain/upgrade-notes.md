@@ -408,9 +408,9 @@ Until you do, every command that reads the settings stops with:
 .claude/factory.yaml: version: must be 2: this file is version 1, see "Moving to settings version 2" in docs/updating.md
 ```
 
+So `factory update` cannot sync to that release until the file is moved.
 A release since this page moved prints this section's address in place of
-`docs/updating.md`. So `factory update` cannot sync to that release until
-the file is moved.
+`docs/updating.md`.
 From step 1 until step 4, no other `factory` command works in the
 repository, since the version the lock still names refuses a version 2
 file. On a branch:
