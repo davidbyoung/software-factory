@@ -261,6 +261,12 @@ describe("preparing the checks", () => {
     ]);
   });
 
+  it("makes the label it waits for when git can't read the change", async () => {
+    const { d, r, host } = setup({ head: "0".repeat(40) });
+    await prepare(d, r.dir);
+    expect(host.log).toContain("ensureLabel policy-override");
+  });
+
   it.each([
     ["a push", { action: "synchronize" }],
     [

@@ -35,6 +35,7 @@ import {
   type Outcome,
   type Ran,
   type Result,
+  LABEL_LOOK,
 } from "./approval-policies.mts";
 import * as say from "./lib/output.mts";
 
@@ -50,12 +51,6 @@ export const keptName = (pr: number, head: string, base: string) =>
   `approval-policies-${pr}-${head}-${baseOf(base)}`;
 export const approvedName = (pr: number, head: string, base: string) =>
   `approval-policies-approved-${pr}-${head}-${baseOf(base)}`;
-
-const LABEL_LOOK = {
-  color: "b60205",
-  description:
-    "Accepts what an approval policy found on the current commit; a push removes it",
-};
 
 /** A comment the factory posts once, told apart by its first line. */
 const REVIEW_NOTE = "<!-- factory: approval policies wait for the label -->";
@@ -200,11 +195,14 @@ export async function prepare(d: Deps, dir: string): Promise<Plan> {
   const mergeBase = base.out.trim();
   const files =
     base.ok && mergeBase ? changedFiles(d.git, mergeBase, head) : null;
-  const unreadable = () =>
-    status(
+  const unreadable = async () => {
+    await d.codeHost.ensureLabel(label, LABEL_LOOK);
+    await status(
       "pending",
       statusOf([], { label, unreadable: true }).description,
-    ).then(finish);
+    );
+    return finish();
+  };
   if (files === null) return unreadable();
   const checks = checksOf(d.settings.approvalPolicies, files);
   if (!checks.length) {

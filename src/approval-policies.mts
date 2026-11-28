@@ -11,6 +11,13 @@ import type { ChangedFile } from "./merge-policy.mts";
 /** The status's name on a pull request. */
 export const CONTEXT = "Approval policies";
 
+/** How `policy-override` looks where the factory makes it. */
+export const LABEL_LOOK = {
+  color: "b60205",
+  description:
+    "Accepts what an approval policy found on the current commit; a push removes it",
+};
+
 /** How long a check may take before it counts as failed. */
 export const CHECK_MINUTES = 30;
 
