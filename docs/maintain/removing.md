@@ -34,9 +34,9 @@ files in your repository,
   "Software factory", which lets the factory's workflow run where the code
   host needs one ([GitHub](../integrations/github.md#a-public-repository)).
 - **On your code host, once for an organization,** when an owner set it
-  up with `factory init --org`: the organization's own app, which its
-  cloud builds act as; the app's key and the coding agent's token, as
-  secrets, and a variable that names the app; a repository named
+  up with `factory init --org`: the organization's App, which its
+  cloud builds act as; the App's key and the coding agent's token, as
+  secrets, and a variable that names the App; a repository named
   `factory-config`, for the settings its repositories share; a property
   named `software-factory`, a value the organization keeps for each
   repository; and a rule that requires the review's verdict wherever
@@ -45,7 +45,8 @@ files in your repository,
   lists them.
 - **On your board,** if you have one: three fields, Session, Runs in, and
   Cost, which `factory init` adds when the board lacks
-  them, and the board's own Status, which the sync sets. `init` adds the
+  them, and the board's own Status, which
+  [the board sync](../features/board.md) sets. `init` adds the
   columns your settings name that the board lacked.
 - **Outside both,** only if you host the poller: the poller, wherever you
   host it. `factory remove` names it in what is left by hand.
@@ -93,9 +94,9 @@ It commits nothing. Review the changes, commit them on a branch, and
 merge.
 
 It does not name the "Software factory" policy that `factory init` adds
-on a public repository. Delete that one by hand too, where
-[GitHub's What setup adds](../integrations/github.md#what-setup-adds)
-says.
+on a public repository. Delete that one by hand too, from where
+[GitHub's A public repository, under By hand](../integrations/github.md#a-public-repository-1)
+says it is added.
 
 If your settings file is gone or cannot be read, it says so, removes what
 it finds, and names what the tools it ships with leave behind.

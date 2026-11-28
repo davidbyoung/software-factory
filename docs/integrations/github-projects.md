@@ -4,12 +4,10 @@ The board: a GitHub Project with a column for each of a ticket's states.
 
 ## What the factory uses it for
 
-### The board
-
-A GitHub Project, owned by the account or the organization that owns the
-repository. The sync sets its Status field to the ticket's column and
-writes three fields of its own, which `init` adds when the board lacks
-them:
+The board is a GitHub Project, owned by the account or the organization
+that owns the repository. The board sync sets the Project's own Status
+field to the ticket's column, and writes three fields of the factory's
+own, which `init` adds when the board lacks them:
 
 | Field   | Shows                                                                    |
 | ------- | ------------------------------------------------------------------------ |
@@ -18,8 +16,10 @@ them:
 | Runs in | "local" or "Actions"                                                     |
 | Cost    | An estimate of what refining and building the ticket used                |
 
-Anything typed into the last three is overwritten on the next sync. Its
-number, the last part of its address, is [`tickets.board`](../reference/settings/tickets.md#tickets) in your settings.
+Anything typed into the last three is overwritten on the next sync. The
+Project's number, the last part of its address, is what
+[`tickets.board`](../reference/settings/tickets.md#tickets) holds in your
+settings.
 
 ## You need
 
@@ -59,11 +59,22 @@ ones a board lacks.
 
 ## Limits that come from GitHub
 
-A field you add to a Project, which shows as a column of its table, holds
+**A field holds at most 1,024 characters.** A field you add to a Project, which shows as a column of its table, holds
 at most 1,024 characters, so it can't hold a factory field such as a Spec,
 which is often several thousand. Use an
 [issue field](github-issues.md#set-it-up) instead
 ([Your tickets already have fields](../features/board.md#your-tickets-already-have-fields)).
+
+Two more are untested:
+
+- **The board sync on a board an organization owns,** against a real
+  organization. It is read the same way as a person's, with the token
+  made from the organization's App, whose permissions include the
+  organization's Projects. A classic token stored by hand needs access to
+  the organization's projects, which an organization's settings can
+  refuse.
+- **GitHub's built-in board automations,** such as moving a closed issue
+  to Done. They may fight the board sync.
 
 ## When something goes wrong
 

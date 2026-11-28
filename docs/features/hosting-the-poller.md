@@ -17,6 +17,9 @@ an organization's one poller runs only on a schedule.
 
 ## Turn it on
 
+To turn it on, set the trigger and run the image, as below. To turn it
+off, see [Stop hosting it](#stop-hosting-it).
+
 ### Hosting the poller: `own-server`
 
 Set the trigger in `.claude/factory.yaml`. `factory init` writes it when
@@ -89,13 +92,13 @@ One: [`builds.trigger`](../reference/settings/builds.md#builds), set to
 
 ### When something fails
 
-| What you see                                                                | What happened                                   | What to do                                                                                            |
-| --------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck                     | Read its log                                                                                          |
-| A comment saying a build could not start, with a refusal from the code host | The token cannot start a build                  | Give it what [Secrets](../security/credentials.md#secrets) names, then move the ticket to Ready again |
-| The board stops updating                                                    | The board's token is missing or expired         | Replace it. The poller uses the same token                                                            |
-| A ticket in Ready is skipped                                                | It is blocked by an open ticket                 | It starts at the poller's first pass after the blocker closes                                         |
-| Its log says `not polling:`                                                 | Your settings say not to poll, or can't be read | [What it reads](builds-from-the-board.md#what-it-reads) has each line                                 |
+| What you see                                                                | What happened                                   | What to do                                                                                               |
+| --------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `factory status` flags a Ready ticket "not started, is the poller running?" | The poller is down or stuck                     | Read its log, wherever your host shows the container's log                                               |
+| A comment saying a build could not start, with a refusal from the code host | The token cannot start a build                  | Give it what [Secrets](../security/credentials.md#secrets) names, then move the ticket to Ready again    |
+| The board stops updating                                                    | The board's token is missing or expired         | Replace it. The poller uses the same token                                                               |
+| A ticket in Ready is skipped                                                | It is blocked by an open ticket                 | It starts at the poller's first pass after the blocker closes                                            |
+| Its log says `not polling:`                                                 | Your settings say not to poll, or can't be read | [When its log says `not polling:`](builds-from-the-board.md#when-its-log-says-not-polling) has each line |
 
 ## On your tools
 

@@ -11,8 +11,8 @@ could do with them.
 
 ## Who handles a token
 
-Your sessions use two sign-ins you already have: the code host's
-command-line tool's and the coding agent's
+Your sessions use two sign-ins you already have, one to the code host's
+command-line tool and one to the coding agent
 ([GitHub](../integrations/github.md#you-need) and
 [Claude Code](../integrations/claude-code.md#you-need) say how to sign in).
 The workflows, which run on the cloud runner, read tokens, and which ones
@@ -67,11 +67,9 @@ Everything here is stored on the repository with `gh secret set NAME`,
 which asks for the value. Nothing the factory runs on your machine needs
 one; each is for something that runs in GitHub Actions.
 
-The GitHub tokens below are for a repository on your own account, and
-for an organization's repository that the organization's secrets do not
-reach: the workflows read a token stored here when no App's key reaches
-the run. In an organization that is set up, nobody stores any of them.
-`factory init --org` stored these for every repository, once:
+In an organization that is set up, nobody stores a secret on a
+repository. `factory init --org` stored these on the organization once,
+for every repository:
 
 | What the organization holds         | What it is for                                                                                                                                                                                                                                                               |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -79,7 +77,11 @@ the run. In an organization that is set up, nobody stores any of them.
 | `FACTORY_APP_CLIENT_ID`, a variable | Which App the key belongs to                                                                                                                                                                                                                                                 |
 | `CLAUDE_CODE_OAUTH_TOKEN`, a secret | What pays for sessions, or `ANTHROPIC_API_KEY` for an API key                                                                                                                                                                                                                |
 
-What you store on a repository:
+On your own account, the workflows read the secrets below from each
+repository. So does an organization's repository that the organization's
+secrets do not reach
+([When the organization's secrets do not reach you](../integrations/github-organizations.md#when-the-organizations-secrets-do-not-reach-you)),
+since no App's key reaches its runs. What you store on a repository:
 
 | Secret                    | Needed for                                                                             | Make it                                                                                                                                                   |
 | ------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -165,7 +167,7 @@ three ways to limit that, each by hand:
 - **Replace the key,** as [Replacing the App's key](../integrations/github-organizations.md#replacing-the-apps-key)
   shows. A key does not expire by itself.
 
-[Limiting who can use the App's key](../integrations/github-organizations.md#by-hand)
+[Limiting who can use the App's key](../integrations/github-organizations.md#limiting-who-can-use-the-apps-key)
 says where on the code host's site each of the first two is set, and how
 to give a repository access again.
 

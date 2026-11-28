@@ -30,7 +30,33 @@ needs anyway, and the agent runs on your coding agent's token.
 
 ## Turn it on
 
-Nothing to turn on: every repository has the credentials policy.
+Nothing to turn on: every repository has the credentials policy from the
+moment it uses the factory. To turn it off, set `off: true` on it in your
+settings, as below.
+
+### Turning it off
+
+In `.claude/factory.yaml`:
+
+```yaml
+approval-policies:
+  - name: credentials
+    off: true
+```
+
+Then run `factory sync`. It deletes the policy's two files, and, where
+`credentials` was your only policy, takes the job that runs policies out
+of `.github/workflows/factory.yml`. Commit what it changed with the
+settings, from your computer, open a pull request, and merge it.
+
+Where no policy is left on, also take **Approval policies** out of the
+ruleset "Software factory", under your repository's Settings, Rules,
+Rulesets: nothing posts the status any more, so a pull request would
+wait on it forever.
+
+Nothing then reads a change for security before it merges. **It worked
+when** `factory config explain` no longer lists `credentials`, and the
+next pull request merges without an **Approval policies** status.
 
 ## How it works
 
@@ -94,32 +120,10 @@ minute, on your coding agent's token.
 
 ## Its settings
 
-It is on with nothing to write. To turn it off, set `off: true` on it
-under [`approval-policies`](../reference/settings/approval-policies.md#approval-policies).
-
-### Turning it off
-
-In `.claude/factory.yaml`:
-
-```yaml
-approval-policies:
-  - name: credentials
-    off: true
-```
-
-Then run `factory sync`. It deletes the policy's two files, and, where
-`credentials` was your only policy, takes the job that runs policies out
-of `.github/workflows/factory.yml`. Commit what it changed with the
-settings, from your computer, open a pull request, and merge it.
-
-Where no policy is left on, also take **Approval policies** out of the
-ruleset "Software factory", under your repository's Settings, Rules,
-Rulesets: nothing posts the status any more, so a pull request would
-wait on it forever.
-
-Nothing then reads a change for security before it merges. **It worked
-when** `factory config explain` no longer lists `credentials`, and the
-next pull request merges without an **Approval policies** status.
+It is on with nothing to write. Its one setting is `off: true`, on its
+entry under
+[`approval-policies`](../reference/settings/approval-policies.md#approval-policies),
+which turns it off ([Turning it off](#turning-it-off)).
 
 ## When something goes wrong
 

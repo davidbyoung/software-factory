@@ -5,8 +5,12 @@ board has a column for each state, and the factory keeps it up to date.
 
 ## What you get
 
-A column for each of a ticket's six states, and four fields the factory
-keeps up to date ([The fields the sync writes](#the-fields-the-sync-writes)).
+A column for each of a ticket's
+[six states](../workflow/README.md#the-six-states), and four fields the
+factory keeps up to date. The board sync, a workflow in your repository
+that reads what each session recorded on its ticket, moves each ticket to
+its column and fills in the fields
+([The fields the sync writes](#the-fields-the-sync-writes)).
 `factory status` prints the same picture in a terminal.
 
 ## What it needs
@@ -23,28 +27,9 @@ columns it reads ([You already have a board](#you-already-have-a-board)).
 **It worked when** `factory doctor` shows ✓ beside the board, and the
 board shows your open tickets that carry the factory's label.
 
-## How it works
-
-### The fields the sync writes
-
-The factory writes four fields of the board: its Status, and three of its
-own, Session, Runs in, and Cost. Anything you type into those three is
-overwritten on the next sync.
-
-| Field   | Shows                                                                                 |
-| ------- | ------------------------------------------------------------------------------------- |
-| Status  | The column                                                                            |
-| Session | Which session is on the ticket, "actions, starting", or "Waiting on you"              |
-| Runs in | Whether that session is on a machine or in the cloud                                  |
-| Cost    | An estimate of what refining and building the ticket used, summed across its sessions |
-
-Sessions never write the board directly. They record what they did on
-the ticket, such as claiming it or what it cost, and then start the
-**board sync**, a workflow in your repository's CI that reads what is
-recorded on every labeled ticket and sets the board to match. The sync also runs when a
-pull request opens, closes, or merges, and once a night to catch
-anything else, such as a ticket you closed by hand. Because the record is
-on the ticket, its history survives even if the board is rebuilt.
+The two sections below are for a board, or tickets, you already have:
+which of your columns shows each state, and which of your ticket fields
+holds what refinement writes.
 
 ### You already have a board
 
@@ -335,6 +320,29 @@ now say, and leaves your own text as it is.
 
 A heading of your own, such as one your own refiner writes, can go in a
 ticket field too: see [`tickets.fields`](../reference/settings/tickets.md#ticketsfields).
+
+## How it works
+
+### The fields the sync writes
+
+The factory writes four fields of the board: its Status, and three of its
+own, Session, Runs in, and Cost. Anything you type into those three is
+overwritten on the next sync.
+
+| Field   | Shows                                                                                 |
+| ------- | ------------------------------------------------------------------------------------- |
+| Status  | The column                                                                            |
+| Session | Which session is on the ticket, "actions, starting", or "Waiting on you"              |
+| Runs in | Whether that session is on a machine or in the cloud                                  |
+| Cost    | An estimate of what refining and building the ticket used, summed across its sessions |
+
+Sessions never write the board directly. They record what they did on
+the ticket, such as claiming it or what it cost, and then start the
+**board sync**, a workflow in your repository's CI that reads what is
+recorded on every labeled ticket and sets the board to match. The sync also runs when a
+pull request opens, closes, or merges, and once a night to catch
+anything else, such as a ticket you closed by hand. Because the record is
+on the ticket, its history survives even if the board is rebuilt.
 
 ## Its settings
 

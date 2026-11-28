@@ -14,8 +14,9 @@ Otherwise it waits for you, and its "Who merges" status says why.
 
 ## What it needs
 
-The patterns, and a token for your code host that can turn auto-merge on.
-In an organization an owner has set up, the organization's App is used.
+The patterns, and a token for your code host that can turn auto-merge on
+([GitHub](../integrations/github.md#tokens-and-secrets) says which). In an
+organization an owner has set up, the organization's App is used.
 
 ## Turn it on
 
@@ -57,8 +58,9 @@ gives, are on [`auto-merge`](../reference/settings/auto-merge.md#auto-merge).
 
 ## When something goes wrong
 
-A pull request you expected to merge waits: its "Who merges" status names
-each file or command that held it, and why.
+A pull request you expected to merge waits: its
+["Who merges"](../workflow/merge.md#who-merges) status names each file or
+command that held it, and why.
 
 ## On your tools
 

@@ -8,11 +8,13 @@ version.
 ## A team
 
 - **Each person signs in as themselves.** A teammate who clones the
-  repository needs their own logins, and, with a ticket system of its own
-  ([planned](../developing.md#what-is-built), such as
-  [Jira](../integrations/jira.md)), runs
-  `factory init` once for their own token.
-  [Tokens and secrets](../security/credentials.md) says what to do.
+  repository needs their own sign-ins to the code host's command-line
+  tool and to the coding agent
+  ([What you need](repository.md#what-you-need) says how to check each).
+  A ticket system with a token of its own for each person, such as
+  [Jira](../integrations/jira.md), is _planned_.
+  [Tokens and secrets](../security/credentials.md#who-handles-a-token)
+  says who handles each token.
 - **A person's own session acts as that person.** A commit made by a
   teammate's session goes out under that teammate's account. On your own
   account, a cloud build acts as the one account that owns its token:
@@ -62,13 +64,25 @@ agent, and the repository's settings and secrets are already there, so
 there is nothing to set up.
 
 **It worked when** `factory doctor` shows ✓ on every line, or `-` for a
-part that is off. A ticket system with a token of its own, such as
-[Jira](../integrations/jira.md), asks each person for theirs, and its
-page says how.
+part that is off.
 
 ## In a session on another machine
 
-Install the factory there, as above, and sign in to the code host and the
-coding agent as you would on your own machine. A session that cannot run
-the install command, such as a hosted one, gets the factory from the same
-line ([Install](../get-started/install.md)).
+1. **Install the factory there,** as [Install](../get-started/install.md)
+   shows:
+
+   ```bash
+   npm install -g @davidbyoung/software-factory
+   ```
+
+   A session your coding agent's vendor hosts starts without the
+   factory, and its hooks stop the session's commands until it is there.
+   Put that command in the setup of the environment the session runs in
+   ([Limitations](../about/limitations.md#what-it-does-not-do)).
+
+2. **Sign in** to the code host's command-line tool and to the coding
+   agent, as [What you need](repository.md#what-you-need) says.
+
+**It worked when** `factory`, run there, prints the list of its
+commands, and each check in [What you need](repository.md#what-you-need)
+passes.

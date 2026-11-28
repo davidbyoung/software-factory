@@ -33,7 +33,7 @@ has tested about one tool, are on that tool's page:
   repository
   ([A repository that is not JavaScript](../customize/any-language.md#a-repository-that-is-not-javascript)).
 - **A session your coding agent's vendor hosts is a machine too.** One
-  such as [Claude Code on the web](../integrations/claude-code.md), which is
+  such as [Claude Code on the web](../integrations/claude-code.md#limits-that-come-from-claude-code), which is
   not the factory's session in the cloud, starts without the factory, and the
   factory's hooks stop its commands until it is there. Put the install
   line in the setup of the environment the session runs in:
@@ -47,8 +47,8 @@ has tested about one tool, are on that tool's page:
   `factory preset add`, and fails the check on its update's pull
   request, with that setting's name
   ([Writing a preset](../customize/writing-a-preset.md#making-the-repository)).
-- **An organization is set up only on the code host's public service,**
-  not on one you host yourself
+- **An organization cannot be set up on a self-hosted code host server,**
+  only on the code host's own public service
   ([GitHub organizations](../integrations/github-organizations.md#limits-that-come-from-github)
   says why). `factory init --org` refuses any other address.
 - **Your own account gets no app.** `factory init --org` is for an

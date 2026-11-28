@@ -11,11 +11,12 @@ a repository up with one command.
 For an owner of the organization, with the code host's command-line tool
 signed in, a coding agent, and the `factory` command
 ([What you need](repository.md#what-you-need)). You need no repository.
-The command needs permissions for the command-line tool that a plain
-sign-in lacks, which
-[GitHub organizations](../integrations/github-organizations.md#you-need)
-names. When one is missing, its first question is whether to open your
-browser so you can grant it. Give the organization's address, from any folder:
+The command needs three permissions for the command-line tool that a
+plain sign-in lacks
+([GitHub organizations](../integrations/github-organizations.md#you-need)
+names them). When one is missing, its first question is whether to open
+your browser so you can grant it: answer yes, and grant them there.
+Give the organization's address, from any folder:
 
 ```bash
 factory init --org https://github.com/acme
@@ -47,7 +48,7 @@ repositories share. It is private, except on a plan that shares an organization'
 only with public repositories
 ([On GitHub's Free plan](../integrations/github-organizations.md#on-githubs-free-plan)).
 When it is private, the command also asks how often
-[the poller](../features/builds-from-the-board.md#the-poller) reads the board, because the cloud runner
+[the poller](../features/builds-from-the-board.md#the-poller) reads the board, because the [cloud runner](../reference/glossary.md#the-tools)
 then bills each run of the poller
 ([GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github)
 says how much). Then it lists what

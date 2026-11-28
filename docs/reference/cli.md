@@ -51,21 +51,24 @@ left off. Each check starts with a mark: ✓ works, ✗ needs fixing, ?
 worth a look, and - off on purpose. `doctor` exits 1 when a
 check fails. A secret cannot be read back from the code host
 ([GitHub](../integrations/github.md#limits-that-come-from-github)), so
-`doctor` checks that each secret your parts read is set, and gives the
-day the coding agent's token stops working and, on your own account, the
-day the code host's access token expires
-([When the Claude token's year is up](../integrations/claude-code.md#when-the-claude-tokens-year-is-up),
-[When the GitHub access token expires](../integrations/github.md#when-the-github-access-token-expires)).
+`doctor` checks that each secret your parts read is set. It gives the
+day the coding agent's token, today
+[the Claude token](../integrations/claude-code.md#when-the-claude-tokens-year-is-up),
+stops working and, on your own account, the day the code host's access
+token, today
+[the GitHub access token](../integrations/github.md#when-the-github-access-token-expires),
+expires.
 With the automated review
 on, it checks that "Review verdict" is required before a merge to your
 default branch ([Changing it later](../setup/repository.md#changing-it-later)).
 Before the setup's pull request has merged, that line reads
 `- "Review verdict" is not required yet: the rule is made once the setup's pull request merges`,
 and is no failure.
-Where the code host's plan does not share an organization's secrets with
-a private repository, it says so instead, and that the verdict cannot be
-required there
-([On GitHub's Free plan](../integrations/github-organizations.md#on-githubs-free-plan)).
+On a plan with no branch rules for a private repository, such as
+[GitHub's Free plan](../integrations/github-organizations.md#on-githubs-free-plan),
+that line reads
+`- "Review verdict" cannot be required here: GitHub Free has no branch rules for a private repository`
+instead, and is no failure either.
 A ticket system's token kept on your machine it checks with the ticket
 system itself. It does not try the code host's access token and the
 coding agent's token that `init` keeps on your machine on your own account.
@@ -98,11 +101,11 @@ command exit 1.
 | `factory build N`        | To build ticket N in the cloud. Prints the run's link   |
 | `factory pr watch N`     | To wait until pull request N needs you, and be told why |
 
-In the last 30 days before the coding agent's token or, on your own
-account, the code host's access token stops working, `status` ends with a line that says
-when
-([When the Claude token's year is up](../integrations/claude-code.md#when-the-claude-tokens-year-is-up),
-[When the GitHub access token expires](../integrations/github.md#when-the-github-access-token-expires)).
+In the last 30 days before the coding agent's token, today
+[the Claude token](../integrations/claude-code.md#when-the-claude-tokens-year-is-up),
+or, on your own account, the code host's access token, today
+[the GitHub access token](../integrations/github.md#when-the-github-access-token-expires),
+stops working, `status` ends with a line that says when.
 
 ## Now and then
 

@@ -106,11 +106,8 @@ before choosing it:
   goes quiet. `factory doctor` fails when it has, and says how to switch it
   back on.
 
-`factory status` flags a Ready card "not started, is the poller's job in
-factory.yml running?" once it has waited the interval and 15 minutes
-more. Where an organization's repository runs the poller, the flag names
-that repository: "not started, is the poller in acme/factory-config
-running?"
+A ticket that waits well past its next pass is flagged by
+`factory status` ([When the schedule fails](#when-the-schedule-fails)).
 
 **Moving from a poller you host to the schedule,** set
 `builds.trigger: github-action` and merge it. From its next pass, the
@@ -118,7 +115,7 @@ poller you host starts nothing, and logs
 `not polling: builds.trigger is github-action on main, not own-server`.
 Then stop it.
 
-[GitHub Actions](../integrations/github-actions.md#limits) has the cloud
+[GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github) has the cloud
 runner's own numbers.
 
 ### No trigger: `manual`
@@ -218,15 +215,8 @@ yet.
 **It polls nothing while your settings say not to,** and its log says
 why: once when it stops, again if the reason changes, and in the
 heartbeat it logs each hour. It checks at every pass, so it starts again within a minute
-of the fix merging.
-
-| What its log says                                                                                                                     | What to do                                                                                                                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `not polling: no .claude/factory.lock on main yet. Merge the pull request that sets the factory up.`                                  | Merge the pull request `factory init` opened                                                                                                                      |
-| `not polling: builds.trigger is manual on main, not own-server`                                                                       | Set `builds.trigger: own-server`, as [Hosting the poller](hosting-the-poller.md#hosting-the-poller-own-server) shows, and merge it                                |
-| `not polling: builds.trigger is github-action on main, not own-server`                                                                | Stop the poller you host: the schedule starts your builds now                                                                                                     |
-| `not polling: tickets.board is not set on main`                                                                                       | Set [`tickets.board`](../reference/settings/tickets.md#tickets)                                                                                                   |
-| `not polling: .claude/factory.lock on main: builds.max-per-hour: must be a whole number, 1 or more`, or another setting and its fault | Fix that setting. If the line ends by naming two versions, run the newer image: [When the poller and the factory differ](#when-the-poller-and-the-factory-differ) |
+of the fix merging. [When its log says `not polling:`](#when-its-log-says-not-polling)
+has each line and what to do.
 
 **A poller set up before it read your settings** had five more
 variables: `FACTORY_BOARD_OWNER`, `FACTORY_BOARD_NUMBER`,
@@ -285,7 +275,25 @@ scheduled poller passes.
 A poller you host has a table of its own:
 [When something fails](hosting-the-poller.md#when-something-fails).
 
+### When its log says `not polling:`
+
+A poller you host names the reason it starts nothing in its log, in one
+of these lines:
+
+| What its log says                                                                                                                     | What to do                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `not polling: no .claude/factory.lock on main yet. Merge the pull request that sets the factory up.`                                  | Merge the pull request `factory init` opened                                                                                                                      |
+| `not polling: builds.trigger is manual on main, not own-server`                                                                       | Set `builds.trigger: own-server`, as [Hosting the poller](hosting-the-poller.md#hosting-the-poller-own-server) shows, and merge it                                |
+| `not polling: builds.trigger is github-action on main, not own-server`                                                                | Stop the poller you host: the schedule starts your builds now                                                                                                     |
+| `not polling: tickets.board is not set on main`                                                                                       | Set [`tickets.board`](../reference/settings/tickets.md#tickets)                                                                                                   |
+| `not polling: .claude/factory.lock on main: builds.max-per-hour: must be a whole number, 1 or more`, or another setting and its fault | Fix that setting. If the line ends by naming two versions, run the newer image: [When the poller and the factory differ](#when-the-poller-and-the-factory-differ) |
+
 ### When the schedule fails
+
+`factory status` flags a Ready ticket as not started once it has waited
+the schedule's interval and 15 minutes more. The flag names where the
+poller runs: the poller's job in `factory.yml`, or, for an organization's
+poller, the repository that holds it, such as `acme/factory-config`.
 
 | What you see                                                                                       | What happened                                                                              | What to do                                                                                                                                         |
 | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |

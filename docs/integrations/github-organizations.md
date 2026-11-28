@@ -31,7 +31,9 @@ says.
 ## What setup adds
 
 What [`factory init --org`](../setup/organization.md#set-an-organization-up-once) adds,
-once, for every repository of the organization, here `acme`. No command takes these
+once, for every repository of the organization. The table, and the
+commands on this page, use `acme` as the example organization: write
+your own organization's name in its place. No command takes these
 out: [Removing it](../maintain/removing.md#taking-an-organizations-setup-out)
 lists them in the order to delete them.
 
@@ -81,12 +83,12 @@ wrong key fails the run at that step.
 
 ## What the factory can and cannot do there
 
-Nothing beyond what [What setup adds](#what-setup-adds) lists: the App
-is installed only on the repositories the owner chose, and the rule
-applies only to a repository whose `software-factory` property is `on`.
-
-A build's commits under the App are not signed, so GitHub shows no
-"Verified" on them.
+Each job that needs a token makes one from the App's key, and the token
+lasts an hour. It reaches only the repositories the App is installed on,
+which are the ones the owner chose, and a session's token can't change a
+workflow file or set a repository's properties. The rule that requires
+"Review verdict" applies only to a repository whose `software-factory`
+property is `on` ([What setup adds](#what-setup-adds)).
 
 ## Limits that come from GitHub
 
@@ -101,16 +103,20 @@ A build's commits under the App are not signed, so GitHub shows no
   [Replacing the App's key](#replacing-the-apps-key) shows, and stores it
   a second time for Dependabot, with `--app dependabot` added to that
   section's `gh secret set` line.
+- **A build's commits under the App are not signed,** so GitHub shows no
+  "Verified" on them.
 - **The organization-wide rule is untested,** since it needs GitHub's
   Team plan. The rest of `factory init --org` has run once, in an
   organization on the Free plan.
 
 ### On GitHub's Free plan
 
-The `Plan` row, in the list the command prints first, headed `Found`,
-says when the organization is on it. Then
-`factory-config` is public, so anyone can read the shared settings in
-it. What follows differs for the organization's public and private
+GitHub Free shares an organization's secrets only with its public
+repositories, and has no organization-wide rules. The `Plan` row, in the
+list `factory init --org` prints first, headed `Found`, says when the
+organization is on it. On that plan, `factory init --org` makes
+`factory-config` a public repository, so anyone can read the shared
+settings in it. What follows differs for the organization's public and private
 repositories:
 
 - **A public repository** gets the review and builds in the cloud. There

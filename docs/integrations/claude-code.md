@@ -14,7 +14,8 @@ the cloud. They run the factory's skills and agents.
 In Claude Code each skill is a slash command, such as `/factory-refine 12`.
 [Skills and agents](../reference/skills.md#at-a-glance) lists every one with what it does.
 
-**Where the files live.** `sync` writes the factory's skills to
+**Where the files live.** `factory sync`, which writes the factory's
+files into your repository, writes its skills to
 `.claude/skills/factory-*/` and its agents to
 `.claude/agents/factory-*.md`. Your own skills go in
 `.claude/skills/NAME/SKILL.md` and your own agents in
@@ -52,8 +53,11 @@ builds in the cloud ([Tokens and secrets](#tokens-and-secrets)).
 
 ## What setup adds
 
-Everything the factory adds, and what
-[removing it](../maintain/removing.md) does with each.
+This is the one list of every file setup writes in your repository, for
+every tool the factory uses, with what
+[removing it](../maintain/removing.md) does with each. What setup adds on
+the code host and the board is on [GitHub](github.md#what-setup-adds) and
+[GitHub Projects](github-projects.md#what-setup-adds).
 
 ### In your repository
 
@@ -75,7 +79,14 @@ Everything the factory adds, and what
 
 The "Removing it" column says what `factory remove` does with each.
 
-Nothing of the factory's own is installed in the repository: no
+`sync` sets `attribution` in `.claude/settings.json` to leave out
+Claude Code's own "Co-Authored-By" and "Generated with" lines, so a
+session's commits and pull requests carry only the person's name. It
+leaves an `attribution` you set yourself alone.
+
+The list holds files only, since the factory itself is not one of your
+repository's dependencies. Nothing of the factory's own is installed in
+the repository: no
 `package.json` entry, no `package-lock.json`, and no `node_modules/`. The
 `factory` command is installed once on each machine
 ([Which version runs](../get-started/install.md#which-version-runs)).
@@ -186,15 +197,24 @@ runs](../get-started/install.md#which-version-runs)).
 | When a session starts                                     | Shows unfinished branches and where each ticket stands                                                                                                                                             |
 | Before a file is read, searched, or listed                | Refuses a call that opens the factory's credentials file on your machine, which only the factory's commands read ([The file on your machine](../security/credentials.md#the-file-on-your-machine)) |
 
-The fourth hook has nothing to approve while no hook runs in a session in
-the cloud. A change under `.claude/` in any pull request still waits for
-your merge, since no [`auto-merge`](../reference/settings/auto-merge.md#auto-merge) rule allows it, and a session in the
-cloud follows your default branch's copy of those files until then.
+The hook that approves an unattended build's writes under `.claude/`
+matters only on a machine, since no hook runs in the cloud: a session
+there writes such a file with a command instead. Either way, the change
+is not live until you merge it. A pull request that changes a file under
+`.claude/` always waits for you, whatever
+[`auto-merge`](../reference/settings/auto-merge.md#auto-merge) allows, and
+until it merges, every session in the cloud follows your default
+branch's copy of those files.
 
-`sync` also sets `attribution` in `.claude/settings.json` to leave out
-Claude Code's own "Co-Authored-By" and "Generated with" lines, so a
-session's commits and pull requests carry only the person's name. It leaves an `attribution`
-you set yourself alone.
+A session Claude hosts, such as Claude Code on the web, is a machine of
+its own, so the hooks there need the `factory` command too. Put the
+install line, `npm install -g @davidbyoung/software-factory`, in its
+environment's setup: without the command, the hooks stop the session's
+commands. With it, the hooks run, and the commands that read only the
+repository work, such as `factory sync`, `factory config check`, and
+`factory gate`
+([Limits that come from Claude Code](#limits-that-come-from-claude-code)
+has the ones that don't).
 
 ## Limits that come from Claude Code
 
@@ -203,6 +223,12 @@ you set yourself alone.
 - **Claude Code's sandbox is not a complete isolation boundary.** Its
   documentation says: "Sandboxing reduces risk but is not a complete
   isolation boundary."
+- **A session Claude hosts, such as Claude Code on the web, can't reach
+  GitHub's GraphQL API,** which is closed there. So the commands that
+  need it do not work in one: the board commands, `factory status`, and
+  the ticket commands. `factory build N` works, since it only asks GitHub
+  to start a workflow ([Hooks](#hooks) says what such a session needs
+  first).
 - **Untested: whether `claude setup-token` ends Claude Code's own
   sign-in.** Once, Claude Code's sign-in on the machine expired within an
   hour of `claude setup-token`, which both setup commands run when a

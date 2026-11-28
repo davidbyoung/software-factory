@@ -17,8 +17,9 @@ language.
 ## Set it up
 
 `factory init` asks "Which spec tool do you use?". Choose OpenSpec. To
-turn it on later, write [`specs: openspec`](../reference/settings/specs.md#specs) in your settings and run
-`factory init` again ([`specs`](../reference/settings/specs.md)).
+turn it on later, write
+[`specs: openspec`](../reference/settings/specs.md#specs) in your
+settings and run `factory init` again.
 
 **It worked when** init prints `Installed @fission-ai/openspec.` and your
 `package.json` lists the package.

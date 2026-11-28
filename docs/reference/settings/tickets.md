@@ -49,7 +49,7 @@ There is no default: your board's column names may not be the
 factory's, and a guess would put tickets in the wrong column without
 telling you.
 
-A new board on [GitHub Projects](../../integrations/github-projects.md#by-hand)
+A new board on [GitHub Projects](../../integrations/github-projects.md#a-board)
 starts with only Todo, In Progress, and Done, so its settings would be:
 
 ```yaml

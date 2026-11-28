@@ -32,6 +32,17 @@ token ([Tokens and secrets](../security/credentials.md#who-handles-a-token)).
 
 ## Turn it on
 
+Run `factory init` and check "Builds in the cloud". It asks for the two
+credentials [What it needs](#what-it-needs) names and stores them as
+secrets, and in an organization it uses the ones the owner stored. So
+"builds in the cloud set up", in the table below, means both secrets are
+stored where the cloud runner reads them. Nothing in
+`.claude/factory.yaml` turns it on.
+
+**It worked when** `factory doctor` shows ✓ on each secret's line that
+ends "for builds in the cloud", and doesn't list "Builds in the cloud" as
+off. Then `factory build 12` prints the address of the run it started.
+
 ### Three ways a build starts
 
 | What you do                          | Where the build runs                    | What you need                                                                             |

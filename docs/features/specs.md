@@ -15,8 +15,16 @@ Nothing: a spec tool is optional.
 
 ## Turn it on
 
-Nothing to turn on: refinement writes a Spec into each ticket that gets
-the `spec` label.
+The Spec in the ticket needs nothing turned on: refinement writes one
+into each ticket that gets the `spec` label.
+
+To keep a copy of each Spec in your repository too, turn a spec tool on.
+`factory init` asks "Which spec tool do you use?" when your settings name
+none, and installs the one you choose. To turn one on later, write the
+line in [Its settings](#its-settings) and run `factory init` again.
+**It worked when** init prints that it installed the spec tool, as
+[`specs`](../reference/settings/specs.md#specs) shows, and your
+`package.json` lists it.
 
 ## How it works
 
@@ -47,8 +55,15 @@ be done.
 
 ## Its settings
 
-A [spec tool](../reference/settings/specs.md#specs) also keeps the Spec in your
-repository. Without one, the ticket is the only copy.
+The one choice is whether your repository keeps a copy of each Spec. To
+keep one, write this line in `.claude/factory.yaml`:
+
+```yaml
+specs: openspec # each build also writes its ticket's Spec into openspec/specs/
+```
+
+Without it, or with `specs: none`, the default, the ticket is the only
+copy. [`specs`](../reference/settings/specs.md#specs) has the rest.
 
 ## When something goes wrong
 

@@ -113,7 +113,7 @@ can be on different versions.
 The prefix is part of each skill's name. It shows which skill files an
 update will overwrite and which are yours, and keeps the factory's names
 from colliding with your own.
-[The reference](../integrations/claude-code.md#skills-in-claude-code) says why the
+[Claude Code](../integrations/claude-code.md#skills-in-claude-code) says why the
 name is not written with a colon.
 
 ## The settings hold only what a script computes

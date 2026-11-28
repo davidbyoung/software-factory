@@ -21,8 +21,8 @@ hijacked session could still:
   neither reads. You would reopen that ticket.
 - **Pass its own review, where your CI's own token can write.** That token
   is the account the verdict is trusted from, and the code in a pull request
-  runs beside it. Whether that token can write by default depends on the
-  cloud runner
+  runs beside it. A new repository's token can only read by default, but
+  an older repository's may still write
   ([GitHub Actions](../integrations/github-actions.md#limits-that-come-from-github)),
   so `factory doctor` checks it. A workflow of yours
   that runs a pull request's code should say no more than
@@ -84,7 +84,8 @@ adds can pass them:
   allow.
 
 Where several people can write to your repository, have the code host
-wait for you on every change to a workflow
+wait for you on every change to a workflow, with a `CODEOWNERS` rule that
+requires your review
 ([GitHub](../integrations/github.md#waiting-for-you-on-every-change-to-a-workflow) has the steps).
 
 ## Risks that do not go away

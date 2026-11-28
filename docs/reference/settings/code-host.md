@@ -38,8 +38,8 @@ it out:
 | `{ticket}`  | The ticket's key, without `#`             | `12`          |
 | `{user}`    | The code host's account the build runs as | `octocat`     |
 
-In a session, `{user}` is the account the code host's command-line tool
-is signed in as, exactly as the code host spells it, so the same ticket
+In a session, `{user}` is the account
+[GitHub's command-line tool](../../integrations/github.md#you-need) is signed in as, exactly as the code host spells it, so the same ticket
 built by two people gets two branches. On the cloud runner, it is the owner of
 the [token the build runs with](../../integrations/github-actions.md#workflows), not
 whoever approved the ticket, so with a shared bot account every branch

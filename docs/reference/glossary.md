@@ -79,8 +79,8 @@ jobs at the version your repository names.
 called `main`. The factory reads its name from your checkout or your code
 host, and assumes none.
 
-**Dependency bot.** A tool that opens pull requests when a dependency has
-a new version.
+**Dependency bot.** A tool that opens a pull request for each update of a
+dependency. Today: [Dependabot](../integrations/github.md#dependabot).
 
 **Follow-up.** Something a session noticed while doing other work, listed in
 its pull request for you to [decide about](../workflow/follow-ups.md).

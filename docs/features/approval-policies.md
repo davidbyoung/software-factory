@@ -19,6 +19,11 @@ and to stop it, see [Turning it off](credentials-policy.md#turning-it-off).
 
 ## What you get
 
+A policy runs a check of yours on every pull request. When the check
+finds something, such as a new license, the pull request waits until
+someone who can write to the repository approves it with a label, and
+when it finds nothing, the pull request goes on as before.
+
 ### Is it an approval policy?
 
 Ask whether a person could reasonably say "yes, anyway" to what the check

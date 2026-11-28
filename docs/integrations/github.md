@@ -72,15 +72,15 @@ When `init` cannot add the policy, it says so and puts the step under
 
 | What                                                                                                                                                                                                                                                                    | Added when                                                                                                                                                                 | To undo                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Secrets and variables named `FACTORY_...`                                                                                                                                                                                                                               | You create them                                                                                                                                                            | Delete them                                                                               |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                                                               | You create it, for the automated review and builds in the cloud                                                                                                            | Delete it, unless another workflow uses it                                                |
+| Secrets and variables named `FACTORY_...`                                                                                                                                                                                                                               | When you turn on a part that reads one: `init` stores the token you paste, or you run `gh secret set`                                                                      | Delete them                                                                               |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                                                                                                                                               | When you turn on the automated review or builds in the cloud: `init` stores the token you paste, or you run `gh secret set`                                                | Delete it, unless another workflow uses it                                                |
 | The secrets your `.npmrc` reads, such as `NPM_TOKEN`, for Actions and for Dependabot                                                                                                                                                                                    | `init`, when you paste them                                                                                                                                                | Leave them if your own CI uses them; otherwise delete both copies                         |
 | Labels: `merge-automatic`, `merge-manual`, `verdict-override`, `policy-override`, `spec`, `factory`, or the names under [`tickets.labels`](../reference/settings/tickets.md#ticketslabels) and [`code-host.labels`](../reference/settings/code-host.md#code-hostlabels) | First use; `verdict-override`, the first time "Review verdict" is posted on a pull request with the review on                                                              | Delete them. Deleting a label removes it from every ticket                                |
 | A CI check that the factory's files are in step                                                                                                                                                                                                                         | Setup                                                                                                                                                                      | Goes with `factory-review.yml`                                                            |
 | An Actions policy named "Software factory", on a public repository, which lets `factory.yml` start on `pull_request_target`                                                                                                                                             | `init`, on a public repository; or you, [by hand](#a-public-repository-1)                                                                                                  | Delete it, under Settings, Actions, Policies                                              |
 | A "Review verdict" required check, as the ruleset "Software factory"                                                                                                                                                                                                    | With the review on, the first workflow run after the setup's pull request merges; `init`, when your default branch already has `factory.yml`; or you, in your branch rules | Delete the ruleset, under Settings, Rules, **first**, or pull requests wait on it forever |
 | Statuses on pull requests: "Who merges", "Review verdict"                                                                                                                                                                                                               | Each pull request                                                                                                                                                          | They stay in history                                                                      |
-| A ticket for each [follow-up](../workflow/follow-ups.md) ticked in a pull request                                                                                                                                                                                       | The merge                                                                                                                                                                  |
+| A ticket for each [follow-up](../workflow/follow-ups.md) ticked in a pull request                                                                                                                                                                                       | The merge                                                                                                                                                                  | Close the ticket, as you would any other                                                  |
 | Comments on tickets the factory worked                                                                                                                                                                                                                                  | Each refinement and build                                                                                                                                                  | They stay. They hold the ticket's history                                                 |
 
 In an organization's repository, the organization's own rule requires
@@ -90,11 +90,15 @@ organization's ([In an organization](github-organizations.md#what-setup-adds)).
 ## Tokens and secrets
 
 Every secret the factory reads is listed in
-[Secrets](../security/credentials.md#secrets). The one that expires, and that
-you replace, is the GitHub access token you make on your own account.
+[Secrets](../security/credentials.md#secrets).
 
-On your own account the factory needs that access token in place of an
-App, because a board a person owns refuses an App's token.
+In an organization, the factory acts as the organization's GitHub App,
+which makes a fresh token for each run
+([In an organization](github-organizations.md#tokens-and-secrets)). A
+repository on your own account has no App, and could not use one, since
+a board a person owns refuses an App's token. So there you make a GitHub
+access token on your own account, which expires on a day you choose
+([When the GitHub access token expires](#when-the-github-access-token-expires)).
 
 ### When the GitHub access token expires
 
@@ -196,7 +200,7 @@ nothing moves it along or lets it merge itself.
   only that each secret your parts read is set, not what it holds. A
   wrong one shows when the first run that needs it fails, naming it.
 - **A workflow that a Dependabot pull request starts can read only
-  Dependabot's secrets,** so it has no coding agent's token, as a fork's
+  Dependabot's secrets,** so it has no Claude token, as a fork's
   pull request has none. An approval policy's agent, such as
   `factory-credentials-reader`, can't run on either: you read the lines
   the **Approval policies** status's Details lists yourself, then add
@@ -210,8 +214,10 @@ nothing moves it along or lets it merge itself.
   you are the only writer, the `policy-override` label is how you approve
   what an approval policy found
   ([When a pull request waits](../features/approval-policies.md#when-a-pull-request-waits)).
-- **GitHub serves most of Composer's packages, and a session in the cloud
-  can't reach GitHub at all,** so it can't download them. Install them in
+- **A session in the cloud can't reach GitHub at all.** A repository
+  whose PHP dependencies come through Composer feels this most, since
+  GitHub serves most of Composer's packages, so the session can't
+  download them. Install them in
   [`commands.build-setup`](../reference/settings/commands.md#commandsbuild-setup)
   instead, as that setting's entry shows for `composer install`.
 

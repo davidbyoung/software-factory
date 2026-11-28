@@ -25,8 +25,8 @@ The three triggers:
   to run it.
 - **`github-action`:** a schedule on the cloud runner does the same every
   `poll-minutes` minutes, with nothing for you to host. On a private
-  repository, each check may be billed
-  ([GitHub Actions](../../integrations/github-actions.md#limits-that-come-from-github)
+  repository, each run may bill at least a minute of the cloud runner's
+  time ([GitHub Actions](../../integrations/github-actions.md#limits-that-come-from-github)
   says how).
   `factory sync` writes its schedule into
   `.github/workflows/factory.yml`, with one exception: a repository that

@@ -20,19 +20,24 @@ Features, check "Issues".
 GitHub CLI you signed in with
 ([Set up a repository](../setup/repository.md#what-you-need)).
 
-A ticket field, which can hold one of the factory's fields in place of the
-ticket's description, is an
-[issue field](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/managing-issue-fields-in-your-organization)
-here, shown beside the issue. You create it in your account's or your
+Optionally, a factory field can live in a field of the ticket rather
+than in its description. A factory field is a section refinement writes,
+such as the Spec or the Decisions, and
+[`tickets.fields`](../reference/settings/tickets.md#ticketsfields) says
+which ticket field holds each. Here a ticket field is an
+[issue field](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/managing-issue-fields-in-your-organization),
+shown beside the issue. You create it in your account's or your
 organization's settings, under Issue fields. Create it before you run
 `factory init`, which offers only the fields that exist
 ([Your tickets already have fields](../features/board.md#your-tickets-already-have-fields)).
+Without one, each factory field stays in the description.
 
 ## What setup adds
 
-The labels the factory uses, each made the first time it needs it, such
-as `factory` on each ticket it works on and `spec` on a change your users
-will see. [Labels, statuses, and checks](../reference/labels-and-statuses.md)
+The labels the factory uses. Setup makes `policy-override` when you turn
+on an approval policy, and the factory makes each of the others the first
+time it needs it, such as `factory` on each ticket it works on and `spec`
+on a change your users will see. [Labels, statuses, and checks](../reference/labels-and-statuses.md)
 lists them, and [`tickets.labels`](../reference/settings/tickets.md#ticketslabels)
 renames them.
 

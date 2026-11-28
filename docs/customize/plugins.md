@@ -106,10 +106,10 @@ refiner that leaves one out leaves a ticket that cannot be built.
 
   On a `spec` ticket, with
   [`specs: openspec`](../reference/settings/specs.md#specs), the build
-  copies these into a change of the spec tool's, so they keep its shape:
-  each numbered Spec line is one "When this, then that" sentence, which
-  becomes one requirement, and Tasks are numbered groups of checkboxes,
-  as its `tasks.md` has them.
+  copies these into an [OpenSpec](../integrations/openspec.md) change, so
+  they keep its shape: each numbered Spec line is one "When this, then
+  that" sentence, which becomes one requirement, and Tasks are numbered
+  groups of checkboxes, as the change's `tasks.md` has them.
 
 **The check is a script's.** `factory ticket refined N` refuses to post
 its marker on a body missing one of those sections, for the factory's own

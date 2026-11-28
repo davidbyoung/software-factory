@@ -32,10 +32,11 @@ comments and a "Review verdict" status.
 ## How it works
 
 - **The verdict is required** from the first run after the setup's pull
-  request merges, where setup could make it required, so a pull request
-  cannot merge until the review passes it. Where it could not, init lists
-  the step under "Left to do"
-  ([Set up a repository](../setup/repository.md#what-is-left-for-you)). While the review is off, the status passes, reading "The automated
+  request merges, so a pull request cannot merge until the review passes
+  it. `factory init` makes it required where its token can. Where it
+  can't, init's "Left to do" says how to make it required yourself
+  ([What is left for you](../setup/repository.md#what-is-left-for-you)).
+  While the review is off, the status passes, reading "The automated
   review is off".
 - **Tell the reviewer about your project** in `.github/review-notes.md`,
   which you write and the factory leaves alone.
@@ -59,7 +60,9 @@ yourself, or set it to `false` to turn the review off, and run
 ## When something goes wrong
 
 A review that never starts, or stops at once, is usually the coding
-agent's token: [Troubleshooting](../maintain/troubleshooting.md).
+agent's token:
+[A review or a build in the cloud stops at once](../maintain/troubleshooting.md#a-review-or-a-build-in-the-cloud-stops-at-once)
+says what to do.
 
 ## On your tools
 

@@ -13,7 +13,9 @@ registry for your packages' new versions.
 
 ### Private npm packages
 
-The factory itself needs none of this. It comes from the public npm
+This page is for your repository's own private packages, the ones its
+`package-lock.json` installs from a registry that needs a token. The
+factory itself needs none of it. It comes from the public npm
 registry, onto each machine and each job, and a
 [preset](../customize/presets.md#who-can-read-a-preset) comes from a repository on
 your code host, read with the access you already have. A repository with
@@ -62,10 +64,8 @@ token yourself, with `gh secret set PACKAGES_TOKEN --app dependabot`, and in
 step 4 name `PACKAGES_TOKEN` in place of `NPM_TOKEN`.
 
 In the cloud, your default branch's packages are installed with that token
-before the session starts. The session itself has no GitHub token, and its
-commands can't reach GitHub, so it can't install the packages of the branch
-it works on. When your gate needs them, build that repository's tickets on
-your machine ([Limitations](../about/limitations.md#what-it-does-not-do)).
+before the session starts, and the session can't install any others
+([Limits that come from npm](#limits-that-come-from-npm)).
 
 ### 2. Make a read-only token
 
@@ -189,7 +189,13 @@ It installs your packages, and nothing more: the token can only read.
 
 ## Limits that come from npm
 
-None the factory adds to.
+- **With GitHub Packages, a session in the cloud can't install the
+  packages of the branch it works on.** Your default branch's packages
+  are installed with the workflow's own token before the session starts,
+  but the session itself has no GitHub token, and its commands can't
+  reach GitHub. When your gate needs the branch's packages, build that
+  repository's tickets on your machine
+  ([Limitations](../about/limitations.md#what-it-does-not-do)).
 
 ## When something goes wrong
 
